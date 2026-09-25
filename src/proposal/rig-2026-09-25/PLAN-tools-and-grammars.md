@@ -38,14 +38,17 @@ model's third round's.
   in its one event on the layer's home task, with no partitioner; the micro
   gate in the layer visit of its batch, where it already reads the layer's
   settings and permissions. No copy of any layer's facts is kept on another
-  task by this plan's build. The cost: every layer states its own grammars,
-  and session layers, made in quantity, start with none; one grammar
-  reaching every layer still needs a copy, a hop or a placement change,
-  which go to Sid (sections 3.2, 3.3, 12). The store-wide alternatives
-  (the base's grammar read by a hop, or copied to every task) are costed in
-  section 3; the copy is marked unsettled there. A layer that wants another layer's grammar
-  adopts it by an act in itself standing on the source: that is a copy too,
-  designed and marked unsettled, not built tonight.
+  task by this plan's build. **[V-F1]** The caching examination
+  (EXAMINATION-copies.md, 26 September, a fresh adversarial session) settled
+  the roads: A is built; the base's grammar copied to every task (C) fails;
+  a hop per offer (B) and a person's layers on one task (G) fail; a layer
+  adopting another layer's grammar (F), an ordinary grammar fact in the
+  layer whose act stands on the source through based-on (R4), is deferred,
+  possible later with no new envelope part, and in the examination's
+  reading not a copy under the rule. T-FR3 stays first-record. The cost of
+  A: every layer states its own grammars, and session layers start with
+  none; in a one-owner layer that changes no unmarked value's forget (4.6,
+  [V-F2]). Where a key's grammar has authority is Sid's (Q1).
 - **The grammar checks at the gate** where phase 2 already refuses one
   shape: `:value-shape`, after the value is opened, now from the grammar's
   shape. Subjects come from `:subjects-at` through phase 2's `subjects-of`,
@@ -69,8 +72,8 @@ model's third round's.
   grammars and one test tool written as facts only, the gate refusing and
   admitting by them, the runner finding and running the tool once per match.
 - **The machinery count, predicted**: 11 fixed-side steps the frame
-  promised, 4 nobody anticipated, 9 capabilities (section 8). The build
-  takes the real count.
+  promised, 5 nobody anticipated built tonight and 1 deferred, 9
+  capabilities (section 8, [V-F8]). The build takes the real count.
 
 ## 1. What binds this plan
 
@@ -138,6 +141,27 @@ were clean at `e3989912` and `b31ad57e`). So this plan names the functions
 those plans name (`locks/read-values`, `grammar/subjects-of`,
 `reads/index-writes`, `reads/parse-pattern`, `read-exit/read!`, `open-row>`)
 and the build binds to whatever they became; section 13 says what to check.
+
+**[V-F10] What was built since** (*checked* by the validation, 26
+September 03:40-04:10): the read exit is merged on the rig branch
+(`40374171`; byte-identical to `rig-build-reads` at `00fd0468`); phase 2's
+build is committed to `5a5de4fe` in `Softland-rig-build-locks`; phase 3's
+to `48562bde` and later in `Softland-rig-build-micro`, with work
+uncommitted. The names to bind after the merge:
+
+| This plan's name | Built as | Where |
+|---|---|---|
+| the hint constant and its seam | `reads/seed-hints` (the constant) and `reads/current-hints` (the function "the topology code calls ... rather than embedding the constant"); phase 6 replaces the seam's callers, not only the constant | `reads.clj:34-47`; called at `gate.clj:281` (`decide*`), `reads.clj:426` (`parse-pattern`'s default arity), `reads.clj:975` (a query topology): the three places a8 names |
+| the store's read-entry keys | `reads/read-keys`, `#{:read/point :read/pattern}` (FR6) | `reads.clj:68` |
+| `open-row>` | `reads/open-row>` (a `deframafn` over the pure `reads/open-row`); phase 2 has its own `locks/open-row>` and `open-value>`, joined behind the read exit's seam at the merge | `reads.clj:331-346`; `locks.clj:1291, 1320` at `5a5de4fe` |
+| `read-exit/read!` | as planned; spec keys `:reader :for :reader-kind :rows? :working :permission :layer :read :as-of :limit :role :entry-name`, `:read [:pattern p]`; `reads/reader-kinds` holds `:tool` | `read_exit.clj:48-126`, `reads.clj:72` |
+| `reads/parse-pattern`, `reads/index-writes` | as planned: `(parse-pattern pattern limit as-of hints)`, `(index-writes hints layer name log stamp)` | `reads.clj:416-426, 181` |
+| `grammar/grammars`, `grammar/subjects-of` | as planned, `(subjects-of grammars k v)` | `grammar.clj:12-29` at `5a5de4fe` (the same file in the micro build) |
+| `locks/read-values`, the wrap | `locks/read-values`, `locks/wrap-of` | `locks.clj:418, 253` at `5a5de4fe` |
+| the lease road ([V-F6]) | `client/lease!`, `client/default-session`, `locks/person-owner`, `locks/max-lease` | locks build `client.clj:63-67, 293-308`; `locks.clj:68, 247` |
+| the offer builder ([V-F5]) | `client/build`, its `:claimed-when` and `:session` defaults | `client.clj:21-37` on both branches |
+| the micro gate's block 1 and fold | `micro/arrival-open` (the open on the arrival task, before the `(|hash *name)` hop at `micro.clj:1160`), `micro/layer-rows` (the `(|hash *layer)` visit's reads, 1171-1204), `micro/prepare` (the pure fold on `(|global)`, 1259-1263), `micro/reason-order` (the refusal order both gates share, 58-70), `rig.store.permit/refusal` (the permission chain) | micro build at `48562bde` |
+| the clock's millisecond ([V-F5]) | `clock/ms-of` | `clock.clj:33` |
 
 ## 2. Today's compiled knowledge of `:note` and `:mention`, and what becomes a fact
 
@@ -208,7 +232,22 @@ layer's own state, as phase 1 projects settings and permission rows
   microbatch whose cycle is already at least 300 ms (the skill's figure).
   How to fold it into block 1 is phase 3's; the requirement is that the rows
   reach the open, and that the hints reach block 2a's index writes
-  (MP:1580) the same way.
+  (MP:1580) the same way. **[V-F9]** The road that saves the hop,
+  constructed: keep the micro plan's order (arrival, name, `hash(L)`),
+  carry the lease rows as read on the arrival task, sealed, to `hash(L)`,
+  and unlease and open there with `$$persons` local. Seeks are the same; it
+  saves one transfer per act (about 1 ms, *assumed*). It is rejected
+  because an operator's lease row is bare (`{:under nil :sealed K}`, L23),
+  so every operator act in a shared layer would carry a bare lock across a
+  task on the common path, which the micro plan allows only on the rare
+  resend path; the choice is phase 3's and, if the rule is to bend, Sid's.
+  **[V-F4]** Inside a batch every envelope is checked and indexed under the
+  rows read before the batch, so the rebuild check (4.5) must also count
+  uses by the batch's other envelopes in L, in either order: the fold
+  refuses a hint-changing grammar for k when any envelope of the batch in L
+  offers a fact under k (the skeleton keeps every fact's `:k`). The record
+  carries `:batch`, the microbatch id that decided it (MP:1150), so "the
+  grammar before its batch" is derivable at read time.
 - **Read exit:** `read-point` and `read-pattern` already run on the read
   layer's home (P:660-663); they read the row of the pattern's key before
   `parse-pattern`, and the rows of the keys they show (section 9).
@@ -251,13 +290,18 @@ key; nothing enforces it tonight. And every layer must state its own
 grammars. That is cheap for a person's layer, made once, and not for the
 layers made in quantity: a hand or agent session layer is made per session,
 and under the pick it starts with no grammar, so until its making act (or a
-later act) states grammars, a `:mention` of Bob written there is not about
-Bob (the permissive default, 4.6). Giving a new layer its grammars from
-another layer is road F below, a copy. So the pick is copy-free for what the
-rig builds tonight (the fixture states each test layer's grammars), and the
-store-wide need, one grammar reaching every layer, still needs a copy (C or
-F), a hop (B), or a placement that puts a person's layers on one task (G).
-These are questions for Sid (section 12, Q1 and Q2).
+later act) states grammars, a `:mention` of Bob written there does not put
+Bob in the act's subjects, a `:die-with-any` mark on it dies only with the
+owner and whoever the offer carries, and it gets no shape check and no
+hints (the permissive default, 4.6). **[V-F2]** Its unmarked wrap is the
+owner alone either way, as with a grammar (`locks/wrap-of`: "unmarked, a
+person owner: the owner alone required"; the ruling, "Alice's mention of
+Bob in her own layer dies with Alice and survives Bob", PROGRESS.md
+140-142), so no unmarked value's forget changes. Giving a new layer its
+grammars from another layer is road F below. **[V-F1]** The caching
+examination settled the rest: C, B and G fail, F is deferred (3.3). So the
+pick is copy-free, tonight and after; the store-wide question left is where
+a key's grammar has authority (section 12, Q1 and Q2).
 
 ### 3.3 The alternatives, and what each costs
 
@@ -312,7 +356,14 @@ say which version it used, a record change. Phase 2 already keeps one copy
 of this kind, `$$persons` on every task by `|all` (LP:945-952); whether it
 went through the caching rule's examination I have not checked. Not taken:
 A gives the same local reads with no copy, one writer per layer, and no
-record change.
+record change. **[V-F1] Examined** (EXAMINATION-copies.md 3.8): C does not
+survive. It copies mutable current state, needs one writer across two
+gates, and an honest decision would record the version it used, so T-FR3
+falls. If Sid rules that a store-wide grammar must reach every layer
+promptly, the form that survives is the examination's derived index of
+immutable grammar versions, each layer naming the version it applies
+through an adopting act, not C. (`$$persons` was examined there too: it
+survives, as originals replicated.)
 
 **D. Carried by the offer.** The door reads the grammar through the exit
 and the offer carries it. The gate cannot trust an offerer's copy of the
@@ -334,11 +385,16 @@ stamp. The gate still reads only L's rows (A's cost). The dependence is a
 recorded stood-on, "the only order" between layers or stores; a later change
 at the source is found through it, which is where the staleness index
 CONCLUSION line 129 calls "the likely first honest protocol step" would
-come in. This is **a copy of one layer's facts in another layer, on another
-task: unsettled**, under the same rule as C. It differs from C in being a
-fact (attributed, visible, time-travelled, retractable) rather than
-machinery, and in costing one act per adopting layer per change. Designed
-here so the pick does not close it; not built tonight, and no test needs it.
+come in. It differs from C in being a fact (attributed, visible,
+time-travelled, retractable) rather than machinery, and in costing one act
+per adopting layer per change. **[V-F1] Examined** (EXAMINATION-copies.md
+3.3, 3.9, verdict): in the examination's reading F is not a copy under the
+rule; it restates an immutable fact, claims no currency, and its drift from
+the source is found through its stood-on, like a promotion's landing.
+Deferred: not built tonight, and no test needs it; possible later as an
+ordinary grammar fact in the layer whose act stands on the source through
+based-on (R4), with no new envelope part and nothing the gate checks
+against the source.
 
 **G. A person's layers placed on one task, the session layers reading
 their owner's grammar there.** If a session layer were placed on its
@@ -350,9 +406,12 @@ so one person's total write rate, agents included, is bounded by one task
 (a hot layer is remedied by re-class, SP:536-537, which moves it off);
 `*offers` would be partitioned by the layer's owner, which the offer does
 not carry, so the name's tag or a lookup would have to give it (an envelope
-or placement change); and "inherits" is itself a new rule. Not taken
-tonight; it is the one road I found that gives sessions a grammar with no
-copy, so it goes to Sid with Q1.
+or placement change); and "inherits" is itself a new rule. **[V-F1]
+Rejected** (EXAMINATION-copies.md 3.6): G fails the yardstick. A person
+running 1,000 agents spans about 20 tasks, and the frame promises "many
+people and agents work at once, each in their own working copy, without
+blocking each other" (README 110, 142); G puts them on one thread, and it
+changes the offer's routing, which touches the record.
 
 ### 3.4 Where "only through stood-on" puts a grammar the offer relied on
 
@@ -504,13 +563,26 @@ which is what the read exit designed them for (P:915-916).
 A grammar that would change a key's `:index` or `:opaque` in a layer that
 already holds a fact under that key is refused
 **`:grammar-change-needs-rebuild`**, a new code, placed right after
-`:control-not-allowed`. The layer's indexes for that key were written under
+`:control-not-allowed` (in the stream gate's `refusal` and in the micro
+gate's `micro/reason-order`). The layer's indexes for that key were written under
 the old hints, and a changed hint would leave them wrong without a rebuild
 (P:916-918). The first grammar for a key counts as a change from the
 defaults (`#{}`, not opaque). The row says whether the layer holds a fact
 under the key (`:used`, 4.7), so the check costs no read beyond the row. The
 road that admits such a change and rebuilds the key's entries is later work
 (section 12, Q5).
+
+**[V-F4]** A use counts from the row and also from the act itself: an act
+holding a hint-changing grammar for k and a fact under k is refused,
+because the act's index writes take the hints read before it (4.7 step 6)
+and the row would then disagree with that fact's entries (an act holding
+the first `:note` grammar with `:by-value` and a `:note` value would leave
+the value out of `:ix-kv` while the row says `:by-value`, and `[:kv :note
+v]` would miss it and call the page complete). In the micro store, where
+every envelope of a batch is checked and indexed under the rows read before
+the batch, any envelope of the same batch in L offering a fact under k
+counts as a use, in either order: `micro/prepare`, the batch's pure fold on
+`(|global)`, sees every envelope's fact keys and refuses the grammar.
 
 ### 4.6 A key with no grammar
 
@@ -519,14 +591,27 @@ admits, no subjects beyond owner and tool, not opaque, no index hints.
 That is IMPLICIT_SPEC OP16's derived edge case ("its values name no
 subjects beyond owner and tool and are not opaque ... the model's `:note`")
 and today's behaviour, so every earlier test that writes no grammar keeps
-its answers (*derived*; the build confirms by running the suites). It has a
-cost, stated plainly: a value about Bob under a key with no grammar in the
-layer is not recorded as about Bob, and Bob's forget does not reach it even
-when it is marked `:die-with-any`. The same holds for a promoted copy that
-lands in a layer with no grammar for its key: in a shared layer, with no
-person owner, it is then about no one and its wrap is empty (LP:480-481).
-Strict (refuse a key with no grammar) is the other end; it would make every
-layer state its keys before use. A rig choice (T-RC2); Sid's question Q4.
+its answers (*derived*; the build confirms by running the suites).
+**[V-F2]** What it costs, narrowed by the caching examination (its 3.1): in
+a one-owner layer an unmarked value is wrapped under the owner alone with
+or without a grammar (`locks/wrap-of`), so a missing grammar changes no
+unmarked value's forget there. It changes the act's subject union (a
+`:mention` of Bob is not found by Bob), the shape check, the hints, and a
+mark (next paragraph). In a shared layer, with no person owner, it does
+change the forget: a promoted copy or a value that lands in a shared layer
+with no grammar for its key is about no one and its wrap is empty
+(LP:480-481). Strict (refuse a key with no grammar) is the other end; it
+would make every layer state its keys before use. A rig choice (T-RC2);
+Sid's question Q4.
+
+**[V-F3] A `:die-with-any` mark on a key with no grammar in the layer** is
+admitted. Own subjects are owner ∪ carried (phase 2's formula with no
+grammar term, LP:190-198), so the wrap's required list is the owner and
+whatever the offer's `:subjects` carries; with nothing carried the mark
+changes nothing, the value dies only with the owner, and the offerer is
+not told. Refusing such a mark would add a recorded reason, which is Sid's
+(Q4; the caching examination's question 5). A rig choice (T-RC12); test
+G7.
 
 ### 4.7 The row, and what the gate does with each part
 
@@ -575,7 +660,8 @@ parts in bold:
    `:malformed-control` (**now also a grammar fact failing `grammar/parse`,
    a store key's grammar, or two grammar facts for one key**),
    `:control-not-allowed` (**also a grammar fact by neither the operator nor
-   the owner**), **`:grammar-change-needs-rebuild`**, `:stale-replaces`,
+   the owner**), **`:grammar-change-needs-rebuild`** (the row's `:used`, or a
+   fact under the key in the same act, [V-F4]), `:stale-replaces`,
    `:stale-revoke`, `:layer-already-made`, `:unsupported-reclass`; then
    phase 2's `:does-not-open`, `:malformed-value`, `:value-shape`,
    `:too-many-subjects`, `:grain-mismatch`, `:no-such-person`,
@@ -598,7 +684,7 @@ grammar a value was checked under derivable (T-FR3).
 
 ```clojure
 {:e :mention-count                         ; the tool's id, and the actor it acts as
- :k :tool                                  ; a store key the runner knows
+ :k :tool                                  ; an ordinary key the runner reads by name [V-F11]
  :v {:matches    [:k :mention]             ; a read exit pattern, one of its six forms (P:145-152)
      :signature  {:in    :match            ; tonight's one input: one matched fact per run
                   :out   #{:note}          ; the keys its outputs may write
@@ -643,6 +729,11 @@ grammar a value was checked under derivable (T-FR3).
   can be given by a grammar fact for `:tool` in the layer like any key's;
   the runner's own parser, `recipe/parse-tool`, is the authority on whether
   a tool can run, and a tool it cannot parse is skipped as data.
+  **[V-F11]** `:tool` is not a store key: the store keys are the control
+  keys, `:grammar` and the read-entry keys (`reads/read-keys`,
+  `#{:read/point :read/pattern}`). **[V-F7]** `parse-tool` refuses
+  (`:malformed-tool`) an `:out` holding a store key or `:tool`: tonight no
+  tool writes control facts, read entries or tools.
 
 "Nothing in a record is a program" (decisions.md 172): a recipe names
 capabilities and holds formulas in a closed total language. No step runs
@@ -715,6 +806,27 @@ first runner, of the several decisions.md 166-169 expects.
 3. **Refuse loops** (6.4): the tools that would feed themselves are
    `{:tool fid :refused :tool-loop}`, and do not run.
 4. **For each remaining tool, in the order of its fact's stamp:**
+   0. **[V-F6] Lease for the tool, as the operator.** Once phase 2 is
+      merged every value fact is sealed at the door, read entries included
+      (LP:677-679), and the door leases through `lease-for!`, "a lease act
+      by its writer"; the gate seals a lease row under `(locks/person-owner
+      (:who offer))` and refuses a lease by an actor with no `$$persons`
+      entry `:no-such-person` (`lease-writes`, `persons-refusal`, locks
+      build at `5a5de4fe`). A tool is not a person, so its own lease is
+      refused. The runner therefore leases as the operator into the tool's
+      own door session, `(client/lease! store :operator L
+      (client/default-session tool-id) k)`, with k = 1 for the tool's read
+      entry plus the run outputs it will offer (at most 256 a lease act,
+      `locks/max-lease`; more acts when more). The lease rows are bare, as
+      every operator lease is (L23), and consumed at decision; the door's
+      `refresh!` takes the session's unconsumed locks into its pool
+      whoever leased them (`lease-locks`), so `lease-for!` is never
+      reached; the gate matches a cited lock to the offer's `:session` and
+      layer only (the lease row holds `{:under :sealed}`, no writer). The
+      tool's reads and outputs carry that session. No store code; a step
+      of the runner (a11). When tools run beneath a person's session (R7),
+      the session owner leases and her lock seals the rows (L23), and this
+      step goes. The build confirms it by a probe on the merge (13.2).
    a. `read!` its `:matches` in L as the tool: `:reader` the tool's id,
       `:reader-kind :tool`, `:rows?` from its signature, `:role :matched`,
       `:for` L's owner, `:working L`, `:permission` the tool's pid, `:limit
@@ -725,14 +837,22 @@ first runner, of the several decisions.md 166-169 expects.
       is skipped: a forgotten value is not run on), evaluate the recipe
       over it, `(recipe/run tool row)`: output facts, or a refusal as data.
    c. Build the output act: `:who` the tool's id, `:layer` L, `:class
-      :by-layer`, `:permission` the tool's pid, `:session` nil, `:stood-on`
+      :by-layer`, `:permission` the tool's pid, `:session` the tool's door
+      session `(client/default-session tool-id)` ([V-F6]; `client/build`
+      would give it anyway to an offer with value facts and no session),
+      `:stood-on`
       `{matched-fid matched-stamp, tool-fid tool-stamp}` (based-on as the
       fact ids it stood on with their stamps, CONCLUSION R4), `:because-of`
       the matched fact's act name (ruling 3: "trigger is already
       because-of"; the envelope's `:because-of` is a name,
       `envelope.clj:317`), `:subjects #{}` (the tool names none, as in the
-      model), `:facts` the outputs, and the name `(run-name L tool-fid
-      matched-fid)` (6.3).
+      model), **[V-F5]** `:claimed-when` the millisecond of the later of
+      the two stood-on stamps (`clock/ms-of`), passed to `client/build`
+      because its default is the wall clock and the parts digest covers it
+      ("the digest covers `:claimed-when` and `:stood-on`",
+      `client.clj:21-37`), `:facts` the outputs, and the name `(run-name L
+      tool-fid matched-fid)` (6.3). Every part is then a function of (L,
+      tool fact, matched fact).
    d. Ask the door for the answers under all of this tool's run names at
       once (`client/lookup-many store L names`, one `foreign-select` on
       L's home, the batch form of the answer lookup by name plus layer that
@@ -753,7 +873,10 @@ match, a refusal or a capability's error; each is a line in the report
 is a version 8 UUID made from the first 128 bits of SHA-256 over the
 canonical text of `[L tool-fid matched-fid]` (`env/canonical`). A second
 pass, a runner restarted mid-pass, or two runners at once all offer the
-same name with the same content for the same match, so the gate answers
+same name with the same content for the same match (the same content
+because every part is derived, `:claimed-when` and `:session` included,
+[V-F5]; with the door's wall-clock default the second of two runners
+would be refused `:name-taken` on its face), so the gate answers
 the later ones from the record (phase 1's record path; phase 2 keeps an
 honest resend's answer, its F1), and one output act exists per tool fact
 and match, for ever (*derived*; IMPLICIT_SPEC OP18 derived the same: "the
@@ -778,6 +901,14 @@ layer):
 - A tool whose pattern matches every key (`[:all]`, `[:e e]`) is refused
   `:tool-loop`: it would match its own outputs.
 - A tool whose pattern's key is one of its own `:out` keys is refused.
+- **[V-F7]** A tool whose pattern names a store key (the control keys,
+  `:grammar`, `reads/read-keys`) or `:tool` is refused `:tool-loop`. The
+  runner writes into L on every pass itself: one `:read/pattern` fact for
+  its `[:k :tool]` read and one for each tool's match read. A tool matching
+  `[:k :read/pattern]` and writing `:note` passes the key graph, yet each
+  pass finds the previous pass's entries as new matches and runs on them,
+  one generation a pass for ever. So every tool's edges include the
+  read-entry keys, which the refusal expresses.
 - Tools are added to a graph from matched key to output keys in the order
   of their facts' stamps; a tool whose edges would close a cycle is
   refused, and the tools before it keep running. So adding a tool never
@@ -835,7 +966,8 @@ builds the exit's map from rows and merges `reads/store-hints`.
 
 `rig.store.recipe-test`: `parse-tool` refuses unknown steps, unknown
 formulas, forward `[:got]`, an `:emit` of a key outside `:out`, 17 steps,
-a formula 9 deep; `run` evaluates the test tool over a matched row to
+a formula 9 deep, an `:out` holding `:grammar`, `:read/pattern` or `:tool`
+([V-F7]); `run` evaluates the test tool over a matched row to
 `{:e :e1 :k :note :v {:token "1 named"}}`; a capability error stops the run
 as data; `loop-free` refuses self-matching, match-all and cycle-closing
 tools in stamp order; `run-name` is the same for the same triple and
@@ -886,7 +1018,13 @@ Gate:
   refused `:not-indexed`. A grammar adding `:by-value` to `:mention` in
   `:alice`, which holds mentions, is refused `:grammar-change-needs-rebuild`;
   the same fact in `:alice-agent`, which holds none, is admitted, and
-  `[:kv :mention v]` then answers there.
+  `[:kv :mention v]` then answers there. **[V-F4]** In `:alice-hand`, which
+  holds no mention, one act holding a grammar adding `:by-value` to
+  `:mention` and a `:mention` value is refused
+  `:grammar-change-needs-rebuild`; the grammar alone, then the value in a
+  later act, is admitted and `[:kv :mention v]` answers it. When phase 3 is
+  built, the same pair as two envelopes of one micro batch, in each order,
+  refuses the grammar.
 - **G5, grammar admission.** A shape outside the language, a grammar on
   `:permission`, and two grammar facts for `:note` in one act: each refused
   `:malformed-control`. A grammar offered by the test tool's actor, which
@@ -896,6 +1034,14 @@ Gate:
   stricter `:mention` grammar (`[:set-of [:keyword] 1 1]`) and a `:mention`
   of two people is admitted; the next act's `:mention` of two people is
   refused `:value-shape`.
+- **G7, a `:die-with-any` mark on a key with no grammar ([V-F3]).** In a
+  one-owner test layer made with no `:mention` grammar, a `:mention` of Bob
+  marked `:die-with-any` is admitted with `:subjects #{:alice}` and wrap
+  `{:required [:alice]}`, and still opens after Bob's forget; the same with
+  `:subjects #{:bob}` carried has wrap `{:required [:alice :bob]}` and no
+  longer opens after Bob's forget. An unmarked `:mention` of Bob there has
+  wrap `{:required [:alice]}`, as it has in `:alice` with the grammar
+  ([V-F2]).
 
 Runner:
 
@@ -931,7 +1077,8 @@ Runner:
   writes `:note` is refused `:tool-loop` and leaves no output and no read
   entry; with tool A (`:mention` to `:note`) written before tool B (`:note`
   to `:mention`), A runs and B is refused; a tool matching `[:all]` is
-  refused.
+  refused. **[V-F7]** A tool matching `[:k :read/pattern]` and writing
+  `:note` is refused `:tool-loop`, and two passes leave no output of it.
 
 The count's receipt is the build's, not a test: the test tool and grammar
 are EDN data in `tools_test.clj`, written through `client/offer-until-
@@ -943,8 +1090,9 @@ section 8 lists.
 What counts as one compiled step here: one named code unit added to the
 fixed side or to the vocabulary, or one existing unit whose behaviour
 changes (*assumed* definition; IMPLICIT_SPEC O21 leaves it open, and the
-build records it with the count). Predicted: 11 + 4 + 9 = 24, and one more
-in class b if phase 2's leases need a tool road.
+build records it with the count). Predicted **[V-F8]**: 11 + 5 + 9 = 25
+built tonight, one more in class b deferred (b7), and b5 examined and
+resolved to no step.
 
 **(a) Fixed-side steps the frame already promised (11).**
 
@@ -966,19 +1114,23 @@ The exit itself does not change for tools: the runner passes the tool's
 `:reader-kind`, `:rows?` and role as the parameters the exit already takes
 (P:242-257, P:1054-1056). Zero steps there.
 
-**(b) Fixed-side steps nobody anticipated (4, perhaps 5).**
+**(b) Fixed-side steps nobody anticipated (5 built tonight, 1 deferred, 1 resolved to none; [V-F8]).**
 
 | # | Step | Why it was needed |
 |---|---|---|
-| b1 | `:grammar-change-needs-rebuild`, and the `:used` flag on a key's row | a grammar changing a used key's hints would leave its indexes wrong without a rebuild (P:916-918); nobody planned the refusal or the flag |
-| b2 | the run's derived name | once per match with no runner state; the rulings cover acts that name what they cause and derived landing names, not a tool's runs |
-| b3 | the loop check | nothing in the frame says what stops a tool feeding itself |
-| b4 | the micro gate's block 1 reads the rows before it opens values | phase 3 opens values on the arrival task before any hop (MP:208-223), and the rows live on `hash(L)` |
-| b5 (if needed) | a lease road for a tool actor | phase 2 seals a lease row under the lease act's writer, a person, and stores the operator's bare (LP:278-283); a tool is neither. If the runner can lease as the operator for the tools' acts under session nil, this step is not needed; the build finds out when phase 2 is merged |
+| b1 | `:grammar-change-needs-rebuild`, and the `:used` flag on a key's row | a grammar changing a used key's hints would leave its indexes wrong without a rebuild (P:916-918); nobody planned the refusal or the flag; a use in the same act or batch counts ([V-F4]) |
+| b2 | the run's derived name and derived content | once per match with no runner state; the rulings cover acts that name what they cause and derived landing names, not a tool's runs; the content must be derived too, `:claimed-when` included, or a second runner is `:name-taken` ([V-F5]) |
+| b3 | the loop check | nothing in the frame says what stops a tool feeding itself; it covers the runner's own read-entry writes ([V-F7]) |
+| b4 | the micro gate's block 1 reads the rows before it opens values | phase 3 opens values on the arrival task before any hop (MP:208-223; built, `micro/arrival-open` before the `(|hash *name)` and `(|hash *layer)` hops), and the rows live on `hash(L)`: one hop per act ([V-F9]) |
+| b5 (resolved: no step) | a lease road for a tool actor | examined ([V-F6]): phase 2 refuses a lease by an actor with no person lock, and read entries are sealed too; the runner leases for the tool as the operator into the tool's door session with the public `client/lease!`, so no store code changes. Kept here so the receipt shows it was examined |
+| b6 [V-F8] | `client/lookup-many`, the batch form of the answer lookup by name plus layer | a pass must find which matches already ran in one roundtrip per tool, not one per match; the door had only the single lookup (`client.clj:53-66`) |
+| b7 [V-F8] (deferred) | a "start after" bound on the pattern read | a tool with more than n matches reads the same first page every pass (the built `read-pattern` takes `layer for pattern as-of limit`, `read_exit.clj:69-76`), so matches past n never run; not needed by tonight's proof, whose layers hold a handful of facts; the runner reports such a tool `:partial`, never complete. With R6's standing read it may not be needed at all |
 
-**(c) Capabilities (9).** `:emit`; `:revision/read-units` and
+**(c) Capabilities (9 vocabulary entries).** `:emit`; `:revision/read-units` and
 `:revision/read-span` (the revision reader's two steps, its plan section
-12, anticipated since 13 September); and the formula functions `:lit`,
+12, anticipated since 13 September; **[V-F8]** one capability exposing two
+built-in steps, as RIG.md counts it, and two entries in this count's
+unit); and the formula functions `:lit`,
 `:in`, `:got`, `:count`, `:str`, `:map`. Each is a built-in a recipe calls.
 `:count` and `:str` are here because the test tool uses them; the thesis
 count, on a tool nobody tonight knows, will show which of these a second
@@ -1126,6 +1278,14 @@ The same holds for `read-pattern` (+1 seek for patterns that name a key, which a
 most of them; + the page's distinct keys for `[:e]` and `[:all]`), all on
 the read layer's home.
 
+**[V-F9] The micro store's decision**, the same categories in a shared
+layer: +1 seek per distinct key at `hash(L)` (the same weighted 1.101 at N
+= 1, 16 and 128, totals, one task per read) and +1 network transfer per
+act for the reorder (arrival, `hash(L)`, back to arrival, then the name
+task, against the built arrival, name, `hash(L)`), about 1 ms each
+(*assumed*) inside a cycle of at least 300 ms, flat in N. The road that
+saves the transfer and why it is not taken are in 3.2.
+
 ### Design Decisions
 
 - Subindexing: `:key-rows` (unbounded keys per layer). Nothing else new is a
@@ -1189,7 +1349,14 @@ built):
 - `rig.store.shape`, new: the shape language's parser and checker.
 - `rig.store.reads` (phase 5): `seed-hints` becomes `store-hints`, the
   store's own keys only; `read-point`, `read-pattern` and the rebuild read
-  rows; `open-row>` marks opaque rows.
+  rows; `open-row>` marks opaque rows. **[V-F10]** The three callers of
+  `reads/current-hints` (`gate.clj:281`, `reads.clj:426`, `reads.clj:975`)
+  take the rows' hints; `current-hints` goes or returns `store-hints` only.
+- The micro module (phase 3), [V-F10]: `micro/layer-rows` reads the key
+  rows; block 1 carries them to `micro/arrival-open`; `micro/prepare`
+  applies the rebuild check with the batch's own uses ([V-F4]);
+  `:grammar-change-needs-rebuild` joins `micro/reason-order` after
+  `:control-not-allowed`.
 - `rig.store.recipe` and `rig.store.runner`, new; `rig.store.client` gains
   `lookup-many`.
 - The micro module (phase 3), when built: `:key-rows` in its layer projections,
@@ -1204,6 +1371,11 @@ the suites):
   Bob out.
 - The read exit's `[:kv :note ...]` cases: they write the `:note` grammar
   with `:by-value` first.
+- **[V-F12]** `rig.store.read-model-test` (0 differences from the model
+  over five histories, 73 answers, RIG.md): its histories read `[:kv ...]`
+  patterns, so its replays write the toy grammars into each layer before
+  that layer's first `:note`, or its value reads are refused `:not-indexed`
+  and the comparison changes.
 - Phase 1's E1 (`stream_gate_test.clj:180-197`, Bob not added from a
   mention): with no grammar written, it holds as phase 1 wrote it. Phase 2's
   constant grammar would add Bob; its F4 lists seven phase 1 expectations
@@ -1239,7 +1411,9 @@ First-record (placeholders that touch a record; each is in the receipt):
 - **T-FR5.** A run's output act: `:who` the tool, `:permission` its pid,
   `:stood-on` the matched fact and the tool fact with their stamps,
   `:because-of` the matched act's name, `:subjects #{}`, and a name derived
-  from the layer, the tool fact and the matched fact.
+  from the layer, the tool fact and the matched fact; **[V-F5, V-F6]**
+  `:claimed-when` the millisecond of the later stood-on stamp and
+  `:session` the tool's door session, so its whole content is derived.
 - **T-FR6.** The runner's read entries: its tools read by the operator with
   role `:stood-on`; each match read by the tool with role `:matched`.
 - **T-FR7.** Where grammar facts live: in the layer they govern (3.2).
@@ -1262,27 +1436,40 @@ Rig choices (each can change without touching a record):
 - **T-RC10.** The loop check: a key-level graph at the runner, tools added
   in stamp order.
 - **T-RC11.** The runner is operator code, run by passes, looking names up
-  before offering.
+  before offering; **[V-F6]** it leases for each tool as the operator, bare
+  rows, into the tool's door session.
+- **T-RC12 [V-F3].** A `:die-with-any` mark on a key with no grammar in the
+  layer is admitted; its wrap requires the owner and whoever the offer
+  carries.
 
 ## 12. Open questions for Sid
 
-- **Q1. Where a grammar lives.** In the layer it governs (tonight), or once
-  per key for the whole store, in the base? It decides whether "the key's
-  grammar" is one per key or one per key per layer. A store-wide grammar,
-  or a session layer that should inherit its owner's, needs one of: a copy
-  on every task (C), a copy into each new layer standing on its source (F),
-  a hop on every offer (B), or a person's layers placed on one task (G)
-  (3.3). C and F are copies, unsettled under the caching rule.
+- **Q1. Where a key's grammar has authority** ([V-F1], restated after the
+  caching examination, its section 6 item 1). Per layer, with adoption
+  later as an act in the layer standing on its source (A tonight, F
+  later); or store-wide, enforced at every gate, which the order rule
+  allows only as a recorded read (B) or a copy whose version each decision
+  records (C), so T-FR3 falls either way. The examination's position is
+  per layer with adoption: a gate can honestly enforce only what is in the
+  layer it orders, as with permissions. C's one advantage, prompt reach
+  when the base's grammar changes, survives only as the examination's index
+  of immutable grammar versions (its 3.8), not as C. G fails the yardstick.
 - **Q2. One key, two grammars.** May a key carry different grammars in
   different layers, or must a grammar that requires more or provides less
   be a new key (CORNERS C4.3)? And is a layer's reliance on another layer's
-  grammar an act in the layer standing on it (3.3 F, a copy, unsettled)?
+  grammar an act in the layer standing on it (3.3 F: deferred; in the
+  examination's reading not a copy under the rule)?
 - **Q3. Opaque and the lock.** Does "opaque" mean the store never
   interprets the value (tonight), or never unseals it, under a lock the
   store does not hold?
-- **Q4. A key with no grammar.** Permissive (tonight: a value about Bob
-  under such a key is not about Bob, and his forget does not reach it), or
-  refused until the layer states a grammar?
+- **Q4. A key with no grammar.** Permissive, or refused until the layer
+  states a grammar? Tonight, permissive: **[V-F2]** in a one-owner layer a
+  `:mention` of Bob under such a key is not in the act's subjects and gets
+  no shape check or hints, and its unmarked wrap is the owner's with or
+  without a grammar; in a shared layer it is about no one. **[V-F3]** And a
+  `:die-with-any` mark on such a key: admitted (tonight; it then dies only
+  with the owner and whoever the offer carries, and the offerer is not
+  told), or refused?
 - **Q5. Changing a used key's index or opacity.** Refused (tonight), or
   admitted with a rebuild during which that key's reads are marked
   partial?
@@ -1305,10 +1492,16 @@ Rig choices (each can change without touching a record):
    uses (`locks/read-values`, `grammar/subjects-of`, `reads/index-writes`,
    `reads/parse-pattern`, `read-exit/read!`, `open-row>`) and phase 2's
    refusal order, and bind to what was built, keeping this plan's rules.
+   **[V-F10]** The table in section 1 lists what they became as of 04:00
+   on 26 September; check it against the merge, the micro names above
+   all, since that build had uncommitted work.
 2. Short checks, probes under the flock with output in `runs/`: the exit
    taking the operator as a reader with `:permission` nil; and, once phase 2
-   is merged, whether the runner can lease as the operator for a tool's acts
-   under session nil (b5). The row's schema and the batched lookup are
+   is merged, **[V-F6]** that an operator lease into the tool's door
+   session (`client/lease!`) lets the tool's read entry and output, `:who`
+   the tool under its pid, be sealed and admitted with no lease act by the
+   tool, and that the door never falls back to `lease-for!` when the
+   runner has leased enough. The row's schema and the batched lookup are
    probed already (`runs/phase6-tools-rows-probe.txt`).
 3. The pure namespaces and their tests: `shape`, `grammar`, `recipe`.
 4. The stream gate: the control key, the rows, their reads and writes, the
@@ -1344,6 +1537,11 @@ for C, because under C a new layer has every grammar the moment it is made.
 It did not change the pick for tonight, since tonight's layers are the
 model's five and the fixture states their grammars, but it means the pick
 is copy-free only for what is built tonight, and I have said so in 3.2.
+**[V-F1]** The examination has since run (EXAMINATION-copies.md): A is
+built, C and G fail, F is deferred and in its reading not a copy under the
+rule, T-FR3 stays first-record; and in a one-owner layer the session-layer
+cost is narrower than I wrote, since an unmarked value's wrap is the
+owner's with or without a grammar (4.6, [V-F2]).
 I also noticed my own pull toward C as the "Rama-shaped" answer, which is
 the failure mode CLAUDE.md names (a fluent pattern beating project truth);
 the permission sharpening is the project's truth here.
@@ -1390,7 +1588,8 @@ it (T-FR3). Close, and cheap to change before edition one.
   idempotent sets inside its one event, with no partitioner added; the
   micro gate's are exactly once. No choice rests on test synchronization.
 - **Production readiness.** Concurrent clients: two runners on one layer
-  offer the same names with the same content, so the later answers come
+  offer the same names with the same content ([V-F5]: once `:claimed-when`
+  and `:session` are derived), so the later answers come
   from the record; a writer and a grammar change race in one layer's
   single-threaded home, each decision seeing the other or not, and the
   grammar used is derivable either way. Client restart: the runner keeps no
