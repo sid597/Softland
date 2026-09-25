@@ -71,3 +71,26 @@ reader is plain Clojure with no Rama in it (plan section 9).
   TV1, F5 checked at the process (`env` run through `run-git`); TV2, the
   `:git-failed` exits of steps 1, 2 and 4; TV3, F14 checked at the entries
   (a non-ASCII path under the JVM's own encoding).
+- 04:50. Phase 7, first run: 25 tests, 2,829 assertions, **2 failures**,
+  0 errors, both in `t07`: the form holding `(defn refusal` is `[101 148]`
+  at `45627e45` and `[125 182]` at `ea52c424`, where plan test 7 says
+  `[101 114]` and `[125 141]`. **The plan's numbers are wrong, not the
+  code:** they are the extents of the *blocks* holding that line (a blank
+  line follows the first `cond` clause, at 115 and at 142), not of the
+  forms; read with `:cut :blocks` the reader gives exactly `[101 114]` and
+  `[125 141]`. Clojure's reader, the plan's own oracle, ends the forms at
+  148 and 182, and `t05` had already passed on all 28 forms of both
+  files. The plan validation checked only the start lines (101 and 125),
+  and `perm-entity` has no blank line, so its block and form agree and
+  the slip never showed. Fixed in the test, not the code: `t07` asserts
+  the form extents, checks them against the reader, and asserts the plan's
+  numbers as the block extents they are. The plan is left as it stands
+  (the orchestrator's to correct, if wanted).
+- 04:55. Second run: 25 tests, 2,837 assertions, 0 failures, 0 errors,
+  1.4 s wall. Two receipts beyond the plan's run, same result each: the
+  suite under `GIT_DIR=/mnt/data/projects/Softland/.git` and
+  `GIT_WORK_TREE=/mnt/data/projects/Softland` (F5 end to end: the reader
+  and the oracles still read this worktree; `t18`'s child sees none of the
+  three `GIT_` variables the JVM has), and under `LC_ALL=C`, where the JVM's
+  `sun.jnu.encoding` is `ANSI_X3.4-1968` and `t09` takes F14's refusal
+  branch through the entries.

@@ -421,8 +421,17 @@
       (is (= [[21 24]] (lines (holding u2 "(defn perm-entity"))))
       (is (= (map :content (holding u1 "(defn perm-entity")) (map :content (holding u2 "(defn perm-entity")))))
     (testing "refusal: changed"
-      (is (= [[101 114]] (lines (holding u1 "(defn refusal"))))
-      (is (= [[125 141]] (lines (holding u2 "(defn refusal"))))
+      ;; The plan's test 7 gives [101 114] and [125 141]; those are the
+      ;; blocks holding the line (a blank line follows the first cond
+      ;; clause), not the forms, which Clojure's reader ends at 148 and 182.
+      (is (= [[101 148]] (lines (holding u1 "(defn refusal"))))
+      (is (= [[125 182]] (lines (holding u2 "(defn refusal"))))
+      (doseq [[k us] [[:gate-1 u1] [:gate-2 u2]]
+              :let [[a b] (first (lines (holding us "(defn refusal")))]]
+        (is (= b (:end (first (filter #(= a (:line %)) (reader-forms (show (fx k)))))))
+            "the reader ends the form where the scanner does"))
+      (is (= [[101 114]] (lines (holding (:units (units-of (fx :gate-1) {:cut :blocks})) "(defn refusal"))))
+      (is (= [[125 141]] (lines (holding (:units (units-of (fx :gate-2) {:cut :blocks})) "(defn refusal"))))
       (is (not= (map :content (holding u1 "(defn refusal")) (map :content (holding u2 "(defn refusal")))))
     (testing "intake: only in the second"
       (is (empty? (holding u1 "(defn intake")))
