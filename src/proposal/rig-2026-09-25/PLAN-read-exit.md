@@ -949,6 +949,13 @@ re-class to by-entity is the ruled answer, and its reads are phase 3's.
   written in the event that admits what they index; every read of one layer
   is one task. The entry is written on the working layer's home through the
   depot, placed by the depot's `hash-by :layer`.
+- **Which patterns.** STARTER-next calls this build "the read exit the count
+  needs". The count (Sid's phase 6) has "a minimal runner finds tools by
+  matching", which reads facts by key and by key and value; the reference
+  tool of 13 September shows a passage or function at a revision "or shows
+  that it is stale", which reads an entity's facts and a chain's latest
+  fact; the model's reads are a whole layer as of a moment. The six forms
+  are those needs and no more.
 - **Addresses are Strings** because vector addresses have no prefix ranges
   in Rama 1.6.0 [probed].
 - **Entries carry the row** so a pattern read costs no seek per fact.
@@ -1273,6 +1280,18 @@ Tests the design adds:
 7. **The partial mark's meaning.** Only the limit is a reason tonight; I
    weighed marking a read with unreadable rows partial and did not, because
    the rows say so themselves and phase 2 decides what unreadable means.
+8. **Two round trips per read.** The exit costs a query and an acked
+   append. A one-trip design exists: a read-request source on the gate
+   topology reads on the read layer's home, hops to the working layer's home,
+   decides the entry there and returns the rows by `ack-return>`, so the
+   rows reach the client only after the entry commits. I did not take it:
+   the brief places the entry on the ordinary client offer path, and a
+   request retried after an ack error would have to return rows as of the
+   entry's recorded moment rather than re-read, which re-derives phase 1's
+   name, digest and retry semantics for a second kind of event. It halves
+   the exit's round trips; it is the first thing to measure if phase 7 finds
+   the exit slow, and it would change where an entry is made, which is
+   first-record.
 
 ## Open questions
 
