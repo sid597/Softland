@@ -63,9 +63,12 @@ lease road".
    keyed by the value's lock.** R1's first rider; the 25 September text kept
    a digest over plaintext under a constant secret, "Unchanged", which
    outlived every forget.
-10. **The record path opens a resend with the recorded lock and recomputes
-    its value digests; after a forget it skips the forgotten values.** R1's
-    riders: a resend is sealed again, and the price of forgetting.
+10. **The record path opens a resend with its own lock and recomputes its
+    value digests under the recorded lock; after a forget it skips the
+    forgotten values.** R1's riders: a resend is sealed again, and the price
+    of forgetting. [V-F1: its own lock may be a newly leased one, so the
+    parts digest leaves lock ids out, and the record path deletes the
+    resend's cited lease rows.]
 11. **Refusal order: everything up to and including the delivery is refused
     on the offer's face, unrecorded; everything after it is recorded and
     destroys the cited lease rows.** R1: a missing lock is refused on its
@@ -241,8 +244,11 @@ digest (32 bytes, L26), nil for control facts and retracts.
 **Value digest** (L26): HMAC-SHA256 keyed by K over the value's canonical
 EDN bytes. It confirms a guess only to a holder of K, so it dies with the
 lock. **Parts digest**: stage 1's `env/digest` (HMAC under the rig secret)
-over the offer minus its name with every `:sealed` removed; `:lock-id`
-stays in, so a resend must cite the same locks (L26).
+over the offer minus its name with every `:sealed` and every `:lock-id`
+removed, so a resend sealed again under a newly leased lock digests the
+same (L26). [V-F1: the 26 September text kept `:lock-id` in, which refused
+an honest resend from a door that lost its locks as `:name-taken`;
+PLAN_VALIDATION-locks-and-forgetting.md, trace 1.]
 
 **Lease act** (L20): an act into the layer, tagged with its class, one
 control fact `{:e session :k :lease :v {:count n}}`, `n` a long in 1..256.
@@ -316,8 +322,10 @@ facts into layer L under session s, it:
    sends them.
 4. **Offers**, and on an error resends under the same name (P6's road). It
    keeps the plaintext and the locks until answered; a resend may be sealed
-   again (new nonces, other bytes) under the same lock ids, and answers the
-   same (the value digest is over the plaintext).
+   again (new nonces, other bytes) under the same lock ids or, when the door
+   lost its locks (a restart: `lease-locks` never returns a consumed one),
+   under newly leased ones, and answers the same (the value digest is over
+   the plaintext; the parts digest leaves lock ids out) [V-F1].
 5. **Closes.** At the session's end, one `:session-closed` act into each
    layer it leased in, only after every offer citing those leases is
    answered.
@@ -393,14 +401,30 @@ cites only lock ids it took from a lease's answer (see "The missing lock").
   (:sealed row))` → K, or nil when it does not open. The pure half, `(unlease
   row person-entry) → K | nil`, is public, so a gate that keeps lease rows
   in a PState of its own can call it over a row it read (stage 3 is a black
-  box; nothing here assumes it does).
+  box; nothing here assumes it does). A row with `:under nil` (a lease by
+  the operator, [V-F2]) holds K bare and unleases to it.
+- **Its twin, `consume-locks>`** [V-F3]: `(consume-locks> *layer *session
+  *lock-ids)`, a `deframaop` in `rig.store.locks`, the one place a lock
+  leaves the delivery's store: called in the decision's group for a yes and
+  a recorded no, and on the record path ("The digest and the resend
+  check"); never on a face refusal. The lease body: a no-read `NONE>` on
+  `[*layer :leases *session id]` per id, idempotent. `deliver-lock>` is
+  read-only under every body, so a face refusal after a partial delivery
+  (the second of two cited locks missing) consumes nothing, as "The missing
+  lock" promises.
 - **The holder body (described, not built; the 25 September road):** the
   door hands each lock, before the append, to a query topology that puts it
   into a bounded per-task TaskGlobal holder under `[session lock-id]`
   (task-globals.md: a query may mutate a TaskGlobal synchronously); the body
-  reads the holder, removes the entry, and returns K or nil. The gate's
-  decision code does not change: the same call, the same nil, the same face
-  refusal. What changes around it: the lease act, the lease rows and
+  reads the holder and returns K or nil, and `consume-locks>`'s holder body
+  removes the entries after the decision [V-F3: the 26 September text
+  removed the entry inside the delivery, so a face refusal on a later lock
+  of the same act, or an event discarded by a crash, lost a lock the plan
+  says is untouched; a TaskGlobal removal is not discarded with the event's
+  PState writes, so the holder road keeps a narrower window, a removal just
+  before a discarded commit, which it already prices as "empty after a
+  worker restart"]. The gate's decision code does not change: the same
+  calls, the same nil, the same face refusal. What changes around it: the lease act, the lease rows and
   `lease-locks` go; `:session-closed` clears the session's holder entries; a
   worker restart empties the holder, so an undecided offer after a restart
   is refused `:no-such-lock` until the door hands its locks again (R1: "the
@@ -426,27 +450,57 @@ open with the owner's lock alone (R1).
 ### The digest and the resend check
 
 - **Parts digest** (the answer record's `:digest`, a String as in stage 1):
-  `env/digest` over the offer minus its name, every `:sealed` removed. It
-  covers who, layer, class, permission, session, stood-on, because-of,
-  claimed-when, subjects, and per fact e, k, replaces, mark, lock id and any
-  control value. Nothing in it is a value (P6 stands for what is not a
-  value).
+  `env/digest` over the offer minus its name, every `:sealed` and every
+  `:lock-id` removed [V-F1]. It covers who, layer, class, permission,
+  session, stood-on, because-of, claimed-when, subjects, and per fact e, k,
+  replaces, mark and any control value. Nothing in it is a value (P6 stands
+  for what is not a value), and nothing in it names a lock, so a resend
+  under newly leased locks has the first send's parts digest (R1's rider:
+  "the gate opens it with its own lock, recomputes the digest under the lock
+  it recorded the first time"; the model's `digest-of` carries no lock
+  either).
 - **Value digest** (the log row's `:digest`, 32 bytes): HMAC-SHA256 keyed by
   the value's lock over the plaintext's canonical EDN bytes, never over the
   sealed bytes, because a resend sealed again has other bytes (R1's rider).
   Written only for a yes: a refused act has no rows, and its leases are
   destroyed.
-- **The record path** (the name has a record on this task), in order: the
-  parts digest differs → `:name-taken`, on the face (stage 1). It matches
-  and the record is a no → the recorded answer. It matches and the record is
-  a yes → for each value fact of the resend, the recorded lock: the row's
-  lock id (equal to the cited one, since the parts digest covers it), then
-  the lock row or the row's `:lock`, unwrapped with `$$persons`. Where it
-  opens, the gate opens the resend's sealed bytes with it and recomputes the
-  value digest under it; bytes that do not open or a digest that differs →
-  `:name-taken`. Where it does not open (the value forgotten, or its wrap
-  closed by a person forget), that value is not checked. Every value checked
-  or skipped → the recorded answer. The record path writes nothing.
+- **The record path** (the name has a record on this task), in order
+  [V-F1, rewritten]: the parts digest differs → `:name-taken`, on the face
+  (stage 1), nothing written. It matches and the record is a no → the
+  recorded answer. It matches and the record is a yes → for each value fact
+  of the resend (the facts correspond by position, since the parts digest
+  matched):
+  - the recorded lock `R`: the row's lock id, then the lock row or the
+    row's `:lock`, unwrapped with `$$persons`; nil when the value is
+    forgotten or its wrap closed by a person forget;
+  - the resend's own lock `O`: `R` itself when the cited id is the row's
+    lock id (a door that kept its locks), else `deliver-lock>` of the cited
+    id under the offer's own session (a door that lost its locks and leased
+    again); nil when it does not deliver;
+  - both open → the gate opens the resend's sealed bytes with `O` and
+    recomputes the value digest under `R`; bytes that do not open or a
+    digest that differs from the row's `:digest` → `:name-taken`, on the
+    face, nothing written;
+  - either nil → that value is not checked.
+  Every value checked or skipped → the recorded answer. For a recorded yes
+  or no that returns the recorded answer, the record path's one write:
+  `consume-locks>` of every cited lease id under the offer's session
+  ([V-F3]; a no-read `NONE>` each, idempotent, a no-op for ids already
+  consumed), as default 1 has it ("refused or answered from the record, it
+  is destroyed"). A `:name-taken` writes nothing and leaves the cited rows
+  alone, as every face refusal does.
+- **Why a missing own lock skips rather than refuses** [V-F1]: a record-path
+  answer can replay (SPEC "What Rama showed" 2: "Records that had already
+  completed since the last checkpoint replay too"). A resend that passed its
+  check deleted its own lease rows; on the replay they are missing. A face
+  `:no-such-lock` there would answer the replay otherwise than the first
+  attempt. With the skip, each case replays to its first answer: present and
+  matching → the recorded answer and the rows deleted → missing on replay →
+  skipped → the recorded answer; present and differing → `:name-taken`,
+  nothing deleted → the same on replay; missing the first time → skipped →
+  the recorded answer both times. The price: a reused name with other
+  content that cites a lock the gate cannot deliver is answered as a retry,
+  as after a forget; its depot bytes open under no lock the store holds.
 - **The client's `lookup`** compares the parts digest only; the value check
   is the gate's, on a resend (P6's [F11] road: the gate computes both sides).
 
@@ -466,14 +520,20 @@ In the decision's one atomic group, whatever the decision:
   value's lock row or record lock in the same commit;
 - **refused (recorded):** `NONE>` on each cited lease row and nothing else of
   the lock kept; the depot's sealed bytes of that offer never open again;
-- **answered from the record:** no cited lease row can exist when the parts
-  digest matched. A lock id is minted once (a lease name is decided once),
-  the matched digest means the resend cites the recorded ids, and the first
-  decision consumed exactly those in its own commit. So the record path
-  stays write-free and the default holds by construction; the test asserts
-  the rows are gone after a record answer. When the parts digest differs the
-  answer is `:name-taken` on the face and the cited rows are left alone, as
-  for any face refusal.
+- **answered from the record** [V-F1, rewritten]: a resend that cites the
+  recorded ids finds them consumed by the first decision; a resend from a
+  door that lost its locks cites newly leased ids, which exist. Either way
+  the record path deletes every cited lease id under the offer's session
+  (`consume-locks>`, no-read deletes, idempotent), yes or no, so no lease
+  row survives an answer and a resend of a forgotten value leaves its
+  bytes openable under no lock. The test asserts the rows are gone after a
+  record answer, for a resend under the recorded ids and one under new
+  ids, before and after a forget. When the answer is `:name-taken` (the
+  parts digest differs, or a value check fails) the cited rows are left
+  alone, as for any face refusal.
+- **One call site** [V-F3]: every consumption goes through `consume-locks>`
+  (below, "The delivery function"), on the fresh path in the decision's
+  group and on the record path; the delivery itself never consumes.
 
 ### The missing lock
 
@@ -490,6 +550,10 @@ In the decision's one atomic group, whatever the decision:
 - **Nothing recorded, nothing consumed, nothing written.** The answer goes
   through the ack only (P7's road), so a resend under the same name with a
   lock that delivers is decided fresh.
+- **Only on the fresh path** [V-F1]: a decided name never answers
+  `:no-such-lock`; on the record path a cited lock that does not deliver
+  skips that value's content check ("The digest and the resend check"), so
+  a replayed record answer stays the same.
 - **The same answer on a replay**, for a door that cites only ids it took
   from a lease's answer: the lease row was committed before the offer was
   appended, so a replay finds it as the first attempt did, or finds it
@@ -547,7 +611,8 @@ widened), checked after every forget in `forget_test.clj`:
   gate's form, nonces bound before `decide`), `(open K sealed) → plain |
   nil`, `(wrap K wrap persons nonces) → lock record | nil`,
   `(unwrap record persons) → K | nil`, `(value-digest K plain) → 32 bytes`,
-  `(lease-ids name n)`, `(unlease row person-entry)`, `deliver-lock>` above,
+  `(lease-ids name n)`, `(unlease row person-entry)`, `deliver-lock>` and
+  `consume-locks>` above [V-F3],
   and `open-value>`: `(open-value> *layer *fid *T :> *r)`, a `deframafn` on
   the layer's home, with `*r` one of `{:value v :stamp s}`, `{:erased-at
   date}` (the ledger's date, else the person-forget date `wrap-closed`
@@ -934,8 +999,12 @@ person fan-out at the end:
    record path ("The digest and the resend check"): for a recorded yes with
    value facts, the act's rows in one subindexed read, the lock row per
    distinct lock id where the row's `:lock` is nil, the wrap persons in a
-   `loop<-` [F7]; then the pure `locks/check-resend` → the recorded answer
-   or `:name-taken`; nothing written; `ack-return>`.
+   `loop<-` [F7], and `deliver-lock>` per distinct cited id that is not its
+   fact's recorded id [V-F1]; then the pure `locks/check-resend` → the
+   recorded answer or `:name-taken`; for the recorded answer (yes or no)
+   `consume-locks>` of the cited ids under the offer's session, the record
+   path's one write [V-F1, V-F3]; for `:name-taken` nothing written;
+   `ack-return>`.
 4. Not found: `:settings`; `$$persons [owner]` (nil when the layer has no
    owner or does not exist); then `deliver-lock>` per distinct cited lock id
    in a `loop<-` emitting a map `{lock-id K-or-nil}`, possibly empty [F7].
@@ -1188,7 +1257,11 @@ that cites a lock or is a lease.
 - (c) a resend or replay of a decided offer: the record, then for a
   recorded yes the value check (R1's rider): the act's rows (1 seek + f
   iterations), the lock row (personal and hand; none for a record lock),
-  the owner's entry = 4 seeks and 1 iteration (it was 1 seek).
+  the owner's entry = 4 seeks and 1 iteration (it was 1 seek). [V-F1: a
+  resend from a door that lost its locks adds one lease-row seek per value
+  fact (its own lock) and, for every resend, one no-read delete per cited
+  id; counted 0 in the weighting below, bounded by 0.10 × f extra seeks,
+  5.986 at f = 1 if every resend came from such a door; flat in N.]
 - (d) an operator act with no value facts (make, grant, revoke, re-class; a
   making act adds `$$persons[owner]`): 4 to 5, counted 4.
 - (e) a face refusal before the record (malformed, mis-tagged,
@@ -1671,13 +1744,16 @@ Added 26 September, for the lease road (tonight's default, not a ruling):
   holder body described.** Why: R1 names both roads; one seam keeps the
   decision code the same under either.
 - **L26 (first-record: what the record holds). The parts digest (the rig
-  secret, over the offer minus its name and every `:sealed`, lock ids
-  included) stays on the answer record; a value digest, HMAC-SHA256 keyed
+  secret, over the offer minus its name, every `:sealed` and every
+  `:lock-id`) stays on the answer record; a value digest, HMAC-SHA256 keyed
   by the value's lock over its canonical EDN bytes, goes on each value
   fact's row, for a yes only.** Why: R1's rider; one act digest keyed by
   one lock would still confirm another forgotten value of the act to a
-  holder of the first lock; lock ids in the parts digest make a resend's
-  cited lock the recorded one. The HMAC is keyed by the lock itself, the
+  holder of the first lock. [V-F1: lock ids are out of the parts digest,
+  because a door that lost its locks can only resend under new ones (SPEC
+  "What Rama showed" 4), and R1's rider checks a resend "with its own lock"
+  against "the lock it recorded the first time"; the 26 September text
+  kept them in, which refused that resend as `:name-taken`.] The HMAC is keyed by the lock itself, the
   rider's plain reading; one lock then keys both AES-GCM and HMAC-SHA256.
   A kept store may derive a separate MAC key from the lock (HKDF), which
   changes the digest's bytes: that derivation is part of this
