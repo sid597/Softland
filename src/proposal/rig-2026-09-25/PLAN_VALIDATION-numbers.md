@@ -235,3 +235,246 @@ The same trace for the other columns (plan L220-237):
 **Verdict: FAIL**, fixed by F1 and F2. With both, the plan's counts are
 the finished store's as planned, and T1 to T4 hold the harness's list to
 whatever the merges built.
+
+## C3. The reads of the decision event (2.4) and section 11's table
+
+**Source.** The plan reports reads per act (L256-274, "reported, not a
+number") and costs the dominant operation in its partitioning table
+(L1247-1271).
+
+**Trace**, on `d83e5ff8` (`module.clj`) and `fd41f6d2` (`locks.clj`):
+
+- *Agent value act*: the name's record (module.clj L127); the settings
+  (L138); the delivery's person entries, owner and writer, both `:ada`, so
+  one `$$persons` read (locks.clj `up-front-persons` L572-583,
+  `read-persons>` L1007-1024); the cited lease row (`deliver-lock>` L1040;
+  its `:under` person is already read, L1042-1043); the clock (module.clj
+  L144); two permission rows (`gate/pids-to-read` → `permit/chain` of
+  `[:bench-s1 L L [:ada L L]]`, permit.clj L29-38); no heads; the wrap's
+  person again, already read (`decision-reads>` L1083-1108); the key row
+  (phase 6, planned). **8.** The personal act cites `[:pat L L]`, one
+  permission row: **7.** Both hold.
+- *Lease act with the door's query*: in its event, the record, the
+  settings, the writer's person entry (`up-front-persons`: a lease reads
+  its writer, L580-583), the clock and two permission rows: 6 (7 if the
+  merged gate reads a key row for a store key, which phase 6's "store keys
+  get no row" leaves open). Then `lease-locks` (locks.clj L1378-1392): the
+  settings, one range read of `[L :leases s]`, and the `:under` person
+  entry: 3 seeks and up to 64 plus in-flight rows iterated. **9 seeks**,
+  not the plan's "six ... plus its `lease-locks` query (one seek)" = 7
+  (L1252-1255, L1260-1264).
+
+Weighted seeks with 9: (64 × 8 + 9) / 65 = 8.02 at N = 1, 16 and 128,
+flat, because every read of an act is on the layer's home task whatever
+N is. The table's conclusion stands; its number is wrong.
+
+**Verdict: FAIL** on the lease row of the table; fixed by F10.
+
+## C4. The harness tests: can each fail when the harness is wrong, and pass when it is right?
+
+**Source.** SPEC.md L188-191: "Tests are `clojure.test` namespaces under
+the rig folder's `test/` ... Every claim that a capability works says what
+was run and what it showed." The brief: a test that cannot fail proves
+nothing.
+
+| Test (L1039-1085) | Fails when the harness is wrong? | Passes when the harness is right? | Verdict |
+|---|---|---|---|
+| **T1**, the write list against the store's growth, agent layer, 100 acts, 2 leases | Yes: every field's growth against the list; a field the store has and the list lacks fails; a listed write that did not happen fails. `(view count)` on a subindexed map with size tracking off is O(n) (pstate-schema.md L139), fine at 102 entries. The lease arithmetic (2 × 64 − 100 = 28) holds for a fresh door and a session no setup act leased in (client.clj L155-186) | **No**, once phase 6 lands: the first `:note` act writes a `:key-rows` row and T1 demands "every other field by 0" (C2, flaw 2). On today's code it fails for a real reason (`:ix-kv`, `:ix-of` +100 each, C2 flaw 1), and the plan must say what the build does then | FAIL → F1, F2 |
+| **T2**, by-value grammar | Yes (`:ix-kv`, `:ix-of` by 100) | Yes: the grammar fact made the key row before the snapshot, so its count does not move; but the count cannot see the first `:note` act setting `:used`, a write the list should name | FAIL (incomplete) → F2 |
+| **T3**, personal and hand layers | Yes (`:locks` by 100) | **No**, as T1: each fresh layer's first `:note` act writes a key row | FAIL → F2 |
+| **T4**, twenty point reads in an agent layer | Yes (`:locks` by 20 is exactly the `:own-row` mark; the entries' id-index entries without value fields is `:no-copy`) | **No** with C's read spec: every read is refused (C7) | FAIL → F3 |
+| **T5**, the counts the numbers are made of | Yes (value count against answers; two lease counts against each other and against `:answers`; `rate` and `percentiles` on a known list) | Yes | PASS; F5 adds the schedule accounting |
+| **T6**, placement | Yes for windows (partition and clock deltas). For `layers-on-task!`, "returns only layers whose making grew the target partition" is the function's own criterion; checked with the same observation, a wrong observation (the wrong partition index, a delta read before the making act's ack) passes both | Yes | FAIL (the search half cannot fail) → F7 |
+| **T7**, the lock-store measure | The pick: yes (the count, one prefix, bytes within 4 a row; the second hand layer makes the one-prefix check fail on purpose). The re-pack: "a positive size no larger than the whole store's" passes a re-pack that dropped the values or put the wrong entries | Yes | FAIL (the re-pack half is weak) → F8 |
+| **T8**, the wrap | Yes (`:required` and the blob's 28-byte step, locks.clj L253-268, L290) | Yes | PASS |
+| **T9**, the machine | Only on a missing field; `META` is a record, not a measure | Yes | PASS |
+| **T10**, the verdict rule | Yes (pure, known cases) | Yes | PASS |
+| **T11**, the values | Yes (the slice's first 100 values; exact canonical sizes) | Yes | PASS |
+
+**Verdict: FAIL**, fixed by F1, F2, F3, F5, F7 and F8.
+
+## C5. Lock bytes on disk
+
+**Source.** SPEC.md L114-115: "lock store growth under hand layers, bytes
+per value and the curve over a hundred thousand values". The brief: is the
+method sound, including picking the lock rows out of a force-compacted
+copy, and is the named fallback honest about what it can and cannot show?
+
+**Trace.**
+
+1. *The copy and the forced compaction* (L702-708) are the slice's
+   `compact-copy` (lock_bench.clj L192-241): wait until the directory's
+   listing holds still for 300 ms, copy every file but `LOCK` and the info
+   `LOG`, open with `OptionsUtil/loadLatestOptions`, flush every column
+   family, `compactRange` with `kForce`, measure, retry up to five times.
+   It ran at every point of ten variants without error
+   (runs/phase7-lock-growth.txt L308), and the writers are paused at each
+   point (L671-672), so only Rama's own background work can move the
+   files, which the wait covers. `compact-copy` is private and deletes its
+   copy; the plan writes its own `compacted` (L1029), which must keep the
+   copy open for the pick. **Sound.**
+2. *The pick by value* (L737-744). The Rama 1.6.0 jar has
+   `rpl/rama/util/nippy_serialization$thaw.class` (checked). Which values
+   of a hand layer's `$$layers` are maps carrying `:scheme` and
+   `:required` at their top? Lock records (locks.clj L953-958). Not rows
+   (module.clj L23-34 with locks.clj L960-969: `:lock` is a nested field,
+   nil in a hand layer), not index entries (the row's fields plus `:fid
+   :stamp :erased-at :copy`, reads.clj L112-123), not answer records
+   (module.clj L48-61), not lease rows (`{:under :sealed}`, with
+   promotion's nil `:public :for`), not `:heads` (a long), `:by-stamp` (a
+   name), `:erased`, `:permissions`, `:key-rows`, `:ix-of` or `:forwards`.
+   **Sound by the schemas** (*derived*; T7 confirms). Not covered: the
+   `subindexed` family also holds entries whose bytes may not be frozen
+   application values (the references of nested subindexed structures:
+   `:log`'s vectors, `:leases`' session maps, `:stood-on`; the size entries
+   of `:log`'s vectors, whose tracking stays on, module.clj L65-67).
+   Whether `thaw` accepts them is not known from reading. A thaw that
+   throws must not stop the pick, and an unthawed entry must be counted,
+   not dropped. → F9.
+3. *The one-prefix check* (L745-752) does not define P. Taken as the
+   longest common prefix of the picked keys, it needs no knowledge of
+   Rama's layout (the slice showed only that a lock row's RocksDB key is 3
+   bytes longer than its lock id's encoding, L286-287, which fits a prefix
+   or a suffix). If the reference id comes first, only lock rows start with
+   P and the check holds. If not, P is a common start of vector encodings
+   that `:answers` and `:log` keys (names are `[layer class :offer uuid]`,
+   envelope.clj L252-255 on `d83e5ff8`) can share with lock ids (`[name
+   i]`), keys that were not picked start with P, and the check fails into
+   the named fallback, never into a wrong number. → F9 writes the
+   definition.
+4. *The count and size checks* (L753-755) can fail and are strong: the
+   logical pass's exact row count, and raw bytes within a few a row of the
+   logical sizes (the slice: within 3). **Sound.**
+5. *The re-pack* (L756-759): the same DB and family options, the entries
+   in key order, flushed, forced. Inside the whole store the rows under
+   one prefix occupy their own run of data blocks, all but the two at its
+   edges, compressed per block under the same options, so the re-pack's
+   SST bytes are the rows' share of the store's bytes on disk, give or take
+   two 4 KB blocks and their own index and filter blocks (*derived*).
+   **Sound**; its test is weak (C4, F8).
+6. *The fallback* (L760-764): "the whole store's compacted bytes times the
+   lock rows' share of its raw key-value bytes", labeled "estimate", naming
+   the failed check. Honest in its label, silent on what it cannot show:
+   it assumes the lock rows compress as the store's average does. A lock
+   row carries 60 bytes of random ciphertext (a 32-byte lock sealed under
+   one person: 32 + 12 + 16, locks.clj L64-67) out of about 180, while the
+   rest of the store mixes random bytes (sealed values, digests) with
+   repeated keywords and addresses, so the estimate's error has no known
+   sign. Two bounds hold whatever the layout: at least 60 bytes a row on
+   disk (random bytes do not compress), and at most the row's raw
+   key-value bytes plus block overhead (the slice's raw variant: 172.2 B
+   raw, 86.9 B compacted, runs/phase7-lock-growth.txt L110). → F9: print
+   both bounds beside the estimate and say what it assumes.
+7. *B12* names `freeze`, `thaw` and `k-ser` but not the other internals
+   the method leans on: the family names `default` and `subindexed` (the
+   slice's finding, runs/phase7-lock-growth.txt L47-49, L93) and
+   `OptionsUtil/loadLatestOptions` over Rama's written options. → F12.
+
+**Verdict: FAIL** on the thaw handling, P's definition and the fallback's
+bounds; the method is sound. Fixed by F8, F9 and F12.
+
+## C6. Latency: coordinated omission
+
+**Source.** SPEC.md L115-116: "one person's layer on one thread, acts per
+second and latency". RIG.md default 7 (L533-535): "at least 100 acts a
+second at 20 ms or less for the slowest 1 in 100". SPEC.md L192-194: the
+in-process cluster gives orders of magnitude only.
+
+**Trace.**
+
+- *Number 3 (a)*, one writer, one act at a time (L568-578), and *(b)*, K
+  writers each in a closed loop (L580-589). In a closed loop a stall (a
+  disk flush, a GC pause, a lease round trip) delays only the offers in
+  flight; the offers an arrival at the same rate would have made during
+  it are never sent, so none of them records the stall. The measured p99
+  is of the offers that were sent, which understates the p99 a person
+  writing at a given rate would see. Concretely, at one writer and about
+  300 acts a second, a 20 ms stall costs the closed loop one slow offer;
+  an arrival at 100 a second makes two offers during it, each waiting
+  part of the 20 ms; an arrival at 1,000 a second makes twenty (*derived*).
+  The plan knows the principle (14.3, L1397-1400: "a closed loop at an
+  assumed agent speed hides a queue at the task, because a slow ack only
+  slows the writer") and applies it to variant B, not to number 3, whose
+  threshold is itself a statement about a rate. Nothing in 5 or in the
+  result files says number 3's latencies are closed-loop service times.
+  **FAIL → F5**: open-arrival windows at 100 and 1,000 value acts a
+  second, latency from the scheduled time, sent by enough threads that a
+  late ack delays no other send; the latency threshold judged on them;
+  (a) and (b) kept and labeled; the schedule accounting tested in T5.
+- *Number 1 A*: closed loops; its latencies are reported, not judged (7.1
+  judges the rate). They need the same label. Part of F5.
+- *Variant B* (L451-457): a fixed schedule with a random phase, a send that
+  falls behind goes at once, latency from its scheduled time. Free of
+  coordinated omission in its accounting. One writer per session keeps at
+  most S acts in flight at the task; a queue beyond that is in the client
+  and is still counted from the schedule. **Holds.**
+- *Timing*: `System/nanoTime` around `c/offer!` only (L400-401), latencies
+  in primitive arrays (L1007-1010), the leased and unleased offers split at
+  one writer (L575-578). **Holds.**
+
+**Verdict: FAIL**, fixed by F5.
+
+## C7. The workloads' roads: the door, D1, and variant C
+
+**Source.** The brief's "on the finished store rather than a slice", and
+the plan's own promise that every workload goes "through its own road"
+(L28-32).
+
+**Trace.**
+
+- *One door for K writers* (L394-401) is the door as built: one pool per
+  [layer, session], one lease at a time, a lease of 64 when the pool is
+  short (client.clj L27-31, L155-186). Consequence, *derived* from that
+  code: one door holds at most about 64 value acts in flight between
+  leases, and each lease act queues on the task behind the acts already in
+  flight. At K ≥ 64 the door, not the task, sets A's rate; the plan names
+  this as one reading (10.2, L1123-1127). So D1's condition (L506-508)
+  will very likely hold, and D1 will run in every agent-rate run.
+- *D1's stocking* (L509-511): "`c/stock!`, leases of 256, until the pool
+  holds the window's expected acts". `stock!` is `lease!` then `refresh!`
+  (client.clj L322-332); `refresh!` calls `lease-locks`, whose query reads
+  and unleases every standing lease row of the session in one range read
+  (locks.clj `lease-locks>` L1378-1392, `leased-locks` L896-901); a
+  stocked row is not consumed before the window. So the i-th `stock!`
+  reads i × 256 rows. For a window of 18 s at an assumed 5,000 acts a
+  second, 90,000 locks, 352 leases: Σ i × 256 = 256 × 352 × 353 / 2 ≈ 15.9
+  million row reads and AES-GCM opens on the home task's thread, and as
+  many locks sent back (*derived*, not run), on the order of a minute a
+  run at a few microseconds each, missing from 8.6. One `lease-locks` call
+  after the last lease reads 90,000. And if the pool runs dry inside the
+  window, the door leases 64 at a time again and D1 is no longer "no
+  writer waits on a lease" (L511). **FAIL → F4.**
+- *Variant C* (L476-483): `read!` "with reader kind `:model` reading for
+  `:ada`, ... the session's permission". The exit builds the entry with
+  `:who` the reader and `:session nil` (read_exit.clj `entry-offer`
+  L78-86, `703b8e26`); the door then writes it in `(default-session
+  reader)`, `:door/<reader>` (client.clj `build` L85). The session's
+  permission `[:bench-s1 L L [:ada L L]]` is held by `:bench-s1`, and
+  phase 3's check accepts a holder only when it is the offer's `:who` or
+  its `:session` (permit.clj L65-69). Both fillings of `:reader` fail:
+  `:reader :ada` gives holder `:bench-s1` ∉ {`:ada`, `:door/ada`}, refused
+  `:permission-does-not-cover-this`; `:reader :bench-s1` makes the door
+  lease as `:bench-s1`, which has no person entry, refused `:no-such-person`
+  (locks.clj `persons-refusal` L682-694), and the entry, citing locks that
+  were never minted, is refused `:no-such-lock` (client.clj `assign!`
+  L158-161). The rest of phase 5 leaves `entry-offer` as it is (its
+  sessions are standing reads' closing, PLAN-reads-rest.md L746-748,
+  L1040, L1077). As written, every C read and T4 is refused. What works:
+  `:reader :ada`, `:reader-kind :model`, `:for :ada`, `:permission [:ada
+  L L]`; the entries lease in `:door/ada` and the value acts in
+  `:bench-s1`, one lease per 64 of each, still one lease per 32
+  iterations, so 4.6's per-iteration count is unchanged. **FAIL → F3.**
+- *Number 2's writers* (L668-674): 64 threads through one door, paused at
+  every point. The door's lease of 64 makes rounds of about 64 acts and a
+  lease; at the slices' p99 of about 22 ms at 64 writers plus a lease and a
+  query, about 2,400 to 4,300 acts a second (*derived*), inside the
+  plan's assumed 2,000 to 5,000 (L798-799). **Holds.**
+- *Number 3* writes as `:pat` citing `[:pat L L]` in `:door/pat` (client.clj
+  L65-69, L85); its reads (5.5) as `:reader :pat` write entries in the same
+  session under the same permission. **Holds.**
+- *Variant B*: a `c/connect` per session (client.clj L42-57), so a door per
+  session. *Setup*: `make-layer-offer` sets per-value grain (L507-515),
+  `make-person!` (L348-353), `grant-offer` (L517-521), `open-session!`
+  grants `[S L L [p L L]]` (micro_client.clj L473-493). **Hold.**
+
+**Verdict: FAIL**, fixed by F3 and F4.
