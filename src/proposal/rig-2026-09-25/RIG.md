@@ -2,7 +2,22 @@
 
 ## Overnight state (26 September; rewritten after every commit)
 
-Builder A ran from 01:37 to 04:15 IST on Sid's overnight brief: build every
+**Now: builder B, from 04:26 IST.** Builder B took over at 04:26 on
+builder A's handoff note (the relay's rule 2) and builds from here; the
+relay's log has the watch. *Done since the handoff:* phase 2's build
+finished green on its own branch, `rig-build-locks` at `7c9578b1` (30
+tests, 1,454 assertions, 0 failures; its builder, started by builder A,
+was still running two confirmation runs at 04:31), so no step of it needs
+redoing. *In flight:* the merge of wave 1 (phases 2 and 3, and the seams
+listed under "Unfinished" below) in worktree `Softland-rig-wave1`, branch
+`rig-wave1`, made off this branch at `703b8e26`; builder A's empty
+`Softland-rig-integrate` is left as it is. Phase 7's plan, in worktree
+`Softland-rig-plan-numbers` (branch `rig-plan-numbers`), written now so
+the runs can start as soon as the store is finished. *Next:* wave 2 off the
+merge (phase 4, the rest of phase 5, phase 6), their merge, phase 8's
+replays, phase 7's runs, then the rama skill's full-spec review.
+
+**At the handoff (builder A, 04:15).** Builder A ran from 01:37 to 04:15 IST on Sid's overnight brief: build every
 remaining phase of SPEC.md (2 locks and forgetting, 3 the micro store, 4
 promotion, 5 reads and read entries, 6 tools and grammars, 7 the three
 numbers on the finished store, 8 replays of the model's histories), with
