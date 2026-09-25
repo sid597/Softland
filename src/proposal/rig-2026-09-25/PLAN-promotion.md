@@ -485,6 +485,16 @@ scope (microbatch.md), so landings from a second depot could not join
 phase 3's one fold over the batch's skeletons, and a landing and a door's
 act on the same head in one batch would be decided by two folds. Rejected.
 
+**One discrepancy in phase 3's plan this stage leans on.** Its §A (change
+2, and the validation's "routing by lease name") routes a sealed act by the
+lease name of its first cited lock, so it arrives where its lease rows are;
+its "Depots" section still carries a revision note routing a sealed act by
+its `:session` (PLAN-micro-store.md line 1448). This plan follows §A: the
+forward hops to hash(lease-name) because the landing lease's row is there.
+If phase 3's build routes by session instead, the lease rows must follow
+(they would sit on hash(s)), and the forward hops to hash(s): one change in
+`route` of the stored forward, no record touched.
+
 ## Topologies and PStates
 
 **`gate` — stream** (phase 1's reasons stand: the door waits on its ack,
