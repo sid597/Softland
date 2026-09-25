@@ -21,7 +21,6 @@
             [formal.model :as fm]
             [formal.scenarios :as fs]
             [rig.store.client :as c]
-            [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
@@ -85,7 +84,8 @@
       ;; ------------------------------------------------------------ the seed
       (testing "seed: the one-owner world, persons, the base on the stream gate, a stream-era base fact, then the group"
         (is (every? #(= :yes (:answer %)) (c/seed! st)))
-        (doseq [p [:alice :bob :carol :dan]] (mc/make-person! st p))
+        ;; wave 1: persons are phase 2's :people acts; the seed made Alice and Bob
+        (doseq [p [:carol :dan]] (is (= :yes (:answer (mc/make-person! st p))) (str "made " p)))
         (is (some? (:lock (mc/person-entry st :alice))))
         (let [base (mc/make-base! st)]
           (is (every? #(= :yes (:answer %)) base) "made, its root granted in the making act, Alice's and Bob's beneath it")
@@ -459,7 +459,7 @@
           (mc/open-session! st :s8 :dan [:group])
           (let [l (mc/lease! st {:who :dan :layer :group :session :s8 :permission (sp :s8 :dan) :n 1})
                 ks (mc/take-locks st (:name l))
-                _ (mc/forget-person! st :dan (hlc/pack (System/currentTimeMillis) 0))
+                _ (is (= :yes (:answer (mc/forget-person! st :dan))) "wave 1: phase 2's forget act")
                 o (mc/seal (mc/build {:who :dan :layer :group :session :s8 :permission (sp :s8 :dan) :facts [{:e ea :k :note :v 1}]})
                            (constantly (first (:ids l))) ks)
                 a (mc/offer! st o)]
@@ -518,7 +518,7 @@
               "the recorded lock ids with other plaintext: :name-taken before the forget")
           (let [op (other-parts)]
             (is (= [:no :name-taken] ((juxt :answer :reason) (mc/offer! st op))) "other parts under fresh locks: :name-taken by the parts digest")
-            (mc/forget-person! st :bob (hlc/pack (System/currentTimeMillis) 0))
+            (is (= :yes (:answer (mc/forget-person! st :bob))) "wave 1: phase 2's forget act")
             (is (= :yes (:answer (mc/offer! st (other-plain))))
                 "after Bob's forget the value is not checked: the recorded answer (the price of forgetting)")
             (is (= [:no :name-taken] ((juxt :answer :reason) (mc/offer! st (assoc op :claimed-when (:claimed-when o)))))
@@ -527,7 +527,7 @@
                 "the value itself reads as erased on the forget's date"))))
 
       ;; ------------------------------------------------ the door that lost its locks
-      (mc/make-person! st :erin)
+      (is (= :yes (:answer (mc/make-person! st :erin))))
       (mc/offer! st (mc/grant-offer (gp :erin)))
       (mc/open-session! st :s12 :erin [:group])
       (let [spec {:who :erin :layer :group :session :s12 :permission (sp :s12 :erin) :facts [{:e ea :k :note :v {:token "kept"}}]}
@@ -567,7 +567,7 @@
       (testing "the group's six A cases, both directions (R8), through this gate: the rig's open or erased against the model's"
         (doseq [[i [what _ expect :as case]] (map-indexed vector (subvec fs/a-cases 1 7))]
           (let [a (keyword (str "alice-a" i)) b (keyword (str "bob-a" i)) s (keyword (str "sa" i))
-                _ (doseq [p [a b]] (mc/make-person! st p))
+                _ (doseq [p [a b]] (is (= :yes (:answer (mc/make-person! st p)))))
                 _ (mc/offer! st (mc/grant-offer (gp b)))
                 _ (mc/open-session! st s b [:group])
                 ;; the case's one offer by Bob, its value's persons renamed to this case's
@@ -579,7 +579,7 @@
                 r (write! {:who b :layer :group :session s :permission (sp s b)
                            :facts [(cond-> {:e (keyword (str "ea" i)) :k (:k f) :v v} (seq (:mark f)) (assoc :mark (:mark f)))]})
                 forgets (for [[op p] (drop 1 (drop-while #(not= [:batch] %) hist)) :when (= :forget-person op)] ({:alice a :bob b} p))
-                _ (doseq [p forgets] (mc/forget-person! st p (hlc/pack (System/currentTimeMillis) 0)))
+                _ (doseq [p forgets] (is (= :yes (:answer (mc/forget-person! st p))) "wave 1: phase 2's forget act"))
                 seen (let [[row] (rows-of (keyword (str "ea" i)) (get-in r [:offer :name]))] (if (contains? row :value) :open :erased))
                 [ok model-seen _] (fs/play fm/baseline case [])
                 want (val (first (:values expect)))]
@@ -590,7 +590,7 @@
 
       ;; -------------------------------------------------------------- crashes
       (testing "a batch that fails on one task leaves nothing: one-shot throws in block 1, 2a, 2b and 2c (R3, R4, RQ 5)"
-        (mc/make-person! st :fay)
+        (is (= :yes (:answer (mc/make-person! st :fay))))
         (mc/offer! st (mc/grant-offer (gp :fay)))
         (mc/open-session! st :s14 :fay [:group])
         (doseq [[where point-for] [["block 1, the gather" (fn [o _] [:micro-gather (:name o)])]

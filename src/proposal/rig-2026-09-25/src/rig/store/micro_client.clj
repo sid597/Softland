@@ -32,7 +32,6 @@
         mn (:module-name st)]
     (assoc st
            :micro-depot (foreign-depot cluster mn "*micro-offers")
-           :persons-depot (when micro/persons-placeholder? (foreign-depot cluster mn "*persons-placeholder"))
            :micro (foreign-pstate cluster mn "$$micro")
            :names (foreign-pstate cluster mn "$$micro-names")
            :task (foreign-pstate cluster mn "$$micro-task")
@@ -143,24 +142,22 @@
   [store e lid]
   (retrying #(foreign-select-one [(keypath e :locks lid)] (:micro store))))
 
-;; ======================================================= persons (the seam)
-
-(defn- put-person! [store p entry]
-  (if-let [d (:persons-depot store)]
-    (foreign-append! d {:person p :entry entry} :ack)
-    (throw (ex-info "persons are phase 2's once its gate merges: make them by its :people acts" {:person p}))))
+;; ================================================================== persons
 
 (defn make-person!
-  "A person with a fresh lock (phase 2's person act's effect), through the
-  placeholder seam (`rig.store.micro/persons-placeholder?`)."
+  "A person, made by phase 2's act (L7): the operator's `:person` act in the
+  store layer `:people`, whose lock the gate draws and fans out to every
+  task before it answers. Its answer (the stream gate's)."
   [store p]
-  (put-person! store p {:lock (locks/fresh-lock) :erased-at nil}))
+  (c/make-person! store p))
 
 (defn forget-person!
-  "A person forget's effect (phase 2's): the lock destroyed, the date kept,
-  on every task, through the placeholder seam."
-  [store p stamp]
-  (put-person! store p {:lock nil :erased-at (long stamp)}))
+  "A person forgotten by phase 2's act (L7, OP10): the operator's
+  `:forget-person` act in `:people`; the person lock destroyed on every
+  task, dated by the act's stamp, before it answers. Every forget is a
+  fact. Its answer (the stream gate's); the date is its `:stamp`."
+  [store p]
+  (c/forget-person! store p))
 
 ;; ============================================================ the envelope
 

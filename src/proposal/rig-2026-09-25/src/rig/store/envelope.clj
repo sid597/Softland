@@ -43,11 +43,13 @@
 (def control-keys
   "Fact keys the store itself acts on (D2): they get no lock and their value
   slot stays plaintext canonical EDN (P12). The model's seven, stage 1's
-  `:kind` and `:owner`, and stage 2's person, forget-person, lease and
-  session-close keys. Every other fact with a value is a value fact, sealed
-  at the door (L24, L27)."
+  `:kind` and `:owner`, stage 2's person, forget-person, lease and
+  session-close keys, and stage 3's `:members`, a group's making fact at the
+  micro gate (without it here the sealed parse refuses a group's making act
+  `:not-sealed`; rig.store.micro keeps the same set). Every other fact with
+  a value is a value fact, sealed at the door (L24, L27)."
   #{:forget :lock-grain :class :promote-request :crossed :permission :revoke
-    :kind :owner :person :forget-person :lease :session-closed})
+    :kind :owner :person :forget-person :lease :session-closed :members})
 
 (def setting-keys
   "Fact keys on a layer's own entity that the gate projects into settings,

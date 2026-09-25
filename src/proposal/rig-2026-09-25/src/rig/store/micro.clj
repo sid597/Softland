@@ -180,10 +180,6 @@
   "`$$micro-task`: the task's clock (a hybrid stamp) and the frontier."
   (fixed-keys-schema {:clock Long :frontier Long}))
 
-(def persons-schema
-  "Phase 2's `$$persons` schema: every person's lock, on every task."
-  {clojure.lang.Keyword (fixed-keys-schema {:lock byte/1 :erased-at Long})})
-
 ;; ============================================================ small helpers
 
 (def ^:private ^HexFormat hexf (HexFormat/of))
@@ -1115,34 +1111,14 @@
   the frontier."
   false)
 
-(def persons-placeholder?
-  "Phase 2's `$$persons` is declared by its stream gate, which this branch
-  does not hold: only phase 2's pure lock namespace was merged
-  (rig-build-locks 1febfa3d). Until that gate merges, this module declares
-  the same PState, with phase 2's schema, on a placeholder stream topology
-  fed by a test depot (`*persons-placeholder`), so the micro gate's reads of
-  person locks run. The one seam: set false (or delete the call) when phase
-  2's `gate` declares `$$persons`, and the micro gate reads that one.
-  False since phase 2's merge (wave 1): its gate declares `$$persons`."
-  false)
-
-(defn- declare-persons-placeholder!
-  [setup topologies]
-  (declare-depot setup *persons-placeholder (hash-by :person))
-  (let [ps (stream-topology topologies "persons-placeholder")]
-    (declare-pstate ps $$persons persons-schema)
-    (<<sources ps
-      (source> *persons-placeholder :> {:keys [*person *entry]})
-      (|all)
-      (local-transform> [(keypath *person) (termval *entry)] $$persons))))
-
 (defn declare!
   "Declares the micro store into the one module (M1): its depot, its tick
   depot, the `micro` microbatch topology with its three PStates, and its
   query topologies. Called once from `rig.store.module/Store`'s body,
-  after the stream gate's declarations (it reads `$$layers`)."
+  after the stream gate's declarations: it reads `$$layers` and phase 2's
+  `$$persons`, both the `gate` topology's (every person's lock on every
+  task, L1; since wave 1's merge there is no placeholder of it here)."
   [setup topologies]
-  (when persons-placeholder? (declare-persons-placeholder! setup topologies))
   (declare-depot setup *micro-offers (hash-by route-key))
   (if replace-tick-depot?
     (declare-depot setup *micro-tick :random {:global? true})
