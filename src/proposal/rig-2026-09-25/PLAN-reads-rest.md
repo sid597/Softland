@@ -155,7 +155,10 @@ layer's stream settings (`$$layers [L :settings]`), each gains one branch
 - the stream settings exist and say `:class :by-layer`: the read exit's own
   path, unchanged;
 - otherwise: `(local-select> [(keypath :frontier)] $$micro-task :> *Ft)`,
-  then this stage's path below, on the same task. A layer with no stream
+  then this stage's path below, on the same task. (Phase 3's client-side
+  `micro-frontier` query is not used: the read already runs on a task
+  whose frontier is a safe lower bound, micro plan M7, which saves a round
+  trip.) A layer with no stream
   settings and no micro settings at or below F answers `{:refused
   :not-visible}`, the same answer a private layer gives (F4 kept: a reader
   cannot tell a group layer it is not in from a layer that does not exist).
@@ -1057,7 +1060,9 @@ invariant, "Purge by value id, shared").
      tombstone was purged whole by a value forget in that forget's batch,
      so it has no `:ix-kv` entry left to find. The shared layers of a
      task are listed in a small subindexed set `$$micro-task :layers`,
-     written by a layer's making act in block 2a on hash(L) (**a schema
+     to which block 2d adds L with every admitted act of L (a no-read set
+     add, idempotent; this covers a group made on the micro gate and a
+     re-classed layer, which the micro gate never makes) (**a schema
      addition to phase 3**, beside `:rebuild`). No enumeration seam is
      assumed on the micro side: phase 2's is for its layers, and the micro
      indexes are this stage's. The cost is every value-indexed entry of the
