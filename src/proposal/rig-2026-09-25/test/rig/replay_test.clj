@@ -1906,4 +1906,338 @@
               (str (:id r) " is not practical with its stages resolved: " (:refusal r)))
           (is (empty? (:fails r)) (str (:id r) ": " (str/join "; " (:fails r)))))))))
 
-;; <<part-10>>
+;; ======================================================= the model-side tests
+;; None needs a cluster. They check the adapter's model side and its judging
+;; rules, so the run above can only be as wrong as the rig is.
+
+(def ^:private note-spec {:e :e0 :k :note :mention nil :replaces :none :mark #{} :other-layer nil})
+
+(defn- offer-op [who layer] [:offer {:who who :layer layer :facts [note-spec] :stood-on nil :times 1}])
+
+(deftest lockstep-ends-where-run-ends
+  (doseq [c cases
+          [cname cfg] (:configs (named-configs (:set c)))]
+    (let [ls (lockstep cfg (:history c))
+          [ok seen _] (fsc/play cfg (:case c) [])]
+      (is (= (:end ls) (fm/run cfg (:history c)))
+          (str (:id c) " under " (name cname) ": the lockstep's end state is run's"))
+      (is (= seen (seen-of (:end ls) (:expect c)))
+          (str (:id c) " under " (name cname) ": the lockstep's end state gives play's seen"))
+      (when (= :baseline cname)
+        (is ok (str (:id c) ": the model says as said under baseline"))))))
+
+(deftest lockstep-finds-every-effect
+  (testing "every decision, read and person forget of every case, each once, in order"
+    (doseq [c cases]
+      (let [{:keys [start end steps]} (lockstep fm/baseline (:history c))
+            decided (mapcat :decided steps)
+            prepared (mapcat :prepared steps)
+            answered (set (for [nm (keys (:sent end)) :when (and (not (seed-act? nm)) (seq (fm/answers-for end nm)))] nm))]
+        (is (= answered (set (map :name decided))) (str (:id c) ": every answered name is decided once"))
+        (is (= (count decided) (count (distinct (map :name decided)))) (str (:id c) ": no name decided twice"))
+        (is (every? #(contains? (set (map :name decided)) (:name %)) prepared)
+            (str (:id c) ": a name decided at [:prepare] is recorded at [:commit]"))
+        (is (= (:reads end) (mapv :read (mapcat :reads steps))) (str (:id c) ": every read, in order"))
+        (is (= (set (keys (:persons end))) (set (map :person (mapcat :forgets steps))))
+            (str (:id c) ": every person forget"))
+        (is (empty? (:reads start)) (str (:id c) ": the first facts read nothing"))
+        (is (every? #(not= :split (get-in % [:model :answer])) decided)
+            (str (:id c) ": no name's partitions disagree"))
+        (is (nil? (guard-refusal {:steps steps})) (str (:id c) ": every op's decisions have an order")))))
+  (testing "B1: the request, the value forget and the read-out decided by three separate steps"
+    (let [steps (:steps (lockstep fm/baseline (:history (case-by-id "B1"))))
+          step-0s (filter #(= [:step 0] (:op %)) steps)]
+      (is (= [["o2"] ["o3"] ["crossing:o2"]] (mapv #(mapv :name (:decided %)) step-0s)))
+      (is (= {:answer :no :reason :source-erased}
+             (select-keys (:model (first (:decided (last step-0s)))) [:answer :reason]))
+          "the read-out refused :source-erased")))
+  (testing "B3: the request then its read-out in one work step, by stamp; the landing at the batch, two partitions as one yes"
+    (let [steps (:steps (lockstep fm/baseline (:history (case-by-id "B3"))))
+          work (first (filter #(= ["o2" "crossing:o2"] (mapv :name (:decided %))) steps))
+          landing (first (filter #(= ["landing:o2"] (mapv :name (:decided %))) steps))]
+      (is (some? work))
+      (is (apply < (map :stamp (:decided work))))
+      (is (= [:batch] (:op landing)))
+      (is (= 2 (count (:answers (first (:decided landing))))))
+      (is (= :yes (get-in (first (:decided landing)) [:model :answer])))))
+  (testing "D1 [F7]: decided at [:prepare], recorded at [:commit] the same; the revoke at [:step 1]"
+    (let [steps (:steps (lockstep fm/baseline (:history (case-by-id "D1"))))
+          at (fn [op] (first (filter #(= op (:op %)) steps)))]
+      (is (= [["o0" :no :permission-from-another-layer]]
+             (mapv (juxt :name (comp :answer :model) (comp :reason :model)) (:prepared (at [:prepare])))))
+      (is (= [["o0" :no :permission-from-another-layer]]
+             (mapv (juxt :name (comp :answer :model) (comp :reason :model)) (:decided (at [:commit])))))
+      (is (= [["o2" :yes]] (mapv (juxt :name (comp :answer :model)) (:decided (at [:step 1])))))))
+  (testing "D2 [F6]: the revoke and the write each recorded at two micro partitions, reduced to one answer"
+    (let [ds (mapcat :decided (:steps (lockstep fm/baseline (:history (case-by-id "D2")))))]
+      (is (= [["o0" :yes nil 2] ["o1" :no :permission-revoked 2]]
+             (mapv (juxt :name (comp :answer :model) (comp :reason :model) (comp count :answers)) ds))))))
+
+(deftest the-guard-catches-decisions-it-cannot-order
+  (let [h [(offer-op :alice :alice) (offer-op :alice :alice-hand)]
+        c {:id "X1" :set :a :history h :expect {:values {}} :case ["two offers the drain decides" h {:values {}}]
+           :predicted {:status :practical}}
+        ls (lockstep fm/baseline h)
+        everything (into {} (for [a apis] [(:id a) {:value :resolved}]))
+        r (judge-case (prepare-case everything c))]
+    (is (re-find #"\[:drain\].*cannot tell" (str (guard-refusal ls))) "the drain decides on two stream partitions in one op")
+    (is (= :not-practical (:status r)))
+    (is (seq (:fails r)) "with its stages resolved, not practical fails the test")))
+
+(deftest every-step-of-the-fixed-histories-has-a-row
+  (doseq [c cases]
+    (is (nil? (history-refusal (:history c))) (str (:id c) ": every op has a row that covers it"))
+    (is (nil? (effect-refusal (lockstep fm/baseline (:history c)))) (str (:id c) ": every effect has a rig row")))
+  (testing "a step kind with no row, or an op outside its row, is named; nothing is played"
+    (is (re-find #"no rig row \(named, not built\)" (str (history-refusal [[:failover :stream 1]]))))
+    (is (re-find #"no rig row \(named, not built\)" (str (history-refusal [[:retry 0]]))))
+    (is (re-find #"outside its row, read" (str (history-refusal [[:read [:at 3]]]))))
+    (is (re-find #"outside its row, offer" (str (history-refusal [[:offer {:who :alice :layer :alice :facts [note-spec] :times 2}]]))))
+    (is (re-find #"outside its row, promote" (str (history-refusal [[:promote 0 :base 1]])))))
+  (testing "a value forget in the group has no rig row tonight"
+    (is (re-find #"forget of o0#0 in group has no rig row"
+                 (str (effect-refusal (lockstep fm/baseline [(offer-op :bob :group) [:batch] [:forget-value 0] [:batch]])))))))
+
+(deftest answers-per-name-reduce-to-one
+  (is (= {:answer :yes :stamp 5 :where [[:micro 0] [:micro 2]]}
+         (reduce-answers [{:answer :yes :stamp 5 :where [:micro 0]} {:answer :yes :stamp 5 :where [:micro 2]}])))
+  (is (= :permission-revoked
+         (:reason (reduce-answers [{:answer :no :reason :permission-revoked :stamp 3 :where [:micro 0]}
+                                   {:answer :no :reason :permission-revoked :stamp 3 :where [:micro 2]}]))))
+  (is (= :split (:answer (reduce-answers [{:answer :yes :stamp 3 :where [:micro 0]} {:answer :no :reason :x :stamp 3 :where [:micro 2]}]))))
+  (is (= :split (:answer (reduce-answers [{:answer :no :reason :x :stamp 3} {:answer :no :reason :y :stamp 3}]))))
+  (is (nil? (reduce-answers [])))
+  (is (false? (:ok? (judge-answer {:answer :split :answers []} {:answer :yes} nil)))
+      "a model name whose partitions disagree is the model's own finding, and fails"))
+
+(deftest the-model-report-is-reproduced
+  (let [lines (str/split-lines (slurp "runs/phase8-model-report.txt"))
+        section (->> lines
+                     (drop-while #(not= "== fixed histories" %))
+                     rest
+                     (take-while #(and (not (str/blank? %)) (not (str/starts-with? % "==")))))]
+    (is (= 64 (count section)) "the saved report's fixed-history section")
+    (is (= (vec section) (model-report-lines))
+        "the named configurations and checks give the model's own report, line for line")))
+
+(deftest known-differences-cite-their-cases
+  (is (= (range 1 21) (map :n known-differences)) "KD1 to KD20, each once, in order")
+  (doseq [kd known-differences
+          :let [id (kd-str (:n kd))]]
+    (is (seq (:title kd)) (str id " has a title"))
+    (is (seq (:source kd)) (str id " cites its source"))
+    (is (every? (set case-ids) (:cases kd)) (str id " cites only the fourteen cases"))
+    (if (= :not-exercised (:group kd))
+      (do (is (empty? (:cases kd)) (str id " is exercised by no fixed history"))
+          (is (seq (:why kd)) (str id " says why no fixed history exercises it")))
+      (do (is (seq (:cases kd)) (str id " cites the cases it touches"))
+          (is (seq (:rule kd)) (str id " says how it is told from an unknown difference")))))
+  (doseq [[id ns] plan-case-kds]
+    (is (every? #(contains? (:cases (kd-by-n %)) id) ns)
+        (str id ": the plan's predicted line names only differences that cite it")))
+  (doseq [id case-ids]
+    (is (every? #(contains? (:cases (kd-by-n %)) id) (predicted-kds id)) (str id ": its predictions cite it")))
+  (is (not (contains? (predicted-kds "B3") 5)) "KD5 shows only on the :before-forward fallback"))
+
+(deftest the-world-grants-every-model-permission
+  (doseq [rn [main-road-names (fallback-names "B3")]
+          :let [w (world rn)
+                granted (set (concat (:stream-grants w) (get-in w [:base :grants]) (get-in w [:group :grants])))
+                one-owner (set (map first (:one-owner w)))]]
+    (doseq [pid fm/permissions]
+      (is (contains? granted (rig-pid rn pid)) (str (pr-str pid) " is granted in the rig's seed")))
+    (is (every? #(contains? one-owner (nth % 2)) (:stream-grants w)) "stream grants live in one-owner layers")
+    (is (every? #(= (:group-layer w) (nth % 2)) (get-in w [:group :grants])) "group grants live in the group")
+    (is (every? #(= 4 (count %)) (concat (get-in w [:base :grants]) (get-in w [:group :grants])))
+        "a member's permission sits beneath the layer's root"))
+  (testing "the fallback road renames persons in values, the model's value otherwise verbatim"
+    (let [rn (fallback-names "A4")]
+      (is (= {:token "v1" :persons #{:alice-a4 :bob-a4}} (rig-value rn {:token "v1" :persons #{:alice :bob}})))
+      (is (= {:token "v1"} (rig-value rn {:token "v1"})))
+      (is (= [:alice-a4 :group-a4 :group-a4 [:group-a4 :group-a4 :group-a4]] (rig-pid rn [:alice :group :own])))
+      (is (= [:alice-a4 :group-a4 :alice-hand-a4] (rig-pid rn [:alice :group :session])))
+      (is (= [:bob-a4 :base :base [:operator :base :base]] (rig-pid rn [:bob :base :own]))))))
+
+(deftest judging-an-answer
+  (let [no (fn [r] {:answer :no :reason r})]
+    (is (:ok? (judge-answer {:answer :yes} {:answer :yes} {:answer :yes})) "yes and yes, its lease yes")
+    (is (:ok? (judge-answer (no :permission-revoked) (no :permission-revoked) {:answer :yes})) "the same no")
+    (is (= 1 (:kd (judge-answer (no :permission-revoked) (no :no-such-lock) (no :permission-revoked))))
+        "KD1: the reason on the lease, the value act refused on its face")
+    (is (= 1 (:kd (judge-answer (no :permission-from-another-layer) nil (no :permission-from-another-layer))))
+        "[F8] KD1 on the lease alone when no value act was sent")
+    (is (not (:ok? (judge-answer (no :permission-revoked) (no :no-such-lock) (no :no-permission))))
+        "a lease refused for another reason than the model's is unexplained")
+    (is (not (:ok? (judge-answer (no :permission-revoked) (no :malformed) (no :permission-revoked))))
+        "a value act refused otherwise than on its face is unexplained")
+    (is (not (:ok? (judge-answer {:answer :yes} {:answer :yes} (no :person-forgotten))))
+        "[F11] a refused lease is a difference in itself")
+    (is (not (:ok? (judge-answer {:answer :yes} (no :class-mismatch) {:answer :yes}))) "the model admits, the rig refuses")
+    (is (not (:ok? (judge-answer (no :source-erased) {:answer :yes} nil))) "the model refuses, the rig admits")
+    (is (not (:ok? (judge-answer (no :source-erased) (no :stale-replaces) nil))) "two different reasons")))
+
+(deftest judging-an-exit-refusal
+  (let [forgot {:answer :yes :stamp 100}]
+    (is (= 10 (:kd (judge-exit-refusal :person-forgotten forgot nil))) "refused :person-forgotten after the reader's forget")
+    (is (= 10 (:kd (judge-exit-refusal :no-such-lock forgot {:answer :no :reason :person-forgotten})))
+        "the entry's lease refused :person-forgotten, the entry refused on its face")
+    (is (= 10 (:kd (judge-exit-refusal :no-such-lock forgot {:answer :yes :stamp 40})))
+        "the entry sealed under a lock leased before the forget")
+    (is (not (:ok? (judge-exit-refusal :no-such-lock forgot {:answer :yes :stamp 140})))
+        "a lock leased after the forget explains nothing")
+    (is (not (:ok? (judge-exit-refusal :person-forgotten nil nil))) "refused for a reader never forgotten")
+    (is (not (:ok? (judge-exit-refusal :person-forgotten {:answer :no :reason :x} nil))) "refused after a forget the rig refused")
+    (is (not (:ok? (judge-exit-refusal :not-visible forgot nil))) "another refusal after the forget")
+    (is (not (:ok? (judge-exit-refusal :no-such-lock forgot nil))) "no lease found for the entry")))
+
+(deftest judging-a-fact
+  (let [rn main-road-names
+        v {:token "v1" :persons #{:bob}}]
+    (is (:ok? (judge-fact rn nil {:k :mention :value v} {:fid 1 :stamp 5 :value v})) "open, the same value")
+    (is (not (:ok? (judge-fact rn nil {:k :mention :value v} {:fid 1 :stamp 5 :value {:token "v2" :persons #{:bob}}})))
+        "open, another value")
+    (is (:ok? (judge-fact rn nil {:k :note :erased-at 9} {:fid 1 :stamp 5 :erased-at 7})) "erased on both sides")
+    (is (not (:ok? (judge-fact rn nil {:k :note :erased-at 9} {:fid 1 :stamp 5 :value {:token "v1"}}))) "erased, the rig open")
+    (is (not (:ok? (judge-fact rn nil {:k :note :value {:token "v1"}} {:fid 1 :stamp 5 :erased-at 7}))) "open, the rig erased")
+    (is (not (:ok? (judge-fact rn nil {:k :note :erased-at 9} {:fid 1 :stamp 5 :erased-at 5})))
+        "an erasure dated at or before its value's own stamp (KD12's relation)")
+    (is (not (:ok? (judge-fact rn nil {:k :note :value {:token "v1"}} {:fid 1 :unreadable :does-not-open}))) "unreadable")
+    (is (not (:ok? (judge-fact rn nil {:k :note :value {:token "v1"}} {:fid 1 :absent true}))) "absent")
+    (is (not (:ok? (judge-fact rn nil {:k :note :value {:token "v1"}} nil))) "no row")
+    (let [src [[:alice :by-layer :offer (java.util.UUID. 1 1)] 0]
+          refs (control-refs rn {} {["o0" 0] src} :forget {:target ["o0" 0]})]
+      (is (= [src] refs))
+      (is (= 20 (:kd (judge-fact rn refs {:k :forget :value {:target ["o0" 0]}} {:fid 2 :stamp 9 :value {:target src}})))
+          "a control fact holding the mapped reference, whatever its form (KD20)")
+      (is (not (:ok? (judge-fact rn refs {:k :forget :value {:target ["o0" 0]}} {:fid 2 :stamp 9 :value {:target [:elsewhere 0]}})))
+          "a control fact that refers elsewhere")
+      (is (not (:ok? (judge-fact rn [nil] {:k :forget :value {:target ["o9" 0]}} {:fid 2 :stamp 9 :value {:target src}})))
+          "a reference with no rig counterpart"))))
+
+(deftest the-verdict-rules
+  (let [c (case-by-id "A1")
+        b (case-by-id "B1")
+        seen {:values {[:alice :note nil] :erased [:alice :mention #{:bob}] :erased}}
+        played (fn [c play] (judge-case {:id (:id c) :case c :model-seen seen :missing []
+                                         :play (merge {:seen seen :diffs [] :approx [] :kd-seen #{}} play)}))]
+    (testing "as said, with or without known differences"
+      (is (= [:practical :as-said []] ((juxt :status :outcome :fails) (played c {}))))
+      (is (= [:as-said []] ((juxt :outcome :fails) (played c {:diffs [{:where "x" :says "y" :kd 10}]})))))
+    (testing "an unexplained difference, or another seen, fails"
+      (is (seq (:fails (played c {:diffs [{:where "x" :says "y"}]}))))
+      (is (= :differs (:outcome (played c {:diffs [{:where "x" :says "y"}]}))))
+      (is (seq (:fails (played c {:seen (assoc-in seen [:values [:alice :note nil]] :open)}))))
+      (is (seq (:fails (played c {:seen nil}))) "a case that did not finish"))
+    (testing "worse than predicted fails; better does not"
+      (is (seq (:fails (played c {:approx ["a hold"]}))) "A1 is predicted practical")
+      (is (empty? (:fails (played b {}))) "B1 played with no hold is better than predicted"))
+    (testing "predictions that did not show are printed, not failed"
+      (is (= #{2 6 7 8 9 10 11 12} (:not-seen (played c {}))))
+      (is (= #{10} (:not-seen (played c {:kd-seen #{2 6 7 8 9 11 12}})))))
+    (testing "not practical: for want of names nothing fails; a broken namespace or a refusal with its stages resolved fails"
+      (is (empty? (:fails (judge-case {:id "A1" :case c :not-practical "stage 2 missing"
+                                       :missing [{:var 'x/y :missing "no such namespace"}]}))))
+      (is (seq (:fails (judge-case {:id "A1" :case c :not-practical "stage 2" :missing [{:var 'x/y :broken "does not load"}]}))))
+      (is (seq (:fails (judge-case {:id "A1" :case c :not-practical "step 3 has no rig row" :missing []
+                                    :refusal "step 3 has no rig row"})))))))
+
+(deftest the-api-table
+  (let [resolved (resolve-apis)]
+    (doseq [a apis]
+      (is (or (= :all (:cases a)) (every? (set case-ids) (:cases a))) (str (:var a) " names only the fourteen cases"))
+      (is (not (contains? (get resolved (:id a)) :broken)) (str (:var a) ": its namespace is there and does not load")))
+    (doseq [a apis :when (#{"1" "5a"} (:stage a))]
+      (is (contains? (get resolved (:id a)) :value) (str (:var a) " is built on this branch")))
+    (doseq [id case-ids]
+      (is (some #(and (= "2" (:stage %)) (needs? % id)) apis) (str id " needs phase 2's persons"))
+      (is (some #(and (= "3" (:stage %)) (needs? % id)) apis) (str id " needs phase 3's seed")))))
+
+(deftest the-report-renders
+  (let [resolved (resolve-apis)
+        results (mapv #(judge-case (prepare-case resolved %)) cases)
+        lines (vec (report-lines {:started "now" :resolved resolved :results results
+                                  :check {:road :fresh :launch-ms 1 :destroy-ms 1 :relaunch-ms 1}}))
+        text (set lines)]
+    (doseq [prefix ["run " "rig " "model " "cluster " "stages " "summary " "not tested by the lockstep (F10):"]]
+      (is (some #(str/starts-with? % prefix) lines) (str "the header has " prefix)))
+    (doseq [x f10-lines] (is (contains? text (str "  " x))))
+    (doseq [n (range 1 21)] (is (some #(str/starts-with? % (str "  KD" n " [")) lines) (str "KD" n " is reported")))
+    (doseq [set-id [:a :b :d]
+            [cname cfg] (:configs (named-configs set-id))
+            c (filter #(= set-id (:set %)) cases)
+            l (model-lines cname cfg c (:checks (named-configs set-id)))]
+      (is (contains? text l) (str (:id c) " under " (name cname) ": the model's own line")))
+    (is (= (+ 32 8 4) (count (filter #(str/starts-with? % "      rig:    ") lines)))
+        "one rig line per case per configuration, under the model's (A 8 x 4, B 4 x 2, D 2 x 2)")))
+
+(deftest holds-follow-the-model
+  (let [at-request (fn [id]
+                     (let [steps (:steps (lockstep fm/baseline (:history (case-by-id id))))
+                           step (first (filter #(some #{"o2"} (map :name (:decided %))) steps))
+                           p (atom {:steps steps})]
+                       {:cross (#'decided-later? p step "crossing:o2") :land (#'decided-later? p step "landing:o2")
+                        :p p :steps steps}))]
+    (testing "B1 and B2: the read-out is decided later, so it is held; no landing is ever decided, so none is held"
+      (doseq [id ["B1" "B2"]]
+        (let [{:keys [cross land p steps]} (at-request id)
+              crossing-step (first (filter #(some #{"crossing:o2"} (map :name (:decided %))) steps))]
+          (is (true? cross) id)
+          (is (false? land) id)
+          (is (false? (#'decided-later? p crossing-step "landing:o2")) (str id ": nothing to hold at the read-out")))))
+    (testing "B3 and B4: the read-out in the request's own op, not held; the landing later, held"
+      (doseq [id ["B3" "B4"]]
+        (let [{:keys [cross land]} (at-request id)]
+          (is (false? cross) id)
+          (is (true? land) id))))))
+
+(deftest the-group-keeps-a-reader
+  (let [p (fn [forgotten] (atom {:rn identity :forgotten forgotten}))]
+    (is (= :alice (#'live-member (p {}))))
+    (is (= :bob (#'live-member (p {:alice {:answer :yes}}))) "[F4] Bob reads the group after Alice's forget")
+    (is (= :alice (#'live-member (p {:alice {:answer :no :reason :x}}))) "a refused forget leaves Alice live")
+    (is (nil? (#'live-member (p {:alice {:answer :yes} :bob {:answer :yes}})))
+        "no live member: the read falls to Alice, whose refusal KD10 judges")))
+
+(deftest seed-answers-are-found-in-every-shape
+  (let [y {:answer :yes :stamp 1}
+        n {:answer :no :reason :class-mismatch}]
+    (is (= [y] (answers-in y)) "an ack")
+    (is (= [y y y] (answers-in [y y y])) "make-base!'s answers")
+    (is (= [y n] (answers-in {:reclass {:offer {} :answer y} :made n :offer {}})) "make-group!'s, the re-class first")
+    (is (= [y] (answers-in {:reclass nil :made y :offer {}})) "make-group! with the base already re-classed")
+    (is (= #{y n} (set (answers-in {:alice y :group n}))) "open-session!'s, per layer")
+    (is (= :unknown (:answer (first (answers-in 42)))) "anything else is not a yes")))
+
+(deftest extra-rows-are-facts-the-model-lacks
+  (let [known #{[:a 0]}
+        rows [{:fid [:a 0] :k :note} {:fid [:b 0] :k :note} {:fid [:c 0] :k :lease} {:fid [:d 0] :k :read/point}
+              {:fid [:e 0] :k :permission} {:fid [:f 0] :k :kind} {:fid [:g 0] :absent true} {:fid [:h 0] :k :revoke}]]
+    (is (= [[:b 0] [:h 0]] (mapv :fid (#'extra-rows rows known)))
+        "a value, or a control fact with no counterpart; never a counterpart or a rig-only kind")))
+
+(deftest control-references-for-every-kind
+  (let [rn identity
+        req [:alice :by-layer :offer (java.util.UUID. 2 2)]
+        src [[:alice :by-layer :offer (java.util.UUID. 1 1)] 0]
+        rname {"o2" req}
+        rfid {["o0" 0] src}]
+    (is (= [src :group] (control-refs rn rname rfid :promote-request {:source ["o0" 0] :target :group})))
+    (is (= [req src] (control-refs rn rname rfid :crossed {:request "o2" :source ["o0" 0]})))
+    (is (= [src] (control-refs rn rname rfid :forget {:target ["o0" 0]})))
+    (is (= [[:alice :group :alice-hand]] (control-refs rn rname rfid :revoke {:permission [:alice :group :session]})))
+    (is (= [[:alice :group :group [:group :group :group]]] (control-refs rn rname rfid :revoke {:permission [:alice :group :own]})))))
+
+(deftest a-call-or-a-wait-that-does-not-return-is-cut
+  (with-redefs [call-ms 200 wait-ms 200]
+    (let [t0 (System/nanoTime)
+          e (try (bounded-call "a stuck call" #(Thread/sleep 5000)) nil (catch clojure.lang.ExceptionInfo e e))]
+      (is (= "a stuck call" (::timeout (ex-data e))))
+      (is (::call (ex-data e)) "marked as a call, so the run plays no later case")
+      (is (< (ms-since t0) 2000) "cut at its bound, not waited out"))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"boom" (bounded-call "a call that throws" #(throw (ex-info "boom" {}))))
+        "a call's own exception is its own")
+    (is (= 7 (bounded-call "a call that returns" (constantly 7))))
+    (let [e (try (wait-for "nothing comes" (constantly nil)) nil (catch clojure.lang.ExceptionInfo e e))]
+      (is (= "nothing comes" (::timeout (ex-data e))))
+      (is (not (::call (ex-data e))) "a wait that times out is that case's difference, and later cases still run"))
+    (is (= :there (wait-for "it comes" (constantly :there))))))
