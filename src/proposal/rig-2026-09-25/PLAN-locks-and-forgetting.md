@@ -1,0 +1,1324 @@
+# Plan — stage 2, "locks-and-forgetting"
+
+<!-- Phase 1 Step 5 of the rama skill, for the second entry of DECOMPOSITION.json.
+Written 25 September 2026 by a fresh-context session (Claude Fable 5.1, effort
+max). Plan only: no module or test code. Sources: SPEC.md and everything it
+names (PROGRESS.md "Now" 9-195; the model README 42-152; model.clj in full,
+`baseline`; scenarios.clj); RIG.md (phase 0, R1 to R14); IMPLICIT_SPEC.md
+(cited as I-xx, OPn, RDn, En, On, Dn); DECOMPOSITION.json (the
+"locks-and-forgetting" scope); PLAN-stream-store.md as validated (cited as
+"stage 1", its picks P1 to P16 and fixes [F n]) and
+PLAN_VALIDATION-stream-store.md; the rama skill's references (stream,
+pstate-schema, paths, depot-reference "Depot Trimming", depot-migration,
+app-design, depot-design, patterns, microbatch, testing, unique-ids,
+task-globals, artifact-plan, artifact-plan-validation). Where a line here
+summarises a source, the source wins. Vocabulary: "key" is a fact's key;
+"lock" is an encryption key; never one word for both. Planned against
+stage 1's plan, not its code (RIG.md "Restarted"). -->
+
+## Scope of this stage, in one paragraph
+
+Sid's phase 2 (SPEC.md): real encryption, kept simple. Every value gets its
+own small symmetric lock at write, wrapped under the person locks of the
+people it is about, as `model.clj`'s `wrap` reads it under the `baseline`
+entries `:wrap :owner-required` and `:lock-subjects :fact`; the grain
+setting (per value, per act); the lock rows in a lock store for personal and
+hand layers, on the same task as their values, and in the record for agent
+layers, a mark overriding; the person locks and where they live; value
+forget (the row deleted, or the record's lock excised), person forget (the
+person lock destroyed), every forget a fact; and a read as of a moment that
+shows an erasure only as its date. The subjects of a value come from the
+layer's owner, the tool, and the one grammar the model has (`:mention`
+names people), in a form stage 6 can move into facts. The stage extends
+stage 1's stream gate and its `$$layers` PState on the one-owner side; the
+shared layers' locks in the record are stage 3's, promotion's read-out is
+stage 4's, point and pattern reads with visibility are stage 5's. Later
+stages are black boxes: this plan says what state it leaves and where.
+
+The rulings this plan implements are I-L1 to I-L8, I-P5 (locks fixed at
+write), D2, D3, D9, D12, and the operations OP8 (its lock effect), OP9,
+OP10, OP11 (as "no restore"), OP12 (as "not this stage"), RD4 (the erasure
+part), RD7; the matrix rows of E2 (forget and person-forget rows), E3 (L1 ×
+grain switch, L2 × value forget), E5, E6 and E9 (G0, G1, G2 as far as
+subjects go). The open items that fall to this stage are O2, O7, O8, O11 to
+O16, plus O1's forget-related refusals and O20's subject-extraction half;
+each pick is under "Rig choices proposed", never as a ruling.
+
+## The shapes every section below uses
+
+Stage 1's shapes (name, offer, fact, permission id, digest, answer record,
+stood-on map, log entry, stamp) stand unchanged. Added or changed here:
+
+**Control keys (D2).** Facts the store itself acts on get no lock and their
+value slot stays plaintext canonical EDN (P12): the model's `#{:forget
+:lock-grain :class :promote-request :crossed :permission :revoke}`, stage 1's
+`:kind` and `:owner`, and this stage's `:person` and `:forget-person`.
+**Placed keys (P4)** grow by `:person` and `:forget-person`: an act whose
+every fact key is placed carries a name with class nil.
+
+**Value fact.** Any fact whose key is not a control key and whose value slot
+is not nil (a retract, P13, has nothing to lock and gets none, L14).
+
+**Grammar** (ruling 8; `fact-subjects` in the model; stage 6 moves it into
+facts): a map from fact key to a grammar entry, a constant in
+`rig.store.grammar` for this stage:
+
+```
+{:mention {:subjects-at [:persons]}}   ; the value's :persons collection names people
+```
+
+`(subjects-of grammars k v)` → the set of person ids the value names: the
+keywords found at `:subjects-at` in `v` when `v` is a map and that position
+holds a collection of keywords; refused as data otherwise (L12). A key with
+no entry names no one.
+
+**Own subjects of a value** (the sharpening of rulings 7, 7b, 8: "the three
+sources applied to that fact"): `owner ∪ grammar(k, v) ∪ carried`, where
+`owner` is the layer's owner from `:settings` (nil in shared layers),
+`grammar` is above, and `carried` is the offer's `:subjects` part (the
+tool's, P15). **The act's subject slot** (ruling 8, "for finding") is the
+union of its facts' own subjects, on the answer record as stage 1 keeps it,
+now including the grammar's. The union is capped at 256 persons (L13).
+
+**Wrap** (`wrap` in the model under `:owner-required`): `{:required [p ...]
+:any-of [p ...]}`, sorted vectors of person ids, fixed at write:
+
+- marked `:die-with-any`: required = own subjects (owner included), any-of
+  empty;
+- unmarked, the layer has an owner: required = `[owner]`, any-of empty;
+- unmarked, no owner (shared layers, stage 3): required empty, any-of = own
+  subjects (empty when the value is about no one).
+
+A wrap opens while every required person's lock is alive and, when any-of is
+non-empty, at least one any-of person's lock is alive (`wrap-closed`).
+
+**Lock id**: `[:value fid]` under per-value grain, `[:act name]` under
+per-act grain (the model's `[:act name p]` without `p`: an act of a layer
+placed by layer sits on one task; O8 for later stages).
+
+**Lock record** (the wrapped value lock as stored, in a lock row or in the
+log row):
+
+```
+{:required [p ...]  :any-of [p ...]          ; the wrap
+ :blob     base64 | nil                      ; K sealed under the required chain; nil when any-of is non-empty
+ :any-blobs {p base64, ...} | nil}           ; per any-of person: the required-sealed K sealed under that person's lock
+```
+
+where `K` is the value lock (32 random bytes), "seal" is AES-256-GCM with a
+fresh 12-byte nonce prepended to the ciphertext and tag, the required chain
+seals K under each required person's lock in sorted order, and base64 is the
+text form the slot stores (L4). An empty wrap stores K bare in `:blob`
+(shared layers, a value about no one: stage 3).
+
+**Log row** (stage 1's `{:e :k :v :replaces :mark}`) gains three fields:
+`:v` holds the base64 of the canonical EDN bytes sealed under K for a value
+fact (plaintext EDN text for a control fact, nil for a retract); `:lock-id`
+as above (nil for control facts and retracts); `:lock`, the lock record
+when the lock is kept in the record, nil for a row lock, nil again after an
+excision.
+
+**Lock row**: the lock record under its lock id in the layer's `:locks`
+map. A value has a row when its layer's kind is personal or hand, or when
+it is marked `:own-row`; otherwise the record holds its lock (ruling 7; D9:
+the mark overrides in every layer).
+
+**Erasure ledger entry**: under a lock id in the layer's `:erased` map,
+`{:stamp long :how :row-deleted | :excised}`: the date a value forget
+erased that lock. A wrap closed by a person forget has no entry; its date is
+computed from the person locks (below).
+
+**Person lock**: `{:lock base64-or-nil :erased-at long-or-nil}` under the
+person id in `$$persons`, on every task. `:lock` is 32 random bytes made by
+the gate at the person's making act and nil once destroyed; `:erased-at` is
+the stamp of the forget-person fact.
+
+**Erasure of a value** (`erasure` in the model), computed where the value
+is: the ledger entry for its lock id if present (the value forget's date,
+O14), else `wrap-closed` over `$$persons`: closed when a required person is
+erased or every any-of person is; its date is the earliest of these
+candidates: each dead required person's `:erased-at`, and, only when every
+any-of person is dead, the latest any-of `:erased-at` (the model's `first
+(sort-by :order ...)` over exactly those candidates, with stamps in place of
+`:order`; all person forgets are stamped on one task, so their stamps are a
+total order, L8).
+
+**Forget acts.** A value forget is an act in the value's layer, tag class
+nil, by the layer's owner (citing their own-layer permission) or the
+operator, with one fact `{:e e :k :forget :v {:target fid}}`, standing on
+the target (`op-forget-value`). A person forget is an operator act in the
+store layer `:people` with one fact `{:e p :k :forget-person :v {:person
+p}}` (L7, L8). A person is made by an operator act in `:people` with one
+fact `{:e p :k :person :v {:id p}}` (L7).
+
+## Reads
+
+Stage 1's reads stand. Added reads, each on the value's task; the ones that
+need more than one PState read go through the query topology `read-as-of`
+(Step 1's second question), the rest are one `foreign-select-one`:
+
+| read | who | path | seeks | note |
+|---|---|---|---|---|
+| RD4 a layer as of T: every yes act stamped ≤ T, each fact with its value or its erasure date, and every erasure by now | tests, stage 5 | query topology `read-as-of [layer T]` (below) | 1 + acts ≤ T + about 3 per value fact | the erasure part of RD4 is this stage's; visibility (I-P2), points and patterns are stage 5's |
+| RD7 whether one value opens, and since when | tests, stage 4 (in the event), stage 5 | through `read-as-of` in this stage; in a gate event: the row `[(keypath layer :log name idx)]`, the ledger `[(keypath layer :erased lock-id)]`, the lock row `[(keypath layer :locks lock-id)]` when the row's `:lock` is nil, and `[(keypath p)]` on `$$persons` per wrap person | 2 + 2 + 2 + w | all local; `rig.store.lock/erasure` and `rig.store.crypto/open` are the pure steps |
+| RD7s the lock store's size for a layer | phase 7 (M2), tests | `foreign-select [(keypath layer :locks) ALL]` | 2 + rows iterated | count and serialized bytes by iteration; size tracking is off (L15) |
+| a lock row | tests | `[(keypath layer :locks lock-id)]` | 2 | the lock record; nil once deleted |
+| an erasure ledger entry | tests, stage 5 | `[(keypath layer :erased lock-id)]` | 2 | `{:stamp :how}` or nil |
+| a person's lock state | the gate (locally), tests | `[(keypath p)]` on `$$persons` | 1 | on every task; a foreign read routes by `p` to some task and every task holds the same entry once the person act's ack returned |
+| the by-stamp index of a layer | `read-as-of`, stage 5 | `[(keypath layer :by-stamp) (sorted-map-range-to (inc T))]` | 1 seek + entries | stamp → name, yes answers only |
+| the depot record of an offer (the known gap, O2) | the test that shows the gap | `foreign-depot-read` | — | plaintext values, see "Design Decisions", O2 |
+
+The gate's own reads per offer, added to stage 1's ordered list and read only
+when the record does not decide the offer: `[(keypath p)]` on `$$persons`
+for every distinct person in the act's wraps (one for an ordinary act: the
+owner; more only for marked values naming others), read in a `loop<-` that
+emits a map even when empty (never `ops/explode`, [F7]); for a `:forget`
+fact, the target row `[(keypath layer :log tname tidx)]` and then, when the
+row has a lock id, the ledger entry `[(keypath layer :erased lock-id)]`; for
+a `:person` or `:forget-person` fact, `[(keypath p)]` on `$$persons`; for a
+making act (`:owner` fact), `[(keypath owner)]` on `$$persons`. The counts
+are in "Partitioning efficiency".
+
+## Writes
+
+One depot, stage 1's `*offers`; every write is an offer. By operation:
+
+| op | offer | facts | decided by, and the lock effect |
+|---|---|---|---|
+| OP1 offer an act (stage 1) | as stage 1 | value facts | the gate on the home; per value fact a fresh lock K, the value sealed under K into `:v`, K wrapped under the fact's wrap into a lock record; the record goes to `:locks[[:value fid]]` (row) or the row's `:lock` (record); a fact whose wrap names a person with no lock or a destroyed one is refused (`:no-such-person`, `:person-forgotten`, L11); `:by-stamp[stamp] = name` |
+| OP1 under per-act grain | as stage 1 | value facts | one K for the act, wrapped under the act's union with marked? = any value fact marked (L6); the lock record at `:locks[[:act name]]` when the layer's kind is personal or hand or any fact is marked `:own-row`, else in every row's `:lock` |
+| OP8 grain switch (stage 1) | as stage 1 | `:lock-grain` | as stage 1; the next act decided on the home reads the new grain (I-P5) |
+| OP9 forget a value | `:who` the layer's owner with `[owner L L]`, or `:operator`; `:layer` the target name's layer; tag class nil; `:stood-on {target-fid stamp}` | `{:e e :k :forget :v {:target fid}}` | the gate on the home; the target row must be in this layer's log on this task, else `:no-such-value` (L10); a target with no lock id, or a lock already in the ledger: admitted, nothing changes; else a row lock is deleted (`NONE>` on `:locks[lock-id]`, `:how :row-deleted`) or a record lock is excised (`termval nil` on the row's `:lock`, every row of the act under per-act, `:how :excised`), and `:erased[lock-id] = {:stamp s :how}` |
+| OP10 make a person | `:who :operator`, `:layer :people`, tag class nil | `{:e p :k :person :v {:id p}}` | the gate on `:people`'s home: `:person-already-made` when `$$persons[p]` exists; else `$$persons[p] = {:lock fresh :erased-at nil}` on the home in the decision's group, then `(|all)` and `termval` of the home's entry on every task (L7, L9) |
+| OP10 forget a person | `:who :operator`, `:layer :people`, tag class nil, `:stood-on {person-fid stamp}` | `{:e p :k :forget-person :v {:person p}}` | the gate on `:people`'s home: `:no-such-person` when no entry; an entry already erased: admitted, nothing changes (the first date stays); else `$$persons[p] = {:lock nil :erased-at s}` on the home in the decision's group, then `(|all)` and `termval` of the home's entry on every task |
+| seed | the operator's acts | the `:people` layer (`:kind :store`, `:class :by-layer`, `:lock-grain :per-value`, no owner), then a `:person` act per person of the world (`:alice`, `:bob`), then stage 1's layers and grants | the gate, before any history; a making act naming an owner with no person lock is refused `:no-such-person` (L11), so persons come first |
+
+The gate's writes on a yes, all on the home task in the one decision event
+as stage 1, extended: per value fact the row (`termval`, now with `:v`
+ciphertext, `:lock-id`, `:lock`), per row lock one `termval` into `:locks`,
+one `termval` into `:by-stamp`; for a forget one `NONE>` or one or more
+`termval nil` and one ledger `termval`; for a person act one `termval` into
+`$$persons`. Every one is a set or a delete keyed by name, fact id, lock id,
+stamp or person id. The values written by a fresh decision include fresh
+random bytes (locks, nonces): a replay that reaches the writes (possible
+only when nothing was committed) produces the same facts under a different
+encoding, which I-L8 allows and I-G2 does not forbid; a replay that finds
+the record writes nothing and, for a person act, repeats the idempotent
+fan-out (L9). The person fan-out is the one place a partitioner enters the
+gate's event (see "Topologies").
+
+## PState Design
+
+Two PStates change or appear: stage 1's `$$layers` grows four fields (three
+per-layer maps and three row fields), and `$$persons` is new. `$$clock`
+stands.
+
+### Where the lock rows and the ledger live: in `$$layers`, by the merge rule
+
+Everything this stage keeps about a value is keyed by its lock id or its
+fact id and wanted on the value's task (I-L2), which is the layer's home
+(ruling 2, P2). Stage 1's hand-off said it: anything so keyed shares
+`$$layers`'s key and partitioner, so by the merge rule (phase-1-plan Step 2)
+it is a field of the layer's value, not a PState of its own. The candidates
+costed for the two reads that matter, the gate's decision (every offer) and
+the erasure check (every open, in the gate for stage 4 and in `read-as-of`):
+
+- **Option A, a separate `$$locks {layer {lock-id record}}`** (and
+  `$$erased`, `$$by-stamp`): same key, same partitioner as `$$layers`. The
+  decision's lock write is a no-read set either way; the erasure check pays
+  one more top-level seek per PState (the layer's entry in each) before the
+  element seek: 2 + 2 + 2 against 2 + 1 + 1 when the maps sit under the one
+  layer entry already loaded for `:settings`. Three more partitions per
+  task for the same key. Rejected: no read is cheaper, every task pays the
+  memory.
+- **Option B, the lock record inside the log row for every value** (no
+  `:locks` map): deleting a row lock would be a `termval nil` on the row's
+  `:lock`, indistinguishable from an excision; the ruling separates the two
+  ("own row in the lock store" versus "in the record", with excision the
+  operator's fallback) and phase 7's M2 measures the lock store's growth
+  under hand layers as its own number. Rejected on the ruling; costs are
+  equal.
+- **Option C, chosen: three subindexed maps under the layer's fixed-keys
+  value** (`:locks`, `:erased`, `:by-stamp`) and three fields on the log
+  row. The decision reads nothing new for a value's lock (the wrap needs
+  `$$persons`, below); a value forget reads the target row (2 seeks) and the
+  ledger (1 more under the loaded entry); the erasure check is 1 + 1 (+ 1
+  for a row lock) under the loaded entry.
+
+Schema, stage 1's `$$layers` with the additions marked `; +2`:
+
+```clojure
+(declare-pstate s $$layers
+  {clojure.lang.Keyword
+   (fixed-keys-schema
+     {:settings    ...                                            ; stage 1
+      :answers     ...                                            ; stage 1 (the :subjects set now includes the grammar's, capped at 256, L13)
+      :log         (map-schema clojure.lang.PersistentVector      ; name
+                               (vector-schema
+                                 (fixed-keys-schema
+                                   {:e        clojure.lang.Keyword
+                                    :k        clojure.lang.Keyword
+                                    :v        String              ; +2 base64 ciphertext for a value fact; EDN text for a control fact; nil for a retract
+                                    :replaces clojure.lang.PersistentVector
+                                    :mark     (set-schema clojure.lang.Keyword)
+                                    :lock-id  clojure.lang.PersistentVector   ; +2 [:value fid] | [:act name] | nil
+                                    :lock     (fixed-keys-schema              ; +2 the lock record when kept in the record; nil for a row lock; nil once excised
+                                                {:required  clojure.lang.PersistentVector
+                                                 :any-of    clojure.lang.PersistentVector
+                                                 :blob      String
+                                                 :any-blobs (map-schema clojure.lang.Keyword String)})})
+                                 {:subindex-options {:track-size? false}})
+                               {:subindex-options {:track-size? false}})
+      :stood-on    ...                                            ; stage 1
+      :heads       ...                                            ; stage 1
+      :permissions ...                                            ; stage 1
+      :locks       (map-schema clojure.lang.PersistentVector      ; +2 lock id -> the lock record: the lock store's rows for this layer
+                               (fixed-keys-schema
+                                 {:required  clojure.lang.PersistentVector
+                                  :any-of    clojure.lang.PersistentVector
+                                  :blob      String
+                                  :any-blobs (map-schema clojure.lang.Keyword String)})
+                               {:subindex-options {:track-size? false}})
+      :erased      (map-schema clojure.lang.PersistentVector      ; +2 lock id -> {:stamp :how}: the erasure ledger
+                               (fixed-keys-schema {:stamp Long :how clojure.lang.Keyword})
+                               {:subindex-options {:track-size? false}})
+      :by-stamp    (map-schema Long clojure.lang.PersistentVector ; +2 stamp -> name, yes answers only
+                               {:subindex-options {:track-size? false}})})})
+```
+
+Why each part is shaped so:
+
+- `:locks` keyed by lock id: the erasure check and the forget are point
+  reads and a no-read delete by id; unbounded (one row per value in
+  personal and hand layers, one per act under per-act), so subindexed.
+  Size tracking off: M2 counts and sizes rows by iteration once per
+  measurement point, and tracking would add a read to every hand-layer
+  write, the very writes M2 times (L15).
+- `:erased` keyed by lock id: `erasure` in the model looks the ledger up
+  by lock id first. It is an index over lock ids, not values; rebuildable
+  from the log's `:forget` facts (plaintext control values, D2), so I-L5
+  holds. Unbounded, subindexed. It is not folded into `:locks` as a row with
+  a date because the ruling says the row is deleted (SPEC phase 2) and M2's
+  count must fall when it is.
+- `:by-stamp` keyed by stamp: a read as of T (I-L7, this stage's erasure
+  part of RD4) is one range `(sorted-map-range-to (inc T))` plus the acts
+  it covers, instead of a scan of `:answers`; stamps are strictly increasing
+  per task and a layer sits on one task, so a stamp names at most one act.
+  Rebuildable from `:answers` (stage 1 said it "belongs in `$$layers` if
+  kept"). Unbounded, subindexed. Refusals get a stamp but no entry.
+- The lock record is a `fixed-keys-schema`: one shape for every wrapped
+  lock, with `:blob` nil exactly when `:any-of` is non-empty and
+  `:any-blobs` nil otherwise (nullable fields on one shape, allowed).
+  `:any-blobs` is not subindexed: it is bounded by the 256 cap on subjects
+  (L13), an enforced bound.
+- `:required` and `:any-of` are sorted vectors, not sets: the required
+  chain's sealing order must be reproducible from the record, and a vector
+  of keywords is one of stage 1's known classes.
+- `:lock-id` on the row lets a reader find the lock without knowing the
+  layer's grain at the value's write time (I-P5: the pick sticks per
+  value).
+- No `Object`: person ids are keywords (P3), ids are vectors rebuilt by the
+  parser ([F6]), ciphertext and locks are base64 `String` (L4).
+
+### `$$persons` — every person's lock, on every task
+
+The person locks are the one datum every open needs (the read-out on the
+owner's task in stage 4, the gate's wrap at every write, every read that
+shows a value) and that no layer owns. Placement `f(person) → task(s)`,
+derived from those reads first:
+
+- **On one task** (`|hash` by person, or `:global? true` on task 0): every
+  write of a value wrapped under Alice needs Alice's lock from that task,
+  so the gate's decision event would hop there and back (two partitioner
+  boundaries, three atomic groups) or read it through a query from the
+  client before appending (a plaintext lock on the wire and in the offer,
+  which then sits in the depot: rejected on I-L4). The hop breaks stage 1's
+  one-event, no-hop decision (RQ 1's atomic group; "same answer after a
+  crash"), and every later open pays it too. Cost per ordinary act: 5 seeks
+  plus one network round trip; per read-out (stage 4): the same.
+- **On every task** (`|all`), chosen: a person lock is about 60 bytes,
+  written twice in its life (made, destroyed), read at every write about
+  the person and every open. pstate-schema.md names this exactly as the
+  case for `|all`: small, rarely written, read locally everywhere. Cost per
+  ordinary act: 1 local seek; per person act: N local writes, once. The
+  memory is one entry per person per task.
+
+```clojure
+(declare-pstate s $$persons
+  {clojure.lang.Keyword                                 ; person id
+   (fixed-keys-schema {:lock String                     ; base64 of 32 random bytes; nil once destroyed
+                       :erased-at Long})})              ; the forget-person fact's stamp; nil while alive
+```
+
+Owned by the stream gate (the only topology that writes; stage 3's micro
+gate reads it as committed state on its own tasks). Its key class equals
+`$$layers`'s but its partitioner does not (every task, by `|all`, versus
+the layer's home), which is the one justification the merge rule accepts
+for a separate PState. Not `:global?`: a global PState lives on task 0 only.
+Top-level map, RocksDB-backed, so a person's entry is one seek; no
+subindexing (each value is two small fields).
+
+### What is not a PState
+
+No index over plaintext values: `:heads` holds ids and stamps (stage 1),
+`:erased` and `:by-stamp` hold ids and stamps. No copy of a value lock
+anywhere but its one lock record. No TaskGlobal: person locks are read from
+`$$persons` at every use, one local seek, block-cached for a hot person; a
+cache of locks in memory would be a second place a destroyed lock could
+survive and one more thing to keep right across restarts, for no seek that
+matters (the CLAUDE.md rule on caching applies: nothing here makes a cache
+look necessary).
+
+## Depots
+
+Stage 1's `*offers`, `(hash-by :layer)`, unchanged: every operation of this
+stage is an offer into a layer, decided on that layer's home, and the
+forget of a value is order-dependent with the value's other operations
+(a read-out, a replace) on the same task, which one depot keyed by layer
+gives (OP9 "Concurrency": a forget and a read-out on one task are ordered by
+that task). The person acts go into the store layer `:people`, so they too
+ride `*offers` and are ordered among themselves on `:people`'s home; their
+effect reaches every task by the fan-out inside the event, not by a second
+depot. No internal depot: nothing here needs a second topology to wait on
+the first, and no datum the fan-out carries is unavailable to the stream
+gate's own event.
+
+**Depot retention, the known gap (O2, I-L4).** Every offer's plaintext
+values sit in `*offers` for ever; the rig keeps them there. What the rig
+does about it and what it leaves is under "Design Decisions", O2.
+
+## Topologies and PStates
+
+One stream topology, stage 1's `gate`, extended; it owns `$$layers`,
+`$$clock` and `$$persons`. One query topology, `read-as-of`, new (below).
+No microbatch topology in this stage (stage 3's). Topology count: still one
+stream topology; a second is not declared because every concern here is a
+part of the one decision per offer and must be visible when the answer is.
+
+### `gate` — stream (stage 1's reasons stand)
+
+**Why stream** (both of artifact-plan.md's reasons; ruling 1 names the
+type): the person's own write, now with its lock, is visible to their next
+read without optimism (I-O6); the answer, including a forget's, returns
+through the append's ack, and OP9 needs the forget "complete at the answer,
+never eventual". A microbatch would give neither.
+
+**Every concern in it needs stream.** Sealing the value, wrapping the lock,
+writing the lock row, deleting or excising it on a forget, writing the
+ledger, and destroying a person lock are each part of one decision whose
+answer the offerer takes from the ack: if the lock row were written later
+by a microbatch, a read-out (stage 4) between the answer and the row would
+find a value with no lock; if the deletion were later, a forget answered
+yes would still open (OP9's invariant broken). So none moves.
+
+**The event, on the home task.** Stage 1's six steps, extended; the
+decision is still one atomic group with no hop except for the person
+fan-out at the end:
+
+1. `source>` as stage 1 (`:all-after`, P11).
+2. `parse` as stage 1, extended: control values checked (`:forget` carries
+   `{:target fid}` with a well-formed name and a non-negative long index;
+   `:person` `{:id p}` and `:forget-person` `{:person p}` with a keyword;
+   else `:malformed-control`, R13); then `grammar/subjects-of` per value
+   fact (pure) and the act's union: a `:mention` whose `:persons` is not a
+   collection of keywords is refused on its face `:value-shape` (L12); a
+   union over 256 persons is refused on its face `:too-many-subjects`
+   (L13). Face refusals are unrecorded (P7).
+3. Reads, record first, then only when undecided: stage 1's settings,
+   clock, wall, permission row, heads loop; then `[(keypath p)]` on
+   `$$persons` for each distinct person of the act's wraps in a `loop<-`
+   emitting a map (possibly empty) on termination [F7]; for a `:forget`
+   fact the target row `[(keypath layer :log tname tidx)]` and, inside a
+   `<<if` on its lock id, the ledger entry; for a `:person`,
+   `:forget-person` or `:owner` fact `[(keypath p)]` on `$$persons`. Each
+   such var is bound nil on the branches that do not read it, so the
+   attach point unifies (dataflow.md; [F7]).
+4. Fresh randomness, bound before the pure decision: `(crypto/fresh n :>
+   *fresh)`, a vector of `n` locks and their nonces for the act's value
+   facts (or one for the act under per-act), plus one for a `:person` fact.
+   A `defn` over `SecureRandom`; never `ops/random-uuid7` or any generator
+   inside `decide`, which stays pure and total.
+5. `decide`, pure and total, extended with `lock/lock-for` per value fact
+   and `crypto/seal` + `crypto/wrap-lock` over the fresh material and the
+   person locks read in step 3, producing the rows, the lock records, the
+   `:by-stamp` entry, and, for a forget, the deletion or excision and the
+   ledger entry, and, for a person act, the `$$persons` entry. New reasons,
+   appended after stage 1's list in I-G5's spirit (every earlier check
+   reads nothing more than stage 1 read): `:no-such-person` (a wrap person
+   with no `$$persons` entry; a `:forget-person` of an unknown person; a
+   making act whose `:owner` has none), `:person-forgotten` (a wrap person
+   whose entry is erased), `:person-already-made` (a `:person` fact for an
+   existing entry), `:no-such-value` (a `:forget` whose target row is not
+   in this layer's log on this task). All recorded under the name with a
+   stamp (they come after the name is trusted). `:control-not-allowed`
+   (R13) now admits the layer's owner for `:forget` as well as
+   `:lock-grain` (L10). A `:forget` whose target has no lock id, or whose
+   lock is already in the ledger, decides yes with no lock effect
+   (`apply-control`'s nil branch; OP9 "the second is admitted and changes
+   nothing"). A `:forget-person` of an already erased person decides yes
+   with no change (the first date stays).
+6. Writes, only for a fresh decision, all sets and deletes as listed under
+   "Writes". The crash hook (P14) stays where stage 1 put it.
+7. `ack-return>` as stage 1; the answer of a value forget also carries
+   `:how` (`:row-deleted`, `:excised`, or nil when nothing changed), the
+   model's note made data.
+8. **The person fan-out**, only when the act carries a `:person` or
+   `:forget-person` fact and its answer is yes, fresh or recorded:
+   `(local-select> [(keypath *p)] $$persons :> *entry)` on the home (the
+   entry as the decision left it, or as later acts left it on a recorded
+   replay), then `(|all)`, then `(local-transform> [(keypath *p) (termval
+   *entry)] $$persons)`. The `|all` is the commit boundary for the home's
+   writes (stream.md "When PState writes commit"), so the record, the fact
+   and the home's own entry are durable before any other task copies it.
+   The `termval` of the carried entry is idempotent and order-safe:
+   children from one source task reach each task in order (stream.md
+   "Partition ordering"), and a replayed make after a forget carries the
+   erased entry, the latest truth. The ack returns when the whole tree
+   completes, so once the offerer has the answer every task holds the
+   destroyed lock (OP10 "once answered, no value ... opens anywhere").
+
+**Idempotency of every write, traced.** Stage 1's trace stands for its
+writes. New: the row's `:v`, `:lock-id`, `:lock` are part of the row's one
+`termval`; `:locks[id]` a `termval` (a replay that reaches it committed
+nothing before); `:by-stamp[stamp]` a `termval` of the name; `:erased[id]` a
+`termval`; a row lock's `NONE>` (deleting twice is the same); an excision's
+`termval nil` (nil twice is the same); `$$persons[p]` a `termval` on the
+home and on every task. No increment, no append. The fresh random bytes
+differ between a lost attempt and its replay, but a lost attempt committed
+nothing (RQ 1), so exactly one encoding ever exists for a fact.
+
+**Same answer after a crash, extended.** A crash before the home's commit:
+no record, replay decides on the same state (a fresh lock, the same facts).
+A crash after the home's commit and before a fan-out child: the replay
+finds the record, writes nothing on the home, re-reads its `$$persons`
+entry and fans out again; a child that had already written gets the same
+entry. A crash in the middle of the children: the same, at least once per
+task. R4: tests assert at least once, never a count.
+
+**No input can make topology code throw** (I-G1, RQ 3), extended: the
+crypto functions take bytes the gate itself produced or decoded from
+base64 it wrote; `unseal` on a tampered or foreign blob throws
+`AEADBadTagException`, so `crypto/open` catches `Throwable` and returns nil
+(the value does not open), never propagating; base64 decoding of a slot
+the gate wrote cannot fail, and a slot a test corrupts is caught the same
+way. `grammar/subjects-of` walks one path into a value already bounded to
+32 levels by the parser [F6]. `decide`'s outer guard (`:gate-error`, [F6])
+stands. Every new written value has the schema's class (vectors rebuilt,
+longs, keywords, strings).
+
+**Cooperative multitasking.** The only new loops are over the act's facts
+and the act's wrap persons (bounded by the offer and the 256 cap) and,
+under per-act excision, over the act's rows (`ALL` on the subindexed row
+vector: f reads and f writes, bounded by the act; a forget is rare). No
+loop over PState contents in the gate.
+
+**PStates owned:** `$$layers`, `$$clock`, `$$persons`, schemas above.
+
+## Query Topologies
+
+One, `read-as-of`, this stage's read as of a moment: the erasure half of
+RD4 (I-L7), enough to check every A case both ways (R8) and to show "erased
+on this date" and nothing else from after the moment. Stage 5 owns points,
+patterns, visibility and read entries and may keep, extend or replace it;
+its output shape is what this stage leaves.
+
+- **name:** `read-as-of`, signature `[*layer *T :> *result]`.
+- **Route:** `(|hash *layer)` as the first line, evaluated client-side, so
+  the query lands on the layer's home (the same `f` as the depot's `hash-by
+  :layer` and `$$layers`'s key partitioner, P2; the build's first check
+  covers agreement, "What this plan could not settle").
+- **Pre-agg, all local:** `(local-select> [(keypath *layer :by-stamp)
+  (sorted-map-range-to (inc *T)) ALL] $$layers {:allow-yield? true} :>
+  [*stamp *name])`, one emit per yes act at or before T; per act
+  `(local-select> [(keypath *layer :log *name) INDEXED-VALS] $$layers :>
+  [*idx *row])`, one emit per row; per row, by its `:lock-id`: nil → the
+  row's `:v` decoded as EDN (a control fact's plaintext, or nil for a
+  retract) as `{:id [name idx] :stamp s :value v}`; else the ledger entry
+  `[(keypath *layer :erased *lid)]`, then, when no entry, the lock record
+  (the row's `:lock`, else `[(keypath *layer :locks *lid)]`), then
+  `[(keypath p)]` on `$$persons` for each person of the record's wrap in a
+  `loop<-` (a map, possibly empty), then the pure `lock/erasure` → `{:id
+  :stamp :erased-at e}` or, opening through `crypto/open`, `{:id :stamp
+  :value v}`; a lock record that is absent with no ledger entry cannot
+  arise from this plan's writes and is reported as `{:erased-at nil}` for
+  phase 8 to flag. Also `(local-select> [(keypath *layer :erased) ALL]
+  $$layers {:allow-yield? true} :> [*lid *entry])`, the ledger whole, each
+  tagged `[:erased lid entry]`; and each fact tagged `[:fact m]`.
+- **Agg and post-agg:** `(|origin)`, `(aggs/+vec-agg *tagged :> *all)`,
+  then a pure `split` into `{:as-of T :facts [...] :erased {lid entry}}`;
+  `:facts` sorted by stamp then index in post-agg. The output is bound
+  even when nothing matched (an empty vector, batch.md's zero-row rule).
+- **Input example 1:** layer `:alice` with 3 yes acts of 2 value facts at
+  stamps 5, 9, 14, T = 10 → 1 range read (2 entries) + 2 row reads (4
+  rows) + per row: ledger 1, lock row 1 (personal layer), persons 1 (the
+  owner, the same key four times, block-cached but counted) = 12, plus
+  the ledger scan 1: 16 total, 16 meaningful (every read navigates to an
+  entry that decides the output; the ledger read that finds no entry is
+  the test "not value-forgotten", which is meaningful for the date shown).
+- **Input example 2:** the same layer, T = 4 → 1 range read, empty; ledger
+  scan 1: 2 total, 1 meaningful: the range read to an empty submap is the
+  one read that answers "nothing as of T" and cannot be avoided without
+  knowing the answer.
+- **Input example 3:** an agent layer, 1 act of 3 facts, T = now, the act
+  forgotten (excised) → 1 + 1 + 3 × (ledger 1) + 1 = 6, all meaningful; no
+  lock row read, because the row's `:lock` is nil and the ledger decided.
+- **Fixed or variable:** variable (the number of acts at or before T and
+  their rows). Dynamic by construction: every read is emitted by the
+  previous read's results (`local-select>` emits per navigated value; the
+  persons loop is a `loop<-`); nothing is padded.
+- **Cost:** 1 + acts + rows × (1 to 3) seeks on one task; `:allow-yield?`
+  on the two range reads so a large layer does not hold the task thread.
+  The gate's decision latency on that task is unaffected beyond the yield
+  points.
+
+No other query topology: a value's open-or-erased state alone (RD7) is
+`read-as-of` at the value's stamp filtered by id in this stage; stage 5's
+point reads decide their own shape. Inside a gate event (stage 4's
+read-out) the same reads are local `local-select>`s and the same two pure
+functions.
+
+## Partitioning efficiency
+
+**Optimal placement, derived first.** The dominant read is unchanged from
+stage 1: the gate's decision, once per offer, on the layer's home. This
+stage adds to it one datum a layer does not own, the person locks, whose
+ideal `f(person)` is "wherever a value about the person is decided or
+opened", which is every task: `|all` (derived under "PState Design").
+Everything else this stage adds (lock rows, ledger, by-stamp) is keyed by
+the value and placed with it: `f(layer) = hash(layer) mod N`, stage 1's P2.
+The alternative for person locks, one task per person, was costed there:
+a hop inside every decision and every open, rejected on cost and on the
+one-group decision. The alternative for lock rows, a separate PState with
+the same key, was costed under "PState Design": more seeks, more memory,
+rejected.
+
+**Validation.** Seeks/op are totals across the cluster. Every read of the
+decision touches one task, so the seek totals are flat in N. The person
+fan-out is N local writes with no read; it is shown as its own column so
+its growth with N is visible and weighed.
+
+Data categories for the gate's decision (one offer), record-first [F4]:
+
+- (a) an ordinary act, no replace, one owner in every wrap: record +
+  settings + clock + permission + `$$persons[owner]` = 5.
+- (b) an act with a replace: 6.
+- (c) a resend or replay of a decided offer: record = 1.
+- (d) an operator act (make, grant, revoke, re-class; a making act adds
+  `$$persons[owner]`): 4 to 5, counted 4.
+- (e) a face refusal (malformed, mis-tagged, `:value-shape`,
+  `:too-many-subjects`): 0.
+- (f) a value forget: record + settings + clock + permission + target row
+  + ledger = 6.
+- (g) a person act (make or forget): record + settings + clock +
+  `$$persons[p]` = 4, then the fan-out: N task-writes, 0 seeks.
+
+Frequencies: agent sessions write "many small acts" (a); replaces are
+edits (b); resends per client error and replays after a crash (c);
+operator acts, value forgets and person acts are rare, person acts rarest.
+
+### N = 1 task (single-task baseline)
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op | Fan-out task-writes/op |
+|---|---|---|---|---|
+| (a) ordinary act | 0.58 | 5 | 0 | 0 |
+| (b) act with a replace | 0.25 | 6 | 0 | 0 |
+| (c) resend / replay, decided | 0.10 | 1 | 0 | 0 |
+| (d) operator act | 0.04 | 4 | 0 | 0 |
+| (e) face refusal | 0.01 | 0 | 0 | 0 |
+| (f) value forget | 0.015 | 6 | 0 | 0 |
+| (g) person act | 0.005 | 4 | 0 | 1 |
+Weighted seeks = 4.77   |   Weighted iterator reads = 0   |   Weighted fan-out writes = 0.005
+
+### N = 16 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op | Fan-out task-writes/op |
+|---|---|---|---|---|
+| (a) ordinary act | 0.58 | 5 | 0 | 0 |
+| (b) act with a replace | 0.25 | 6 | 0 | 0 |
+| (c) resend / replay, decided | 0.10 | 1 | 0 | 0 |
+| (d) operator act | 0.04 | 4 | 0 | 0 |
+| (e) face refusal | 0.01 | 0 | 0 | 0 |
+| (f) value forget | 0.015 | 6 | 0 | 0 |
+| (g) person act | 0.005 | 4 | 0 | 16 |
+Weighted seeks = 4.77   |   Weighted iterator reads = 0   |   Weighted fan-out writes = 0.08
+
+### N = 128 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op | Fan-out task-writes/op |
+|---|---|---|---|---|
+| (a) ordinary act | 0.58 | 5 | 0 | 0 |
+| (b) act with a replace | 0.25 | 6 | 0 | 0 |
+| (c) resend / replay, decided | 0.10 | 1 | 0 | 0 |
+| (d) operator act | 0.04 | 4 | 0 | 0 |
+| (e) face refusal | 0.01 | 0 | 0 | 0 |
+| (f) value forget | 0.015 | 6 | 0 | 0 |
+| (g) person act | 0.005 | 4 | 0 | 128 |
+Weighted seeks = 4.77   |   Weighted iterator reads = 0   |   Weighted fan-out writes = 0.64
+
+Weighted seeks: 0.58×5 + 0.25×6 + 0.10×1 + 0.04×4 + 0.01×0 + 0.015×6 +
+0.005×4 = 2.90 + 1.50 + 0.10 + 0.16 + 0 + 0.09 + 0.02 = 4.77 at every N,
+flat. The one quantity that grows with N is the person fan-out, 0.005·N
+no-read writes per offer on average (0.64 at N = 128, against 4.77 seeks):
+the price of `|all`, paid once per person act so that every one of the
+0.83 acts per offer that need a person lock (a, b) reads it locally. The
+alternative placement makes (a) and (b) pay a hop and a remote seek each
+(5 + 1 remote at every N, plus the round trip, plus a second atomic group):
+0.83 remote seeks per offer at every N against 0.005·N local writes; the
+break-even is N = 166, above the two-year N this rig contemplates, and the
+alternative also loses the one-group decision. So the growth is accepted
+with its arithmetic, not waved through.
+
+Writes per offer, flat in N except the fan-out: stage 1's sets plus, per
+value fact, nothing extra for a record lock (the row's one `termval`
+carries it), one `termval` for a row lock, plus one `:by-stamp` set per
+act; a forget: one delete or f nils and one ledger set.
+
+## Design Decisions
+
+- **Real encryption, kept simple.** AES-256-GCM from `javax.crypto` (no
+  dependency; authenticated, so a tampered slot fails closed), a fresh
+  12-byte nonce per seal prepended to the output, 32-byte locks from
+  `SecureRandom`. One primitive, `seal`/`unseal`, serves the value under
+  its lock and the lock under each person lock. No associated data, no key
+  derivation, no rotation: nothing ruled asks for them, and each would be a
+  second mechanism (L3, L4).
+- **The wrap as key wrapping, not as policy.** "Required" is a chain of
+  seals (every required lock is needed to peel it); "any of" is one copy of
+  the required-sealed lock per any-of person (any one live lock peels its
+  copy). So a wrap's rule is enforced by what can be decrypted, not by a
+  check a reader could skip: after a person's lock is destroyed on every
+  task, no copy of that person's key exists in the store, and the value
+  locks that needed it are unrecoverable bytes. `wrap-closed` computes the
+  *date* from the person locks' `:erased-at`; it never decides whether
+  something opens, the ciphertext does (L3).
+- **Subindexing.** `:locks`, `:erased`, `:by-stamp` subindexed (unbounded
+  per layer), size tracking off. The lock record's `:any-blobs` and the
+  wrap vectors are bounded by the 256 cap (L13). `$$persons` is a top-level
+  map (one seek per person).
+- **Colocation.** Lock rows, the ledger and the by-stamp index sit under the
+  layer's entry on the layer's home, where the value is (I-L2). Person
+  locks sit on every task. So the decision, a forget, a read-out (stage 4)
+  and `read-as-of` each run on one task with local reads; the person
+  fan-out is the one cross-task write, and it carries a 60-byte entry.
+- **One event, one hop at most.** Ordinary acts and forgets: no partitioner,
+  one atomic group (stage 1). Person acts: the decision's group, then
+  `|all` (a commit boundary), then N single-write groups. The ack waits for
+  all.
+- **Erasure, two ledgers.** A value forget writes the date into `:erased`
+  where the value is; a person forget writes the date into `$$persons`
+  everywhere. `erasure` reads the first, then computes from the second: the
+  model's order (O14: a value forget after a person forget shows the value
+  forget's date, L16).
+- **Time travel (I-L7).** `read-as-of` shows only acts stamped at or before
+  T (the by-stamp range) and, for each of their facts, the value or the
+  erasure date whatever the forget's stamp; nothing else from after T (no
+  later fact, no forget fact's content, no replacement) reaches the output.
+  The forget facts themselves are ordinary log rows with stamps after T, so
+  the range excludes them.
+- **The person forget as a fact (D3, O12).** An operator act in the store
+  layer `:people` (L7), placed by layer on its home, stamped there
+  (`stamp-for`, P9), the stamp being the erasure date. Ordered among person
+  acts on one task, so `wrap-closed`'s "first" and "latest" are well
+  defined (L8). The model's global stamp "later than everything so far" is
+  the toy's kindness (README "Where the toy is kinder"); the rig's date is
+  the fact's stamp on one scale (I-O3), at or after the wall clock at the
+  forget, and tests under simulated time make it exact.
+- **O2, no plaintext outlives its lock: what the rig does and what it
+  leaves.** After this stage the store keeps a value's plaintext in exactly
+  one place the rig controls, the value slot, and there it is ciphertext
+  under a lock that dies with the lock. Everything else that holds it:
+  1. **The depot `*offers`**: every offer's plaintext values, for ever (no
+     trimming). The rig leaves this as a known gap (L2). Its cost: a
+     forgotten value stays readable by whoever can read the depot (the
+     operator; `foreign-depot-read`), which is the reach ruling 7's locks
+     are "not for hiding from the operator" about but "gone for everyone
+     including the past" is about; no read path of the store returns it,
+     and the gate never re-reads a decided record's values (a replay takes
+     the recorded path). A test shows the gap rather than hiding it. What
+     Rama offers does not close it: `depot.max.entries.per.partition` is a
+     count cap checked every ten minutes, not a per-record erase;
+     `DEPOT-TOMBSTONE` is a migration applied at a module update with an
+     idempotent function of the record alone, not a runtime effect of a
+     forget (depot-migration.md). The road for a kept store, named so the
+     cost is visible: the offerer seals each value under a value lock it
+     makes, delivers that lock to the layer's task by a query topology into
+     a bounded, per-task in-memory holder (task-globals.md: a query may
+     mutate a TaskGlobal synchronously), then appends the sealed offer; the
+     gate takes the lock from the holder at decision, opens the values,
+     decides, and wraps the same lock into the lock store; the depot then
+     holds only ciphertext whose lock lives in the lock store alone. Cost:
+     one extra round trip per offer, a per-task holder with a bound and a
+     time-to-live, a new face refusal (`:lock-not-delivered`, after which
+     the offerer delivers again and resends), and every value's plaintext
+     passing through the offerer's hands once more. Not built in the rig:
+     it is a second protocol on the write path whose only customer is a
+     record nobody keeps, and Sid's phase 2 says "kept simple".
+  2. **The digest on the answer record** (P6, [F11]): a keyed fingerprint
+     over plaintext values that outlives every forget; the secret is in
+     code in the rig, and a kept store keeps it in the store. Unchanged.
+  3. **The act's subject slot and the wrap's person lists**: person ids,
+     "for finding" (ruling 8), kept in plaintext by design. A forgotten
+     value still says whom it was about. Ruled, not a gap.
+  4. **The substrate**: RocksDB keeps a deleted row's bytes in SST files
+     until compaction; Rama's stream retry cache (`depot.cache.cardinality`)
+     holds recent depot records in memory; replication (factor 1 here)
+     would copy every write. Named; nothing at the module level reaches
+     them; a kept store would size compaction and cache windows against
+     its erasure promise.
+  5. **The client**: keeps the plaintext offer until answered (P6) and
+     receives plaintext from `read-as-of`; outside the store.
+- **Grammar as data now, facts later (ruling 8, O20's half).** The
+  `:mention` rule is a map entry, not a branch in code: `{:mention
+  {:subjects-at [:persons]}}`. Stage 6 reads the same map from facts
+  (`{:e key :k :grammar :v {:subjects-at [...]}}`) and `subjects-of` does
+  not change. Shape checking and opacity (ruling 6) are stage 6's; this
+  stage refuses only the one shape it must read (L12).
+- **Per-act grain (I-L6, D12, O8).** One lock per act, one wrap over the
+  act's union with marked? = any value fact marked; the row or record
+  placement by the layer's kind or any `:own-row` mark; a forget of any
+  value of the act erases the act (the lock id is the act's). Where an act
+  mixes marked and unmarked values the rig's act lock dies with any subject
+  of the union, which erases at least everything the model erases and
+  possibly more; phase 8 reports the difference (L6). An act spanning
+  tasks is impossible while placed by layer; O8's other half is stage 3's.
+- **Refusals as data, extended.** Four recorded reasons after stage 1's
+  list (`:no-such-person`, `:person-forgotten`, `:person-already-made`,
+  `:no-such-value`) and two face refusals (`:value-shape`,
+  `:too-many-subjects`). A forget that changes nothing is a yes (the model
+  admits it), so "a refused name stays refused" and "a second forget
+  changes nothing" both hold as the sources say them.
+- **What a forget does not touch.** `:heads` (ids and stamps), `:answers`,
+  `:stood-on`, the stamp, the row's `:e :k :replaces :mark`: the fact
+  stays a fact with its position and date (I-L8: removal of meaning, never
+  of the record's place). A forgotten value can still be replaced (E2 C1 ×
+  value forget: "it can still be replaced").
+- **What is not built.** No restore (O16, L17): the rig is not durable. No
+  group rule (O17, OP12) and no grain on shared layers (O7): stage 3's
+  layers do not exist here; a `:lock-grain` fact into a layer with no owner
+  is refused for want of a permission as the model does (D11), which stage 1's
+  checks already give. No re-class handling beyond stage 1's (E5 K1 ×
+  re-class: the row stays where the value is; a later forget is nil-tagged
+  and decided on the home, P16).
+
+## State primitive selection
+
+- `$$layers` (PState, extended): durable, partitioned by layer. Per
+  admitted act the write volume grows by one `:by-stamp` set and, in
+  personal and hand layers under per-value grain, f lock-row sets (one
+  under per-act), all bounded by the act. Per forget: one delete or up to f
+  nils, one ledger set. Source of truth for the lock store's rows and the
+  erasure ledger; `:by-stamp` is a derived view rebuildable from
+  `:answers`.
+- `$$persons` (PState): durable, on every task. Per person act: N sets of a
+  60-byte entry, once per act. Source of truth for person locks and their
+  dates; every task's copy is the home's copy, carried.
+- `$$clock` (PState): as stage 1.
+- No TaskGlobal (see "What is not a PState"). The crypto primitives are
+  stateless functions; `SecureRandom` is a JVM object created once per
+  process in the `rig.store.crypto` namespace, not per-task state.
+- No external system. The fingerprint secret stays a constant in code (P6).
+
+## Resource usage analysis
+
+Sizes as stage 1 estimates them (ids about 10 bytes, a name about 60, a
+fact id about 70, a stamp 8). A sealed blob is 12 (nonce) + 16 (tag) + the
+plaintext length, then base64 at 4/3.
+
+### Disk usage (PStates and the depot), per task
+
+- A log row for a value fact: stage 1's about 60 bytes of framing and ids,
+  plus `:v` at (28 + |EDN|) × 4/3 (the toy's 40-character values: about
+  90), plus `:lock-id` about 80, plus, when kept in the record, the lock
+  record: two short vectors (about 25), one 80-character blob (a 32-byte
+  lock + 28 bytes sealed, base64) or per any-of person one such blob.
+  About 250 bytes for a row lock's row, about 360 for a record lock's.
+- `:locks`: key about 85 bytes (`[:value [name idx]]`), record about 110:
+  about 200 bytes per value in personal and hand layers, one per act under
+  per-act. This is M2's number; the base64 form inflates it by a third
+  against raw bytes, which the measurement states (L4).
+- `:erased`: about 85 + 20 per forgotten lock. Grows with forgets only.
+- `:by-stamp`: 8 + 60 per admitted act.
+- `$$persons`: about 60 bytes per person, on every task.
+- The depot: unchanged, plus nothing (the offer is the same plaintext map).
+
+At 100,000 values on one hand layer on one task (M2's scale): `:locks`
+about 20 MB, the rows about 25 MB, `:by-stamp` about 7 MB per 100,000 acts.
+
+### Memory usage (TaskGlobals)
+
+None. AES-GCM `Cipher` instances are created per call and discarded; the
+JVM's provider caches the algorithm, and the cost is microseconds against
+a seek's half millisecond.
+
+### Minimization
+
+- The lock record's two vectors repeat the person ids the act's subject
+  slot already holds on the answer record; they are kept on the record
+  because `crypto/open` and `wrap-closed` need the wrap without a second
+  read, and the sealing order must be reproducible from the lock alone.
+  About 25 bytes per value.
+- Base64 could be raw bytes (`[B` as the schema class) for a third less;
+  text is kept for the rig (L4) and the option is named for a kept store.
+- Under per-act grain in an agent layer the act's lock record is repeated
+  in every row of the act (L6) so a row opens on its own read; one act
+  lock kept once (say in the first row) would save about 110 bytes per
+  further row at the cost of a second row read on every open. Kept
+  repeated: opens are the frequent operation.
+- `:by-stamp` duplicates the stamp the answer record holds; it exists so a
+  read as of T is a range, not a scan; 68 bytes per act.
+- `$$persons` on every task duplicates N times what one task could hold;
+  costed above as the price of local opens; 60 bytes per person per task.
+
+## Rig choices proposed
+
+Each is a pick where the rulings are silent, one sentence of what and one
+of why. None changes PROGRESS.md. The build session copies the ones it
+keeps into RIG.md with the next free numbers.
+
+- **L1. Person locks live in one PState, `$$persons`, on every task,
+  written by the stream gate through a `|all` fan-out inside the person
+  act's event.** Why: every write about a person and every open needs the
+  person's lock where the value is, and a lock on one task would put a hop
+  and a second atomic group inside every decision (costed under "PState
+  Design" and "Partitioning efficiency").
+- **L2. The depot keeps every offer's plaintext values; the rig names this
+  as the known gap of I-L4 and O2, shows it in a test, and does not build
+  the "lock first, offer second" protocol.** Why: Rama offers no per-record
+  erase at runtime (trimming is a count cap, tombstones are a migration),
+  the one road that closes it is a second write protocol with a round trip
+  per offer, and the phase says "kept simple" for a store whose records
+  nobody keeps; the cost is stated under "Design Decisions".
+- **L3. Encryption is AES-256-GCM from `javax.crypto`, 32-byte locks from
+  `SecureRandom`, a fresh 12-byte nonce prepended to each sealed blob; a
+  wrap is enforced by key wrapping: the value lock sealed under each
+  required person's lock in sorted order, and one copy of that per any-of
+  person sealed under theirs.** Why: one primitive, no dependency,
+  authenticated so a corrupted slot fails closed, and the wrap's rule is
+  what can be decrypted rather than a check a reader could skip.
+- **L4. Ciphertext, wrapped locks and person locks are stored as base64
+  text in `String` slots.** Why: a known schema class with no build-time
+  question (P12's reasoning), readable in tests; M2 states the one-third
+  inflation, and a kept store would store bytes.
+- **L5. The lock store's rows, the erasure ledger and the by-stamp index
+  are fields of the layer's value in `$$layers` (`:locks`, `:erased`,
+  `:by-stamp`); a lock id is `[:value fid]` or `[:act name]`; a row lock
+  lives only in `:locks` and the log row carries `:lock-id` with `:lock`
+  nil, a record lock lives in the row's `:lock`.** Why: the merge rule for
+  data sharing the layer's key and partitioner, costed against separate
+  PStates; the row's deletion and the record's excision stay two different
+  writes as ruling 7 reads them.
+- **L6. Under per-act grain the act gets one lock, wrapped once over the
+  act's subject union with marked? true when any value fact is marked
+  `:die-with-any`, kept as a row when the layer's kind is personal or hand
+  or any fact is marked `:own-row`, else repeated in every row; a forget of
+  any of its values erases the act.** Why: "one small lock shared by all
+  values in an act, forgettable only as a whole, wrapped under the act's
+  union" (ruling 7 and its sharpening); for an act mixing marks the rig's
+  lock dies with any subject of the union where the model's per-fact wraps
+  die more narrowly, an erase-more-never-less difference phase 8 reports
+  (D12, O8).
+- **L7. Persons are data in a store layer `:people` (kind `:store`, class
+  by layer, no owner, operator-only): a person is made by an operator act
+  with a `:person` fact, forgotten by one with a `:forget-person` fact;
+  both keys are control keys (no lock) and placed keys (name class nil).**
+  Why: every forget is a fact (D3) in some layer decided by some gate, Bob
+  has no layer of his own in the model's world, and a store layer on the
+  stream gate needs no mechanism the store lacks (O12).
+- **L8. The person forget's date is its fact's stamp on `:people`'s home;
+  `wrap-closed` orders person forgets by those stamps.** Why: all person
+  forgets are decided on one task, so their stamps are a total order that
+  stands in for the model's `:order`; the model's single global stamp is
+  named in its README as the toy's kindness, and stamps are one comparable
+  scale (I-O3).
+- **L9. The person fan-out runs on the fresh and the recorded path alike,
+  carries the home's `$$persons` entry as it stands, and writes it with an
+  unconditional `termval` on every task.** Why: a crash between the home's
+  commit and a child leaves a record whose fan-out must still complete
+  (RQ 2), a carried entry is idempotent and order-safe under partition
+  ordering, and reading each task's copy before writing would add a seek
+  for nothing.
+- **L10. A value forget is offered by the layer's owner under their
+  own-layer permission or by the operator; R13's exception for owners grows
+  from `:lock-grain` to `:forget`; a target that is not a row of this
+  layer's log on this task is refused `:no-such-value`; a target with no
+  lock or with a lock already in the ledger is admitted with no change;
+  the effect is `:row-deleted` for a row lock and `:excised` for a record
+  lock, whoever offered.** Why: `op-forget-value` has the owner or the
+  operator order it and `apply-control` admits a no-op forget; the lookup
+  by the target's name and index on the home is one seek and covers
+  unknown, foreign-layer and not-yet-visible targets with one reason (O1).
+- **L11. A value whose wrap names a person with no person lock, or a
+  destroyed one, is refused (`:no-such-person`, `:person-forgotten`); a
+  making act whose `:owner` has no person lock is refused
+  `:no-such-person`; a forgotten person's control facts (a forget, a grain
+  switch) are still admitted.** Why: a lock cannot be wrapped under a lock
+  that does not exist (E6 Q1: "refused as data, never thrown"), and this is
+  the simplest reading of O11 that keeps the gate total.
+- **L12. The `:mention` grammar reads `:persons` from a map value as a
+  collection of keywords; any other shape under `:mention` is refused on
+  its face `:value-shape`, unrecorded; the grammar is a constant map keyed
+  by fact key.** Why: the gate must read this one shape to wrap correctly,
+  a malformed one cannot be admitted under a wrong wrap, and a map entry is
+  what stage 6 turns into facts (O20's half).
+- **L13. The act's subject union is capped at 256 persons; over the cap the
+  act is refused on its face `:too-many-subjects`.** Why: the answer
+  record's `:subjects` and a lock record's `:any-blobs` must be bounded by
+  an enforced mechanism, and [F3] already capped carried subjects the same
+  way.
+- **L14. A retract (`:v nil`, P13) and every control fact get no lock;
+  their slot stays plaintext.** Why: a retract has nothing to seal and the
+  model gives control facts none (D2).
+- **L15. Size tracking stays off on `:locks`; M2 counts and sizes rows by
+  one iteration per measurement point.** Why: tracking adds a read to every
+  hand-layer write, the writes M2 times; one 100,000-entry iteration costs
+  about half a second once.
+- **L16. A value forget after a person forget writes the ledger and the
+  value then shows the value forget's date.** Why: the model's `erasure`
+  reads the ledger first (O14); the rig decides the same way.
+- **L17. No restore in the rig (O16); a forget by a person whose permission
+  is revoked is refused `:permission-revoked` as the model does (O13); the
+  order of a person's forget against a read-out (O15) is the owner task's
+  own order between the read-out event and the fan-out child, which stage 4
+  shows with the crash hook holding a child.** Why: the rig is not durable;
+  the model's refusal is the one the tests compare against; a task is
+  single-threaded, so the order exists and can be forced.
+- **L18. The read as of a moment is a query topology `read-as-of [layer T]`
+  on the layer's home, returning `{:as-of :facts :erased}` with no
+  visibility filter.** Why: it needs five reads on one task (a query
+  topology, not five round trips), stage 5 owns visibility and may keep or
+  replace it, and its output is the shape the A-case tests compare with the
+  model's `read-as-of`.
+- **L19. The offer's carried subjects (the tool's) join every value fact's
+  own subjects, so a marked value's wrap and a per-act wrap include them.**
+  Why: "the three sources applied to that fact" names the tool as a source
+  of the value's subjects; the model's tool names none, so parity is
+  unaffected.
+
+## What later stages consume, and where it is
+
+Stated as what this stage leaves, not as their design.
+
+- **A value and its lock, on one task.** Row at `$$layers [layer :log name
+  idx]` with `:v` (ciphertext), `:lock-id`, `:lock` (record locks); row
+  locks at `[layer :locks lock-id]`; the ledger at `[layer :erased
+  lock-id]`; person locks at `$$persons [p]` on the same task. Opening is
+  the pure pair `rig.store.lock/erasure` (nil or `{:stamp :how}`) and
+  `rig.store.crypto/open` (plaintext EDN or nil), given those four reads.
+- **For the micro store (stage 3).** `$$persons` is readable as committed
+  state on every task, so the micro gate wraps a shared-layer value with
+  local reads; `lock/wrap` with owner nil gives 7b as written (any-of over
+  the value's own subjects, required empty; marked: required all); the lock
+  record shape is what "wrapped locks in the record" stores in their rows;
+  `crypto/fresh`, `seal`, `wrap-lock` are pure given fresh bytes (a
+  microbatch retry regenerates them and exactly-once replaces the attempt's
+  writes, so one encoding survives). `:lock-grain` into a shared layer is
+  refused for want of a permission as the model does (D11, O7 left as is).
+  The `:people` layer stays on the stream gate. Under per-act grain an act
+  placed by entity spans tasks: the lock id `[:act name]` has no `p`; that
+  half of O8 is theirs.
+- **For promotion (stage 4).** On the owner's task, inside the gate's
+  event: the four local reads above, then `erasure` and `open`; a closed
+  value is `:source-erased` and no crossing fact is written; an open one
+  gives the plaintext the landing carries (their O2: the landing offer's
+  plaintext in the micro depot). The crossing fact is a control fact, no
+  lock. A value forget and a read-out on the owner's task are ordered by
+  that task; a person forget reaches the owner's task as a fan-out child,
+  ordered against the read-out event by the task thread (L17). The copy's
+  wrap is the target's, computed by stage 3's gate from the target's owner
+  (none), the grammar and the tool.
+- **For reads (stage 5).** `read-as-of`'s output shape; `:by-stamp` per
+  layer (stamp → name); `erasure` for "erased on <date>"; the ledger keyed
+  by lock id, which maps to fact ids directly (`[:value fid]`) or through
+  the act's rows (`[:act name]`); every index they keep over values must be
+  purgeable by `[name idx]` or by the act's name, and a forget's effect on
+  such an index is theirs to write from the same event (PState ownership,
+  stage 1 [F12]).
+- **For tools and grammars (stage 6).** `rig.store.grammar/grammars`, the
+  map, and `subjects-of`, the function over it; making the map a read of
+  `:grammar` facts leaves `subjects-of` unchanged. The `:value-shape`
+  refusal is the seed of ruling 6's shape check.
+- **For the numbers (phase 7).** M2: iterate `[layer :locks]` for count and
+  serialized bytes per measurement point; state the base64 inflation. M1:
+  agent layers write no lock rows; their per-act writes are the row (with
+  the lock in it) and `:by-stamp`.
+- **For the replay (phase 8).** Differences to report by construction: the
+  `:people` layer and the two person acts (the model has neither; a model
+  `:forget-person` maps to the operator's act); the person forget's date
+  (a stamp on `:people`'s home, not a global stamp); per-act acts mixing
+  marks (L6); the model's `[:act name p]` against `[:act name]`.
+
+## The client side (`rig.store.client`, extended)
+
+- `(make-person! store p)`, `(forget-person! store p)` → the operator's
+  acts in `:people`, through `offer-until-answered!`.
+- `(forget-value! store who layer fid)` → the forget act by `who` (the
+  owner citing `[who layer layer]`, or `:operator`), standing on the
+  target with the stamp the client read.
+- `(read-as-of store layer T)` → `foreign-invoke-query` of `read-as-of`;
+  `(opens? store layer fid)` → `read-as-of` at the value's stamp, the fact
+  by id: `{:value v}` or `{:erased-at s}`.
+- `(lock-rows store layer)` → `foreign-select [(keypath layer :locks) ALL]`,
+  the rows with their serialized sizes (for M2); `(ledger store layer)`;
+  `(person store p)` → `foreign-select-one [(keypath p)] $$persons`;
+  `(person-on-task store p task-key)` → the same with `{:pkey k}` for a
+  key of `gen-hashing-index-keys` that lands on that task (testing.md).
+- `(seed! store world)` grows: the `:people` layer first, then a `:person`
+  act per `(:persons world)`, then stage 1's layers and grants; the default
+  world adds `:persons [:alice :bob]`.
+- `(depot-record store layer offset)` → `foreign-depot-read`, for the test
+  that shows the gap (L2).
+
+## Namespaces and tests
+
+- `src/rig/store/crypto.clj` — `fresh` (n locks and nonces), `seal`,
+  `unseal` (nil on any failure, `Throwable` caught), `wrap-lock` (K, wrap,
+  person locks → lock record), `unwrap-lock` (lock record, person locks →
+  K or nil), `open` (lock record, person locks, sealed value → EDN or nil),
+  base64 in and out. Pure given its inputs; `SecureRandom` behind `fresh`.
+- `src/rig/store/lock.clj` — `wrap` (the model's under `:owner-required`),
+  `wrap-closed` (stamps for `:order`), `lock-for` (id, row?, wrap from
+  settings, act, fact, carried subjects, grammar), `erasure` (ledger entry,
+  lock record presence, person entries, wrap → nil or `{:stamp :how}`).
+  Pure; the rig's executable counterpart of the model's four.
+- `src/rig/store/grammar.clj` — `grammars`, `subjects-of`.
+- `src/rig/store/envelope.clj` — control keys and placed keys grow; the
+  control-value checks for `:forget`, `:person`, `:forget-person`; the
+  `:value-shape` and `:too-many-subjects` face refusals.
+- `src/rig/store/gate.clj` — `decide` extended with the lock effects, the
+  forget branches, the person branches, the four recorded reasons and
+  `:how` on the answer; still pure and total.
+- `src/rig/store/module.clj` — the schema additions, `$$persons`, the
+  added reads, `crypto/fresh` before `decide`, the person fan-out, the
+  `read-as-of` query topology.
+- `src/rig/store/client.clj` — as above.
+- `test/rig/store/lock_test.clj` — pure tests, no cluster: (1) `wrap` and
+  `wrap-closed` agree with `formal.model/wrap` (reading `:owner-required`)
+  and `formal.model/wrap-closed` on every A case's inputs (A1 to A8: the
+  owner, the subjects, the mark, then the forgets in the case's order) and
+  on generated inputs (test.check: owners nil or a person, subject sets,
+  marks, forget sequences), comparing open/closed and the date; (2) crypto
+  round trips: seal/unseal, wrap/unwrap under required chains and any-of
+  copies, and the enforcement direction of every A case: build the wrap's
+  lock record with real locks, destroy the persons the case forgets (drop
+  their lock bytes), and assert `open` returns the value exactly when the
+  model says `:open` and nil exactly when it says `:erased` (both
+  directions of R8, at the lock level, for the one-owner and the shared
+  layer alike); (3) `subjects-of` on well-formed and malformed `:mention`
+  values; (4) `lock-for` placement: personal and hand → row, agent →
+  record, `:own-row` overrides, per-act ids and the union wrap; (5) no
+  throw: `open` and `unseal` on garbage, truncated and swapped blobs.
+- `test/rig/store/forget_test.clj` — one IPC, `{:tasks (rand-nth [2 4 8])
+  :threads 2 :workers 1}`, seeded with the model's world (persons, the
+  three layers, the grants), under `TopologyUtils/startSimTime` so stamps
+  and dates are exact, then `testing` blocks: A1 through the module (a
+  note and a mention of Bob in `:alice`, then `forget-person! :alice`:
+  `read-as-of` shows both erased with the forget's stamp; `$$persons
+  [:alice]` on every task has `:lock` nil and `:erased-at` the stamp,
+  checked with a key per task); A8 through the module (a mention of Bob in
+  `:alice`, `forget-person! :bob`: the value opens, Bob's lock nil on every
+  task); the ciphertext claim (the row's `:v` is not the value's EDN and
+  does not decode to it; `open` with the lock row and the live persons
+  gives it back); a value forget in `:alice` (row deleted, ledger `{:stamp
+  :how :row-deleted}`, the value erased at every T at or after its stamp,
+  the other values of the layer open, `:heads` unchanged, the fact still
+  replaceable); a value forget in `:alice-agent` (excised: the row's
+  `:lock` nil, ledger `:excised`, no lock row before or after); a value
+  forget in `:alice-hand` (row); an `:own-row` value in `:alice-agent` gets
+  a row; per-act grain (switch, an act of three values, one lock row, a
+  forget of one erases all three, a value written before the switch keeps
+  its own row); a second forget of the same value: yes, nothing changes,
+  the first date; a forget of a value already closed by a person forget:
+  the ledger's date shows (L16); a forget by Bob of Alice's value refused
+  (`:permission-does-not-cover-this`); a forget naming an unknown or
+  foreign-layer target refused `:no-such-value`; a forget of a control
+  fact: yes, nothing changes; a marked (`:die-with-any`) mention of Bob in
+  `:alice` dies with Bob; a write about a person with no lock refused
+  `:no-such-person`, a write into `:alice` after Alice is forgotten refused
+  `:person-forgotten`, her grain switch still admitted; making a person
+  twice refused, forgetting twice yes with the first date; the time-travel
+  rule (a read as of the first act's stamp shows it and not the second act,
+  and shows the erasure date of a value forgotten after that moment; a
+  read before any stamp is empty); the crash mid-person-forget (the hook
+  armed on the fan-out child: the worker restarts, the ack or the resend
+  answers, and every task ends with the lock destroyed, at least once,
+  R4); the crash mid-value-forget before the writes (no ledger, no
+  deletion; the replay decides the same); the subject slot on the answer
+  record (owner ∪ grammar ∪ carried); the lock store count per layer
+  (personal and hand grow by one per value, agent by none); and the gap
+  shown (the depot record of a forgotten value still carries its plaintext
+  `foreign-depot-read`, asserted true and named in the test's name as the
+  O2 gap, L2). Run with `clojure -M:test rig.store.lock-test
+  rig.store.forget-test` from the rig folder. A2 to A7 run through the
+  module in stage 3's suite, when the group layer exists; here they run at
+  the lock level in `lock_test.clj`, both directions.
+
+## Design difficulty log
+
+Written while designing, first person.
+
+- **Where the person locks live.** Three candidates: one task per person
+  (`|hash`), task 0 (`:global?`), every task (`|all`). The first two put a
+  hop inside the decision of every act that names the person, which is
+  every act in a one-owner layer (the owner is always required), and inside
+  every open; stage 1's whole correctness story rests on the decision
+  being one atomic group on one task. Once I costed the hop per act
+  against N writes per person act, `|all` was not close, and it is the
+  case pstate-schema.md names for `|all`. The thing I went back and forth
+  on was whether a `|all` fan-out inside a stream event is acceptable at
+  all under retry; stream.md's partition ordering and the carried-entry
+  `termval` settled it.
+- **The depot's plaintext (O2).** The hardest part, because every honest
+  road ends at "Rama's depot is an immutable log". I looked at trimming (a
+  count cap), tombstoning (a migration, not a runtime effect), encrypting
+  to a store key (the operator can still read it, which is not what "gone
+  for everyone" means), and client-sealed values with the lock delivered
+  out of band through a query topology into a TaskGlobal. The last one
+  works and I nearly put it in; what stopped me was that it is a second
+  protocol on every write for a record nobody keeps, against a phase named
+  "kept simple". So the rig names the gap, shows it in a test, and writes
+  the road down with its cost. Genuinely contested; I would build the road
+  in a kept store.
+- **The wrap as encryption.** "Required" and "any of" had to become key
+  operations, not flags. A chain of seals for required and a copy per
+  any-of person was the first shape that made the model's `wrap-closed`
+  true by construction (nothing opens without the right locks) rather than
+  by a check. The only alternative I weighed, a secret-sharing threshold,
+  is more mechanism for the same two cases; not close.
+- **Per-act grain with mixed marks (D12).** The model wraps each fact
+  under its own mark with one shared id; the ruling says one lock, one
+  wrap over the union. One lock cannot carry two wraps unless it is
+  wrapped twice; that is a small mechanism, but "forgettable only as a
+  whole" and "the coarser cut the person chose" read to me as one wrap.
+  Erasing more, never less, was the tie-breaker; phase 8 reports it.
+- **A ledger beside the rows, or rows with a date.** Keeping a deleted
+  row's date in the row (never deleting) would be one map instead of two;
+  the ruling says the row is deleted and M2 counts rows. Not close once
+  read that way.
+- **`:by-stamp` now or in stage 5.** Stage 5 owns reads; this stage owns
+  the read that shows an erasure as its date. A scan of the layer's answers
+  would keep every requirement of this stage and cost one seek plus every
+  act; one no-read set per act turns it into a range. I put it in because
+  the skill's rule is not to trade I/O for simplicity and stage 1 had
+  already named the index as belonging in `$$layers` if kept; the validator
+  may strike it as over-reach, and the read's output shape does not depend
+  on it.
+- **The person forget's layer (O12).** A per-person layer fails for Bob; the
+  base is the micro gate's; a global "lock store" outside any layer would
+  be the model's shape and the one thing the rig must not do (every forget
+  is a fact). The store layer `:people` fell out once those were struck.
+  Its kind, `:store`, is a new keyword the settings projection must accept
+  (stage 1's kinds were three); small, but it touches stage 1's parser.
+- **Bytes or base64.** Raw bytes are the right kept-store answer and a
+  third smaller; a schema class question the build would have to check
+  first. Text, with M2 stating the inflation, was the simplest thing that
+  keeps every requirement. A real choice, not a hard one.
+- **What "the record" means for a lock.** The row's `:lock` field versus a
+  second map keyed by fact id: the first is one write and one read per
+  value; the second would make the row lock and the record lock the same
+  shape in different maps and blur the ruled distinction. Row field, quickly.
+
+## Self-validation against `artifact-plan-validation.md`
+
+Run against this plan before finishing; the Phase 2 artifact is not
+written here.
+
+- **Query topology `read-as-of`:** three input examples given; N and M
+  stated for each; the one read that navigates to an empty submap (T
+  before any act) is the read that answers the query and cannot be
+  avoided; variable, dynamic by emission and a `loop<-`, nothing padded.
+- **PState schemas:** `$$layers` and `$$persons` differ in partitioner
+  (the layer's home versus every task), `$$clock` in key structure; no
+  `Object`; the lock record, the ledger entry and the person entry are
+  `fixed-keys-schema`; no polymorphic position (nullable `:blob` /
+  `:any-blobs` on one shape; `:lock` nil for a row lock or after excision);
+  the unbounded collections (`:locks`, `:erased`, `:by-stamp`) subindexed;
+  the bounded ones (`:any-blobs`, the wrap vectors) bounded by the 256 cap
+  (L13), an enforced mechanism.
+- **Partitioning:** lock rows by the layer's hash (stage 1's justification
+  stands); `$$persons` by `|all`, small and rarely written; the table
+  filled for N = 1, 16, 128 with seven categories summing to 1.00, seeks
+  as totals across tasks, weighted seeks flat at 4.77, the fan-out's
+  growth shown as its own column and costed against the alternative with a
+  break-even; no justification rests on a later stage's mechanism (each
+  hand-off is stated as what is left); the stored-placement question does
+  not arise (the placement is ruling 2's and stage 1's).
+- **Topologies:** one stream topology, stage 1's, with both stream reasons
+  restated for the new concerns; every new concern is part of the one
+  decision whose answer the offerer takes from the ack; one query
+  topology; no microbatch here; no test-synchronization argument was used
+  (the crash tests use the crash hook, R3, P14).
+- **Production readiness:** concurrent clients (two forgets of one value:
+  the first erases, the second changes nothing; a forget racing a write
+  about the person: ordered on the home; a write about a person racing the
+  person's making on another task: refused `:no-such-person` until the
+  fan-out lands, and the ack of the making act returns only after it, so a
+  client that awaits the ack never races it); a client restart (stage 1's
+  P6 road); a worker restart at every point of the person act (traced
+  under "Topologies"); scale (every unbounded collection subindexed; the
+  per-act excision loop bounded by the act); no non-idempotent write
+  (every one a `termval` or `NONE>`; the fresh random bytes exist in one
+  committed encoding only); the one multi-partition write (the fan-out)
+  traced: a partial failure leaves some tasks written, the replay carries
+  the same entry to all, nothing is left permanently unexecuted because
+  the record's replay repeats the fan-out (L9).
+- **Internal depots:** none. **Cross-topology:** none (the query topology
+  reads committed state). **Stream `depot-partition-append!`:** none.
+- **In-memory state:** none.
+- **Minimality, the simplest sketch:** stage 1 plus a lock per value in
+  the row, person locks somewhere, a forget that nulls the lock. The plan
+  adds `:locks` as its own map (delete it: the ruled row/record distinction
+  and M2's number are lost), `:erased` (delete it: an erased value's date
+  needs a scan of the layer's forget facts per value read), `:by-stamp`
+  (delete it: a read as of T scans every answer of the layer; kept with
+  its cost, 68 bytes and one set per act, and named as the one the
+  validator may strike), `$$persons` on every task (delete the replication:
+  a hop in every decision), the required chain and any-of copies (delete
+  them: the wrap becomes a flag a reader could ignore, and a destroyed
+  person lock would not make the value unrecoverable), the `:people` layer
+  (delete it: the person forget is not a fact, D3 broken), the grammar map
+  (delete it: subjects are a branch in code stage 6 cannot move into facts),
+  the query topology (delete it: five round trips per read, the anti-
+  pattern). Each is required by a named ruling or check.
+- **Throughput:** the decision pays one more seek per ordinary act (the
+  owner's lock) and nothing more for a record lock; the alternative that
+  avoids that seek is a cache (rejected by the CLAUDE.md rule and by the
+  destroyed-lock-in-memory hazard). A value forget is 6 seeks, a person
+  act 4 plus N writes. No cheaper design meeting every check was found.
+- **Spec coverage:** I-L1 (the wrap table under "The shapes" and L3),
+  I-L2 (L5), I-L3 (erasure by destroying a lock; the gate reads plaintext
+  values it wraps), I-L4 and O2 (L2, with the gap), I-L5 (`:erased` and
+  `:by-stamp` rebuildable; `:heads` untouched), I-L6 (L6), I-L7 (`read-as-
+  of`), I-L8 (encodings change, meaning does not), D2 (control keys), D3
+  and O12 (L7, L8), D9 (`:own-row` in every layer), D12 and O8 (L6); OP8
+  (grain read at decision), OP9 (every invariant traced in "Writes" and the
+  tests), OP10 (every invariant; the date; both directions), OP11 (L17),
+  OP12 (stage 3); RD4 (erasure part), RD7, RD7s; E2 rows C1 × value forget,
+  C2 × replace, C2 × value forget again, C1 × person forgets (owner, Bob
+  unmarked, Bob marked), E3 L1 × grain switch, L2 × switch back, L2 × value
+  forget, E5 K0 to K6 with every write, E6 Q0 and Q1 with every write, E9
+  G0 and G1 (subjects) and G2 (a lock like any other): each is a test case
+  above or a line in "Writes".
+
+## What this plan could not settle
+
+- Whether `INDEXED-VALS` navigates a subindexed vector with its indices in
+  a `local-select>` (paths.md lists it for sequences; not shown for a
+  subindexed one). The build checks it with `create-test-pstate` on the
+  exact row-vector schema before the query topology; the fallback is
+  `ALL` with a counter in a `loop<-`, or reading the act's size and
+  `(keypath idx)` per row.
+- Whether the query topology's leading `(|hash *layer)` lands on the task
+  that `hash-by :layer` chose (the same hash by construction; assumed as
+  stage 1 assumed `{:pkey layer}`). The build's first check, with the
+  module up: `read-as-of` on a seeded layer returns its acts.
+- Whether `ack-return>` before a `|all` behaves as stream.md says (the ack
+  sent when the whole tree completes): read from the reference, not run;
+  the crash-mid-person-forget test shows it.
+- Whether `[B` is accepted as a schema class: not needed with L4; named for
+  a kept store.
+- The exact relation of a person forget's date to stamps given on other
+  tasks by wall time (L8): under simulated time in tests it is exact; on a
+  real cluster it holds up to clock skew, which is ruling 4's "unit"
+  question and not this stage's to close.
+- Whether stage 5 keeps `:by-stamp` and `read-as-of` or replaces them; the
+  output shape is what is promised.
+- The `:store` kind in stage 1's settings projection and the two new
+  control keys in its parser: additive changes to stage 1's namespaces the
+  build makes in place; no migration, the rig keeps no records.
