@@ -12,6 +12,7 @@
   unrecorded face refusal :gate-error (F6)."
   (:require [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
+            [rig.store.permit :as permit]
             [rig.store.reads :as reads])
   (:import [com.rpl.rama.helpers TopologyUtils]))
 
@@ -105,13 +106,14 @@
 
 (defn pids-to-read
   "The permission rows the decision reads on the home task: the cited one
-  (a person's offer; skipped for the operator), and every grant's and
+  and every permission above it (`permit/chain`: a person's offer; skipped
+  for the operator), and every grant's and
   revocation's target, which P8 needs (a revoke stands on an unrevoked
   grant; a second grant leaves the first as it is)."
   [offer]
   (into []
         (comp (filter env/pid?) (distinct))
-        (concat (when-not (contains? exempt-actors (:who offer)) [(:permission offer)])
+        (concat (when-not (contains? exempt-actors (:who offer)) (permit/chain (:permission offer)))
                 (keep grant-target (:facts offer))
                 (keep revoke-target (:facts offer)))))
 
@@ -135,7 +137,7 @@
   (let [facts (:facts offer)
         who (:who offer)
         exempt? (contains? exempt-actors who)
-        [pw pl pin :as pid] (:permission offer)
+        perm (when-not exempt? (permit/refusal offer rows))
         in-force (class-in-force offer settings)
         rs (keep :replaces facts)
         revoked-pids (keep revoke-target facts)]
@@ -149,17 +151,10 @@
       (not= (:class offer) in-force)
       :class-mismatch
 
-      (and (not exempt?) (or (nil? pid) (not= pw who) (not= pl (:layer offer))))
-      :permission-does-not-cover-this
-
-      (and (not exempt?) (not= pin (:layer offer)))
-      :permission-from-another-layer
-
-      (and (not exempt?) (nil? (:granted (get rows pid))))
-      :no-permission
-
-      (and (not exempt?) (:revoked (get rows pid)))
-      :permission-revoked
+      ;; the model's four permission reasons in its order, over the cited
+      ;; permission's chain (PLAN-micro-store.md §B, R19: the walk)
+      (some? perm)
+      perm
 
       (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
       :malformed-control

@@ -10,6 +10,7 @@
             [com.rpl.rama.ops :as ops]
             [rig.store.gate :as gate]
             [rig.store.inject :as inject]
+            [rig.store.micro :as micro]
             [rig.store.reads :as reads]))
 
 (def row-fields
@@ -171,4 +172,6 @@
     ;; stage 5a: the *index-ops source (rebuild pages, test-only ops) on this topology
     (reads/declare-index-ops-source! s))
   ;; stage 5a: the read queries read-point and read-pattern
-  (reads/declare-queries! topologies))
+  (reads/declare-queries! topologies)
+  ;; the micro store (stage 3): its depot, gate and queries, from its own namespace (M1)
+  (micro/declare! setup topologies))
