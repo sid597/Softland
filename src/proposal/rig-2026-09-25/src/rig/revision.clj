@@ -566,20 +566,22 @@
 ;; ------------------------------------------------------------------ git
 
 (defn- git-env
-  "The JVM's environment minus every variable whose name starts with GIT_
-  (F5): a hook exports GIT_DIR and GIT_WORK_TREE, which would have git read
-  that repository instead of the one named."
-  []
-  (into {} (remove (fn [[k _]] (str/starts-with? k "GIT_"))) (System/getenv)))
+  "An environment minus every variable whose name starts with GIT_ (F5): a
+  hook exports GIT_DIR and GIT_WORK_TREE, which would have git read that
+  repository instead of the one named. clojure.java.shell's :env replaces
+  the whole environment, so git gets this filtered copy of the JVM's."
+  [env]
+  (into {} (remove (fn [[k _]] (str/starts-with? k "GIT_"))) env))
 
 (defn- run-git
   "Runs git with `args` as an argument vector and no shell (section 5), in
-  git-env's environment and the JVM's working directory: {:exit :out :err},
-  stdout as bytes when `bytes?`, else as UTF-8 text; {:failed detail} when
-  the process cannot start."
+  the JVM's environment filtered by git-env and the JVM's working directory
+  (neither of clojure.java.shell's dynamic defaults is consulted):
+  {:exit :out :err}, stdout as bytes when `bytes?`, else as UTF-8 text;
+  {:failed detail} when the process cannot start."
   [git args bytes?]
   (try
-    (apply shell/sh git (concat args [:env (git-env) :dir nil
+    (apply shell/sh git (concat args [:env (git-env (System/getenv)) :dir nil
                                       :out-enc (if bytes? :bytes "UTF-8")]))
     (catch java.io.IOException e {:failed (str e)})))
 
@@ -718,14 +720,17 @@
 (defn cut-for
   "Section 4 (G1): the default cut for a path until first facts carry one:
   :forms when the path, lowercased, ends in .clj, .cljc, .cljs or .edn,
-  :blocks for every other path. Total by construction, so it has nothing
-  to catch: a value that is not a string is :blocks."
+  :blocks for every other path, a value that is not a string included.
+  Never throws; like every public function its body sits in the catch that
+  gives :internal (section 5), which nothing in it can reach."
   [path]
-  (if (and (string? path)
-           (let [p (.toLowerCase ^String path Locale/ROOT)]
-             (boolean (some #(.endsWith p ^String %) [".clj" ".cljc" ".cljs" ".edn"]))))
-    :forms
-    :blocks))
+  (try
+    (if (and (string? path)
+             (let [p (.toLowerCase ^String path Locale/ROOT)]
+               (boolean (some #(.endsWith p ^String %) [".clj" ".cljc" ".cljs" ".edn"]))))
+      :forms
+      :blocks)
+    (catch Exception e (internal e))))
 
 (defn read-units
   "Sections 4 and 5: the file at `path` in the commit `rev` names, cut into

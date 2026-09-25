@@ -42,3 +42,17 @@ reader is plain Clojure with no Rama in it (plan section 9).
   quote, one char after the `#`; `##` is an atom with the token chars after
   it; `cut-for` returns `:blocks` for a non-string and has no catch, being
   total by construction (every other public function wraps its body).
+- 03:55. Phase 4, `IMPLEMENTATION_VALIDATION-revision-reader.md`:
+  **minor-fail**, one finding, fixed in place. IV1: `cut-for` lacked the
+  catch the plan puts on every public function (section 5); the last
+  reading above is withdrawn, and its body is wrapped now. Also, not a
+  finding: `git-env` takes the environment as an argument, so the F5 filter
+  can be tested on a literal map. Evidence gathered for it: every error row
+  ran against real git; F5 ran end to end (a JVM started under
+  `GIT_DIR`/`GIT_WORK_TREE` pointing at main: `/proc` is still
+  `:not-a-repository`, `HEAD` is still this worktree's); a sweep of both
+  cuts over every tracked file outside `src/app` at this branch's head:
+  1,580 Markdown files, 126,747 blocks, no invariant failing; 345 Clojure
+  files, 3,327 forms, every count and line equal to Clojure's reader; the
+  refusals were two symlinks, the 6.3 MB transcript, and three Markdown
+  files git's numstat also calls binary.
