@@ -18,7 +18,9 @@ traces below.
 Tags on load-bearing claims: *checked* (read in the named source at the
 named commit, or run), *derived* (reasoned from checked facts), *assumed*.
 No cluster was run by this validation; no probe was needed, because every
-decision-changing fact here is in committed source.
+decision-changing fact here is in source, committed except the locks
+build's `client/stock!` (its working copy at 04:00), which F6 names as
+such.
 
 Read for this (*checked*): the plan whole; SPEC.md phase 6 (rig branch,
 line 104); the brief as quoted by builder A; PROGRESS.md "Now" (main, lines
@@ -30,7 +32,8 @@ PLAN-locks-and-forgetting.md lines 155-215, 270-300, 398-410, 675-690, 742,
 its batch-id lines; the built code on the rig branch (the read exit's merge, `40374171`, byte-identical to `rig-build-reads` at `00fd0468`):
 `client.clj`, `gate.clj` 20-190, `reads.clj` 28-72 and its hint call sites,
 `read_exit.clj` 41-127; the locks build committed at `5a5de4fe`
-(`client.clj` `build`, `lease-for!`, `assign!`, `lease!`; `locks.clj`
+(`client.clj` `build`, `lease-for!`, `assign!`, `refresh!`, `take!`,
+`lease!`, and `stock!` in its working copy; `locks.clj`
 `person-owner`, `lease-writes`, `persons-refusal`, `read-values`;
 `grammar.clj`). The micro build's and the read exit's committed names came
 from a read-only gatherer (Sonnet) and were spot-checked where they decide
@@ -47,7 +50,7 @@ a fix. Not opened: `env.clj`, anything under `src/app`,
 | F4 | `:grammar-change-needs-rebuild` reads only `:used` from before the act (stream) or the batch (micro). An act holding the first `:note` grammar with `:by-value` and a `:note` value is admitted, its value indexed under the old hints, and the row then says `:by-value`: `[:kv :note v]` misses it silently. The micro batch has the same hole across acts, in both orders | 4.5, 4.7, 3.2 (micro), G4: the act's own value facts under k count as a use; in the micro store any envelope of the same batch in L offering a fact under k does, and the fold refuses the grammar |
 | F5 | "Two runners at once offer the same name with the same content": false as built. `client/build` fills `:claimed-when` from the wall clock and the parts digest covers it (`client.clj` 21-37, both branches), so a second runner's offer is `:name-taken`, not answered from the record | 6.2 c, 6.3, T-FR5, 15: the run's output act carries a derived `:claimed-when` (the millisecond of the later stood-on stamp) and a fixed `:session`, so its content is a function of (L, tool fact, matched fact) |
 | F6 | The possible fifth class-b step (a tool is not a person) left open. Resolved: phase 2 seals a lease row under `person-owner` of the lease act's `:who`, so a lease by the tool is refused `:no-such-person` (locks build `lease-writes`, `persons-refusal`); and read entries are sealed at the door too (LP:677-679), so every tool read needs a lock, not only its outputs | 6.2, 8 b5, 13.2: the runner leases as the operator (bare rows, L23) into the tool's own door session `(client/default-session tool-id)` and takes the locks into the door's pool, `client/stock!` (in the locks build's working copy at 04:00, uncommitted), sized to what it will offer. No store code; a runner step inside a11; if `stock!` does not land, a public pool refresh after `client/lease!` is one door step, class b; the build probes it after phase 2's merge |
-| F7 | The loop check ignores the runner's own writes: every tool read writes a `:read/pattern` fact into L, so a tool matching `[:k :read/pattern]` gets a new match every pass for ever; and nothing stops `:out` from naming a store key | 6.4, 5.1, 5.2, R5, recipe-test: every tool's edges include the read-entry keys; a pattern on a store key and an `:out` holding one are refused at parse |
+| F7 | The loop check ignores the runner's own writes: every tool read writes a `:read/pattern` fact into L, so a tool matching `[:k :read/pattern]` gets a new match every pass for ever; and nothing stops `:out` from naming a store key | 6.4, 5.1, 5.2, R5, recipe-test: every tool's edges include the runner's own writes (read entries, its leases for tools): `loop-free` refuses a pattern on any store key (`:tool-loop`), and `parse-tool` refuses an `:out` holding a store key or `:tool` (`:malformed-tool`) |
 | F8 | The count misses steps: `client/lookup-many` is a new door function the plan lists in section 10 but not in section 8; the pattern read's "start after" is needed for any tool with more than n matches and is uncounted; the revision reader is two steps in the plan and "one capability" in RIG.md | 8: b6 `lookup-many`; b7 (deferred, not built tonight) the pattern read's start-after; the revision reader stated as one capability exposing two built-in steps |
 | F9 | The micro reorder's hop is not in the cost tables, and the cheaper road (open on `hash(L)` with the lease rows carried sealed) was not constructed | 3.2, 9 "Partitioning efficiency": the micro row costed; the alternative constructed and rejected on the micro plan's own rule that a bare lock never crosses a task on the common path |
 | F10 | The plan named functions of builds that had committed nothing; they have since. The hint seam is `reads/current-hints` (called at `gate.clj:281`, `reads.clj:426`, `reads.clj:975`), not only the constant `seed-hints`; `reads/read-keys` already names the read-entry keys; the micro gate's block 1 and fold are `micro/arrival-open`, `micro/layer-rows`, `micro/prepare`, and its refusal order `micro/reason-order`, where `:grammar-change-needs-rebuild` must also go | 1 (a table of what each name became), 10, 13: the names to bind after the merge |
@@ -308,8 +311,9 @@ another actor's pid runs to a refusal as data. The recipe: named steps
 (`:emit`, `:revision/read-units`, `:revision/read-span`) with formulas in
 the leaves from a closed set (`:lit :in :got :count :str :map`); no var,
 no function, no loop, bounded at parse (16 steps, depth 8, 256 nodes).
-Nothing in it is a program. Pass, after F7 (an `:out` of a store key and a
-pattern on one are refused at parse) and F11 (`:tool` is an ordinary key).
+Nothing in it is a program. Pass, after F7 (an `:out` holding a store key
+or `:tool` is refused at parse, a pattern on a store key by the loop check)
+and F11 (`:tool` is an ordinary key).
 
 ### 2.8 The runner
 
