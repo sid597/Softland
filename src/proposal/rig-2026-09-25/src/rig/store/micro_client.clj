@@ -212,19 +212,38 @@
   [store offer]
   (foreign-append! (:micro-depot store) offer :append-ack))
 
+(defn own-answer?
+  "Whether a micro-lookup result answers this envelope itself: a face or a
+  `:recorded` trace under its fingerprint, the record it was decided for
+  (the decided fingerprint is its own), or the name taken by other parts.
+  A record that matches only by the parts digest and was decided for
+  another envelope is not yet this envelope's answer: with sealed values
+  the parts digest cannot see content, so a resend's own check (its face,
+  or its trace) is what answers it."
+  [r fp]
+  (boolean (and r (not= :no-answer (:answer r))
+                (or (:face r) (:recorded r) (= fp (:decided-fp r))
+                    (and (= :name-taken (:reason r)) (not (contains? r :stamp)))))))
+
 (defn await-answer
-  "Poll micro-lookup for this envelope at 50 ms (I-G3, M15) until it answers
-  or `timeout-ms` passes; a read that throws is 'not yet' (§G). The last
-  result, `{:answer :no-answer ...}` on a timeout."
+  "Poll micro-lookup for this envelope at 50 ms (I-G3, M15) until it gives
+  this envelope's own answer (`own-answer?`) or `timeout-ms` passes; a read
+  that throws is 'not yet' (§G). The last result, `{:answer :no-answer ...}`
+  on a timeout."
   ([store offer] (await-answer store offer 60000))
   ([store offer timeout-ms]
-   (let [nm (:name offer) d (digest-of offer) fp (fp-of offer)
+   (let [nm (:name offer)
+         ;; an envelope the gate refuses on its face has no parts digest; a
+         ;; digest no record has keeps a record from answering for it
+         d (or (digest-of offer) "unparsed")
+         fp (fp-of offer)
          deadline (+ (System/currentTimeMillis) timeout-ms)]
-     (loop []
-       (let [r (try (foreign-invoke-query (:lookup-q store) nm d fp nil) (catch Exception _ nil))]
-         (if (or (and r (not= :no-answer (:answer r))) (> (System/currentTimeMillis) deadline))
+     (loop [last nil]
+       (let [r (try (foreign-invoke-query (:lookup-q store) nm d fp nil) (catch Exception _ nil))
+             r (or r last)]
+         (if (or (own-answer? r fp) (> (System/currentTimeMillis) deadline))
            (or r {:answer :no-answer})
-           (do (Thread/sleep 50) (recur))))))))
+           (do (Thread/sleep 50) (recur r))))))))
 
 (defn offer!
   "Send an envelope and wait for its answer; after a send error, look its

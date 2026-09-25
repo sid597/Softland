@@ -840,8 +840,11 @@
             (and (= :yes (:answer rec))
                  (some #{:name-taken} (vals (get-in w [:resend [nm fp]]))))
             (face w nm fp :name-taken b)
-            ;; recorded: answered from the record; its owned leases are consumed
-            :else (consume w (:owned sk))))
+            ;; recorded: answered from the record; its owned leases are consumed, and
+            ;; the envelope leaves a trace under its fingerprint, so its offerer can
+            ;; tell its own resend was answered (the parts digest cannot see a
+            ;; sealed value's content)
+            :else (-> w (consume (:owned sk)) (face nm fp :recorded b))))
 
         prior
         ;; decided earlier in this fold: the fold holds no value and cannot check content
@@ -1012,15 +1015,22 @@
 
 (defn lookup-result
   "micro-lookup's answer (§D, RD1): a faces entry for this envelope at or
-  below F gives its reason; else a record at or below F, the record when
-  its parts digest matches (or no digest is given: the record as data,
-  [F13]) and `:name-taken` when it differs; else `:no-answer`."
-  [face rec digest F]
+  below F gives its reason (a `:recorded` trace gives the record: this
+  envelope was answered from it); else a record at or below F, the record
+  when its parts digest matches (or no digest is given: the record as data,
+  [F13]), with the fingerprint of the envelope it was decided for, and
+  `:name-taken` when it differs; else `:no-answer`."
+  [face rec dfp digest F]
   (cond
+    (and (visible-at? face F) (= :recorded (:reason face)) (some? rec))
+    (assoc rec :frontier F :recorded true)
     (visible-at? face F) {:frontier F :answer :no :reason (:reason face) :face true :batch (:batch face)}
-    (and (visible-at? rec F) (or (nil? digest) (= digest (:digest rec)))) (assoc rec :frontier F)
+    (and (visible-at? rec F) (or (nil? digest) (= digest (:digest rec)))) (assoc rec :frontier F :decided-fp dfp)
     (visible-at? rec F) {:frontier F :answer :no :reason :name-taken}
     :else {:frontier F :answer :no-answer}))
+
+(defn recorded-trace? "A faces entry that says its envelope was answered from the record." [face]
+  (= :recorded (:reason face)))
 
 (defn lease-result
   "micro-lease's answer (§A): the plaintext locks of the rows at or below F,
@@ -1389,11 +1399,15 @@
       (local-select> [(keypath *name :faces *fp)] $$micro-names :> *face)
      (else>)
       (identity nil :> *face))
-    (<<if (visible-at? *face *F)
+    (<<if (and> (visible-at? *face *F) (not (recorded-trace? *face)))
       (identity nil :> *rec)
      (else>)
       (local-select> [(keypath *name :answer)] $$micro-names :> *rec))
-    (lookup-result *face *rec *digest *F :> *result)
+    (<<if (and> (some? *rec) (not (visible-at? *face *F)))
+      (local-select> [(keypath *name :fp)] $$micro-names :> *dfp)
+     (else>)
+      (identity nil :> *dfp))
+    (lookup-result *face *rec *dfp *digest *F :> *result)
     (|origin))
 
   (<<query-topology topologies "micro-act" [*e *name *f :> *result]

@@ -444,7 +444,7 @@
       (let [rec {:answer :no :reason :no-permission :stamp 9 :digest (mc/digest-of so) :batch 3}
             ws (writes [so] (assoc-in wl [:names (:name so)] rec))]
         (is (nil? (answer-of ws so)) "no new record")
-        (is (empty? (faces ws)))
+        (is (= {[(:name so) (mc/fp-of so)] :recorded} (faces ws)) "only the envelope's trace: answered from the record")
         (is (seq (filter #(= :del-lease (first %)) ws)) "a resend answered from the record consumes its owned leases ([PV-F2])"))
       (let [rec {:answer :yes :stamp 9 :digest "other" :batch 3}
             ws (writes [so] (assoc-in wl [:names (:name so)] rec))]
@@ -525,9 +525,9 @@
         rec {:answer :yes :stamp 9 :digest (mc/digest-of so) :batch 3}
         base (-> w (assoc-in [:names (:name so)] rec) (assoc-in [:rows [:e0 (:name so) 0]] row))]
     (testing "a resend citing the recorded lock with the same plaintext: recorded"
-      (let [resend (mc/seal o (constantly lid) ks)
-            ws (writes [(assoc resend :name (:name so))] base)]
-        (is (empty? (faces ws)))
+      (let [resend (assoc (mc/seal o (constantly lid) ks) :name (:name so))
+            ws (writes [resend] base)]
+        (is (= {[(:name so) (mc/fp-of resend)] :recorded} (faces ws)))
         (is (nil? (answer-of ws so)))))
     (testing "the same lock ids with other plaintext: :name-taken on the face (the value check under the recorded lock)"
       (let [other (mc/seal (assoc-in o [:facts 0 :v] {:persons #{:alice}}) (constantly lid) ks)
@@ -536,7 +536,7 @@
     (testing "after the value is forgotten (its wrap closed by Bob's forget) the same resend is answered from the record"
       (let [other (assoc (mc/seal (assoc-in o [:facts 0 :v] {:persons #{:alice}}) (constantly lid) ks) :name (:name so))
             forgotten (assoc-in base [:persons :bob] {:lock nil :erased-at 11})]
-        (is (empty? (faces (writes [other] forgotten))))))
+        (is (= #{:recorded} (set (vals (faces (writes [other] forgotten))))))))
     (testing "a door that lost its locks resends under a fresh lease of its own person: checked, and its rows consumed"
       (let [ln2 (env/make-name :group :by-entity)
             lid2 [ln2 0]
@@ -547,7 +547,7 @@
             diff (assoc (mc/seal (assoc-in o [:facts 0 :v] {:persons #{:alice}}) (constantly lid2) {lid2 K2}) :name (:name so))
             ws1 (writes [same] (with-leases base {lid2 row2}))
             ws2 (writes [diff] (with-leases base {lid2 row2}))]
-        (is (empty? (faces ws1)))
+        (is (= #{:recorded} (set (vals (faces ws1)))))
         (is (= [[:del-lease ln2 nil 0 nil]] (filter #(= :del-lease (first %)) ws1)) "its new lease rows consumed")
         (is (= :name-taken (get (faces ws2) [(:name so) (mc/fp-of diff)])))
         (is (empty? (filter #(= :del-lease (first %)) ws2)) "and left alone on :name-taken")))
@@ -558,7 +558,7 @@
             theirs (lease-row K3 :group :s2 :under nil)
             r (assoc (mc/seal o (constantly lid3) {lid3 K3}) :name (:name so))
             ws (writes [r] (with-leases base {lid3 theirs}))]
-        (is (empty? (faces ws)))
+        (is (= #{:recorded} (set (vals (faces ws)))))
         (is (empty? (filter #(= :del-lease (first %)) ws)))))))
 
 (deftest block-2b-rows
@@ -652,13 +652,23 @@
     (is (not (micro/visible-at? {:batch 1} nil))))
   (testing "micro-lookup's answer: a face first, then the record by digest, else no answer"
     (let [rec {:answer :yes :digest "d" :batch 2 :stamp 5}]
-      (is (= :no-such-lock (:reason (micro/lookup-result {:reason :no-such-lock :batch 2} rec "d" 3))))
-      (is (= rec (dissoc (micro/lookup-result nil rec "d" 3) :frontier)))
-      (is (= rec (dissoc (micro/lookup-result nil rec nil 3) :frontier)) "a nil digest: the record as data")
-      (is (= :name-taken (:reason (micro/lookup-result nil rec "x" 3))))
-      (is (= :no-answer (:answer (micro/lookup-result nil rec "d" 1))) "a record above F is not there yet")
-      (is (= :no-answer (:answer (micro/lookup-result {:reason :no-such-lock :batch 4} nil "d" 3))))
-      (is (= 3 (:frontier (micro/lookup-result nil nil "d" 3))))))
+      (is (= :no-such-lock (:reason (micro/lookup-result {:reason :no-such-lock :batch 2} rec "f" "d" 3))))
+      (is (= rec (dissoc (micro/lookup-result nil rec "f" "d" 3) :frontier :decided-fp)))
+      (is (= "f" (:decided-fp (micro/lookup-result nil rec "f" "d" 3))) "with the fingerprint of the envelope it was decided for")
+      (is (= rec (dissoc (micro/lookup-result nil rec "f" nil 3) :frontier :decided-fp)) "a nil digest: the record as data")
+      (is (= :name-taken (:reason (micro/lookup-result nil rec "f" "x" 3))))
+      (is (= :no-answer (:answer (micro/lookup-result nil rec "f" "d" 1))) "a record above F is not there yet")
+      (is (= :no-answer (:answer (micro/lookup-result {:reason :no-such-lock :batch 4} nil nil "d" 3))))
+      (is (= 3 (:frontier (micro/lookup-result nil nil nil "d" 3))))
+      (is (= (assoc rec :frontier 3 :recorded true) (micro/lookup-result {:reason :recorded :batch 3} rec nil "d" 3))
+          "a :recorded trace: this envelope was answered from the record"))
+    (testing "the door takes only its own envelope's answer"
+      (is (mc/own-answer? {:answer :yes :stamp 1 :decided-fp "f"} "f"))
+      (is (not (mc/own-answer? {:answer :yes :stamp 1 :decided-fp "g"} "f")) "decided for another envelope: not yet this one's")
+      (is (mc/own-answer? {:answer :yes :stamp 1 :recorded true} "f"))
+      (is (mc/own-answer? {:answer :no :reason :no-such-lock :face true} "f"))
+      (is (mc/own-answer? {:answer :no :reason :name-taken} "f") "other parts: the name is taken, whatever the gate's face")
+      (is (not (mc/own-answer? {:answer :no-answer} "f")))))
   (testing "faces are written keep-first ([PV-F10])"
     (is (= {:reason :a :batch 1} (micro/keep-first {:reason :a :batch 9} {:reason :a :batch 1})))
     (is (= {:reason :a :batch 9} (micro/keep-first {:reason :a :batch 9} nil))))
