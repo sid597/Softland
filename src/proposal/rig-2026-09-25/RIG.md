@@ -25,15 +25,23 @@ handoff.
     failures, 0 errors, 19 s (`runs/phase1-suite-after-clock-merge.log`;
     the build's run on 8 tasks is `runs/phase1-suite-hybrid-clock.txt`).
   - The 08:52 rewrite of `gate.clj`, traced; see "Found tonight".
+  - Phase 2's plan revised for sealing at the door (default 1) and
+    validated before the 03:00 line: minor-fail, four fixes applied in the
+    plan (`PLAN_VALIDATION-locks-and-forgetting.md`, 02:34), merged here.
+    So the lease road is built; the fallback is not taken. The fixes: lock
+    ids stay out of the reused-name digest, so an honest resend sealed
+    under a new lease gets its recorded answer (F1); the base is made on
+    the stream gate with a no-owner wrap, lease rows sealed under the lease
+    act's writer (F2); consumption of a lock happens in one place (F3);
+    seven phase 1 test expectations that change are listed (F4).
 - **In flight**, each writer in its own worktree off this branch, merged by
-  commit: phase 2's plan revised for sealing at the door
-  (`Softland-rig-plan-locks`, due 02:40); phase 3's plan revised for the
-  permission and base defaults (`Softland-rig-plan-micro`, due 03:00); the
-  one-owner read exit planned (`Softland-rig-plan-reads`,
-  `PLAN-read-exit.md`, due 02:50); phase 6's revision reader planned
-  (`Softland-rig-reader`, `PLAN-revision-reader.md`).
-- **Next:** each plan validated in a fresh session, phase 2's by 03:00 IST;
-  then phases 2 and 3 and the read exit built side by side off this branch.
+  commit: phase 2 built from its plan (`Softland-rig-build-locks`);
+  validations of the read exit plan (`Softland-rig-plan-reads`), phase 3's
+  revised plan (`Softland-rig-plan-micro`) and the revision reader's plan
+  (`Softland-rig-reader`).
+- **Next:** the read exit, phase 3 and the revision reader built beside
+  phase 2 as their plans pass; then phases 4 and the rest of 5 planned
+  against the validated plans.
 - **How it runs:** worktrees are `/mnt/data/projects/Softland-rig-<name>` on
   branches `rig-<name>`. Every in-process cluster run waits on
   `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. The partial
@@ -67,7 +75,30 @@ the session's history tracks, its subagents' files included.
 ## For Sid
 
 Questions that would touch a record, each with the placeholder used meanwhile,
-marked first-record. None yet.
+marked first-record, and what the build does meanwhile.
+
+1. **Should a lease need the write permission?** Built: yes, a lease act
+   is an act in the layer and needs a permission there. So a value act from
+   a writer without permission cites no lock and is refused on its face
+   (`:no-such-lock`, nothing recorded), where the model records a
+   permission refusal. A difference from the model; phase 8 reports it.
+2. **The root actor and the operator are one principal**, `:operator`
+   (first-record). Phase 1's R13 already names the operator; the phase 3
+   plan wrote `:root`; tonight's builds use `:operator` for both. Are they
+   one principal?
+3. **Lock ids stay out of the reused-name digest** (first-record). A resend
+   whose recorded lock or own lock is gone is answered without a content
+   check, as after a forget; a name once refused can no longer tell when
+   later content differs.
+4. **A lease row is sealed under the lease act's writer**, and is bare for
+   the operator until it is consumed at the decision or its session closes.
+5. **A forgotten value's act still names, in plain text, whom it
+   mentioned** (the act's subject slot, kept for finding). Open item 41,
+   opaque actor ids with one erasable link to the person, would close it.
+6. **For a resend, does the offerer keep the plaintext or the sealed
+   offer?** Built: the door keeps what it needs to reseal.
+7. **When a crashed door's session closes** (open item 82): until then its
+   unconsumed lease rows stay.
 
 ## Defaults taken overnight, not ruled
 
@@ -99,7 +130,8 @@ unless marked first-record.
    (CONCLUSION.md, "Also going into the model"). *Fallback, Sid's:* if phase
    2's plan is not revised and validated for this by 03:00 IST, it is built
    as planned, the delivery behind the function, and the depot's plaintext
-   is marked first-record.
+   is marked first-record. *Status:* revised and validated at 02:34 (minor-
+   fail, four fixes); the lease road is built.
 2. **Stamps: a hybrid clock** (R2), wall-clock milliseconds plus a counter,
    first-record in its packing: one long, ms × 65536 + counter. A task's
    next stamp is the largest of the wall clock's ms × 65536, its last stamp
