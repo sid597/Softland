@@ -34,15 +34,17 @@ with seal, open, wrap, unwrap, the delivery function and open-value. -->
 Each change, with its reason in a line:
 
 1. **Sealing in shared layers (§A).** This gate mints a shared layer's
-   leases; the lease rows sit on the session's task; a sealed act is routed
-   there; each lock is read, used and consumed on that one task in the
-   batch that decides the value. Why: default R1 (nothing that could open a
+   leases; the lease rows sit beside the lease act's name row, on the
+   lease name's task; a sealed act is routed there; each lock is read, used
+   and consumed on that one task in the batch that decides the value. Why: default R1 (nothing that could open a
    value sits in the depot) and ruling 7 (wrapped locks in the record).
 2. **The micro depot's partitioner (M4 revised).** A sealed act arrives on
-   hash(its `:session`); an act with no sealed value arrives on hash(its
-   first entity), as before. Why: the lease rows must be on the task where
-   the value-level checks run, and a lock is minted before anyone knows
-   which entity it will seal.
+   hash(the lease name of its first cited lock); an act with no sealed
+   value arrives on hash(its first entity), as before. Why: the lease rows
+   must be on the task where the value-level checks run, a lock is minted
+   before anyone knows which entity it will seal, and a random lease name
+   spreads even one hot session's acts over the tasks, one lease at a
+   time.
 3. **Face refusals keyed by the envelope key (M8 revised).** Why: R1's
    digest is keyed by the value's lock, which a missing-lock refusal does
    not have; the envelope key (a keyed hash of the sealed envelope) is what
@@ -105,18 +107,22 @@ name row like any act, with one fact:
 
 `:lease` joins the control keys (no lock; plaintext EDN value). The session
 id S stands as the entity, as a layer id does in M5, so the act arrives on
-hash(S) (it seals nothing, so it routes by its first entity). On yes, block
-2b on hash(S) mints n locks (phase 2's form, 32 random bytes each), wraps
-each under the session owner's person lock, and writes the lease rows:
+hash(S) (it seals nothing, so it routes by its first entity), where the
+gather reads the session's owner: `$$layers [S :settings] :owner`, a local
+read of settled history, because a session is a one-owner layer whose
+settings sit on hash(S) in the stream store, and its owner never changes.
+On yes, block 2b carries the owner from hash(S) to hash(lease-name), the
+lease act's own name task, mints n locks there (phase 2's form, 32 random
+bytes each), wraps each under the owner's person lock (`$$persons`, on
+every task) and writes the lease rows beside the lease act's name row:
 
-    $$micro [S :leases lease-name i]  =  {:lock    <phase 2's lock record, wrapped under the owner>
-                                          :layer   L
-                                          :who     P
-                                          :batch   b}
+    $$micro-names [lease-name :leases i]  =  {:lock    <phase 2's lock record, wrapped under the owner>
+                                              :layer   L
+                                              :session S
+                                              :who     P
+                                              :batch   b}
 
-The session owner is `$$layers [S :settings] :owner`: a session is a
-one-owner layer, so its settings sit on hash(S) in the stream store, a local
-read of settled history (a session's owner never changes). The operator, who
+The rows are marked with the session (`:session`), as R1 says. The operator, who
 has no person lock, leases under an empty wrap (phase 2's empty-wrap form).
 A leased lock's id is `[lease-name i]`. Both the row's shape and the lock
 id are first-record placeholders (M16); if phase 2's revision fixes another
@@ -126,22 +132,25 @@ A retried lease batch mints other bytes. Only the committed attempt's rows
 exist, and the door reads rows only through the frontier, so it never holds
 a lock from an attempt that did not commit.
 
-**The door takes their plaintext by a query.** `micro-lease [S lease-name
-F]` on hash(S): read F; the rows under `[S :leases lease-name]` with batch ≤
-F (one seek, n iterations; a two-level subindexed map, so no question of
-vector-key prefix order); `locks/deliver` each under the owner's person
+**The door takes their plaintext by a query.** `micro-lease [lease-name
+F]` on hash(lease-name): read F; the rows under `[lease-name :leases]` with
+batch ≤ F (one seek, n iterations, a subindexed map keyed by index); `locks/deliver` each under the owner's person
 lock (`$$persons`, local); return the plaintext locks. The depot never sees
 this path.
 
 **The door seals each value under one leased lock, and the offer cites its
 id** (the envelope part that carries it is phase 2's). All the locks an act
 cites come from one lease of the act's `:session`, made for the act's
-layer (M24).
+layer (M24). A lease row whose `:session` or `:layer` is not the offer's
+counts as missing.
 
-**Routing (M4 revised).** `route-key` is the offer's `:session` when any of
-its facts cites a lock, else its first fact's entity, else nil, where block
-1 refuses the record as malformed. A sealed act therefore arrives where its
-lease rows are.
+**Routing (M4 revised).** `route-key` is the lease name of the first lock
+any of its facts cites (a lock id is `[lease-name i]`, so no read), else
+its first fact's entity, else nil, where block 1 refuses the record as
+malformed. A sealed act therefore arrives where its lease rows are: the
+depot's `hash-by` and `$$micro-names`' default key partitioner hash the same
+name vector, the argument P2 and the 25 September plan already rest on for
+entities.
 
 **Block 1, on the arrival task, before any hop.** For a sealed act, read its
 lease rows (one range read: one seek, one iteration per cited lock) and call
@@ -211,7 +220,8 @@ small lock shared by all values in an act").
 
 **The lease act's checks.** The lease act's gather reads `$$layers [S
 :settings]` on hash(S) (its arrival task) and hands the fold the session's
-owner. A lease act whose entity is not a session layer, or with a count out
+owner; block 2b reads it there again and carries it to the lease name's
+task. A lease act whose entity is not a session layer, or with a count out
 of bounds, is refused `:malformed-control` (R13's reason for a control fact
 with a bad value).
 
@@ -224,7 +234,7 @@ showed" 3).
 
 **Block 2c, new: consume the leases.** A third pass over `%mb` on the
 arrival tasks. For every record whose cited lease rows exist on its task,
-whatever its decision, each cited `[S :leases lease-name i]` gets
+whatever its decision, each cited `[lease-name :leases i]` gets
 `(termval NONE)`. "Whatever its decision" covers admitted, refused,
 answered from the record, taken, a later double use, and a face refusal
 made after the lease was read. Why a separate block: the rows of 2b re-read
@@ -247,7 +257,8 @@ the lock, or nil) is called with the same body by both gates. Each gate
 reads its own lease row from its own PState on the task where it decides,
 and the function unwraps the row under the owner's person lock. The micro
 side needs no other body. Only the place the row is read from differs (the
-stream store: the layer's home, phase 2's; this store: hash(S)), and that is
+stream store: the layer's home, phase 2's; this store: the lease name's
+task), and that is
 outside the function.
 
 **What the depot holds after this.** Sealed bytes, lock ids, names, ids and
@@ -329,14 +340,36 @@ meets the revoked row.
   fact and covers nothing, because the walk refuses every offer that cites
   it (rig choice; no new reason).
 
-**Cost.** The check reads the chain's rows on the one task that holds the
-layer's permission index. A session's write, under a person's permission,
-under the root, reads 3 rows where P8 read 1, all point reads on one task.
-The alternative, cascading a revoke into every descendant's row, makes a
-check one read. It costs a subtree walk inside one stream event or one
-batch (a group root's subtree is every member's sessions, agents and tools),
-a children index, and a gathered subtree in the fold for the in-batch race.
-Rejected: the walk is bounded at four reads; the cascade has no bound.
+**Cost, and the alternative constructed.** The check reads the chain's rows
+on the one task that holds the layer's permission index. A session's write
+in its person's own layer (session, root) reads 2 rows where P8 read 1; a
+session's write in a group (session, person, root) reads 3; all are point
+reads on a task the offer visits anyway. With half the traffic at each
+depth, that is about 1.5 seeks more per offer.
+
+The alternative is to cascade a revoke. Each permission row gets a `:cut-by`
+field and a `:children` index; a revoke walks the subtree and marks every
+descendant; a grant reads its parent (1 seek) and is born cut if the parent
+is; a check reads 1 row, plus, on the micro side, W's in-batch revokes
+matched against the chain in the id (no reads). Per offer that saves the
+1.5 seeks. Per revoke it costs one range read and one write per descendant,
+s in all: at most tens for a one-owner layer, and for a group root every
+member's sessions, agents and tools, say s ≈ 1,000. Per grant it costs 1
+read and 1 write more. At one revoke per 10,000 offers, the cascade's
+amortised cost is about 0.1 seeks per offer against the walk's 1.5, so on
+throughput alone the cascade wins.
+
+It is not taken tonight, for three reasons. The brief asks for the fewest
+lines in the stream gate: the walk is three changed places, while the
+cascade adds a children index and a cut field to `$$layers`, a subtree walk
+inside a stream event (which holds up every offer of that layer's home
+while it runs), and born-cut grants. For a re-classed layer, the cascade
+must also walk the stream store's frozen children from the micro side and
+keep the marks in its own delta. And, the deciding one (rule 10), the cut
+marks are projections rebuildable from the grant and revoke facts, so a
+later switch to the cascade touches no record. The walk is the simplest
+thing that can change later; phase 7's numbers say whether the 1.5 seeks
+show.
 
 **A permission cited from another layer** is refused
 `:permission-from-another-layer`, whether the cited pid or any of its
@@ -401,7 +434,7 @@ for group and base layers") and M11's base.
 - **The query.** `micro-frontier` is `foreign-select-one [(keypath
   :frontier)] $$micro-task {:pkey 0}`: one seek. Every reader-facing query
   takes F explicitly: `micro-lookup [name digest envelope-key F]`,
-  `micro-act [e name F]`, `micro-lease [S lease-name F]`. An F of nil means
+  `micro-act [e name F]`, `micro-lease [lease-name F]`. An F of nil means
   the reading task's own. `micro/visible-at? row F` is the one predicate,
   pure, that the reads stage builds shared-layer reads on.
 - **What a read entry records** (R3): for a shared layer `{:layer L
@@ -558,7 +591,7 @@ record" marks a pick that touches a record (its bytes, a stamp, an id, what
 an entry holds): the simplest placeholder, listed in the receipt.
 
 - **M4, revised.** One client depot, `*micro-offers`, partitioned by the
-  offer's `:session` when it cites a lock, else by its first fact's entity.
+  lease name of the first lock it cites, else by its first fact's entity.
   Why: §A; the common control act keeps its local gather.
 - **M8, revised (first-record).** A face refusal, a taken name or a missing
   lock is recorded under `[name envelope-key]` in the name entry's
@@ -573,8 +606,8 @@ an entry holds): the simplest placeholder, listed in the receipt.
   phase 2's shapes; `$$persons` is read locally where a wrap or an unwrap
   needs it. Why: sealing is now at the door, not a seam to fill later.
 - **M16 (first-record).** A shared layer's leases are minted by this gate
-  from a lease act in that layer; the rows sit under the session id as an
-  entity, `$$micro [S :leases lease-name i]`, wrapped under the session
+  from a lease act in that layer; the rows sit beside the lease act's name
+  row, `$$micro-names [lease-name :leases i]`, wrapped under the session
   owner's person lock; a leased lock's id is `[lease-name i]`; the operator
   leases under an empty wrap. Why: §A; the stream gate cannot consume a row
   of this store.
@@ -605,7 +638,8 @@ an entry holds): the simplest placeholder, listed in the receipt.
 - **M24 (first-record).** A lease is scoped to one session and one layer;
   all the locks one act cites come from one lease; `:lease` is a control
   key; n ≤ 256 per lease act. Why: one lease home per act, so its lock work
-  is on one task.
+  is on one task, and a session's acts move to another task with each new
+  lease.
 - **M25.** For a re-classed layer (the base included), a nil-tagged
   `:forget` goes to the store that holds its target: a micro-era target
   (its name tagged `:by-entity`) to this gate, landing on the value's
@@ -615,19 +649,22 @@ an entry holds): the simplest placeholder, listed in the receipt.
   cannot reach a row of this store; the client reads the target's tag, so
   the routing needs no read.
 
-**The schema addition** for §A, one field in `$$micro`'s fixed-keys value,
-under a session id used as an entity:
+**The schema addition** for §A, one field in `$$micro-names`' fixed-keys
+value, beside the lease act's own name row (the same key and partitioner, so
+one PState by the merge rule):
 
 ```clojure
-:leases (map-schema clojure.lang.PersistentVector              ; the lease act's name
-          (map-schema Long                                     ; i -> the lease row
-            (fixed-keys-schema {:lock  <phase 2's lock record> ; wrapped under the session owner's person lock
-                                :layer clojure.lang.Keyword
-                                :who   clojure.lang.Keyword
-                                :batch Long})
-            {:subindex-options {:track-size? false}})
+:leases (map-schema Long                                     ; i -> the lease row
+          (fixed-keys-schema {:lock    <phase 2's lock record> ; wrapped under the session owner's person lock
+                              :layer   clojure.lang.Keyword
+                              :session clojure.lang.Keyword
+                              :who     clojure.lang.Keyword
+                              :batch   Long})
           {:subindex-options {:track-size? false}})
 ```
+
+The map is subindexed although n ≤ 256 (M24): its entries are removed one
+by one as they are consumed, and a subindexed entry is one seek to delete.
 
 Row `:v` keeps its type (String): the base64 text of the sealed bytes,
 phase 2's form. The faces map's key keeps its type (String): now the
@@ -838,9 +875,9 @@ stream store's `$$layers`, read here, never written.
 
 ### `$$micro` — everything keyed by an entity, on the entity's task
 
-> **Revision:** the value gains `:leases` under a session id (§I, the schema
-> addition); a `:log` row's `:v` holds the sealed bytes and `:lock` the
-> wrapped lock record (§A).
+> **Revision:** a `:log` row's `:v` holds the sealed bytes and `:lock` the
+> wrapped lock record (§A). `$$micro-names` gains `:leases` beside a lease
+> act's name row (§I, the schema addition).
 
 Candidates, costed for the dominant read (the gate's gather per offer) and
 for the frontier rule:
