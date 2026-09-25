@@ -3,19 +3,35 @@
 ## Overnight state (26 September; rewritten after every commit)
 
 **Now: builder B, from 04:26 IST.** Builder B took over at 04:26 on
-builder A's handoff note (the relay's rule 2) and builds from here; the
-relay's log has the watch. *Done since the handoff:* phase 2's build
-finished green on its own branch, `rig-build-locks` at `7c9578b1` (30
-tests, 1,454 assertions, 0 failures; its builder, started by builder A,
-was still running two confirmation runs at 04:31), so no step of it needs
-redoing. *In flight:* the merge of wave 1 (phases 2 and 3, and the seams
-listed under "Unfinished" below) in worktree `Softland-rig-wave1`, branch
-`rig-wave1`, made off this branch at `703b8e26`; builder A's empty
-`Softland-rig-integrate` is left as it is. Phase 7's plan, in worktree
-`Softland-rig-plan-numbers` (branch `rig-plan-numbers`), written now so
-the runs can start as soon as the store is finished. *Next:* wave 2 off the
-merge (phase 4, the rest of phase 5, phase 6), their merge, phase 8's
-replays, phase 7's runs, then the rama skill's full-spec review.
+builder A's handoff note (the relay's rule 2) and builds from here.
+Builder C watches B and builder D watches C, through the `-b` and `-c`
+files in `/mnt/data/projects/rig-relay-2026-09-26/`. **Sid's build
+instructions for tonight, verbatim, are in that folder's
+`build-instructions`**: builders C and D, whose prompts end before them,
+build from that file, and this section wins on build state and deadlines.
+
+*Done since the handoff:* phase 2's build finished green on its own
+branch, `rig-build-locks` at `fd41f6d2` (30 tests, 1,454 assertions, green
+three runs in a row), so no step of it needs redoing.
+
+*In flight*, each in worktree `Softland-rig-<name>` on branch
+`rig-<name>`, made off this branch:
+- `wave1`: the merge of wave 1. Phases 2 and 3 were merged at 04:45; the
+  seams listed under "Unfinished" below are being wired and tested.
+- `build-replays`: phase 8's harness, first pass. It resolves each later
+  stage's functions by name, so it runs at every stage and gains cases as
+  they merge.
+- `plan-numbers`: phase 7's plan, written (`ae514e3e`), being validated.
+- `build-promotion`, `build-reads-rest`, `build-tools`: wave 2's builders
+  for phase 4, the rest of phase 5 and phase 6. Each loads its plan,
+  commits a prep note and waits for wave 1 to land; builder B then tells
+  each to merge and build. A successor to builder B cannot message them:
+  it starts fresh builders from those prep notes.
+
+Builder A's empty `Softland-rig-integrate` is left as it is.
+
+*Next:* wave 1 lands here, then wave 2 builds, their merge, phase 8's
+later passes, phase 7's runs, then the rama skill's full-spec review.
 
 **At the handoff (builder A, 04:15).** Builder A ran from 01:37 to 04:15 IST on Sid's overnight brief: build every
 remaining phase of SPEC.md (2 locks and forgetting, 3 the micro store, 4
