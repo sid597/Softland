@@ -552,6 +552,20 @@ stands.
 | `rtest/create-ipc`, `launch-module!`, `destroy-module!` | Rama | listed above | a fresh module per case | all |
 | `fm/init`, `seed-permissions`, `step`, `drain`, `read-as-of`, `now`, `answers-for`, `all-facts`, `readable?`; `scenarios/play`, `a-cases`, `b-cases`, `d-cases` | model | model.clj, scenarios.clj (public) | the lockstep and the model's lines | all |
 
+At plan time (03:35 IST) the builds in flight already define, by name:
+phase 2's (`Softland-rig-build-locks` at `b2c435d6`) `client.clj` has
+`connect`, `offer!`, `lease!`, `close-session!`, `make-person!`,
+`forget-person!`, `forget-value!`, `read-as-of`, `opens?`, `seed!`;
+phase 3's (`Softland-rig-build-micro` at `48562bde`) `micro_client.clj`
+has `connect`, `frontier`, `offer!`, `lease!`, `make-base!`,
+`make-group!`, `open-session!`, and a placeholder `forget-person!
+[store p stamp]` that writes the forget's effect straight into
+`$$persons` through a test depot, not the act; phase 5a's
+(`Softland-rig-build-reads` at `b070858c`) `read_exit.clj` has `connect`
+and `read!`; phase 4 is not built. The replay uses phase 2's person acts
+after the merge; run against phase 3's placeholder alone, a person forget
+is "approximated (its effect written directly, no act)".
+
 Gaps the build must close or record (found while planning): P4's list of
 changes to earlier stages (L803-824) does not name `rig.store.inject`,
 though its tests need `hold!`, `release!` and the new points; P4 gives no
