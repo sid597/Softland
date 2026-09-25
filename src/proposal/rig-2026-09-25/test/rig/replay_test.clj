@@ -619,9 +619,10 @@
    {:id :inject/hold! :stage "4" :var 'rig.store.inject/hold! :bound :plan :cases #{"B1" "B2"}
     :plan-name "inject/hold! at :before-read-out and :before-forward (never rig.claims/hold!, F8)"}
    {:id :inject/release! :stage "4" :var 'rig.store.inject/release! :bound :plan :cases #{"B1" "B2"}}
-   {:id :env/crossing-name :stage "4" :var 'rig.store.envelope/crossing-name :bound :built :cases b-cases}
-   {:id :env/landing-name :stage "4" :var 'rig.store.envelope/landing-name :bound :built :cases #{"B3" "B4"}
-    :plan-name "env/landing-name (phase 4: 'takes the class'; the 3-arity is tried first)"}
+   {:id :env/crossing-name :stage "1" :var 'rig.store.envelope/crossing-name :bound :built :cases b-cases
+    :plan-name "env/crossing-name (the plan lists it under stage 4; phase 1 built it)"}
+   {:id :env/landing-name :stage "1" :var 'rig.store.envelope/landing-name :bound :built :cases #{"B3" "B4"}
+    :plan-name "env/landing-name (listed under stage 4; phase 1 built it, and phase 4 makes it take the class: the 3-arity is tried first)"}
    ;; ---- stage 5a, the one-owner read exit (built on this branch)
    {:id :exit/connect :stage "5a" :var 'rig.store.read-exit/connect :bound :built :cases :all}
    {:id :exit/read! :stage "5a" :var 'rig.store.read-exit/read! :bound :built :cases :all}
@@ -985,6 +986,7 @@
                                                    :model-layer (get-in d [:offer :layer]))))
                lease (update :rig-only conj {:what :lease :of (:name d) :name (:name lease) :answer (answer-of lease)}))))
   (when lease (kd! p 2))
+  (when (int? (:stamp answer)) (kd! p 12))
   (judge-and-record! p d answer lease))
 
 (defn- no-counterpart!
@@ -997,7 +999,32 @@
 
 ;; ================================================================= the plays
 
-(defn- f [env id] (api-fn (:api env) id))
+(def call-ms
+  "Every rig call's bound. A door call may itself wait 60 s for a micro
+  answer, and lease first, so its bound is two of the waits' 60 s; the
+  stream door's ack and its resend loop have none of their own that is
+  shorter."
+  120000)
+
+(defn bounded-call
+  "Run one rig call on its own thread and wait for it at most `call-ms`: a
+  call that does not return is that case's 'differs: no answer within
+  120 s', never a hung suite. Its exception, if it throws, is its own."
+  [what thunk]
+  (let [fut (future (thunk))
+        v (try (deref fut call-ms ::timeout)
+               (catch java.util.concurrent.ExecutionException e (throw (or (.getCause e) e))))]
+    (if (= ::timeout v)
+      (do (future-cancel fut)
+          (throw (ex-info (str "no answer within " (quot call-ms 1000) " s: " what)
+                          {::timeout what ::call true})))
+      v)))
+
+(defn- f
+  "A resolved API as a function whose every call is bounded."
+  [env id]
+  (let [g (api-fn (:api env) id)]
+    (fn [& args] (bounded-call (str (namespace id) "/" (name id)) #(apply g args)))))
 
 (defn- wait-frontier!
   "Wait for the frontier to pass the batch that decided a micro answer, so
@@ -1030,6 +1057,7 @@
         pid (cited-pid w rn (:permission offer))
         session (get-in w [:sessions who])
         facts (rig-facts rn (:facts offer))]
+    (kd! p 9)
     (if (one-owner-layer? layer)
       (let [lease ((f env :client/stock!) store who rl session (count facts) pid)
             o ((f env :client/build) {:who who :layer rl :class :by-layer :permission pid :session session :facts facts})
@@ -1072,6 +1100,7 @@
         micro? (= :by-entity (:class ((f env :micro/settings-of) store in)))
         o (if micro? ((f env :micro/revoke-offer) store rpid) ((f env :client/revoke-offer) store rpid))
         a (if micro? ((f env :micro/offer!) store o) ((f env :client/offer-until-answered!) store o))]
+    (kd! p 9)
     (when (and micro? (#{:yes :no} (:answer a))) (wait-frontier! env store a))
     (record-act! p d {:rig (:name o) :gate (if micro? :micro :stream) :layer in :facts (:facts o) :offer o :answer a})))
 
@@ -1133,6 +1162,14 @@
 
 (defn- decided-in? [step model-name]
   (boolean (some #(= model-name (:name %)) (concat (:decided step) (:prepared step)))))
+
+(defn- decided-later?
+  "Whether the model decides `model-name` in an op after `step`: the rule
+  for holding a continuation (the plan: 'when the model decides a
+  continuation in a later op than the part before it'). A continuation the
+  model never decides (a read-out refused, so no landing) is not held."
+  [p step model-name]
+  (boolean (some #(and (> (:index %) (:index step)) (decided-in? % model-name)) (:steps @p))))
 
 (defn- pause! [env p]
   (rtest/pause-microbatch-topology! (:ipc env) (module-name) micro-topology)
@@ -1196,9 +1233,10 @@
                             (update :rig-only conj {:what :landing-lease :of nm :name (:name ll) :answer (answer-of ll)})
                             (update :requests conj {:model nm :rig req :layer rl :target rt :spec spec})))
             _ (kd! p 3)
+            _ (kd! p 9)
             _ (when-not (yes? ll) (diff! p (str "landing lease for " nm) (str "refused: " (answer-str ll))))
-            cross-later? (not (decided-in? step (fm/crossing-name nm)))
-            land-later? (not (decided-in? step (fm/landing-name nm)))]
+            cross-later? (decided-later? p step (fm/crossing-name nm))
+            land-later? (decided-later? p step (fm/landing-name nm))]
         (cond
           cross-later? (do (hold! env p :before-read-out req)
                            (approx! p "the hold at :before-read-out and a resend stand for the read-out's own step"))
@@ -1227,7 +1265,7 @@
       (no-counterpart! p d (str "its request " req-model " has none"))
       (let [rig (:rig r)]
         (when (contains? (:held @p) [:before-read-out rig])
-          (when-not (decided-in? step (fm/landing-name req-model)) (hold-landing! env p rig))
+          (when (decided-later? p step (fm/landing-name req-model)) (hold-landing! env p rig))
           (release! env p :before-read-out rig)
           (resend-request! env store p r))
         (let [cn ((f env :env/crossing-name) rig)
@@ -1301,7 +1339,8 @@
   "A read below the exit, as the store's view (the read exit's own query,
   no entry): a point read of fids, or a pattern read."
   [store query layer for & args]
-  (apply rama/foreign-invoke-query (get store query) layer for args))
+  (bounded-call (str (name query) " below the exit")
+                #(apply rama/foreign-invoke-query (get store query) layer for args)))
 
 (defn- entry-lease
   "The record of the lease a refused entry cited, found through the depot:
@@ -1344,6 +1383,7 @@
                                   (try (entry-lease env store (:entry r)) (catch Throwable _ nil)))
             view (try (below-exit store :read-point layer reader fids nil) (catch Throwable t {:refused (ex-message t)}))]
         (when (:entry r)
+          (kd! p 6)
           (swap! p update :rig-only conj {:what :entry :of (str "read of " (name layer)) :name (:entry r)
                                           :answer {:answer :no :reason (:refused r)} :kd (:kd j)}))
         (if (:ok? j)
@@ -1390,7 +1430,8 @@
       (let [group-acts (filter #(and (= rl (:layer %)) (yes? (answer-of (:answer %)))) (:acts @p))
             all-fids (vec (distinct (concat known (for [a group-acts [i _] (map-indexed vector (:facts a))] [(:rig a) (long i)]))))
             seen (if (shared-read? env)
-                   (let [reader (live-member p)
+                   ;; [F4] a live member; with none left, Alice, whose refusal KD10 explains
+                   (let [reader (or (live-member p) (rn :alice))
                          [working wpid] (get-in w [:working reader])]
                      (if (and reader (seq all-fids))
                        (exit-read! env store p {:reader reader :working working :wpid wpid :layer rl :fids all-fids})
@@ -1441,6 +1482,7 @@
                       {:model model
                        :model-status (some #(when (= model (:request %)) (:status %)) (:promotions read))
                        :rig-status (call-promotion-status env store layer rig)}))]
+    (kd! p 11)
     (doseq [{:keys [model model-status rig-status]} promos
             :when (not= model-status rig-status)]
       (diff! p (str "read " label " promotion " model) (str "model " (some-> model-status name) ", rig " (some-> rig-status name))))
@@ -1510,10 +1552,11 @@
   [env store p first?]
   (doseq [[label call] (seed-steps (:api env) store (:w @p) first?)
           :while (not (:stopped @p))]
-    (let [as (answers-in (call))
+    (let [as (answers-in (bounded-call label call))
           bad (remove yes? as)]
       (swap! p update :rig-only conj {:what :seed :of label :answers (mapv answer-of as)})
       (kd! p 8)
+      (when (str/starts-with? label "person ") (kd! p 7))
       (when (seq bad)
         (swap! p assoc :stopped (str "seed act refused: " label ", " (str/join "; " (map answer-str bad))))
         (diff! p "seed" (str label " refused: " (str/join "; " (map answer-str bad))))))))
@@ -1549,7 +1592,7 @@
   [env c ls]
   (let [{:keys [ipc road]} env
         rn (if (= :one-module road) (fallback-names (:id c)) main-road-names)
-        p (atom (fresh-play c rn (world rn)))
+        p (atom (assoc (fresh-play c rn (world rn)) :steps (:steps ls)))
         t0 (System/nanoTime)]
     (try
       ((f env :inject/reset-all!))
@@ -1563,14 +1606,15 @@
             (swap! p assoc :seen (rig-seen p values (:expect c))))))
       (catch Throwable t
         (let [timeout (::timeout (ex-data t))]
-          (swap! p assoc :error (if timeout (str "no answer within 60 s: " timeout) (str (.getSimpleName (class t)) ": " (ex-message t))))
-          (diff! p "the play" (if timeout (str "no answer within 60 s: " timeout)
+          (when (::call (ex-data t)) (swap! p assoc :stuck-call timeout))
+          (swap! p assoc :error (if timeout (ex-message t) (str (.getSimpleName (class t)) ": " (ex-message t))))
+          (diff! p "the play" (if timeout (ex-message t)
                                   (str "error " (.getSimpleName (class t)) ": " (ex-message t)
                                        (when-let [st (first (.getStackTrace t))] (str " at " st)))))))
       (finally
         (cleanup! env p)
         (when (= :fresh road) (try (destroy! ipc) (catch Throwable _ nil)))))
-    (assoc @p :ms (ms-since t0))))
+    (assoc (dissoc @p :steps) :ms (ms-since t0))))
 
 ;; ============================================================== the verdicts
 
@@ -1696,17 +1740,21 @@
             (into (for [d (:diffs play) :when (not (:kd d))] (str pad "DIFFERS  " (:where d) ": " (:says d))))
             (into (for [x (:fails r)] (str pad "FAILS    " x))))))))
 
+(def objections-note
+  "; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's")
+
 (defn- other-config-line
   "The rig's line under a configuration other than baseline: the rig
   implements baseline, so its outcome is baseline's, set beside this
   configuration's."
-  [r cfg-seen]
+  [r cfg-seen objections?]
   (str "      rig:    "
        (cond
          (= :not-practical (:status r)) "not practical (as under baseline)"
          (nil? (get-in r [:play :seen])) "as under baseline (it did not finish)"
          (= (get-in r [:play :seen]) cfg-seen) "as under baseline; agrees with this configuration"
-         :else (str "as under baseline; differs from this configuration: " (seen-diff-str (get-in r [:play :seen]) cfg-seen)))))
+         :else (str "as under baseline; differs from this configuration: " (seen-diff-str (get-in r [:play :seen]) cfg-seen)))
+       (when objections? objections-note)))
 
 (defn- sh-out [& args]
   (try (str/trim (:out (apply sh/sh args))) (catch Throwable _ "?")))
@@ -1725,7 +1773,7 @@
                      (let [as (filter #(= stage (:stage %)) apis)
                            rs (map #(get resolved (:id %)) as)
                            ok (count (filter #(contains? % :value) rs))]
-                       (str stage " " (if (= ok (count as)) "resolved" (str ok " of " (count as) " resolved")))))]
+                       (str "stage " stage ": " (if (= ok (count as)) (str "all " ok " resolved") (str ok " of " (count as) " resolved")))))]
     (concat
      ["Phase 8 replays: the model's fixed histories through the rig (PLAN-replays.md, RP8)"
       (str "run      " started (when ms (str ", " (quot ms 1000) " s")))
@@ -1765,10 +1813,12 @@
                             (concat
                              [(str "  under " (name cname))]
                              (mapcat (fn [r]
-                                       (concat (model-lines cname cfg (:case r) checks)
-                                               (if (= :baseline cname)
-                                                 (rig-lines r)
-                                                 [(other-config-line r (second (fsc/play cfg (:case (:case r)) [])))])))
+                                       (let [[_ cfg-seen objections] (fsc/play cfg (:case (:case r)) checks)]
+                                         (concat (model-lines cname cfg (:case r) checks)
+                                                 (if (= :baseline cname)
+                                                   (cond-> (rig-lines r)
+                                                     (seq objections) (conj (str "              " (subs objections-note 2))))
+                                                   [(other-config-line r cfg-seen (seq objections))]))))
                                      rs)))
                           configs))))
              [:a :b :d])
@@ -1813,12 +1863,21 @@
             _ (swap! state assoc :check check)
             _ (when (= :one-module road) (launch! ipc))
             played (volatile! 0)
+            stuck (volatile! nil)
             results (mapv (fn [r]
-                            (if (or (:not-practical r) (= :none road))
-                              (judge-case (cond-> r (= :none road) (assoc :not-practical "the module did not launch")))
+                            (cond
+                              (:not-practical r) (judge-case r)
+                              (= :none road) (assoc (judge-case (assoc r :not-practical "the module did not launch"))
+                                                    :fails [(str "the module did not launch: " (:error check))])
+                              @stuck (assoc (judge-case (assoc r :not-practical (str "not run: " @stuck)))
+                                            :fails [(str "not run: " @stuck)])
+                              :else
                               (let [env {:ipc ipc :api resolved :road road :first? (or (= :fresh road) (zero? @played))}
                                     play (play-case! env (:case r) (:ls r))]
                                 (vswap! played inc)
+                                (when (:stuck-call play)
+                                  (vreset! stuck (str "a call in " (:id r) " did not return (" (:stuck-call play)
+                                                      "), so a stale call could reach a later case's module")))
                                 (let [j (judge-case (assoc r :play play))]
                                   (swap! state update :results (fn [rs] (mapv #(if (= (:id %) (:id j)) j %) rs)))
                                   j))))
