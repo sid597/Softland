@@ -1272,8 +1272,10 @@ delete; a forget: one delete or f nils and one ledger set.
 - **Real encryption, kept simple.** AES-256-GCM from `javax.crypto` (no
   dependency; authenticated, so a tampered slot fails closed), a fresh
   12-byte nonce per seal prepended to the output, 32-byte locks from
-  `SecureRandom`. One primitive, `seal`/`unseal`, serves the value under
-  its lock and the lock under each person lock. No associated data, no key
+  `SecureRandom`. One primitive, `seal`/`open`, serves the value under its
+  lock (at the door, revised 26 September), the lock under each person lock
+  (the re-wrap) and a leased lock under its owner (the lease row);
+  HMAC-SHA256 keyed by the value's lock is the value digest. No associated data, no key
   derivation, no rotation: nothing ruled asks for them, and each would be a
   second mechanism (L3, L4).
 - **The wrap as key wrapping, not as policy.** "Required" is a chain of
@@ -1289,8 +1291,10 @@ delete; a forget: one delete or f nils and one ledger set.
   per layer), size tracking off. The lock record's `:any-blobs` and the
   wrap vectors are bounded by the 256 cap (L13). `$$persons` is a top-level
   map (one seek per person).
-- **Colocation.** Lock rows, the ledger and the by-stamp index sit under the
-  layer's entry on the layer's home, where the value is (I-L2). Person
+- **Colocation.** Lock rows, lease rows, the ledger and the by-stamp index
+  sit under the layer's entry on the layer's home, where the value is
+  (I-L2); a lease, the offers citing it and the session close ride the
+  depot on the same partition, so they are ordered on that task. Person
   locks sit on every task. So the decision, a forget, a read-out (stage 4)
   and `read-as-of` each run on one task with local reads; the person
   fan-out is the one cross-task write, and it carries a 60-byte entry.
@@ -1317,57 +1321,58 @@ delete; a forget: one delete or f nils and one ledger set.
   the toy's kindness (README "Where the toy is kinder"); the rig's date is
   the fact's stamp on one scale (I-O3), at or after the wall clock at the
   forget, and tests under simulated time make it exact.
-- **O2, no plaintext outlives its lock: what the rig does and what it
-  leaves.** After this stage the store keeps a value's plaintext in exactly
-  one place the rig controls, the value slot, and there it is ciphertext
-  under a lock that dies with the lock. Everything else that holds it:
-  1. **The depot `*offers`**: every offer's plaintext values, for ever (no
-     trimming). The rig leaves this as a known gap (L2). Its cost: a
-     forgotten value stays readable by whoever can read the depot (the
-     operator; `foreign-depot-read`), which is the reach ruling 7's locks
-     are "not for hiding from the operator" about but "gone for everyone
-     including the past" is about; no read path of the store returns it,
-     and the gate never re-reads a decided record's values (a replay takes
-     the recorded path). A test shows the gap rather than hiding it. What
-     Rama offers does not close it: `depot.max.entries.per.partition` is a
-     count cap checked every ten minutes, not a per-record erase;
-     `DEPOT-TOMBSTONE` is a migration applied at a module update with an
-     idempotent function of the record alone, not a runtime effect of a
-     forget (depot-migration.md). The road for a kept store, named so the
-     cost is visible: the offerer seals each value under a value lock it
-     makes, delivers that lock to the layer's task by a query topology into
-     a bounded, per-task in-memory holder (task-globals.md: a query may
-     mutate a TaskGlobal synchronously), then appends the sealed offer; the
-     gate takes the lock from the holder at decision, opens the values,
-     decides, and wraps the same lock into the lock store; the depot then
-     holds only ciphertext whose lock lives in the lock store alone. Cost:
-     one extra round trip per offer, a per-task holder with a bound and a
-     time-to-live, a new face refusal (`:lock-not-delivered`, after which
-     the offerer delivers again and resends), and every value's plaintext
-     passing through the offerer's hands once more. Not built in the rig:
-     it is a second protocol on the write path whose only customer is a
-     record nobody keeps, and Sid's phase 2 says "kept simple".
-  2. **The digest on the answer record** (P6, [F11]): a keyed fingerprint
-     over plaintext values that outlives every forget; the secret is in
-     code in the rig, and a kept store keeps it in the store. Unchanged.
+- **O2, no plaintext outlives its lock (revised 26 September).** Under
+  tonight's default the store keeps a value's plaintext nowhere: the depot
+  and the log hold one ciphertext under the value's lock, and the lock
+  lives in exactly one place at a time (a lease row, then a lock row or a
+  record lock). What holds anything about a value, place by place:
+  1. **The depot `*offers`**: sealed bytes, lock ids and control values,
+     for ever (no trimming). Replaced: the 25 September gap (plaintext
+     values for ever, old L2) is gone, because the door seals before the
+     append and the lock never travels to the gate: the gate minted it and
+     keeps it in the lease row on its own task, and `lease-locks` carries
+     it out to the door, never through the depot. A forgotten value's depot bytes open under nothing the store
+     holds; P6 check 1 reads them raw and tries every held lock.
+  2. **The digests**: the answer record's parts digest covers no value; the
+     row's value digest is keyed by the value's lock and dies with it (R1's
+     rider). The 25 September "Unchanged" digest over plaintext under a
+     constant secret is gone. The rig secret stays in code for the parts
+     digest only (P6).
   3. **The act's subject slot and the wrap's person lists**: person ids,
      "for finding" (ruling 8), kept in plaintext by design. A forgotten
      value still says whom it was about. Ruled, not a gap.
-  4. **The substrate**: RocksDB keeps a deleted row's bytes in SST files
-     until compaction; Rama's stream retry cache (`depot.cache.cardinality`)
-     holds recent depot records in memory; replication (factor 1 here)
-     would copy every write. Named; nothing at the module level reaches
-     them; a kept store would size compaction and cache windows against
-     its erasure promise.
-  5. **The client**: keeps the plaintext offer until answered (P6) and
-     receives plaintext from `read-as-of`; outside the store.
+  4. **Unconsumed lease rows**: until a session closes or its owner is
+     forgotten, a lease row can open the depot bytes of an offer refused on
+     its face or never decided under it. Not values of the store; bounded
+     by the session's life ("Lease rows at session close").
+  5. **The substrate**: RocksDB keeps a deleted row's bytes in SST files
+     until compaction; Rama's stream retry cache holds recent depot records
+     in memory (now sealed); replication (factor 1 here) would copy every
+     write. Named; nothing at the module level reaches them; a kept store
+     would size compaction against its erasure promise.
+  6. **The door**: holds the plaintext until answered and the leased locks
+     until the session closes; it receives plaintext from `lease-locks` and
+     `read-as-of`; operator code, outside the store, trusted (ruled).
+- **The lease road against the holder road** (CONCLUSION R1 names both;
+  the lease is the default). Lease: one local seek per value fact at
+  decision (the lease row), one lease act and one `lease-locks` query per
+  batch of up to 256 locks, lease rows durable and replicated with the
+  layer, so a worker restart changes nothing. Holder: one query round trip
+  per offer, a per-task TaskGlobal with a bound and a time-to-live, no
+  seek at decision, and after a worker restart every undecided offer is
+  refused `:no-such-lock` until the door hands its locks again. The
+  delivery function is the one seam: its body is the only code that
+  differs.
 - **Grammar as data now, facts later (ruling 8, O20's half).** The
   `:mention` rule is a map entry, not a branch in code: `{:mention
   {:subjects-at [:persons]}}`. Stage 6 reads the same map from facts
   (`{:e key :k :grammar :v {:subjects-at [...]}}`) and `subjects-of` does
   not change. Shape checking and opacity (ruling 6) are stage 6's; this
   stage refuses only the one shape it must read (L12).
-- **Per-act grain (I-L6, D12, O8).** One lock per act, one wrap over the
+- **Per-act grain (I-L6, D12, O8).** The door seals every value of the act
+  under one leased lock (it reads the grain from `lease-locks`); an act
+  whose citations do not fit the grain in force at decision is refused
+  `:grain-mismatch`, recorded, its leases destroyed (L30). One lock per act, one wrap over the
   act's union with marked? = any value fact marked; the row or record
   placement by the layer's kind or any `:own-row` mark; a forget of any
   value of the act erases the act (the lock id is the act's). Where an act
@@ -1375,14 +1380,21 @@ delete; a forget: one delete or f nils and one ledger set.
   of the union, which erases at least everything the model erases and
   possibly more; phase 8 reports the difference (L6). An act spanning
   tasks is impossible while placed by layer; O8's other half is stage 3's.
-- **Refusals as data, extended.** Four recorded reasons after stage 1's
-  list (`:no-such-person`, `:person-forgotten`, `:person-already-made`,
-  `:no-such-value`) and two face refusals (`:value-shape`,
-  `:too-many-subjects`). A forget that changes nothing is a yes (the model
+- **Refusals as data, extended (revised 26 September).** Two face
+  refusals, unrecorded: `:not-sealed` (structural) and `:no-such-lock` (at
+  the delivery). Nine recorded reasons after stage 1's list, in order:
+  `:does-not-open`, `:malformed-value`, `:value-shape`, `:too-many-subjects`,
+  `:grain-mismatch`, `:no-such-person`, `:person-forgotten`,
+  `:person-already-made`, `:no-such-value`. `:value-shape` and
+  `:too-many-subjects` were face refusals on 25 September; they need the
+  plaintext, which exists only after the delivery, and every refusal after
+  the delivery is recorded so that it consumes its leases (L27). A forget that changes nothing is a yes (the model
   admits it), so "a refused name stays refused" and "a second forget
   changes nothing" both hold as the sources say them.
 - **What a forget does not touch.** `:heads` (ids and stamps), `:answers`,
-  `:stood-on`, the stamp, the row's `:e :k :replaces :mark`: the fact
+  `:stood-on`, the stamp, the row's `:e :k :replaces :mark`, and its
+`:sealed` bytes and `:digest`, which no held lock opens or reproduces once
+the lock is gone (revised 26 September): the fact
   stays a fact with its position and date (I-L8: removal of meaning, never
   of the record's place). A forgotten value can still be replaced (E2 C1 ×
   value forget: "it can still be replaced").
@@ -1399,44 +1411,58 @@ delete; a forget: one delete or f nils and one ledger set.
 - `$$layers` (PState, extended): durable, partitioned by layer. Per
   admitted act the write volume grows by one `:by-stamp` set and, in
   personal and hand layers under per-value grain, f lock-row sets (one
-  under per-act), all bounded by the act. Per forget: one delete or up to f
-  nils, one ledger set. Source of truth for the lock store's rows and the
+  under per-act) and f lease-row deletes, all bounded by the act. Per lease
+  at most 256 lease-row sets; per session close one delete. Per forget: one
+  delete or up to f nils, one ledger set. `:leases` is the source of truth
+  for unconsumed locks (revised 26 September). Source of truth for the lock store's rows and the
   erasure ledger; `:by-stamp` is a derived view rebuildable from
   `:answers`.
 - `$$persons` (PState): durable, on every task. Per person act: N sets of a
   60-byte entry, once per act. Source of truth for person locks and their
   dates; every task's copy is the home's copy, carried.
 - `$$clock` (PState): as stage 1.
-- No TaskGlobal (see "What is not a PState"). The crypto primitives are
-  stateless functions; `SecureRandom` is a JVM object created once per
-  process in the `rig.store.crypto` namespace, not per-task state.
+- No TaskGlobal (see "What is not a PState"): the holder road's TaskGlobal
+  is described, not built. The crypto primitives are stateless functions;
+  `SecureRandom` is a JVM object created once per process in
+  `rig.store.locks`, not per-task state.
+- The door's leased locks: in the door's memory (the client), not the
+  store's state; re-taken by `lease-locks` after a door restart.
 - No external system. The fingerprint secret stays a constant in code (P6).
 
 ## Resource usage analysis
 
 Sizes as stage 1 estimates them (ids about 10 bytes, a name about 60, a
 fact id about 70, a stamp 8). A sealed blob is 12 (nonce) + 16 (tag) + the
-plaintext length, then base64 at 4/3.
+plaintext length, stored as raw bytes (revised 26 September; the 25
+September text inflated every blob by 4/3 as base64). A lock id `[name i]`
+is about 70 bytes.
 
 ### Disk usage (PStates and the depot), per task
 
 - A log row for a value fact: stage 1's about 60 bytes of framing and ids,
-  plus `:v` at (28 + |EDN|) × 4/3 (the toy's 40-character values: about
-  90), plus `:lock-id` about 80, plus, when kept in the record, the lock
-  record: two short vectors (about 25), one 80-character blob (a 32-byte
-  lock + 28 bytes sealed, base64) or per any-of person one such blob.
-  About 250 bytes for a row lock's row, about 360 for a record lock's.
-- `:locks`: key about 85 bytes (`[:value [name idx]]`), record about 110:
-  about 200 bytes per value in personal and hand layers, one per act under
-  per-act. This is M2's number; the base64 form inflates it by a third
-  against raw bytes, which the measurement states (L4).
+  plus `:sealed` at 28 + |EDN| (the toy's 40-character values: about 68),
+  plus `:lock-id` about 70, plus `:digest` 32, plus, when kept in the
+  record, the lock record: two short vectors (about 25), one 60-byte blob
+  (a 32-byte lock sealed: 12 + 32 + 16) or per any-of person one such blob.
+  About 230 bytes for a row lock's row, about 320 for a record lock's.
+- `:locks`: key about 70 bytes, record about 90: the bench measured 169
+  bytes a row as raw bytes, 189 as base64, whatever the value's size
+  (runs/phase7-lock-growth.txt, with its own id form); one per value in
+  personal and hand layers, one per act under per-act. This is M2's number.
+- `:leases`: per unconsumed lock the session key (shared), the lock id
+  about 70, `:under` about 10 and a 60-byte blob: about 140 bytes, for the
+  life of a lease only.
+- The depot record (revised 26 September): each value fact grows by 28
+  bytes of seal and a lock id of about 70; its plaintext is no longer
+  there.
 - `:erased`: about 85 + 20 per forgotten lock. Grows with forgets only.
 - `:by-stamp`: 8 + 60 per admitted act.
 - `$$persons`: about 60 bytes per person, on every task.
-- The depot: unchanged, plus nothing (the offer is the same plaintext map).
+- The depot: see above; control facts unchanged.
 
 At 100,000 values on one hand layer on one task (M2's scale): `:locks`
-about 20 MB, the rows about 25 MB, `:by-stamp` about 7 MB per 100,000 acts.
+about 17 MB (the bench's 169 bytes a row), the rows about 23 MB, `:by-stamp`
+about 7 MB per 100,000 acts.
 
 ### Memory usage (TaskGlobals)
 
@@ -1451,8 +1477,10 @@ a seek's half millisecond.
   because `crypto/open` and `wrap-closed` need the wrap without a second
   read, and the sealing order must be reproducible from the lock alone.
   About 25 bytes per value.
-- Base64 could be raw bytes (`[B` as the schema class) for a third less;
-  text is kept for the rig (L4) and the option is named for a kept store.
+- Raw bytes are used (L4, revised); no text form is kept anywhere.
+- The lock id repeats the lease name in every row of a lease; a lease-local
+  index alone would save about 60 bytes a row at the cost of a second read
+  to resolve it. Kept whole: the id must name the lock without context.
 - Under per-act grain in an agent layer the act's lock record is repeated
   in every row of the act (L6) so a row opens on its own read; one act
   lock kept once (say in the first row) would save about 110 bytes per
@@ -1475,27 +1503,36 @@ keeps into RIG.md with the next free numbers.
   person's lock where the value is, and a lock on one task would put a hop
   and a second atomic group inside every decision (costed under "PState
   Design" and "Partitioning efficiency").
-- **L2. The depot keeps every offer's plaintext values; the rig names this
-  as the known gap of I-L4 and O2, shows it in a test, and does not build
-  the "lock first, offer second" protocol.** Why: Rama offers no per-record
-  erase at runtime (trimming is a count cap, tombstones are a migration),
-  the one road that closes it is a second write protocol with a round trip
-  per offer, and the phase says "kept simple" for a store whose records
-  nobody keeps; the cost is stated under "Design Decisions".
+- **L2 (revised 26 September). The depot holds sealed values, lock ids and
+  control values only: the door seals each value under a lock the gate
+  leased, and no lock ever passes through the depot.** Why: tonight's
+  default (CONCLUSION R1: "nothing that could open a value may ever sit in
+  the depot"); Rama offers no per-record erase at runtime (trimming is a
+  count cap, tombstones are a migration), so the depot's copy can only be
+  made unopenable, which the lock's death does. The 25 September L2, the
+  plaintext gap left open, is withdrawn.
 - **L3. Encryption is AES-256-GCM from `javax.crypto`, 32-byte locks from
   `SecureRandom`, a fresh 12-byte nonce prepended to each sealed blob; a
   wrap is enforced by key wrapping: the value lock sealed under each
   required person's lock in sorted order, and one copy of that per any-of
   person sealed under theirs.** Why: one primitive, no dependency,
   authenticated so a corrupted slot fails closed, and the wrap's rule is
-  what can be decrypted rather than a check a reader could skip.
-- **L4. Ciphertext, wrapped locks and person locks are stored as base64
-  text in `String` slots.** Why: a known schema class with no build-time
-  question (P12's reasoning), readable in tests; M2 states the one-third
-  inflation, and a kept store would store bytes.
+  what can be decrypted rather than a check a reader could skip. The
+  sealed layout (nonce, ciphertext, tag) and the plaintext it seals (the
+  UTF-8 bytes of the canonical EDN, P12) are first-record (revised 26
+  September: they are now the depot's and the log's bytes).
+- **L4 (revised 26 September; first-record). Ciphertext, wrapped locks,
+  lease rows, value digests and person locks are raw bytes in `byte/1`
+  slots.** Why: the lock-growth bench measured a lock row at 169 bytes raw
+  against 189 as base64 (runs/phase7-lock-growth.txt); `byte/1` ran there
+  as a schema class and round-tripped a byte array (BENCH_NOTES-locks.md);
+  nothing needs text (tests compare with `java.util.Arrays/equals`, control
+  values stay EDN text in `:v`). The 25 September pick, base64 in `String`,
+  is withdrawn.
 - **L5. The lock store's rows, the erasure ledger and the by-stamp index
   are fields of the layer's value in `$$layers` (`:locks`, `:erased`,
-  `:by-stamp`); a lock id is `[:value fid]` or `[:act name]`; a row lock
+  `:by-stamp`; revised 26 September: and `:leases`); a lock id is
+  `[lease-name i]` (L21; `[:value fid]` and `[:act name]` withdrawn); a row lock
   lives only in `:locks` and the log row carries `:lock-id` with `:lock`
   nil, a record lock lives in the row's `:lock`.** Why: the merge rule for
   data sharing the layer's key and partitioner, costed against separate
@@ -1547,15 +1584,22 @@ keeps into RIG.md with the next free numbers.
   `:no-such-person`; a forgotten person's control facts (a forget, a grain
   switch) are still admitted.** Why: a lock cannot be wrapped under a lock
   that does not exist (E6 Q1: "refused as data, never thrown"), and this is
-  the simplest reading of O11 that keeps the gate total.
+  the simplest reading of O11 that keeps the gate total. Revised 26
+  September: a lease act whose layer's owner has no person lock or a
+  destroyed one is refused the same way, recorded; an offer citing a lease
+  made before its owner's forget is refused `:no-such-lock` on its face,
+  since the lease no longer opens.
 - **L12. The `:mention` grammar reads `:persons` from a map value as a
-  collection of keywords; any other shape under `:mention` is refused on
-  its face `:value-shape`, unrecorded; the grammar is a constant map keyed
-  by fact key.** Why: the gate must read this one shape to wrap correctly,
+  collection of keywords; any other shape under `:mention` is refused
+  `:value-shape`, recorded, after the delivery (revised 26 September: the
+  value is sealed until the gate opens it, and every refusal after the
+  delivery consumes the leases); the grammar is a constant map keyed by
+  fact key.** Why: the gate must read this one shape to wrap correctly,
   a malformed one cannot be admitted under a wrong wrap, and a map entry is
   what stage 6 turns into facts (O20's half).
 - **L13. The act's subject union is capped at 256 persons; over the cap the
-  act is refused on its face `:too-many-subjects`.** Why: the answer
+  act is refused `:too-many-subjects`, recorded, after the delivery (revised
+  26 September, as L12).** Why: the answer
   record's `:subjects` and a lock record's `:any-blobs` must be bounded by
   an enforced mechanism, and [F3] already capped carried subjects the same
   way.
@@ -1587,6 +1631,70 @@ keeps into RIG.md with the next free numbers.
   Why: "the three sources applied to that fact" names the tool as a source
   of the value's subjects; the model's tool names none, so parity is
   unaffected.
+
+Added 26 September, for the lease road (tonight's default, not a ruling):
+
+- **L20 (first-record: the fact). A lease is an act into the layer, tagged
+  with its class, one control fact `{:e s :k :lease :v {:count n}}`, n a
+  long in 1..256, with a `:session`; any holder of a permission covering
+  the layer may lease, and the operator; the yes carries `:lock-ids`.** Why:
+  R1's lease is "an offer like any other, answered by name"; a bound per
+  lease bounds each event's writes; the ids are computed, so a resent lease
+  returns them with nothing stored.
+- **L21 (first-record). A lock id is `[lease-name i]`.** Why: the lock
+  exists before the value, and a function of a name decided once mints each
+  id once, which is what makes "answered from the record, destroyed" hold
+  by construction.
+- **L22. Lease rows live at `$$layers [layer :leases session lock-id]` as
+  `{:under p :sealed bytes}`, both levels subindexed, size tracking off.**
+  Why: the merge rule (same key and partitioner as the layer); session
+  first gives a session close one direct delete and `lease-locks` one range
+  read.
+- **L23. The session owner, whose person lock seals a lease row, is the
+  layer's owner in a one-owner layer.** Why: every session writing a
+  one-owner layer writes for its owner, and it is the one person lock the
+  gate already reads for every act there; forgetting the owner then kills
+  her unconsumed leases with no write.
+- **L24 (first-record). A value fact is offered as `{:e :k :sealed bytes
+  :lock-id id :replaces :mark}`; the log row keeps `:sealed` as offered
+  beside `:v` (control text), with `:lock-id`, `:lock` and `:digest`.** Why:
+  one ciphertext in the depot and the log, dying with one lock; two
+  nullable fields keep one typed shape with no `Object`.
+- **L25. One delivery function, `deliver-lock>` (layer, session, lock id,
+  the persons read → the lock or nil), with the lease body built and the
+  holder body described.** Why: R1 names both roads; one seam keeps the
+  decision code the same under either.
+- **L26 (first-record: what the record holds). The parts digest (the rig
+  secret, over the offer minus its name and every `:sealed`, lock ids
+  included) stays on the answer record; a value digest, HMAC-SHA256 keyed
+  by the value's lock over its canonical EDN bytes, goes on each value
+  fact's row, for a yes only.** Why: R1's rider; one act digest keyed by
+  one lock would still confirm another forgotten value of the act to a
+  holder of the first lock; lock ids in the parts digest make a resend's
+  cited lock the recorded one.
+- **L27 (first-record: the recorded reasons' names). The refusal order:
+  stage 1's structural face refusals and `:not-sealed`; the record path;
+  `:no-such-lock` at the delivery, on the face; then, recorded, stage 1's
+  list, `:does-not-open`, `:malformed-value`, `:value-shape`,
+  `:too-many-subjects`, `:grain-mismatch` and the 25 September four.** Why:
+  R1: a missing lock is refused on its face so a resend is allowed; every
+  refusal after the delivery consumes the leases, so no refused offer
+  leaves openable bytes; stage 1's order stands in front, so the model's
+  histories answer as before.
+- **L28 (first-record: the fact). A session close is an act `{:e s :k
+  :session-closed :v {:session s}}` by the session or the operator; on a yes
+  it deletes `:leases[s]` whole.** Why: the default destroys unconsumed
+  lease rows when their session closes, and every change is an act; when a
+  session layer closes (item 82) stays Sid's.
+- **L29. `lease-locks [layer session]` returns every unconsumed lock of the
+  session in the layer, unwrapped, with the grain in force.** Why: one range
+  read; a restarted door needs all of them; the person lock never leaves
+  the module.
+- **L30. An act's lock citations must fit the grain in force at decision
+  (per value: a distinct id per value fact; per act: one id for all),
+  else `:grain-mismatch`, recorded.** Why: the door seals before the gate
+  decides and the gate never re-seals the depot's bytes; recorded, so a
+  replay after a later grain switch cannot turn it into an admission.
 
 ## What later stages consume, and where it is
 
