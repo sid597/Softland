@@ -203,8 +203,6 @@
     :rule "the request, crossing, value forget and revoke facts are compared on existence and on their references through the correspondence (source, target, request, pid), not on their literal value maps"
     :source "F2; traces L125-127, L181-184"}])
 
-(def kd-by-n (into {} (map (juxt :n identity)) known-differences))
-
 (defn kd-str [n] (str "KD" n))
 
 (defn predicted-kds
@@ -2051,6 +2049,17 @@
     (is (every? #(= (:group-layer w) (nth % 2)) (get-in w [:group :grants])) "group grants live in the group")
     (is (every? #(= 4 (count %)) (concat (get-in w [:base :grants]) (get-in w [:group :grants])))
         "a member's permission sits beneath the layer's root"))
+  (testing "[F4] Bob's rig-only working layer, his own, where his read entries land"
+    (let [w (world main-road-names)]
+      (is (= [:bob-hand [:bob :bob-hand :bob-hand]] (get-in w [:working :bob])))
+      (is (some #{[:bob-hand {:kind :hand :owner :bob}]} (:one-owner w)))
+      (is (some #{[:bob :bob-hand :bob-hand]} (:stream-grants w)))))
+  (testing "[F9] on the session road a write cites its session's grant beneath the mapped permission"
+    (let [w (world main-road-names)]
+      (is (= [:alice :group :group [:group :group :group]] (cited-pid w main-road-names [:alice :group :own])))
+      (with-redefs [door-road :session]
+        (is (= [:alice-session :group :group [:alice :group :group [:group :group :group]]]
+               (cited-pid w main-road-names [:alice :group :own]))))))
   (testing "the fallback road renames persons in values, the model's value otherwise verbatim"
     (let [rn (fallback-names "A4")]
       (is (= {:token "v1" :persons #{:alice-a4 :bob-a4}} (rig-value rn {:token "v1" :persons #{:alice :bob}})))
@@ -2149,6 +2158,9 @@
       (is (not (contains? (get resolved (:id a)) :broken)) (str (:var a) ": its namespace is there and does not load")))
     (doseq [a apis :when (#{"1" "5a"} (:stage a))]
       (is (contains? (get resolved (:id a)) :value) (str (:var a) " is built on this branch")))
+    (is (not-any? #{'rig.store.micro-client/make-person! 'rig.store.micro-client/forget-person! 'rig.claims/hold!}
+                  (map :var apis))
+        "[F8] never phase 3's placeholder person acts, never the hold that blocks a task")
     (doseq [id case-ids]
       (is (some #(and (= "2" (:stage %)) (needs? % id)) apis) (str id " needs phase 2's persons"))
       (is (some #(and (= "3" (:stage %)) (needs? % id)) apis) (str id " needs phase 3's seed")))))
@@ -2168,6 +2180,10 @@
             c (filter #(= set-id (:set %)) cases)
             l (model-lines cname cfg c (:checks (named-configs set-id)))]
       (is (contains? text l) (str (:id c) " under " (name cname) ": the model's own line")))
+    (let [under (drop-while #(not= "  under baseline-but-not-p6-line-at-the-read-out" %) lines)
+          rig-lines-there (take 4 (filter #(str/starts-with? % "      rig:    ") under))]
+      (is (= [false false true true] (mapv #(str/ends-with? % objections-note) rig-lines-there))
+          "B3's and B4's rig lines say the model's objections are its own (IV6)"))
     (is (= (+ 32 8 4) (count (filter #(str/starts-with? % "      rig:    ") lines)))
         "one rig line per case per configuration, under the model's (A 8 x 4, B 4 x 2, D 2 x 2)")))
 
