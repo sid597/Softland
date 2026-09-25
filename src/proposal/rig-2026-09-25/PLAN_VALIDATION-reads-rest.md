@@ -23,9 +23,9 @@ against the files. -->
 
 ## Verdict
 
-**minor-fail.** Twelve failures, each fixable by a localized edit; all twelve
-are fixed in the plan in place, numbered F1 to F12 and marked `[F1]` ... in
-the text. No failure needs a new architecture: the one-task read, block 2d,
+**minor-fail.** Sixteen failures, each fixable by a localized edit; all
+sixteen are fixed in the plan in place (commits 5f8ef235 and 5e983412),
+numbered F1 to F16 and marked `[F1]` ... in the text. No failure needs a new architecture: the one-task read, block 2d,
 the poll, the drop through OP9 and the purge invariant all stand. One check
 fails and is **not** fixed by an edit: the `|hash` indicator for a hot shared
 layer (the placement question below). It is accepted for tonight as the named
@@ -46,6 +46,10 @@ record, and it goes to Sid; F5 and F6 make that acceptance honest.
 | F10 | "time travel on a shared layer is a read at an older F" is untrue for a re-classed layer: F bounds no stream-era fact | stated in step 4, step 6 and "What stays open" |
 | F11 | a drop interrupted by the closer's crash is "repaired by running it again", with nothing that tells anyone to | the recovery finds pending drops from the record |
 | F12 | the micro `:ix-kv` address carries the value's full canonical text from the arrival task to hash(L), breaking phase 3's validated "never the plaintext" onward from block 2b, where a keyed digest does the same work | the micro value index is keyed by an HMAC of the canonical text, computed on the arrival task; no plaintext leaves it |
+| F13 | the micro rebuild's put page reads each entity's `:answers` and `:log` whole (`subselect ALL`) before its 4,096-row cap applies: a page's work is unbounded for a long-lived entity | two bounded ranges from the page's offset, walked together by name |
+| F14 | the progress row types `:cursor` as a String, while a sweep page's cursor is `[L a]` and a put page's an entity with a row offset | the cursor is a vector |
+| F15 | the restore replays a shared layer's forgets as `:replay-forget` "on the layer's ops depot", but `*micro-index-ops` defines no such op | the micro op, its route (hash(L), hash(e) for the ledger's date, back) and its idempotence |
+| F16 | the validated micro plan's M25 sends a forget of a re-classed layer's stream-era value to the stream gate; the plan's five paths never name it, the one-owner person purge's seam covers "one-owner layers" only, and the carried moment question names P16's settings but not these forgets | path 1 names the stream-era target; the person purge covers every layer in `$$layers`; the carried item names M25's forgets |
 
 ## The placement question (builder A's first trace)
 
@@ -67,7 +71,8 @@ measurement:
   base with ten million papers at ten facts each is 10^8 facts: the log is
   spread by entity (about 50 GB over N tasks), and its index, about 2 KB a
   fact, is **about 200 GB on one task**, growing for years.
-- *Reads.* A shared read costs 5 to 7 seeks on that task (F8's table); one
+- *Reads.* A shared read costs 6 to 9 seeks on that task (F8's table; 13
+  for a five-id point read); one
   task thread serves about 2,000 to 3,300 uncached seeks a second (0.3 to
   0.5 ms each, the skill's figure). Ten thousand members' renderers each
   holding one standing read at one delivery a second is 10^4 × 6 = 6 × 10^4
@@ -207,7 +212,13 @@ stored in `:ix-kv` addresses. Against the sources:
   The plan did not construct it: FAIL under "no dismissal without
   construction", fixed by F12. The one-owner store keeps the read exit's
   text form (it never crosses a task); the re-classed `[:kv]` read computes
-  each era's prefix with its own function.
+  each era's prefix with its own function. F12 also removes a second
+  crossing the draft had: the micro sweep page sends each entry to its
+  entity task to check it against the log, and an `:ix-kv` entry's address
+  would have carried the text there and back.
+- *The stream era of a re-classed layer* keeps the read exit's text form in
+  `$$layers`; its forgets go through the stream gate (M25) and its person
+  purge through the one-owner pages, which F16 extends to it.
 
 ### Standing reads
 
@@ -323,6 +334,33 @@ batch 10 at stamp s1, whose wrap requires Bob:
 - *Each stage's index:* the one-owner five (`:ix-s` new), the micro six,
   phase 2's `:by-stamp` (ids only, kept), the ledger, the heads. PASS.
 
+Second pass, three histories the first pass had not run:
+
+- *The base's stream era and a person forget (F16).* The base is
+  re-classed; a stream-era fact f0 about paper p7, key `:abstract`
+  (value-indexed), sits in `$$layers [base :ix-kv]` with its text in the
+  address, its wrap requiring Bob (7b). Bob is forgotten. The one-owner
+  person purge asks phase 2's `dying-with>` for "every value on this task in
+  a one-owner layer": the base is now by-entity, so f0 is not listed, and
+  the micro person purge reads only `$$micro`. f0's text stays in the index
+  for good, against "so a forget reaches it". A value forget of f0 is
+  routed by the validated micro plan's M25 to the stream gate, so path 1
+  reaches it, but the plan never said so. F16 names both, and names M25's
+  forget facts as stream-side facts after the re-class.
+- *A restore with a shared forget (F15).* A value v in `:g` forgotten, then
+  a restore: the replay sends `{:op :replay-forget ...}` to
+  `*micro-index-ops`, whose parse knows only put, sweep and person-purge
+  pages, so the record is dropped as data. In the rig the rebuild already
+  tombstones v from the ledger, so RT8 would still pass; in a kept store
+  where a restore brings back v's lock, v would be indexed again and never
+  purged. F15 defines the op.
+- *A long-lived entity in a rebuild (F13).* A paper of the base touched by
+  years of acts has 100,000 rows; each put page that reaches it reads all
+  100,000 (`subselect ALL`) and takes 4,096: 25 pages, about 2.5 million
+  row reads for one entity, against 100,000 for bounded ranges from the
+  page's offset. F13 reads the ranges; F14 types the cursor that carries
+  the offset.
+
 ### The changes asked of the other builds
 
 Each checked against its plan:
@@ -340,9 +378,10 @@ Each checked against its plan:
   2b already routes, after that check, from the arrival task to the entity
   tasks; block 2d is one more route, to hash(L)); the schema merge;
   `$$micro-task :rebuild` and `:layers`; the third source; the forget's
-  fact ids and date; and, after F12, **no** change to its plaintext
-  discipline (the digest is computed where the plaintext already is). Small
-  and possible. Note for builder A: the plan read the validated micro plan
+  fact ids and date; the `:replay-forget` op on `*micro-index-ops` (F15);
+  and, after F12, **no** change to its plaintext discipline (the digest is
+  computed where the plaintext already is). F16 takes M25's routing as the
+  validated micro plan has it. Small and possible. Note for builder A: the plan read the validated micro plan
   at 6b12638c in Softland-rig-plan-micro; this branch carries 4f81068c, "not
   yet validated"; the build must follow the validated revision.
 
@@ -488,9 +527,11 @@ is in that sketch or justified:
 - Fault: pages idempotent, resumable; a batch retries whole.
 - Race: a put page and a forget in one batch (the tombstone guard and the
   closing replay).
-- Flaws: none found in the invariant; F12 removes the plaintext the forget
-  had to chase between tasks.
-- Verdict: PASS.
+- Flaws: none in the invariant itself; around it, F13 (an unbounded put
+  page), F15 (a replay op never defined on the micro side), F16 (a
+  re-classed layer's stream era outside both purges' named reach), and
+  F12, which removes the plaintext the forget had to chase between tasks.
+- Verdict: PASS after F12, F13, F15 and F16.
 
 ### "A microbatch is not visible on every task at one instant" ("What Rama showed" 5)
 - Trace: the frontier history above.
