@@ -5,8 +5,10 @@ folder `src/proposal/rig-2026-09-25/`. Rama 1.6.0, rama-helpers 0.10.0,
 Clojure 1.12.4, as pinned in the repo's root deps.edn. In-process cluster
 only. Its records are not kept.
 
-This file is rewritten at the end of every phase. A fresh session continues
-from "What is next".
+Start with `README.md` in this folder: what the rig is, why, the questions
+and what each decides, and where it stands. This file is the detailed
+running record, rewritten at the end of every phase. A fresh session
+continues from "What is next".
 
 ## Status after phase 1 (25 September 2026, 09:35 IST)
 
@@ -245,3 +247,19 @@ discussion on 25 September:
    gate over as input.
 
 The main session's position is option 2, then option 3.
+
+**Started 25 September, after Sid asked "so what next":** option 2. Two
+fresh Opus sessions measure the three numbers. One measures index writes at
+the agent rate and one person's layer on one thread, on the stream store as
+it is. The other measures lock growth on a separate slice built from the
+phase 2 plan's lock shapes. The thresholds they judge against are the main
+session's assumptions, for Sid to correct:
+
+| number | threshold that confirms the ruling |
+|---|---|
+| index writes at the agent rate | at least 1,000 admitted acts per second per task, every index written |
+| one person's layer on one thread | at least 100 acts per second at 20 ms or less at p99 |
+| lock store under hand layers | at most 2 times the value bytes; above 4 times, hand layers default to per-act locks or keep locks in the record |
+
+The count is not measured in this step. It needs most of the store, and
+the proposal is to make it the real store's first milestone.
