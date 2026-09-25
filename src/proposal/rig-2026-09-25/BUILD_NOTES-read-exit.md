@@ -10,7 +10,7 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
 
 ## State
 
-- Step: 4 of 5 (test validation).
+- Step: 5 of 5 (run the suite to green).
 
 ## Next
 
@@ -88,3 +88,9 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
   keyword before any read (`reads/check-layer`); `$$layers` is keyed by
   Keyword and a read with another class is not probed, and a query throw
   restarts the worker. `bounds` and `check-layer` made total.
+- Test validation (TEST_VALIDATION-read-exit.md): minor-fail, nine missing
+  cases added (M1 to M9: RD2's never-admitted and past-the-act fact ids, RD4
+  as of 0, the line's role, RD6 and E8 after a forget, a purge during a
+  paged read, a point read of an erased fact, `:exit-shown`, D5 and D7 in
+  the cluster). Stand-ins named: T10's resend, T12's comparison, T18's homes,
+  T1's per-layer moment.

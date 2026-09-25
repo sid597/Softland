@@ -160,7 +160,10 @@
           (is (= [] (:rows r)))
           (is (= :read/pattern (:k l)))
           (is (= [0 :complete (reads/fingerprint #{})] ((juxt :count :mark :fingerprint) (:v l))))
-          (is (= [] (:exact (:v l))) "a person's line carries its (empty) exact list")))
+          (is (= [] (:exact (:v l))) "a person's line carries its (empty) exact list")
+          (is (= [:shown [:e :nobody] :alice] ((juxt :role :pattern :layer) (:v l))) "the role, by default :shown; the pattern; the layer"))
+        (let [r (rd st {:layer :alice :read [:pattern [:e :nobody]] :role :stood-on})]
+          (is (= :stood-on (:role (:v (line st :alice-hand (:entry r))))) "a role given is recorded")))
 
       (testing "T5: complete and partial marks, and nothing of the entry past the limit"
         (let [admitted (vec (for [i [4 3 2 1 0]]
@@ -222,8 +225,16 @@
               fid1 [(:name f1) 0] fid2 [(:name f2) 0]]
           (is (= [fid1] (fids-of (rd st {:layer :alice :read [:pattern [:ek :t8 :note]] :as-of s1}))))
           (is (= [fid1] (fids-of (rd st {:layer :alice :read [:pattern [:latest :t8 :note]] :as-of s1}))))
-          (is (= [{:fid fid2 :absent true}] (:rows (rd st {:layer :alice :read [:point [fid2]] :as-of s1})))
-              "a point read of a fact admitted after the moment: absent, as never admitted")
+          (let [never [(env/make-name :alice :by-layer) 0]
+                past [(:name f1) 5]
+                r (rd st {:layer :alice :read [:point [fid2 never past fid1]] :as-of s1})]
+            (is (= [{:fid fid2 :absent true} {:fid never :absent true} {:fid past :absent true}] (take 3 (:rows r)))
+                "admitted after the moment, never admitted, past the act's rows: absent alike (RD2)")
+            (is (= "t8 one" (:value (last (:rows r)))))
+            (is (= [:absent :absent :absent :value] (mapv (comp :shown :v) (retrying #(c/facts st :alice-hand (:entry r)))))
+                "the entry records each fact id read and how it came out")
+            (is (= [[fid1 s1]] (:matched r))))
+          (is (= [] (:rows (rd st {:layer :alice :read [:pattern [:all]] :as-of 0}))) "RD4: as of before anything, nothing")
           (let [all (rd st {:layer :alice :read [:pattern [:all]] :as-of s1})]
             (is (every? #(<= (:stamp %) s1) (:rows all)))
             (is (= {:stamp s1} (:moment all))))
@@ -255,10 +266,15 @@
               fid [(:name f) 0]
               before (rd st {:layer :alice :read [:pattern [:kv :note secret]]})
               _ (is (= [fid] (fids-of before)))
+              line-before (line st :alice-hand (:entry before))
               forget (+ (c/clock st :alice) 1000)
               _ (is (= {:purged true} (rx/index-op! st {:layer :alice :op :purge :fid fid :forget-stamp forget})))
               fs (fields st :alice)
               text (env/encode-value secret)]
+          (let [after (rd st {:layer :alice :read [:pattern [:kv :note secret]]})]
+            (is (not= (:fingerprint before) (:fingerprint after))
+                "RD6: a re-run after the forget cannot reach the first fingerprint, as expected")
+            (is (= line-before (line st :alice-hand (:entry before))) "E8: the earlier entry is never rewritten"))
           (is (not-any? #(str/includes? % text) (keys (:ix-kv fs))) "no value entry holds it")
           (is (not (contains? (:ix-of fs) fid)) "no :ix-of entry for it")
           (doseq [f [:ix-ek :ix-ke]]
@@ -270,7 +286,19 @@
             (is (= [[fid forget nil] [[(:name f) 1] nil 1]]
                    (mapv (juxt :fid :erased-at :value) (:rows e)))
                 "[:e] shows it with its erasure date only; the act's other fact is untouched"))
-          (is (not (str/includes? (pr-str fs) text)) "a scan of the four fields finds the value's text nowhere")))
+          (is (not (str/includes? (pr-str fs) text)) "a scan of the four fields finds the value's text nowhere"))
+        (testing "a purge while a paged read runs: the read shows the value or its erasure date, one or the other"
+          (make-layer! st :t9b :personal :alice [:alice :t9b :t9b])
+          (let [big (act :alice :t9b (vec (for [i (range 1500)] {:e :e0 :k :note :v (str "page " i)})))
+                _ (ok! big)
+                target [(:name big) 1200]
+                reads (future (q-pattern st :t9b :alice [:e :e0] nil 10000))
+                _ (rx/index-op! st {:layer :t9b :op :purge :fid target :forget-stamp 4242})
+                r @reads
+                row (first (filter #(= target (:fid %)) (:rows r)))]
+            (say "purge during a paged read: the row shows" (if (contains? row :erased-at) "the erasure date" "the value"))
+            (is (= 1500 (count (:rows r))))
+            (is (or (= "page 1200" (:value row)) (and (= 4242 (:erased-at row)) (not (contains? row :value))))))))
 
       (testing "T10: a rebuild from the log reproduces the indexes exactly"
         (make-layer! st :t10 :personal :alice [:alice :t10 :t10])
@@ -401,6 +429,10 @@
               (is (= [[(:name fb) 0]] (fids-of r)) "F5: the candidate that no longer opens is not shown")
               (is (= 1 (:count (:v l))) "nor counted")
               (is (= (reads/fingerprint #{[[(:name fb) 0] sb]}) (:fingerprint r)) "nor in the fingerprint"))
+            (let [p (rd st {:layer :alice :read [:point [[(:name fa) 0]]]})]
+              (is (= [777 false] ((juxt :erased-at #(contains? % :value)) (first (:rows p))))
+                  "E8 R3: a point read of an erased fact shows its date, no value")
+              (is (= :erased (:shown (:v (line st :alice-hand (:entry p)))))))
             (finally (reset! reads/open-double nil))))
         (let [r (rd st {:layer :alice :read [:pattern [:e :t2]]})
               ent (reads/entry-entity (:entry r))
@@ -410,6 +442,24 @@
           (let [k (rd st {:layer :alice-hand :read [:pattern [:k :read/pattern]]})
                 mine (first (filter #(= ent (:e %)) (:rows k)))]
             (is (= [:e :t2] (:pattern (:value mine))) "[:k :read/pattern] still shows the line's value, from its row"))))
+
+      (testing "D5: an act's facts in the act's order, and [:latest] picks its last, past index 9"
+        (let [o (act :alice :alice (vec (for [i (range 12)] {:e :t20 :k :note :v (str "twelve " i)})))
+              _ (ok! o)
+              ek (rd st {:layer :alice :read [:pattern [:ek :t20 :note]]})
+              lt (rd st {:layer :alice :read [:pattern [:latest :t20 :note]]})]
+          (is (= (mapv #(vector (:name o) %) (range 12)) (fids-of ek)))
+          (is (= [[(:name o) 11]] (fids-of lt)) "the model's chain-head: the last of the act")))
+
+      (testing "D7: a layer re-classed by entity is not read here"
+        (make-layer! st :t21 :personal :alice [:alice :t21 :t21])
+        (ok! (act :alice :t21 [{:e :e0 :k :note :v "before the re-class"}]))
+        (ok! (act :operator :t21 [{:e :t21 :k :class :v :by-entity}]))
+        (is (= {:refused :re-classed} (rx/read! st (merge alice {:layer :t21 :read [:pattern [:all]]}))))
+        (is (= {:refused :not-visible}
+               (rx/read! st {:reader :bob :reader-kind :person :working :bob-hand :permission [:bob :bob-hand :bob-hand]
+                             :layer :t21 :read [:pattern [:all]]}))
+            "decided after visibility: Bob learns nothing of it"))
 
       (testing "T14: malformed reads and records are answered as data; no worker restarts"
         (let [n1 (env/make-name :alice :by-layer)
@@ -479,6 +529,11 @@
               (is (thrown? Exception (rd st (assoc spec :entry-name nm))))
               (is (= :yes (:answer (c/lookup st nm nil))))
               (is (= 1 (count (pattern-lines nm))))))
+          (testing "(b2) just before the return: as after the entry"
+            (let [nm (env/make-name :alice-hand :by-layer)]
+              (inject/arm! :exit-shown nm)
+              (is (thrown? Exception (rd st (assoc spec :entry-name nm))))
+              (is (= :yes (:answer (c/lookup st nm nil))))))
           (testing "(c) the gate crashes before the entry's writes: the worker restarts, the exit resends, rows shown, one entry"
             (let [nm (env/make-name :alice-hand :by-layer)]
               (inject/watch! nm)
