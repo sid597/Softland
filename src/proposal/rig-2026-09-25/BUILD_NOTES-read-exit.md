@@ -10,7 +10,7 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
 
 ## State
 
-- Step: 3 of 5 (tests).
+- Step: 4 of 5 (test validation).
 
 ## Next
 
@@ -73,3 +73,18 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
   had no yield point (V2); the ops source read the clock for ops that do not
   use it (V3); `moment-stamp` renamed to the plan's `moment` (V4). Thirteen
   divergences from the plan listed with their reasons (D1 to D13).
+- Tests written (phase-5-tests.md), loaded, not yet run: `rig.store.reads-test`
+  (pure: parsers, addresses and order, index/purge/rebuild writes, the page
+  loop driven over a sorted map as the dataflow drives it, fingerprint, entry
+  facts, entry moments in the gate's stamp rule, T14 property tests),
+  `rig.store.read-exit-test` (one 4-task cluster: T2 to T6, T8 to T16, T18,
+  T19, T11's crashes last, and the global "every shown read has its entry"
+  check), `rig.store.read-model-test` (T1: the model op by op in lockstep
+  with the rig on simulated time, per-layer comparison of `[:all]`, the five
+  patterns and point reads at every model read, every answer; the plan's
+  single-moment mapping reported, not asserted; scenarios.clj's fixed
+  histories listed with what each needs, checked).
+- While writing: the queries now refuse a layer that is not a readable
+  keyword before any read (`reads/check-layer`); `$$layers` is keyed by
+  Keyword and a read with another class is not probed, and a query throw
+  restarts the worker. `bounds` and `check-layer` made total.

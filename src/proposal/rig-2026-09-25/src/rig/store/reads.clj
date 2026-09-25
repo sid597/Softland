@@ -466,6 +466,16 @@
              :else bad))))
      (catch Throwable _ {:refused :bad-pattern}))))
 
+(defn check-layer
+  "A parsed read's inputs, refused as `refusal` unless the layer read is a
+  readable keyword: `$$layers` is keyed by Keyword, and no read runs with a
+  key of another class."
+  [parsed layer refusal]
+  (cond
+    (not (map? parsed)) {:refused refusal}
+    (or (contains? parsed :refused) (env/readable-keyword? layer)) parsed
+    :else {:refused refusal}))
+
 (defn- prefix-end
   "The least String above every String that starts with `prefix`, when
   `prefix` ends in U+0000: the prefix with that last char raised to U+0001."
@@ -482,7 +492,8 @@
     (case (:kind pp)
       :all ["" nil]
       (:e :k) [p (prefix-end p)]
-      (:ek :kv :latest) [p (str p (hex16 (inc (long m))))])))
+      (:ek :kv :latest) [p (str p (hex16 (inc (long m))))]
+      ["" ""])))
 
 ;; ----------------------------------------------------- the page loop, pure
 
@@ -1072,7 +1083,8 @@
   [topologies]
   (<<query-topology topologies "read-point" [*layer *for *fids *as-of :> *answer]
     (|hash *layer)
-    (parse-point *for *fids *as-of :> *p)
+    (parse-point *for *fids *as-of :> *p0)
+    (check-layer *p0 *layer :bad-read :> *p)
     (<<if (contains? *p :refused)
       (identity *p :> *answer)
      (else>)
@@ -1114,7 +1126,8 @@
 
   (<<query-topology topologies "read-pattern" [*layer *for *pattern *as-of *limit :> *answer]
     (|hash *layer)
-    (parse-pattern *pattern *limit *as-of :> *pp)
+    (parse-pattern *pattern *limit *as-of :> *pp0)
+    (check-layer *pp0 *layer :bad-pattern :> *pp)
     (<<if (contains? *pp :refused)
       (identity *pp :> *answer)
      (else>)
