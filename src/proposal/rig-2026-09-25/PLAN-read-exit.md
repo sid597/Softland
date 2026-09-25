@@ -277,7 +277,7 @@ exit then appends through the depot.
 | RE2 pattern read `[L pattern as-of limit]` | the exit | query topology `read-pattern`, leading `(|hash *layer)` | `$$clock` STAY (1); one range read of at most limit + 1 entries of one index, `{:allow-yield? true}` (1 seek + up to limit + 1 iterations); no per-fact seek (the entry carries the row) |
 | RE3 an entry's answer | the exit, tests | phase 1's `client/lookup` (RD1) | unchanged |
 | RE4 the index entries of one fact | purge (the gate, in a forget event), tests | `[(keypath L :ix-of fid)]` | 1 seek |
-| RE5 a layer's acts and rows, whole | rebuild (the gate, in a rebuild event), tests | `[(keypath L :answers) ALL]`, `[(keypath L :log) ALL ALL]` hmm see below | 2 seeks + one iteration per act and per row |
+| RE5 a layer's acts and rows, whole | rebuild (the gate, in a rebuild event), tests | `[(keypath L :answers) ALL]`, then per yes act `[(keypath L :log name) ALL]` | see below |
 | RE6 a layer's index entries, whole | rebuild, tests | `[(keypath L :ix-ek) ALL]` and likewise `:ix-ke`, `:ix-kv`, `:ix-of` | 4 seeks + one iteration per entry |
 
 RE5 precisely: `[(keypath L :answers) ALL]` gives every name's record in name
@@ -300,7 +300,7 @@ No new depot for ordinary use; one small operator depot for rebuilds.
 | W1 a read entry | the exit's ordinary offer into the working layer through `*offers` (`client/offer-until-answered!`) | the stream gate, as any act: permission in the working layer, class, digest, retry from the record |
 | W2 index entries of an admitted act | computed in `decide` for a yes and written in the same event as the log rows | the stream gate (PState ownership, PLAN-stream-store.md F12) |
 | W3 purge by value id | a function phase 2's forget calls; its writes join that forget's precomputed writes in the forget's decision event | the stream gate, in phase 2's forget |
-| W4 rebuild one layer's indexes | an operator record `{:rebuild layer}` on a new depot `*index-ops` (hash-by `:rebuild`... see Depots) consumed by the gate topology | the gate topology on the layer's home, one event |
+| W4 rebuild one layer's indexes | an operator record `{:layer L :op :rebuild}` on a new depot `*index-ops`, `(hash-by :layer)`, consumed by a second source of the gate topology | the gate topology on the layer's home, one event |
 
 Why the entry goes through the ordinary path (the brief's placement,
 first-record): the entry is then a fact like any other, decided by the gate
@@ -308,3 +308,356 @@ that orders the working layer, answered by name, retried from the record,
 permission-checked in the layer it lands in, indexed like any fact, and
 forgettable by value id like any value when phase 2 arrives. No second write
 path exists for the store to keep consistent.
+
+## PState Design
+
+No new PState. Four fields are added to the value of phase 1's `$$layers`
+(everything keyed by a layer, on the layer's home task, owned by the gate).
+The skill's merge rule decides where: the indexes share `$$layers`'s key
+(the layer) and partitioner, so they are fields of its value, not PStates of
+their own; and PLAN-stream-store.md F12 decides who writes them: `$$layers`
+has one owner, the gate topology, so every index write happens in a gate
+event, in the same atomic group as what it indexes.
+
+### The index entry and its address
+
+An **index entry** is a copy of one fact's row with its id and stamp, so a
+pattern read needs no seek per fact:
+
+```clojure
+(def index-entry
+  (fixed-keys-schema {:fid       clojure.lang.PersistentVector   ; [name idx]
+                      :stamp     Long                            ; the act's stamp
+                      :e         clojure.lang.Keyword
+                      :k         clojure.lang.Keyword
+                      :v         String                          ; the row's value slot as stored; nil for a retract, nil once purged
+                      :replaces  clojure.lang.PersistentVector
+                      :mark      (set-schema clojure.lang.Keyword)
+                      :erased-at Long}))                         ; set by a purge: the forget's stamp
+```
+
+Addresses, built by one pure function `rig.store.reads/address`, parts joined
+by U+0000 (written ␀), stamps as `(format "%016x" stamp)`, a keyword as its
+printed text without the colon, a fact id as `env/canonical` of it:
+
+- `:ix-ek`: `e ␀ k ␀ stamp ␀ fid`
+- `:ix-ke`: `k ␀ e ␀ stamp ␀ fid`
+- `:ix-kv`: `k ␀ len ␀ vtext ␀ stamp ␀ fid`, where `vtext` is the canonical
+  text of the value (phase 1's value slot) and `len` its length in chars as
+  8 hex digits, so a value's text containing U+0000 cannot make one value's
+  prefix another's.
+
+A readable keyword (the envelope's `readable-keyword?`) cannot contain
+U+0000, so `e ␀` is a prefix of exactly the entries about `e` [probed: the
+`e0␀` range excluded `e0a`]. The fact id at the end makes every address
+unique: two facts of one act share entity, key and stamp but not index; a
+crossing name shares its request's UUID but not its scheme, and the whole
+name is in the text.
+
+### The fields
+
+```clojure
+;; merged into phase 1's fixed-keys-schema for a layer's value (module.clj),
+;; by one form: (fixed-keys-schema (merge phase-1-fields reads/layer-fields))
+(def layer-fields
+  {:ix-ek (map-schema String index-entry {:subindex-options {:track-size? false}})
+   :ix-ke (map-schema String index-entry {:subindex-options {:track-size? false}})
+   :ix-kv (map-schema String index-entry {:subindex-options {:track-size? false}})
+   :ix-of (map-schema clojure.lang.PersistentVector              ; fid -> its :ix-kv addresses
+                      (set-schema String)
+                      {:subindex-options {:track-size? false}})})
+```
+
+Why each:
+
+- `:ix-ek` serves `[:all]`, `[:e e]`, `[:ek e k]` and `[:latest e k]`:
+  entity first, then key, then stamp, so a chain's history is one range and
+  "as of T" is its end bound, and the latest fact at or before T is one tail
+  read. Unbounded (every admitted fact of the layer), subindexed.
+- `:ix-ke` serves `[:k k]` (the runner of phase 6 finds tools by key).
+  Unbounded, subindexed.
+- `:ix-kv` serves `[:kv k v]` for keys the hints mark as indexed by value.
+  It holds values in its addresses, so it is the one index purged by
+  deleting. Unbounded, subindexed.
+- `:ix-of` maps a fact id to its `:ix-kv` addresses, so a purge by value id
+  needs no value (after phase 2 seals values, the gate may no longer be able
+  to rebuild an address from a value whose lock is gone). Keyed by the fact
+  id vector: read only by exact address, which vector addresses serve
+  [phase-1 ran: `:answers` and `:heads` are read so]. The set per fact is
+  bounded by the number of value-indexed kinds (one tonight), so the set is
+  not subindexed; the map is (one per value-indexed fact).
+- Size tracking off everywhere: nothing counts; tracking costs a read per
+  write.
+- No `Object`: addresses are Strings, ids keywords and vectors, the value
+  slot text, as phase 1.
+
+### Options weighed (for the dominant read, a pattern read of about 20 facts, and for writes)
+
+- **A, chosen: String-addressed flat maps whose entries carry the row.** A
+  pattern read: 1 seek for the clock, 1 for the layer's settings, then one
+  seek per page of the range and one iteration per entry (about 3 seeks and
+  20 iterations, ≈ 1.6 ms by the skill's arithmetic). Writes per admitted
+  fact: 2 entries, plus 2 (the `:ix-kv` entry and the `:ix-of` set) for a
+  value-indexed key, all no-read `termval`s in the decision event.
+- **B: entries carry only fact id and stamp; the read fetches each row from
+  `:log`.** The same read: 3 seeks + 20 × (1 answer + 1 to 2 row) seeks ≈ 43
+  to 63 seeks ≈ 20 to 30 ms. Writes smaller by the value's bytes. Rejected:
+  per-read seeks multiplied by every read, against a one-time write cost
+  (SKILL.md: never trade I/O for simplicity; write-path work is amortized).
+- **C: nested subindexed maps keyed by keywords and longs,
+  `{e {k {stamp {fid entry}}}}`.** No string building, and "as of T" is a
+  Long range. `[:ek e k]`: 3 seeks + entries; but `[:e e]` needs a seek per
+  key under the entity and `[:all]` a seek per entity and per chain (a layer
+  of 10,000 facts over 2,000 chains ≈ 4,000 seeks). Rejected on seeks.
+- **D: vector addresses `[e k stamp fid]`.** The obvious form. Rejected by
+  the probe: no prefix range exists.
+- **E: the indexes in their own PState, written by a separate microbatch
+  topology from the log.** Rejected: a person's write must be visible to
+  their next read with no optimism (the stream gate's reason, phase 1), so a
+  fact must be in the indexes when its answer is; and a second writer of the
+  layer's state splits what one event now keeps atomic.
+
+The phase 2 plan written earlier proposed a by-stamp index (stamp → name).
+This plan does not need it: `[:all]` is served by `:ix-ek`, and a read as of
+T filters by the stamp every entry carries.
+
+## Depots
+
+- **`*offers`**, phase 1's, unchanged. Read entries enter here as ordinary
+  offers (W1).
+- **`*index-ops`**, new: `(declare-depot setup *index-ops (hash-by :layer))`,
+  appended by the operator (tests, and later a restore). A record
+  `{:layer L :op :rebuild}` asks the gate topology to rebuild one layer's
+  indexes on its home task. Placed by the same function as the layer's
+  offers, so its event runs on the task that holds the layer. Not an act and
+  not recorded in the log: a rebuild changes no meaning (the rebuilt
+  indexes equal what the log implies), and "re-encoding is allowed" (the
+  store-level ruling on "never rewritten"). Rig choice. A kept store's
+  restore replays forget facts before any rebuild (the rig constraint); the
+  rebuild then sees every value a forget erased as erased, through
+  open-value.
+- Why not a store-placed act on `*offers` for the rebuild: it would put a
+  maintenance step into the record (first-record) and through the envelope's
+  closed parts, for no meaning.
+
+## Topologies and PStates
+
+No new topology. The gate topology (stream, phase 1) gains index writes in
+its decision event and one source; the reads are two query topologies. The
+skill's rule "at most one stream topology" holds, and a new topology would
+split write access to `$$layers`, which F12 forbids.
+
+### `gate` — stream (phase 1's), what this stage adds
+
+**Why still stream**, unchanged: the index entries must be visible when the
+act's answer is (a person's next read after an ack sees their write), so
+they belong to the same event as the log rows.
+
+**1. Index writes for every admitted act.** `gate/decide*` adds, for a yes
+only, three precomputed write lists from one pure call,
+`(reads/index-writes hints (:layer offer) nm rows stamp)`:
+
+- `:index-put` — `[[field address entry] ...]`: an `:ix-ek` and an `:ix-ke`
+  entry per fact; an `:ix-kv` entry per fact whose key the hints mark as
+  indexed by value and whose value is not nil (a retract has no value to
+  index).
+- `:index-of` — `[[fid #{kv-address}] ...]` for those facts.
+- `:index-del` — `[]` for an admitted act (only a purge or a rebuild
+  deletes).
+
+`hints` is `reads/seed-hints` tonight, a constant
+`{:by-value #{...} :opaque #{...}}` (a rig choice; its contents are a
+parameter, see "Hints"). Module.clj applies the lists after the heads
+writes, in the same `<<if` for a yes, three blocks shaped like phase 1's:
+
+```clojure
+(<<atomic (ops/explode (get *d :index-put) :> [*ix *ia *ie])
+          (local-transform> [(keypath *layer *ix *ia) (termval *ie)] $$layers))
+(<<atomic (ops/explode (get *d :index-of) :> [*if *ias])
+          (local-transform> [(keypath *layer :ix-of *if) (termval *ias)] $$layers))
+(<<atomic (ops/explode (get *d :index-del) :> [*dx *da])
+          (local-transform> [(keypath *layer *dx *da) NONE>] $$layers))
+```
+
+The same three blocks apply a purge's and a rebuild's lists; phase 2's
+forget merges `reads/purge-writes` into its own decision's lists. The field
+is data (`*ix`), one of the four keywords; `keypath` with a var navigates to
+it [build checks: a fixed-keys field chosen by a var at runtime; fallback,
+one block per field with a constant keypath, which phase 1's code already
+uses for `:heads`].
+
+**Idempotency, traced.** Every entry is a `termval` at an address computed
+from the act (name, index, stamp, entity, key, value text), so a replay that
+reaches the writes (possible only when nothing committed, phase 0 finding 2)
+writes the same entries; a replay that finds the record writes nothing
+(phase 1's recorded path). A purge's tombstone is a `termval` of a value
+computed from the row and the forget's stamp; a delete twice is one delete.
+No increment, no append.
+
+**No throw.** `reads/index-writes` is pure and total over parsed offers:
+every part it reads was normalised by `env/parse`, the address functions
+format keywords, longs and canonical text, and it catches `Throwable`
+around itself by returning empty lists plus a flag `:index-error`, which
+`decide*` turns into the unrecorded face refusal `:gate-error` (phase 1's
+existing road, F6), so a bug in indexing refuses the offer as data and
+never restarts the worker. The cost of that road: a gate error refuses an
+act that phase 1 would have admitted; the property test drives
+`index-writes` with generated offers and asserts no error.
+
+**2. The rebuild source.** A second `source>` in the gate topology's
+`<<sources` block, on `*index-ops`, `{:retry-mode :all-after}`:
+
+1. `(reads/index-op *raw :> *op)` — total; `{:refuse r}` for anything but
+   `{:layer keyword :op :rebuild}`; answered with `ack-return>` and nothing
+   else.
+2. Reads, all on the home task, **not yielding** (a rebuild is one
+   consistent snapshot; see cost below):
+   `(local-select> [(keypath *layer :answers) (subselect ALL)] $$layers :> *answers)`;
+   then a `loop<-` over the yes names reading
+   `(local-select> [(keypath *layer :log *nm) (subselect ALL)] $$layers :> *rows)`
+   and calling `(locks/open-value *layer *fid *row-with-stamp *stamp :> *opened)`
+   per row, accumulating `[fid stamp row opened]`; then the four index
+   fields whole, `(local-select> [(keypath *layer :ix-ek) (subselect ALL)] ...)`
+   and likewise.
+3. `(reads/rebuild-writes hints *layer *acts *current :> *d)` — pure: the
+   entries the log implies (a tombstone for a value open-value says erased,
+   with its date and no `:ix-kv` entry; the row's entry otherwise), minus
+   what is already there, as `:index-put`, `:index-of`, `:index-del`
+   (entries and `:ix-of` sets present but not implied), and `:of-del`.
+4. The three write blocks, plus one for `:of-del` (`NONE>` at
+   `(keypath *layer :ix-of *fid)`).
+5. `(ack-return> {:put n :deleted m})`.
+
+Idempotent: a second rebuild finds nothing to put or delete. Consistent:
+the whole rebuild is one event with no partitioner and no yield, so no offer
+on the task interleaves between the snapshot and the writes [phase-1 ran:
+RQ 1, a stream event is atomic on one task]. The cost, named: the event
+blocks the home task for the whole layer (every other layer on that task
+waits), O(acts + rows + entries) iterations and 2 seeks per act. Acceptable
+for the rig, where a rebuild runs only in tests and after a restore; the
+paged form (a rebuild in name ranges, one event per page, deleting only
+entries whose fact falls in the page, found through an `:ix-of` addressed by
+the fact id's canonical text) is the refinement a kept store needs, and is
+not built tonight (see "Open questions").
+
+Whether a second `source>` can be added from a function in
+`rig.store.reads` rather than inline in module.clj's `<<sources` block is
+[build checks]; the fallback is the source inline in module.clj calling the
+reads functions, which is where "one function called by one line" does not
+hold (see "The one line in module.clj").
+
+## Query Topologies
+
+Both are declared by `(reads/declare-queries! topologies)`, one line in
+module.clj's `defmodule` body [build checks: a `<<query-topology` form
+inside a function called from the module body resolves `$$layers` and
+`$$clock`; fallback, the two forms inline in module.clj]. Both start with
+`(|hash *layer)`, a built-in partitioner on a topology input that targets
+one task, so the client routes the query straight to the layer's home
+(query-topologies.md, "Leading partitioner"); both end with `(|origin)` and
+emit once, with no aggregator (one task, one emit).
+
+Every step is total: the parsers refuse as data, the pure functions catch
+`Throwable` and return `{:refused :read-error}`, and `open-value` never
+throws. A query topology exception is not known here to be fatal to the
+worker as a stream one is, but this plan does not find out by accident
+[phase-1 ran for stream topologies only].
+
+### `read-point` `[*layer *reader *fids *as-of :> *answer]`
+
+1. `(|hash *layer)`.
+2. `(reads/parse-point *reader *fids *as-of :> *p)` — total; refuses a
+   non-vector list, more than 1,000 fact ids (a rig choice), a malformed
+   fact id, or a malformed moment, as data; a refusal skips to step 7 with
+   `*answer` bound to it (both branches unify on `*answer`).
+3. `(local-select> [(keypath *layer :settings)] $$layers :> *settings)`;
+   `(reads/visible? *settings *reader :> *ok)` — ruling 9's default:
+   personal, hand and agent layers are visible to their owner; the base to
+   any authenticated actor; else `{:refused :not-visible}` (or
+   `:no-such-layer` when settings are nil). Nothing recorded for a refusal:
+   nothing was read.
+4. `(local-select> STAY $$clock :> *clock)`;
+   `(reads/moment *as-of *clock :> *m)` → `min(asked, clock)`.
+5. `loop<-` over the fact ids, in order, accumulating rows:
+   `(local-select> [(keypath *layer :answers *nm)] $$layers :> *rec)`; when
+   `*rec` is a yes stamped at or before `*m`,
+   `(local-select> [(keypath *layer :log *nm *idx)] $$layers :> *row)` and
+   `(locks/open-value *layer *fid (assoc *row :stamp s) *m :> *opened)`;
+   else the row `{:fid fid :absent true}`. `(yield-if-overtime)` in the
+   loop body.
+6. `(reads/point-answer *layer *m *rows :> *answer)` — `:matched` is
+   `[fid stamp]` for the rows that were not absent.
+7. `(|origin)`.
+
+Input examples: one fact id admitted before the moment → 1 (settings) + 1
+(clock) + 1 (record) + 1 to 2 (row) seeks, all meaningful. Five fact ids of
+which two are absent → 2 + 5 records + 3 rows; each record read is
+meaningful (it decides absent or not), no row is read for an absent one.
+Zero fact ids → 2 seeks, rows empty (a point read of nothing is recorded as
+an entry with no rows; see "The exit"). **Variable**: the count follows
+the input; handled by `loop<-`, one record seek per fact id and one row
+seek only when the record says the fact is there.
+
+### `read-pattern` `[*layer *reader *pattern *as-of *limit :> *answer]`
+
+1. `(|hash *layer)`.
+2. `(reads/parse-pattern *pattern *limit reads/seed-hints :> *pp)` — total:
+   `{:refused :bad-pattern | :not-indexed | :opaque}` or
+   `{:ix field :from address :end address-or-nil :tail? bool :limit n}`.
+3. Settings and visibility, as `read-point` step 3.
+4. Clock and moment, as `read-point` step 4;
+   `(reads/bounds *pp *m :> *from *end)` folds the moment into the end
+   bound for `[:ek]` and `[:kv]` (end = prefix + hex(m + 1)) and into the
+   tail bound for `[:latest]`.
+5. The range read, by kind:
+   - `[:latest e k]`: one
+     `(local-select> [(keypath *layer :ix-ek) (sorted-map-range-to *end {:max-amt 1})] $$layers :> *sub)`
+     [probed: the tail read returned the entry just below the bound];
+     the entry counts only if its address has the prefix `e␀k␀`.
+   - every other kind: a `loop<-` of pages,
+     `(local-select> [(keypath *layer *ix) (sorted-map-range-from *from {:max-amt *page :inclusive? *incl})] $$layers {:allow-yield? true} :> *sub)`,
+     with the first page 16 entries and each next page twice the last (a
+     rig choice), continuing from the page's last address exclusive, until
+     an entry reaches `*end` (or the map ends) or `limit + 1` entries have
+     matched. `(reads/page-step ...)` is the pure step: it keeps entries
+     below `*end` whose stamp is at or before `*m`, counts them, and says
+     continue or stop.
+6. `loop<-` over the kept entries (at most `limit`): an entry with
+   `:erased-at` gives `{... :erased-at s}` (a purged fact shows only its
+   date); else `(locks/open-value *layer (:fid e) e *m :> *opened)` gives
+   the value, the erasure date, or unreadable. `(yield-if-overtime)` in
+   the loop.
+7. `(reads/pattern-answer *layer *m *pp *rows *more? :> *answer)` — the
+   rows in address order, `:matched` the `[fid stamp]` pairs, `:mark`
+   `:partial` with `:resume` when a limit + 1st match was seen, else
+   `:complete`; `:fingerprint` from `reads/fingerprint` over the set of
+   matched pairs, under the fingerprint secret derived in the module; the
+   secret never leaves this function.
+8. `(|origin)`.
+
+Input examples (a layer of 10,000 facts over 2,000 chains; entity `e`
+with 12 facts over 3 keys; key `:note` on 4,000 facts):
+
+- `[:latest e :note]` as of now → settings 1 + clock 1 + 1 tail seek, 1
+  iteration. Fixed.
+- `[:ek e :note]` as of now, 4 facts → 3 seeks + one page of 16 iterated,
+  of which 4 match and the 5th ends the range. Meaningful.
+- `[:e e]` → 3 seeks + 13 iterations (one page), 12 meaningful.
+- `[:k :note]` with limit 1,000 → 3 + 7 page seeks (16 + 32 + ... + 1,024)
+  + 1,001 iterations; marked partial with a resume address. Variable,
+  handled by the page loop: a small match reads one small page, a large one
+  grows its pages, and no read is issued past the end or past limit + 1.
+- `[:kv :note "x"]` with two matches → 3 seeks + one page, 2 meaningful.
+- `[:e unknown]` → 3 seeks + one page whose first entry is past the prefix:
+  an empty read, recorded (ruling 3: empty pattern reads included); its one
+  range seek is the cost of knowing it is empty.
+- `[:kv :mention ...]` when `:mention` is not hinted → refused at step 2,
+  settings and clock not read.
+
+Why a page loop and not one range read: `sorted-map-range` over a large
+prefix materialises the whole range [docs: pstate-schema.md, the range
+navigators select a submap], so `[:all]` on a big layer would load it
+whole; `sorted-map-range-from` with `:max-amt` bounds each read, but a
+single read of `limit + 1` would iterate up to 1,001 entries past a
+three-fact entity. Doubling pages cost one extra seek per doubling for a
+large read and nothing extra for a small one.
