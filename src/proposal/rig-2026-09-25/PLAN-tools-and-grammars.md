@@ -204,7 +204,8 @@ layer's own state, as phase 1 projects settings and permission rows
   visits as planned. It costs one hop per act in the batch, inside a
   microbatch whose cycle is already at least 300 ms (the skill's figure).
   How to fold it into block 1 is phase 3's; the requirement is that the rows
-  reach the open.
+  reach the open, and that the hints reach block 2a's index writes
+  (MP:1580) the same way.
 - **Read exit:** `read-point` and `read-pattern` already run on the read
   layer's home (P:660-663); they read the row of the pattern's key before
   `parse-pattern`, and the rows of the keys they show (section 9).
@@ -371,8 +372,9 @@ here so the pick does not close it; not built tonight, and no test needs it.
   `:read/point`, `:read/pattern`): a store key's grammar is compiled, and
   making it facts is open item 3. Refused `:malformed-control`.
 - Who may write one: the operator, or the layer's owner (the owner's own
-  permission covers it, as it covers a grain switch, `gate.clj:76-84`).
-  Anyone else: `:control-not-allowed`. A rig choice (T-RC4); "from inside"
+  permission covers it, as it covers a grain switch, `gate.clj:76-84`); in a
+  shared layer, which has no person owner, the operator only. Anyone else:
+  `:control-not-allowed`. A rig choice (T-RC4); "from inside"
   may later want any writer holding a permission in the layer.
 
 ### 4.2 The value shape: a small total language of shapes
@@ -494,9 +496,11 @@ and today's behaviour, so every earlier test that writes no grammar keeps
 its answers (*derived*; the build confirms by running the suites). It has a
 cost, stated plainly: a value about Bob under a key with no grammar in the
 layer is not recorded as about Bob, and Bob's forget does not reach it even
-when it is marked `:die-with-any`. Strict (refuse a key with no grammar) is
-the other end; it would make every layer state its keys before use. A rig
-choice (T-RC2); Sid's question Q4.
+when it is marked `:die-with-any`. The same holds for a promoted copy that
+lands in a layer with no grammar for its key: in a shared layer, with no
+person owner, it is then about no one and its wrap is empty (LP:480-481).
+Strict (refuse a key with no grammar) is the other end; it would make every
+layer state its keys before use. A rig choice (T-RC2); Sid's question Q4.
 
 ### 4.7 The row, and what the gate does with each part
 
@@ -774,11 +778,11 @@ one offer per new match. The lookups make an old match cost one seek
 rather than an offer. A tool with more than `n` matches gets a read marked
 `:partial` and runs on the first `n` only, and every later pass reads the
 same first page: the pattern read takes no "start after" (its inputs,
-P:712), so the
-report marks the tool partial and the rest waits for paging, a later
-fixed-side step. The pass is O(T × M) in seeks because the pattern
-language has no lower bound on the stamp: the fix, when a real layer needs it, is a "since" bound on a pattern
-or a standing read per tool (R6, not built), each a later fixed-side step.
+P:712), so the report marks the tool partial and the rest waits for
+paging, a later fixed-side step. The pass is O(T × M) in seeks because the
+pattern language has no lower bound on the stamp: the fix, when a real
+layer needs it, is a "since" bound on a pattern or a standing read per tool
+(R6, not built), each a later fixed-side step.
 Tonight's layers hold a handful of facts.
 
 ## 7. The proof (question 5): tests
@@ -840,7 +844,9 @@ Gate:
   is used), and a second marked `:mention` of Bob: `:subjects #{:alice}`,
   wrap `{:required [:alice]}`. After Bob's forget, the first no longer
   opens and the second still does. The subjects came from facts.
-- **G3, an opaque key.** In `:alice`, a grammar for `:blob`, `:opaque true`:
+- **G3, an opaque key.** A test key, not a toy key, so each toy key keeps
+  one grammar in every layer (CORNERS C4.3). In `:alice`, a grammar for
+  `:blob`, `:opaque true`:
   a `:blob` whose value is a string, and one that is a map, are both
   admitted (no shape check); `[:kv :blob v]` is refused `:opaque`; no
   `:ix-kv` entry exists under the `:blob` prefix (read from `$$layers`);
@@ -890,9 +896,9 @@ Runner:
   fid with their stamps; the output's stamp is later than both. After the
   operator revokes the tool's grant, the tool's next match read is refused:
   its entry act, offered under the revoked pid, is refused
-  `:permission-revoked`, and a refused entry hides the answer (the exit's T3,
-  P:1321-1324), so
-  nothing runs and the pass returns the refusal as data. An output offered
+  `:permission-revoked`, and a refused entry hides the answer (the exit's
+  T3, P:1321-1324), so nothing runs and the pass returns the refusal as
+  data. An output offered
   under the revoked pid directly (the test builds one by hand) is refused
   `:permission-revoked` and recorded.
 - **R5, a loop refused or bounded.** A tool matching `[:k :note]` that
@@ -1178,6 +1184,11 @@ the suites):
   that change, and I have not checked whether E1 is one. Under phase 6 it
   depends on the layer's facts again. The build checks which version
   stands.
+- Phase 8's replays of the model's histories write the toy grammars into
+  each layer first, so the rig's subjects match `fact-subjects`
+  (`model.clj:241-248`); every value the model makes passes the toy shapes
+  (its generator names one or two people, `run.clj:18-19`, and its values
+  are `{:token t}` plus `:persons`, `model.clj:830`).
 - Benches: when phase 7 measures on the finished store (the lock bench
   runs on its own slice today, `lock_slice.clj`, with its own copy of the
   rule), its two-person `:mention` variant (`lock_bench.clj:83-91`) needs
