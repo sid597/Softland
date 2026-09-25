@@ -170,8 +170,9 @@ a lock from an attempt that did not commit.
 **The door takes their plaintext by a query.** `micro-lease [lease-name
 F]` on hash(lease-name): read F; the rows under `[lease-name :leases]` with
 batch ≤ F (one seek, n iterations, a subindexed map keyed by index);
-`locks/unlease` each over the owner's `$$persons` entry (local); return the
-plaintext locks. The depot never sees this path. Input examples: a settled
+`locks/unlease` each over the `$$persons` entry of its `:under` person
+(local; none for a bare operator row, **[PV-F1]**); return the plaintext
+locks. The depot never sees this path. Input examples: a settled
 lease of n rows, 2 reads (F, then the range: 1 seek and n iterations), all
 meaningful; a lease not yet settled or never made, 2 reads with an empty
 range, which is the answer the door needs ("not yet"). Fixed: no read
