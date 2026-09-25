@@ -485,10 +485,11 @@ for group and base layers") and M11's base.
   Three reads at most (F, faces, record), all on the name's task.
   `micro/visible-at? row F` is the one predicate, pure, that the reads
   stage builds shared-layer reads on.
-- **What a read entry records** (R3): for a shared layer `{:layer L
-  :frontier F}`; for a one-owner layer `{:layer L :stamp s}` inline. The
-  read exit's entry carries one per layer it read (its shape is that
-  plan's; this is what goes in it). For a re-classed layer the frontier
+- **What a read entry records** (R3): for a shared layer the moment part
+  `{:frontier F}`, in the place where a one-owner layer's entry has `{:stamp
+  s}` inline. That is the read exit's own slot (PLAN-read-exit.md in the
+  reads worktree, lines 122 to 124: "A shared layer will put `{:frontier
+  id}` in its place"), so this plan fixes only what F is: the Long above. For a re-classed layer the frontier
   alone: its stream-era facts are all before the re-class, and the re-class
   is before every batch that orders the layer. A stream-side setting after
   the re-class (P16) is a stamped stream fact the entry does not bound, an
