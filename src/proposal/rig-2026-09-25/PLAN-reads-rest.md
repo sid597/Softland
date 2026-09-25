@@ -610,13 +610,18 @@ read per act) is no longer needed by any read of this plan; whether it stays
 is builder A's call, and nothing here relies on its absence or presence.
 
 The limit and the scan budget hold for a delta as for any pattern read; a
-delta cut by the limit is a `:partial` delivery (below), and the next
-delivery starts after the last acknowledged moment, so the facts beyond the
-limit are delivered by no later delta (RR10: the next delta resumes from the
-last *shown* address inside the old moment first, then the new range; the
-last shown address is computed from the last shown row, so nothing of the
-unshown entry leaks, F3 kept). [Derived; a test drives a delta of limit + 5
-facts over two deliveries and checks each is delivered once.]
+delta cut by the limit or the budget is a `:partial` delivery (below). The
+facts beyond the cut are not lost (RR10): every index a delta reads orders
+its range by stamp (one-owner: `:ix-s`, and the stamp part of an `[:ek]` or
+`[:kv]` address) or by batch then stamp (shared `:ix-s`), so the handle
+keeps the address of the last *shown* row, and the next delta is one range
+from just above that address (the address followed by U+0000, the read
+exit's page rule) to the new moment's bound. The address is computed from
+the shown row itself, so nothing of the unshown limit + 1st entry reaches
+the client (F3 kept). A delta that was not cut resumes from `:after` the
+last acknowledged moment, as above. [Derived; test RT9 drives a delta of
+limit + 5 facts over two deliveries and checks each fact is delivered
+exactly once.]
 
 ### The entry's lines (first-record, FRR1 to FRR4)
 
@@ -838,3 +843,211 @@ and the end of the loop the remaining entries still open (RR15; For Sid:
 whether a drop must be effective at the close act's commit, which would
 need the gate's open to honour a layer-level "reads dropped before s" mark,
 a change to phase 2's open functions).
+
+## Indexes and forgets, whole
+
+### Every index, what it holds, and how a forget reaches it
+
+| index | where, written by | holds | on a value forget | on a person forget | rebuilt by |
+|---|---|---|---|---|---|
+| `:ix-ek`, `:ix-ke`, `:ix-s` (one-owner) | `$$layers [L]`, the stream gate, in the admitting event | the row copied (sealed bytes, the lock record where the layer keeps it in the record, the digest) | tombstone: value fields nil, `:erased-at` | tombstone with the date open gives (below) | the read exit's put and sweep pages |
+| `:ix-kv`, `:ix-of` (one-owner) | same | the value's canonical text in the address | delete | delete | same |
+| `:ix-ek`, `:ix-ke`, `:ix-s` (shared) | `$$micro [L]`, the micro topology, block 2d of the deciding batch | the micro row copied, with `:e` and `:batch` | tombstone, in the forget's batch | tombstone | the micro pass (above) |
+| `:ix-kv`, `:ix-of` (shared) | same | the value's text in the address | delete, in the forget's batch | delete | same |
+| `:ix-id` (shared) | same | fid → its `:ix-ek` address: ids only | kept | kept | same |
+| `:by-stamp` (phase 2) | `$$layers [L]`, the stream gate | stamp → name: ids only | kept | kept | phase 2's (from `:answers`) |
+| `:heads` (phase 1, phase 3) | both stores | ids, stamps, batches | kept | kept | not an index over values |
+| `:erased` (phase 2, both stores) | the ledger | lock id → date and how | written by the forget | not written (phase 2's `wrap-closed` gives the date) | from the log's `:forget` facts (phase 2's) |
+
+"Holds" is what a forget must not leave openable or confirmable (P6
+widened: "nothing retained opens or confirms a forgotten value"). A
+tombstone keeps the id, entity, key, stamp and batch, so a read as of any
+moment still shows the fact with its erasure date (the sharpening "Forget,
+time travel"); a copy of sealed bytes whose lock is gone opens nothing, but
+it is nilled anyway, so the purge and the rebuild write the same thing
+(the invariant, "Purge by value id, shared").
+
+### The five paths
+
+1. **A value forget in a one-owner layer.** Phase 2's OP9 event on the
+   layer's home, unchanged: its call to `reads/purge-writes` (the read
+   exit's) now also tombstones `:ix-s`. The date is the forget's stamp,
+   which is the ledger's date the event writes (a second forget of the same
+   value: "admitted, nothing changes", no purge, the first date stays).
+2. **A value forget in a shared layer.** Phase 3's nil-tagged operator act
+   `{:e e :k :forget :v {:target fid}}` in the value's layer, arriving on
+   hash(e) (the micro depot routes an act with no sealed value by its first
+   entity). Block 1 reads the target's ledger entry on hash(e) (phase 2's
+   and 3's gather; local). Its lock effect on hash(e) is phase 2's and 3's
+   (the row's `:lock` excised, or a row lock deleted under an `:own-row`
+   mark; the ledger written). This stage adds, in block 2d, on hash(L), the
+   shared purge of the target (three seeks, then writes), carrying from
+   hash(e) the date open will give after the forget: the ledger's date (this
+   forget's stamp if it is the first, else the date already in the ledger).
+   Under per-act grain the forget erases the act, and phase 3's row seam
+   names every fact id whose lock it erased; the purge runs for each
+   (**the one contract taken from phase 3's forget: the list of fact ids
+   erased, with the date**).
+3. **A person forget.** Phase 2's operator act on `:people`'s home, which
+   destroys the person lock and fans out to write `$$persons [p]` on every
+   task. A person's values can be many, and one event must stay well under
+   the stream timeout (F2), so the purge is paged, driven by
+   `(read-exit/purge-person! store p)`, which phase 2's `forget-person!`
+   calls right after the forget's `:yes` (and which the restore replays):
+   - **One-owner, per task t:** pages `{:op :person-purge :task t :person
+     p :after cursor :n 256}` on the read exit's `*index-ops`, routed to t
+     by `(|direct *task)` after the source (the depot's `hash-by :layer`
+     sees a nil layer; RR16). On t, **phase 2's enumeration seam** gives the
+     next page of `[layer fid]` on this task whose value died with p; per
+     fact, the row and its act's stamp, `open-row>` for the date (the
+     ledger's, else p's: L16's order), `:ix-of [fid]`, and
+     `reads/purge-writes` with that date; `ack-return> {:next :done?}`.
+     The contract taken from phase 2 (a black box: its body is phase 2's):
+     `(locks/dying-with> *person *after *n :> *page)` on a task, `*page` =
+     `{:fids [[layer fid] ...] :next cursor :done? bool}`, every value on
+     this task in a one-owner layer whose wrap closed with p's lock,
+     total, never throwing, bounded by n. **Fallback if the seam is not
+     there at the merge:** the page sweeps the `:ix-kv` entries of the
+     layers on task t (the read exit's sweep over one field, `open-row>`
+     on each; an entry that no longer opens is purged): the same result, at
+     the cost of every value-indexed entry on the task instead of only the
+     dying ones.
+   - **Shared, per task t:** pages `{:op :person-purge :task t :person p
+     :after [L address] :n 256}` on `*micro-index-ops`; on t, for each
+     shared layer whose home is t, in order, its `:ix-kv` entries after the
+     cursor whose `:lock` names p (in `:required` or `:any-of`, read from
+     the entry itself) and that are not tombstones are opened by
+     `open-entry>`; each whose wrap is now closed is purged with p's date.
+     An entry already a tombstone was purged by a value forget in that
+     forget's batch, so its date is the ledger's and stays (L16's order,
+     kept without reading the ledger on hash(e)). The shared layers of a
+     task are listed in a small subindexed set `$$micro-task :layers`,
+     written by a layer's making act in block 2a on hash(L) (**a schema
+     addition to phase 3**, beside `:rebuild`). No enumeration seam is
+     assumed on the micro side: phase 2's is for its layers, and the micro
+     indexes are this stage's. The cost is every value-indexed entry of the
+     task's shared layers per person forget (a rare operator act); the
+     named upgrade, which changes no record, is a subject index `p ␀ L ␀
+     fid` placed by hash(p), written at admission for value-indexed facts,
+     so a person purge reads only the person's candidates (RR17).
+   - **Between the forget and the purge,** reads never match or show a
+     value that no longer opens (the read exit's F5 for `[:kv]`, and every
+     shown row goes through the open step), so the window is one of
+     storage, not of showing: the value's text sits in `:ix-kv` addresses
+     until the pages pass. The rig constraint is "so a forget reaches it";
+     it reaches it when `purge-person!` returns, and a crash of the
+     operator's loop is repaired by running it again (every page is
+     idempotent, and a purged entry is not a candidate again). A
+     store-driven road, the fan-out child appending the first page itself
+     (`depot-partition-append!` into the two ops depots from phase 2's
+     fan-out event, at-least-once, harmless twice), is the named
+     alternative (RR18): it moves one line into phase 2's event, which
+     tonight's parallel builds would have to merge.
+4. **A drop at session close** (above): phase 2's OP9 acts, so path 1.
+5. **A restore.** `(read-exit/restore! store)`, the operator's:
+   1. **The restore is a fact:** an operator act into the store layer
+      `:people`, `{:e :store :k :restore :v {:indexes :rebuilt}}`, answered
+      by name (FRR7, first-record: where a restore is recorded and its
+      form; `:people` is the one layer of kind `:store`, phase 2's seed).
+   2. **Rebuild from the log, in pages:** every one-owner layer by the read
+      exit's `rebuild!` (put pages, then sweep pages over the five fields,
+      F2's bounds), and the micro store by its pass (put pages over every
+      task's entities, then sweep pages over every shared layer's six
+      fields). Layers are rebuilt before they are opened to reads (the read
+      exit's "for a kept store").
+   3. **Then replay the forget facts after it,** the rig constraint: the
+      admitted forget facts of both stores, found through the rebuilt
+      `:ix-ke` ranges `forget␀` of every layer (they are control facts,
+      plaintext, indexed like any fact), and the `:forget-person` facts of
+      `:people`, all in stamp order (stamps compare across the stores,
+      default 2). A value forget replays as `{:op :replay-forget :layer L
+      :fid target :stamp s}` on the layer's ops depot: phase 2's (or 3's)
+      forget effect for that target at the fact's own stamp, idempotent (a
+      lock already in the ledger: nothing changes), then the purge at the
+      date open gives. A person forget replays as `purge-person!`, after
+      phase 2's own replay of the person lock's destruction. **The contract
+      taken from phase 2:** its forget effects callable at a replay seam
+      with the fact's target and stamp, apart from a fresh offer; in the
+      rig, where no lock is ever restored (phase 2's L17), the replay's
+      lock step changes nothing and only the purge runs.
+   Why forgets come after the rebuild: a rebuild opens values as the log
+   and the lock store stand; if a restore brought back a lock a later forget
+   had destroyed, the rebuild would index its value again, and only the
+   forget replayed after it takes it back out. With the purge invariant,
+   the indexes after the replay are exactly those of a store that never
+   restored.
+
+What stays for a kept store, named: where the forget facts a restore
+replays are kept when the restore also restores the log (the depot `*offers`
+keeps every offer for ever, phase 2's O2, but a restored module's depots and
+PStates may come from one backup); RocksDB keeps a deleted address's bytes
+until compaction, like the depot's copy of a value (the read exit's "for a
+kept store").
+
+## What the read exit's build must change
+
+The read exit's build is in flight in `Softland-rig-build-reads`; it goes on
+as planned, and these land on top of it, at the merge of wave 1 or after
+(none changes a line it builds; each adds to a function or a list):
+
+1. **Shared branch** in `read-point` and `read-pattern` after the settings
+   read: by-entity layers go to `rig.store.shared-reads` on the same task
+   ("What changes in the read exit's two queries").
+2. **A fifth index kind, `:ix-s`**, in `layer-fields`, `index-writes`,
+   `purge-writes`, `put-page-writes`, `sweep-page-writes`, `implied`, and
+   the rebuild loop's field list ("The delta").
+3. **`:after`** on `read-pattern` and `(reads/delta-plan ...)`, and
+   `reads/matches?` for filtering `:ix-s` ("The delta").
+4. **`reads/entry-facts`**: `:mark #{:own-row}` on every `:read/*` fact
+   (FRR6); the shared line's `:moment {:frontier F}` and `:max-stamp`
+   (FRR8); the standing lines (FRR1 to FRR3).
+5. **`reads/entry-moments`**: a line whose moment is `{:frontier F}` gives
+   its `:max-stamp` (when a long in range); the three standing keys count
+   like `:read/pattern`.
+6. **`reads/seed-hints`**: `:no-copy` gains `:read/standing`,
+   `:read/delivery`, `:read/closed`.
+7. **`reads/index-op`**: the ops `:person-purge` (routed by `:task`),
+   `:replay-forget`, and nothing else; the parse stays total.
+8. **The exit's call check**: `:as-of {:frontier F}` accepted (the query
+   refuses it on a one-owner layer, `:moment-kind`, and a stamp moment on a
+   shared one).
+
+## Interfaces, as this stage builds against them
+
+- **The read exit** (`rig.store.reads`, `rig.store.read-exit`): its
+  exports as its plan lists them, with the eight changes above; the
+  address, page step, fingerprint, parse and answer functions reused by the
+  shared path unchanged.
+- **Phase 2** (`rig.store.locks`): `open-value>`, `open-row>` (one-owner);
+  the pure `unwrap`, `open`, `wrap-closed` (the shared `open-entry>`);
+  OP9 as built (the drop); the session close act with its value parser
+  taking `:reads`; the purge call site in the value forget's event (the
+  read exit's), which now tombstones `:ix-s` too; the enumeration seam
+  `dying-with>` (contract above, fallback named); its forget effects at a
+  replay seam (contract above). Where phase 2's names differ at the merge,
+  phase 2's win and this plan's calls follow them.
+- **Phase 3** (`rig.store.micro`): the frontier at `$$micro-task
+  :frontier` and the reader's rule; `$$micro`'s schema takes `(merge
+  micro-fields (shared-reads/layer-fields micro-row-fields))`; block 2d
+  after block 2b's name-task check; the forget's row seam gives the fact
+  ids erased and the date; `$$micro-task` gains `:rebuild` and `:layers`;
+  the micro topology gains the `*micro-index-ops` source. `micro-lookup`
+  and `micro-act` stay the micro store's own reads for the offerer and
+  tests; a person's read of a shared layer goes through the exit.
+- **Phase 4**: nothing. A landing is an admitted act in a shared layer and
+  is indexed like any other; its status reads are phase 4's.
+- **Phase 6**: `seed-hints` becomes the keys' grammar facts, for both
+  stores' indexes at once, and a tool's `:rows?` and kind its signature.
+
+## The lines in module.clj and micro.clj, and where Rama does not allow one
+
+Where one form serves, in module.clj: `(shared-reads/declare-queries!
+topologies)` for `standing-close`, `standing-open` and `entry-ids`
+[build checks, the read exit's same check]; `(shared-reads/declare-depots!
+setup)` for `*micro-index-ops` [build checks]. In `micro.clj`, the schema
+merge (one form). Where Rama does not allow one form: block 2d and the
+`*micro-index-ops` source are dataflow inside the micro topology (only the
+topology that declares `$$micro` may write it), so `micro.clj` carries the
+block (a partitioner and four write blocks, about ten lines, calling
+`shared-reads` functions) and the source; the read exit's query topologies
+carry the shared branch (about four lines each, calling `shared-reads`).
