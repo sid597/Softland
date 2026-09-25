@@ -1041,3 +1041,238 @@ None.
 - RC11. A retract is not indexed by value.
 - RC12. The exit in the client's process in the rig, with hooks through
   `rig.store.inject`.
+
+## Namespaces and tests
+
+Code: `src/rig/store/reads.clj` (pure functions and the module fragments),
+`src/rig/store/read_exit.clj` (the exit), the stub `src/rig/store/locks.clj`
+only if phase 2's has not merged, and the edits named in "The one line in
+module.clj" to `module.clj` and `gate.clj`. Tests: `test/rig/store/reads_test.clj`
+(pure: parsers, addresses, index, purge and rebuild writes, fingerprint,
+entry facts, property tests), `test/rig/store/read_exit_test.clj` (the
+in-process cluster, 4 tasks, under the machine-wide lock), and
+`test/rig/store/read_model_test.clj` (against the model). Run from the rig
+folder with
+`flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.store.reads-test rig.store.read-exit-test rig.store.read-model-test`,
+and phase 1's suite again, since the gate changed:
+`rig.smoke-test rig.store.envelope-test rig.store.stream-gate-test`.
+
+The tests the brief names, each with its setup and what it asserts:
+
+- **T1. Answers equal the model's for the same history.** The model has no
+  pattern reads; it has `read-as-of` (every admitted fact at or before T, in
+  every layer, with its value or `:erased-at`). The test writes histories in
+  the model's own op vocabulary restricted to what the rig has tonight:
+  `:offer` on `:alice`, `:alice-hand` and `:alice-agent` (with replaces and
+  retracts), `:retry`, `:reuse`, `[:read :now]` and `[:read [:at i]]`; plays
+  each through `formal.model/run` under `baseline` and through the rig as the
+  same offers in the same order; maps the model's act names to the rig's
+  names by position; and for every model read compares, per layer, the
+  model's facts filtered to that layer with the rig's `[:all]` read as of the
+  matching moment (the rig stamp of the model's chosen fact), and the
+  model's facts filtered by each pattern (`[:e]`, `[:ek]`, `[:latest]`,
+  `[:k]`, `[:kv :note ..]`) with the rig's pattern reads, and each fact by id
+  with a point read. Compared: which facts, their order by stamp, value,
+  replaces. Not compared: stamp values (the clocks differ) and the rig's
+  layer-making facts (`:kind`, `:owner`, `:class`, `:lock-grain`, P10), which
+  the model keeps as settings, not facts; both exclusions are stated in the
+  test. scenarios.clj's fixed histories use forgets, promotions and the group
+  layer, which the rig does not have until phases 2 to 4; the test lists
+  each fixed history and says why it is not replayed yet, and every
+  difference found is reported, not filtered.
+- **T2. The entry is acknowledged before the answer returns.** Watch the
+  entry's name (`inject/watch!`); after `read!` returns rows, the recorded
+  points hold `[:after-writes nm]` (the gate committed the entry) before
+  `[:exit-shown nm]`, and `client/lookup` of the entry is `:yes`.
+- **T3. A refused entry hides the answer.** The operator revokes
+  `[:alice :alice-hand :alice-hand]`; `read!` with that permission returns
+  `{:refused :permission-revoked :entry nm}` and no `:rows`; with a working
+  layer never made, `{:refused :no-such-layer ...}`.
+- **T4. An empty pattern read is recorded.** `[:e :nobody]` returns no
+  rows; the entry's line has `:count 0`, `:mark :complete`, and the
+  fingerprint of the empty set, equal to `(reads/fingerprint #{})`.
+- **T5. Complete and partial marks.** Five facts on one entity: limit 5 is
+  complete; limit 3 is partial with three rows, the first three in address
+  order, and a resume address equal to the fourth's; limit 4 is partial;
+  the entry line carries each mark and count.
+- **T6. The fingerprint changes with a matched fact, not with an unmatched
+  one.** `[:ek :e0 :note]` gives fp1; replacing its head and reading again
+  gives fp2 ≠ fp1; offering a fact on `:e1`, and replacing an unmatched
+  chain, and reading again gives fp2 both times; reading as of the first
+  moment again gives fp1.
+- **T7. The fingerprint's inputs hold no value.** Pure: `fingerprint` takes
+  only `[fid stamp]` pairs (its signature cannot take a value); the bytes it
+  hashes, exposed by `reads/fingerprint-bytes`, contain none of a set of
+  distinctive value texts offered for the matched facts; two layers with the
+  same ids and stamps and different values give the same fingerprint (built
+  from entries directly).
+- **T8. As-of reads show nothing after the moment.** f1 admitted at s1; f2
+  replacing it at s2. As of s1: `[:ek]` shows f1 only, `[:latest]` gives f1,
+  a point read of f2 is `:absent`, `[:all]` has nothing stamped after s1. As
+  of now: both, `[:latest]` gives f2. A read asked for a moment past the
+  clock records the clock (FR2). The erasure exception: the test-only
+  `:purge` of f1 with forget stamp s3 > s2, then a read as of s1 shows f1
+  with `:erased-at s3` and no value, and nothing else from after s1.
+- **T9. A purge by value id removes it from every index.** A value-indexed
+  fact f, then `:purge`: no `:ix-kv` address matches f, no `:ix-of` entry
+  for f, the `:ix-ek` and `:ix-ke` entries are tombstones with `:v nil`;
+  `[:kv :note v]` no longer matches f; `[:e e]` shows f with its erasure date
+  only; a whole scan of the four fields finds the value's canonical text in
+  no address and no entry. (What "removes it from every index" is read as:
+  the value and everything derived from it; the id, entity, key and stamp
+  stay, so time travel can show "erased on this date". See "Open
+  questions".)
+- **T10. A rebuild from the log reproduces the indexes exactly.** After a
+  history with offers, replaces, retracts, control acts and read entries:
+  snapshot the four fields whole; `(reads/rebuild-writes hints L acts {})`
+  over the log read by `foreign-select` gives exactly the snapshot; a
+  `:rebuild` op answers `{:put 0 :deleted 0}`; a `:drop` op then a
+  `:rebuild` op leave the fields equal to the snapshot, entry for entry.
+  And purge agrees with rebuild: for one row whose `open-value` result is
+  `{:erased-at s}`, `rebuild-writes` gives the same tombstone and the same
+  absent `:ix-kv` entry as `purge-writes` with forget stamp s (pure). A
+  rebuild after the test-only `:purge` is not asserted equal, because
+  tonight no forget fact or destroyed lock tells the log the value is
+  erased; with phase 2 that case joins this test.
+- **T11. A crash between the query and the entry, and between the entry and
+  the answer, leaves a recorded entry for every answer shown.**
+  (a) `:exit-after-query` armed: `read!` throws, returns nothing, and the
+  entry's name has no answer (`:no-answer`) and no line in the working
+  layer's `[:k :read/pattern]`. (b) `:exit-after-entry` armed: `read!`
+  throws, returns no rows, and the entry is recorded (`:yes`). (c) the
+  gate's `:before-writes` armed on the entry's name: the worker restarts,
+  the exit resends, `read!` returns rows, the entry is recorded once (one
+  answer under its name, one line). (d) the gate's `:after-writes` armed:
+  the resend is answered from the record, `read!` returns rows. Across all
+  four and every other test, a global check: every `read!` that returned
+  rows has its entry's answer `:yes`.
+
+Tests the design adds:
+
+- **T12. Index writes replay to the same entries.** `:after-writes` armed on
+  an ordinary offer: after the replay, the four fields equal those of the
+  same history run without the crash.
+- **T13. Visibility.** Bob reading Alice's personal layer is refused
+  `:not-visible` and nothing is recorded; a read of the base (made one-owner,
+  owned by the root actor, R8 as a default) by Bob is answered.
+- **T14. No throw.** Property tests drive `parse-pattern`, `parse-point`,
+  `index-writes`, `purge-writes`, `rebuild-writes`, `entry-facts` and
+  `fingerprint` with generated garbage and generated offers, and assert
+  no exception; the in-process cluster gets malformed patterns, fact ids,
+  moments and `*index-ops` records and answers each as data with no worker
+  restart (phase 1's no-restart check).
+- **T15. Agent session reads are recorded in the agent session layer**, with
+  a model reader's line carrying the exact list.
+- **T16. Readers' kinds.** A person's and a model's lines carry the exact
+  list; a tool's line does not; a tool with `:rows? true` gets it. A point
+  read of three fact ids records three rows.
+- **T17. Phase 1 still passes** with the gate's additions (its suite, as
+  above).
+
+## Spec coverage, self-check (the validator does the full trace)
+
+- **"Point reads and pattern reads on a layer's home task, as of a
+  moment."** RE1 and RE2, routed by `(|hash *layer)`. Fault: no in-memory
+  state; a worker restart during a query fails that query (the exit then
+  shows nothing, nothing is recorded, and the reader reads again). Retry of
+  a query: read-only, same answer at the same moment. Race: a write on the
+  same task during a yield between pages is stamped above the moment and
+  filtered out. PASS.
+- **"Shows nothing admitted after it, except an erasure, which shows only
+  its date."** Every entry is filtered by its stamp against the moment; a
+  tombstone or an `open-value` erasure shows only `:erased-at`. Race: a
+  purge between pages shows either the value (read before) or the date (read
+  after); both are linearizations of one task's order. PASS.
+- **"One exit: query, append the read entry, then answer."** The exit's
+  step order; the only return with rows follows the gate's `:yes`. Fault: a
+  crash at any point before the `:yes` shows nothing; the gate's own crashes
+  are phase 1's replay road (the name, the record). Race: two readers' entries
+  are separate names; two entries into one working layer are ordered by its
+  gate. PASS.
+- **"If the entry is refused, the answer is not shown."** Step 5. PASS.
+- **"Agent session reads are recorded there too."** The same exit with the
+  agent layer as the working layer. PASS.
+- **The entry's content** (rows; one line per pattern read with pattern,
+  moment, role, fingerprint, mark; empty reads; exact lists by reader kind).
+  FR7, FR8, T4, T15, T16. PASS.
+- **"A one-owner layer's moment is its stamp, inline; able to carry a
+  shared layer's settled-frontier id in its place, and nothing more."** FR1.
+  PASS.
+- **"The fingerprint is an HMAC under a store key over the ids and stamps
+  of what matched, never values."** FR11, FR12, T7. PASS.
+- **"Values are opened through one function, open-value."** Every shown
+  value passes through it; tombstones show a date without opening, which
+  opens nothing. PASS.
+- **"Indexes: only what pattern reads need; hints as parameters; purgeable
+  by value id; rebuildable from the log; with tests."** Three indexes and a
+  reverse map, one per pattern family; `purge-writes`, `rebuild-writes`;
+  T9, T10. PASS, with the reading of "removes it from every index" surfaced.
+- **"Mind the costs: seeks, subindexing, yielding on large reads."**
+  Costed per input; every unbounded map subindexed; `:allow-yield? true` on
+  every page read and `yield-if-overtime` in every per-fact loop of a
+  query; the rebuild deliberately does not yield (named, with its cost).
+  PASS.
+- **"A gate never throws on an offer; every refusal is data."** Index
+  writes total, with `:gate-error` as phase 1's road; the index-ops source
+  total. PASS.
+
+## Design difficulty log
+
+1. **The index address.** I began with vector addresses `[e k stamp fid]`,
+   because phase 1's plan names a prefix range over `[e k]` for stage 5.
+   Before writing a schema I probed it: vector addresses have no prefix
+   ranges in Rama 1.6.0. That forced Strings (or nested maps, which cost a
+   seek per key under an entity). Not close once probed.
+2. **Rows in the entries or seeks per fact.** Genuinely contested: copying
+   the row triples a plain fact's bytes, and the read entries of a model
+   reader are the largest facts. The skill's cost rule settled it (per-read
+   seeks against a one-time write), with the cost of `:read/*` copies named
+   and a no-copy hint left as a rig choice for after measurement.
+3. **What a purge removes.** The brief's test says a purge "removes it from
+   every index". Deleting the fact from the id indexes too would make time
+   travel lose the fact, while the sharpening says a read shows "erased on
+   this date" and the model's `read-as-of` shows erased facts with
+   `:erased-at`. I chose tombstones in the id indexes and deletion in the
+   value index, and surfaced the reading rather than silently narrowing the
+   test.
+4. **The rebuild's atomicity.** A yielding rebuild could race a forget and
+   put a purged value back; a non-yielding one blocks the task for a whole
+   layer. For the rig, correctness wins; the paged form is named as the kept
+   store's need.
+5. **Where the exit runs.** A query topology can append to a depot, which
+   looked like a way to keep the exit inside the module; but it cannot wait
+   for the gate's decision, and "nothing shown before its entry is
+   acknowledged" needs that decision. Forced once traced.
+6. **The recorded moment.** Recording the asked moment is simpler; recording
+   `min(asked, clock)` makes every recorded one-owner read final. I took the
+   latter as a first-record pick.
+7. **The partial mark's meaning.** Only the limit is a reason tonight; I
+   weighed marking a read with unreadable rows partial and did not, because
+   the rows say so themselves and phase 2 decides what unreadable means.
+
+## Open questions
+
+- **For Sid** (touch records): all of FR1 to FR13; whether an entry recorded
+  for an answer that was never shown (a crash between entry and answer) is
+  acceptable over-recording, or the exit must mark such an entry; whether a
+  person may write facts under the store's `:read/*` keys by hand (tonight
+  the gate does not stop it; a reserved-key refusal is a gate change and
+  first-record); whether the entry should be stamped after what it read
+  (it stands on nothing tonight, so on another task it can be stamped below
+  the moment it records; nothing depends on the order, and a `:stood-on`
+  carrying the moment would change the record); what "removes it from every
+  index" should mean (T9's reading).
+- **For phase 2** (black box to this plan): `open-value`'s body and its lock
+  reads; whether a person's forget purges per value or rebuilds; how the
+  gate gets plaintext for an `:ix-kv` address once values are sealed at the
+  door.
+- **For the build** [build checks]: a runtime field in `keypath` inside a
+  fixed-keys value; `<<query-topology` and `declare-depot` from functions
+  called in the module body; a second `<<sources` call on one topology;
+  whether a query topology exception is fatal to the worker.
+- **For a kept store**: the paged rebuild; where the root secret lives;
+  whether the id indexes should shorten the fact id text in addresses.
+- **Found and reported, not changed**: PLAN-stream-store.md's note that a
+  chain's latest head is a range over `[e k]` addresses in `:heads` is
+  wrong for Rama 1.6.0 (vector addresses have no prefix range, probed); no
+  phase 1 code relies on it.
