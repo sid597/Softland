@@ -28,26 +28,20 @@ inside a phase are "steps". A fact's key is a "key"; an encryption key is a
   728 checks.
 - Phases 2 and 3 have plans, not validated and not built. Phases 4 to 8 are
   not started.
-- Two of the three numbers are measured and committed (`README.md`, "The
-  numbers so far").
-- Lock growth was still being measured when this was written, by a
-  session launched from the old one. It is done when
-  `runs/phase7-lock-growth.txt` exists and `BENCH_NOTES-locks.md` says so.
-  Its files are `src/rig/bench/lock_slice.clj`,
-  `test/rig/bench/lock_bench.clj`, `BENCH_NOTES-locks.md` and that result.
+- All three numbers are measured and committed (`README.md`, "The
+  numbers so far"). Lock growth was not rerun by a second session; the
+  measuring session's own runs repeated exactly.
 - `test/rig/store/gate_test.clj` is a partial file from an interrupted
   write. It is Sid's to decide on; do not open, change or delete it.
 
 ## What to do first
 
-1. When the lock-growth result exists, read it and check it: rerun one
-   point yourself and compare. Only one in-process cluster can run on this
-   machine at a time, so wait until no other cluster is running. Then put
-   the number into `README.md` and `RIG.md`, judged against its threshold,
-   and commit the lock slice, its bench, its notes and its result on the
-   branch.
+1. Rerun one point of each number yourself and compare, as a check. Only
+   one in-process cluster can run on this machine at a time.
 2. Ask Sid for what only he can give:
    - the three thresholds, which are the old session's assumptions
+   - how big hand-session values usually are, which decides whether a lock
+     row per value is an affordable default
    - the stamp's unit: milliseconds let a busy task's stamps run ahead of
      real time, and the choice freezes at the first kept record
    - the direction: the old session's proposal is to take the three numbers

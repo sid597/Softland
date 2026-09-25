@@ -44,7 +44,7 @@ knowing the answers.
 | Rama's claims: is a stream event atomic on one task and replayed at least once after a crash? Is a microbatch decided before it is visible and atomic across tasks? | whether the two gates can be built as ruled | done: all held except one reading, below |
 | Index writes per second, with an agent session writing small acts continuously | whether an agent session can be an ordinary one-owner layer that writes every index as each act is admitted, or needs coarser acts or fewer indexes | measured; see "The numbers so far" |
 | One person's layer on one thread: acts per second and latency | whether placing a person's whole layer on one task is enough, or persons need a different placement | measured; see "The numbers so far" |
-| Lock store growth under hand layers: bytes per value over 100,000 values | whether a separate lock row per value is an affordable default for hand sessions, or they should default to one lock per act or locks kept in the record | measuring now |
+| Lock store growth under hand layers: bytes per value over 100,000 values | whether a separate lock row per value is an affordable default for hand sessions, or they should default to one lock per act or locks kept in the record | measured; see "The numbers so far" |
 | The count: add one new tool and one new key grammar by writing facts only, and count the code changes still needed | whether the line between what is compiled and what is a fact is drawn right, so the store can grow from inside | not started; needs most of the store; proposed as the real store's first milestone |
 | Replaying the model's fixed histories through the rig | whether Rama carries the rulings exactly as the model decides them | not started; proposed as the real store's acceptance tests |
 
@@ -79,7 +79,21 @@ row, its chain head, the task's clock) and 4 reads.
 | agent rate, 128 offerers | about 5,200 acts per second, still rising | 5 times the threshold; points to yes, too close for this cluster to decide |
 | one person's layer, one act at a time | about 300 acts per second; 3.3 ms typical, 4.7 ms for the slowest 1 in 100 | rate 3 times the threshold, latency 4 times under it |
 | one person's layer, 8 at once | about 1,300 acts per second; slowest 1 in 100 at 8.7 ms | rate 13 times the threshold: decided yes |
-| lock store growth | still being measured; results land in `runs/phase7-lock-growth.txt` | |
+| lock store growth, per value, any value size | a fixed 169 bytes as raw bytes or 189 as base64 text; 87 or 108 on disk after compaction; about 40 more for each extra person a value must die with; linear to 100,000 values | depends on value size, below |
+
+A lock row costs the same whatever the value's size, so the lock verdict
+turns on how big hand-layer values are, which nobody knows yet. With
+200-byte values the lock store is smaller than the values: fine on every
+measure. With 40-byte values it is 4 to 5 times the values logically and 2
+to 3 times on disk, over the threshold. Staying under twice the values
+needs values of about 85 to 95 bytes or more. Keeping locks in the record,
+or one lock per act, does not bring 40-byte values under twice (computed,
+not run); the sealed lock alone is 60 bytes. Measured against the value
+rows the store already keeps, rather than the bare value, the lock store
+is 0.3 to 0.9 times. About 40 of the 189 bytes come from choices in the
+unvalidated locks plan and could be trimmed. Details: 
+`runs/phase7-lock-growth.txt`, measured by a fresh Opus session on one task,
+not yet rerun by another session.
 
 Most of the 3.3 ms is this machine's disk: about six small flushes per act.
 The gate's own work is under a millisecond, and its thread never went above
@@ -141,7 +155,7 @@ From the measurements:
 - **Phase 3, the micro store: planned, not validated, not built.**
 - Phases 4 to 8 (promotion, reads, tools and grammars, the numbers in full,
   the replays) are not started. The three numbers are measured on slices
-  instead: two are in, lock growth is finishing.
+  instead; all three are in.
 
 ## Open for Sid
 
@@ -161,7 +175,9 @@ From the measurements:
    everything after the phase 0 commit is what to discard.
 6. `test/rig/store/gate_test.clj` is a partial file from an interrupted
    write, uncommitted and untouched. Keep or delete.
-7. The stamp's unit: milliseconds let a busy task's stamps run ahead of
+7. How big hand-session values usually are. That decides whether a lock
+   row per value is an affordable default.
+8. The stamp's unit: milliseconds let a busy task's stamps run ahead of
    real time. A finer unit, or a wall time plus a counter, has to be chosen
    before the first kept record.
 

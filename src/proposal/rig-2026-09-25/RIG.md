@@ -204,16 +204,19 @@ Four more findings, each ran:
 
 ## Numbers so far
 
-Two of the three are measured; `README.md` has the table under "The
+All three are measured; `README.md` has the table under "The
 numbers so far", and `runs/phase7-agent-rate.txt` and
 `runs/phase7-one-thread.txt` have the method and every run. In short: each
 small act makes 4 index writes; one offerer waiting on acks gets about 300
 acts a second; one layer's task passed 5,000 acts a second with 128
 offerers and was still rising; one act at a time takes 3.3 ms typically and
 4.7 ms for the slowest 1 in 100, mostly this machine's disk flushes. Lock
-growth is finishing in a separate session; its results land in
-`runs/phase7-lock-growth.txt`, with its running log in
-`BENCH_NOTES-locks.md`.
+growth: a lock row costs a fixed 169 bytes per value as raw bytes, 189 as
+base64 text, 87 or 108 on disk, whatever the value's size, and grows
+linearly to 100,000 values. So the verdict depends on hand-layer value
+size: fine at 200 bytes, over the threshold at 40. Method and every run:
+`runs/phase7-lock-growth.txt`, raw points in `runs/phase7-lock-growth.edn`,
+running log `BENCH_NOTES-locks.md`; the slice is `src/rig/bench/lock_slice.clj`.
 
 The measurements found one thing none of the three numbers asked about:
 stamps count milliseconds and each decision stamps at least one past the
