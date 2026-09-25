@@ -30,6 +30,11 @@ suite or its probes showed it), **[docs]** (the rama skill's references say
 so, not run here) or **[build checks]** (unverified; the build runs a check
 first and the fallback is named). -->
 
+**Validated, 26 September, 02:13 to 03:00 IST (phase 2 of the rama skill):
+minor-fail, fixed in place by the validator. Every fix is marked `[F1]` to
+`[F11]` where it lands; PLAN_VALIDATION-read-exit.md has the traces. Where
+text below a fix still says otherwise, the fix wins.**
+
 ## Scope of this stage
 
 One exit for reads on one-owner layers (personal, hand session, agent
@@ -51,7 +56,7 @@ built on the stream store as phase 1 left it:
   exact list; a deterministic tool gets the short line unless it asks for
   rows. The entry is an ordinary act in the reader's working layer, offered
   through the ordinary client path.
-- **open-value**, the one function every shown value passes through; a
+- **open-value** (phase 2's `open-value>` and its twin `open-row>`, F6), the one function every shown value passes through; a
   pass-through tonight; phase 2 supplies its body.
 - **Indexes** only for what the pattern reads need, each over values
   purgeable by value id and all of them rebuildable from the log, with the
@@ -181,19 +186,24 @@ only after the entry is acknowledged):
 {:layer L :moment {:stamp m} :kind :point|:pattern :pattern p-or-nil
  :rows [answer-row ...]                  ; in the pattern's order, or the fids' order
  :matched [[fid stamp] ...]              ; ids and stamps of what matched (pattern); what was read (point)
- :mark :complete | :partial              ; pattern reads
- :resume address-or-nil                  ; the next address, when partial
+ :mark :complete | :partial              ; pattern reads; [F3] no resume address
  :fingerprint hex :fp-secret :read-fp/1} ; pattern reads
-| {:refused reason}                      ; a bad pattern, not indexed, opaque, no such layer: nothing to record
+| {:refused reason}                      ; a bad pattern, not indexed, opaque, not visible: nothing to record
 ```
 
 **Complete or partial.** A pattern read takes a limit (default 1,000, a rig
 choice). The query stops once it has seen limit + 1 matching entries; if a
-limit + 1st matching entry exists, the answer holds the first `limit`, is marked `:partial`, and
-carries `:resume`, the address of the first entry not shown; else
-`:complete`. (The query stops reading once it has seen limit + 1 matches;
-entries it skips because they are stamped after the moment do not count.) A partial read's line records what was matched and shown, not
-the whole match. This is the only reason for `:partial` tonight; phase 2's
+limit + 1st matching entry exists, the answer holds the first `limit` and is
+marked `:partial`; else `:complete`. **[F3]** The limit + 1st entry only
+decides the mark: nothing of it (address, fact id, stamp, key) is returned,
+because a person's or a model's reads are the crossing's exact list (ruling
+3) and the line records only the shown rows. (The query stops reading once it has seen limit + 1 matches;
+entries it skips because they are stamped after the moment do not count.)
+**[F8]** It also stops once it has scanned a budget of 16 × (limit + 1)
+entries in the range (skipped ones included; 16,016 at the default limit);
+a read stopped by the budget is marked `:partial` too, so a read as of an
+early moment over a large prefix does bounded work. A partial read's line records what was matched and shown, not
+the whole match. These are the only reasons for `:partial` tonight; phase 2's
 unreadable values are shown as unreadable rows and leave the read complete
 (rig choice).
 
@@ -262,6 +272,31 @@ The exact list uses based-on's form, fact ids with their stamps (CONCLUSION
 R4, a default), so a reader's next act can carry what it read in `:stood-on`
 unchanged. The entry act's own `:stood-on` is empty: the entry records a
 reading; it is not based on it; its moment is inline (a first-record pick).
+
+**[F1] The entry is stamped after its moment.** The entry is decided on the
+working layer's home, which can be another task than the read layer's. With
+`:stood-on {}` its stamp there can be below its moment: task 1 at ms 1,000
+has given 500 stamps (clock 65,536,500, the stamp of a fact f just read),
+task 3 has given none in that ms, so the entry gets 65,536,000; a read of
+the store as of any T between the two then shows the entry naming
+`[f 65,536,500]` and a moment after T, which breaks "shows nothing admitted
+after it" for the store as a whole and orders the record of a reading
+before what it read (a hybrid clock's receive rule is the opposite). So the
+entry stands on its moment: `gate/stamp-for` counts, beside the carried
+stood-on stamps and the replaced heads, the moment of every `:read/point`
+and `:read/pattern` fact of the act, through one pure total function,
+`(reads/entry-moments facts)`: the `[:v :moment :stamp]` of each such fact
+when it is a long in [0, `env/max-carried-stamp`), else nothing. The moment
+is at least every matched stamp (the query drops anything later), so the
+entry is then after everything it names, an empty read's entry included,
+at no cost in bytes. A hand-written `:read/*` fact can push a task's clock
+no further than a carried stood-on stamp already can (R16). Weighed and
+not taken: R4's based-on, every matched pair in `:stood-on` (phase 1's gate
+already counts carried stamps): it stores a person's exact list twice,
+turns a tool's short line into a long one, and leaves an empty read
+unconstrained. First-record (FR14). With phase 2's sealing at the door,
+`entry-moments` reads the value the gate opens at decision (phase 2 wires
+where the plaintext comes from).
 The fact keys `:read/point` and `:read/pattern` are store-owned key ids,
 constants (**first-record**); tonight nothing stops a person writing a fact
 under them by hand (see "Open questions").
@@ -279,14 +314,18 @@ exit then appends through the depot.
 | RE2 pattern read `[L reader pattern as-of limit]` | the exit | query topology `read-pattern`, leading `(|hash *layer)` | the layer's settings (1); `$$clock` STAY (1); a loop of doubling pages over one index, `{:allow-yield? true}` (1 seek per page, one iteration per entry, stopping at the range's end or at limit + 1 matches); no per-fact seek (the entry carries the row) |
 | RE3 an entry's answer | the exit, tests | phase 1's `client/lookup` (RD1) | unchanged |
 | RE4 the index entries of one fact | purge (the gate, in a forget event), tests | `[(keypath L :ix-of fid)]` | 1 seek |
-| RE5 a layer's acts and rows, whole | rebuild (the gate, in a rebuild event), tests | `[(keypath L :answers) ALL]`, then per yes act `[(keypath L :log name) ALL]` | see below |
-| RE6 a layer's index entries, whole | rebuild, tests | `[(keypath L :ix-ek) ALL]` and likewise `:ix-ke`, `:ix-kv`, `:ix-of` | 4 seeks + one iteration per entry |
+| RE5 a page of a layer's acts and their rows **[F2]** | a rebuild put page (the gate, one event per page), tests | `[(keypath L :answers) (sorted-map-range-from nm {:max-amt n :inclusive? false})]` (from the start when `nm` is nil), then per yes act `[(keypath L :log name) (subselect ALL)]` | 1 seek + n iterations, then 1 seek per yes act |
+| RE6 a page of one index field **[F2]** | a rebuild sweep page, tests | `[(keypath L f) (sorted-map-range-from a {:max-amt n :inclusive? false})]`, then per entry its act's record and row | 1 seek + n iterations, then 2 to 3 seeks per entry |
 
-RE5 precisely: `[(keypath L :answers) ALL]` gives every name's record in name
-order; the rows of a yes act are `[(keypath L :log name) ALL]`, which is one
-seek per act (the act's subindexed row vector is its own structure). A
-rebuild therefore costs 2 seeks per yes act plus one iteration per row; it
-runs only at a restore or a test, never on the read path.
+RE5 precisely: a page of at most 256 names' records in name order (a
+vector-keyed range from an exact existing name needs no prefix range, so
+the probe's finding about vector ranges does not bear on it; the build
+checks it first); the rows of a yes act are `[(keypath L :log name) (subselect ALL)]`, one
+seek per act (the act's subindexed row vector is its own structure). A put
+page therefore costs at most 256 + 1 seeks plus one iteration per row, and
+stops early once 4,096 rows are gathered; it runs only at a restore or a
+test, never on the read path. Tests read whole fields by `foreign-select`
+outside the module.
 
 The gate's own reads in its decision event gain nothing for an ordinary
 offer: the index entries of a yes are computed from the offer and written
@@ -302,7 +341,7 @@ No new depot for ordinary use; one small operator depot for rebuilds.
 | W1 a read entry | the exit's ordinary offer into the working layer through `*offers` (`client/offer-until-answered!`) | the stream gate, as any act: permission in the working layer, class, digest, retry from the record |
 | W2 index entries of an admitted act | computed in `decide` for a yes and written in the same event as the log rows | the stream gate (PState ownership, PLAN-stream-store.md F12) |
 | W3 purge by value id | a function phase 2's forget calls; its writes join that forget's precomputed writes in the forget's decision event | the stream gate, in phase 2's forget |
-| W4 rebuild one layer's indexes | an operator record `{:layer L :op :rebuild}` on a new depot `*index-ops`, `(hash-by :layer)`, consumed by a second source of the gate topology | the gate topology on the layer's home, one event |
+| W4 rebuild one layer's indexes **[F2]** | operator records on a new depot `*index-ops`, `(hash-by :layer)`, consumed by a second source of the gate topology: put pages `{:layer L :op :rebuild-put :after nm :acts n}` then sweep pages `{:layer L :op :rebuild-sweep :field f :after a :entries n}`, appended one at a time by the operator's loop | the gate topology on the layer's home, one bounded event per page |
 
 Why the entry goes through the ordinary path (the brief's placement,
 first-record): the entry is then a fact like any other, decided by the gate
@@ -327,16 +366,24 @@ An **index entry** is a copy of one fact's row with its id and stamp, so a
 pattern read needs no seek per fact:
 
 ```clojure
+;; [F6] the entry is the log row, whatever fields the row has (phase 1's
+;; :e :k :v :replaces :mark; phase 2 adds :sealed :lock-id :lock :digest),
+;; plus three fields of its own; module.clj exposes the row's field map as
+;; `row-fields`, so a field phase 2 adds to a row rides in every entry and
+;; phase 2's open-row> can open an entry without reading the row
 (def index-entry
-  (fixed-keys-schema {:fid       clojure.lang.PersistentVector   ; [name idx]
-                      :stamp     Long                            ; the act's stamp
-                      :e         clojure.lang.Keyword
-                      :k         clojure.lang.Keyword
-                      :v         String                          ; the row's value slot as stored; nil for a retract, nil once purged
-                      :replaces  clojure.lang.PersistentVector
-                      :mark      (set-schema clojure.lang.Keyword)
-                      :erased-at Long}))                         ; set by a purge: the forget's stamp
+  (fixed-keys-schema
+   (merge module/row-fields
+          {:fid       clojure.lang.PersistentVector   ; [name idx]
+           :stamp     Long                            ; the act's stamp
+           :erased-at Long                            ; set by a purge: the forget's stamp
+           :copy      Boolean})))                     ; [F7] false: the value fields are not copied (hint :no-copy)
+;; the value fields (:v tonight; phase 2's sealed value and lock fields) are
+;; nil for a retract, nil once purged, and nil when :copy is false
 ```
+
+(`module/row-fields` is a plain map in a namespace both module.clj and
+reads.clj can require without a cycle; the build places it, a rig choice.)
 
 Addresses, built by one pure function `rig.store.reads/address`, parts joined
 by U+0000 (written ␀), stamps as `(format "%016x" stamp)`, a keyword as its
@@ -428,8 +475,9 @@ T filters by the stamp every entry carries.
 - **`*offers`**, phase 1's, unchanged. Read entries enter here as ordinary
   offers (W1).
 - **`*index-ops`**, new: `(declare-depot setup *index-ops (hash-by :layer))`,
-  appended by the operator (tests, and later a restore). A record
-  `{:layer L :op :rebuild}` asks the gate topology to rebuild one layer's
+  appended by the operator (tests, and later a restore). **[F2]** A record
+  `{:layer L :op :rebuild-put ...}` or `{:layer L :op :rebuild-sweep ...}`
+  asks the gate topology for one bounded page of a rebuild of one layer's
   indexes on its home task. Placed by the same function as the layer's
   offers, so its event runs on the task that holds the layer. Not an act and
   not recorded in the log: a rebuild changes no meaning (the rebuilt
@@ -460,7 +508,9 @@ only, three precomputed write lists from one pure call,
 `(reads/index-writes hints (:layer offer) nm rows stamp)`:
 
 - `:index-put` — `[[field address entry] ...]`: an `:ix-ek` and an `:ix-ke`
-  entry per fact; an `:ix-kv` entry per fact whose key the hints mark as
+  entry per fact (the row whole, F6; for a key the hints mark `:no-copy`,
+  the row without its value fields and `:copy false`, F7); an `:ix-kv`
+  entry per fact whose key the hints mark as
   indexed by value and whose value is not nil (a retract has no value to
   index).
 - `:index-of` — `[[fid #{kv-address}] ...]` for those facts.
@@ -506,46 +556,79 @@ never restarts the worker. The cost of that road: a gate error refuses an
 act that phase 1 would have admitted; the property test drives
 `index-writes` with generated offers and asserts no error.
 
-**2. The rebuild source.** A second `source>` in the gate topology's
-`<<sources` block, on `*index-ops`, `{:retry-mode :all-after}`:
+**1b. The entry's moment in the stamp rule [F1].** `gate/stamp-for` gains
+one input, `(reads/entry-moments (:facts offer))`, concatenated with the
+carried stood-on stamps and the replaced heads it already passes to
+`rig.store.clock/next-stamp`. Pure and total (a value that is not an entry
+line, or a moment outside [0, `env/max-carried-stamp`), gives nothing), so
+it cannot throw or overflow; an act with no `:read/*` fact is stamped as in
+phase 1. Replay computes the same stamp from the same offer.
 
-1. `(reads/index-op *raw :> *op)` — total; it accepts `{:layer L :op
-   :rebuild}`, and two test-only ops (RC8): `{:layer L :op :purge :fid fid
-   :forget-stamp s}`, which reads the fact's row, its act's record and its
-   `:ix-of` entry (RE4) and applies `reads/purge-writes`, exactly the call
-   phase 2's forget will make, and `{:layer L :op :drop}`, which deletes
-   the layer's four fields' entries so a rebuild can be seen to restore
-   them. Anything else is `{:refuse r}`, answered with `ack-return>` and
-   nothing else. The steps below are the rebuild's.
-2. Reads, all on the home task, **not yielding** (a rebuild is one
-   consistent snapshot; see cost below):
-   `(local-select> [(keypath *layer :answers) (subselect ALL)] $$layers :> *answers)`;
-   then a `loop<-` over the yes names reading
-   `(local-select> [(keypath *layer :log *nm) (subselect ALL)] $$layers :> *rows)`
-   and calling `(locks/open-value *layer *fid *row-with-stamp *stamp :> *opened)`
-   per row, accumulating `[fid stamp row opened]`; then the four index
-   fields whole, `(local-select> [(keypath *layer :ix-ek) (subselect ALL)] ...)`
-   and likewise.
-3. `(reads/rebuild-writes hints *layer *acts *current :> *d)` — pure: the
-   entries the log implies (a tombstone for a value open-value says erased,
-   with its date and no `:ix-kv` entry; the row's entry otherwise), minus
-   what is already there, as `:index-put`, `:index-of` and `:index-del`
-   (entries present but not implied, and `[:ix-of fid]` for sets present
-   but not implied).
-4. The three write blocks.
-5. `(ack-return> {:put n :deleted m})`.
+**2. The rebuild source, paged [F2].** A second `source>` in the gate
+topology's `<<sources` block, on `*index-ops`, `{:retry-mode :all-after}`.
 
-Idempotent: a second rebuild finds nothing to put or delete. Consistent:
-the whole rebuild is one event with no partitioner and no yield, so no offer
-on the task interleaves between the snapshot and the writes [phase-1 ran:
-RQ 1, a stream event is atomic on one task]. The cost, named: the event
-blocks the home task for the whole layer (every other layer on that task
-waits), O(acts + rows + entries) iterations and 2 seeks per act. Acceptable
-for the rig, where a rebuild runs only in tests and after a restore; the
-paged form (a rebuild in name ranges, one event per page, deleting only
-entries whose fact falls in the page, found through an `:ix-of` addressed by
-the fact id's canonical text) is the refinement a kept store needs, and is
-not built tonight (see "Open questions").
+Why paged. A rebuild as one event of a layer of 100,000 facts reads 100,000
+act rows at a seek each (30 to 50 s) and the four fields whole. Rama's
+stream event-tree timeout is 5 s; a slower event is retried while it still
+runs, and a batch stalled past 30 s is force-failed and replays
+(rama-check-2026-09-25/RESULTS.md, line 45, and its consequence "Gate work
+per event must stay well under the stream timeout, or the event runs twice
+at once"). Such a rebuild never finishes and holds the home task, every
+layer on it, for as long as it retries. So every rebuild step is one
+bounded event, and the operator's client loop drives the pages.
+
+1. `(reads/index-op *raw :> *op)` — total; it accepts a put page
+   `{:layer L :op :rebuild-put :after nm-or-nil :acts n}` (1 ≤ n ≤ 256), a
+   sweep page `{:layer L :op :rebuild-sweep :field f :after a-or-nil
+   :entries n}` (f one of the four fields, 1 ≤ n ≤ 512), and two test-only
+   ops (RC8): `{:layer L :op :purge :fid fid :forget-stamp s}`, which reads
+   the fact's row, its act's record and its `:ix-of` entry (RE4) and applies
+   `reads/purge-writes`, exactly the call phase 2's forget will make, and
+   `{:layer L :op :drop :field f :entries n}`, which deletes the first n
+   entries of one field so a rebuild can be seen to restore them. Anything
+   else is `{:refuse r}`, answered with `ack-return>` and nothing else.
+2. **A put page**: RE5 (at most 256 records after `nm`, stopping once the
+   yes acts read hold 4,096 rows); per row `open-row>` over the row and its
+   act's stamp (F6); `(reads/put-page-writes hints *layer *acts :> *d)`,
+   pure: every entry and `:ix-of` set the page's acts imply (a tombstone
+   with its date and no `:ix-kv` entry for a row `open-row>` says erased; the
+   row's entry otherwise); the three write blocks (puts only);
+   `(ack-return> {:next last-nm :done? (< read n)})`. Work: at most 257
+   seeks, 4,096 opens and about 10,000 `termval`s, about 0.1 to 0.3 s.
+3. **A sweep page**: RE6 (at most 512 entries of field f after `a`); per
+   entry its act's record `[(keypath *layer :answers nm)]` and row
+   `[(keypath *layer :log nm idx)]` and `open-row>`, in a `loop<-` with
+   `(yield-if-overtime)`; `(reads/sweep-page-writes hints *layer *field
+   *entries *found :> *d)`, pure: the delete of every entry the log does not
+   imply (no yes act under its name, another stamp, no such row, another
+   entity or key, hints that route it to no index or another, another
+   address or other content), and for an `:ix-kv` address its removal from
+   the fact's `:ix-of` set; for `:ix-of` itself, a set that differs from
+   the implied one is rewritten or deleted; the write blocks; `(ack-return>
+   {:next last-address :done? (< read n) :deleted m})`. Work: at most 1,537
+   seeks, about 0.5 to 0.8 s.
+4. The operator's loop, `(read-exit/rebuild! store L)`, client side: put
+   pages from the start until `:done?`, then sweep pages over `:ix-ek`,
+   `:ix-ke`, `:ix-kv`, `:ix-of` in turn until each is `:done?`, resending a
+   page on an append error (phase 0 finding 4). A layer of 100,000 facts
+   takes about 400 put pages and 600 to 800 sweep pages: minutes, no event
+   near the timeout.
+
+Idempotent: a replayed or resent put page `termval`s the same computed
+entries; a sweep page deletes only entries the log does not imply, and its
+second run finds none. Consistent without a snapshot: each page is one
+event on the home task [phase-1 ran: RQ 1], reading the log and writing in
+the same atomic group. An offer admitted during a rebuild writes its own
+entries in its own event; put pages never delete; a sweep page reads the
+record and row in its own event, so the entries of any act admitted before
+it are implied and kept. A forget during a rebuild purges in its own event;
+a later put page sees `open-row>` erased and writes the same tombstone; a
+later sweep sees the tombstone implied. When the loop ends, the fields hold
+exactly what the log implies at that point. Reads during a rebuild see
+every implied entry once the put pass has passed its act (puts only add),
+and stale entries until the sweep passes them; after a test `:drop` the
+dropped entries are missing until the put pass reaches them. A kept store's
+restore runs the rebuild before it opens the layer to reads.
 
 Whether a second `source>` can be added from a function in
 `rig.store.reads` rather than inline in module.clj's `<<sources` block is
@@ -580,9 +663,10 @@ worker as a stream one is, but this plan does not find out by accident
 3. `(local-select> [(keypath *layer :settings)] $$layers :> *settings)`;
    `(reads/visible? *settings *reader :> *ok)` — ruling 9's default:
    personal, hand and agent layers are visible to their owner; the base to
-   any authenticated actor; else `{:refused :not-visible}` (or
-   `:no-such-layer` when settings are nil). Nothing recorded for a refusal:
-   nothing was read.
+   any authenticated actor; else `{:refused :not-visible}`, **[F4]** and
+   the same `:not-visible` when settings are nil, so a reader cannot tell a
+   private layer that exists from one that does not (ruling 9). Nothing
+   recorded for a refusal: nothing was read.
 4. `(local-select> STAY $$clock :> *clock)`;
    `(reads/moment *as-of *clock :> *m)` → `min(asked, clock)`.
 5. `loop<-` over the fact ids, in order, accumulating rows:
@@ -591,7 +675,9 @@ worker as a stream one is, but this plan does not find out by accident
    `(local-select> [(keypath *layer :log *nm *idx)] $$layers :> *row)` (phase 1's
    plan names this path for one row of the subindexed vector [build checks:
    `keypath` with an index into a subindexed vector; fallback `(nthpath *idx)`]) and
-   `(locks/open-value *layer *fid (assoc *row :stamp s) *m :> *opened)`;
+   **[F6]** `(locks/open-row> *layer *fid *row s *m :> *opened)` (phase 2's
+   twin of `open-value>`, given the row and its act's stamp, so nothing is
+   read twice);
    else the row `{:fid fid :absent true}`. `(yield-if-overtime)` in the
    loop body.
 6. `(reads/point-answer *layer *m *rows :> *answer)` — `:matched` is
@@ -634,21 +720,34 @@ seek only when the record says the fact is there.
      twice the last (a rig choice), each next page starting at the last address read followed
      by U+0000, which is the least String above it (addresses are unique, so
      nothing is read twice and nothing skipped), until
-     an entry reaches `*end` (or the map ends) or `limit + 1` entries have
-     matched. `(reads/page-step ...)` is the pure step: it keeps entries
-     below `*end` whose stamp is at or before `*m`, counts them, and says
-     continue or stop.
+     an entry reaches `*end` (or the map ends), `limit + 1` entries have
+     matched, or **[F8]** 16 × (limit + 1) entries have been scanned.
+     `(reads/page-step ...)` is the pure step: it keeps entries
+     below `*end` whose stamp is at or before `*m`, counts them and what it
+     scanned, and says continue or stop.
+   - **[F5]** For `[:kv k v]` only, a kept entry is a candidate, not yet a
+     match: `open-row>` runs on it inside the page loop, and it counts as
+     matched only when it opens to `{:value v'}` with v' equal to the
+     pattern's value. An `:ix-kv` entry whose value no longer opens (a
+     person forget that has not yet reached this index, phase 2) is
+     neither shown nor counted nor fingerprinted, so no read confirms a
+     guess at an erased value (IMPLICIT_SPEC RD3: "never a match on a
+     value erased before the read").
 6. `loop<-` over the kept entries (at most `limit`): an entry with
    `:erased-at` gives `{... :erased-at s}` (a purged fact shows only its
-   date); else `(locks/open-value *layer (:fid e) e *m :> *opened)` gives
-   the value, the erasure date, or unreadable. `(yield-if-overtime)` in
-   the loop.
+   date); **[F7]** an entry with `:copy false` first reads its row,
+   `[(keypath *layer :log nm idx)]` (1 to 2 seeks; only `:read/*` facts,
+   read rarely); then **[F6]** `(locks/open-row> *layer (:fid e) row (:stamp e) *m :> *opened)`
+   (the entry is the row, so no row is read for a copied entry) gives
+   the value, the erasure date, or unreadable (a `[:kv]` match was opened in
+   step 5 and is not opened again). `(yield-if-overtime)` in the loop.
 7. `(reads/pattern-answer *layer *m *pp *rows *more? :> *answer)` — the
    rows in address order, `:matched` the `[fid stamp]` pairs, `:mark`
-   `:partial` with `:resume` when a limit + 1st match was seen, else
-   `:complete`; `:fingerprint` from `reads/fingerprint` over the set of
-   matched pairs, under the fingerprint secret derived in the module; the
-   secret never leaves this function.
+   `:partial` when a limit + 1st match was seen or the scan budget ran out,
+   else `:complete` (**[F3]** no resume address: the entry past the limit
+   is never returned); `:fingerprint` from `reads/fingerprint` over the set
+   of matched pairs, under the fingerprint secret derived in the module;
+   the secret never leaves this function.
 8. `(|origin)`.
 
 Input examples (a layer of 10,000 facts over 2,000 chains; entity `e`
@@ -661,7 +760,7 @@ with 12 facts over 3 keys; key `:note` on 4,000 facts):
 - `[:e e]` → 3 seeks + 13 iterations (one page), 12 meaningful.
 - `[:k :note]` with limit 1,000 → 2 + 6 page seeks = 8 (pages of 16, 32,
   64, 128, 256 and 512 entries, 1,008 in all, the last cut at the 1,001st
-  match) + about 1,001 iterations; marked partial with a resume address. Variable,
+  match) + about 1,001 iterations; marked partial [F3: no resume address]. Variable,
   handled by the page loop: a small match reads one small page, a large one
   grows its pages, and no read is issued past the end or past limit + 1.
 - `[:kv :note "x"]` with two matches → 3 seeks + one page, 2 meaningful.
@@ -745,39 +844,57 @@ not write it.
 ## `open-value` (phase 2's, consumed here)
 
 The one function every shown value passes through, in `rig.store.locks`
-(phase 2's lock namespace). The contract this stage builds against:
+(phase 2's lock namespace). **[F6]** Phase 2's plan, validated in parallel
+(PLAN-locks-and-forgetting.md at cbd2bb16 on rig-plan-locks, lines 545-562
+and 599), fixes the names, arities and returns, and where the two plans
+differ phase 2's wins; this stage calls what it defines:
 
-- Called in dataflow as `(locks/open-value *layer *fid *entry *moment :> *opened)`,
-  on the layer's home task, inside a query topology or the gate's rebuild
-  event. `*entry` is an index entry, or a log row with `:stamp` added: a map
-  with the value slot `:v`, `:mark`, and whatever lock reference phase 2
-  puts beside the value in the row.
-- Returns exactly one of `{:value v}` (nil for a retract), `{:erased-at s}`
-  (the forget's stamp), `{:unreadable reason}`. Never throws.
+- `(locks/open-value> *layer *fid *T :> *r)`, which reads the act's stamp,
+  the row, the erasure ledger, the lock row and the wrap's persons itself,
+  and its twin `(locks/open-row> *layer *fid *row *stamp *T :> *r)` (the
+  argument order is phase 2's; the build takes it from phase 2's code),
+  given a row and its act's stamp already read, so no row is read twice.
+  This stage calls `open-row>` everywhere: an index entry is the row plus
+  its own three fields (F6's schema), so it passes as the row; a point read
+  and a rebuild page pass the row they read. Called on the layer's home
+  task, inside a query topology or a gate rebuild page.
+- Returns exactly one of `{:value v :stamp s}` (v nil for a retract),
+  `{:erased-at s}` (the ledger's date, else the person-forget date),
+  `{:unreadable reason}` (`:no-such-fact`, `:after-moment`,
+  `:does-not-open`). Never throws. This stage filters by stamp before it
+  opens, so `:after-moment` is never the reason a row it shows is
+  unreadable.
 - It may read PStates on the same task (phase 2's lock rows sit with their
   values, ruling 7), so it can be a `deframafn` whose reads the call site
   does not see [docs: dataflow.md, a `deframafn` may `local-select>`]; it
   must not repartition (a suspend on the path to its emit is not allowed in
   a `deframafn`, and a partitioner would move the query off the home).
 - Tonight's body passes values through:
-  `{:value (env/decode-value (:v entry))}`, with a failure to decode caught
-  and returned as `{:unreadable :undecodable}`.
+  `{:value (env/decode-value (:v row)) :stamp stamp}`, with a failure to
+  decode caught and returned as `{:unreadable :does-not-open}`.
 
 The merge. If phase 2's build has merged when this stage builds,
 `rig.store.locks` exists and this stage only calls it. If not, this stage's
-build writes `src/rig/store/locks.clj` with the one function above and
-nothing else, and the merge keeps phase 2's file whole; phase 2's
-`open-value` must keep this arity and these three return shapes. That is the
-one place tonight's parallel builds can collide on a file; the resolution
-is fixed here so the merge is mechanical.
+build writes `src/rig/store/locks.clj` with `open-value>` and `open-row>`
+under phase 2's names, arities and return shapes and nothing else, and the
+merge keeps phase 2's file whole **[F6]**. That is the one place tonight's
+parallel builds can collide on a file; the resolution is fixed here so the
+merge is mechanical.
 
 ## Hints (index kinds take hints as parameters)
 
 `hints` is a map passed to every function that decides what is indexed:
-`{:by-value #{fact-key ...} :opaque #{fact-key ...}}`. Tonight it is one
-constant, `reads/seed-hints`, `{:by-value #{:note} :opaque #{}}` for the
+`{:by-value #{fact-key ...} :opaque #{fact-key ...} :no-copy #{fact-key ...}}`.
+Tonight it is one
+constant, `reads/seed-hints`, `{:by-value #{:note} :opaque #{} :no-copy
+#{:read/point :read/pattern}}` for the
 model's world (`:note` holds a plain value; `:mention` names people and is
-matched by key). A key in both sets is opaque (ruling 6: no matching, no
+matched by key). **[F7]** A key in `:no-copy` gets id-index entries without
+its value fields (`:copy false`): the store's read lines are written on
+every read (a 1,000-pair exact list is about 80 KB) and read rarely (the
+session close act, audits), so copying them into `:ix-ek` and `:ix-ke`
+would add about 160 KB of writes per large read to save 1 to 2 seeks per
+entry on the rare read that shows them. A key in both `:by-value` and `:opaque` is opaque (ruling 6: no matching, no
 index on its values, shown as opaque; the opaque showing itself needs
 phase 6's grammar and is not built). Phase 6 replaces the constant with the
 key's grammar facts. Changing the hints for an existing layer needs a
@@ -790,7 +907,7 @@ module runs. A rig choice.
 **Purge by value id**, `(reads/purge-writes fid row fact-stamp kv-addresses forget-stamp)`,
 pure and total, returning write lists for the three blocks:
 - `:index-put`: the fact's `:ix-ek` and `:ix-ke` entries as tombstones
-  (`:v nil`, `:erased-at forget-stamp`), at addresses computed from the row's
+  (the value fields nil, F6; `:erased-at forget-stamp`), at addresses computed from the row's
   entity and key, the act's stamp and the fact id: no value is needed.
 - `:index-del`: every `:ix-kv` address in `kv-addresses`, and `[:ix-of fid]`
   (the delete block's `keypath` takes the fact id as the address in that
@@ -807,15 +924,26 @@ fact shows it with its erasure date, as the model's `read-as-of` does
 
 A person's forget erases every value it closes at once; it reaches the
 indexes either by a purge per erased value, or by a rebuild of each layer it
-touches (the rebuild sees each such value erased through `open-value`).
-Which one is phase 2's pick; both tools exist.
+touches (the sweep pages see each such value erased through `open-row>`
+and delete its `:ix-kv` entry). **[F5, F10]** Phase 2's plan (cbd2bb16,
+line 649) purges on a value forget and names nothing for a person forget,
+so until one of the two is wired a person-forgotten value's text stays in
+`:ix-kv` addresses: reads never match it (F5), but the store still holds
+it, which the rig constraint ("so forget reaches it") does not allow. This
+is phase 2's obligation, for builder A to place.
 
-**Rebuild one layer from its log**, `(reads/rebuild-writes hints layer acts current)`,
-pure: `acts` is every yes act of the layer with its stamp, rows and each
-row's `open-value` result; `current` is the four fields' present entries. It
-returns what the log implies minus what is there, as the same write lists,
-applied by the gate's rebuild event (Topologies, 2). After it, the four
-fields hold exactly the entries the log implies under `hints`.
+**Rebuild one layer from its log [F2]**, by pages, two pure functions:
+`(reads/put-page-writes hints layer acts)`, where `acts` is one page of yes
+acts with their stamps, rows and each row's `open-row>` result, returns the
+entries and `:ix-of` sets they imply, as `:index-put` and `:index-of`; and
+`(reads/sweep-page-writes hints layer field entries found)`, where
+`entries` is one page of a field and `found` each entry's act record, row
+and open result, returns as `:index-del` (and `:index-of` rewrites) every
+entry of the page the log does not imply. Both are applied by the gate's
+rebuild pages (Topologies, 2), and `(reads/implied hints layer acts)`, the
+same entries for a whole log, is what T10 compares against. After the
+operator's loop ends, the four fields hold exactly the entries the log
+implies under `hints`.
 
 ## The one line in module.clj, and where Rama does not allow one
 
@@ -832,24 +960,50 @@ written only by the topology that declares it, and this plan keeps
 (about six lines) after the heads writes, and the second `source>` inline
 unless a second `<<sources` call on the same topology works [build checks].
 `gate/decide*` gets one call, `(reads/index-writes ...)`, merged into its
-precomputed writes.
+precomputed writes, and **[F1]** `gate/stamp-for` one more input,
+`(reads/entry-moments (:facts offer))`. Those two lines are all this stage
+changes in gate.clj.
 
 ## Interfaces, as this stage builds against them tonight
 
-- **`rig.store.clock`** (tonight's clock build): stamps are positive longs,
-  strictly increasing per task, below 2^63 (hex16 needs no sign), and the
-  home task's last stamp is readable with `(local-select> STAY $$clock)`.
-  Nothing else is used. If the clock build keeps the last stamp elsewhere,
-  the one `local-select>` in each query changes, nothing else.
-- **`rig.store.locks`** (phase 2): `open-value` as above; its forget calls
-  `reads/purge-writes` and reads RE4.
+**[F10] Shared files, and what parallel builds must keep.** gate.clj: the
+two call sites above, nothing else; phase 2's revised gate also changes
+`decide*` (sealing, lease consumption), so the merge keeps both, and the
+index writes take the rows as phase 2 writes them (the entry is the row,
+F6). module.clj: the schema merge (`reads/layer-fields`, with the row's
+field map `row-fields` exposed for F6), the three index write blocks after
+the heads writes in the yes branch, the `*index-ops` source, the two
+install lines. Phase 2 adds its own fields and install lines to the same
+two files; neither plan removes or reorders the other's lines.
+
+- **`rig.store.clock`** (tonight's clock build, merged at 0bc0cd7f): stamps
+  are positive longs, strictly increasing per task, below 2^62 (the
+  envelope's `max-carried-stamp`; hex16 needs no sign), and the
+  home task's last stamp is readable with `(local-select> STAY $$clock)`,
+  written for a yes and a no alike (module.clj). Nothing else is used; F1
+  feeds `next-stamp` one more seq of stamps and changes nothing in it.
+- **`rig.store.locks`** (phase 2): `open-value>` and `open-row>` as above
+  (F6); its value forget calls `reads/purge-writes` and reads RE4 (its plan,
+  line 649, has the call site); **its person forget must reach `:ix-kv`**,
+  by a purge per erased value or the paged rebuild of each affected layer,
+  and its plan does not yet say which (F5, for builder A). Its plan also
+  builds its own `read-as-of` query and a `:by-stamp` index, which serve the
+  same read as this stage's `[:all]`; which one stays is builder A's call,
+  and this stage does not rely on either being absent.
 - **Phase 3's micro gate** (its own namespace): nothing tonight. Its
-  settled-frontier id fills the moment's `{:frontier id}` slot later.
+  settled-frontier id (its M23, a microbatch id, a Long) fills the moment's
+  `{:frontier id}` slot later.
+- **The reader's kind.** Tonight a parameter of the exit's caller. A kept
+  store's read gateway (R5) takes it from the actor (the session-start fact
+  and phase 6's tool signature), never from the call, since a model called a
+  `:tool` would otherwise leave a short line (ruling 3: a model's reads are
+  the exact list, always).
 - **What this stage exports**, in `rig.store.reads`: `layer-fields`,
   `seed-hints`, `declare-queries!`, `declare-depots!`, `address`,
-  `index-writes`, `purge-writes`, `rebuild-writes`, `index-op`,
+  `index-writes`, `purge-writes`, `put-page-writes`, `sweep-page-writes`,
+  `implied`, `entry-moments`, `index-op`,
   `parse-pattern`, `parse-point`, `visible?`, `moment`, `fingerprint`,
-  `entry-facts`; in `rig.store.read-exit`, `read!`. `rig.store.reads`
+  `entry-facts`; in `rig.store.read-exit`, `read!` and `rebuild!`. `rig.store.reads`
   requires `rig.store.envelope` and `rig.store.locks`, never
   `rig.store.client` (the client requires the module, which requires the
   gate, which requires reads: a cycle otherwise).
@@ -898,37 +1052,42 @@ fewer tasks than one. The entry's write lands on the working layer's home,
 Categories (frequencies are assumptions for weighting, not measurements;
 the count's tool and the src-inland renderers are expected to be dominated
 by small entity and latest reads): latest 0.25 (3 seeks, 1 iteration); a
-small entity or chain read of about 12 facts 0.60 (3 seeks, 16 iterations,
+small entity or chain read of about 12 facts 0.50 (3 seeks, 16 iterations,
 one page); a key read at the 1,000 limit 0.10 (settings 1 + clock 1 + 6 pages
-= 8 seeks, 1,001 iterations); an empty read 0.05 (3 seeks, 1 iteration).
+= 8 seeks, 1,001 iterations); an empty read 0.05 (3 seeks, 1 iteration);
+**[F11]** a point read of one fact id 0.10 (settings 1 + clock 1 + record 1
++ row 1 to 2 = 4.5 seeks, 0 iterations). The weights sum to 1.
 Seeks count every task touched; each read touches one.
 
 ### N = 1 task (single-task baseline)
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
 | latest `[:latest e k]` | 0.25 | 3 | 1 |
-| small `[:e e]` / `[:ek e k]` | 0.60 | 3 | 16 |
+| small `[:e e]` / `[:ek e k]` | 0.50 | 3 | 16 |
+| point, one fact id [F11] | 0.10 | 4.5 | 0 |
 | large `[:k k]`, limit 1,000 | 0.10 | 8 | 1,001 |
 | empty | 0.05 | 3 | 1 |
-Weighted seeks = 3.5   |   Weighted iterator reads = 110.0
+Weighted seeks = 3.65   |   Weighted iterator reads = 108.4
 
 ### N = 16 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
 | latest | 0.25 | 3 | 1 |
-| small | 0.60 | 3 | 16 |
+| small | 0.50 | 3 | 16 |
+| point [F11] | 0.10 | 4.5 | 0 |
 | large | 0.10 | 8 | 1,001 |
 | empty | 0.05 | 3 | 1 |
-Weighted seeks = 3.5   |   Weighted iterator reads = 110.0
+Weighted seeks = 3.65   |   Weighted iterator reads = 108.4
 
 ### N = 128 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
 | latest | 0.25 | 3 | 1 |
-| small | 0.60 | 3 | 16 |
+| small | 0.50 | 3 | 16 |
+| point [F11] | 0.10 | 4.5 | 0 |
 | large | 0.10 | 8 | 1,001 |
 | empty | 0.05 | 3 | 1 |
-Weighted seeks = 3.5   |   Weighted iterator reads = 110.0
+Weighted seeks = 3.65   |   Weighted iterator reads = 108.4
 
 Flat in N, because a one-owner layer is on one task. The exit adds the
 entry's decision on the working layer's task: phase 1's 4 reads (record,
@@ -993,10 +1152,11 @@ re-class to by-entity is the ruled answer, and its reads are phase 3's.
   110 + |v|).
 - So indexes multiply a plain fact's bytes by about three, and a
   value-indexed fact's by about five. A read entry line with an exact list of
-  1,000 pairs is about 80 KB, stored three times (row, `:ix-ek`, `:ix-ke`):
-  about 240 KB per such read. At a person's rate that is small; at a model's
-  call rate in an agent session it is the number to watch (phase 7 can
-  measure it on the finished stage).
+  1,000 pairs is about 80 KB, stored once in its row; **[F7]** its two
+  id-index entries carry no copy (`:no-copy`), about 200 bytes each, so
+  about 80.4 KB per such read rather than 240 KB. At a model's call rate in
+  an agent session it is still the number to watch (phase 7 can measure it
+  on the finished stage).
 
 ### Memory usage (TaskGlobals)
 None.
@@ -1004,9 +1164,9 @@ None.
 ### Minimization
 - `:ix-ke` could carry only id and stamp, making `[:k k]` pay a row seek per
   fact; not taken, because phase 6's runner finds tools by key.
-- Entries of the store's own read keys (`:read/*`) could carry no value copy
-  (a hint), so a line's exact list is stored once; a rig choice left for
-  after phase 7 measures it, since it changes no record.
+- Entries of the store's own read keys (`:read/*`) carry no value copy
+  (**[F7]**, hint `:no-copy`), so a line's exact list is stored once; taken
+  tonight on the arithmetic in "Hints" (a rig choice; no record changes).
 - The fact id's canonical text in every address could be shortened to the
   name's scheme, UUID and index (the layer is the map's own key); not taken
   tonight, since addresses are rebuildable and the full text is unambiguous.
@@ -1033,7 +1193,15 @@ None.
   `:exact` a vector of `[fid stamp]` in the answer's order, present for a
   person or a model always and for a tool that asks.
 - FR9. The recorded pattern forms: `[:all]`, `[:e e]`, `[:ek e k]`,
-  `[:latest e k]`, `[:k k]`, `[:kv k v]`.
+  `[:latest e k]`, `[:k k]`, `[:kv k v]`. **[F9]** This makes the read of a
+  cell (layer, entity, key: the chain's head as of the moment) a pattern
+  read, `[:latest e k]`, recorded as one line with its exact list and
+  fingerprint, and makes a point read a read by fact id, recorded as rows.
+  IMPLICIT_SPEC RD2 reads it the other way: its point read is "a layer, an
+  entity, a key", returning the chain's head, recorded as rows. Ruling 3
+  says "rows for point reads" without saying what a point is. For Sid: is
+  a cell read a point read (rows) or a pattern read (a line)? Either is a
+  change of `reads/entry-facts` and FR7/FR8 only; nothing else moves.
 - FR10. The roles as keywords: `:stood-on`, `:shown`, `:matched`,
   `:passed-through`.
 - FR11. The fingerprint's bytes: HMAC-SHA256 over
@@ -1043,12 +1211,20 @@ None.
   "softland/read-fingerprint/1")`, named `:read-fp/1` in every line; `root` a
   constant in code tonight; kept only in the module, never in a client.
 - FR13. A fact's id is phase 1's `[name idx]`; no new id is made.
+- FR14. **[F1]** A read entry is stamped after its moment: the gate's stamp
+  rule counts each `:read/*` fact's `[:moment :stamp]` as a stamp the act
+  stood on, so an entry is never earlier than what it read (ruling 4's
+  promise applied to the read the entry records). The alternative, R4's
+  based-on carrying every matched pair in `:stood-on`, was weighed in "The
+  read entry" and not taken.
 
 ## Rig choices (change without touching a record)
 
 - RC1. Pattern parsing, the refusals before a read (`:bad-pattern`,
-  `:not-indexed`, `:opaque`, `:not-visible`, `:no-such-layer`,
-  `:bad-read`), none recorded.
+  `:not-indexed`, `:opaque`, `:not-visible`, `:bad-read`), none recorded;
+  **[F4]** a layer that does not exist is `:not-visible` on the read path
+  (the gate's `:no-such-layer` for an entry's working layer, the reader's
+  own, is phase 1's and unchanged).
 - RC2. Limits: 1,000 rows per pattern read by default, a limit outside 1 to
   10,000 refused `:bad-pattern`, 1,000 fact ids per point read.
 - RC3. Pages of 16 entries, doubling.
@@ -1057,15 +1233,21 @@ None.
 - RC5. Index entries carry the row.
 - RC6. Visibility by ruling 9's default as a constant: personal, hand and
   agent layers to their owner, the base to anyone; seed policy facts later.
-- RC7. Hints as a constant, `{:by-value #{:note} :opaque #{}}`.
-- RC8. Rebuild by an operator record on `*index-ops`, one event per layer,
-  not yielding; two test-only operator ops on the same depot, `:purge`
-  (runs `purge-writes` for one fact id with a given forget stamp, standing
-  in for phase 2's forget, which becomes its only caller) and `:drop` (clears
-  one layer's four fields, so a rebuild can be seen to restore them).
+- RC7. Hints as a constant, `{:by-value #{:note} :opaque #{} :no-copy
+  #{:read/point :read/pattern}}` (**[F7]**).
+- RC8. **[F2]** Rebuild by pages on `*index-ops`: put pages of at most 256
+  acts (and 4,096 rows), then sweep pages of at most 512 entries per field,
+  each one bounded event, driven one at a time by the operator's loop
+  `read-exit/rebuild!`; two test-only operator ops on the same depot,
+  `:purge` (runs `purge-writes` for one fact id with a given forget stamp,
+  standing in for phase 2's forget, which becomes its only caller) and
+  `:drop` (deletes up to n entries of one field, so a rebuild can be seen to
+  restore them).
 - RC9. Tombstones in the id indexes after a purge; deletion in the value
   index.
-- RC10. Partial only by the limit; unreadable rows leave a read complete.
+- RC10. Partial by the limit or **[F8]** by the scan budget, 16 × (limit
+  + 1) entries; unreadable rows leave a read complete. **[F3]** No resume
+  address is returned.
 - RC11. A retract is not indexed by value.
 - RC12. The exit in the client's process in the rig, with hooks through
   `rig.store.inject`.
@@ -1124,8 +1306,11 @@ The tests the brief names, each with its setup and what it asserts:
   fingerprint of the empty set, equal to `(reads/fingerprint #{})`.
 - **T5. Complete and partial marks.** Five facts on one entity: limit 5 is
   complete; limit 3 is partial with three rows, the first three in address
-  order, and a resume address equal to the fourth's; limit 4 is partial;
-  the entry line carries each mark and count.
+  order, and **[F3]** nothing of the fourth anywhere in `read!`'s return
+  (no resume address; its fact id and stamp appear in no field); limit 4 is
+  partial; the entry line carries each mark and count. **[F8]** A layer of
+  500 facts on `:e1` stamped after s0 and one on `:e0` at s0: `[:all]` as of
+  s0 with limit 10 scans at most 176 entries and is marked `:partial`.
 - **T6. The fingerprint changes with a matched fact, not with an unmatched
   one.** `[:ek :e0 :note]` gives fp1; replacing its head and reading again
   gives fp2 ≠ fp1; offering a fact on `:e1`, and replacing an unmatched
@@ -1155,12 +1340,17 @@ The tests the brief names, each with its setup and what it asserts:
   questions".)
 - **T10. A rebuild from the log reproduces the indexes exactly.** After a
   history with offers, replaces, retracts, control acts and read entries:
-  snapshot the four fields whole; `(reads/rebuild-writes hints L acts {})`
-  over the log read by `foreign-select` gives exactly the snapshot; a
-  `:rebuild` op answers `{:put 0 :deleted 0}`; a `:drop` op then a
-  `:rebuild` op leave the fields equal to the snapshot, entry for entry.
-  And purge agrees with rebuild: for one row whose `open-value` result is
-  `{:erased-at s}`, `rebuild-writes` gives the same tombstone and the same
+  snapshot the four fields whole; `(reads/implied hints L acts)` over the
+  log read by `foreign-select` gives exactly the snapshot; **[F2]**
+  `read-exit/rebuild!` with pages of 2 acts and 3 entries (so a small
+  history spans many pages) deletes nothing and leaves the snapshot; `:drop`
+  ops that empty the four fields, then `rebuild!`, leave the fields equal
+  to the snapshot, entry for entry; a stale entry written into `:ix-ek` by a
+  test-only put (an address no act implies) is deleted by the sweep; an
+  offer admitted between two pages keeps its entries; a page resent after
+  a forced append error changes nothing. And purge agrees with rebuild: for
+  one row whose `open-row>` result is
+  `{:erased-at s}`, `put-page-writes` gives the same tombstone and the same
   absent `:ix-kv` entry as `purge-writes` with forget stamp s (pure). A
   rebuild after the test-only `:purge` is not asserted equal, because
   tonight no forget fact or destroyed lock tells the log the value is
@@ -1187,7 +1377,7 @@ Tests the design adds:
   `:not-visible` and nothing is recorded; a read of the base (made one-owner,
   owned by the root actor, R8 as a default) by Bob is answered.
 - **T14. No throw.** Property tests drive `parse-pattern`, `parse-point`,
-  `index-writes`, `purge-writes`, `rebuild-writes`, `entry-facts` and
+  `index-writes`, `purge-writes`, `put-page-writes`, `sweep-page-writes`, `entry-moments`, `entry-facts` and
   `fingerprint` with generated garbage and generated offers, and assert
   no exception; the in-process cluster gets malformed patterns, fact ids,
   moments and `*index-ops` records and answers each as data with no worker
@@ -1199,8 +1389,28 @@ Tests the design adds:
   read of three fact ids records three rows.
 - **T17. Phase 1 still passes** with the gate's additions (its suite, as
   above).
+- **T18. [F1] An entry is stamped after its moment.** Pure: `stamp-for` for
+  an act with one `:read/pattern` fact whose moment is above the task's
+  clock and wall gives moment + 1; a `:read/*` value that is not an entry
+  line, or a moment at `max-carried-stamp`, adds nothing. In-process:
+  choose a read layer and a working layer with different home tasks (the
+  test computes both homes from the depot's partitioner); push the read
+  layer's task clock far ahead with an offer there carrying a stood-on stamp
+  of clock + 2^40; read that layer as of now through `read!`; the entry's
+  stamp is above the recorded moment and above every matched stamp.
+- **T19. [F4, F5, F7]** Bob reading a layer never made gets `:not-visible`,
+  the same answer as for Alice's private layer. A `[:kv :note v]` candidate
+  whose `open-row>` is stubbed to `{:erased-at s}` (a test double of phase
+  2's person forget) is not shown, not counted and not in the fingerprint.
+  A `:read/pattern` line's id-index entries carry `:copy false` and no
+  value, and `[:k :read/pattern]` still shows the line's value, read from
+  its row.
 
 ## Spec coverage, self-check (the validator does the full trace)
+
+(The validator's trace, PLAN_VALIDATION-read-exit.md, found eleven
+failures under these PASS lines, F1 to F11; the lines below are the plan
+author's and stand as corrected by those fixes.)
 
 - **"Point reads and pattern reads on a layer's home task, as of a
   moment."** RE1 and RE2, routed by `(|hash *layer)`. Fault: no in-memory
@@ -1236,12 +1446,13 @@ Tests the design adds:
   opens nothing. PASS.
 - **"Indexes: only what pattern reads need; hints as parameters; purgeable
   by value id; rebuildable from the log; with tests."** Three indexes and a
-  reverse map, one per pattern family; `purge-writes`, `rebuild-writes`;
+  reverse map, one per pattern family; `purge-writes`, `put-page-writes` and `sweep-page-writes` (paged, F2);
   T9, T10. PASS, with the reading of "removes it from every index" surfaced.
 - **"Mind the costs: seeks, subindexing, yielding on large reads."**
   Costed per input; every unbounded map subindexed; `:allow-yield? true` on
   every page read and `yield-if-overtime` in every per-fact loop of a
-  query; the rebuild deliberately does not yield (named, with its cost).
+  query; **[F2]** the rebuild runs in bounded pages, each well under the
+  stream timeout, and **[F8]** a query's scan is bounded by its budget.
   PASS.
 - **"A gate never throws on an offer; every refusal is data."** Index
   writes total, with `:gate-error` as phase 1's road; the index-ops source
@@ -1269,7 +1480,13 @@ Tests the design adds:
 4. **The rebuild's atomicity.** A yielding rebuild could race a forget and
    put a purged value back; a non-yielding one blocks the task for a whole
    layer. For the rig, correctness wins; the paged form is named as the kept
-   store's need.
+   store's need. **[F2, the validator's]** Reversed: a one-event rebuild of a
+   large layer cannot finish inside Rama's stream timeout (it is retried
+   while it runs and force-failed at 30 s), so it is not correct either. The
+   paged form keeps correctness without a snapshot: each page reads the log
+   and writes in one event, puts only add, and a sweep deletes only what the
+   log read in its own event does not imply, so a forget or an offer between
+   pages cannot put a purged value back or lose a new entry.
 5. **Where the exit runs.** A query topology can append to a depot, which
    looked like a way to keep the exit inside the module; but it cannot wait
    for the gate's decision, and "nothing shown before its entry is
@@ -1295,25 +1512,41 @@ Tests the design adds:
 
 ## Open questions
 
-- **For Sid** (touch records): all of FR1 to FR13; whether an entry recorded
+- **For Sid** (touch records): all of FR1 to FR14; whether an entry recorded
   for an answer that was never shown (a crash between entry and answer) is
   acceptable over-recording, or the exit must mark such an entry; whether a
   person may write facts under the store's `:read/*` keys by hand (tonight
   the gate does not stop it; a reserved-key refusal is a gate change and
-  first-record); whether the entry should be stamped after what it read
-  (it stands on nothing tonight, so on another task it can be stamped below
-  the moment it records; nothing depends on the order, and a `:stood-on`
-  carrying the moment would change the record); what "removes it from every
-  index" should mean (T9's reading).
-- **For phase 2** (black box to this plan): `open-value`'s body and its lock
-  reads; whether a person's forget purges per value or rebuilds; how the
-  gate gets plaintext for an `:ix-kv` address once values are sealed at the
-  door.
+  first-record; **[F1]** since the gate now reads a `:read/*` fact's moment
+  for the stamp, a hand-written line can push a task's clock as far as a
+  carried stood-on stamp can, no further, and can forge an exposure record
+  in a layer its writer may write); FR14, the entry stamped after its
+  moment (**[F1]**: the validator found that without it an entry decided on
+  another task can be stamped below its moment and below what it read, and
+  a read as of a T between them shows the entry naming facts admitted after
+  T); FR9's reading of a cell read as a pattern read (**[F9]**); whether a
+  `[:kv k v]` line may hold v in its recorded pattern (the reader typed it,
+  so it is the reader's utterance, but a forget of the matched value does
+  not reach it); whether a value opened by the query and forgotten before
+  the entry's acknowledgement may still be shown (tonight it is: the read
+  happened and is recorded, IMPLICIT_SPEC RD3, as the promotion ruling's
+  read-out); what "removes it from every index" should mean (T9's
+  reading).
+- **For phase 2** (black box to this plan): `open-value>`'s and
+  `open-row>`'s bodies and their lock reads; **[F5, F10]** a person's forget
+  must reach `:ix-kv`, by a purge per value or the paged rebuild, and phase
+  2's plan names neither yet (for builder A); how the gate gets plaintext
+  for an `:ix-kv` address and for `entry-moments` once values are sealed at
+  the door; which of phase 2's `read-as-of` and this stage's `[:all]` stays.
 - **For the build** [build checks]: a runtime field in `keypath` inside a
   fixed-keys value; `<<query-topology` and `declare-depot` from functions
   called in the module body; a second `<<sources` call on one topology;
   whether a query topology exception is fatal to the worker.
-- **For a kept store**: the paged rebuild; where the root secret lives;
+- **For a kept store**: reads during a rebuild (tonight they see stale
+  entries until the sweep, and dropped ones are missing until the put pass;
+  a restore rebuilds before it opens a layer to reads); RocksDB keeps a
+  deleted `:ix-kv` address in its files until compaction, like the depot's
+  copy of a value (default 1); where the root secret lives;
   whether the id indexes should shorten the fact id text in addresses.
 - **Found and reported, not changed**: PLAN-stream-store.md's note that a
   chain's latest head is a range over `[e k]` addresses in `:heads` is
