@@ -1,0 +1,19 @@
+Rig phase 6, the revision reader: the suite, last run 26 September 2026, 03:33 IST
+Command, from the rig folder:
+  clojure -M:test rig.revision-test
+Result: Ran 25 tests containing 2837 assertions. 0 failures, 0 errors. Exit 0.
+  About 1.4 s wall. Tested at 87438510 (branch rig-build-reader). No cluster, no Rama namespace loaded.
+  git version 2.43.0, openjdk version 21.0.12.1 2026-08-18, Clojure 1.12.4, test.check 1.1.0.
+  The same suite also passed under GIT_DIR/GIT_WORK_TREE pointing at main (F5) and under LC_ALL=C (F14); see BUILD_NOTES-revision-reader.md.
+
+Output, verbatim:
+
+WARNING: abs already refers to: #'clojure.core/abs in namespace: clojure.test.check.generators, being replaced by: #'clojure.test.check.generators/abs
+
+Testing rig.revision-test
+{:result true, :num-tests 200, :seed 1790373823637, :time-elapsed-ms 35, :test-var "t24-blocks-keep-their-invariants"}
+{:result true, :num-tests 200, :seed 1790373823679, :time-elapsed-ms 78, :test-var "t25-forms-give-the-placed-spans"}
+
+Ran 25 tests containing 2837 assertions.
+0 failures, 0 errors.
+{:test 25, :pass 2837, :fail 0, :error 0}

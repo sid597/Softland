@@ -249,6 +249,20 @@ by `env` (TV1) and by both branches of the encoding (TV3), with phase 7's
 runs under `GIT_DIR` and `LC_ALL=C` as receipts of the same code paths
 end to end.
 
+## After the first run (phase 7), recorded here
+
+The first run failed twice, both in `t07`, on a golden number this
+validation passed under test 7 above without checking it against an
+oracle. Plan test 7 gives the form holding `(defn refusal` as `[101 114]`
+and `[125 141]`. Those are the blocks holding that line (a blank line
+follows the first `cond` clause), and the forms end at 148 and 182, where
+Clojure's reader ends them (`t05` had passed on every form of both files).
+The test was wrong, not the code. `t07` now asserts `[101 148]` and
+`[125 182]`, checks each end against the reader, and keeps the plan's
+numbers as the block extents they are (`BUILD_NOTES-revision-reader.md`,
+03:33). That adds nine lines inside `t07`, so every line number above from
+L 424 on sits nine lines later in the test source as it now stands.
+
 ## Verdict
 
 **minor-fail**: three missing cases, each fixed by lines added inside an
