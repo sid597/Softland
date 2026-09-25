@@ -343,13 +343,16 @@ reasoned from the plans and not yet run.
   four deep, and the holder may be the offer's session; the model's is a
   flat triple held by `:who`. Mapped as data above; no fixed history
   depends on a chain except D2, where the revoke is on the cited id itself.
-- **KD10. After a person is forgotten, the exit cannot read that person's
-  layers for anyone** (predicted): an exit read appends an entry sealed
-  under a lease in the reader's working layer, and a lease whose layer's
-  owner has a destroyed person lock is refused `:person-forgotten` (P2
-  L742, L1716-1726). A one-owner layer is visible only to its owner (P5
-  L679-682), so after Alice's forget nobody reads `:alice` through the
-  exit; the model's read shows her facts with their erased dates. The
+- **KD10. After a person is forgotten, the exit cannot read for them, and
+  nobody can read their one-owner layers through it** (predicted): an exit
+  read appends an entry sealed under a lease in the reader's working layer,
+  and a lease whose layer's owner has a destroyed person lock is refused
+  `:person-forgotten` (P2 L742, L1716-1726). So a forgotten Alice cannot
+  read the group either (her working layer is `:alice-hand`; Bob has no
+  working layer in the model's world, and the replay adds none). A
+  one-owner layer is visible only to its owner (P5 L679-682), so after
+  Alice's forget nobody reads `:alice` through the exit; the model's read
+  is nobody's and shows her facts with their erased dates. The
   replay attempts the read and reports what the exit answers (predicted a
   refusal; which reason, `:person-forgotten` from the lease or a refusal
   of the entry, the run shows), with the store's judgment beside it. The
@@ -397,3 +400,306 @@ A difference the run finds that is none of these is a new finding: its
 line says "differs" with what each side saw, the test fails, and RIG.md
 carries it under "Found tonight" (or its successor) until Sid or builder A
 names its cause.
+
+## The report
+
+`runs/phase8-replays.txt`, rewritten by every run, read by RIG.md. Its
+header: the date and time (IST), the rig commit, the model's commit, the
+task count, the run time, and which stages' APIs resolved. Then, for each
+case set and each configuration `run.clj` names for it (A under
+`baseline` and the three A readings; B under `baseline` and
+`baseline-but-not-p6-line-at-the-read-out`; D under `baseline` and
+`baseline-but-not-permissions-in-their-layer`), exactly the lines
+`scenarios/report` prints for the model (its verdict, what it saw when it
+differs, each named check's objection), each followed by the rig's line:
+
+```
+  under baseline
+    as said   B: a value forget queued before the read-out: pending, then refused
+      rig:    approximated (the hold at :before-read-out and a resend stand for the read-out's own step); as said
+              answers  4 of 4 as the model's (o0 yes, o2 yes, o3 yes, crossing:o2 no source-erased)
+              reads    1: alice o0#0 open v1, o2 pending | 2: o0#0 erased, o2 pending | closing: o0#0 erased, o2 refused
+              rig-only lease 1, landing lease 1, entry 3 (each with its lease)
+              known    KD2 KD3 KD4 KD6 KD7 KD8
+  under baseline-but-not-owner-required
+    DIFFERS   A: in Alice's own layer a note and a mention of Bob both die with Alice
+              saw: alice note erased, alice mention bob open
+               p6 objects: {...}
+      rig:    as under baseline; differs from this configuration: rig alice mention bob erased, this configuration open
+```
+
+The rig's line leads with one of:
+
+- **as said**: every model effect had its counterpart, played by the door
+  alone in the model's order, and the rig saw what the model saw (`play`'s
+  `:values` and `:shown`).
+- **differs**: the same, and the rig saw something else; the line gives
+  what each side saw, per value and per read.
+- **approximated (why)**: some step needed a test hook or a merged step (a
+  hold, a paused topology, prepare and commit as one batch), named in the
+  parentheses; the outcome follows, "as said" or "differs" as above.
+- **not practical (why)**: the case could not be played: a stage's API did
+  not resolve (named), or the history has a step kind with no row above.
+  Nothing is played partly.
+
+The detail lines (answers, reads, rig-only acts, known differences) are
+printed once per case, under `baseline`. Every answer is compared name by
+name through the correspondence; a model answer whose rig counterpart
+differs in a way a known difference explains names that difference
+(KD1's rule is data: a model no with reason R on a value act matches a rig
+lease act no with R plus the value act's face `:no-such-lock`). A
+predicted difference that does not show is printed as "predicted, not
+seen", so a prediction is checked, not assumed. The model's named checks
+(P1 to P8, x1, x2, rv) are the model's alone: they use its `:order`, which
+the rig has no counterpart of; the rig's line never claims them.
+
+**The test's verdict.** Under `baseline` the test fails on any `:values`
+or `:shown` difference, on any answer or read difference no known
+difference explains, and on a case whose status is worse than its
+predicted status in the case tables above once the stages it needs have
+resolved (a case that is not practical only because its stage has not
+merged yet is not a failure; the header lists which stages resolved). It
+passes with known differences printed. The report is
+written in a `finally`, so a failing run still leaves its lines.
+
+## How it runs
+
+- **One namespace**, `rig.replay-test`, file `test/rig/replay_test.clj`
+  under the rig folder's `test/`, so it is also a standing check. It
+  requires `formal.model`, `formal.scenarios` (both on the `:test`
+  classpath already, deps.edn), `com.rpl.rama.test` and phase 1's
+  namespaces. Every later stage's function is found at run time with
+  `requiring-resolve`, so the namespace compiles and runs at every step of
+  the build: a case whose APIs do not resolve yet is "not practical (the
+  missing names)" and the rest still run. That is what makes the replays a
+  standing practice from now on rather than a final phase.
+- **Command**, from the rig folder:
+  `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.replay-test`.
+  It never names `gate_test.clj`, so that file never loads.
+- **One in-process cluster** for the namespace, `(rtest/create-ipc)`.
+  **A fresh module per case**: `launch-module!` of `rig.store.module/Store`
+  with `{:tasks 4 :threads 2}`, the seed, the history, the observations,
+  then `destroy-module!`. Four tasks so a layer's home, the group's entities
+  and the person fan-out cross tasks; fixed so runs repeat. Each case
+  starts with `inject/reset-all!`, and a `finally` releases any hold and
+  resumes the micro topology, so one failed case cannot leave the next one
+  paused. **Fallback**, if a second launch of the same module in one
+  cluster fails or costs more than 15 s: one module, and a fresh world per
+  case (persons and layers named with the case's number, the base shared,
+  since no fixed history writes into it); the report's header says which
+  road ran.
+- **Waits** are bounded: an answer, the frontier passing a batch, a
+  fan-out, each at most 60 s, polled at 50 ms (the micro plan's rule, P3
+  L2128-2133). A timeout is that case's "differs: no answer within 60 s",
+  never a hung suite.
+- **The model's side** runs in the same JVM: the lockstep for the
+  correspondence, and `scenarios/play` under each named configuration for
+  the model's lines. The test asserts the lockstep's end state gives the
+  same `seen` as `play`, so the lockstep cannot drift from the model's own
+  run.
+- **Run time, estimated, to be measured**: a launch of `Store` a few
+  seconds (phase 1's whole suite, one launch and 19 tests, ran in 17 to
+  19 s); the seed about twenty acts, of which about five are micro acts at
+  two batch cycles each on the 250 ms tick (P3 L1466-1471), so 3 to 5 s;
+  a history 1 to 4 s (its micro steps dominate); so 8 to 15 s a case and
+  2 to 3.5 minutes for the fourteen. The build writes the measured time in
+  the report's header.
+
+## The APIs it needs, by stage
+
+The build checks each exists in the merged code under the name the plan
+gives, or records it as stubbed or missing; a missing one makes the cases
+that need it "not practical", named. "P1" is phase 1's code as it stands.
+
+| API | stage | named at | used for | cases |
+|---|---|---|---|---|
+| `client/connect`, `build`, `offer!`, `offer-until-answered!`, `lookup`, `record`, `settings`, `permission` | 1 | `client.clj` (built) | the door's sends and answers by name | all |
+| `client/grant-offer`, `revoke-offer`, `make-layer-offer` | 1 | `client.clj` (built) | the seed's grants, D1's stream-side revoke, Alice's layers | all; D1 |
+| `inject/reset-all!`, `watch!`, `count-of` | 1 | `inject.clj` (built) | a clean start per case; seeing a continuation resume | all |
+| `offer!` sealing at the door, leasing when short; `lease!`; `close-session!` | 2 | P2 L1913-1925 | KD2's lease before each value write | all |
+| `make-person!`, `forget-person!` (acts in `:people`); the fan-out waited for, by the ack if it covers the fan-out, else by `person-on-task` on every task | 2 | P2 L1926-1927, L1934-1942 | the seed's persons; `[:forget-person p]` | A1-A8, B2, B4 |
+| `forget-value!` `[store who layer fid]` | 2 | P2 L1928-1930 | `[:forget-value i]` | B1, B3 |
+| `opens?` `[store layer fid]` → `{:value v}` or `{:erased-at s}` | 2 | P2 L1932-1933 | the store's judgment, stream-side layers | A1, A8, B1-B4 |
+| the grammar `{:mention {:subjects-at [:persons]}}`; the mark `:die-with-any` | 2 | P2 L183, L203 | a mention's subjects; A7's mark | A1-A8 |
+| the micro door: `*micro-offers` through the client's dispatch by tag; `micro-lookup` (the build's `await-answer`); micro leases | 3 | P3 L1451-1452, L1698-1702, L2113-2120 | every group write, revoke and grant | A2-A7, B3, B4, D1, D2 |
+| `make-base!`, `make-group!` (with the base's re-class), `open-session!` | 3 | P3 L606-644, L623-630, L456-461 | the seed's base, group and sessions | all |
+| `micro-frontier`, and a batch's id to wait past | 3 | P3 L646-691, L662-663 | the wait at every `[:batch]` | A2-A7, B3, B4, D1, D2 |
+| `micro-act` at F and the pure open of a row (the build's `open-row`) | 3 | P3 L1724-1728 | the store's judgment for a group row | A2-A7, B3, B4 |
+| `rtest/pause-microbatch-topology!`, `resume-microbatch-topology!` on the micro topology's name | Rama | `com.rpl.rama.test` (listed above); P3 L762 | holding a landing to the model's `[:batch]` | B3, B4 |
+| `lease-landing!` | 4 | P4 L820, L220-230 | KD3's landing lease | B1-B4 |
+| `promote!`, with the request's name known before sending (a build step or a caller-given name; P4 gives no argument list) | 4 | P4 L820-821, L238-246 | `[:promote i :group 1]` | B1-B4 |
+| `promotion-status` `[layer req as-of]` → `:none`, `:pending`, `:crossed`, `:done`, `:refused` | 4 | P4 L404-405, L543-557, L822 | `:shown` at every read | B1-B4 |
+| `inject/hold!` and `release!` at `:before-read-out`, `:before-forward` | 4 | P4 L836-841, PR15 | B1's and B2's read-out step; B3's and B4's fallback | B1-B4 |
+| `env/crossing-name`, `env/landing-name` | 4 | P4 L359-365 | the crossing's and the landing's answers by name | B1-B4 |
+| `read-exit/connect`, `read!` (point reads, `:as-of nil`) | 5a | P5 L797-815 | the reader's view at every read | all |
+| the `read-point` query, called below the exit | 5a | P5 L671 | the store's view beside a refused exit read (KD10) | A1, A3, A4, A6, B2, B4 |
+| the exit's shared-layer read | 5 (rest) | P5 L1043-1049 (named, not planned here) | the group through the exit; else phase 3's frontier read, named in the line | A2-A7, B3, B4 |
+| `rtest/create-ipc`, `launch-module!`, `destroy-module!` | Rama | listed above | a fresh module per case | all |
+| `fm/init`, `seed-permissions`, `step`, `drain`, `read-as-of`, `now`, `answers-for`, `all-facts`, `readable?`; `scenarios/play`, `a-cases`, `b-cases`, `d-cases` | model | model.clj, scenarios.clj (public) | the lockstep and the model's lines | all |
+
+Gaps the build must close or record (found while planning): P4's list of
+changes to earlier stages (L803-824) does not name `rig.store.inject`,
+though its tests need `hold!`, `release!` and the new points; P4 gives no
+argument list for `lease-landing!`, `promote!` or `promotion-status`; P3
+names no function for pausing its topology (Rama's is used) and no hold
+between a batch's decision and its commit (so D1 is approximated).
+
+## The template's sections
+
+- **Reads.** None new. The adapter reads through the stages' own reads,
+  listed in the table above; their costs are their plans'.
+- **Writes.** None new. Every write is an act through the door, as a
+  person or the operator would send it.
+- **PState Design.** Does not apply: the adapter declares no PState.
+- **Depots.** Does not apply: it appends only to the stages' depots,
+  through the door.
+- **Topologies and PStates.** Does not apply: no topology; it pauses and
+  resumes the micro topology in B3 and B4 only.
+- **Query Topologies.** Does not apply: it calls the stages' queries.
+- **Partitioning efficiency.** Does not apply: no read or write path of
+  its own; the stages' tables stand.
+- **State primitive selection.** The adapter's state is test-local
+  Clojure data (the model's state, the correspondence, the report lines);
+  nothing durable, nothing in the module.
+- **Resource usage.** One in-process cluster, four tasks, two threads, one
+  module at a time; the model's states are a few kilobytes each; run time
+  as estimated above.
+
+## Design decisions
+
+1. **Send at the model's decision, not at its send.** Weighed against
+   playing the history in its own order (send when the model sends, wait
+   when the model works). That order decides every rig offer at once,
+   before the model does: B1's first read would show the forget. The
+   lockstep keeps the model's order of decisions and reads, which is what
+   the history means; its cost is a diff of the model's state per op,
+   through public functions only.
+2. **A fresh module per case**, weighed against one module with a fresh
+   world per case and against one world for all. Forgetting is permanent
+   and the base is one per module, so one world leaks; a fresh world per
+   case needs renamed layers and the micro helpers name `:group` and
+   `:base`. A fresh module keeps the model's names as the rig's, at the
+   cost of fourteen launches; the fallback is named for when that cost is
+   too high.
+3. **Two observations**, weighed against the exit alone. The model's
+   `readable?` belongs to nobody; the exit reads for a person and cannot
+   read for a forgotten one (KD10). `:values` uses the store's own opening,
+   reads use the exit, and both are printed, so KD10 is visible instead of
+   turning into false "differs" lines.
+4. **Holding continuations with hooks the stages already plan** (phase
+   4's hold, Rama's pause), weighed against new hooks in the gates. The
+   replay adds no hook to the store. Where no hook exists (D1's commit),
+   the case is approximated and says why.
+5. **Known differences as data, unknown ones failing the test**, weighed
+   against a report-only run. A report nobody asserts on drifts; a test
+   that fails on every difference cannot stay green while the leases stand.
+   Attributing each difference by rule keeps both: known differences
+   print, new ones fail.
+6. **Names found at run time** (`requiring-resolve`), weighed against
+   plain requires. Plain requires would stop the whole namespace compiling
+   until phase 4 merges; the standing practice needs it to run at every
+   step.
+
+## Rig choices proposed
+
+Each can change without touching a record.
+
+- **RP1.** Replays play in lockstep with the model, each rig act sent at
+  the model step that decides its counterpart.
+- **RP2.** A fresh module per case on one in-process cluster, four tasks,
+  two threads; the named fallback when relaunching fails or is slow.
+- **RP3.** `:values` compares the store's own opening; reads go through
+  the exit; both are printed.
+- **RP4.** A read-out is held by phase 4's `:before-read-out` hold and a
+  resend; a landing by pausing the micro topology, with the
+  `:before-forward` hold as fallback.
+- **RP5.** D1's prepare and commit play as one batch, marked approximated.
+- **RP6.** Writers' sessions: `:alice-hand` for Alice (her hand layer's id)
+  and `:bob-session` for Bob, a session id with no layer, since the
+  model's world gives Bob none.
+- **RP7.** The test fails on a baseline `:values` or `:shown` difference
+  and on any difference no known difference explains; the attribution
+  rules are data in the namespace.
+- **RP8.** `runs/phase8-replays.txt` is rewritten by every run, with the
+  header above.
+
+## Design difficulty log
+
+- **The model queues; the rig's door waits.** The first design played
+  the history in its own order and read as the model reads; tracing B1
+  showed the forget decided before the first read. Changed to the
+  lockstep. Every later choice leans on it.
+- **Who reads.** The model's read has no reader; the exit needs one, and a
+  forgotten one cannot lease its entry. Found by tracing A1's closing read
+  against P2's `:person-forgotten` lease refusal (P2 L1716-1726) and P5's
+  entry being sealed like any value. Split into two observations rather
+  than calling six cases "differs".
+- **D1's split.** Found that the model records D1's answer only at commit,
+  though it decided it at prepare (model.clj `micro-prepare` keeps the
+  decision in `:prepared`); a lockstep reading only recorded answers would
+  have sent the rig's write after the revoke. The adapter reads the
+  prepared delta at `[:prepare]`.
+- **B4's landing lease.** Not settled by any plan read here: whether
+  Alice's forget leaves her landing lease openable. Carried as a risk with
+  both outcomes' lines stated, rather than predicted either way.
+
+## Self-validation
+
+Against `references/artifact-plan-validation.md`: its module checks
+(query topologies, PState schemas, partitioning, topologies, production
+readiness, internal depots, cross-topology and stream correctness,
+in-memory state, minimality and throughput of a module) do not apply to a
+plan that adds no module part; each was read and has nothing to check
+here. Its spec coverage, traced:
+
+- *"replay the model's fixed histories from scenarios.clj through the
+  rig"*: all fourteen are listed with their rig plays; none is left out,
+  and a step kind with no row stops a history rather than being skipped
+  inside it.
+- *"compare answers and reads with the model's"*: answers name by name
+  through the correspondence; reads at every model read and the closing
+  read, per fact of the case, plus `play`'s own comparison.
+- *"Where practical"*: the three classes, each case predicted and why, and
+  "not practical" named per missing API rather than silently skipped.
+- *"Report every difference; a difference is a finding, not something to
+  hide"*: the eighteen known differences print by number in the cases
+  they touch, predictions print when not seen, and an unexplained
+  difference fails the test while its line is still written.
+- *"a standing practice at every step"*: the namespace compiles and runs
+  before phases 2 to 5 merge, reporting what it cannot yet play.
+- The ask's five parts: the adapter and the world as data (above); the
+  known differences, including the four named in the ask and "For Sid" 1
+  (KD1 to KD5, KD6 added); the report (above); how it runs (above); the
+  APIs by stage (above).
+
+Knock-on checks after the lockstep change: the holds are keyed to "the
+model decided the next part in a later op", which the lockstep supplies;
+the closing read follows `drain`, as `run` does; the model's picks come
+from its sends, so no index is re-resolved on the rig.
+
+## Open questions
+
+For the build's first check:
+
+1. Does `destroy-module!` and a second `launch-module!` of `Store` in one
+   in-process cluster work in Rama 1.6.0, and at what cost? (RP2's
+   fallback otherwise.)
+2. Does pausing the micro topology block anything the model decides while
+   a landing is held? In B3 and B4 those are stream-side (a value forget
+   in `:alice`; a person forget in `:people` and its fan-out). If the
+   fan-out reaches a copy of `$$persons` through the micro topology, the
+   pause would block it, and the `:before-forward` fallback is used.
+3. `promote!`'s arguments: can the request's name be known before it is
+   sent, so `hold!` is armed on it?
+4. Is the group readable through the exit by then (phase 5's rest)?
+
+For Sid, none blocking, each with what the replay does meanwhile:
+
+5. KD10: after a person's forget, nobody can read their layers through the
+   exit, and they cannot read at all. It follows from defaults 1 and 3 and
+   P2's L11; the model's read, being nobody's, shows erased dates. Is that
+   the intended reach of forget? The replay reports it every run.
+6. B4 at risk: does a person's forget reach the landing lease of a
+   promotion already read out? The model says the copy lands (the forget
+   is after the read-out, so it does not recall); the rig's answer rests on
+   For Sid 4 (lease rows sealed under their writer). The run shows which.
