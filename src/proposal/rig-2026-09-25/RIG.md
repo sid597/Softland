@@ -137,12 +137,28 @@ handoff.
     would, with a restore replaying the forgets after its rebuild.
     Placement: acceptable tonight as a named rig choice (RR5), not as the
     store core's (For Sid 29).
+  - Phase 6's plan, tools and grammars (`PLAN-tools-and-grammars.md`),
+    written, put through the caching examination, and validated:
+    minor-fail, thirteen fixes in place
+    (`PLAN_VALIDATION-tools-and-grammars.md`, 04:00), merged here. A key's
+    grammar is a control fact in the layer it governs, projected into a
+    per-key row the layer's gate reads in its own event; a tool is an
+    ordinary fact (what it matches, its signature, its read-entry
+    preference, the permission it acts under, a recipe of named steps over
+    a vocabulary with formulas in the leaves); the runner is operator code
+    beside the door and the exit, reading as the tool and offering its
+    outputs under the tool's permission, with names derived so a rerun is
+    a retry and a static check against loops. Predicted machinery count:
+    25 built tonight, 11 of the kind the frame promised, 5 nobody
+    anticipated, 9 capabilities; the build takes the real count. Among the
+    fixes: a tool could have named any repository on the host for the
+    runner to read into the store, now a literal from the operator's
+    configuration, empty by default (F13, For Sid 33).
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`) and phase 3
   (`Softland-rig-build-micro`,
   which merges phase 2's lock primitives from an early commit of
-  `rig-build-locks`); the validation of phase 6's plan
-  (`Softland-rig-plan-tools`), after the caching examination below.
+  `rig-build-locks`).
 - **Next:** the merge of wave 1 in its own worktree, with the seams wired;
   then phases 4, the rest of 5 and 6 built side by side; then phase 8's
   replays; then phase 7's numbers on the finished store. Carried into the
@@ -351,6 +367,16 @@ everyone including the past"?
 30. **A read paging across a micro commit** can show one erasure of a batch
     and not another from the same batch; a case of 19's exposure at the
     edges, left as it is.
+31. **The formulas in a recipe's leaves.** Tonight's six (`:lit`, `:in`,
+    `:got`, `:count`, `:str`, `:map`) against docs/decisions.md's "a designed
+    total language, never runtime code, asked of Sid then".
+32. **A tool's lease and its output's stamps.** Tools lease as the
+    operator tonight, bare; under default 5 the lease becomes the session
+    owner's. A tool output's claimed-when is derived from what it stood on,
+    and its name from the layer, the tool and the match (first-record),
+    so a rerun is a retry.
+33. **Which repositories a tool may read.** A literal from the runner's
+    operator configuration, empty by default.
 
 ## Defaults taken overnight, not ruled
 
