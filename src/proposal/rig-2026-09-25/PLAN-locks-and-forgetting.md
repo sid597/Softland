@@ -381,8 +381,8 @@ cites only lock ids it took from a lease's answer (see "The missing lock").
   the PStates themselves. `*lock` is the 32 lock bytes, or nil for missing.
   `*layer` is the offer's layer; a lock id whose lease name names another
   layer is missing, so a lock is only ever used in the layer it was leased
-  in (the orchestrator's form, lock id, session and the task's state, with
-  the layer made explicit).
+  in (the interface agreed for tonight, lock id, session and the task's
+  state → the lock or missing, with the layer made explicit).
   Total: nil on any failure, never a throw. PStates are reached through
   `<<with-substitutions` (dataflow.md; module-scoped PStates in a
   `deframafn` body) or passed in; no partitioner inside.
@@ -413,7 +413,7 @@ cites only lock ids it took from a lease's answer (see "The missing lock").
 At decision, per value fact: its own subjects (owner ∪ grammar over the
 opened plaintext ∪ carried, "The shapes") → its wrap by the table (owner
 required in one-owner layers; 7b among the other subjects; `:die-with-any`
-makes every subject required) → `(locks/wrap K wrap persons)` → the lock
+makes every subject required) → `(locks/wrap K wrap persons nonces)` → the lock
 record, written as the value's lock row `[layer :locks lock-id]` in personal
 and hand layers or under `:own-row`, else into the row's `:lock` (agent
 sessions; group layers and the base are stage 3's). Per-act grain: the one K
@@ -542,8 +542,10 @@ widened), checked after every forget in `forget_test.clj`:
   writes is the decision's stamp taken from it (the answer, `:by-stamp`, the
   ledger's `:stamp`, a person's `:erased-at`); a date is shown by the
   clock's own unpacking, never by arithmetic here.
-- **`rig.store.locks`** (this stage): `(seal K plain) → sealed`, `(open K
-  sealed) → plain | nil`, `(wrap K wrap persons) → lock record | nil`,
+- **`rig.store.locks`** (this stage): `(seal K plain) → sealed` (its own
+  fresh nonce; the door's form) and `(seal-with K plain nonce)` (pure; the
+  gate's form, nonces bound before `decide`), `(open K sealed) → plain |
+  nil`, `(wrap K wrap persons nonces) → lock record | nil`,
   `(unwrap record persons) → K | nil`, `(value-digest K plain) → 32 bytes`,
   `(lease-ids name n)`, `(unlease row person-entry)`, `deliver-lock>` above,
   and `open-value>`: `(open-value> *layer *fid *T :> *r)`, a `deframafn` on
@@ -953,8 +955,8 @@ person fan-out at the end:
    branches that do not read it, so the attach point unifies (dataflow.md;
    [F7]).
 7. Fresh randomness, bound before the pure decision: `(locks/fresh ...)`,
-   n locks for a lease, one person lock for a `:person` fact, and the nonces
-   the re-wraps' seals take. A `defn` over `SecureRandom`; never
+   n locks and n nonces for a lease (its rows' seals), one person lock for
+   a `:person` fact, and the nonces the re-wraps' seals take. A `defn` over `SecureRandom`; never
    `ops/random-uuid7` or any generator inside `decide`, which stays pure and
    total. The value locks themselves are not fresh here: they are the
    delivered ones.
@@ -1675,7 +1677,11 @@ Added 26 September, for the lease road (tonight's default, not a ruling):
   fact's row, for a yes only.** Why: R1's rider; one act digest keyed by
   one lock would still confirm another forgotten value of the act to a
   holder of the first lock; lock ids in the parts digest make a resend's
-  cited lock the recorded one.
+  cited lock the recorded one. The HMAC is keyed by the lock itself, the
+  rider's plain reading; one lock then keys both AES-GCM and HMAC-SHA256.
+  A kept store may derive a separate MAC key from the lock (HKDF), which
+  changes the digest's bytes: that derivation is part of this
+  first-record pick.
 - **L27 (first-record: the recorded reasons' names). The refusal order:
   stage 1's structural face refusals and `:not-sealed`; the record path;
   `:no-such-lock` at the delivery, on the face; then, recorded, stage 1's
