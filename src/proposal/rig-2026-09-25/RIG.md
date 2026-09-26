@@ -808,6 +808,38 @@ not run:* no case in the merged suite would have failed without the fixes,
 since none writes a grammar into the base before a landing or opens a
 standing `[:kv]` read of another key.
 
+**Phase 7's D1 measured the door, not the gate** (`BUILD_NOTES-numbers.md`,
+"What the run showed that the plan did not expect", 1). In all three runs
+number 1's rate flattened from 64 writers to 128 with the home task's
+thread under 60% of a core, so D1 ran: the door's pool stocked with about
+43,000 locks (165 to 171 lease acts of 256, in 2 s), then 128 writers got
+1.1 acts a second, every act yes and no lease in the window, while the home
+thread idled at 1.5%. The door's `take!` (`client.clj`) sorts its whole
+pool by the lock ids' text on every offer, under the door's lock, so with a
+pool that large each offer waits about a second on the sort (*derived* from
+the code and the rate; the sort was not timed). So the gate's own ceiling
+is not measured: at every writer count the home thread stayed at or under
+62% of a core, and what limits number 1's A and number 3's (b) at high
+counts is on the client's side of the depot, the door's one lease at a time
+and its locking (*derived*). A door that takes a lock without sorting the
+pool, then D1 again, would measure the gate (For Sid 86).
+
+**The one-writer tail is not the lease alone** (the same, 2). At one writer
+the offers that carried no lease have a p99 of 15.3 ms, where the slice's
+p99 was 4.72 ms: one offer in 100 waits about 15 ms with no lease in it.
+The cause was not measured (D3's strace road did not run); the disk flushes
+of the replication log and RocksDB are a hypothesis, not a finding (For Sid
+87).
+
+**Rama's `thaw` accepts references to nested subindexed structures** (the
+same, 6; phase 7's first attempt). It returns a `ReferenceID`, whose lookup
+of an undeclared key throws, which ended T7's pick of lock rows; the plan's
+F9 expected `thaw` to refuse them. The harness now classes such values
+total and never picks them; none was a lock row. The same attempt found
+that on this kernel Java's `FileInputStream.available` throws on /proc
+files, so the machine record had no CPU or RAM (T9). Both fixed in
+`cc011a22`.
+
 ## For Sid
 
 Questions that would touch a record, each with what the build does meanwhile;
@@ -856,7 +888,21 @@ added later sits in its group under the next free number.
    secret), which a standing read's opening line records; `entry-facts`,
    which builds every entry, one-owner or shared, still records the plain
    pattern, as the review's block observed again on the merged tree
-   (`runs/wave2-suite.txt`).
+   (`runs/wave2-suite.txt`). *Step R:* built, keyed in every line (R104):
+   `entry-facts` records the answer's `:recorded-pattern`, `[:kv k {:keyed
+   hex}]`, in every `:read/pattern` line, one-owner and shared; Alice's
+   entry after `:rv-b`'s forget reads `{:pattern [:kv :note {:keyed
+   "0d07..."}] :exact [[fid stamp]]}`. The line form and its label,
+   `softland.read-pattern/1`, stay the rest of phase 5's first-record
+   placeholder, now carried into every line. The fact to add: keyed stops a
+   reader reading the value off a line, not confirming a guess. The module
+   keys any `[:kv]` read's value the same way, so a reader who can read an
+   old line can issue `[:kv k guess]` against a layer she can read where `k`
+   is indexed by value (the answer need not match anything) and compare her
+   new line's digest with the old one; for a short value that confirms a
+   forgotten value. The forms that confirm nothing: keep nothing of the
+   value (the line cannot re-run), or key it under a salt the reader cannot
+   choose again (the entry's own name, if the module mints it). Which?
 5. **Promotion's forms**, PR1 to PR5 in `PLAN-promotion.md`: the request
    fact and its value; the crossing act and its recorded refusals; the
    landing's name carrying the target's class, and the envelope's
@@ -917,7 +963,11 @@ added later sits in its group under the next free number.
    the runner's read entries (the operator's `[:k :tool]` line with role
    `:stood-on`, each tool's match read with role `:matched`); T-FR7, a
    grammar lives in the layer it governs. The micro side is step 6b's (For
-   Sid 65).
+   Sid 65). *Step 6b:* built on the micro side with T-FR1 to T-FR3
+   unchanged and no new kept record slot or wire part; the micro record
+   gains nothing, and "the latest grammar before its batch" stays derivable
+   from the layer's log and the records' `:batch`, across both eras' logs in
+   a re-classed layer (`REVIEW-6b.md`, T-FR3).
 8. **A passage's grain** (round three's). Top-level list items are
    passages; nested items stay inside their parent's block, and `read-span`
    reaches any line range. Unit positions are counted in UTF-16 units and a
@@ -989,7 +1039,23 @@ validation:*
     :owner)` admitted as plaintext on another entity at the stream gate,
     and `:owner` at the micro gate (`runs/wave2-suite.txt`). Phase 6's
     `:grammar` is a control key the stream gate acts on, projected into
-    its row; the micro gate refuses it until step 6b (R88).
+    its row; the micro gate refuses it until step 6b (R88). *Step R:*
+    built, road 1 at both gates and both doors (R102, R103), as this entry
+    said the build would; road 2 stays the alternative. *Where the rig
+    differs from the model:* the model has no `:kind` or `:owner` key (a
+    fact under either is a sealed value there), and its `apply-control` acts
+    on `:class` and `:lock-grain` whatever the fact's entity (model.clj 467
+    to 470); the rig refuses all four about another entity. The model's own
+    acts put every setting fact on the layer's entity (`op-layer-setting`),
+    so no fixed history shows it. *Step 6b:* the micro gate acts on
+    `:grammar` too (R108). *The sub-question (O1), sharpened by step R's
+    plan validation:* every admitted control-key fact is now one its gate
+    acts on, in its place, which is not the same as holding no text. A
+    `:grammar` value's shape may carry strings (`[:enum v ...]`, up to 64
+    EDN values, `shape.clj`), and a promotion request's `:public` is 32
+    bytes the requester chooses; a forget of either answers yes with `:how
+    nil` and erases nothing. Should such a forget be refused, and may a
+    grammar carry text?
 38. **Whose permission an agent's read entry is written under** (possibly
     first-record; `PLAN_VALIDATION-numbers.md`, For Sid 2). Found while
     tracing phase 7's variant C, from the code, not run: the read exit
@@ -1075,6 +1141,85 @@ validation:*
     fact either way; a drop of n entries records n acts. Keep one per act,
     or allow a forget act of many targets?
 
+*From the full-spec review (`REVIEW-full-spec.md`; each finding reasoned
+from the code, not run):*
+
+71. **A read entry into a re-classed working layer** (first-record; the
+    review's H-1, high). Every act the read machinery writes into the
+    reader's working layer is built for the stream gate, `:class
+    :by-layer`: the read entry and each standing-read line, a session close
+    with `:reads` and each dropped entry's forget, and a tool run's name
+    (T-FR5). Once a layer that is someone's working layer is re-classed to
+    the micro gate, the stream gate refuses them `:class-mismatch` (or the
+    entry `:no-such-lock` on its face, after a refused lease), so the exit
+    shows that reader nothing, entries recorded before the re-class can no
+    longer be dropped, and a tool run there is refused `:mis-tagged`. An
+    agent session writing continuously is the hot layer ruling 2's re-class
+    exists for, and default 4 records its reads in it. The review's
+    question: should a read entry, a standing-read line, a drop's forget and
+    a tool run follow the working layer's class and gate, named
+    `:by-entity` through the micro door once the layer is re-classed? It
+    changes FR3 and FR4 (For Sid 3) and T-FR5's name. Phase 7's workloads
+    never re-class; H-1 qualifies number 3's verdict, whose way out is
+    re-class ("Numbers so far"). *A fix step is building*
+    (`rig-build-spec-fixes`); its status comes with its landing.
+72. **A micro value answered yes and then written with no lock**
+    (first-record; the review's M-1, medium; PV-F6). Block 2b reads
+    `$$persons` again to wrap the lock, a read at a moment that can differ
+    from block 1's: a person forget's fan-out child can run on the task
+    between the two blocks. If the lease act's writer, or every person the
+    wrap needs, was forgotten in between, the value's row is written
+    `{:lock nil :digest nil}` with its lock id and no ledger entry, and the
+    answer stays yes; every read of it then shows `{:unreadable
+    :does-not-open}`, never "erased on" a date, which cannot be recovered
+    later, and the person purge never finds the row. The stream gate cannot
+    race so, since it reads, decides and writes in one event; the model
+    dates such a value by the forget (scenario A3). The review's questions:
+    should the row carry a ledger entry dated by the forget that closed it,
+    so it reads erased on that date, or should the micro gate refuse such a
+    value as the stream gate does? And should a value leased under a person
+    forgotten before its lock was made survive, as A3 would have it? *A fix
+    step is building* (the same); its status comes with its landing.
+73. **Visibility is compiled code, where ruling 9 says seeded policy facts**
+    (first-record; the review's M-2, medium). Ruling 9: "Default
+    visibility: base open to any authenticated actor; a person's own and
+    session layers private to that person; group layers visible to the
+    group's members. Seed policy facts, so a store can differ." The build
+    decides it in code (R106, the read exit's RC6): `visible?` in
+    `reads.clj` for the one-owner exit and in `shared_reads.clj` for a
+    group; nothing under `src/` writes or reads a policy fact. The pick was
+    made in the read exit's plan and had not reached this file before the
+    review. A store whose first record holds no policy fact decides every
+    read taken before those facts exist by code, and the entries of those
+    reads are kept. Phase 6's count asks only about one tool and one
+    grammar, so it does not show this fixed-side piece either. Seed policy
+    facts now, as ruling 9 says, or accept RC6's constant for the store
+    core?
+74. **A refused act's answer record keeps whom its values named**
+    (first-record; the review's L-1, low). The value checks run for every
+    act whose locks were delivered, before the decision, and the answer
+    record's `:subjects` takes their union for a no as for a yes
+    (`gate.clj` `answer-record`; at the micro gate `record-subjects`, except
+    for `:too-many-subjects`). So an act refused after its locks were
+    delivered, say `:permission-revoked` or `:stale-replaces`, keeps in
+    plaintext every person its values' grammar names, though its values
+    open nowhere, and no forget reaches it. The model's answer has no
+    subjects; For Sid 17 raises plaintext subjects for admitted acts only.
+    Should a refused act's record keep the subjects its values named?
+77. **The group's rule of ruling 7b, and a member's forget of a group
+    value** (first-record; the review's L-4, low; IMPLICIT_SPEC OP12, O17).
+    Ruling 7b: a group value "dies by a mark at write or a group's rule";
+    its second consequence: "A group member cannot forget one value in a
+    group layer themselves unless the group's rule requires the mark on
+    write; otherwise it is an excision." Built: no group's rule is stated or
+    read, and every forget at the micro gate is the operator's (M14), so a
+    member can never forget a group value, marked or not. The model has no
+    group rule and the D cases need none, so the replays cannot see it. The
+    rule decides how a group's values are written (with the mark), and a
+    value written before the rule exists keeps no mark. Build the rule, and
+    a member's forget of a marked value? (For Sid 41 raises only the
+    owner's forget after a re-class.)
+
 **Windows where a forget does not reach at once.** Is each inside "gone for
 everyone including the past"?
 
@@ -1106,8 +1251,48 @@ everyone including the past"?
     delivered (phase 5's question 6): its reader learns of the erasure only
     at the next full read, which shows the fact erased. Built so.
 
+*From step R (`BUILD_NOTES-review-fixes.md`, its new questions) and the
+full-spec review:*
+
+69. **Should the door check a control value's shape before it appends?**
+    The honest door appends a control fact's value as given. When its shape
+    is wrong (free text under `:forget`, `:permission`, `:promote-request`
+    or `:crossed`, or `:members` sent to the stream gate) the gate refuses
+    it, but the text is already in the depot, beyond every forget (the
+    review's namespace prints these depot copies as OBSERVED). Closing it
+    means the door runs the gates' shape rules on every control fact before
+    sending, which changes the door's road for every control fact and moves
+    the tests of the gates' refusals, which send through the door, to the
+    raw road. Not built: step R's doors refuse only a misplaced setting
+    (R103).
+70. **A client that is not the door can put its own text in a depot.** The
+    gates refuse it and keep no row, but the depot keeps the record, and the
+    refused name's answer record keeps the act's parts digest (keyed, over
+    the act, control values included). The same holds for a plaintext value
+    fact from such a client, refused `:not-sealed` on its face. It is the
+    depot's nature, every append kept until a trim; the forget ruling
+    reaches what the store admitted. Named, not built; it sits beside For
+    Sid 50 (a caller identity for the door's road).
+75. **The one-owner value index keeps each value's text as its address**
+    (the review's L-2, low; not first-record, indexes being rebuildable).
+    For every key a layer's grammar indexes by value, each value's
+    canonical text is part of a PState key (`:ix-kv`, `reads.clj`
+    `address`) on the layer's home, where the shared store keeps a keyed
+    digest (`reads/kv-digest`, the reads-rest plan's F12). A forget purges
+    it, so no read finds it again, but a deleted key stays in RocksDB's
+    files, on every replica, until compaction. For Sid 25 names that reach
+    for a destroyed lock's bytes, which open only the sealed copies; here
+    the leftover is the value itself, and it needs no lock. The keyed form
+    loses nothing, since a `[:kv]` read is an exact prefix either way. Key
+    the one-owner value index as the shared one is?
+
 **Where the rig differs from the model** (phase 8 reports each; the KD
 numbers are its own, `BUILD_NOTES-replays.md`):
+
+*Pass 3* played all 14 fixed histories on the merged tree, 14 as the model
+says, and shows these case by case as before: KD1 in D1 and D2 (14), KD2 in
+every case and KD3 and KD4 in the four B cases (16; KD5's re-sent forward
+was not exercised), KD10 in A1, A3, A6, B2 and B4 (28).
 
 14. **A lease needs the write permission** (phase 8's KD1). A lease act is
     an act in the layer, so a value act from a writer without permission
@@ -1231,7 +1416,8 @@ numbers are its own, `BUILD_NOTES-replays.md`):
     `*index-ops`, and `:put` can plant a copy of a row's record lock at an
     address no purge visits: the open step still shows the value erased,
     but the copy stays in the store. Built: as found; the rig has no
-    caller identity (R28).
+    caller identity (R28). *Step R:* a client that is not the door can
+    also put its own text in a depot (For Sid 70).
 
 *From wave 2's build notes (phase 4, the rest of phase 5):*
 
@@ -1258,6 +1444,29 @@ numbers are its own, `BUILD_NOTES-replays.md`):
     them. "A read as of a moment shows nothing admitted after it" then
     holds on such a layer for its micro era only. Built so.
 
+*From the full-spec review:*
+
+76. **A copy of a lock row in a shared index entry** (the review's L-3,
+    low). An index entry whose row keeps no `:lock` takes a copy of the
+    value's lock row (`shared_reads.clj` `entry-of`), so every value of a
+    re-classed personal or hand layer, and every `:own-row` value in a
+    shared layer, has its wrapped lock on the layer's task beside the lock
+    row on its entity's task. `PLAN-reads-rest.md` named this reading of
+    the rig constraint "lock rows sit on the same task as their values"
+    for Sid, and it had not reached this file. A value forget reaches both
+    copies in one batch, and after a person forget the copy no longer
+    opens, so no forget window opens (checked by reading). Is it a reading
+    Sid accepts?
+78. **README.md and five sections of this file described the rig as of 25
+    September** (the review's L-5, low). Brought up to date at the final
+    fold: README.md's status note, "At a glance", "What exists" and the
+    appendix, with dated notes where its other sections had gone stale;
+    here, "Status, 25 September, evening" and "Status after phase 1"
+    (marked as history), "Numbers so far" (the finished store's numbers,
+    the slices' kept as history), "The skill's artifacts so far" and "What
+    is next". Nothing to rule; listed so the review's five lows are all
+    here.
+
 **From the caching examination** (`EXAMINATION-copies.md`):
 
 23. **Where a key's grammar lives.** Built: per layer, a fact in the layer
@@ -1266,7 +1475,12 @@ numbers are its own, `BUILD_NOTES-replays.md`):
     every gate, changes the record: every decision would name the grammar
     version it used. Which? *Built (wave 2, stream side):* per layer
     (T-FR7), with no grammar version on a decision (T-FR3); phase 6's plan
-    asks it as its Q1.
+    asks it as its Q1. *Step 6b:* the micro side too, derived from the
+    layer's history before the batch. 6b's notes leave both questions to
+    edition one: does it keep grammar authority per layer, or adopt another
+    layer's grammar through stood-on facts (For Sid 58)? And must a decision
+    record a grammar version, or is derivation from the layer's history
+    before its batch enough?
 24. **The person lock's scheme.** Built: symmetric, the original replicated
     to every task. Public-key would keep the secret in one place for
     everything but opening, at about 120 times the cost of a wrap, and
@@ -1388,7 +1602,17 @@ answered none of them; Q1, Q4 and Q10 are For Sid 23, 26 and 33):*
     "`$$layers`' rows on a miss" half of the rule phase 6's notes propose
     for 6b ("Phase 6b"), whose open question is how block 2b gets the
     grammar in force before the batch. Whether phase 7's runs may count the
-    store finished without 6b is builder C's call.
+    store finished without 6b is builder C's call. *Built after all
+    (`dee0320a`):* Sid's Codex session built step 6b from `STARTER-6b.md`,
+    and every place listed above now reads the rows or what block 1 carried
+    (R107 to R111): `:grammar` is in `micro/control-keys`; the two opens
+    take the rows' grammars and the saved subjects; the shared reads'
+    digests, index writes, pages, parse and deltas take the effective rows.
+    `rig.bench.lock-slice` keeps its own `:mention`, the isolated phase 2
+    experiment (For Sid 85). Phase 7's minimum set ran on 6b's tree, so the
+    question of counting the store finished without it did not arise. The
+    count's micro side is under "The machinery count so far"; 6b's review
+    is For Sid 79 to 84.
 66. **`reads/placed-by-layer?` has no caller in `src/`** since the rest of
     phase 5 removed the `:re-classed` refusal; only `reads_test.clj`
     (220-221) calls it, and its docstring still says "refused
@@ -1396,12 +1620,195 @@ answered none of them; Q1, Q4 and Q10 are For Sid 23, 26 and 33):*
     and its test?
 67. **`locks/delivered-context`'s 3-arity has no caller** (R95, W2-1). It
     takes the compiled constant, as `value-context`'s 3-arity does, which
-    phase 2's pure tests call. Left in place: delete it?
+    phase 2's pure tests call. Left in place: delete it? *Step 6b* keeps it
+    among the legacy arities its notes list (For Sid 85).
 68. **`rig.store.promote-flow` defines `continue>`**, which shadows Rama's
     `continue>` in that namespace: every load warns that `continue>`
     already refers to `#'com.rpl.rama/continue>`. Nothing there uses
     Rama's (no `loop<-`), so it is harmless today; a `loop<-` added to that
     namespace would call the wrong op. Left as built: rename it?
+
+*From step 6b (`BUILD_NOTES-grammar-micro.md`) and its review
+(`REVIEW-6b.md`, by reading, not run):*
+
+79. **The machinery count's unit rule** (IMPLICIT_SPEC O21 leaves it open).
+    As built the count is 33 (12 promised, 11 unanticipated, 10
+    capabilities), its micro side 4. Counted by one unit rule throughout,
+    each plan row's micro half a unit as the ledger already counts b1's,
+    the review gets 35 (14, 11, 10), its micro side 6: a1, a4, a8 and a9
+    promised, b1 and b4 unanticipated. It would also name the fourth unit
+    "b1, micro half (planned under V-F4, deferred by D-P1)", and class W2-3
+    promised, by `PLAN-reads-rest.md` line 1424 ("Phase 6: `seed-hints`
+    becomes the keys' grammar facts, for both stores' indexes at once"), as
+    the notes class the micro half; the same argument reaches W2-1. Both
+    readings are under "The machinery count so far"; the ledger keeps its
+    classes until the rule is ruled. Which unit, and which class rule for
+    what a merge found, should the count use?
+80. **A micro miss always reads `$$layers`** (REVIEW-6b L-1, low; kept
+    record: no). The effective key row reads the `$$micro` row and, when
+    it is absent, `$$layers` (R108). A group has no stream era, yet every
+    miss pays that second seek. A re-classed layer's keys used in its
+    stream era never get a micro row unless a micro-era grammar for them is
+    admitted, since a yes composing on a stream row that says `:used`
+    writes nothing; so for the life of the layer every act using such a key
+    pays a miss and a hit on hash(L), each shown row the same in
+    `micro-marks>`, and a `[:kv k]` read three seeks. Re-class is the way
+    out for a hot layer, and hash(L) is the one task every act's layer
+    visit lands on. Two line edits close the group case (skip the fallback
+    for a layer with no stream era; give W2-3's check the row already read).
+    **For the re-classed case the only cheap remedy, writing the stream row
+    into `$$micro` to save the read, is caching**: the project's rule
+    (CLAUDE.md, "Systemic repair and caching") sends it to an adversarial
+    examination in a fresh session before anything is built. Not done
+    tonight. The structural question underneath belongs to the re-class
+    design, not to 6b: should a re-classed layer's projections (key rows,
+    settings, permissions) move to the micro store at re-class, since the
+    micro gate orders the layer from then on? Phase 7's workloads never
+    re-class, so its numbers do not see this.
+81. **The rebuild's new helpers lost the try/catch the old ones had**
+    (REVIEW-6b L-2, low). `shared_reads.clj` `rebuild-facts` and
+    `rebuild-writes`, called by the put and sweep pages, run inside the
+    micro microbatch topology, where the helpers they replace
+    (`put-row-writes`, `implied-writes`) caught a throw and returned no
+    writes. A deterministic throw there would fail every retry of the batch
+    and stop every shared layer's gate, not only the rebuild. Traced by
+    reading, no input throws today. The fix is to wrap each body as the old
+    ones were; not done tonight (the review fixes nothing).
+82. **A client with no permission in a layer can keep a key's first
+    hint-setting grammar refused** (REVIEW-6b L-3, low; kept record: the
+    reason on a recorded no). The gather counts a use for every offered key
+    before any permission check (R110, chosen so a use counts "even when the
+    use sorts later or fails permission"), so one unsealed retract a batch
+    from anyone, for a key still unused in the layer, keeps a grammar that
+    sets a hint on it (`:by-value`, `:no-copy` or opaque) refused
+    `:grammar-change-needs-rebuild`, and recorded so, whether it comes from
+    the operator or a re-classed layer's owner, for as long as the sender
+    keeps sending. The refused envelope writes no row and no index entry,
+    so F4's reason does not need it counted. Keep the pick, or count a use
+    only from an envelope whose permission could pass under the pre-batch
+    rows (or whose pid another envelope in the batch grants)?
+83. **More reaches the micro leader than the fold needs** (REVIEW-6b L-4,
+    low). The grammar rows ride every emission after the paths rejoin, so
+    an act touching E entities sends its key and use rows E times to the
+    global aggregation (keyed there, so the fold sees each once); and the
+    skeleton that goes to task 0 now carries each value's `:subjects`, which
+    only block 2b uses, and 2b reads them from the materialized data. They
+    are person ids, not values or locks, so M3's rule holds: data
+    minimization, not exposure. The fix: the rows in the first emission
+    only, as the name's rows are, and the subjects a materialized field of
+    their own.
+84. **Two of 6b's plan's falsifiers hold by construction, with no test**
+    (REVIEW-6b L-5, low): the refusal branch of the micro `delta>` (a
+    group's standing `[:kv k]` read, where k's grammar stops indexing it
+    before its first use, should next be refused `:not-indexed`), and that a
+    recorded retry never changes a key row (by the code only a fresh yes
+    reaches `key-row-writes`). The behaviour is right; the evidence is
+    missing.
+85. **What step 6b kept in source** (its notes, "Retained, not deleted"):
+    "grammar/grammars; the legacy arities of locks/read-values,
+    value-context and delivered-context; micro/arrival-open and row-wraps;
+    shared-reads/kv-digests; reads/seed-hints/current-hints and the old pure
+    rebuild helpers." The store's production paths now pass rows, hints or
+    saved subjects explicitly; the compatibility callers are pure fixtures
+    (For Sid 67 is one of them). `rig.bench.lock-slice` keeps its own
+    `:mention`, the isolated phase 2 experiment, not a measurement of the
+    finished store; phase 7's harnesses write grammar facts. Left in place,
+    not deleted: remove them in a separate cleanup?
+
+*From phase 7's run (`BUILD_NOTES-numbers.md`, "What the run showed that
+the plan did not expect"):*
+
+86. **The gate's own ceiling is unmeasured.** Number 1's D1 measured the
+    door, whose `take!` sorts its whole pool of about 43,000 stocked locks
+    on every offer, not the gate (Found tonight). At every writer count the
+    home task's thread stayed at or under 62% of a core, so number 1's
+    verdict (near 1,000, undecided) and number 3's rate at high counts
+    stand on a client-side limit. A door that takes a lock without sorting
+    the pool, then D1 again, would measure the gate; the notes leave both to
+    Sid or builder C to authorize. Not done tonight.
+87. **The one-writer p99 includes offers that carried no lease** (Found
+    tonight): at one writer the unleased offers' p99 is 15.3 ms where the
+    slice's was 4.72 ms, and the cause was not measured (D3's strace road
+    did not run). Number 3's latency verdict (p99 46.1 ms at 100 acts a
+    second on an open schedule, 2.3 times the assumed 20 ms) rests partly
+    on it. Run D3 to find it?
+
+*Housekeeping, at the final fold:*
+
+88. **The worktrees left from tonight, none deleted.** Each is
+    `/mnt/data/projects/Softland-<name>` on branch `<name>`; "merged" says
+    whether the branch is merged into `rig-2026-09-25`, from `git branch
+    --merged` at the fold (26 September, about 10:30 IST), with the commit
+    that merged it. Remove them? Nothing was deleted; each is Sid's to
+    remove. `git worktree list` also shows 16 worktrees from other work
+    (the main tree and non-rig branches), not listed here.
+    - `rig-2026-09-25`: the rig's branch, where every stage lands.
+    - `rig-clock` (`42da5880`): the hybrid clock. Merged, `0bc0cd7f`.
+    - `rig-plan-locks` (`240b794b`): phase 2's plan, revised for sealing
+      and validated. Merged, `e3989912`.
+    - `rig-plan-reads` (`b0d5f138`): the read exit's plan. Merged,
+      `b31ad57e`.
+    - `rig-reader` (`822e43ad`): the revision reader's plan. Merged,
+      `d0eea904`.
+    - `rig-plan-micro` (`848020f0`): phase 3's plan, revised. Merged,
+      `5aba1253`.
+    - `rig-plan-promotion` (`a7b449ab`): phase 4's plan. Merged,
+      `02f08c7d`.
+    - `rig-build-reader` (`fe0f7924`): the revision reader's build. Merged,
+      `4c150e4a`.
+    - `rig-exam-copies` (`36f27077`): the caching examination,
+      `EXAMINATION-copies.md`. Merged, `802af562`.
+    - `rig-build-reads` (`00fd0468`): the read exit's build. Merged,
+      `40374171`.
+    - `rig-plan-replays` (`b899d0fc`): phase 8's plan. Merged, `e8676172`.
+    - `rig-plan-reads-rest` (`cf574a91`): the rest of phase 5's plan.
+      Merged, `c90c5244`.
+    - `rig-plan-tools` (`bc566bca`): phase 6's plan. Merged, `f93b4ae5`.
+    - `rig-integrate` (`f93b4ae5`): made empty by builder A at 04:13 for
+      wave 1's merge and never used; merged only in that its head is the
+      rig branch's head of then.
+    - `rig-build-locks` (`fd41f6d2`): phase 2's build. Merged, through
+      wave 1.
+    - `rig-build-micro` (`e60c8ee1`): phase 3's build. Merged, through
+      wave 1.
+    - `rig-wave1` (`66a5721d`): wave 1's merge. Merged, `2034cce5`.
+    - `rig-plan-numbers` (`50c0fa4c`): phase 7's plan. Merged, `4acf91fb`.
+    - `rig-review-wave1` (`9f6ccc91`): the review of wave 1. Merged,
+      `1103f639`.
+    - `rig-build-replays` (`d437dc17`): phase 8's harness, passes 1 and 2.
+      Merged, `8f99bb81`.
+    - `rig-build-promotion` (`5303418f`): phase 4's build. Merged, through
+      wave 2.
+    - `rig-build-reads-rest` (`33817364`): the rest of phase 5's build.
+      Merged, through wave 2.
+    - `rig-build-tools` (`2d2f666a`): phase 6's build, the stream side.
+      Merged, through wave 2.
+    - `rig-wave2` (`2ff9f3ab`): wave 2's merge. Merged, `27543fd7`.
+    - `rig-fold-wave2` (`9fdfe5f4`): the fold of wave 2's notes into this
+      file. Merged, `ec8525dc`.
+    - `rig-build-replays-3` (`ffc4f49a`): phase 8's pass 3. Merged,
+      `26a30aca`.
+    - `rig-build-fixes` (`0b49c215`): step R. Merged, `5bf802fc`.
+    - `rig-review-full-spec` (`34a9f103`): the full-spec review. Merged,
+      `72604176`.
+    - `rig-build-numbers` (`fe57f4c2`): phase 7's harnesses. Merged,
+      `ad49bced`.
+    - `rig-build-grammar-micro` (`1ca407cd`): step 6b, built in Sid's Codex
+      session. Merged, `dee0320a`.
+    - `rig-review-6b` (`5dd472a0`): step 6b's review. Merged, `dad2fa69`.
+    - `rig-run-numbers` (`97ada117`): phase 7's minimum set, run. Merged,
+      `8576d13f`.
+    - `rig-build-spec-fixes` (`2443e0b8` at the fold): the fixes for H-1
+      and M-1. In flight at the fold, not merged.
+    - `rig-fold-final`: this fold of RIG.md and README.md. Not merged until
+      builder C lands it.
+89. **A 41,829-line suite log is committed.** Step 6b committed
+    `runs/grammar-micro-suite.txt` (5.0 MB), the whole log of the night's
+    one full suite, where the other runs keep a short summary in `runs/`
+    and their full logs git-ignored (`runs/*.log`, the rig folder's
+    `.gitignore`; `runs/wave2-suite.txt` is 148 lines,
+    `runs/review-fixes-run.txt` 18). Keep it, or keep a summary and move
+    the log out of git?
 
 ## Defaults taken overnight, not ruled
 
@@ -1434,7 +1841,11 @@ unless marked first-record.
    2's plan is not revised and validated for this by 03:00 IST, it is built
    as planned, the delivery behind the function, and the depot's plaintext
    is marked first-record. *Status:* revised and validated at 02:34 (minor-
-   fail, four fixes); the lease road is built.
+   fail, four fixes); the lease road is built. *Step R:* both doors refuse
+   a misplaced setting before sealing, leasing or appending (R103); a
+   control fact's value is still appended as given, so a wrong-shaped one
+   is refused at the gate with its text already in the depot (For Sid 69),
+   and a client that is not the door can append what it likes (70).
 2. **Stamps: a hybrid clock** (R2), wall-clock milliseconds plus a counter,
    first-record in its packing: one long, ms × 65536 + counter. A task's
    next stamp is the largest of the wall clock's ms × 65536, its last stamp
@@ -1443,7 +1854,10 @@ unless marked first-record.
    18 s at 2,250 acts a second on one task); "as of T" stays one number;
    stamps compare across tasks and stores. *Checked against:* ruling 4's
    clock promises (phase 1's clock tests); R16's bound (2^62 is reached in
-   the year 4200); CONCLUSION R2 and R3.
+   the year 4200); CONCLUSION R2 and R3. *Status (phase 7):* on the
+   finished store "the home clock led the wall by -3 to -4 ms in every
+   window", where the slices' millisecond stamps ran 21 s ahead
+   (`BUILD_NOTES-numbers.md`).
 3. **Read entries: ruling 3 as written** (R3, R4). A one-owner layer's
    moment is its stamp, inline; a shared layer's is the id of its settled
    frontier. Based-on is fact ids with their stamps. The fingerprint is
@@ -1460,7 +1874,8 @@ unless marked first-record.
    F the smaller of the asked frontier and the layer task's (R74), its
    entry carrying `:max-stamp` (FRR8); a `[:kv]` value in a recorded
    pattern is keyed only in a standing read's opening line so far (For Sid
-   4).
+   4). *Step R:* every `:read/pattern` line records it keyed (R104; For Sid
+   4 says what keyed still confirms).
 4. **One exit for every read** (R5): it queries, appends the entry, then
    answers; nothing is shown before its entry is acknowledged. Agent session
    reads are recorded there, and kept or dropped when the session closes;
@@ -1472,7 +1887,9 @@ unless marked first-record.
    read through the same exit (R76); standing reads poll through it (R77);
    the entry names the session it was read in (FRR10, For Sid 38); an agent
    session's close act says `:reads :keep` or `:drop` (FRR5), a drop
-   forgetting each entry by its own forget act (R83, For Sid 52).
+   forgetting each entry by its own forget act (R83, For Sid 52). *The
+   full-spec review:* once the working layer is re-classed, the exit
+   records no entry there and shows nothing (H-1, For Sid 71).
 5. **Permissions** (R7): a root permission made with each layer; opening a
    session writes a narrower permission into each layer it may write,
    through that layer's gate; agents and tools narrower still; a revoke cuts
@@ -1492,13 +1909,21 @@ unless marked first-record.
    while it is one-owner by the stream gate's own path, a hop with no depot
    on the road, under the base's grammar facts (R95), and after its
    re-class through `*micro-offers` (`promote_test` T10 a and b); a read of
-   the re-classed base shows both eras (For Sid 57).
+   the re-classed base shows both eras (For Sid 57). *Step 6b:* after its
+   re-class the base's key rows are read from `$$micro`, falling back to
+   its stream-era rows in `$$layers` for a key with no micro row (R108; For
+   Sid 80); the replay seed writes the model's grammars into the base and
+   each group through the micro gate.
 7. **The numbers** are judged against the thresholds assumed in this file
    and README.md (at least 1,000 admitted acts a second a task with every
    index written; at least 100 acts a second at 20 ms or less for the
    slowest 1 in 100; a lock store at most twice the value bytes, above four
    times change the default), which are assumed, not Sid's. Lock growth is
-   reported for 40- and 200-byte values.
+   reported for 40- and 200-byte values. *Status (phase 7):* measured on
+   the finished store and judged against these assumed thresholds
+   ("Numbers so far"): number 1 near 1,000 and undecided on this cluster;
+   number 3's rate passing and its latency near on the failing side; number
+   2 over four times logically at 40-byte values and fine at 200.
 8. **Anything else:** the simplest thing that can change later without
    touching a record, as a rig choice. If it would touch a record, the
    simplest placeholder, marked first-record, with its question under "For
