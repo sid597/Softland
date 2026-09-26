@@ -28,6 +28,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
             [rig.store.envelope :as env]
+            [rig.store.grammar :as grammar]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks])
   (:import [javax.crypto Mac]
@@ -50,6 +51,17 @@
   []
   seed-hints)
 
+(defn hints-of
+  "The hints the module decides with for one layer (phase 6, a8): its key
+  rows' (`rig.store.grammar/hints`, from the layer's grammar facts), with
+  the store's own keys' `:no-copy` (the read entries, compiled: store keys
+  are the floor), taken from `seed-hints`. `seed-hints`' `:by-value` is not
+  used here: a key is indexed by value only when its grammar in the layer
+  says so. `rows` is {k row}, nil for none."
+  [rows]
+  (let [h (grammar/hints rows)]
+    (update h :no-copy into (:no-copy seed-hints))))
+
 (defn opaque? [hints k] (contains? (:opaque hints) k))
 
 (defn by-value?
@@ -61,6 +73,74 @@
   "Whether an id-index entry of this key carries the row's value fields."
   [hints k]
   (not (contains? (:no-copy hints) k)))
+
+(defn parse-hints
+  "The hints `parse-pattern` takes before the layer's rows are read (phase
+  6): a `[:kv k v]` pattern's key counted as indexed by value, so the parse
+  checks the pattern's form and value whatever the grammar, and
+  `kv-refusal` applies the layer's grammar after the visibility check (a
+  reader who cannot see the layer learns nothing of its grammars)."
+  [pattern]
+  (let [k (when (and (vector? pattern) (= :kv (first pattern)) (env/readable-keyword? (second pattern)))
+            (second pattern))]
+    {:by-value (if k #{k} #{}) :opaque #{} :no-copy #{}}))
+
+(defn kv-key
+  "The key of a parsed `[:kv k v]` read, else nil."
+  [pp]
+  (when (and (map? pp) (= :kv (:kind pp))) (second (:pattern pp))))
+
+(defn kv-refusal
+  "Why a parsed `[:kv k v]` read is refused by its key's grammar in the
+  layer (`row`, the key's row, nil for none): `:opaque` for an opaque key
+  (ruling 6: no matching), `:not-indexed` for a key the grammar does not
+  index by value (none, by default); nil otherwise and for every other
+  pattern."
+  [pp row]
+  (when-let [k (kv-key pp)]
+    (let [h (hints-of {k row})]
+      (cond
+        (opaque? h k) :opaque
+        (not (by-value? h k)) :not-indexed))))
+
+(defn shown-keys
+  "The distinct keys of an answer's rows, for their rows' opaque marks."
+  [rows]
+  (into [] (comp (keep :k) (filter env/readable-keyword?) (distinct)) rows))
+
+(defn mark-opaque
+  "An answer's rows, each shown value of an opaque key marked `:opaque true`
+  beside it (ruling 6, 'shown as opaque'; T-RC9). `key-rows` are the rows of
+  the keys shown, {k row}."
+  [rows key-rows]
+  (let [op (:opaque (grammar/hints key-rows))]
+    (if (empty? op)
+      rows
+      (mapv (fn [r] (if (and (contains? op (:k r)) (contains? r :value)) (assoc r :opaque true) r)) rows))))
+
+(defn page-keys
+  "The distinct keys of a rebuild put page's rows."
+  [acts]
+  (into [] (comp (mapcat :rows) (keep :k) (distinct)) acts))
+
+(defn found-keys
+  "The distinct keys of the rows a rebuild sweep page found."
+  [founds]
+  (into [] (comp (keep (comp :k :row)) (distinct)) founds))
+
+(deframafn key-rows-of>
+  "The rows of layer `*layer`'s keys `*ks`, {k row} (nil for a key with no
+  row), read on this task: one local seek each (phase 6, RD-G3 to RD-G5)."
+  [*layer *ks]
+  (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
+    (loop<- [*todo (seq *ks) *acc {} :> *out]
+      (<<if (empty? *todo)
+        (:> *acc)
+       (else>)
+        (first *todo :> *k)
+        (local-select> (keypath *layer :key-rows *k) $$layers :> *row)
+        (continue> (rest *todo) (assoc *acc *k *row))))
+    (:> *out)))
 
 (def value-fields
   "The row fields that hold a value or anything derived from it: dropped from
@@ -1069,7 +1149,6 @@
      (else>)
       (get *op :layer :> *layer)
       (get *op :op :> *kind)
-      (current-hints :> *hints)
       (<<cond
         (case> (= *kind :rebuild-put))
         ;; the task's clock is "now" for the open of every row
@@ -1103,6 +1182,9 @@
              (else>)
               (continue> (rest *pt) *acts *nrows *pnm *ppc))))
         (get *pout :acts :> *pacts)
+        ;; phase 6: the hints of the page's keys, from the layer's grammar rows
+        (key-rows-of> *layer (page-keys *pacts) :> *pkrows)
+        (hints-of *pkrows :> *hints)
         (put-page-writes *hints *layer *pacts :> *d)
         (put-ack *recs *n *pout :> *ack)
 
@@ -1135,6 +1217,9 @@
                 (identity nil :> *sof))
               (continue> (rest *sw) (conj *found (found-of *sa *srec *srow *so *sof)) *spc2))))
         (sweep-entries *stodo :> *sents)
+        ;; phase 6: the hints of the page's keys, from the layer's grammar rows
+        (key-rows-of> *layer (found-keys *founds) :> *skrows)
+        (hints-of *skrows :> *hints)
         (sweep-page-writes *hints *layer *field *sents *founds :> *d)
         (sweep-ack *stodo *sn *d :> *ack)
 
@@ -1226,23 +1311,36 @@
               (absent-row *fid :> *r)
               (identity *qpc :> *qpc2))
             (continue> (rest *todo) (conj *acc *r) *qpc2)))
-        (point-answer *layer *m *rows :> *answer)))
+        ;; phase 6: shown as opaque, from the rows of the keys shown
+        (key-rows-of> *layer (shown-keys *rows) :> *qkrows)
+        (mark-opaque *rows *qkrows :> *mrows)
+        (point-answer *layer *m *mrows :> *answer)))
     (|origin))
 
   (<<query-topology topologies "read-pattern" [*layer *for *pattern *as-of *limit :> *answer]
     (|hash *layer)
-    (parse-pattern *pattern *limit *as-of :> *pp0)
+    (parse-pattern *pattern *limit *as-of (parse-hints *pattern) :> *pp0)
     (check-layer *pp0 *layer :bad-pattern :> *pp)
     (<<if (contains? *pp :refused)
       (identity *pp :> *answer)
      (else>)
       (local-select> [(keypath *layer :settings)] $$layers :> *settings)
+      ;; phase 6: a [:kv] read's key row: its grammar says whether it is indexed by value
+      (kv-key *pp :> *kvk)
+      (<<if (some? *kvk)
+        (local-select> [(keypath *layer :key-rows *kvk)] $$layers :> *kvrow)
+       (else>)
+        (identity nil :> *kvrow))
+      (kv-refusal *pp *kvrow :> *kvr)
       (<<cond
         (case> (not (visible? *settings *for)))
         (identity {:refused :not-visible} :> *answer)
 
         (case> (not (placed-by-layer? *settings)))
         (identity {:refused :re-classed} :> *answer)
+
+        (case> (some? *kvr))
+        (identity {:refused *kvr} :> *answer)
 
         (default>)
         (local-select> STAY $$clock :> *clock)
@@ -1313,5 +1411,8 @@
               (shown-row *vk nil :> *vr)
               (identity *vpc :> *vpc2))
             (continue> (rest *vt) (conj *vacc *vr) *vpc2)))
-        (pattern-answer *layer *m *pp *vrows *more? :> *answer)))
+        ;; phase 6: shown as opaque, from the rows of the keys shown
+        (key-rows-of> *layer (shown-keys *vrows) :> *vkrows)
+        (mark-opaque *vrows *vkrows :> *mvrows)
+        (pattern-answer *layer *m *pp *mvrows *more? :> *answer)))
     (|origin)))
