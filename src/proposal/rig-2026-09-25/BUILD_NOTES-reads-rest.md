@@ -252,3 +252,201 @@ replays call; the plan's behaviour is unchanged. It is a fourth caller of
 None for part 1. Part 2 waits on wave 1's landing. Two decisions above
 (the purge rule, item 4; one forget per act, item 10) follow wave 1's code
 rather than the plan; both change no record beyond FRR9's placeholder.
+
+## Built (part 2)
+
+Merged `rig-2026-09-25` at 2034cce5 (wave 1) into this branch (63f6f795), then
+built PLAN-reads-rest.md through the rama skill's build step. Phase 4's
+extraction (1b1d416c) was not merged: this stage's module.clj line and gate.clj
+clause sit outside the moved path.
+
+- **Shared-layer reads through the one exit** (`rig.store.shared-reads`
+  `shared-pattern>`, `shared-point>`, `open-entry>`): the read exit's
+  `read-point` and `read-pattern` hand a layer of the shared kind (by-entity
+  class, or no stream settings) to the queries `shared-read-point` and
+  `shared-read-pattern` with one `invoke-query` on the same task. F =
+  min(asked, the task's frontier); a stamp moment refused `:moment-kind` (and
+  a frontier on a one-owner layer); settings and membership as of F; the micro
+  index on the layer's task, visibility by batch; a re-classed layer's stream
+  era merged by the entries' fields (F1); the answer `{:frontier F}`,
+  `:max-stamp`, rows with `:batch`, `:partial` while the layer has an index
+  gap (F9).
+- **The micro store's indexes** (`$$micro [L]`: `:ix-ek :ix-ke :ix-kv :ix-s
+  :ix-of :ix-id :ix-error :ix-place`): written by block 2d, a fork of block
+  2b after its name-task check, in the batch that decides the act; the value
+  index keyed by an HMAC of the value's text taken on the arrival task (F12);
+  a value forget's purge in its own batch through block 2a (`purge-fact>`);
+  the `*micro-index-ops` source (its own section of the batch): put, sweep,
+  person purge and forget replay pages on their task, with a progress row per
+  task and a `micro-index-progress` query; a tombstone guard on puts and
+  sweeps; a rebuild ends with the replay of the forgets decided since it
+  began.
+- **The one-owner `:ix-s`** (every fact in stamp order) in the entry writes,
+  purges, rebuilds and field sets.
+- **Standing reads** (`rig.store.standing`): `subscribe!`, `deliver!`,
+  `unsubscribe!`, `close-session!`; the `read-delta` query (the opening read
+  through `read-pattern`, then deltas over `:ix-s` or the pattern's own
+  index); lines FRR1 to FRR3 with the running closing value (F3);
+  `standing-close` reads one line; `standing-open` finds a crashed door's open
+  entries by session; a handle held across a re-class closes `:reclass` and
+  reopens (F18); a budget-cut delta resumes past its last scanned address,
+  sealed (below, D6).
+- **The close act and the drop**: the gate accepts `:reads :keep | :drop` on
+  the session close (FRR5); `read-exit/close-session!`, `drop-reads!` (one
+  forget act per entry fact, pages of 64 ids from `entry-ids`, by the act
+  record's session), `resume-drops!` from the record (F11). Every read entry
+  fact is marked `:own-row` (FRR6); the exit's entry names its session
+  (FRR10, the coordinator's finding from phase 7's validation).
+- **Indexes and forgets whole**: the replayed forget and the paged person
+  purge on the read exit's `*index-ops` (`dying-rows>`, `person-page>`);
+  `purge-person!`, `forget-person!` (F17's wrapper), `rebuild-micro!`,
+  `restore!` (the fact, both rebuilds, the forget replay in stamp order).
+
+## Divergences from the plan (each in IMPLEMENTATION_VALIDATION, "Plan conformance")
+
+- D1. The purge rule is wave 1's: a tombstone for whatever the open step
+  reports erased (the ledger's date, else the wrap's close), in both stores;
+  the plan's item 9 is not built.
+- D2. A drop is one forget act per dropped entry fact (phase 2's gate: a lock
+  control fact is its act's one fact). FRR9 changes (first-record, For Sid).
+- D3. The read entry names its session (FRR10, new, first-record).
+- D4. The shared read is `invoke-query`d from the exit's two queries (no
+  namespace cycle, no shared path inside reads.clj, which phase 6 rewrites).
+- D5. The delta is its own query, `read-delta`; `read-pattern` keeps its
+  signature.
+- D6. F2 as built: a budget-cut delta resumes from a sealed cursor, not a time
+  part, which could not pass one act larger than the scan budget (found by
+  RT9, runs/reads-rest-try2.log).
+- D7. The micro index ops run in their own batch section, beside the offers'
+  blocks: guards on puts and sweeps, and the replay after every micro
+  rebuild.
+- D8. The micro person purge sweeps `:ix-s` (every dying entry, D1's rule).
+- D9. Membership is read as of F (the built `:members` is person -> batch).
+- D10. The progress row carries a request id and a count; two queries added
+  (`micro-index-progress`, `task-layers`).
+- D11. An opening read cut by its limit is not caught up later (its line and
+  the closing mark say partial).
+- D12. Block 2d is an explode fork: a `<<branch` inside a `<<batch` block
+  does not build in Rama 1.6.0.
+- D13. The micro put page's row cap is 2,048.
+
+## Shared-file changes
+
+- `reads.clj`: hints and read keys (the three standing keys); `:ix-s` in
+  `address`, `layer-fields`, `index-fields`, `all-fields`, `fact-writes`,
+  `purge-writes`, `implied`; public `kw-text`, `fid-text`, `prefix-end`,
+  `fid-ok?`, `norm-fid`; `moment`, `frontier-moment?`, `as-of-ok?`,
+  `norm-as-of`, `shared-layer?`; `page-init`'s `:by`, `stamp-ok?`,
+  `tail-state`, `page-step` (`:match`, `:last`, `:cut`), `entry-matches?`;
+  `entry-facts` (`:mark #{:own-row}`, `:max-stamp`), `entry-moments`; after
+  `fingerprint`: `kv-digest`, `seal-cursor`, `open-cursor`, `standing-seed`,
+  `standing-link`; `index-op` gains `:replay-forget`, `:person-purge`;
+  `max-person-page`, `replay-writes`, `task-count`, `task-ok?`,
+  `person-start`, `person-next`; `dying-rows>`, `person-page>` before the
+  depot section; two `case>` in the index-ops source; one `case>` each in
+  `read-point` and `read-pattern` (the `invoke-query`, the `:moment-kind`
+  refusal; the `:re-classed` refusal removed). Phase 6 renames `seed-hints`
+  to `store-hints`: carry the five read keys there; `read-delta` is a fourth
+  caller of `current-hints`.
+- `read_exit.clj`: `connect` (eight handles), `check-call` (moment maps,
+  `:session`), `entry-offer` (`:session`), `read!` (`:max-stamp`), `rebuild!`
+  (`:ix-s`); new at the end: `close-session!`, `entry-ids`,
+  `forget-entry-offer`, `drop-reads!`, `session-closes`, `resume-drops!`,
+  `task-count`, `wait-frontier!`, `micro-op!`, `rebuild-micro!`,
+  `purge-person!`, `forget-person!`, `forget-facts`, `restore!`.
+- `gate.clj`: `control-value-ok?`'s `:session-closed` clause (`:reads`).
+- `module.clj`: the require and `(shared-reads/declare-queries! topologies)`.
+- `micro.clj`: the require; `micro-row-fields` named and `micro-schema`
+  merged with `shared-reads/layer-fields`; `task-schema` merged with
+  `shared-reads/task-fields`; `forget-effect`'s `:erased`; `decide-envelope`'s
+  `:purge` writes; block 2a's `:purge` case; block 2b's `kv-digests`,
+  `*layer3` and the `[:rows :index]` fork; `declare!`'s depot line; the
+  `*micro-index-ops` section at the end of `<<sources`.
+- `locks.clj`, `micro_client.clj`, `client.clj`: unchanged.
+- Tests: `reads_test.clj` (four counts), `read_exit_test.clj` (D7's block).
+
+## For RIG.md
+
+**Rig choices** (each changes without touching a record):
+
+- P5-1. Every index of a shared layer on the layer's own task (Option B, RR5);
+  the bucket count `:ix-place` is maintenance state, unwritten (absent is 1).
+  Accepted for the rig, not for the store core (For Sid 29).
+- P5-2. A shared read is as of F = min(asked, the frontier on the layer's
+  task); a stamp moment on a shared layer, or a frontier on a one-owner
+  layer, is refused `:moment-kind` (RR1).
+- P5-3. Group membership is read as of F (the batch that named the member).
+- P5-4. The exit's two queries hand a shared layer to `shared-read-pattern`
+  / `shared-read-point` by `invoke-query` on the same task.
+- P5-5. Standing reads poll at the delivery rate (RR9; the doorbell is the
+  named upgrade).
+- P5-6. A delta cut by the limit resumes after the last shown row; cut by the
+  scan budget, past the last address it scanned, sealed under a module lock
+  so the client cannot read it (the build's repair of F2).
+- P5-7. An opening read cut by its limit is not caught up by later
+  deliveries; its line and the closing mark say `:partial`.
+- P5-8. The micro index pages run in their own section of the batch: no put
+  or sweep writes a live entry over a tombstone, and every micro rebuild ends
+  with the replay of the forgets decided since it began.
+- P5-9. The micro person purge sweeps `:ix-s` of the task's shared layers
+  (RR17: a subject index by person is the named upgrade).
+- P5-10. Person purges run in the operator's pages on every task: for the
+  one-owner store beside wave 1's purge in the forget's own fan-out (the pages
+  find the same values: recovery and a restore's replay), for the micro store
+  the only road.
+- P5-11. A drop takes pages of 64 ids, one forget act per entry fact.
+- P5-12. `standing-close`, `standing-open` and `entry-ids` are maintenance
+  reads, ids and stamps only, not recorded; their callers are trusted (RR11).
+- P5-13. An index gap in block 2d writes nothing for the act and flags its
+  layer; every read of the layer is `:partial` until a rebuild clears the
+  flag (RR6, F9).
+- P5-14. Micro put pages of at most 64 entities and 2,048 rows; sweep pages
+  of 512 entries; person pages of 256 (both stores).
+- P5-15. The one-owner `:ix-s` index (one more put per fact, every layer) so
+  a delta costs one seek and the new facts' iterations.
+
+**Questions for Sid** (each touches a record or a ruling's intent):
+
+1. **FRR9 as built: one forget act per dropped entry.** Phase 2's gate
+   refuses an act holding a lock control fact beside another fact, so a
+   dropped session's entries are forgotten one act each, `:because-of` the
+   close act, not in acts of 64 targets. Every forget is a fact either way;
+   a drop of n entries records n acts. Keep one per act, or allow a forget
+   act of many targets?
+2. **FRR10, new: the read entry names its session.** The exit's entry act
+   carries the session the read was taken in (its `:session` part), so the
+   session's close finds its entries by the acts' records. Before this, the
+   entry had no session and fell into the door's default session.
+3. **The rest of phase 5's forms** (FRR1 to FRR8, as the plan): a standing
+   read's opening, delivery and closing lines and their keys; the close act's
+   `:reads :keep | :drop`; `:own-row` on every entry; the restore fact in
+   `:people`; the shared moment `{:frontier F}` and a line's `:max-stamp`;
+   the closing fingerprint as a chain over the lines' moments and
+   fingerprints (difficulty 5's reading of "a fingerprint over everything
+   delivered").
+4. **A drop is effective per entry** as each forget is decided, not at the
+   close act (RR15; For Sid 13): until the drop's forgets finish, the
+   remaining entries still open.
+5. **The purge rule for a person forget** (wave 1's, both stores): the index
+   entries of a value that dies with a person are tombstoned (their sealed
+   and lock copies dropped), dated by the wrap's close; the plan had them
+   kept, only their value index deleted. Both keep "a purge writes what a
+   rebuild would".
+6. **A standing read does not deliver a forget** of a fact it already
+   delivered; the next full read shows it erased.
+7. **Index placement at the yardstick** (For Sid 29, unchanged).
+8. **The two-store moment** (carried, F10, F16): a re-classed layer's stream
+   era is bounded by no frontier.
+
+**First-record placeholders built tonight:** FRR1 to FRR4 (the standing
+read's three keys `:read/standing`, `:read/delivery`, `:read/closed`, their
+values, the running value `:so-far {:fp :n :partial?}` on each delivery line,
+the chain's prefix `"softland.standing-fp/1\n"`); FRR5 (the close act's
+`:reads`); FRR6 (`:own-row` on every read entry fact); FRR7 (`{:e :store :k
+:restore :v {:indexes :rebuilt}}` in `:people`); FRR8 (`{:frontier F}`,
+`:max-stamp`, a shared row's `:batch`, a shared `[:kv]` answer ordered by
+batch then stamp, a re-classed layer's eras merged by pattern part, stamp,
+fact id, `[:kv]` stream era first); FRR9 as built (one forget act per dropped
+entry, `:because-of` the close act); FRR10 (the entry's `:session`). Secrets
+derived by label, never stored: the kv index `"softland.kv-index/1"`, the
+scan cursor `"softland.scan-cursor/1"`.
