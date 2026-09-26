@@ -29,8 +29,6 @@ branch `rig-<name>`, reporting to C's session:
 - `build-spec-fixes`: the fixes for the full-spec review's H-1 and M-1
   (`PLAN-spec-fixes.md`), building on `dee0320a`; one run of its touched
   namespaces, queued behind the numbers.
-- `review-6b`: a review of step 6b's diff by reading (`REVIEW-6b.md`),
-  since the full-spec review left 6b's path out.
 
 *Also landed:* **phase 7's harnesses, at `ad49bced`** (merge of
 `rig-build-numbers` at `fe57f4c2`, new files only), by Sid's word, after
@@ -94,7 +92,15 @@ full suite ran on its tree: 163 tests, 8,085 assertions, 0 failures, 0
 errors (`runs/grammar-micro-suite.txt`, which holds the suite's whole log,
 41,829 lines). This branch had added only phase 7's harness files, which
 the suite does not run, and documents, so nothing was rerun. Phase 7's
-minimum set waited for it (Sid: yes).
+minimum set waited for it (Sid: yes). **Its review landed at `dad2fa69`**
+(`REVIEW-6b.md`, by reading): 0 high, 0 medium, 5 low; everything
+`STARTER-6b.md` listed holds. The review counts the machinery by one unit
+rule throughout and gets 35, not 33 (micro side 6: 4 promised, 2
+unanticipated; W2-3 promised by `PLAN-reads-rest.md`; micro F4 planned
+under V-F4), so the count's unit rule, open under IMPLICIT_SPEC O21, goes
+to Sid with both readings. L-1's cheap fix would be caching, which the
+project's rule sends to an adversarial examination first; not done
+tonight.
 
 *Sid's test rule, about 08:20* (in C's chat): "We want to optimize for
 throughput of the system doing testing only when it is needed not after
