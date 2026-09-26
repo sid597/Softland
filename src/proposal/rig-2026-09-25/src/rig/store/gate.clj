@@ -60,6 +60,17 @@
   [offer f]
   (and (= (:layer offer) (:e f)) (contains? env/setting-keys (:k f))))
 
+(defn misplaced-setting?
+  "A fact under a setting key about an entity other than its act's layer
+  (step R, REVIEW-wave1 R-1). No gate acts on one there: both project
+  settings only from a fact on the layer's own entity (`setting-fact?`),
+  and a control key's value is plaintext under no lock, so admitted it
+  would sit in the log and the indexes beyond every forget. Both gates
+  refuse it `:malformed-control` (`refusal`), and no door sends one
+  (rig.store.client `refuse-misplaced!`). Pure and total."
+  [offer f]
+  (boolean (and (map? f) (contains? env/setting-keys (:k f)) (not= (:layer offer) (:e f)))))
+
 (defn store-key?
   "A key the store itself owns (phase 6, V-F11): the control keys, which
   include `:grammar`, and the read entries' keys. Its grammar is compiled,
@@ -218,7 +229,10 @@
       (some? perm)
       perm
 
-      (or (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
+      (or ;; step R (REVIEW-wave1 R-1): a setting key about another entity, which
+          ;; no gate acts on, would keep a plaintext value under no lock
+          (some #(misplaced-setting? offer %) facts)
+          (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
           ;; a lock control fact is the act's one fact (rig choice); stage 4: so is
           ;; a promotion request, whose read-out continues its record
           (and (some #(contains? locks/lock-control-keys (:k %)) facts) (not= 1 (count facts)))
@@ -264,7 +278,15 @@
   `:control-not-allowed`; a malformed grammar, a grammar on a store key and
   two grammars for one key are `:malformed-control`. The 4-arity is the
   micro fold's, which reads no key rows until phase 6b (the micro gate
-  refuses grammar facts meanwhile), and skips the rebuild check."
+  refuses grammar facts meanwhile), and skips the rebuild check.
+
+  Step R (REVIEW-wave1 R-1, W1-7 widened): a setting key about another
+  entity than the layer (`misplaced-setting?`) is `:malformed-control`
+  too. Both gates decide stage 1's list here (the stream gate through
+  `decide`, the micro fold through `rig.store.micro/micro-decision`), so
+  neither admits a control-key fact it does not act on: with W1-7
+  (`stream-refusal`) and the micro gate's `foreign-control-keys`, every
+  admitted control-key fact is one its gate acts on, in its place."
   ([offer settings rows heads] (refusal-with-rows offer settings rows heads nil))
   ([offer settings rows heads key-rows] (refusal-with-rows offer settings rows heads key-rows)))
 
@@ -274,7 +296,8 @@
   keys hold them, so the parse takes their values as plaintext; at the
   stream gate such a fact is refused `:control-not-allowed` (wave 1, the
   mirror of the micro gate's `foreign-control-keys`), so no act here keeps
-  a plaintext value under a key this gate does not act on."
+  a plaintext value under a key this gate does not act on. A setting key
+  in a place no gate acts on is `refusal`'s (step R)."
   #{:members})
 
 (defn stream-refusal

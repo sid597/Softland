@@ -950,8 +950,10 @@
   never its text, since no forget reaches a recorded line; every other form
   as it is. Computed in the module, where the secret is: every pattern
   answer carries it (`pattern-answer`), stage 5b's standing-read opening
-  records it, and it is the seam R-2's fix of `entry-facts` takes. Nil on
-  any failure."
+  records it, and so does every `:read/pattern` line (`entry-facts`, step
+  R). Nil on any failure. (First-record: the line form and its label, For
+  Sid 4. It stops a reader reading the value off a line, not confirming a
+  guess: the module keys a later `[:kv k guess]` read the same way.)"
   [pattern]
   (try
     (if (and (vector? pattern) (= 3 (count pattern)) (= :kv (nth pattern 0)))
@@ -1077,7 +1079,16 @@
   its lock is a lock row in any working layer and a dropped session's
   entries are forgotten the ordinary way; a shared read's moment is
   `{:frontier F}` and its facts carry `:max-stamp` (FRR8), the stamp the
-  entry must stand on. Total: nil for anything else."
+  entry must stand on. Total: nil for anything else.
+
+  Step R (REVIEW-wave1 R-2, For Sid 4): the line records the pattern as the
+  module keyed it, the answer's `:recorded-pattern` (`recorded-pattern`: a
+  `[:kv k v]` read's value as `{:keyed hex}`, never its text; every other
+  form as it is), for one-owner and shared reads alike, as a standing
+  read's opening line does. A pattern answer carrying none gives nil, so
+  no line can hold a `[:kv]` value's text; this runs in the exit, on the
+  client's side, and never keys a value itself (the secret stays in the
+  module)."
   [answer spec]
   (try
     (let [{:keys [entry-name role reader-kind rows?]} spec
@@ -1088,11 +1099,12 @@
         :point (vec (for [r (:rows answer)]
                       {:e ent :k :read/point :mark #{:own-row}
                        :v (assoc base :fid (:fid r) :stamp (:stamp r) :shown (shown-kind r))}))
-        :pattern [{:e ent :k :read/pattern :mark #{:own-row}
-                   :v (cond-> (assoc base :pattern (:pattern answer) :mark (:mark answer)
-                                     :count (count (:matched answer))
-                                     :fingerprint (:fingerprint answer) :fp-secret (:fp-secret answer))
-                        (exact? reader-kind rows?) (assoc :exact (vec (:matched answer))))}]))
+        :pattern (when-let [recorded (:recorded-pattern answer)]
+                   [{:e ent :k :read/pattern :mark #{:own-row}
+                     :v (cond-> (assoc base :pattern recorded :mark (:mark answer)
+                                       :count (count (:matched answer))
+                                       :fingerprint (:fingerprint answer) :fp-secret (:fp-secret answer))
+                          (exact? reader-kind rows?) (assoc :exact (vec (:matched answer))))}])))
     (catch Throwable _ nil)))
 
 (defn entry-moments
