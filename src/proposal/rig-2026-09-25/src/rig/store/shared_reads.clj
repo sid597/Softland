@@ -1880,55 +1880,65 @@
 ;; entries, standing-read lines and session closes in the micro store: their index
 ;; entries on the layer's task (`$$micro [W :ix-*]`, written by block 2d), their rows
 ;; and lock rows on each entry entity's task, their records on their name's task. The
-;; reads below cover that era beside the stream era's above, settled: only entries
-;; decided in a batch at or below the frontier on the layer's task, which every task
-;; has committed (SPEC 'What Rama showed' 5 and 7).
-
-(defn settled-at?
-  "Whether a micro index entry was decided in a batch at or below `F`."
-  [entry F]
-  (boolean (and (map? entry) (int? (:batch entry)) (int? F) (<= (:batch entry) F))))
+;; reads below cover that era beside the stream era's above. A batch is visible on one
+;; task before another (SPEC 'What Rama showed' 5), so each reads a row or a record
+;; only where it lives and takes an absent one as not yet there: an entry whose record
+;; its name task does not show yet is not matched, a line whose row its entity task
+;; does not show yet gives way to the line before it. The layer's own frontier is not
+;; used as the bound: it can trail the batch a door has just seen answered.
 
 (defn line-or
   "A line's value from the micro era when it has one, else the stream era's."
   [micro stream]
   (if (some? micro) micro stream))
 
-(defn last-settled-under
-  "The last entry of a tail page whose address starts with `prefix` and
-  whose batch is settled at `F`, or nil: a line decided in a batch not yet
-  committed on every task is not read."
-  [sub prefix F]
+(defn last-two-under
+  "A tail page's entries under `prefix`, the latest first (at most two): a
+  standing read's lines are offered one after another, so at most the
+  latest can be decided and not yet visible on its entity's task."
+  [sub prefix]
   (->> (reads/page-entries sub)
-       (filter (fn [[a e]] (and (string? a) (.startsWith ^String a ^String prefix) (settled-at? e F))))
-       last
-       second))
+       (filter (fn [[a _]] (and (string? a) (.startsWith ^String a ^String prefix))))
+       (map second)
+       reverse
+       (into [])))
 
-(deframafn micro-line-entry>
-  "The micro era's last settled line of entry `*ent` under key `*k`, on the
-  layer's task: its `$$micro [W :ix-ek]` entry (fact id, stamp, batch; a
-  read line is `:no-copy`, so no value), or nil. One tail read: a standing
-  read's lines are offered one after another, so at most one is unsettled."
-  [*layer *ent *k *F]
+(deframafn micro-line-entries>
+  "The micro era's last lines of entry `*ent` under key `*k`, on the
+  layer's task: their `$$micro [W :ix-ek]` entries, the latest first (fact
+  id, stamp, batch; a read line is `:no-copy`, so no value), [] when none.
+  One tail read."
+  [*layer *ent *k]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
     (line-prefix *ent *k :> *pfx)
     (reads/prefix-end *pfx :> *end)
     (local-select> [(keypath *layer :ix-ek) (sorted-map-range-to *end {:max-amt 2})] $$micro :> *sub)
-    (:> (last-settled-under *sub *pfx *F))))
+    (:> (last-two-under *sub *pfx))))
 
 (deframafn micro-line-value>
   "The value of a micro-era line on its entity's task, where its row is:
-  the row, its lock (the row's record, else its lock row: a line is
-  `:own-row`), the ledger entry of that lock, the persons its wrap names,
-  then phase 2's `locks/open-with`, as `open-row>` opens a stream-era line.
-  Nil for no entry, or a line that no longer opens."
-  [*ent *entry]
+  the latest of `*entries` whose row this task shows (the older when the
+  latest's batch is not visible here yet), its lock (the row's record,
+  else its lock row: a line is `:own-row`), the ledger entry of that lock,
+  the persons its wrap names, then phase 2's `locks/open-with`, as
+  `open-row>` opens a stream-era line. Nil for no entry, or a line that no
+  longer opens."
+  [*ent *entries]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
-    (<<if (nil? *entry)
+    (loop<- [*todo (seq *entries) :> *entry *row]
+      (<<if (empty? *todo)
+        (:> nil nil)
+       (else>)
+        (first *todo :> *e0)
+        (fid-parts (get *e0 :fid) :> [*nm0 *idx0])
+        (local-select> [(keypath *ent :log *nm0 *idx0)] $$micro :> *row0)
+        (<<if (some? *row0)
+          (:> *e0 *row0)
+         (else>)
+          (continue> (rest *todo)))))
+    (<<if (nil? *row)
       (:> nil)
      (else>)
-      (fid-parts (get *entry :fid) :> [*nm *idx])
-      (local-select> [(keypath *ent :log *nm *idx)] $$micro :> *row)
       (get *row :lock-id :> *lid)
       (<<if (some? *lid)
         (local-select> [(keypath *ent :erased *lid)] $$micro :> *ledger)
@@ -1957,33 +1967,32 @@
   them), and each kind's micro-era line, which is always the later, is
   taken over the stream era's."
   [*layer *ent]
-  (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")
-                         $$micro-task (this-module-pobject-task-global "$$micro-task")]
+  (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
     (line-value> *layer *ent :read/delivery :> *d)
     (line-value> *layer *ent :read/standing :> *o)
     (local-select> [(keypath *layer :settings :class)] $$layers :> *class)
     (<<if (not= :by-entity *class)
       (:> (closing *d *o))
      (else>)
-      (local-select> [(keypath :frontier)] $$micro-task :> *F)
-      (micro-line-entry> *layer *ent :read/delivery *F :> *mde)
-      (micro-line-entry> *layer *ent :read/standing *F :> *moe)
-      (<<if (and> (nil? *mde) (nil? *moe))
+      (micro-line-entries> *layer *ent :read/delivery :> *mdes)
+      (micro-line-entries> *layer *ent :read/standing :> *moes)
+      (<<if (and> (empty? *mdes) (empty? *moes))
         (:> (closing *d *o))
        (else>)
         (|hash *ent)
-        (micro-line-value> *ent *mde :> *md)
-        (micro-line-value> *ent *moe :> *mo)
+        (micro-line-value> *ent *mdes :> *md)
+        (micro-line-value> *ent *moes :> *mo)
         (:> (closing (line-or *md *d) (line-or *mo *o)))))))
 
 (defn micro-id-candidates
   "The micro era's read-entry facts of a page (`reads/read-keys`), live,
-  decided in a batch at or below `before` (a close's batch) and settled at
-  `F`: `[[fid stamp e] ...]`."
-  [ents before F]
+  decided in a batch at or below `before` (a close's batch: its answer
+  was seen, so every task has committed it and every batch before it):
+  `[[fid stamp e] ...]`."
+  [ents before]
   (into [] (keep (fn [[_ e]]
                    (when (and (map? e) (contains? reads/read-keys (:k e)) (nil? (:erased-at e))
-                              (int? (:stamp e)) (int? before) (settled-at? e F) (<= (:batch e) before))
+                              (int? (:stamp e)) (int? before) (int? (:batch e)) (<= (:batch e) before))
                      [(:fid e) (:stamp e) (:e e)])))
         ents))
 
@@ -2023,12 +2032,10 @@
   candidates for its query to check each one's session where its record
   is. `[{:kind :refused ...}]` for bad arguments."
   [*layer *session *before *after *n]
-  (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
-                         $$micro-task (this-module-pobject-task-global "$$micro-task")]
+  (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
     (<<if (some? (micro-ids-args *layer *session *before *after *n))
       (:> [{:kind :refused :reason :bad-read}])
      (else>)
-      (local-select> [(keypath :frontier)] $$micro-task :> *F)
       (<<if (nil? *after)
         (local-select> [(keypath *layer :ix-ke) (sorted-map-range-from "read/" *n)] $$micro {:allow-yield? true} :> *sub)
        (else>)
@@ -2036,7 +2043,7 @@
                        {:allow-yield? true} :> *sub))
       (reads/page-entries *sub :> *ents0)
       (below "read0" *ents0 :> *ents)
-      (micro-id-candidates *ents *before *F :> *cands)
+      (micro-id-candidates *ents *before :> *cands)
       (:> (micro-id-rows *ents0 *ents *n *after *cands)))))
 
 (deframafn micro-prefix-entries>
@@ -2057,18 +2064,19 @@
     (:> *all)))
 
 (defn micro-open-rows
-  "`micro-standing-open`'s rows before its session check: each settled
-  opening line the micro era did not close, `{:kind :open :ent e :nm
-  name}`, then each entity the micro era closed, `{:kind :closed :ent e}`
-  (a close there may end an entry the stream era opened)."
-  [opens closes F]
-  (let [settled (fn [xs] (filter (fn [[_ e]] (settled-at? e F)) xs))
-        closed (into #{} (map (comp :e second)) (settled closes))]
+  "`micro-standing-open`'s rows before its session check: each opening
+  line the micro era did not close, `{:kind :open :ent e :nm name}`, then
+  each entity the micro era closed, `{:kind :closed :ent e}` (a close
+  there may end an entry the stream era opened). A line visible on the
+  layer's task is decided; an opening whose record its name task does not
+  show yet is not matched to a session, so a later close finds it."
+  [opens closes]
+  (let [closed (into #{} (map (comp :e second)) closes)]
     (-> []
         (into (comp (map second)
                     (remove #(contains? closed (:e %)))
                     (map (fn [e] {:kind :open :ent (:e e) :nm (into [] (nth (:fid e) 0))})))
-              (settled opens))
+              opens)
         (into (map (fn [ent] {:kind :closed :ent ent})) (sort-by str closed)))))
 
 (defn micro-open-answer
@@ -2089,14 +2097,12 @@
   layer's task, as `micro-open-rows`. `[{:kind :refused ...}]` for bad
   arguments."
   [*layer *session]
-  (<<with-substitutions [$$micro-task (this-module-pobject-task-global "$$micro-task")]
-    (<<if (some? (upkeep-args *layer nil *session nil nil 1))
-      (:> [{:kind :refused :reason :bad-read}])
-     (else>)
-      (local-select> [(keypath :frontier)] $$micro-task :> *F)
-      (micro-prefix-entries> *layer (key-prefix :read/standing) :> *opens)
-      (micro-prefix-entries> *layer (key-prefix :read/closed) :> *closes)
-      (:> (micro-open-rows *opens *closes *F)))))
+  (<<if (some? (upkeep-args *layer nil *session nil nil 1))
+    (:> [{:kind :refused :reason :bad-read}])
+   (else>)
+    (micro-prefix-entries> *layer (key-prefix :read/standing) :> *opens)
+    (micro-prefix-entries> *layer (key-prefix :read/closed) :> *closes)
+    (:> (micro-open-rows *opens *closes))))
 
 ;; ============================================================ install
 
