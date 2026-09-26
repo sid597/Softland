@@ -2,6 +2,7 @@
 ;; "Revision, 26 September", §A to §J, and the [PV-F n] fixes) and
 ;; BUILD_NOTES-micro-store.md. Adhere to all previously decided design
 ;; decisions; RIG.md R19 builds the permission walk, not the cascade.
+;; Step 6b: also read PLAN-grammar-micro.md for pre-batch grammar and subjects.
 (ns rig.store.micro
   "The micro store (stage 3, PLAN-micro-store.md): a microbatch gate for the
   shared layers (group, base) and for one-owner layers re-classed to by
@@ -10,12 +11,11 @@
 
   One batch, block by block (each a `<<batch`, a global barrier):
   0. every task writes the frontier, the previous batch's id (M7, §D);
-  1. the gather: each offer's lock work on its arrival task, where its
-     lease rows are (§A, M17: unlease, open, the value checks, the
-     subjects), then its name row, its layer's settings, permissions and
-     stream-era heads, and its entities' clocks and heads, all as
-     `[need found]` rows into one `+map-agg` on task 0, where `prepare`,
-     the pure fold over skeletons, decides the batch in one order (M2, M3);
+  1a. the layer visit for pre-batch settings, permissions, heads and grammar
+     rows, then the arrival task's lock/value checks. Materialize only the
+     sealed input, subject ids, hints and gathered projections for this attempt;
+  1b. name/entity reads and the pure ordered fold on task 0. Admission sees
+     pre-batch grammar; yes projections compose separately, once per location;
   2a. the fold's writes (records, faces, heads, settings, permissions,
      clocks, and the lease rows a yes lease act mints);
   2b. the rows, from the offers themselves: re-wrapped locks and value
@@ -37,9 +37,11 @@
             [rig.store.box :as box]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
+            [rig.store.grammar :as grammar]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.promote-shape :as ps]
+            [rig.store.reads :as reads]
             [rig.store.shared-reads :as shared-reads])
   (:import [java.util HexFormat]))
 
@@ -49,7 +51,7 @@
   "Fact keys the store acts on: no lock, a plaintext value (phase 2's list,
   D2, L14, and `:members`, the making fact of a group at this gate)."
   #{:forget :lock-grain :class :promote-request :crossed :permission :revoke
-    :kind :owner :person :forget-person :lease :session-closed :members})
+    :kind :owner :person :forget-person :lease :session-closed :members :grammar})
 
 (def foreign-control-keys
   "Control keys that belong to another gate's layers (the `:people` layer's
@@ -68,7 +70,7 @@
   [:fact-outside-the-acts-layer :no-such-layer :class-mismatch
    :permission-does-not-cover-this :permission-from-another-layer
    :no-permission :permission-revoked
-   :malformed-control :control-not-allowed :stale-replaces :stale-revoke
+   :malformed-control :control-not-allowed :grammar-change-needs-rebuild :stale-replaces :stale-revoke
    :layer-already-made :unsupported-reclass
    ;; stage 4: a landing whose lock did not come out of its box (PR5), where the delivery sits
    :landing-lock-gone
@@ -167,7 +169,8 @@
      :replaced    (map-schema clojure.lang.PersistentVector                 ; [e k fid] of a stream-era head
                               (fixed-keys-schema {:by clojure.lang.PersistentVector :batch Long})
                               sub)}
-    (shared-reads/layer-fields micro-row-fields)))})
+    (shared-reads/layer-fields micro-row-fields)
+    (grammar/layer-fields)))})
 
 (def names-schema
   "`$$micro-names`: everything keyed by a name, on the name's task."
@@ -469,8 +472,11 @@
   value checks in L27's order over the opened values (phase 2's
   `locks/read-values`; the grain is the fold's, since the grain in force is
   on the layer's task) and the act's subject union. Nothing it returns
-  opens a value: the plaintext and the locks stay here."
-  [in lrows persons]
+  opens a value: the plaintext and the locks stay here. The topology passes
+  the pre-batch grammars explicitly; the 3-arity is retained for legacy pure
+  fixtures only. Per-value subjects survive for block 2b."
+  ([in lrows persons] (arrival-open in lrows persons grammar/grammars))
+  ([in lrows persons grammars]
   (let [o (:offer in)
         cited (:cited in)
         owned (owned-ids in lrows)
@@ -488,14 +494,16 @@
       :else
       (let [rv (when (seq cited)
                  (locks/read-values (:facts o) delivered
-                                    {:owner (:owner meta) :carried (:subjects o) :grain :per-value}))
+                                    {:owner (:owner meta) :carried (:subjects o) :grain :per-value}
+                                    grammars))
             r (:reason rv)]
         {:status :ok
          :owned owned
          :value-reason (when-not (= :grain-mismatch r) r)
          :union (when (seq cited) (:union rv))
+         :subjects (:subjects rv)
          :kind (:kind meta)
-         :owner (:owner meta)}))))
+         :owner (:owner meta)})))))
 
 (defn persons-to-check
   "Whose person locks the decision needs alive (phase 2's L11): every wrap
@@ -533,6 +541,7 @@
      :status (:status a)
      :value-reason (:value-reason a)
      :union (:union a)
+     :subjects (:subjects a)
      :person-reason preason
      :entities (:entities in)
      :close-names (when (:close in)
@@ -573,7 +582,16 @@
 (defn replacing-keys
   "[e k r] for each replacing fact of the act."
   [o]
-  (into [] (comp (filter :replaces) (map (fn [f] [(:e f) (:k f) (:replaces f)])) (distinct)) (:facts o)))
+    (into [] (comp (filter :replaces) (map (fn [f] [(:e f) (:k f) (:replaces f)])) (distinct)) (:facts o)))
+
+(defn grammar-rows
+  "Pre-batch rows and offered uses, even when the name path later refuses.
+  A grammar targets its :e; an ordinary use is its fact's :k (F4)."
+  [in key-rows]
+  (let [o (:offer in) L (:layer o)]
+    (into (mapv (fn [[k row]] [[:key-row L k] row]) key-rows)
+          (for [k (distinct (map :k (:facts o))) :when (not (gate/store-key? k))]
+            [[:use L k] true]))))
 
 (defn layer-rows
   "Block 1 on the layer's task, pure over what it read: the settings (micro
@@ -676,6 +694,8 @@
   (case (first need)
     :name (assoc-in w [:names (nth need 1)] {:record found :committed true})
     :settings (assoc-in w [:settings (nth need 1)] found)
+    :key-row (assoc-in w [:key-rows (nth need 1) (nth need 2)] found)
+    :use (update-in w [:batch-uses (nth need 1)] (fnil conj #{}) (nth need 2))
     :perm (assoc-in w [:perms [(nth need 1) (nth need 2)]] found)
     :shead (assoc-in w [:sheads (subvec need 1)] found)
     :tomb (assoc-in w [:tombs (subvec need 1)] found)
@@ -697,7 +717,7 @@
      (try
        (init-row w need found)
        (catch Throwable _ w)))
-   {:names {} :settings {} :perms {} :sheads {} :tombs {} :heads {} :clocks {} :task-of {}
+   {:names {} :settings {} :key-rows {} :batch-uses {} :perms {} :sheads {} :tombs {} :heads {} :clocks {} :task-of {}
     :resend {} :faces {} :offers {} :targets {} :erased-now #{} :cited #{} :given {} :out {} :dels [] :mints []}
    state))
 
@@ -910,7 +930,8 @@
   P8). Not `gate/decide`, whose later form (phase 2) opens the act's values
   itself, which this gate's leader never holds (M3); the value and person
   reasons come from the arrival task in the skeleton."
-  [o settings rows heads clock wall]
+  ([o settings rows heads clock wall] (micro-decision o settings rows heads clock wall nil))
+  ([o settings rows heads clock wall key-rows]
   (let [facts (:facts o)
         indexed (map-indexed vector facts)
         nm (:name o)
@@ -923,11 +944,11 @@
                                      :when (and p (nil? (:granted (get rows p))))]
                                  [p [nm (long i)]])))
         revokes (for [[i f] indexed :let [p (gate/revoke-target f)] :when p] [p [nm (long i)]])]
-    {:reason (gate/refusal o settings rows heads)
+    {:reason (gate/refusal o settings rows heads key-rows)
      :stamp (gate/stamp-for o heads clock wall)
      :settings (when (seq updates) (merge settings updates))
      :permissions (into [] (concat (for [[p g] grants] [p {:granted g}])
-                                   (for [[p r] revokes] [p (assoc (get rows p) :revoked r)])))}))
+                                   (for [[p r] revokes] [p (assoc (get rows p) :revoked r)])))})))
 
 (defn micro-record
   "The answer record (the stream plan's, P5's parts; plus `:batch`, M7)."
@@ -955,7 +976,9 @@
         heads (into {} (map (fn [[e k r]] [[e k r] (head-stamp w L e k r)])) (replacing-keys o))
         tasks (touched-tasks w sk)
         clock (reduce max 0 (map #(clock-of w %) tasks))
-        d (micro-decision o settings rows heads clock wall)
+        before (get-in w [:pre-key-rows L])
+        checked (reduce (fn [rs k] (assoc-in rs [k :used] true)) before (get-in w [:batch-uses L]))
+        d (micro-decision o settings rows heads clock wall checked)
         grain (or (:grain settings) :per-value)
         stamp (:stamp d)
         ;; wave 1: a value forget's lock effect at this gate (phase 2's seam)
@@ -979,6 +1002,13 @@
     (if-not yes?
       w
       (let [indexed (map-indexed vector (:facts o))
+            ;; Compose yes projections separately from the immutable admission rows.
+            ;; put coalesces every changed [L k] to one final write for this batch.
+            w (reduce (fn [w [k row]]
+                        (-> w
+                            (assoc-in [:key-rows L k] row)
+                            (put [:entity L :key-rows k] [:entity L :key-rows k row])))
+                      w (grammar/key-row-writes (:facts o) (get-in w [:key-rows L]) nm stamp gate/store-key?))
             ;; heads: every fact heads its chain; a replaced head is kept with its replacer (M7)
             w (reduce (fn [w [i f]]
                         (let [fid [nm (long i)] e (:e f) k (:k f) head {:stamp stamp :batch b}
@@ -1097,7 +1127,7 @@
   lease rows to mint (2a), and the lease rows to delete (2c)."
   [state wall b]
   (let [state (or state {})
-        w0 (try (init-w state) (catch Throwable _ nil))]
+        w0 (try (let [w (init-w state)] (assoc w :pre-key-rows (:key-rows w))) (catch Throwable _ nil))]
     (if (nil? w0)
       {:writes []}
       (let [w (reduce (fn [w env]
@@ -1137,22 +1167,27 @@
 
 (defn row-wraps
   "Block 2b on the arrival task (§A): for a sealed act, open each value
-  with its delivered lock, then its wrap by phase 2's table (per value:
+  with its delivered lock, then its wrap from block 1's subjects (per value:
   the value's own subjects; per act, one lock cited by several values:
   one wrap over the act's union, marked when any value is, phase 2's L6).
   {:lock-of {lid K} :plain {i bytes} :wraps {lid wrap} :marked {lid bool}
   :row? {lid bool}}. Pure, total; a lock that does not deliver now (its
   person forgotten since block 1, PV-F6) is left out, and its value's row
   is written with no lock."
-  [in lrows persons]
+  ([in lrows persons]
+   ;; Legacy pure fixtures only. The topology passes the subjects from block 1.
+   (row-wraps in lrows persons (:subjects (arrival-open in lrows persons))))
+  ([in lrows persons subjects]
   (try
     (let [o (:offer in)
           facts (:facts o)
           delivered (delivered-locks in lrows persons)
           meta (lease-meta lrows)
           owner (:owner meta)
-          rv (locks/read-values facts delivered {:owner owner :carried (:subjects o) :grain :per-value})
-          subjects (or (:subjects rv) {})
+          plain (into {} (keep-indexed (fn [i f]
+                                        (when (value-fact? f)
+                                          (when-let [p (locks/open (get delivered (:lock-id f)) (:sealed f))]
+                                            [(long i) p])))) facts)
           by-lock (group-by (fn [[_ f]] (:lock-id f)) (keep-indexed (fn [i f] (when (value-fact? f) [i f])) facts))
           wraps (into {} (map (fn [[lid ifs]]
                                 (let [marked? (boolean (some (fn [[_ f]] (contains? (:mark f) :die-with-any)) ifs))
@@ -1162,12 +1197,12 @@
                                   [lid (locks/wrap-of owner subs marked?)])))
                     by-lock)]
       {:lock-of delivered
-       :plain (or (:plain rv) {})
+       :plain plain
        :wraps wraps
        :row? (into {} (map (fn [[lid ifs]]
                              [lid (locks/row-lock? (:kind meta) (reduce into #{} (map (fn [[_ f]] (:mark f)) ifs)))]))
                    by-lock)})
-    (catch Throwable _ {:lock-of {} :plain {} :wraps {} :row? {}})))
+    (catch Throwable _ {:lock-of {} :plain {} :wraps {} :row? {}}))))
 
 (defn wrap-persons-of
   "Every person the act's wraps name, each once."
@@ -1347,15 +1382,62 @@
         (local-transform> [(keypath :frontier) (termval (dec *b0))] $$micro-task))
 
       ;; ---- block 1: the gather, then the fold on task 0 (M3)
+      ;; ---- block 1a: pre-batch layer inputs, then the arrival's one grammar application
       (<<batch
         (%mb :> *raw)
         (intake *raw :> *in)
         (filter> (some? *in))
+        (ops/current-task-id :> *arrival)
         (get *in :name :> *name)
         (inject/point! :micro-gather *name)
         (<<if (= :face (get *in :kind))
-          (get *in :rows :> *rows)
+          (identity nil :> *sk)
+          (identity nil :> *carry)
+          (identity nil :> *lstep)
+          (identity nil :> *hints)
          (else>)
+          ;; the layer's task: settings, the chain's permission rows, stream-era heads (M5)
+          (get-in *in [:offer :layer] :> *layer)
+          (|hash *layer)
+          (local-select> [(keypath *layer :settings) (sorted-map-range-to-end 1) (subselect MAP-VALS)] $$micro :> *msv)
+          (first *msv :> *msettings)
+          (<<if (nil? *msettings)
+            (local-select> [(keypath *layer :settings)] $$layers :> *ssettings)
+           (else>)
+            (identity nil :> *ssettings))
+          (gate/pids-to-read (get *in :offer) :> *pids)
+          (loop<- [*l4-todo *pids *l4-acc {} :> *perms]
+            (<<if (empty? *l4-todo)
+              (:> *l4-acc)
+             (else>)
+              (first *l4-todo :> *l4-pid)
+              (local-select> [(keypath *layer :permissions *l4-pid)] $$micro :> *l4-mrow)
+              (<<if (some? *ssettings)
+                (local-select> [(keypath *layer :permissions *l4-pid)] $$layers :> *l4-srow)
+               (else>)
+                (identity nil :> *l4-srow))
+              (continue> (rest *l4-todo) (assoc *l4-acc *l4-pid {:micro *l4-mrow :stream *l4-srow}))))
+          (<<if (some? *ssettings)
+            (replacing-keys (get *in :offer) :> *hkeys)
+           (else>)
+            (identity [] :> *hkeys))
+          (loop<- [*l5-todo *hkeys *l5-sh {} *l5-tb {} :> *sheads *tombs]
+            (<<if (empty? *l5-todo)
+              (:> *l5-sh *l5-tb)
+             (else>)
+              (first *l5-todo :> *l5-hk)
+              (local-select> [(keypath *layer :heads *l5-hk)] $$layers :> *l5-s)
+              (<<if (some? *l5-s)
+                (local-select> [(keypath *layer :replaced *l5-hk)] $$micro :> *l5-t)
+               (else>)
+                (identity nil :> *l5-t))
+              (continue> (rest *l5-todo) (assoc *l5-sh *l5-hk *l5-s) (assoc *l5-tb *l5-hk *l5-t))))
+          (layer-rows *in *msettings *ssettings *perms *sheads *tombs :> *lstep0)
+          (grammar/rows-to-read (get-in *in [:offer :facts]) gate/store-key? :> *gkeys)
+          (shared-reads/key-rows-of> *layer *gkeys :> *krows)
+          (assoc *lstep0 :grammar-rows (grammar-rows *in *krows) :> *lstep)
+          (reads/hints-of *krows :> *hints)
+          (|direct *arrival)
           ;; the arrival task: the lease rows, their persons, the lock work (§A)
           (get *in :lease-name :> *lname)
           (lease-keys *in :> *lkeys)
@@ -1375,7 +1457,7 @@
               (first *l2-todo :> *l2-p)
               (local-select> [(keypath *l2-p)] $$persons :> *l2-entry)
               (continue> (rest *l2-todo) (assoc *l2-acc *l2-p *l2-entry))))
-          (arrival-open *in *lrows *upersons :> *arr)
+          (arrival-open *in *lrows *upersons (grammar/grammars-of *krows) :> *arr)
           (persons-to-check *in *arr :> *cps)
           (loop<- [*l3-todo *cps *l3-acc {} :> *cpersons]
             (<<if (empty? *l3-todo)
@@ -1392,7 +1474,17 @@
            (else>)
             (identity nil :> *cnames))
           (skeleton *in *arr *preason *cnames :> *sk)
-          (carry-rows *lrows :> *carry)
+          (carry-rows *lrows :> *carry))
+        ;; Only ciphertext, ids, hints and projection rows survive this barrier.
+        (materialize> *arrival *in *sk *carry *lstep *hints :> $$micro-arrivals))
+
+      ;; ---- block 1b: name/entity reads and the ordered fold
+      (<<batch
+        ($$micro-arrivals :> *arrival1 *in *sk *carry *lstep *hints1)
+        (get *in :name :> *name)
+        (<<if (= :face (get *in :kind))
+          (get *in :rows :> *rows)
+         (else>)
           ;; the name's task: its record first
           (|hash *name)
           (local-select> [(keypath *name :answer)] $$micro-names :> *rec)
@@ -1403,43 +1495,7 @@
           (get *nstep :sk :> *sk2)
           (<<cond
             (case> (= :fresh *path))
-            ;; the layer's task: settings, the chain's permission rows, stream-era heads (M5)
             (get-in *sk2 [:offer :layer] :> *layer)
-            (|hash *layer)
-            (local-select> [(keypath *layer :settings) (sorted-map-range-to-end 1) (subselect MAP-VALS)] $$micro :> *msv)
-            (first *msv :> *msettings)
-            (<<if (nil? *msettings)
-              (local-select> [(keypath *layer :settings)] $$layers :> *ssettings)
-             (else>)
-              (identity nil :> *ssettings))
-            (gate/pids-to-read (get *sk2 :offer) :> *pids)
-            (loop<- [*l4-todo *pids *l4-acc {} :> *perms]
-              (<<if (empty? *l4-todo)
-                (:> *l4-acc)
-               (else>)
-                (first *l4-todo :> *l4-pid)
-                (local-select> [(keypath *layer :permissions *l4-pid)] $$micro :> *l4-mrow)
-                (<<if (some? *ssettings)
-                  (local-select> [(keypath *layer :permissions *l4-pid)] $$layers :> *l4-srow)
-                 (else>)
-                  (identity nil :> *l4-srow))
-                (continue> (rest *l4-todo) (assoc *l4-acc *l4-pid {:micro *l4-mrow :stream *l4-srow}))))
-            (<<if (some? *ssettings)
-              (replacing-keys (get *sk2 :offer) :> *hkeys)
-             (else>)
-              (identity [] :> *hkeys))
-            (loop<- [*l5-todo *hkeys *l5-sh {} *l5-tb {} :> *sheads *tombs]
-              (<<if (empty? *l5-todo)
-                (:> *l5-sh *l5-tb)
-               (else>)
-                (first *l5-todo :> *l5-hk)
-                (local-select> [(keypath *layer :heads *l5-hk)] $$layers :> *l5-s)
-                (<<if (some? *l5-s)
-                  (local-select> [(keypath *layer :replaced *l5-hk)] $$micro :> *l5-t)
-                 (else>)
-                  (identity nil :> *l5-t))
-                (continue> (rest *l5-todo) (assoc *l5-sh *l5-hk *l5-s) (assoc *l5-tb *l5-hk *l5-t))))
-            (layer-rows *sk2 *msettings *ssettings *perms *sheads *tombs :> *lstep)
             (<<if (get *lstep :face)
               (get *lstep :rows :> *rows)
              (else>)
@@ -1518,7 +1574,8 @@
 
             (default>)
             (get *nstep :rows :> *rows)))
-        (ops/explode *rows :> [*need *found])
+        (into *rows (get *lstep :grammar-rows) :> *all-rows)
+        (ops/explode *all-rows :> [*need *found])
         (|global)
         (aggs/+map-agg *need *found :> *state)
         (wall :> *wall)
@@ -1586,9 +1643,9 @@
 
       ;; ---- block 2b: the rows, from the offers themselves (M10, §A)
       (<<batch
-        (%mb :> *raw3)
-        (intake *raw3 :> *in3)
+        ($$micro-arrivals :> *arrival3 *in3 *sk3 *carry3 *lstep3 *hints3)
         (filter> (= :offer (get *in3 :kind)))
+        (|direct *arrival3)
         (get *in3 :lease-name :> *lname3)
         (lease-keys *in3 :> *lkeys3)
         (loop<- [*m1-todo *lkeys3 *m1-acc {} :> *lrows3]
@@ -1607,7 +1664,7 @@
             (first *m2-todo :> *m2-p)
             (local-select> [(keypath *m2-p)] $$persons :> *m2-entry)
             (continue> (rest *m2-todo) (assoc *m2-acc *m2-p *m2-entry))))
-        (row-wraps *in3 *lrows3 *upersons3 :> *ww)
+        (row-wraps *in3 *lrows3 *upersons3 (get *sk3 :subjects) :> *ww)
         (wrap-persons-of *ww :> *wps)
         (loop<- [*m3-todo *wps *m3-acc {} :> *wpersons]
           (<<if (empty? *m3-todo)
@@ -1620,7 +1677,7 @@
         (fact-rows *in3 *ww *wpersons *nonces :> *frows)
         ;; stage 5b: the value index's keyed digests, taken here where the plaintext is;
         ;; only they travel on (PLAN-reads-rest.md F12)
-        (shared-reads/kv-digests (get *in3 :offer) (get *ww :plain) :> *kvd3)
+        (shared-reads/kv-digests *hints3 (get *in3 :offer) (get *ww :plain) :> *kvd3)
         (get *in3 :name :> *name3)
         (get-in *in3 [:offer :layer] :> *layer3)
         (select-keys *in3 [:digest :fp] :> *id3)
@@ -1636,7 +1693,7 @@
         ;; branch, so the rows below are written once
         (ops/explode [:rows :index] :> *part3)
         (<<if (= :index *part3)
-          (shared-reads/index-block> *layer3 *name3 *frows *kvd3 *rec3 *b3))
+          (shared-reads/index-block> *layer3 *name3 *frows *kvd3 *rec3 *b3 *hints3))
         (filter> (= :rows *part3))
         (<<atomic
           (ops/explode-map *stood3 :> *sf *ss)
