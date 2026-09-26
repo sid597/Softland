@@ -7,7 +7,11 @@ phase of Sid's brief is built, tested and committed on this branch: phases
 2 to 8, with phase 6's micro side (step 6b) built in Sid's Codex session,
 plus the review of wave 1's fixes (step R), the rama skill's full-spec
 review and its H-1 and M-1 fixes, and a review of step 6b. The last code
-landing is `5b95e70e`; the last fold of the notes is `b92bcd29`. Nothing
+landing is `5b95e70e`; the last fold of the notes is `b92bcd29`. One full
+suite then ran on the final tree `42c0ef3e`, once, in a separate Codex
+session at Sid's word, 11:07 to 11:25 IST: 27 namespaces, 172 tests, 8,205
+assertions, 0 failures, 0 errors (`runs/final-suite-summary.txt`; the full
+log stays in the worktree `Softland-rig-final-suite`, git-ignored). Nothing
 is in flight and no subagent is running. What is left is Sid's: the
 rulings under For Sid (new items 69 to 90; the machinery count's unit rule
 is 79; every worktree is listed in 88, none deleted), the defaults taken

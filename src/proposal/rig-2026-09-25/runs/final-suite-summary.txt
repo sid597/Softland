@@ -1,0 +1,37 @@
+Commit tested: 42c0ef3e
+Start: 2026-09-26 11:07:03 IST
+End: 2026-09-26 11:24:45 IST
+Run: exactly once, under flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock
+Namespaces (27):
+rig.claims-test
+rig.replay-test
+rig.revision-test
+rig.smoke-test
+rig.store.clock-test
+rig.store.envelope-test
+rig.store.forget-test
+rig.store.grammar-micro-test
+rig.store.grammar-test
+rig.store.lock-test
+rig.store.micro-prepare-test
+rig.store.micro-test
+rig.store.promote-test
+rig.store.promote-unit-test
+rig.store.read-exit-test
+rig.store.read-model-test
+rig.store.reads-rest-test
+rig.store.reads-test
+rig.store.recipe-test
+rig.store.review-fixes-test
+rig.store.review-wave1-test
+rig.store.shape-test
+rig.store.shared-reads-test
+rig.store.spec-fixes-test
+rig.store.stream-gate-test
+rig.store.tools-test
+rig.store.wave1-test
+Totals: 172 tests, 8205 assertions, 0 failures, 0 errors.
+Exit code: 0
+Failures/errors: none.
+Full output: runs/final-suite.log
+No code changes or commits.
