@@ -424,3 +424,140 @@ nobody keeps.
 Nothing of this pass should go. `runs/phase8-replays.txt` and
 `runs/phase8-replays-pass1.txt` are the same bytes tonight; the first is
 rewritten by every run, the second keeps pass 1's.
+
+## Pass 3 plan, after wave 2 (prep)
+
+Claude Opus 5.5 at max effort, builder for pass 3 under builder C, 26
+September 2026 from 07:14 IST, in `/mnt/data/projects/Softland-rig-build-replays-3`
+on `rig-build-replays-3`, made off `rig-2026-09-25` at `c9684356`. The prep
+reads wave 2's three branches read-only (`git show`), as they stood then:
+`rig-build-promotion` at `5303418f` (phase 4), `rig-build-reads-rest` at
+`33817364` (phase 5's rest), `rig-build-tools` at `2d2f666a` (phase 6).
+Wave 2's merge (`rig-wave2`) was in progress: phases 4 and 6 merged
+(`0feb72ef`, `df980ac7`), phase 5's rest with conflicts in `gate.clj`,
+`micro.clj` and `module.clj`. Line numbers are those branches': "P4b" for
+`rig-build-promotion`, "P5b" for `rig-build-reads-rest`, "P6b" for
+`rig-build-tools`, "here" for this branch at `c9684356`. The build re-finds
+every one on the merged tree before relying on it.
+
+Loaded: the rama skill (SKILL.md, phases.md, phase-2-plan-validate.md and
+phase-build.md, the two steps this pass takes). Read: this file whole;
+PLAN-replays.md's scope, adapter, world, step kinds, cases, known
+differences, report, APIs and open questions; RIG.md's overnight state (at
+`040b58ba` too: step 6b is not started and is left to Sid); the model's B
+cases (scenarios.clj L56-77) and their traces
+(`runs/phase8-model-traces.txt` L117-244); `test/rig/replay_test.clj` whole;
+phase 4's, phase 5's rest's and phase 6's build notes (their phase 8 names,
+shared-file changes and decisions). The model the replay loads (the rig
+branch's `../formal-model-2026-09-24/src`) has the same source as main's:
+main's only later change there is `STARTER-round-3.md`.
+
+### What wave 2 changes for the replays
+
+**Phase 4** puts the door's promotion in `rig.store.promote-client`, not in
+`rig.store.client` as the plan assumed:
+
+- `connect [cluster]` (P4b promote_client.clj L29-34): micro-client's
+  handles plus the `promotion-status` query as `:status-q`. Phase 4's own
+  test merges it with the exit's: `(merge (rx/connect ipc) (pc/connect
+  ipc))` (P4b promote_test.clj L164).
+- `lease-landing! [store {:who :target :class :session :permission
+  :uuid}]` (L81-93) returns `{:name :offer :lock-id :answer :public :for}`.
+  The answer is under `:answer` (pass 1's `call-lease-landing!` read the
+  whole map as the answer). `:public` is the landing row's public key, read
+  back once the lease's batch is settled (`take-public`, L65-79, up to
+  30 s), nil after a refusal or a timeout; `:for` is the landing name the
+  row is bound to, `[T C :landing u]` (P4b promote_shape.clj L113-133).
+- `request-offer [spec]` (L95-111) builds the request `[L :by-layer :offer
+  u]` from the uuid the lease was taken under: one `:promote-request` fact
+  whose value holds `:source :target :class :lease :public :permission
+  :replaces :subjects`. Its `:source-stamp` and `:source-e` are the
+  caller's; `promote!` reads them by `c/record` and `c/raw-row` (L136-137).
+- `resend! [store p]` (L113-118) is `(c/offer-until-answered! store (:offer
+  p))`.
+- `promote! [store spec]` (L120-155) takes the lease, sends the request and
+  reads the status, in one call. The replay must pause the micro topology
+  between the lease and the request in B3 and B4, so it calls the two steps
+  itself, with the functions `promote!` calls and in its order, as phase
+  4's own test does (`promote-with!`, P4b promote_test.clj L95-111).
+- `promotion-status [store layer req as-of]` (L38-45) gives a map;
+  `status-of` (L47-50) gives the keyword alone, phase 8's form.
+- The holds are `rig.store.inject/hold! [point nm]`, `release!`, `held?`
+  (P4b inject.clj L77-100), keyed by the request's name. The continuation
+  checks `held?` at `:before-read-out` and `:before-forward` (P4b
+  promote_flow.clj L151, L154) and ends the record's processing there,
+  blocking nothing; the door's resend, answered from the record, continues
+  it (`continues?` is true for a yes from the record, P4b promote.clj
+  L44-48).
+- The request's ack carries the crossing's answer under `:crossing` when
+  the read-out ran in its event (promote_flow.clj L153; phase 4's D2). A
+  landing for the micro gate is appended to `*micro-offers` with
+  `:append-ack` (L124), so while the micro topology is paused it waits in
+  the depot, as the model's waits in the micro inbox.
+- `env/landing-name` has the 3-arity `[req target class]` (P4b envelope.clj
+  L275-282); `env/crossing-name [req]` gives `[L nil :crossing u]`
+  (L269-273), and the crossing's record answers by name (V-1), so
+  `c/record` of that name reads it.
+- The status is `:done` only once the landing is settled under its task's
+  frontier (P4b promote.clj `settled?` and `status`, L246-293): KD13.
+
+**Phase 5's rest** makes the group readable through the one exit:
+
+- `read-exit/read!` (P5b read_exit.clj L105-140) takes `:layer` a group (or
+  the re-classed base), `:read [:point fids]` or `[:pattern p]`, and `:as-of`
+  nil or `{:frontier F}` (`check-call`'s `moment-ok?`, L66-75). The query
+  sends a layer of the shared kind to `shared-read-point` or
+  `shared-read-pattern` on the same task (P5b reads.clj L1511, L1562); a
+  frontier moment on a one-owner layer is refused `:moment-kind` (L1517,
+  L1568). The read is as of F = min(asked, the frontier on the layer's
+  task) (P5b shared_reads.clj `moment`, L282-294), visible to a member
+  whose membership's batch is at or below F (`visible?`, L296-316); the
+  answer carries `:moment {:frontier F}`, `:max-stamp`, and rows with
+  `:batch` (`shared-answer`, L378-388).
+- `rig.store.shared-reads/moment`, the adapter's sign for the shared read
+  (here L629), exists (P5b L282), so the group's reads leave phase 3's
+  frontier read for the exit on their own, and A3, A4 and A6 reach KD10's
+  rule.
+- The person forget with the micro index purge is `read-exit/forget-person!`
+  (P5b read_exit.clj L362-370): phase 2's act, then `purge-person!`'s pages
+  (L337-360), each waiting on the micro topology (`micro-op!`, L280-298).
+  Phase 2's act alone is unchanged, and the stream gate's forget touches
+  nothing on the micro side (the branch's `module.clj` change is one
+  require and the queries' declaration).
+- A read entry names its session (FRR10); the read keys gain
+  `:read/standing`, `:read/delivery`, `:read/closed` (standing reads, which
+  the replays do not take).
+
+**Phase 6** moves the stream side's grammar into facts:
+
+- The stream gate and the one-owner exit read a key's grammar only from
+  `:grammar` facts in the layer (P6b grammar.clj L9-21; D-P3 in its notes);
+  a key with no grammar is permissive, so on the stream side a `:mention`
+  with no grammar fact names no one. The micro store still reads the
+  constant `grammar/grammars` (L28-33) until step 6b, which is not started.
+- The earlier suites write the model's grammar as facts through a test
+  helper, `rig.store.toy-grammars/write! [store layers]` (P6b
+  test/rig/store/toy_grammars.clj L33-40): one operator act per layer with
+  the `:mention` grammar (`:subjects-at [:persons]`) and a `:note` grammar
+  that names no one, indexed by value as `seed-hints` had it (D-P4). The
+  replay's seed writes none, so on the merged tree A1's and A8's mentions
+  in `:alice` would name no one: the rig's world would no longer be the
+  model's, and a match there would be a match for another reason.
+
+### The bindings, as pass 3 binds them
+
+| pass 1's binding to confirm | as wave 2 built it | cases |
+|---|---|---|
+| `client/lease-landing! [store spec]` | `promote-client/lease-landing! [store {:who :target :class :session :permission :uuid}]`; the answer under `:answer`, with `:public` and `:for` | B1-B4 |
+| `client/promote!`, the request named before sending | `promote-client/request-offer`, whose name `[L :by-layer :offer u]` is known before sending, sent by `client/offer-until-answered!` after the lease; `:source-stamp` by `client/record`, `:source-e` by `client/raw-row`, as `promote!` reads them | B1-B4 |
+| the door's resend of the same request, from the record | `promote-client/resend! [store {:offer o}]` | B1, B2 |
+| `client/promotion-status [store layer req nil]` | `promote-client/status-of [store layer req nil]`, the keyword | B1-B4 |
+| `inject/hold!`, `release!` at `:before-read-out`, `:before-forward` | the same names, phase 4's, `[point nm]` | B1, B2 |
+| `env/landing-name` with the class | the same, 3-arity, with the class the request carries | B3, B4 |
+| the crossing's answer by `c/record` of `env/crossing-name` | the same | B1-B4 |
+| the landing's answer by the micro `lookup` of its name | the same (`micro-client/lookup`, answering only once the frontier passes the landing's batch) | B3, B4 |
+| the merged handle `(merge (read-exit/connect ipc) (micro-client/connect ipc))` | `(merge (read-exit/connect ipc) (promote-client/connect ipc))` when phase 4 resolves (micro-client's handles plus `:status-q`), else as before | all |
+| `rig.store.shared-reads/moment`, the sign of the shared read | the same | the group's reads |
+| (new) the request's uuid | `env/uuid7`, made before the lease, as `promote!` makes it | B1-B4 |
+| (new) the model's grammar as facts | `rig.store.toy-grammars/write!` (stage 6) | all |
+| (dropped) `env/make-name` for the request's name | the name comes from `request-offer` | — |
