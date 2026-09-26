@@ -16,16 +16,20 @@
   topology (RIG.md, phase 0) and in a query topology alike (probed by this
   build, runs/phase5-read-build-probe.txt).
 
-  Requires rig.store.envelope only among the store's namespaces: the gate
-  requires this namespace, and the module requires both, so requiring
-  either here would be a cycle. The open step is one seam here, `open-row>`,
-  with phase 2's planned signature and returns; tonight it passes values
-  through (a rig choice), and phase 2's merge makes its body a call to
-  `rig.store.locks/open-row>`."
-  (:require [com.rpl.rama :refer :all]
+  Requires rig.store.envelope, rig.store.locks and rig.store.inject among
+  the store's namespaces: the gate requires this namespace, and the module
+  requires both, so requiring either here would be a cycle; and phase 2's
+  rig.store.locks must not require this one back, so a forget's purge is
+  wired where both are known (rig.store.module), not inside phase 2's ops.
+  The open step is one seam here, `open-row>`, whose body is phase 2's
+  `rig.store.locks/open-row>` since wave 1's merge."
+  (:require [clojure.walk :as walk]
+            [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
-            [rig.store.envelope :as env])
+            [rig.store.envelope :as env]
+            [rig.store.inject :as inject]
+            [rig.store.locks :as locks])
   (:import [javax.crypto Mac]
            [javax.crypto.spec SecretKeySpec]))
 
@@ -60,9 +64,9 @@
 
 (def value-fields
   "The row fields that hold a value or anything derived from it: dropped from
-  a `:no-copy` id-index entry and from every tombstone. `:v` tonight; phase
-  2's sealed value, its record lock and its value digest when they land. A
-  lock id stays: it is an id, as the fact id is."
+  a `:no-copy` id-index entry and from every tombstone: `:v`, and phase 2's
+  sealed value, its record lock and its value digest. A lock id stays: it
+  is an id, as the fact id is."
   #{:v :sealed :lock :digest})
 
 (def read-keys "The store-owned fact keys of read entries (FR6), first-record." #{:read/point :read/pattern})
@@ -267,6 +271,74 @@
 
 (defn- norm-fid [x] [(into [] (nth x 0)) (long (nth x 1))])
 
+;; ------------------------------------------------------------- the purge seam
+
+(defn purge-fid
+  "An erased item's fact id and act name, normalised for the keys they
+  read and write, or [nil nil] when the item is not `{:fid [name idx]
+  ...}` with a well-formed id. Total."
+  [item]
+  (try
+    (let [fid (when (map? item) (:fid item))]
+      (if (fid-ok? fid)
+        (let [f (norm-fid fid)] [f (nth f 0)])
+        [nil nil]))
+    (catch Throwable _ [nil nil])))
+
+(deframaop purge>
+  "THE SEAM from a forget to this stage's indexes (PLAN-read-exit.md, 'Purge
+  and rebuild'; phase 2's builder named it `purge-read-indexes>`), run in the
+  forget's own event on the values' task. rig.store.module wires it for
+  phase 2's value forget (in the decision's group, after the lock writes,
+  with every value its lock erased and the forget's stamp, which is the
+  ledger's date) and for its person forget (in each task's fan-out child,
+  once per value that died with the person there, with the date its wrap
+  closed, the date the open step gives). `*erased` is a vector of `{:fid
+  [name idx] :row row}`, each row as it stood before the forget, with
+  `:stamp` its act's stamp when the caller holds it; `*date` the erasure's
+  date, which the tombstones carry. Per value: its act's stamp (one seek,
+  once per act, when not carried) and its `:ix-of` set (one seek), then
+  `purge-writes`, and the three write blocks. After it no index holds the
+  value or anything derived from it. It first hands the call to the test
+  recorder (rig.store.inject `purged!`, off unless a test turns it on).
+  Never yields: it runs inside the forget's event, whose writes it
+  completes. Total: an item that is not well formed is skipped."
+  [*layer *erased *date]
+  (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
+    (inject/purged! (ops/current-task-id) *layer *erased *date)
+    (loop<- [*todo (seq *erased) *stamps {} *acc no-index-writes :> *w]
+      (<<if (empty? *todo)
+        (:> *acc)
+       (else>)
+        (first *todo :> *item)
+        (purge-fid *item :> [*fid *nm])
+        (<<if (nil? *fid)
+          (continue> (rest *todo) *stamps *acc)
+         (else>)
+          (get *item :stamp :> *carried)
+          (<<cond
+            (case> (some? *carried))
+            (identity *carried :> *fstamp)
+
+            (case> (contains? *stamps *nm))
+            (get *stamps *nm :> *fstamp)
+
+            (default>)
+            (local-select> (keypath *layer :answers *nm :stamp) $$layers :> *fstamp))
+          (local-select> (keypath *layer :ix-of *fid) $$layers :> *kv)
+          (purge-writes *fid (get *item :row) *fstamp *kv *date :> *pw)
+          (continue> (rest *todo) (assoc *stamps *nm *fstamp) (merge-writes *acc *pw)))))
+    (<<atomic
+      (ops/explode (get *w :index-put) :> [*ix *ia *ie])
+      (local-transform> [(keypath *layer *ix *ia) (termval *ie)] $$layers))
+    (<<atomic
+      (ops/explode (get *w :index-of) :> [*ofid *ias])
+      (local-transform> [(keypath *layer :ix-of *ofid) (termval *ias)] $$layers))
+    (<<atomic
+      (ops/explode (get *w :index-del) :> [*dx *da])
+      (local-transform> [(keypath *layer *dx *da) NONE>] $$layers))
+    (:>)))
+
 (defn- fact-implied
   "The entries one fact implies now, `{[field address] entry}`, with its
   `:ix-of` set under `:ix-of`; empty when its act is not a yes or it has no
@@ -277,6 +349,20 @@
       (assoc (into {} (map (fn [[f a e]] [[f a] e])) index-put)
              :ix-of (second (first index-of))))
     {}))
+
+(defn- comparable
+  "An entry with each byte array as a vector of its bytes, so two reads of
+  the same stored bytes compare equal: a byte array compares by identity,
+  and phase 2's rows carry sealed bytes, digests and lock records."
+  [x]
+  (walk/postwalk #(if (bytes? %) (vec %) %) x))
+
+(defn same-entry?
+  "Whether two index entries (or `:ix-of` sets) hold the same content, bytes
+  compared by content (wave 1: without it a sweep saw every sealed entry as
+  drifted and rewrote it)."
+  [a b]
+  (= (comparable a) (comparable b)))
 
 (defn sweep-page-writes
   "A rebuild sweep page's writes (F2). `entries` is one page of field
@@ -300,12 +386,12 @@
                 want (:ix-of (fact-implied hints fid (:rec f) (:row f) (:open f)))]
             (cond
               (empty? want) (add! :index-del [:ix-of fid])
-              (not= want v) (add! :index-of [fid want])))
+              (not (same-entry? want v)) (add! :index-of [fid want])))
           (let [fid (:fid v)
                 imp (fact-implied hints fid (:rec f) (:row f) (:open f))
                 want (get imp [field a])]
             (cond
-              (and (some? want) (= want v)) nil
+              (and (some? want) (same-entry? want v)) nil
               (some? want) (add! :index-put [field a want])
               :else (do (add! :index-del [field a])
                         (when (and (= :ix-kv field) (fid-ok? fid) (set? (:ix-of f)))
@@ -321,37 +407,35 @@
 
 ;; ------------------------------------------------------------------ open
 
-(defonce ^{:doc "Test only (R3; the in-process cluster runs every task in this JVM):
-  a function (layer fid row stamp T) -> open result, or nil to fall through to
-  the pass-through. Stands in for phase 2's erasure in tests (T19). A kept
-  store has no such hook; phase 2's merge drops it with the pass-through."}
-  open-double
-  (atom nil))
-
-(defn open-row
-  "Tonight's open step, pure (a rig choice: values stay unsealed and the open
-  step passes them through): one of `{:value v :stamp s}` (v nil for a
-  retract), `{:erased-at s}`, `{:unreadable reason}` with `:no-such-fact`,
-  `:after-moment` (the fact's stamp is after T; T nil means now) or
-  `:does-not-open`, phase 2's return shapes. Never throws."
-  [layer fid row stamp T]
-  (try
-    (or (when-let [f @open-double] (f layer fid row stamp T))
-        (cond
-          (or (not (map? row)) (not (int? stamp))) {:unreadable :no-such-fact}
-          (and (int? T) (> stamp T)) {:unreadable :after-moment}
-          :else {:value (env/decode-value (:v row)) :stamp stamp}))
-    (catch Throwable _ {:unreadable :does-not-open})))
-
 (deframafn open-row>
-  "The one function every shown value passes through (phase 2's `open-row>`,
-  F6: the twin of `open-value>` given a row and its act's stamp already read,
-  so nothing is read twice). An index entry is the row plus its own fields,
-  so it passes as the row. Called on the layer's home task, in a query
-  topology or a gate event; it must not repartition. Phase 2's merge makes
-  its body a call to `rig.store.locks/open-row>`, whose contract wins."
+  "The one function every shown value passes through (F6: the twin of
+  phase 2's `open-value>` given a row and its act's stamp already read, so
+  nothing is read twice). An index entry is the row plus its own fields, so
+  it passes as the row. Called on the layer's home task, in a query
+  topology or a gate event; it must not repartition. Its body is phase 2's
+  `rig.store.locks/open-row>` (wave 1's merge; the pass-through and its test
+  double are gone), whose contract is the seam's: exactly one of `{:value v
+  :stamp s}` (v nil for a retract), `{:erased-at date}` (the ledger's date,
+  else the date the wrap closed), or `{:unreadable reason}`
+  (`:no-such-fact`, `:after-moment`, `:does-not-open`). It reads, for a
+  sealed row stamped at or before `*T`, the ledger entry of its lock, its
+  lock row when the lock is not in the record, and the wrap's person
+  entries: one to three local seeks. Never throws."
   [*layer *fid *row *stamp *T]
-  (:> (open-row *layer *fid *row *stamp *T)))
+  (locks/open-row> *layer *fid *row *stamp *T :> *o)
+  (:> *o))
+
+(deframafn open-row-with>
+  "`open-row>` over the many rows of one read or one page: `*persons` are
+  the person entries this read has already read, and it hands back the
+  map extended with any this row needed (phase 2's `open-row-with>`), so
+  each person is read once per read, not once per row (wave 1). Every loop
+  here that opens rows carries the map. A read that yields between rows
+  judges them all by the person entries as it first read them: one read,
+  one view of who is forgotten."
+  [*layer *fid *row *stamp *T *persons]
+  (locks/open-row-with> *layer *fid *row *stamp *T *persons :> *o *persons2)
+  (:> *o *persons2))
 
 ;; ----------------------------------------------------------- the moment
 
@@ -802,7 +886,14 @@
 ;; ------------------------------------------------------ index operations
 
 (def max-put-acts 256)
-(def max-put-rows "A put page stops once its acts hold this many rows." 4096)
+(def max-put-rows
+  "A put page stops once its acts hold this many rows. 2,048 since wave 1
+  (the read exit built 4,096 when an open read nothing): with phase 2's open
+  step a 4,096-row page of sealed values held its task about 0.47 s against
+  0.16 s for rows that open nothing, over the plan's 0.1 to 0.3 s for a put
+  page, so the cap was halved (runs/wave1-put-page-bench.txt). An act larger
+  than the cap still goes whole into one page."
+  2048)
 (def max-sweep-entries 512)
 
 (defn- bounded? [n lo hi] (and (int? n) (<= lo n hi)))
@@ -815,8 +906,10 @@
   :purge :fid fid :forget-stamp s}` (runs `purge-writes`, standing in for
   phase 2's forget), `{:layer L :op :drop :field f :entries n}` (deletes the
   first n entries of a field) and `{:layer L :op :put :field f :address a
-  :fid fid :stamp s :e e :k k}` (writes one stale id entry). Anything else is
-  `{:refuse :bad-op}`."
+  :fid fid :stamp s :e e :k k}` (writes one stale id entry; with `:copy?
+  true` the entry carries the fact's log row as it stands, so a test can
+  plant a stale value-index entry that the open step then judges, wave 1).
+  Anything else is `{:refuse :bad-op}`."
   [raw]
   (try
     (let [{:keys [layer op after field]} (when (map? raw) raw)
@@ -852,7 +945,7 @@
           (if (and (contains? index-fields field) (string? (:address raw)) (fid-ok? (:fid raw))
                    (int? (:stamp raw)) (<= 0 (:stamp raw)) (kw? (:e raw)) (kw? (:k raw)))
             {:layer layer :op op :field field :address (:address raw) :fid (norm-fid (:fid raw))
-             :stamp (long (:stamp raw)) :e (:e raw) :k (:k raw)}
+             :stamp (long (:stamp raw)) :e (:e raw) :k (:k raw) :copy? (true? (:copy? raw))}
             {:refuse :bad-op})
 
           {:refuse :bad-op})))
@@ -926,14 +1019,18 @@
 
 (defn put-one-writes
   "The test-only `:put` op: one stale id entry, built from checked parts so
-  it fits the entry schema."
-  [op]
-  (try
-    (assoc no-index-writes
-           :index-put [[(:field op) (:address op)
-                        {:e (:e op) :k (:k op) :v nil :replaces nil :mark #{}
-                         :fid (:fid op) :stamp (:stamp op)}]])
-    (catch Throwable _ no-index-writes)))
+  it fits the entry schema; with `:copy?`, the fact's log row as read
+  (`row`, nil when there is none) under the entry's own e, k, id and
+  stamp."
+  ([op] (put-one-writes op nil))
+  ([op row]
+   (try
+     (assoc no-index-writes
+            :index-put [[(:field op) (:address op)
+                         (merge (when (and (:copy? op) (map? row)) row)
+                                {:e (:e op) :k (:k op) :fid (:fid op) :stamp (:stamp op)}
+                                (when-not (and (:copy? op) (map? row)) {:v nil :replaces nil :mark #{}}))]])
+     (catch Throwable _ no-index-writes))))
 
 ;; ------------------------------------------------------- install: depot
 
@@ -949,7 +1046,7 @@
 (defn declare-index-ops-source!
   "The gate topology's second source (F2), on `*index-ops`: one bounded
   event per record, on the layer's home. A put page reads up to n answer
-  records after its cursor and each yes act's rows (stopping once 4,096 rows
+  records after its cursor and each yes act's rows (stopping once 2,048 rows
   are gathered), opens every row, and puts every entry they imply; a sweep
   page reads up to n entries of one field after its cursor, each entry's
   record, row and open (and for `:ix-kv` its `:ix-of` set), and deletes or
@@ -985,7 +1082,7 @@
          (else>)
           (local-select> [(keypath *layer :answers) (sorted-map-range-from *after *opts)] $$layers :> *recs))
         (put-todo *recs :> *todo0)
-        (loop<- [*pt *todo0 *acts [] *nrows 0 *last nil :> *pout]
+        (loop<- [*pt *todo0 *acts [] *nrows 0 *last nil *ppc {} :> *pout]
           (<<if (or> (empty? *pt) (put-rows-full? *nrows))
             (:> (put-out *acts *last *pt))
            (else>)
@@ -993,18 +1090,18 @@
             (<<if (= :yes (get *prec :answer))
               (local-select> [(keypath *layer :log *pnm) (subselect ALL)] $$layers :> *prows)
               (get *prec :stamp :> *pstamp)
-              (loop<- [*ri 0 *ropens [] :> *opens]
+              (loop<- [*ri 0 *ropens [] *rpc *ppc :> *opens *ppc2]
                 (<<if (>= *ri (count *prows))
-                  (:> *ropens)
+                  (:> *ropens *rpc)
                  (else>)
                   (nth *prows *ri :> *rrow)
                   (fid-of *pnm *ri :> *rfid)
-                  (open-row> *layer *rfid *rrow *pstamp *clock :> *ro)
-                  (continue> (inc *ri) (conj *ropens *ro))))
+                  (open-row-with> *layer *rfid *rrow *pstamp *clock *rpc :> *ro *rpc2)
+                  (continue> (inc *ri) (conj *ropens *ro) *rpc2)))
               (put-act *pnm *pstamp *prows *opens :> *pact)
-              (continue> (rest *pt) (conj *acts *pact) (+ *nrows (count *prows)) *pnm)
+              (continue> (rest *pt) (conj *acts *pact) (+ *nrows (count *prows)) *pnm *ppc2)
              (else>)
-              (continue> (rest *pt) *acts *nrows *pnm))))
+              (continue> (rest *pt) *acts *nrows *pnm *ppc))))
         (get *pout :acts :> *pacts)
         (put-page-writes *hints *layer *pacts :> *d)
         (put-ack *recs *n *pout :> *ack)
@@ -1020,23 +1117,23 @@
          (else>)
           (local-select> [(keypath *layer *field) (sorted-map-range-from *safter *sopts)] $$layers :> *ents))
         (sweep-todo *field *ents :> *stodo)
-        (loop<- [*sw *stodo *found [] :> *founds]
+        (loop<- [*sw *stodo *found [] *spc {} :> *founds]
           (<<if (empty? *sw)
             (:> *found)
            (else>)
             (first *sw :> [*sa *sv *sfid])
             (name-idx *sfid :> [*snm *sidx])
             (<<if (nil? *snm)
-              (continue> (rest *sw) (conj *found (found-of *sa nil nil nil nil)))
+              (continue> (rest *sw) (conj *found (found-of *sa nil nil nil nil)) *spc)
              (else>)
               (local-select> [(keypath *layer :answers *snm)] $$layers :> *srec)
               (local-select> [(keypath *layer :log *snm *sidx)] $$layers :> *srow)
-              (open-row> *layer *sfid *srow (get *srec :stamp) *sclock :> *so)
+              (open-row-with> *layer *sfid *srow (get *srec :stamp) *sclock *spc :> *so *spc2)
               (<<if (= *field :ix-kv)
                 (local-select> [(keypath *layer :ix-of *sfid)] $$layers :> *sof)
                (else>)
                 (identity nil :> *sof))
-              (continue> (rest *sw) (conj *found (found-of *sa *srec *srow *so *sof))))))
+              (continue> (rest *sw) (conj *found (found-of *sa *srec *srow *so *sof)) *spc2))))
         (sweep-entries *stodo :> *sents)
         (sweep-page-writes *hints *layer *field *sents *founds :> *d)
         (sweep-ack *stodo *sn *d :> *ack)
@@ -1060,7 +1157,12 @@
         (drop-ack *d :> *ack)
 
         (default>)
-        (put-one-writes *op :> *d)
+        (<<if (get *op :copy?)
+          (get *op :fid :> *cfid)
+          (local-select> [(keypath *layer :log (first *cfid) (second *cfid))] $$layers :> *crow)
+         (else>)
+          (identity nil :> *crow))
+        (put-one-writes *op *crow :> *d)
         (identity {:put true} :> *ack))
       ;; the same three write blocks as the gate's decision (module.clj)
       (<<atomic
@@ -1102,7 +1204,7 @@
         (get *p :as-of :> *pas-of)
         (moment *pas-of *clock :> *m)
         (get *p :fids :> *pfids)
-        (loop<- [*todo *pfids *acc [] :> *rows]
+        (loop<- [*todo *pfids *acc [] *qpc {} :> *rows]
           (yield-if-overtime)
           (<<if (empty? *todo)
             (:> *acc)
@@ -1116,12 +1218,14 @@
               (get *rec :stamp :> *s)
               (<<if (nil? *row)
                 (absent-row *fid :> *r)
+                (identity *qpc :> *qpc2)
                (else>)
-                (open-row> *layer *fid *row *s *m :> *o)
+                (open-row-with> *layer *fid *row *s *m *qpc :> *o *qpc2)
                 (point-row *fid *s *row *o :> *r))
              (else>)
-              (absent-row *fid :> *r))
-            (continue> (rest *todo) (conj *acc *r))))
+              (absent-row *fid :> *r)
+              (identity *qpc :> *qpc2))
+            (continue> (rest *todo) (conj *acc *r) *qpc2)))
         (point-answer *layer *m *rows :> *answer)))
     (|origin))
 
@@ -1154,7 +1258,7 @@
           ;; doubling pages over one index, each read yielding, until the range's
           ;; end, limit + 1 matches, or the scan budget
           (page-init *pp *m :> *st0)
-          (loop<- [*pst *st0 :> *pfinal]
+          (loop<- [*pst *st0 *kpc {} :> *pfinal]
             (yield-if-overtime)
             (get *pst :from :> *pfrom)
             (get *pst :page :> *ppage)
@@ -1164,27 +1268,27 @@
             (kv-candidates *pst *pents :> *pcands)
             (kv-need *pst :> *pneed)
             ;; [F5] a [:kv] candidate counts only when its value opens to the pattern's
-            (loop<- [*kt *pcands *kn *pneed *kg {} :> *popened]
+            (loop<- [*kt *pcands *kn *pneed *kg {} *kpc2 *kpc :> *popened *kpc3]
               (yield-if-overtime)
               (<<if (or> (empty? *kt) (<= *kn 0))
-                (:> *kg)
+                (:> *kg *kpc2)
                (else>)
                 (first *kt :> [*ka *ke])
                 (get *ke :fid :> *kfid)
                 (get *ke :stamp :> *kstamp)
-                (open-row> *layer *kfid *ke *kstamp *m :> *ko)
+                (open-row-with> *layer *kfid *ke *kstamp *m *kpc2 :> *ko *kpc4)
                 (kv-hit? *pst *ko :> *khit)
                 (need-after *kn *khit :> *kn2)
-                (continue> (rest *kt) *kn2 (assoc *kg *ka *ko))))
+                (continue> (rest *kt) *kn2 (assoc *kg *ka *ko) *kpc4)))
             (page-step *pst *pents *popened :> *pst2)
             (<<if (get *pst2 :done?)
               (:> *pst2)
              (else>)
-              (continue> *pst2))))
+              (continue> *pst2 *kpc3))))
         (get *pfinal :kept :> *kept)
         (get *pfinal :more? :> *more?)
         ;; step 6: show each kept entry, opening it through the one seam
-        (loop<- [*vt *kept *vacc [] :> *vrows]
+        (loop<- [*vt *kept *vacc [] *vpc {} :> *vrows]
           (yield-if-overtime)
           (<<if (empty? *vt)
             (:> *vacc)
@@ -1198,15 +1302,16 @@
               (case> (= *how :read-row))
               (kept-name-idx *vk :> [*vnm *vidx])
               (local-select> [(keypath *layer :log *vnm *vidx)] $$layers :> *vrow)
-              (open-row> *layer *vfid *vrow *vstamp *m :> *vo)
+              (open-row-with> *layer *vfid *vrow *vstamp *m *vpc :> *vo *vpc2)
               (shown-row *vk *vo :> *vr)
 
               (case> (= *how :open))
-              (open-row> *layer *vfid *ve *vstamp *m :> *vo2)
+              (open-row-with> *layer *vfid *ve *vstamp *m *vpc :> *vo2 *vpc2)
               (shown-row *vk *vo2 :> *vr)
 
               (default>)
-              (shown-row *vk nil :> *vr))
-            (continue> (rest *vt) (conj *vacc *vr))))
+              (shown-row *vk nil :> *vr)
+              (identity *vpc :> *vpc2))
+            (continue> (rest *vt) (conj *vacc *vr) *vpc2)))
         (pattern-answer *layer *m *pp *vrows *more? :> *answer)))
     (|origin)))
