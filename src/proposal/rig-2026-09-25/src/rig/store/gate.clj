@@ -118,8 +118,11 @@
         ;; stage 4 (PLAN-promotion.md step 1, PR1, PR2)
         :promote-request (ps/request-value-ok? offer v)
         :crossed (ps/crossed-value-ok? v)
-        :session-closed (and (map? v) (= #{:session} (set (keys v))) (env/readable-keyword? (:session v))
-                             (= (:e f) (:session v)))
+        ;; stage 5b (FRR5): an optional :reads part, :keep or :drop, what the session's
+        ;; read entries become; absent means keep
+        :session-closed (and (map? v) (contains? v :session) (every? #{:session :reads} (keys v))
+                             (env/readable-keyword? (:session v)) (= (:e f) (:session v))
+                             (or (not (contains? v :reads)) (contains? #{:keep :drop} (:reads v))))
         ;; phase 6: a grammar in the language, on a key that is not the store's (4.1, 4.2)
         :grammar (and (nil? (grammar/refusal v)) (not (store-key? (:e f))))))))
 

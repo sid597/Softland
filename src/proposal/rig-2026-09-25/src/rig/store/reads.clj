@@ -43,7 +43,8 @@
   without their value fields (the store's own read lines: written on every
   read, read rarely). Changing hints for an existing layer needs a rebuild
   of its indexes."
-  {:by-value #{:note} :opaque #{} :no-copy #{:read/point :read/pattern}})
+  {:by-value #{:note} :opaque #{}
+   :no-copy #{:read/point :read/pattern :read/standing :read/delivery :read/closed}})
 
 (defn current-hints
   "The hints the module decides with. A function, so the topology code calls
@@ -151,7 +152,10 @@
   is an id, as the fact id is."
   #{:v :sealed :lock :digest})
 
-(def read-keys "The store-owned fact keys of read entries (FR6), first-record." #{:read/point :read/pattern})
+(def read-keys
+  "The store-owned fact keys of read entries (FR6, and stage 5b's standing
+  read lines, FRR4), first-record."
+  #{:read/point :read/pattern :read/standing :read/delivery :read/closed})
 
 (def roles "The seed roles (ruling 3), placeholders: FR10." #{:stood-on :shown :matched :passed-through})
 
@@ -161,7 +165,7 @@
 
 (def sep "The part separator of an address, U+0000 (RC4)." "\u0000")
 
-(defn- kw-text
+(defn kw-text
   "A readable keyword's printed text without the colon; it holds no U+0000."
   [k]
   (subs (str k) 1))
@@ -171,7 +175,7 @@
   [stamp]
   (format "%016x" (long stamp)))
 
-(defn- fid-text
+(defn fid-text
   "A fact id's part of an address: its name's canonical text, U+0000, and its
   index as 8 hex digits, so the facts of one act sort in the act's order (a
   rig choice, see BUILD_NOTES-read-exit.md: the canonical text of the whole
@@ -183,9 +187,12 @@
   "The address of a fact's entry in one index field (RC4): parts joined by
   U+0000. `:ix-ek` is e, k, stamp, fact id; `:ix-ke` is k, e, stamp, fact id;
   `:ix-kv` is k, the value text's length in chars as 8 hex digits, the value
-  text, stamp, fact id. Unique per fact: the fact id is the last part."
+  text, stamp, fact id; `:ix-s` (stage 5b) is stamp, fact id, so the layer's
+  facts in stamp order, what a standing read's delta reads. Unique per fact:
+  the fact id is the last part."
   [field {:keys [e k vtext stamp fid]}]
   (case field
+    :ix-s (str (hex16 stamp) sep (fid-text fid))
     :ix-ek (str (kw-text e) sep (kw-text k) sep (hex16 stamp) sep (fid-text fid))
     :ix-ke (str (kw-text k) sep (kw-text e) sep (hex16 stamp) sep (fid-text fid))
     :ix-kv (str (kw-text k) sep (format "%08x" (count vtext)) sep vtext sep (hex16 stamp) sep (fid-text fid))))
@@ -209,19 +216,21 @@
            :copy      Boolean})))
 
 (defn layer-fields
-  "The four fields this stage adds to a layer's value in `$$layers`: three
-  String-addressed indexes whose entries carry the row, and the reverse map
-  from a fact id to its `:ix-kv` addresses, so a purge needs no value."
+  "The five fields this stage adds to a layer's value in `$$layers`: four
+  String-addressed indexes whose entries carry the row (`:ix-s`, every fact
+  in stamp order, stage 5b's), and the reverse map from a fact id to its
+  `:ix-kv` addresses, so a purge needs no value."
   [row-fields]
   (let [entry (index-entry row-fields)]
-    {:ix-ek (map-schema String entry {:subindex-options {:track-size? false}})
+    {:ix-s  (map-schema String entry {:subindex-options {:track-size? false}})
+     :ix-ek (map-schema String entry {:subindex-options {:track-size? false}})
      :ix-ke (map-schema String entry {:subindex-options {:track-size? false}})
      :ix-kv (map-schema String entry {:subindex-options {:track-size? false}})
      :ix-of (map-schema clojure.lang.PersistentVector (set-schema String)
                         {:subindex-options {:track-size? false}})}))
 
-(def index-fields #{:ix-ek :ix-ke :ix-kv})
-(def all-fields #{:ix-ek :ix-ke :ix-kv :ix-of})
+(def index-fields #{:ix-ek :ix-ke :ix-kv :ix-s})
+(def all-fields #{:ix-ek :ix-ke :ix-kv :ix-s :ix-of})
 
 ;; --------------------------------------------------------- index entries
 
@@ -243,15 +252,16 @@
   (let [e (:e row)
         k (:k row)
         ek (address :ix-ek {:e e :k k :stamp stamp :fid fid})
-        ke (address :ix-ke {:e e :k k :stamp stamp :fid fid})]
+        ke (address :ix-ke {:e e :k k :stamp stamp :fid fid})
+        ss (address :ix-s {:stamp stamp :fid fid})]
     (if (some? erased-at)
       (let [t (tombstone fid stamp row erased-at)]
-        {:index-put [[:ix-ek ek t] [:ix-ke ke t]] :index-of []})
+        {:index-put [[:ix-ek ek t] [:ix-ke ke t] [:ix-s ss t]] :index-of []})
       (let [full (assoc row :fid fid :stamp stamp)
             id-entry (if (copy? hints k) full (assoc (apply dissoc full value-fields) :copy false))
             kv (when (and (by-value? hints k) (string? plain))
                  (address :ix-kv {:k k :vtext plain :stamp stamp :fid fid}))]
-        {:index-put (cond-> [[:ix-ek ek id-entry] [:ix-ke ke id-entry]]
+        {:index-put (cond-> [[:ix-ek ek id-entry] [:ix-ke ke id-entry] [:ix-s ss id-entry]]
                       kv (conj [:ix-kv kv full]))
          :index-of (if kv [[fid #{kv}]] [])}))))
 
@@ -302,8 +312,9 @@
     (let [fid [(into [] (nth fid 0)) (long (nth fid 1))]
           ek (address :ix-ek {:e (:e row) :k (:k row) :stamp fact-stamp :fid fid})
           ke (address :ix-ke {:e (:e row) :k (:k row) :stamp fact-stamp :fid fid})
+          ss (address :ix-s {:stamp fact-stamp :fid fid})
           t (tombstone fid (long fact-stamp) row (long forget-stamp))]
-      {:index-put [[:ix-ek ek t] [:ix-ke ke t]]
+      {:index-put [[:ix-ek ek t] [:ix-ke ke t] [:ix-s ss t]]
        :index-of []
        :index-del (conj (into [] (map (fn [a] [:ix-kv a])) (sort (filter string? kv-addresses)))
                         [:ix-of fid])})
@@ -342,16 +353,16 @@
   [hints layer acts]
   (let [{:keys [index-put index-of]} (put-page-writes hints layer acts)]
     (reduce (fn [m [f a e]] (assoc-in m [f a] e))
-            {:ix-ek {} :ix-ke {} :ix-kv {} :ix-of (into {} index-of)}
+            {:ix-ek {} :ix-ke {} :ix-kv {} :ix-s {} :ix-of (into {} index-of)}
             index-put)))
 
-(defn- fid-ok?
+(defn fid-ok?
   "A well-formed fact id [name idx] (envelope's own check is private)."
   [x]
   (and (vector? x) (= 2 (count x)) (env/valid-name? (nth x 0))
        (int? (nth x 1)) (<= 0 (nth x 1))))
 
-(defn- norm-fid [x] [(into [] (nth x 0)) (long (nth x 1))])
+(defn norm-fid [x] [(into [] (nth x 0)) (long (nth x 1))])
 
 ;; ------------------------------------------------------------- the purge seam
 
@@ -524,13 +535,43 @@
 (defn moment
   "The stamp a read is as of (FR2, first-record): min(asked, clock), where
   clock is the home task's last stamp read in the same query; nil asked
-  means the clock. Every fact admitted on the task after the read is stamped
+  means the clock. `asked` is a stamp, or the moment form `{:stamp s}`
+  (stage 5b). Every fact admitted on the task after the read is stamped
   above the clock, so the read is final."
   [as-of clock]
-  (let [clock (long (or clock 0))]
-    (if (int? as-of) (min (long as-of) clock) clock)))
+  (let [clock (long (or clock 0))
+        asked (if (map? as-of) (:stamp as-of) as-of)]
+    (if (int? asked) (min (long asked) clock) clock)))
 
-(defn- as-of-ok? [x] (or (nil? x) (and (int? x) (<= 0 x))))
+(defn frontier-moment?
+  "Whether a read asks for a moment of the shared kind, `{:frontier F}`
+  (stage 5b): a one-owner layer refuses it `:moment-kind`, as a shared one
+  refuses a stamp (RR1)."
+  [as-of]
+  (and (map? as-of) (contains? as-of :frontier)))
+
+(defn- as-of-ok?
+  "A read's moment as asked: nil (now), a stamp, `{:stamp s}` or, stage 5b,
+  `{:frontier F}`, each a non-negative integer."
+  [x]
+  (or (nil? x)
+      (and (int? x) (<= 0 x))
+      (and (map? x) (= 1 (count x))
+           (let [[k v] (first x)] (and (#{:stamp :frontier} k) (int? v) (<= 0 v))))))
+
+(defn- norm-as-of [x]
+  (cond (nil? x) nil
+        (map? x) (update-vals x long)
+        :else (long x)))
+
+(defn shared-layer?
+  "Whether a read of the layer takes the shared path (stage 5b,
+  PLAN-reads-rest.md): its class in force is by entity, or the stream store
+  keeps no settings for it (a group layer, whose settings are the micro
+  store's, or no layer at all, which the shared path answers
+  `:not-visible`, F4)."
+  [settings]
+  (or (not (map? settings)) (= :by-entity (:class settings))))
 
 ;; ------------------------------------------------------------ visibility
 
@@ -575,7 +616,7 @@
   (try
     (if (and (vector? fids) (seq fids) (<= (count fids) max-point-fids)
              (every? fid-ok? fids) (as-of-ok? as-of))
-      {:fids (mapv norm-fid fids) :as-of (some-> as-of long)}
+      {:fids (mapv norm-fid fids) :as-of (norm-as-of as-of)}
       {:refused :bad-read})
     (catch Throwable _ {:refused :bad-read})))
 
@@ -602,7 +643,7 @@
          :else
          (let [[kind a b] pattern
                n (count pattern)
-               base {:limit (long lim) :as-of (some-> as-of long)}]
+               base {:limit (long lim) :as-of (norm-as-of as-of)}]
            (cond
              (and (= kind :all) (= n 1))
              (assoc base :kind :all :pattern [:all] :ix :ix-ek :prefix "")
@@ -642,7 +683,7 @@
     (or (contains? parsed :refused) (env/readable-keyword? layer)) parsed
     :else {:refused refusal}))
 
-(defn- prefix-end
+(defn prefix-end
   "The least String above every String that starts with `prefix`, when
   `prefix` ends in U+0000: the prefix with that last char raised to U+0001."
   [prefix]
@@ -675,6 +716,9 @@
         limit (:limit pp)
         budget (* budget-factor (inc limit))]
     {:ix (:ix pp) :kind (:kind pp) :v (:v pp) :from from :end end :m (long m)
+     ;; stage 5b: what the moment bounds, an entry's :stamp (one-owner) or its
+     ;; :batch (a shared layer's entries, read as of a frontier)
+     :by (or (:by pp) :stamp)
      :limit limit :budget budget :page (min first-page (inc limit) budget)
      :scanned 0 :matched 0 :kept [] :done? false :more? false}))
 
@@ -685,7 +729,7 @@
 
 (defn- in-range? [st a] (let [end (:end st)] (or (nil? end) (neg? (compare a end)))))
 
-(defn- stamp-ok? [st e] (let [s (:stamp e)] (and (int? s) (<= s (:m st)))))
+(defn- stamp-ok? [st e] (let [s (get e (:by st :stamp))] (and (int? s) (<= s (:m st)))))
 
 (defn kv-candidates
   "For a `[:kv]` page, the entries to open, in order: in range, stamped at or
@@ -713,6 +757,25 @@
 
 (defn need-after [need hit?] (if hit? (dec need) need))
 
+(defn entry-matches?
+  "Whether an index entry is a fact the pattern names by entity and key
+  (stage 5b: a standing read's delta over `:ix-s`, every fact of the layer
+  in time order, keeps what its pattern matches). `[:kv]` is matched by its
+  value, which the open decides, not here. Total."
+  [pattern e]
+  (try
+    (let [[kind a b] pattern]
+      (boolean
+       (and (map? e)
+            (case kind
+              :all true
+              :e (= a (:e e))
+              :k (= a (:k e))
+              (:ek :latest) (and (= a (:e e)) (= b (:k e)))
+              :kv (= a (:k e))
+              false))))
+    (catch Throwable _ false)))
+
 (defn page-step
   "The page loop's pure step over one page of entries (read from `:from`,
   at most `:page` of them). Keeps entries below the end whose stamp is at or
@@ -725,14 +788,15 @@
   and how big it is (twice the last, capped by the budget left)."
   [st entries opened]
   (try
-    (loop [es entries scanned (:scanned st) kept (:kept st) matched (:matched st)]
-      (let [done (fn [more?] (assoc st :scanned scanned :kept kept :matched matched :done? true :more? more?))]
+    (loop [es entries scanned (:scanned st) kept (:kept st) matched (:matched st) last (:last st)]
+      (let [done (fn [more?] (assoc st :scanned scanned :kept kept :matched matched :done? true :more? more?
+                                    :last last))]
         (if (empty? es)
           (let [left (- (:budget st) scanned)]
             (cond
               (< (count entries) (:page st)) (done false)
-              (<= left 0) (done true)
-              :else (assoc st :scanned scanned :kept kept :matched matched
+              (<= left 0) (assoc (done true) :cut :budget)
+              :else (assoc st :scanned scanned :kept kept :matched matched :last last
                            :from (str (first (peek entries)) sep)
                            :page (min (* 2 (:page st)) left))))
           (let [[a e] (first es)]
@@ -741,11 +805,13 @@
               (let [scanned (inc scanned)
                     o (get opened a)
                     hit? (and (map? e) (stamp-ok? st e)
+                              ;; stage 5b: a delta over :ix-s keeps what the pattern matches
+                              (or (nil? (:match st)) (entry-matches? (:match st) e))
                               (if (= :kv (:kind st)) (and (nil? (:erased-at e)) (kv-hit? st o)) true))]
                 (cond
-                  (not hit?) (recur (rest es) scanned kept matched)
-                  (= matched (:limit st)) (assoc (done true) :scanned scanned)
-                  :else (recur (rest es) scanned (conj kept {:address a :entry e :opened o}) (inc matched)))))))))
+                  (not hit?) (recur (rest es) scanned kept matched a)
+                  (= matched (:limit st)) (assoc (done true) :scanned scanned :cut :limit :last a)
+                  :else (recur (rest es) scanned (conj kept {:address a :entry e :opened o}) (inc matched) a))))))))
     (catch Throwable _ (assoc st :done? true :more? true :failed? true))))
 
 (defn tail-state
@@ -756,7 +822,7 @@
   (try
     (let [[[a e]] (page-entries sub)]
       {:kept (if (and a (map? e) (.startsWith ^String a ^String (:prefix pp))
-                      (int? (:stamp e)) (<= (:stamp e) m))
+                      (int? (get e (:by pp :stamp))) (<= (get e (:by pp :stamp)) m))
                [{:address a :entry e :opened nil}]
                [])
        :more? false})
@@ -878,6 +944,81 @@
   (when-let [bs (fingerprint-bytes pairs)]
     (hex (hmac fp-secret bs))))
 
+(defn recorded-pattern
+  "A pattern as a read line records it (REVIEW-wave1 R-2): a `[:kv k v]`
+  pattern's value keyed under the fingerprint secret, `[:kv k {:keyed hex}]`,
+  never its text, since no forget reaches a recorded line; every other form
+  as it is. Computed in the module, where the secret is: every pattern
+  answer carries it (`pattern-answer`), stage 5b's standing-read opening
+  records it, and it is the seam R-2's fix of `entry-facts` takes. Nil on
+  any failure."
+  [pattern]
+  (try
+    (if (and (vector? pattern) (= 3 (count pattern)) (= :kv (nth pattern 0)))
+      [:kv (nth pattern 1)
+       {:keyed (hex (hmac fp-secret (.getBytes (str "softland.read-pattern/1\n" (env/canonical (nth pattern 2))) "UTF-8")))}]
+      pattern)
+    (catch Throwable _ nil)))
+
+(def ^:private kv-secret
+  "The micro value index's secret (stage 5b, PLAN-reads-rest.md F12),
+  derived from the fingerprint secret under its own label and never stored
+  or sent: HMAC-SHA256(fingerprint secret, \"softland.kv-index/1\")."
+  (hmac fp-secret (.getBytes "softland.kv-index/1" "UTF-8")))
+
+(defn kv-digest
+  "A value's keyed digest for the micro value index (F12): HMAC-SHA256 under
+  the kv secret over the UTF-8 of the value's canonical text, lowercase hex,
+  or nil. Taken where the plaintext already is (the arrival task, a put
+  page's entity task, a query), so no text crosses a task; it confirms a
+  guess only inside the module, and a purge deletes it with the value."
+  [^String text]
+  (try (when (string? text) (hex (hmac kv-secret (.getBytes text "UTF-8"))))
+       (catch Throwable _ nil)))
+
+(def ^:private cursor-lock
+  "The lock a standing read's resume cursor is sealed under (stage 5b),
+  derived from the fingerprint secret and never stored or sent."
+  (hmac fp-secret (.getBytes "softland.scan-cursor/1" "UTF-8")))
+
+(defn seal-cursor
+  "A delta's resume address sealed for its handle (stage 5b, the build's
+  repair of F2): the client holds it and cannot read it, so nothing of an
+  unshown fact reaches the client, and the next delta resumes exactly past
+  what this one scanned, even inside one act larger than the scan budget.
+  Hex, or nil."
+  [^String address]
+  (try (when (string? address) (hex (locks/seal cursor-lock (.getBytes address "UTF-8"))))
+       (catch Throwable _ nil)))
+
+(defn open-cursor
+  "The address a sealed cursor holds, or nil when it does not open (not one
+  of this module's, or tampered with). Total."
+  [token]
+  (try (when (string? token)
+         (some-> (locks/open cursor-lock (.parseHex (java.util.HexFormat/of) ^String token)) (String. "UTF-8")))
+       (catch Throwable _ nil)))
+
+(def standing-seed
+  "The first link of a standing read's closing chain (FRR3), before any
+  delivery line: the prefix alone."
+  "softland.standing-fp/1\n")
+
+(defn standing-link
+  "The running closing fingerprint of a standing read through one more
+  delivery line (FRR2's `:so-far :fp`, PLAN-reads-rest.md F3): HMAC-SHA256
+  under the fingerprint secret over the seed, the previous link (\"\" for
+  the first line), a newline and the canonical text of `[moment
+  fingerprint]`, lowercase hex. With no line (`moment` nil) the HMAC of the
+  seed alone. Ids, moments and fingerprints only; nil on any failure."
+  [prev moment fp]
+  (try
+    (hex (hmac fp-secret (.getBytes (if (nil? moment)
+                                      standing-seed
+                                      (str standing-seed (or prev "") "\n" (env/canonical [moment fp])))
+                                    "UTF-8")))
+    (catch Throwable _ nil)))
+
 ;; --------------------------------------------------------------- answers
 
 (defn point-answer
@@ -896,6 +1037,8 @@
   (try
     (let [matched (mapv (fn [r] [(:fid r) (:stamp r)]) rows)]
       {:layer layer :moment {:stamp m} :kind :pattern :pattern (:pattern pp)
+       ;; stage 5b, R-2's seam: the pattern as a line may record it, keyed in the module
+       :recorded-pattern (recorded-pattern (:pattern pp))
        :rows rows
        :matched matched
        :mark (if more? :partial :complete)
@@ -930,17 +1073,22 @@
   `:read/pattern` line with pattern, moment, role, mark, count, fingerprint
   and the secret's id, and the exact list of [fid stamp] for a person or a
   model, or a tool that asks for rows. Empty pattern reads give their line
-  too. Total: nil for anything else."
+  too. Stage 5b: every fact is marked `:own-row` (FRR6, first-record), so
+  its lock is a lock row in any working layer and a dropped session's
+  entries are forgotten the ordinary way; a shared read's moment is
+  `{:frontier F}` and its facts carry `:max-stamp` (FRR8), the stamp the
+  entry must stand on. Total: nil for anything else."
   [answer spec]
   (try
     (let [{:keys [entry-name role reader-kind rows?]} spec
           ent (entry-entity entry-name)
-          base {:layer (:layer answer) :moment (:moment answer) :role (or role :shown)}]
+          base (cond-> {:layer (:layer answer) :moment (:moment answer) :role (or role :shown)}
+                 (contains? answer :max-stamp) (assoc :max-stamp (:max-stamp answer)))]
       (case (:kind answer)
         :point (vec (for [r (:rows answer)]
-                      {:e ent :k :read/point
+                      {:e ent :k :read/point :mark #{:own-row}
                        :v (assoc base :fid (:fid r) :stamp (:stamp r) :shown (shown-kind r))}))
-        :pattern [{:e ent :k :read/pattern
+        :pattern [{:e ent :k :read/pattern :mark #{:own-row}
                    :v (cond-> (assoc base :pattern (:pattern answer) :mark (:mark answer)
                                      :count (count (:matched answer))
                                      :fingerprint (:fingerprint answer) :fp-secret (:fp-secret answer))
@@ -960,7 +1108,11 @@
   (try
     (into [] (keep (fn [f]
                      (when (and (map? f) (contains? read-keys (:k f)) (map? (:v f)))
-                       (let [s (get-in f [:v :moment :stamp])]
+                       ;; stage 5b: a shared read's moment is a frontier id, not a stamp;
+                       ;; its line carries the largest stamp it names, :max-stamp (FRR8)
+                       (let [s (if (map? (get-in f [:v :moment]))
+                                 (or (get-in f [:v :moment :stamp]) (get-in f [:v :max-stamp]))
+                                 (get-in f [:v :max-stamp]))]
                          (when (and (int? s) (<= 0 s) (< s env/max-carried-stamp)) (long s))))))
           facts)
     (catch Throwable _ [])))
@@ -977,6 +1129,10 @@
   than the cap still goes whole into one page."
   2048)
 (def max-sweep-entries 512)
+(def max-person-page
+  "Answers a one-owner person purge page scans on its task (stage 5b,
+  PLAN-reads-rest.md path 3): one layer's slice at a time."
+  256)
 
 (defn- bounded? [n lo hi] (and (int? n) (<= lo n hi)))
 
@@ -1017,6 +1173,25 @@
                    (<= 0 (:forget-stamp raw)) (< (:forget-stamp raw) env/max-carried-stamp))
             {:layer layer :op op :fid (norm-fid (:fid raw)) :forget-stamp (long (:forget-stamp raw))}
             {:refuse :bad-op})
+
+          ;; stage 5b: the forget replayed after a restore, on the layer's home: the
+          ;; target's purge at the date its open gives (PLAN-reads-rest.md 5.3)
+          :replay-forget
+          (if (fid-ok? (:fid raw))
+            {:layer layer :op op :fid (norm-fid (:fid raw))}
+            {:refuse :bad-op})
+
+          ;; stage 5b: one page of a person purge on task t, routed there by :task
+          ;; (the record's :layer only places it in the depot, RR16)
+          :person-purge
+          (let [t (:task raw) p (:person raw)]
+            (if (and (int? t) (<= 0 t) (kw? p) (bounded? (:n raw) 1 max-person-page)
+                     (or (nil? after)
+                         (and (vector? after) (= 2 (count after)) (kw? (nth after 0))
+                              (or (nil? (nth after 1)) (env/valid-name? (nth after 1))))))
+              {:layer layer :op op :task (long t) :person p :n (long (:n raw))
+               :after (when after [(nth after 0) (some->> (nth after 1) (into []))])}
+              {:refuse :bad-op}))
 
           :drop
           (if (and (contains? all-fields field) (bounded? (:entries raw) 1 max-sweep-entries))
@@ -1091,6 +1266,40 @@
 
 (defn purge-ack [rec row] {:purged (boolean (and (= :yes (:answer rec)) (map? row)))})
 
+(defn replay-writes
+  "A replayed forget's writes (stage 5b): `purge-writes` at the date the
+  open step gives, for a fact of a yes act that no longer opens (its ledger
+  entry, or its wrap closed); nothing otherwise, so a replay changes nothing
+  where nothing was forgotten. Pure and total."
+  [fid rec row kv-addresses o]
+  (try
+    (if (and (= :yes (:answer rec)) (map? row) (int? (:stamp rec)) (map? o) (int? (:erased-at o)))
+      (purge-writes fid row (:stamp rec) kv-addresses (:erased-at o))
+      no-index-writes)
+    (catch Throwable _ no-index-writes)))
+
+(defn task-count
+  "The module's task count, from `ops/module-instance-info` (interop kept
+  out of dataflow)."
+  [info]
+  (try (long (.getNumTasks ^com.rpl.rama.ModuleInstanceInfo info)) (catch Throwable _ 0)))
+
+(defn task-ok? [info t] (and (int? t) (<= 0 t) (< t (task-count info))))
+
+(defn person-start
+  "Where a person purge page starts on its task: `[layer after-name]`, the
+  layer nil for the first on the task."
+  [after]
+  (if (vector? after) after [nil nil]))
+
+(defn person-next
+  "A person purge page's answer: the next cursor, done when the page ran
+  out of layers."
+  [layer last-name full? next-layer purged]
+  (if full?
+    {:next [layer last-name] :done? false :purged purged}
+    {:next (when next-layer [next-layer nil]) :done? (nil? next-layer) :purged purged}))
+
 (defn drop-writes
   "The test-only `:drop` op: delete the entries of one page of a field."
   [field ents]
@@ -1113,6 +1322,85 @@
                                 {:e (:e op) :k (:k op) :fid (:fid op) :stamp (:stamp op)}
                                 (when-not (and (:copy? op) (map? row)) {:v nil :replaces nil :mark #{}}))]])
      (catch Throwable _ no-index-writes))))
+
+;; ------------------------------------------------- the person purge page
+
+(deframaop dying-rows>
+  "One act's rows that die with person `*p`, on this task, each purged in
+  this event (stage 5b's paged road beside phase 2's `locks/dying>`, which
+  its fan-out child runs unpaged): a locked row with no ledger entry whose
+  wrap names p and is closed by the person entries goes to `purge>`, dated
+  by the wrap's close, the date the open step gives. Emits the count
+  purged. A row the ledger erased is left: its value forget purged it."
+  [*layer *name *rows *stamp *p *pentry]
+  (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
+    (loop<- [*todo (seq (locks/locked-rows *rows)) *n 0 :> *out]
+      (<<if (empty? *todo)
+        (:> *n)
+       (else>)
+        (first *todo :> [*ridx *rrow])
+        (get *rrow :lock-id :> *rlid)
+        (local-select> (keypath *layer :erased *rlid) $$layers :> *rledger)
+        (<<if (some? *rledger)
+          (continue> (rest *todo) *n)
+         (else>)
+          (<<if (some? (get *rrow :lock))
+            (identity (get *rrow :lock) :> *record)
+           (else>)
+            (local-select> (keypath *layer :locks *rlid) $$layers :> *record))
+          (locks/read-persons> (locks/wrap-persons-of *record) (hash-map *p *pentry) :> *wpersons)
+          (<<if (locks/closes-with? *record *wpersons *p)
+            (purge> *layer (locks/erased-item *name *ridx *rrow *stamp) (locks/wrap-closed *record *wpersons))
+            (continue> (rest *todo) (inc *n))
+           (else>)
+            (continue> (rest *todo) *n)))))
+    (:> *out)))
+
+(deframaop person-page>
+  "One bounded page of a person purge on this task (stage 5b,
+  PLAN-reads-rest.md path 3, the one-owner half): one layer's slice of at
+  most n answer records after the cursor; each yes act whose subject slot
+  names the person has its dying rows purged (`dying-rows>`). The cursor
+  moves to the next layer on the task when the slice ran out. Emits
+  `{:next [layer name] :done? :purged}`. Idempotent: a purged value is
+  purged again to the same tombstone. Never yields: the page reads and
+  writes in one event, so no forget lands between."
+  [*op]
+  (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")
+                         $$persons (this-module-pobject-task-global "$$persons")]
+    (get *op :person :> *p)
+    (get *op :n :> *n)
+    (local-select> (keypath *p) $$persons :> *pentry)
+    (person-start (get *op :after) :> [*L0 *from])
+    (<<if (nil? *L0)
+      (local-select> (subselect (sorted-map-range-from-start 1) MAP-KEYS) $$layers :> *firsts)
+      (first *firsts :> *L)
+     (else>)
+      (identity *L0 :> *L))
+    (<<if (nil? *L)
+      (:> {:next nil :done? true :purged 0})
+     (else>)
+      (<<if (nil? *from)
+        (local-select> [(keypath *L :answers) (sorted-map-range-from-start *n)] $$layers :> *recs)
+       (else>)
+        (local-select> [(keypath *L :answers) (sorted-map-range-from *from (after-opts *n))] $$layers :> *recs))
+      (put-todo *recs :> *todo)
+      (loop<- [*t *todo *count 0 *last *from :> *count2 *last2]
+        (<<if (empty? *t)
+          (:> *count *last)
+         (else>)
+          (first *t :> [*an *ar])
+          (<<if (locks/names-person? *ar *p)
+            (local-select> [(keypath *L :log *an) (subselect ALL)] $$layers :> *arows)
+            (dying-rows> *L *an *arows (get *ar :stamp) *p *pentry :> *purged)
+            (continue> (rest *t) (+ *count *purged) *an)
+           (else>)
+            (continue> (rest *t) *count *an))))
+      (<<if (< (count *todo) *n)
+        (local-select> (subselect (sorted-map-range-from *L (after-opts 1)) MAP-KEYS) $$layers :> *nexts)
+        (:> (person-next *L *last2 false (first *nexts) *count2))
+       (else>)
+        (:> (person-next *L *last2 true nil *count2))))))
 
 ;; ------------------------------------------------------- install: depot
 
@@ -1236,6 +1524,29 @@
         (purge-op-writes *ufid *urec *urow *ukv *uforget :> *d)
         (purge-ack *urec *urow :> *ack)
 
+        ;; stage 5b: a forget replayed after a restore (PLAN-reads-rest.md 5.3)
+        (case> (= *kind :replay-forget))
+        (get *op :fid :> *rfid)
+        (first *rfid :> *rnm)
+        (second *rfid :> *ridx)
+        (local-select> [(keypath *layer :answers *rnm)] $$layers :> *rrec)
+        (local-select> [(keypath *layer :log *rnm *ridx)] $$layers :> *rrow)
+        (open-row> *layer *rfid *rrow (get *rrec :stamp) nil :> *ro)
+        (local-select> [(keypath *layer :ix-of *rfid)] $$layers :> *rkv)
+        (replay-writes *rfid *rrec *rrow *rkv *ro :> *d)
+        (identity {:replayed (contains? *ro :erased-at)} :> *ack)
+
+        ;; stage 5b: one person purge page on its task, which writes its own purges
+        (case> (= *kind :person-purge))
+        (get *op :task :> *ptask)
+        (ops/module-instance-info :> *minfo)
+        (<<if (task-ok? *minfo *ptask)
+          (|direct *ptask)
+          (person-page> *op :> *ack)
+         (else>)
+          (identity {:refused :bad-task} :> *ack))
+        (identity no-index-writes :> *d)
+
         (case> (= *kind :drop))
         (get *op :field :> *dfield)
         (get *op :entries :> *dn)
@@ -1280,11 +1591,17 @@
      (else>)
       (local-select> [(keypath *layer :settings)] $$layers :> *settings)
       (<<cond
+        ;; stage 5b: a layer of the shared kind is read through the micro store's
+        ;; indexes as of a settled frontier, by rig.store.shared-reads' query on
+        ;; this same task (PLAN-reads-rest.md, "Shared reads")
+        (case> (shared-layer? *settings))
+        (invoke-query "shared-read-point" *layer *for *fids *as-of *settings :> *answer)
+
         (case> (not (visible? *settings *for)))
         (identity {:refused :not-visible} :> *answer)
 
-        (case> (not (placed-by-layer? *settings)))
-        (identity {:refused :re-classed} :> *answer)
+        (case> (frontier-moment? *as-of))
+        (identity {:refused :moment-kind} :> *answer)
 
         (default>)
         (local-select> STAY $$clock :> *clock)
@@ -1344,11 +1661,17 @@
         (identity nil :> *kvrow))
       (kv-refusal *pp *kvrow :> *kvr)
       (<<cond
+        ;; stage 5b: a layer of the shared kind is read through the micro store's
+        ;; indexes as of a settled frontier, by rig.store.shared-reads' query on
+        ;; this same task (PLAN-reads-rest.md, "Shared reads")
+        (case> (shared-layer? *settings))
+        (invoke-query "shared-read-pattern" *layer *for *pattern *as-of *limit *settings :> *answer)
+
         (case> (not (visible? *settings *for)))
         (identity {:refused :not-visible} :> *answer)
 
-        (case> (not (placed-by-layer? *settings)))
-        (identity {:refused :re-classed} :> *answer)
+        (case> (frontier-moment? *as-of))
+        (identity {:refused :moment-kind} :> *answer)
 
         (case> (some? *kvr))
         (identity {:refused *kvr} :> *answer)

@@ -280,8 +280,8 @@
                                                             (gate/plain-texts (:log d) opened))
                                         [:index-put :index-of :index-del]))
                (bytes->vec (select-keys d [:index-put :index-of :index-del]))))
-        (is (= [5 1] [(count (:index-put d)) (count (:index-of d))])
-            "2 id entries per fact and a value entry for the note, from its opened text; its :ix-of set")
+        (is (= [7 1] [(count (:index-put d)) (count (:index-of d))])
+            "3 id entries per fact (stage 5b's :ix-s the third) and a value entry for the note, from its opened text; its :ix-of set")
         (let [[_ kv-address] (first (filter #(= :ix-kv (first %)) (:index-put d)))]
           (is (str/includes? kv-address "\"x\"") "the value index is addressed by the opened text"))))
     (testing "a sealed value the gate could not open gives no value entry: the act is refused, nothing indexed"
@@ -301,9 +301,9 @@
         kv (reads/address :ix-kv {:k :note :vtext "\"secret\"" :stamp 42 :fid [n1 0]})
         w (reads/purge-writes [n1 0] r 42 #{kv} 99)]
     (testing "the id entries become tombstones: no value field, the forget's date, the id, entity, key and stamp"
-      (is (= 2 (count (:index-put w))))
+      (is (= 3 (count (:index-put w))))
       (doseq [[f a t] (:index-put w)]
-        (is (#{:ix-ek :ix-ke} f))
+        (is (#{:ix-ek :ix-ke :ix-s} f))
         (is (= (reads/address f {:e :e0 :k :note :stamp 42 :fid [n1 0]}) a) "computed from the row, no value needed")
         (is (= {:e :e0 :k :note :replaces nil :mark #{} :lock-id "L1" :fid [n1 0] :stamp 42 :erased-at 99} t))))
     (testing "the value entry and the fact's :ix-of entry are deleted"
@@ -316,7 +316,7 @@
     (testing "merge-writes concatenates purges, as phase 2's person forget will"
       (let [w2 (reads/purge-writes [n1 1] (row :e1 :note "b") 42 nil 99)
             m (reads/merge-writes w w2)]
-        (is (= 4 (count (:index-put m))))
+        (is (= 6 (count (:index-put m))))
         (is (= 3 (count (:index-del m))))))
     (testing "total"
       (is (= reads/no-index-writes (reads/purge-writes "fid" nil nil nil nil))))))
@@ -345,7 +345,7 @@
         (is (empty? (:index-of w)) "no :ix-kv set for the erased note")))
     (testing "a value that does not open gets its id entries and no value entry"
       (let [w (reads/put-page-writes hints :alice [{:name n1 :stamp 10 :rows [(rows1 0)] :opens [{:unreadable :does-not-open}]}])]
-        (is (= 2 (count (:index-put w))))
+        (is (= 3 (count (:index-put w))))
         (is (empty? (:index-of w)))))
     (testing "sweep: an implied entry is kept, an unimplied one deleted, a drifted one rewritten (D4)"
       (let [rec {:answer :yes :stamp 10}
