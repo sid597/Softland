@@ -40,6 +40,19 @@ code differs from the tested code.
   cases not practical before wave 1, as expected; the model side exact (21
   tests, 752 assertions, 30 mutants all caught). It merges here after pass
   2, so a difference still being explained cannot block wave 2's suites.
+- **The review of wave 1 merged here at `1103f639`** (merge of
+  `rig-review-wave1` at `9f6ccc91`; `REVIEW-wave1.md`). F-1 is fixed:
+  after a refused lease the micro door seals under throwaway locks, like
+  the stream door (R58). R-1 and R-2, high and first-record, are pending,
+  their tests run under `RIG_PENDING=1` (For Sid 37 and 4; step R under
+  *Next*). Its one full suite: 94 tests, 5,630 assertions, 0 failures, 0
+  errors ("The suite").
+- **Phase 8's pass 2 merged here** (merge of `rig-build-replays` at
+  `d437dc17`; `BUILD_NOTES-replays.md`, "Pass 2, after wave 1"): A1 to A8
+  match the model. D1 and D2, which failed on the micro door's
+  `:not-sealed` (F-1), are checked by the orchestrator's one rerun of
+  `rig.replay-test` on the merged tree; result: see the merge commit. The
+  replays now run a cluster per case (R33; Found tonight).
 
 *In flight*, each in worktree `Softland-rig-<name>` on branch `rig-<name>`:
 - `build-promotion` (phase 4). Its first commit moves the gate's
@@ -51,10 +64,6 @@ code differs from the tested code.
   step, 6b, right after wave 2's merge, because it reorders the micro fold
   that phases 4 and 5 are changing; the machinery count is reported in two
   parts, the stream side now and the micro side after 6b.
-- `review-wave1`: an independent falsification review of wave 1's seams,
-  in a fresh session; a finding counts only with a test that fails before
-  its fix.
-- `build-replays`: phase 8, pass 2, on wave 1, in a fresh session.
 
 *Open after wave 1* (`BUILD_NOTES-wave1.md`, "Open issues, for Sid and
 wave 2"; wave 2 builds on them):
@@ -82,9 +91,10 @@ successor cannot message them; it reads their branches, where each commits
 as it goes and writes `BUILD_NOTES-<stage>.md`. Builder A's empty
 `Softland-rig-integrate` is left as it is.
 
-*Next:* the review's fixes land here; wave 2's merge; step 6b; phase 8's
-pass 3; phase 7's build and runs on the finished store; then the rama
-skill's full-spec review.
+*Next:* wave 2's merge; step R: the review's fixes (R-1 control keys at
+both gates, R-2 keyed pattern values); step 6b; phase 8's pass 3; phase
+7's build and runs on the finished store; then the rama skill's full-spec
+review.
 
 **At the handoff (builder A, 04:15).** Builder A ran from 01:37 to 04:15 IST on Sid's overnight brief: build every
 remaining phase of SPEC.md (2 locks and forgetting, 3 the micro store, 4
@@ -430,6 +440,27 @@ latency threshold is judged there; (a), (b) and number 1 A's latencies are
 labelled closed-loop service times; T5 checks the schedule accounting on a
 synthetic stall. Which reading of the threshold Sid means is For Sid 43.
 
+**A builder sat 30 minutes on a command that never ran** (the
+orchestrator's report). Phase 6's builder sat from 05:47 to 06:18 on a
+Bash call beginning `git reset -q`, apparently waiting for a human
+approval. The orchestrator's idle watch found it; the builder was stopped
+and resumed, and all builders were told to avoid commands that may need
+approval.
+
+**Launching and destroying a fresh module per case on one in-process
+cluster degraded the cluster** (phase 8's pass 2, `BUILD_NOTES-replays.md`,
+"The road, changed"). In try 1 every destroyed instance's client channels
+timed out about 25 s after its destroy (22 "Unexpected channel pong
+timeout" lines and 33 `ModuleAssignmentInfoNotFoundException` lines from
+resolve-leader), each case ran longer than the one before, from 5.1 s for
+A1 to about 42 s for A8, D1 and D2, and A8's and D2's seeds stopped on a
+10 s Rama read timeout. The machine was idle and the store starts no
+threads of its own. *Derived, not proven:* that the stale instances'
+channels, closing while a case runs, stall that case's reads; the rerun is
+consistent with it and does not isolate it further. The replays now run a
+cluster per case (`ceacabdc`, R33): in try 2 no pong timeout or resolve
+error appeared, and every case ran in 5.1 to 7.3 s.
+
 ## For Sid
 
 Questions that would touch a record, each with what the build does meanwhile;
@@ -459,7 +490,21 @@ added later sits in its group under the next free number.
    the plan says a line)?
 4. **What a read entry may hold of a value.** A `[:kv k v]` pattern keeps v
    in the recorded pattern, and a forget of the matched value does not
-   reach it. Built: kept. The alternative is a keyed hash of v.
+   reach it. Built: kept. The alternative is a keyed hash of v. The review
+   raises it as R-2 (high, first-record, `REVIEW-wave1.md`): after a
+   value's only subject is forgotten, the value index no longer confirms
+   its text and the value reads erased, but the reader's own entry, read
+   back through the exit, still holds `{:pattern [:kv :note "..."] :exact
+   [[fid stamp]]}`, the forgotten value's text beside its fact id. The
+   entry is sealed under the reader's working layer, so no forget of the
+   subject or of the matched fact reaches it; the reader can still forget
+   the entry itself, if she knows to. The rule that a fingerprint covers
+   the matched facts' ids and not their values holds for the entry's
+   fingerprint, not for its pattern. The review's test is pending, run
+   under `RIG_PENDING=1`. The build will store the pattern's value keyed,
+   like the fingerprint (an HMAC under the fingerprint secret), so a line
+   still re-runs and compares but confirms nothing to a reader, in step R
+   after wave 2's merge.
 5. **Promotion's forms**, PR1 to PR5 in `PLAN-promotion.md`: the request
    fact and its value; the crossing act and its recorded refusals; the
    landing's name carrying the target's class, and the envelope's
@@ -517,14 +562,28 @@ validation:*
     changed no other form: the lease rows' `:under`, the name row's
     `:entities`, the index entries and the cap are store state, rebuildable
     or consumed.
-37. **Which keys are control keys** (first-record; wave 1's question 3).
-    The stream gate of phases 1 and 2 admits a fact under a control key
-    when the fact is not one it projects (a setting key on an entity other
-    than the layer's; `:promote-request` or `:crossed` before phase 4) and
-    keeps its value as plaintext, outside every lock: such a value can
-    never be forgotten. Built: admitted so, except `:members`, refused at
-    the stream gate since wave 1 (W1-7, R26). Should any such fact be
-    refused (`:malformed-control`)? It narrows what a record may carry.
+37. **Which keys are control keys** (first-record; wave 1's question 3,
+    widened by the review's R-1, high, `REVIEW-wave1.md`). A fact under a
+    control key that the gate does not act on keeps its value as
+    plaintext, outside every lock: a forget of such a fact answers yes and
+    erases nothing, and a person forget cannot reach it either, as it has
+    no lock. At the stream gate any writer who holds a permission in the
+    layer, agents included, can so keep free text under `:owner`, `:kind`,
+    `:class` and `:lock-grain` on any entity but the layer's own, and under
+    `:promote-request` and `:crossed` anywhere: plaintext in the `*offers`
+    depot, the log row and both id-index entries. At the micro gate it is
+    the four setting keys. The model has seven control keys and locks every
+    other fact, so a `:kind` or `:owner` fact on another entity is a sealed
+    value there. Two roads: refuse a control-key fact the gate does not act
+    on (`:malformed-control`), or treat the key as a value, sealed, away
+    from the position the gate acts on (the model's reading for `:kind` and
+    `:owner`). Under it: should a forget of a fact with no lock be refused
+    rather than answered yes (OP9 leaves it open, O1)? It narrows what a
+    record may carry. Built: admitted so, except `:members`, refused at the
+    stream gate since wave 1 (W1-7, R26); the review's tests are pending,
+    run under `RIG_PENDING=1`. The build will refuse such facts at both
+    gates in step R, after wave 2's merge, extending W1-7, and phase 4's
+    gate is to refuse a client-made `:crossed` (the review's question 5).
 38. **Whose permission an agent's read entry is written under** (possibly
     first-record; `PLAN_VALIDATION-numbers.md`, For Sid 2). Found while
     tracing phase 7's variant C, from the code, not run: the read exit
@@ -603,7 +662,7 @@ everyone including the past"?
     drop's forgets finish (`PLAN-reads-rest.md`).
 
 **Where the rig differs from the model** (phase 8 reports each; the KD
-numbers are its pass 1's, `BUILD_NOTES-replays.md` on `rig-build-replays`):
+numbers are its own, `BUILD_NOTES-replays.md`):
 
 14. **A lease needs the write permission** (phase 8's KD1). A lease act is
     an act in the layer, so a value act from a writer without permission
@@ -685,6 +744,29 @@ numbers are its pass 1's, `BUILD_NOTES-replays.md` on `rig-build-replays`):
     arrived during it (Found tonight, coordinated omission). The threshold
     is the main session's assumption, not Sid's; which of the two he means
     is his.
+
+*From the review of wave 1 (`REVIEW-wave1.md`):*
+
+49. **One rule for writes about someone already forgotten** (the review's
+    question 3, from its finding Q, low, observed only; O11 is open). The
+    two gates disagree across a re-class. Alice's unmarked mention of the
+    forgotten `:rv-b` in her new personal layer is admitted by the stream
+    gate, which requires only the wrap's persons alive (`locks.clj`
+    `persons-refusal`: in a one-owner layer, the owner, unless the value
+    is marked); after the layer's re-class the same act is refused
+    `:person-forgotten` at the micro gate, which requires every person in
+    the act's subject union alive (`micro.clj` `persons-to-check`),
+    although its lease is admitted. Built: as found; the review asks only
+    that both gates follow one rule.
+50. **A caller identity for the door's road, before a kept store?** (the
+    review's question 4). `lease-locks` and `micro-lease` hand plaintext
+    locks to any caller that names a session or a lease name, and default
+    sessions are derived from the writer's id. The operator's test-only
+    index ops (`:put` with `:copy?`, R30; `:drop`; `:purge`) are live on
+    `*index-ops`, and `:put` can plant a copy of a row's record lock at an
+    address no purge visits: the open step still shows the value erased,
+    but the copy stays in the store. Built: as found; the rig has no
+    caller identity (R28).
 
 **From the caching examination** (`EXAMINATION-copies.md`):
 
@@ -1105,8 +1187,8 @@ entries and the put page's cap are store state, rebuildable or consumed.
   page's cap, re-measured"); an act larger than the cap still makes one
   page of its size.
 
-Phase 8's replays, R32 to R41 (pass 1; `BUILD_NOTES-replays.md` on
-`rig-build-replays`, "For RIG.md", P8-1 to P8-10): the replays write no
+Phase 8's replays, R32 to R41 (`BUILD_NOTES-replays.md`, "For RIG.md",
+P8-1 to P8-10; R33 as revised in "For RIG.md (pass 2)"): the replays write no
 record form of their own, and the names they choose (`:alice-session`,
 `:bob-session`, `:bob-hand`, the fallback's suffixed names) are test data
 in records nobody keeps, so each can change without touching a record.
@@ -1114,11 +1196,13 @@ in records nobody keeps, so each can change without touching a record.
 - **R32. The replays play in lockstep with the model** (P8-1): the model
   is stepped op by op with its own public functions, and each rig act is
   sent at the op that decides its counterpart (RP1).
-- **R33. A fresh module per case on one in-process cluster**, 4 tasks, 2
-  threads (P8-2), chosen by a road check made once per run (launch,
-  destroy, launch); the fallback, one module with a fresh world per case,
-  is taken when the second launch fails or passes 15 s, or when
-  `RIG_REPLAY_ROAD=one-module` forces it (RP2).
+- **R33. A fresh in-process cluster and module per case**, 4 tasks, 2
+  threads (P8-2, revised in pass 2, `ceacabdc`; it was a fresh module per
+  case on one cluster, which degraded the cluster: Found tonight), chosen
+  by a road check made once per run (launch, destroy, launch) in a cluster
+  closed before any case; the fallback, one module with a fresh world per
+  case, is unchanged: taken when the second launch fails or passes 15 s,
+  or when `RIG_REPLAY_ROAD=one-module` forces it (RP2).
 - **R34. `:values` come from the store's own opening** (P8-3), found from
   the rig's own records; reads go through the exit as a live reader, and
   the store's view beside a refused exit read is compared too (RP3).
@@ -1227,6 +1311,17 @@ record only for the lease rows, which they mark first-record (R51).
   location (a head made then replaced, a permission granted then revoked,
   two settings versions) would otherwise be two termvals of different
   values in one batch, in no fixed order.
+
+From the review of wave 1, R58 (`REVIEW-wave1.md`, "For RIG.md"):
+
+- **R58. After a refused lease, the micro door seals under throwaway
+  locks** (F-1, fixed at `3940ff8d`), citing the ids the refused lease
+  would have minted, so the gate answers `:no-such-lock` on its face, as
+  the stream door does (R47); before the fix the value act went out sealed
+  under no lock and was refused `:not-sealed` (phase 8's D1 and D2). No
+  record's form changes; not fixed alongside it, a lease answered yes
+  whose `take-locks` times out after 30 s still seals under no lock, where
+  the stream door throws after its tries.
 
 ## Numbers so far
 
