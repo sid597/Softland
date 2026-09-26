@@ -47,9 +47,14 @@
   session-close keys, and stage 3's `:members`, a group's making fact at the
   micro gate (without it here the sealed parse refuses a group's making act
   `:not-sealed`; rig.store.micro keeps the same set). Every other fact with
-  a value is a value fact, sealed at the door (L24, L27)."
+  a value is a value fact, sealed at the door (L24, L27). Phase 6 adds
+  `:grammar` (T-FR2: a grammar is read on every later decision, so no lock
+  a forget can destroy may stand between it and the gate; rig.store.micro
+  keeps its own copy without it until phase 6b, and so refuses a grammar
+  fact on its face)."
   #{:forget :lock-grain :class :promote-request :crossed :permission :revoke
-    :kind :owner :person :forget-person :lease :session-closed :members})
+    :kind :owner :person :forget-person :lease :session-closed :members
+    :grammar})
 
 (def setting-keys
   "Fact keys on a layer's own entity that the gate projects into settings,

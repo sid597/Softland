@@ -78,7 +78,11 @@
         (local-transform> [(keypath *layer :settings) (termval *new-settings)] $$layers))
       (<<atomic
         (ops/explode (get *d :permissions) :> [*pp *prow])
-        (local-transform> [(keypath *layer :permissions *pp) (termval *prow)] $$layers)))
+        (local-transform> [(keypath *layer :permissions *pp) (termval *prow)] $$layers))
+      ;; phase 6: the key rows the act changed, each whole (a grammar, a first use)
+      (<<atomic
+        (ops/explode (get *d :key-rows) :> [*kk *krow])
+        (local-transform> [(keypath *layer :key-rows *kk) (termval *krow)] $$layers)))
     ;; stage 2's lock writes, yes or no, in the same group
     (locks/write-decision> *layer *offer *d)
     ;; a value forget purges the read exit's indexes of every value its lock
@@ -145,7 +149,17 @@
             (first *todo :> *hk)
             (local-select> (keypath *layer :heads *hk) $$layers :> *hstamp)
             (continue> (rest *todo) (assoc *acc *hk *hstamp))))
-        (locks/decision-reads> *layer *offer *settings *lk :> *lx)
+        ;; phase 6: the rows of the act's keys and of the keys its grammar facts
+        ;; govern, before the value checks that take their grammars (4.7 step 2)
+        (get *in :keys :> *kkeys)
+        (loop<- [*todo *kkeys *acc {} :> *krows]
+          (<<if (empty? *todo)
+            (:> *acc)
+           (else>)
+            (first *todo :> *kk)
+            (local-select> (keypath *layer :key-rows *kk) $$layers :> *krow)
+            (continue> (rest *todo) (assoc *acc *kk *krow))))
+        (locks/decision-reads> *layer *offer *settings *lk *krows :> *lx)
         (gate/decide *offer *settings *rows *heads *clock *wall *digest *lx :> *d)
         (<<if (= :decide (get *d :kind))
           (write-decided> *layer *offer *name *d))
