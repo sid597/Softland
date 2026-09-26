@@ -36,7 +36,9 @@ unless absolute. Vocabulary as SPEC.md fixes it: "key" is a fact's key,
   fact, a 40-byte value, a key with no grammar) the built branches and the
   validated plans give **9**: the answer record, the row, the head, three
   id-index entries, the consumed lease row, the stamp-to-name entry and
-  the task's clock. The slices' act made 4. Every 64 value acts also cost
+  the task's clock (**[F1]** 10 on the first merge, `d83e5ff8`, whose
+  constant hints index `:note` by value until phase 6 replaces them: 2.1,
+  4.2). The slices' act made 4. Every 64 value acts also cost
   one lease act of 72 writes. A test checks the list against the merged
   store's own growth before any number is run (section 2, test T1).
 - **Number 1, the agent rate.** One agent session layer on one task,
@@ -60,7 +62,9 @@ unless absolute. Vocabulary as SPEC.md fixes it: "key" is a fact's key,
   sequential writer (6,400 measured acts, so the lease cadence is well
   sampled), then K = 1 to 128 closed-loop writers. Acts a second; latency
   typical (p50), slowest 1 in 100 (p99) and worst (max), with the offers
-  that paid for a lease shown apart.
+  that paid for a lease shown apart. **[F5]** Then an open arrival at 100
+  and 1,000 acts a second, latency from the schedule, on which the latency
+  threshold is judged; the closed-loop latencies are labeled service times.
 - **The machine** is recorded by the harness at every run, not copied from
   a note, and every result file says the in-process cluster gives orders
   of magnitude only.
@@ -71,8 +75,10 @@ unless absolute. Vocabulary as SPEC.md fixes it: "key" is a fact's key,
   relay's cluster lock, driven in the background by one script, progress
   one line every 5 s under `runs/`, results in `runs/phase7-final-*.txt`
   with method headers and raw points in `runs/phase7-final-*.edn`. The
-  minimum set is about 40 minutes of machine time, the full set about an
-  hour, plus any wait for the lock (section 8.6).
+  minimum set is about 45 minutes of machine time and the full set about
+  65 (with **[F4]** and **[F5]**); **[F11]** a shortest set, one run of each
+  timing step and the two main lock variants, about 20; plus any wait for
+  the lock (section 8.6).
 - **Build**: five new namespaces under `test/rig/bench/` (a shared
   harness, one per number, a test namespace) and a driver script. Nothing
   under `src/`. The slice benches stay as they are: they are the record of
@@ -181,6 +187,22 @@ merged store's own growth, field by field, over a hundred acts and fails
 if the harness's list disagrees, so a list that the merge made wrong
 fails before a single number is run.
 
+**[F1] What the first merge shows.** At validation (26 September, 05:00
+IST) `rig-wave1` stands at `d83e5ff8`: phase 3 merged (`f29f792d`), then
+phase 2, with the seams of RIG.md "Unfinished" item 1 still to wire. Its
+decision event (module.clj L127-209; gate.clj `decide*` L335-390;
+locks.clj `write-decision>` L1197-1241 and `lock-effects` L784-816;
+reads.clj `index-writes` L181-200) writes, for an admitted agent `:note`
+act, rows 1 to 5, 7, 8, 10, 12 and 13 of the table below: **10 writes**.
+Rows 7 and 8 are there because `reads/seed-hints` (reads.clj L34-41) is
+`{:by-value #{:note} ...}`, a constant `decide*` applies in every layer
+(gate.clj L356). Phase 6's plan replaces it with the store's own keys only
+(PLAN-tools-and-grammars.md L1381-1385), after which a `:note` with no
+grammar gets no value index (its 4.6); row 6, `:ix-s`, is the rest of
+phase 5's. So the agent column's 9 is the store after wave 2; with the
+constant still in place and `:ix-s` built it is 11. Section 4.2 says which
+key the primary act uses in each case.
+
 ### 2.2 The acts the workloads make
 
 - **Value act.** One fact `{:e <one of 1,000 entities in rotation> :k
@@ -245,9 +267,11 @@ considered: `:stood-on` (one per carried entry; variant C's value act
 carries one, section 4.6), deletes of `:heads` (one per replaced fact),
 `:settings` (setting facts), `:permissions` (grants and revokes),
 `:key-rows` (phase 6 writes a row only when a grammar lands or the first
-fact under a key is admitted in a layer: *plan*, tools-and-grammars 4.7),
-`:erased` and lock-row deletes (forgets), `$$persons` (person acts and
-their fan-out to every task).
+fact under a key is admitted in a layer: *plan*, tools-and-grammars 4.7;
+**[F2]** so each layer's first value act under a key that is not a store
+key writes one row, in setup or the warm-up and never inside a measured
+window, and T1 to T3 count it), `:erased` and lock-row deletes (forgets),
+`$$persons` (person acts and their fan-out to every task).
 
 With its share of lease acts, a value act costs 9 + 72/64 = 10.1 writes in
 an agent layer and 10 + 72/64 = 11.1 in a personal or hand layer
@@ -387,6 +411,19 @@ index hints (4.6 there), so the act writes the three id indexes and no
 value index. That is the realistic default and the primary number; A'
 gives the heavier end.
 
+**[F1] Which key the primary act uses.** Before writing the harness the
+build reads the merged store's hints. If a key with no grammar gets no
+hints (phase 6 merged), the primary act's key is `:note`, as above. If
+any constant still hints `:note` by value (today's `reads/seed-hints`,
+2.1), `:note` is the by-value act: the primary act then uses a key that no
+constant names and no grammar covers (the build picks one, `:memo` say,
+and names it in every result header), and A' keeps `:note` (with its
+grammar fact where grammar facts exist, by the constant otherwise).
+Number 3's act and number 2's unmarked values use the primary key too;
+the `:mention` variants keep `:mention`. T1 settles which list holds, the
+harness's list follows the code (13.1, item 1), and each result file says
+which case ran.
+
 ### 4.3 Variant A: one agent session layer, K writers sharing one door
 
 This is the number as asked, in the slices' shape.
@@ -410,7 +447,8 @@ This is the number as asked, in the slices' shape.
   answer (yes, no with its reason, error); lease acts, both counts (2.5);
   the rate, admitted value acts over the time from the window's start to
   the last writer's last ack; latency p50, p95, p99, max and mean by
-  nearest rank over every offer in the window; placement (each depot
+  nearest rank over every offer in the window (**[F5]** closed-loop
+  service times: reported, not judged, and labeled so); placement (each depot
   partition's growth, each task's `$$clock` movement); every thread's CPU
   over the window (`ThreadMXBean`), with the home task thread's share of a
   core; GC count and time; the home clock's lead over the wall clock in
@@ -476,11 +514,23 @@ The divisor, measured instead of divided out.
 - **Loop.** One session layer, K = 1, 4, 16 writers. Each iteration: a
   point read of the fact that writer had admitted last (the first
   iteration reads a fact written at setup), through
-  `rig.store.read-exit/read!` with reader kind `:model` reading for `:ada`,
-  the session layer as both the layer read and the working layer, the
-  session's permission, role `:stood-on`; then a value act standing on
-  that fact at its stamp (`:stood-on {fid stamp}`), as an agent's act
-  stands on what it read.
+  `rig.store.read-exit/read!` with `:reader :ada`, `:reader-kind :model`,
+  `:for :ada`, the session layer as both the layer read and the working
+  layer, **[F3]** the owner's root permission `[:ada L L]`, role
+  `:stood-on`; then a value act standing on that fact at its stamp
+  (`:stood-on {fid stamp}`), as an agent's act stands on what it read.
+- **[F3] Why the root permission.** The exit builds the entry with the
+  reader as `:who` and no session (read_exit.clj `entry-offer` :78 on
+  `703b8e26`), so the door writes it in `:door/ada`. The session's
+  permission `[:bench-s1 L L [:ada L L]]` covers only an offer whose `:who`
+  or `:session` is `:bench-s1` (permit.clj `refusal` :65-69 on
+  `e60c8ee1`), and a reader that is not a person cannot lease: its lease
+  is refused `:no-such-person` (locks.clj `persons-refusal` :682) and its
+  entry `:no-such-lock`. So the session's permission refuses every read
+  either way. If the merged exit carries a session into its entry, the
+  session's permission instead. The entries lease in `:door/ada` and the
+  value acts in `:bench-s1`, one lease per 64 of each: still one lease per
+  32 iterations.
 - **Per iteration**: one entry act and one value act, each sealed at the
   door under its own lock, so a lease act every 32 iterations. Writes (2.3):
   the entry act 10, the value act 9 plus one `:stood-on` row, so about
@@ -506,10 +556,21 @@ The divisor, measured instead of divided out.
 - **D1, the door without its lease stalls.** Only when A's rate has
   flattened (under 10% from K = 64 to K = 128) while the home task thread
   stayed under 60% of a core: one more K = 128 window with the pool
-  stocked ahead (`c/stock!`, leases of 256, until the pool holds the
-  window's expected acts). It gives the gate's rate when no writer waits
-  on a lease. The stocking lease acts run before the window and are
-  reported apart.
+  stocked ahead. It gives the gate's rate when no writer waits on a lease.
+  The stocking lease acts run before the window and are reported apart.
+  **[F4]** Stocked by `c/lease!` of 256, repeated until the leases hold
+  twice the window's expected acts (A's K = 128 rate × 18 s), then one
+  `c/stock!`, whose single `lease-locks` call takes every unconsumed lock
+  of the session into the pool. Not `c/stock!` each time: its `refresh!`
+  reads and unleases every standing lease row of the session on the home
+  task (locks.clj `lease-locks>` :1378, `leased-locks` :896), so n
+  stockings read about 256 × n² / 2 rows, some 16 million for 90,000
+  locks (*derived*), on the task being measured. The window counts as D1
+  only if the door's known leases did not grow in it; otherwise it is
+  marked "the pool ran dry". The stocking's own time is reported. Expect
+  D1 to run: a lease is 64 locks and one thread leases at a time
+  (client.clj `assign!` :155), so one door keeps at most about 64 acts in
+  flight between leases, each lease act queued behind them (*derived*).
 - **D2, the permission walk.** One K = 16 window in A's layer with acts
   citing the owner's root permission (a chain of 1) instead of the
   session's (a chain of 2), beside A's own K = 16 window: whether one more
@@ -538,7 +599,8 @@ summary.
 Per run: JVM start, compile and module launch about 40 s (*assumed*, the
 slices did not record it); setup about 10 s; idle 10 s; warm-up 20 s; A
 six levels of 18 s (108 s) and up to two more (36 s); A' three levels
-(54 s); D2 18 s. About 4.5 minutes, 5 with D1. Variant B: about 1 minute
+(54 s); D2 18 s. About 4.5 minutes, 5 with D1; **[F4]** about 5.5 with
+D1 and its stocking, which should be expected to run. Variant B: about 1 minute
 of setup (some 640 candidate layers made one at a time, 160 grants and 160
 sessions), the idle window and warm-up, and five levels of 18 s, about 3.5
 minutes with the JVM. Variant C: setup, warm-up and three levels, about 2
@@ -588,6 +650,29 @@ latency (typical p50, slowest 1 in 100 p99, worst max, with p95 and mean),
 the task thread's CPU share, lease acts, index writes a second, and
 placement ("every offer decided on the layer's one task").
 
+**[F5]** (a) and (b) are closed loops. A stall (a disk flush, a GC pause,
+a lease round trip) delays only the offers in flight, and the offers an
+arrival at the same rate would have made during it are never sent, so
+none of them records it: their p99 is a service time at a fixed number in
+flight, and it understates what a person writing at a rate would see
+(coordinated omission). The result file says so beside them, and the
+latency threshold, itself a statement about a rate, is judged on (b').
+
+### 5.4b (b') Open arrival at the threshold's rate **[F5]**
+
+After (b): value acts at 100 a second (the threshold's rate) and at 1,000
+a second (ten times it), each on a fixed schedule t(n) = t(0) + n / rate
+with a random phase, sent by a pool of threads (4 at 100 a second, 32 at
+1,000) that each take the next slot, so a late ack delays no other send; a
+send that falls behind its slot goes at once, and its latency is measured
+from the slot, not from when it was sent (variant B's accounting, 4.5).
+Each level: 3 s unmeasured, 15 s measured. Recorded, read back and checked
+as (b); reported: offered and admitted value acts a second, and latency
+from the schedule (p50, p95, p99, max, mean). The latency threshold (100
+acts a second at 20 ms or less for the slowest 1 in 100) is judged on the
+100-a-second window, by 7.2's rule; the 1,000-a-second window says whether
+the margin holds at ten times the rate. In the minimum set.
+
 ### 5.5 (c) The person's own reads (optional)
 
 2,000 sequential point reads of the person's own facts through the exit
@@ -599,8 +684,8 @@ on a query and on an acked entry, the exit's two round trips
 ### 5.6 Run length
 
 JVM about 40 s; setup and idle 20 s; warm-up 20 s; (a) about 7,400 offers
-at roughly 3.5 ms, 26 s; (b) eight levels of 13 s, 104 s. About 3.5
-minutes a run, three runs. (c) runs once in a JVM of its own in the full
+at roughly 3.5 ms, 26 s; (b) eight levels of 13 s, 104 s; **[F5]** (b')
+two levels of 18 s, 36 s. About 4 minutes a run, three runs. (c) runs once in a JVM of its own in the full
 set (8.2): setup and warm-up, then 2,000 reads at an estimated 7 ms each
 (a query and an acked entry), about 1.2 minutes.
 
@@ -741,10 +826,21 @@ instead:
   that is a map carrying `:scheme` and `:required`: a lease row is `{:under
   :sealed}`, rows and index entries carry `:e` and `:k`, and a hand layer's
   rows keep `:lock` nil. After the first point the scan seeks straight to
-  the range the first point found.
+  the range the first point found. **[F9]** A value `thaw` does not
+  accept (the references of nested subindexed structures such as `:log`'s
+  vectors and `:leases`' session maps, the size entries of `:log`'s
+  vectors, module.clj L65-67) is not picked and is counted as unthawed,
+  never dropped silently; the count check below says whether a lock row
+  was among them. The full scan, with both checks, runs at the first and
+  at the last point; the points between seek to P's range.
 - **Check that the pick is exactly one structure.** Every picked key must
   start with one common prefix P, and every key that starts with P must
-  have been picked. Rama addresses a subindexed structure's elements under
+  have been picked. **[F9]** P is the longest common prefix of the picked
+  keys. The check assumes nothing about where Rama puts a structure's
+  reference id: if it leads the key, only lock rows start with P and the
+  check holds; if not, keys of other structures (names are `[layer class
+  :offer uuid]`, lock ids `[name i]`) can share P, and the check fails into
+  the fallback below, never into a wrong number. Rama addresses a subindexed structure's elements under
   a reference id (the jar has `key_encoding$freeze_SubReferenceID`), and
   the slice found each lock row's RocksDB key 3 bytes longer than its lock
   id's own encoding ("the subindex key prefix"), which is what one prefix
@@ -761,7 +857,15 @@ instead:
   not sit under one prefix): the lock store's compacted bytes are
   estimated as the whole store's compacted bytes times the lock rows'
   share of its raw key-value bytes, the result says "estimate" and names
-  the check that failed. No other road is taken silently.
+  the check that failed. No other road is taken silently. **[F9]** What
+  the estimate cannot show, and the result says: it assumes the lock rows
+  compress as the store's average does. A lock row carries 60 bytes of
+  random ciphertext; the rest of the store mixes random bytes (sealed
+  values, digests) with repeated keywords and addresses; so the
+  estimate's error has no known sign. Two bounds hold whatever the layout,
+  and are printed beside it: at least 60 bytes a row (the sealed lock does
+  not compress) and at most the rows' raw key and value bytes plus block
+  overhead (the slice's raw rows: 172.2 B raw, 86.9 B compacted).
 
 Alternatives weighed: RocksDB's approximate size of the key range [P, P+1)
 needs the same P and is an estimate over it, so it is kept as a
@@ -810,7 +914,7 @@ each. Minimum set about 9 to 12 minutes; the full set adds about 5 to 7 (8.6).
 | Number | Assumed threshold | Judged on |
 |---|---|---|
 | Agent rate | at least 1,000 admitted acts a second on one task, with every index written | variant A's value acts a second at each K, with the read-back complete; variant B's largest S reported against the same line (S × 100 acts a second) |
-| One person's layer | at least 100 acts a second, at 20 ms or less for the slowest 1 in 100 | value acts a second and p99 at each K, and at one sequential writer |
+| One person's layer | at least 100 acts a second, at 20 ms or less for the slowest 1 in 100 | value acts a second at each K and at one sequential writer; **[F5]** p99 on (b')'s open arrival at 100 acts a second, with the closed-loop p99 of (a) and (b) beside it, labeled |
 | Lock store | at most twice the value bytes is fine; above four times, change the default | lock-store bytes per value over the plaintext value's bytes, at 40 and 200 bytes, logical and compacted |
 
 Every result file prints the line "thresholds assumed (RIG.md default 7),
@@ -857,7 +961,8 @@ so a watcher can tell a wait from a hang.
 ### 8.2 The driver, in the background
 
 `test/rig/bench/phase7-final.sh <set>`, where `<set>` is `test`, `min`,
-`full`, or one step's name, started once from the rig folder:
+`full`, **[F11]** `short` (8.6), or one step's name, started once from the
+rig folder:
 
     nohup test/rig/bench/phase7-final.sh full > runs/phase7-final-driver.log 2>&1 &
 
@@ -870,7 +975,7 @@ and appends an end line (exit code, duration). The steps, in order:
 |---|---|---|---|
 | 1 | `test` | `clojure -M:test rig.bench.numbers-test`; the driver stops if it fails, because a harness that does not measure what it claims measures nothing | both |
 | 2 | `agent-rate-1` to `-3` | `rig.bench.agent-rate run <n>`: A, A', D2, and D1 when its condition holds | both |
-| 3 | `one-thread-1` to `-3` | `rig.bench.one-thread run <n>`: (a) and (b) | both |
+| 3 | `one-thread-1` to `-3` | `rig.bench.one-thread run <n>`: (a), (b) and **[F5]** (b') | both |
 | 4 | `lock-growth-<v>` | `rig.bench.lock-growth run <v>` for `h40`, `h200`, `h40-p2`, `h40-p3`, `h40-p5`, a JVM each | both |
 | 5 | `agent-sessions-1` to `-3` | `rig.bench.agent-rate sessions <n>`: B | full |
 | 6 | `agent-reads-1` to `-3` | `rig.bench.agent-rate reads <n>`: C and the entry bytes | full |
@@ -912,7 +1017,7 @@ logs were; nothing a result needs lives only in them.
 | File | In git | What it holds |
 |---|---|---|
 | `runs/phase7-final-agent-rate.edn`, `runs/phase7-final-one-thread.edn`, `runs/phase7-final-lock-growth.edn` | yes | every `META` and `RESULT` map of every run, appended by the harness as it goes, one EDN map a line |
-| `runs/phase7-final-agent-rate.txt`, `runs/phase7-final-one-thread.txt`, `runs/phase7-final-lock-growth.txt` | yes | the method header: the machine (from `META`), the configuration, the method, the per-act write list with its code sites, and the caveat of 3.3; then the tables (median and spread across runs), the checks, the verdicts against default 7, and the slice's numbers beside the final ones. `report` writes all of that; the session that runs the numbers adds the reading in words |
+| `runs/phase7-final-agent-rate.txt`, `runs/phase7-final-one-thread.txt`, `runs/phase7-final-lock-growth.txt` | yes | the method header: the machine (from `META`), the configuration, the method (**[F5]** which latencies are closed-loop service times and which are from an open schedule; **[F1]** the primary act's key), the per-act write list with its code sites, and the caveat of 3.3; then the tables (median and spread across runs), the checks, the verdicts against default 7, and the slice's numbers beside the final ones. `report` writes all of that; the session that runs the numbers adds the reading in words |
 | `runs/phase7-final-<step>.log`, `runs/phase7-final-progress.log`, `runs/phase7-final-driver.log` | no | console output and progress |
 
 ### 8.6 Time
@@ -920,22 +1025,31 @@ logs were; nothing a result needs lives only in them.
 | Step | Per run (*derived* from the windows; JVM start about 40 s, *assumed*) | Runs | Total |
 |---|---|---|---|
 | test | about 3 min | 1 | 3 min |
-| agent rate (A, A', D2, sometimes D1) | about 4.6 min | 3 | 14 min |
-| one person's layer ((a), (b)) | about 3.5 min | 3 | 10.5 min |
+| agent rate (A, A', D2, and D1, which **[F4]** expects to run) | about 5.5 min | 3 | 16.5 min |
+| one person's layer ((a), (b), **[F5]** (b')) | about 4 min | 3 | 12 min |
 | lock growth, 100,000 values | about 2.5 min at 3,000 acts a second through the door (*assumed*), longer if the door is slower | 3 | 7 min |
 | lock growth, 10,000 values | about 1 min | 2 | 2 min |
 | report | under 1 min | 1 | 1 min |
-| **minimum set** | | | **about 37 min** |
+| **minimum set** | | | **about 42 min** |
 | agent sessions (B) | about 3.5 min | 3 | 10.5 min |
 | agent reads (C) | about 2.1 min | 3 | 6.5 min |
 | lock growth, `h40-again` and `h40-act4` | about 2.5 min | 2 | 5 min |
 | one person's reads | about 1.2 min | 1 | 1 min |
-| **full set** | | | **about 60 min** |
+| **full set** | | | **about 65 min** |
 
-Say about 40 minutes for the minimum and about an hour for the full set,
+Say about 45 minutes for the minimum and about 65 for the full set,
 plus any wait for the lock. If the door proves slower than assumed, the
 lock-growth steps stretch first: 100,000 values at 1,000 acts a second
 instead of 3,000 adds about a minute a variant.
+
+**[F11] The shortest set**, for when less than 45 minutes remain:
+`test`, `agent-rate-1`, `one-thread-1`, `lock-growth-h40`,
+`lock-growth-h200` and `report`, about 19 minutes (3 + 5.5 + 4 + 2.5 +
+2.5 + 1). It answers each of Sid's three numbers once. Its timings are
+single runs, so the spread across runs is unknown, and the report says so
+beside every timing; the lock variants run once in every set, so `h40`
+and `h200` lose nothing but the subject slope (`h40-p2` to `h40-p5`). The
+driver takes it as `<set>` = `short`.
 
 ### 8.7 When something goes wrong
 
@@ -991,8 +1105,10 @@ so in its notes.
   `layers-on-task!` (variant B's candidate search).
 - `writes`: 2.3's per-act write lists as data. For each act kind, each
   write's name, path head, set or delete, and code site; and
-  `per-act-writes`, kind to total, read-index subset and deletes. This is
-  the harness's claim, and T1 to T4 test it.
+  `per-act-writes`, kind to total, read-index subset and deletes; **[F2]**
+  and the one-time write a layer's first fact under a key that is not a
+  store key makes (one `:key-rows` row, where the merged store has key
+  rows). This is the harness's claim, and T1 to T4 test it.
 - `field-counts`: for a layer, the entry count of every field of its
   `$$layers` value, the fields enumerated from the store itself (**to
   confirm at build**: `MAP-KEYS` on the layer's value, else the merged
@@ -1003,7 +1119,8 @@ so in its notes.
 - `offer-loop` and `window` (closed loop: the slice's
   `stream-bench/window`, extended with lease counting, a lease tag per
   offer, entry acts and the overlap mark), `open-loop-window` (variant B's
-  schedule, latency from the scheduled time), `read-loop` (variant C and
+  schedule, latency from the scheduled time; **[F5]** with a pool of
+  sender threads for number 3's (b')), `read-loop` (variant C and
   5.5). Each writer keeps its latencies in a growable primitive `long`
   array, not a list of boxed longs, so the harness's own garbage stays out
   of the latencies it measures (the client threads share the JVM with the
@@ -1034,7 +1151,10 @@ checks of 6.4), `report`.
 
 Run under the lock as `clojure -M:test rig.bench.numbers-test`: one
 cluster for the namespace at `{:tasks 4 :threads 4 :workers 1}`, and one at
-`{:tasks 1 :threads 1 :workers 1}` for T7.
+`{:tasks 1 :threads 1 :workers 1}` for T7. **[F6]** Never both at once:
+each is opened in its own `with-open`, and the four-task one is closed
+before T7's opens. Both would bind port 2002 in one JVM, which `flock`
+cannot order.
 
 - **T1, the write list is the store's own.** In an agent layer with no
   grammar, 100 value acts from one writer through the door (so exactly
@@ -1042,32 +1162,49 @@ cluster for the namespace at `{:tasks 4 :threads 4 :workers 1}`, and one at
   `field-counts` before and after. Every field must grow by what `writes`
   claims, summed over the acts admitted by kind: `:answers`, `:log`,
   `:heads`, `:ix-ek`, `:ix-ke`, `:ix-s` and `:by-stamp` by 102; `:leases` by
-  2 × 64 − 100; `:locks`, `:ix-kv` and `:ix-of` by 0; every other field by
-  0; `$$clock` moved on the home task only. A field the store has and the
+  2 × 64 − 100; `:locks`, `:ix-kv` and `:ix-of` by 0; **[F2]** `:key-rows`
+  by 1, the first `:note` act's row (0 on a store with no key rows);
+  every other field by 0; `$$clock` moved on the home task only. A field the store has and the
   list does not name fails the test, and so does a named write that did
   not happen. This is the brief's "count of index writes per act checked
   against the code's own list": the list is the harness's claim, the
   growth is what the code did.
 - **T2 and T3**, the same for the by-value grammar (`:ix-kv` and `:ix-of`
   by 100) and for a personal and a hand layer (`:locks` by 100).
+  **[F2]** In T2 `:key-rows` grows by 0, the grammar fact having made the
+  row before the snapshot, and the row is read back with `:used` true,
+  since a count cannot see the first `:note` act setting it; in T3 each
+  fresh layer's `:key-rows` grows by 1, as in T1.
 - **T4, the read entry.** Twenty point reads through the exit in an agent
-  layer: `:locks` grows by 20 (the `:own-row` mark), the entries' id-index
+  layer, with 4.6's read spec (**[F3]**: the reader a person, citing a
+  permission that person holds): `:locks` grows by 20 (the `:own-row`
+  mark), the entries' id-index
   entries carry no value fields (`:no-copy`), and each entry act's growth
   matches the list's entry column.
 - **T5, the counts the numbers are made of.** In a short window of four
   writers: the harness's value count equals the answers the writers
   received; its two lease counts agree with each other and with the
   growth of `:answers` less the value acts. On a known synthetic latency
-  list, `rate` and `percentiles` give the known values (pure).
+  list, `rate` and `percentiles` give the known values (pure). **[F5]**
+  With a synthetic send that stalls once for 50 ms, `open-loop-window`
+  measures each slot scheduled during the stall from its slot (each
+  latency at least its lateness), which a closed loop would not record.
 - **T6, placement.** Every offer of a window was decided on its layer's
   home task (partition and clock deltas), and `layers-on-task!` returns
-  only layers whose making grew the target partition.
+  only layers whose making grew the target partition. **[F7]** Checked by
+  an observation the search did not make: one more act into each layer it
+  returns grows only the target partition and moves only the target
+  task's `$$clock`.
 - **T7, the lock-store measure.** In a hand layer on one task, 2,000
   values of 40 bytes: the logical pass counts 2,000 rows and sizes each as
   its key's bytes plus its record's, matching a row read by keypath;
   `pick-lock-rows` on a compacted copy picks exactly 2,000 entries under
   one prefix, with raw bytes within 4 a row of the logical ones; `repack`
-  gives a positive size no larger than the whole store's. Then a second
+  gives a positive size no larger than the whole store's. **[F8]** And the
+  re-packed store, scanned back, holds exactly the picked entries (their
+  count and their key and value bytes), and its SST bytes are at least 60
+  a row: each row holds a 60-byte sealed lock, random bytes no
+  compression shrinks, so a re-pack below that lost entries. Then a second
   hand layer's values in the same store: the pick must now report two
   prefixes and a failed check, which shows the one-structure check is not
   empty.
@@ -1250,20 +1387,23 @@ For a module this table costs the dominant read. Here the dominant
 operation is the value act's decision event, measured on one task by
 design. From 2.4: every read of the event is local to the layer's home
 task, since the event has no partitioner. Variant A's mix at steady state
-is 64 value acts to 1 lease act; the lease act's reads are about the same
-as a value act's less the lease row (six), plus its `lease-locks` query
-(one seek, up to 64 rows).
+is 64 value acts to 1 lease act. **[F10]** The lease act's event reads
+six (the name's record, the settings, its writer's person entry, the
+clock, two permission rows; seven if the merged gate reads a key row for a
+store key), and its `lease-locks` query three (the settings, one range
+read of the session's lease rows, up to 64 rows plus those in flight, and
+the person entry): nine.
 
 | N | Category | Proportion | Seeks/op, all tasks | Iterator reads/op |
 |---|---|---|---|---|
 | 1 | value act | 64/65 | 8 | 0 |
-| 1 | lease act with its query | 1/65 | 7 | 64 |
+| 1 | lease act with its query | 1/65 | 9 | 64 |
 | 16 | value act | 64/65 | 8 | 0 |
-| 16 | lease act with its query | 1/65 | 7 | 64 |
+| 16 | lease act with its query | 1/65 | 9 | 64 |
 | 128 | value act | 64/65 | 8 | 0 |
-| 128 | lease act with its query | 1/65 | 7 | 64 |
+| 128 | lease act with its query | 1/65 | 9 | 64 |
 
-Weighted seeks 7.98 and weighted iterator reads 0.98 at N = 1, 16 and 128:
+Weighted seeks 8.02 and weighted iterator reads 0.98 at N = 1, 16 and 128:
 flat, because placement by layer keeps every read of an act on one task
 whatever N is. Some of these point reads will hit RocksDB's block cache
 rather than the disk; the counts are of reads, not of disk seeks. Variant B
@@ -1312,18 +1452,19 @@ harness, and T1 to T11 fail if any is wrong in a way that matters.
 | # | Binding point | Where it is today | What the harness does with it |
 |---|---|---|---|
 | B1 | the store module and its launch | `rig.store.module/Store` (`703b8e26`; `fd41f6d2`) | `rtest/launch-module!` |
-| B2 | `$$layers` fields of a one-owner layer, and `$$clock`, `$$persons` | module.clj `layers-schema`; locks.clj `layer-fields` :971, `persons-schema`; reads.clj `layer-fields` :125; `:ix-s` (reads-rest, planned); `:key-rows` (tools, planned) | `field-counts`; the read-back |
+| B2 | `$$layers` fields of a one-owner layer, and `$$clock`, `$$persons` | module.clj `layers-schema`; locks.clj `layer-fields` :971, `persons-schema`; reads.clj `layer-fields` :125; `:ix-s` (reads-rest, planned); `:key-rows` (tools, planned), **[F2]** with the row a layer's first fact under a key that is not a store key writes | `field-counts`; the read-back; T1 to T3 |
 | B3 | the decision event's writes | module.clj decision block (:135 to :168 on `703b8e26`); locks.clj `write-decision>` :1197, `consume-locks>` :1050; reads.clj `index-writes` :181 | `writes` (2.3); T1 to T4 |
 | B4 | whether `:by-stamp` is still written | locks.clj `write-decision>`; BUILD_NOTES-locks-and-forgetting.md, "Seams and stubs" | row 12 of 2.3 |
-| B5 | the door | client.clj (`fd41f6d2`): `offer!` :236, `build` :71, `default-session`, `lease-size` :27, `:lease-mutex`, the door atom's `:known` and `:pool`, `stock!` :322, `lease-locks` :296 | the workloads; lease counting; D1 |
+| B5 | the door | client.clj (`fd41f6d2`): `offer!` :236, `build` :71, `default-session`, `lease-size` :27, `:lease-mutex`, the door atom's `:known` and `:pool`, `stock!` :322, `lease-locks` :296; **[F12]** `connect` :42, `offer-until-answered!` :275, **[F4]** `lease!` :305 | the workloads; lease counting; D1; `with-store` and B's doors; setup |
 | B6 | setup acts | client.clj `make-layer-offer` :507, `make-person!` :348, `grant-offer` :517, the `:people` store layer | `people!`, `person!`, `layer!` |
 | B7 | opening a session | `rig-build-micro` micro_client.clj `open-session!` :482, `person-permission` :473 | 4.2, step 3 |
 | B8 | the permission walk | `rig-build-micro` permit.clj `chain` :29 | 2.4; D2 |
-| B9 | grammar facts and hints | *plan*: tools-and-grammars 4.1 to 4.7 (`{:e <key id> :k :grammar :v {...}}`, `[L :key-rows k]`, `grammar/hints`); today `reads/seed-hints` :34 | A' and the `:mention` variants; whether keys stay keywords ("keys are ids") |
-| B10 | the read exit | read_exit.clj `read!` :88 (its spec keys), `connect` :28; reads.clj `entry-facts` :759 with `:own-row` (reads-rest, planned); `reads/address` :96 | C; 5.5; the read-back's addresses |
+| B9 | grammar facts and hints | *plan*: tools-and-grammars 4.1 to 4.7 (`{:e <key id> :k :grammar :v {...}}`, `[L :key-rows k]`, `grammar/hints`); today `reads/seed-hints` :34, **[F1]** which hints `:note` by value in every layer (:41) until phase 6 replaces it | the primary act's key (4.2); A' and the `:mention` variants; whether keys stay keywords ("keys are ids") |
+| B10 | the read exit | read_exit.clj `read!` :88 (its spec keys), `connect` :28, **[F3]** `entry-offer` :78 (the reader as `:who`, `:session nil`); reads.clj `entry-facts` :759 with `:own-row` (reads-rest, planned); `reads/address` :96 | C; 5.5; the read-back's addresses |
 | B11 | the lock row and the wrap | locks.clj `lock-record-schema` :953, lock ids `[lease-name i]` (L21), `row-kinds` :364, `wrap-of` :253, `wrap` :290, `unwrap`, `open`, `canonical-bytes` | number 2's sizing, pick and checks; T7, T8 |
-| B12 | Rama internals the sizing uses | `rpl.rama.util.nippy-serialization/freeze` and `thaw`; `rpl.rama.api.durable.rocksdb.key-encoding/k-ser` (in the Rama 1.6.0 jar; `freeze` and `k-ser` used by the slice) | 6.4, 6.5 |
+| B12 | Rama internals the sizing uses | `rpl.rama.util.nippy-serialization/freeze` and `thaw`; `rpl.rama.api.durable.rocksdb.key-encoding/k-ser` (in the Rama 1.6.0 jar; `freeze` and `k-ser` used by the slice); **[F12]** the RocksDB column families `default` (top-level entries) and `subindexed` (every subindexed element), and `OptionsUtil/loadLatestOptions` over the options Rama writes (the slice's finding, runs/phase7-lock-growth.txt "Method") | 6.4, 6.5 |
 | B13 | query and depot names | `"*offers"`, `"lease-locks"`, `"read-point"`, `"read-pattern"` | `with-store` handles |
+| B14 | **[F12]** the slice bench's helpers and what loading them needs | `rig.bench.lock-bench` (`value-spec`, `value-bytes`, `key-bytes`, `rocks-dirs`, `live-bytes`, `ipc-root`, `replog-bytes`), which requires `rig.bench.lock-slice` and uses `rig.store.envelope/canonical` (lock_bench.clj L30-38, L82-94) | number 2's sizing and generator; the copy fallback of 9.1 |
 
 ## 13. What this plan could not settle, and questions for Sid
 
@@ -1332,7 +1473,8 @@ harness, and T1 to T11 fail if any is wrong in a way that matters.
 1. **The merged store's exact per-act lists.** 2.3 and 2.4 are read off
    three branches and two plans, before any merge. T1 to T4 settle them at
    build; if the merge changed them, the harness's list follows the code
-   and the test says so.
+   and the test says so. **[F1]** The first merge (`d83e5ff8`) already
+   gives 10 for the agent act, because of the constant hints (2.1).
 2. **The on-disk pick of the lock rows** rests on Rama's key layout, which
    reading supports (6.5) but did not prove. T7 settles it at build, and
    the fallback is named.
@@ -1432,7 +1574,7 @@ Written as the plan was cut, first person.
 - **PState schemas.** None added. Not applicable.
 - **Partitioning.** The harness writes nothing of its own; the workloads'
   placement is the store's placement by layer. The table in 11 is flat at
-  N = 1, 16 and 128 (7.98 seeks, 0.98 iterator reads). Pass.
+  N = 1, 16 and 128 (8.02 seeks after [F10], 0.98 iterator reads). Pass.
 - **Topologies.** None added. Not applicable.
 - **Production readiness, as it applies to a harness.** Concurrent
   clients: K writers share one door, whose pool locking is phase 2's own
@@ -1504,3 +1646,16 @@ Written as the plan was cut, first person.
   arithmetic needs (9.2); variant B's missing warm-up (4.5); run lengths
   made to agree between 4.9, 5.6, 6.7 and 8.6; section 0 marking which
   variants belong to the full set. None found after those.
+
+- **The plan validation** (`PLAN_VALIDATION-numbers.md`, a fresh session,
+  26 September from 05:00 IST): **minor-fail**, twelve fixes applied in
+  place and marked `[F1]` to `[F12]`: the primary act's key under the
+  constant hints, and the first merge's trace (F1, 2.1, 4.2); the first-use
+  key row in the write list and in T1 to T3 (F2); variant C's reader and
+  permission, and T4 (F3); D1's stocking made linear, and D1 expected to
+  run (F4); open-arrival latency for number 3, and closed-loop latencies
+  labeled (F5); the test namespace's two clusters never open at once (F6);
+  T6's search checked by an observation of its own (F7); T7's re-pack
+  checked (F8); the pick's thaw handling, P defined, the fallback's bounds
+  (F9); the lease act's reads in section 11 (F10); a shortest set (F11);
+  the binding points B2, B5, B9, B10, B12 and B14 (F12).
