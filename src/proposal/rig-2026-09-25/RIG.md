@@ -2,8 +2,83 @@
 
 ## Overnight state (26 September; rewritten after every commit)
 
-**Now: builder B, from 04:26 IST.** Builder B took over at 04:26 on
-builder A's handoff note (the relay's rule 2) and builds from here.
+**Now: the handoff from builder B to builder C (07:10 IST).** Builder B's
+transcript passed 3.5 MB at 06:48. Builder C's and D's loops never started:
+neither transcript holds a Relay tick or a loop, so C could not request the
+handoff. B followed the protocol's handoff steps as if C had asked, and
+wakes C by message (Sid: "message them coordinate whatever is needed"). C
+reads `handoff-ready-b` in the relay folder, this section, and the relay
+folder's `build-instructions` (Sid's brief, verbatim, with two dated
+addenda: Sid's test rule, and commands that wait for approval). D's loop is
+not running either: C's own handoff at 3.5 MB goes to D by message too, and
+nobody watches D unless Sid starts D's loop.
+
+*Built and green on its own branch, not merged here* (C's rule: built,
+merge it):
+- **Phase 4, promotion**: `rig-build-promotion` at `5303418f`. One full
+  suite, 102 tests, 5,921 assertions; its one failure, phase 3's
+  `micro_prepare_test.clj:245` expecting an ordinary act under a landing's
+  name to parse, updated for stage 4's rule and rerun alone, green. It
+  refuses a client-made `:crossed` (R-1's part), and reverses the plan's F8
+  to follow the model: a promotion pending across its source's re-class is
+  still read out (V-2, for Sid). Phase 8's names are in
+  `rig.store.promote-client` (`status-of` gives the bare keyword).
+- **The rest of phase 5**: `rig-build-reads-rest` at `33817364`. One full
+  suite of 16 namespaces, 103 tests, 6,132 assertions; its 3 failures were
+  tests counting four index fields where `:ix-s` makes five, fixed in the
+  tests and the four touched namespaces rerun, 28 tests, 1,120 assertions,
+  green. The shared-layer read is `rig.store.read-exit/read!` with a group
+  or the re-classed base and `{:frontier F}`. A read entry names its session
+  (FRR10, first-record). New entries store a `[:kv]` value keyed (R-2); the
+  old entry form's seam is `reads/recorded-pattern`. It did not merge phase
+  4's `1b1d416c`; its edits sit outside that path.
+- **Phase 6, tools and grammars (stream side)**: `rig-build-tools` at
+  `2d2f666a`. One full suite, 106 tests, 5,907 assertions, 0 failures. The
+  test grammar (`:mention`) and tool (`:mention-count`) went in as facts
+  only. Machinery count, stream side: 26 built, 10 of the kind the frame
+  promised, 6 nobody anticipated, 10 capabilities (plan: 25). The micro
+  side is step 6b; its design question is in the notes' "Phase 6b".
+
+Each branch's `BUILD_NOTES-<stage>.md` has its receipt, its "Shared-file
+changes" for the merge, and "For RIG.md" (rig choices P4-*, P5-*, P6-*;
+questions; first-record placeholders), not yet folded in here.
+
+*Next, in order, for builder C:*
+1. **Wave 2's merge**, in a fresh worktree off this branch: the three
+   branches above, by each one's "Shared-file changes". Phases 4 and 6
+   share `1b1d416c` (the gate's record-or-decide path in
+   `rig.store.gate-event`); phase 5's rest does not. Known non-mechanical
+   work: phase 5's shared-layer index reads and writes take `seed-hints`
+   and the micro constant, which move to facts in step 6b. One full suite
+   at the end: wave 1's 14 namespaces, `rig.store.review-wave1-test`,
+   `rig.replay-test`, and each phase's new namespaces.
+2. **Step R**, the review's fixes (`REVIEW-wave1.md`; For Sid 4 and 37):
+   refuse control-key facts the gate does not act on, at both gates,
+   extending W1-7; store a `[:kv]` pattern's value keyed in the old entry
+   form too (seam `reads/recorded-pattern`); F-1's last edge, a lease
+   answered yes whose `take-locks` times out still seals under no lock. The
+   review's pending tests (`RIG_PENDING=1`) become assertions.
+3. **Step 6b**, the micro gate's grammar (a4, b4), then the machinery
+   count's micro side.
+4. **Phase 8, pass 3**: the B cases with phase 4's names, and group reads
+   through the exit (`BUILD_NOTES-replays.md`, how each later pass
+   continues).
+5. **Phase 7**: build the harnesses by `PLAN-numbers.md` (validated, F1 to
+   F12), confirm its binding points on the finished store, run the minimum
+   set (about 45 minutes) in the background with progress under `runs/`.
+6. **The rama skill's full-spec review** of the whole module.
+
+*How it ran tonight, for the next builder:* one in-process cluster at a
+time (port 2002), so every run queues on the cluster lock; with four
+sessions a run waited 10 to 15 minutes. Builders reached 600k to 770k
+tokens; a fresh session per pass kept later passes lean. A background
+subagent waits for ever on a command that needs approval (git reset,
+checkout or restore of files, stash, rm). No subagent of builder B is
+running at the handoff.
+
+**Builder B, 04:26 to 07:10 IST.** Builder B took over at 04:26 on
+builder A's handoff note (the relay's rule 2) and built until the handoff
+above.
 Builder C watches B and builder D watches C, through the `-b` and `-c`
 files in `/mnt/data/projects/rig-relay-2026-09-26/`. **Sid's build
 instructions for tonight, verbatim, are in that folder's

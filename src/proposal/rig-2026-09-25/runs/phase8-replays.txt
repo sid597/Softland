@@ -1,10 +1,10 @@
 Phase 8 replays: the model's fixed histories through the rig (PLAN-replays.md, RP8)
-run      2026-09-26 05:52:46 IST, 72 s
-rig      c83e939a on rig-build-replays
+run      2026-09-26 06:45:59 IST, 72 s
+rig      1103f639 on rig-2026-09-25, with uncommitted changes in the rig folder
 model    formal-model-2026-09-24 at c1d46d42; the rig is compared under baseline
-cluster  in-process, 4 tasks, 2 threads; road: a fresh cluster and module per case (launch 2965 ms, destroy 261 ms, relaunch 2284 ms)
+cluster  in-process, 4 tasks, 2 threads; road: a fresh cluster and module per case (launch 2984 ms, destroy 256 ms, relaunch 2175 ms)
 stages   stage 1: all 11 resolved; stage 2: all 9 resolved; stage 3: all 12 resolved; stage 4: 0 of 5 resolved; stage 5a: all 2 resolved; stage 5-rest: 0 of 1 resolved
-summary  14 cases: 10 played (8 as said, 2 differ), 4 not practical; 2 failing
+summary  14 cases: 10 played (10 as said, 0 differ), 4 not practical; 0 failing
 not tested by the lockstep (F10):
   1. no rig offer is in flight while another is decided, except under a hold or the pause, so the rig's own order for offers queued together is not exercised (on the micro side that is KD16);
   2. in the rig a read-out runs in its request's own event (P4 PR7), so B1's and B2's order exists in the rig only on the recovery road after a crash, which the hold and the resend play;
@@ -41,7 +41,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   alice mention bob erased (model erased), alice note erased (model erased)
               rig-only entry 1, forget-person 1, lease 1, seed 19
               known    KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12
-              roads    permissions direct; stream door stock! then offer!; micro door write!; no group read; 5440 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; no group read; 5804 ms
               known    read of alice for alice: the entry's lease refused :person-forgotten, the entry :no-such-lock on its face (KD10)
     as said   A: in the group a mention of Bob alone dies with Bob
       rig:    as said
@@ -50,7 +50,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   group mention bob erased (model erased)
               rig-only forget-person 1, lease 1, seed 19
               known    KD2 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD6
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6869 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6877 ms
     as said   A: in the group a plain note about no one survives both forgets
       rig:    as said
               answers  1 of 1 as the model's (o0 yes)
@@ -58,7 +58,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   group note open (model open)
               rig-only forget-person 2, lease 1, seed 19
               known    KD2 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD6 KD10
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6711 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6677 ms
     as said   A: in the group a value about Alice and Bob survives Alice alone
       rig:    as said
               answers  1 of 1 as the model's (o0 yes)
@@ -66,7 +66,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   group mention alice+bob open (model open)
               rig-only forget-person 1, lease 1, seed 19
               known    KD2 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD6 KD10
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6698 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6834 ms
     as said   A: in the group a value about Alice and Bob survives Bob alone
       rig:    as said
               answers  1 of 1 as the model's (o0 yes)
@@ -74,7 +74,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   group mention alice+bob open (model open)
               rig-only forget-person 1, lease 1, seed 19
               known    KD2 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD6
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6656 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6678 ms
     as said   A: ... and dies when both are forgotten ('either one alone')
       rig:    as said
               answers  1 of 1 as the model's (o0 yes)
@@ -82,7 +82,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   group mention alice+bob erased (model erased)
               rig-only forget-person 2, lease 1, seed 19
               known    KD2 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD6 KD10
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6643 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6362 ms
     as said   A: in the group a value about Alice and Bob, marked, dies with Bob
       rig:    as said
               answers  1 of 1 as the model's (o0 yes)
@@ -90,7 +90,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   group mention alice+bob erased (model erased)
               rig-only forget-person 1, lease 1, seed 19
               known    KD2 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD6
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6609 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6604 ms
     as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
       rig:    as said
               answers  1 of 1 as the model's (o0 yes)
@@ -98,7 +98,7 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
               values   alice mention bob open (model open)
               rig-only entry 1, forget-person 1, lease 1, seed 19
               known    KD2 KD6 KD7 KD8 KD9 KD11 KD12
-              roads    permissions direct; stream door stock! then offer!; micro door write!; no group read; 5125 ms
+              roads    permissions direct; stream door stock! then offer!; micro door write!; no group read; 5208 ms
   under baseline-but-not-owner-required
     DIFFERS   A: in Alice's own layer a note and a mention of Bob both die with Alice
               saw: alice note erased, alice mention bob open 
@@ -188,25 +188,21 @@ Known differences, reported every run (KD1 to KD20; a case line names those that
 == D: permissions
   under baseline
     as said   D: a group write under Alice's session permission; the session revokes it between prepare and commit
-      rig:    approximated (prepare and commit are one batch in the rig; its commit is a check); differs
-              answers  1 of 2 as the model's (o0 no not-sealed, o2 yes)
+      rig:    approximated (prepare and commit are one batch in the rig; its commit is a check); as said
+              answers  2 of 2 as the model's (o0 no no-such-lock KD1, o2 yes)
               reads    closing: alice-hand as alice o2#0 {:permission [:alice :group :alice-hand]}, group (frontier) 
               values   group note missing (model missing)
               rig-only entry 1, lease 1, seed 19
-              known    KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20; predicted, not seen: KD1
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6608 ms
-              DIFFERS  answer o0: its lease was refused: no permission-from-another-layer; model no permission-from-another-layer, rig no not-sealed
-              FAILS    1 difference(s) no known difference explains
+              known    KD1 KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 6654 ms
     as said   D: a group write under her group permission, revoked in the group first
-      rig:    differs
-              answers  1 of 2 as the model's (o0 yes, o1 no not-sealed)
+      rig:    as said
+              answers  2 of 2 as the model's (o0 yes, o1 no no-such-lock KD1)
               reads    closing: group (frontier) o0#0 {:permission [:alice :group :group [:group :group :group]]}
               values   group note missing (model missing)
               rig-only lease 1, seed 19
-              known    KD2 KD7 KD8 KD9 KD11 KD12 KD20; predicted, not seen: KD1 KD6
-              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 7264 ms
-              DIFFERS  answer o1: its lease was refused: no permission-revoked; model no permission-revoked, rig no not-sealed
-              FAILS    1 difference(s) no known difference explains
+              known    KD1 KD2 KD7 KD8 KD9 KD11 KD12 KD20; predicted, not seen: KD6
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through phase 3's frontier; 7373 ms
   under baseline-but-not-permissions-in-their-layer
     DIFFERS   D: a group write under Alice's session permission; the session revokes it between prepare and commit
               saw: group note open 
