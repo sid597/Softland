@@ -2,7 +2,7 @@
 
 ## Overnight state (26 September; rewritten after every commit)
 
-**Now: the night's build is done (builder C, 07:03 to 10:55 IST).** Every
+**Now: the night's build is done (builder C, 07:03 to 10:44 IST).** Every
 phase of Sid's brief is built, tested and committed on this branch: phases
 2 to 8, with phase 6's micro side (step 6b) built in Sid's Codex session,
 plus the review of wave 1's fixes (step R), the rama skill's full-spec
