@@ -24,8 +24,10 @@
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
+            [rig.store.grammar :as grammar]
             [rig.store.locks :as locks]
-            [rig.store.reads :as reads])
+            [rig.store.reads :as reads]
+            [rig.store.toy-grammars :as tg])
   (:import [java.util UUID]))
 
 ;; ------------------------------------------------------------------ helpers
@@ -77,8 +79,10 @@
   "The lock context the gate's event would read for `offer`: the delivered
   locks, the value checks over them, the persons given, the fresh draw."
   [offer settings delivered persons]
-  (let [rv (locks/value-context offer settings delivered)]
-    (locks/lock-context delivered rv persons nil nil (locks/fresh-for offer settings rv))))
+  ;; phase 6: the grammars come from the layer's key rows, here the toy grammars' (D-P4)
+  (let [rows (tg/rows)
+        rv (locks/value-context offer settings delivered (grammar/grammars-of rows))]
+    (assoc (locks/lock-context delivered rv persons nil nil (locks/fresh-for offer settings rv)) :key-rows rows)))
 
 (defn- drive
   "The query's page loop over a sorted map of address -> entry, as the
