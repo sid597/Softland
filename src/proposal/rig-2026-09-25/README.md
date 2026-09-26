@@ -16,18 +16,20 @@ September, evening, stands: the rig is a candidate for the store core,
 built in the form it should be because it may be kept; its adoption is
 his, after a read of its code against the rulings; its records are not
 kept until edition one. On his overnight brief every remaining phase of
-SPEC.md was built on this branch, from 01:37 to about 10:15 IST ("What
-happened" has the times). The one full suite on the finished tree passed:
-26 namespaces, 163 tests, 8,085 assertions, 0 failures. All 14 of the
-model's fixed histories replay as the model says. The three numbers are
-measured on the finished store, against thresholds that are still guesses.
-The machinery count is 33 as built, 35 by one unit rule. Two reviews by
+SPEC.md was built on this branch, from 01:37 to about 10:30 IST ("What
+happened" has the times). The one full suite passed on step 6b's tree: 26
+namespaces, 163 tests, 8,085 assertions, 0 failures; the fixes for H-1 and
+M-1 after it ran the 15 namespaces they touch once, one failure fixed and
+its namespace rerun green. All 14 of the model's fixed histories replay as
+the model says. The three numbers are measured on the finished store,
+before those fixes, against thresholds that are still guesses. The
+machinery count is 33 as built, 35 by one unit rule. Two reviews by
 reading: the full-spec review found eight items at the seams no stage's
-tests cross (H-1, high, and M-1, medium, went to a fix step; M-2, medium,
-and five lows are questions for Sid), and step 6b's review five lows. What
-is left is Sid's reading and his rulings: "What is left" below, and
-`RIG.md`'s "For Sid" and "What is next". Text below that says "throwaway"
-is history.
+tests cross (H-1, high, and M-1, medium, are fixed; M-2, medium, and five
+lows are questions for Sid), and step 6b's review five lows. What is left
+is Sid's reading and his rulings: "What is left" below, and `RIG.md`'s
+"For Sid" and "What is next". Text below that says "throwaway" is
+history.
 
 *Status, 25 September, evening (history).* This is the page as written at
 11:05 IST. Since then, Sid's decision: the rig is a candidate for the store
@@ -41,8 +43,8 @@ Softland is meant to be a place people and agents change from the inside,
 including the tools they change it with. Its frame keeps everything in one
 store as facts and leaves only the runtime fixed. The rig is a build of
 that store's rules on Rama, a candidate for the store core, whose records
-nobody keeps until edition one. It checks
-the line before the store's first record: whether the platform gives what
+nobody keeps until edition one. It checks the line before the store's
+first record: whether the platform gives what
 the rules assume, whether it stays affordable at the scale Sid holds, and
 whether new tools can arrive as facts alone.
 
@@ -171,11 +173,13 @@ did not run.)*
 
 *Brought up to date on 26 September.* Every phase is built and tested on
 this branch. The one full suite, on step 6b's tree: 26 namespaces, 163
-tests, 8,085 assertions, 0 failures, 0 errors. The three numbers are
-measured on the finished store; each verdict is judged against thresholds
-the main session assumed, and Sid sets the real ones. On 25 September they
-had been measured on thin slices of what existed then; those are kept as
-history below.
+tests, 8,085 assertions, 0 failures, 0 errors. The full-spec review's H-1
+and M-1 were fixed after it: the 15 namespaces the fixes touch ran once,
+and their one failure was fixed and its namespace rerun green. The three
+numbers are measured on the finished store, before those fixes; each
+verdict is judged against thresholds the main session assumed, and Sid
+sets the real ones. On 25 September they had been measured on thin slices
+of what existed then; those are kept as history below.
 
 | Phase | What it is | State |
 |---|---|---|
@@ -192,7 +196,7 @@ history below.
 | Number (ruling) | Result on the finished store | Verdict (assumed thresholds) |
 |---|---|---|
 | Agent layer rate (ruling 2) | about 1,200 small acts a second on one task, 12,400 index writes (9 per act, 10.1 with its share of lease acts); the task's thread never past 61% of a core | near 1,000, undecided on this cluster; the door, not the gate, limited it, so the task's own ceiling is unmeasured |
-| One person's layer on one thread (ruling 2) | 226 acts a second at one writer, 1,062 to 1,198 at 32 to 128 writers; at 100 acts a second arriving on a schedule, 46.1 ms for the slowest 1 in 100 | rate passes; latency near, on the failing side (2.3 times 20 ms); its way out, re-class, qualified by the full-spec review's H-1 |
+| One person's layer on one thread (ruling 2) | 226 acts a second at one writer, 1,062 to 1,198 at 32 to 128 writers; at 100 acts a second arriving on a schedule, 46.1 ms for the slowest 1 in 100 | rate passes; latency near, on the failing side (2.3 times 20 ms); its way out, re-class, was qualified by the full-spec review's H-1, fixed after the run |
 | Lock store growth (ruling 7) | a fixed 181 bytes a value logical, 81 on disk, whatever the value's size; linear to 100,000 values; about 34 more for each extra person | depends on value size: over four times 40-byte values logically, just over two on disk; fine at 200 bytes |
 
 ## Why now: some choices freeze at the first record
@@ -303,6 +307,8 @@ its own worktree. `RIG.md`, "Stages tonight", has each landing in full.
   after the session's permission check denied builder C's builder for it;
   the night's one full suite, 163 tests, 0 failures. Its review (09:59).
 - **10:14, the three numbers** measured on the finished store.
+- **10:30, the full-spec review's H-1 and M-1 fixed**, the 15 namespaces
+  the fixes touch run, one failure fixed, the replays 14 of 14.
 
 ## Phase 0: the Rama claims the model assumes
 
@@ -387,10 +393,15 @@ session's guesses. Details, every window and the verdicts: `RIG.md`,
 
 The finished store does more per act than the slices did (locks, read
 indexes, grammar rows), so its rates are 0.4 to 0.76 of theirs. Number 3's
-verdict has a qualification: its way out for a layer one thread cannot
-carry is re-class to the micro gate, which the full-spec review's H-1 found
-ends the owner's reads through the one exit when the layer is also a
-working layer (`RIG.md` For Sid 71).
+verdict had a qualification: its way out for a layer one thread cannot
+carry is re-class to the micro gate, which the full-spec review's H-1
+found ended the owner's reads through the one exit when the layer is also
+a working layer. H-1's fix landed after the run: a re-classed working
+layer's reads are recorded and shown, a read after the re-class waiting
+about two microbatch cycles (`RIG.md` For Sid 71 and 90). The numbers were
+measured before the H-1 and M-1 fixes; H-1's adds a read of the layer's
+class to every entry act on the exit's path, and whether the fixes move
+numbers 1 and 3 is unmeasured.
 
 ## The numbers on slices of the stream store (25 September, history)
 
@@ -492,7 +503,7 @@ times its size before any lock.
 
 *Brought up to date on 26 September.* One module holds both stores. The
 code is under `src/rig/store/`; `RIG.md` has each stage's landing ("Stages
-tonight") and every rig choice (R1 to R111).
+tonight") and every rig choice (R1 to R117).
 
 - **The stream store** (phase 1), for one-owner layers: described below.
   Its stamps are a hybrid clock, wall milliseconds times 65,536 plus a
@@ -519,7 +530,9 @@ tonight") and every rig choice (R1 to R111).
   shows nothing until the entry is acknowledged. Shared layers are read at
   a settled frontier; standing reads deliver changes; an agent session's
   close keeps or drops its entries; indexes are purged by a forget and
-  rebuilt in pages.
+  rebuilt in pages. Every act into a working layer goes through the gate
+  that orders it, so reads stay recorded after the layer is re-classed
+  (the H-1 fix).
 - **Tools and grammars** (phase 6). A key's grammar is a fact in the layer
   it governs, checked at both gates from rows read in the decision's own
   event; a tool is a fact run by a minimal runner over a recipe of named
@@ -537,7 +550,8 @@ assertions, 0 failures, 0 errors, in about 17 minutes
 (`runs/grammar-micro-suite-cmd.sh` runs it under the cluster lock). Three
 reviews: of wave 1, which fixed one fault and left two for step R; and, by
 reading, of the whole module against the whole spec (eight items; H-1 and
-M-1 went to a fix step) and of step 6b (five lows). What they raised for
+M-1 fixed after the full suite, their 15 namespaces run) and of step 6b
+(five lows). What they raised for
 Sid is in `RIG.md`, "For Sid".
 
 **The stream gate, as phase 1 built it** (25 September). Every offer is one
@@ -595,7 +609,8 @@ turn, since one design step alone took 25 to 75 minutes.
 
 Overnight, on 26 September, Sid's test rule set the pace: test only when
 needed, not after every step. The rama skill's validations and the reviews
-were done by reading, the one full suite ran once, on step 6b's tree, and
+were done by reading, the one full suite ran once, on step 6b's tree, the
+fixes for H-1 and M-1 after it ran only the namespaces they touch, and
 phase 7's minimum set was its harnesses' first run. Every in-process
 cluster run queued on one lock, one cluster at a time.
 
@@ -605,7 +620,7 @@ cluster run queued on one lock, one cluster at a time.
 Sid's, and the work that follows his rulings (`RIG.md`, "What is next",
 has each with its pointers):
 
-1. **His rulings**: `RIG.md`'s "For Sid", 1 to 89, the questions that would
+1. **His rulings**: `RIG.md`'s "For Sid", 1 to 90, the questions that would
    touch a record, the forms that freeze at the first record first; the
    eight defaults taken overnight; and the machinery count's unit rule.
    Whether the rig becomes the store core is his, after a read of its code
@@ -695,7 +710,7 @@ far", lists every file.
 | File | What it is |
 |---|---|
 | `README.md` | this overview |
-| `RIG.md` | the running record: the overnight state, the stages as each landed, what was found, the questions for Sid, the defaults, phase 0's table, rig choices R1 to R111, the numbers, the machinery count, what is next |
+| `RIG.md` | the running record: the overnight state, the stages as each landed, what was found, the questions for Sid, the defaults, phase 0's table, rig choices R1 to R117, the numbers, the machinery count, what is next |
 | `SPEC.md` | the brief the build follows: Sid's phases verbatim, pointers to the rulings and the model |
 | `IMPLICIT_SPEC.md` | every requirement the rulings imply, where the sources differ, and the open picks |
 | `DECOMPOSITION.json` | the six build stages |
@@ -748,6 +763,7 @@ the night's choices, by stage, each group with its full text in `RIG.md`,
 - **R106** visibility as ruling 9's default in code, the read exit's RC6
   (a question for Sid, since ruling 9 says seed policy facts)
 - **R107 to R111** step 6b, the micro gate's grammar
+- **R112 to R117** the fixes for the full-spec review's H-1 and M-1
 
 Phases 0 and 1's:
 

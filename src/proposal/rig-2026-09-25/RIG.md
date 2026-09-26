@@ -255,9 +255,10 @@ wave 2"; wave 2 builds on them):
 - The micro leader holds no opened value, so a read entry in a shared
   working layer would not have its moment counted in its stamp
   (`gate/stamp-for`'s 4-arity); wave 2's shared reads must carry the
-  moment from the arrival task.
+  moment from the arrival task. *The H-1 fix did* (R115).
 - The micro gate's lease road still refuses an agent (`persons-to-check`,
-  `mint-rows` under the writer): W1-1 is the stream gate's only.
+  `mint-rows` under the writer): W1-1 is the stream gate's only. *The H-1
+  fix carried it to the micro gate* (R114).
 - The micro forget exposes no list of the fact ids it erased, which
   `PLAN-reads-rest.md`'s micro purge takes; `forget-effect` computes it
   (its `sharing` rows), and wave 2 can emit it. *Wave 2 did:*
@@ -600,9 +601,9 @@ and the handoff commit that carries this section.
   items are outstanding: 8 findings, 1 high, 2 medium, 5 low, five of them
   bearing on a kept record. Every test the spec names has a covering test;
   what fails is at the seams those tests do not cross. H-1 and M-1 (For Sid
-  71 and 72) went to a fix step, `rig-build-spec-fixes`; M-2 and the five
-  lows are For Sid 73 to 78, and the pick behind M-2, the read exit's RC6,
-  is R106.
+  71 and 72) went to a fix step, `rig-build-spec-fixes`, and are fixed at
+  `5b95e70e` (below); M-2 and the five lows are For Sid 73 to 78, and the
+  pick behind M-2, the read exit's RC6, is R106.
 - **Phase 7's harnesses landed (`ad49bced`)**: the merge of
   `rig-build-numbers` at `fe57f4c2`, new files only, by Sid's word, after
   its builder's own merge of this branch into it was refused by the
@@ -652,6 +653,30 @@ and the handoff commit that carries this section.
   two of them For Sid 86 and 87. The full set's other steps did not run
   (Sid's test rule). Notes: `BUILD_NOTES-numbers.md`, "The run"; results
   `runs/phase7-final-{agent-rate,one-thread,lock-growth}.{edn,txt}`.
+- **The full-spec review's H-1 and M-1 fixed (`5b95e70e`)**: the merge of
+  `rig-build-spec-fixes` at `e5f6eac0`, built on `dee0320a` by
+  `PLAN-spec-fixes.md` (validated by reading, pass). *M-1:* the micro gate
+  does the lock work in block 1a from the reads its checks use, carried to
+  block 2b in 6b's handoff, and a yes it could not lock is the face
+  `:gate-error`, as at the stream gate (R112). *H-1:* every act the read
+  machinery and the runner write into a working layer names the layer's
+  class, read per act, and goes through the gate that orders it
+  (`micro-client/offer-into!`; R113), which needed three places where the
+  micro gate did not yet decide as the stream gate does: W1-1's lease under
+  the layer's person owner (R114), the entry stamped after its moment
+  (R115), and the close's `:reads` part; and the maintenance reads now read
+  the micro era (R116, R117). One run of the 15 namespaces the fixes touch,
+  10:10 to 10:27 IST: 83 tests, 3,404 assertions, 1 failure, 0 errors; the
+  failure (a read into a layer never made, named with no class and refused
+  `:malformed`) fixed at `3d5f32a3` and its one namespace rerun: 1 test, 318
+  assertions, 0 failures (`runs/spec-fixes-run.txt`,
+  `runs/spec-fixes-rerun.txt`). The replays in the run: 14 histories, 14 as
+  the model says (`runs/spec-fixes-replays.txt`). By Sid's test rule the
+  namespaces no fix touches were not rerun, so no full suite has run on the
+  fixed tree; this branch's other changes since `dee0320a` are documents
+  and phase 7's bench files, which the suite does not run. For Sid 71 and
+  72 are built; For Sid 41 is now live; one new question, For Sid 90.
+  Notes: `BUILD_NOTES-spec-fixes.md`.
 
 ## Found tonight
 
@@ -716,7 +741,8 @@ reaches the agent's unconsumed rows (`locks.clj` `lease-under`; wave1_test
 "an agent's reads are recorded ..."). A writer in a layer with no person
 owner, the base or a group, is still refused `:no-such-person`, and the
 micro gate's lease road still refuses an agent: W1-1 is the stream gate's
-only. Whose lock it should be is For Sid 40.
+only. Whose lock it should be is For Sid 40. *(26 September, 10:30: the
+H-1 fix carried W1-1 to the micro gate, R114.)*
 
 **`:members` is refused at the stream gate rather than kept there in plain
 text** (W1-7, a behaviour change beyond the brief; `BUILD_NOTES-wave1.md`,
@@ -866,7 +892,10 @@ added later sits in its group under the next free number.
    inside the module; a fact's id as phase 1's `[name idx]`; the entry
    standing on its moment (FR14). And: is a cell read a point read, with
    rows, or a pattern read, with a line (FR9; IMPLICIT_SPEC RD2 says rows,
-   the plan says a line)?
+   the plan says a line)? *The H-1 fix* (For Sid 71): an entry into a
+   re-classed working layer is an ordinary act at the micro gate, named
+   `[W :by-entity :offer uuid7]`, a record with `:batch`, stamped by the
+   micro gate after its moment, its lock rows on the entry entity's task.
 4. **What a read entry may hold of a value.** A `[:kv k v]` pattern keeps v
    in the recorded pattern, and a forget of the matched value does not
    reach it. Built: kept. The alternative is a keyed hash of v. The review
@@ -943,7 +972,8 @@ added later sits in its group under the next free number.
    entry, `:because-of` the close act (For Sid 52); FRR10, new, the entry's
    `:session` (For Sid 38). Secrets are derived by label, never stored: the
    kv index's `"softland.kv-index/1"`, the scan cursor's
-   `"softland.scan-cursor/1"`.
+   `"softland.scan-cursor/1"`. *The H-1 fix:* FRR5 at the micro gate too,
+   the close's `:reads` part in the same form at both gates (R116).
 7. **Phase 6's forms**, T-FR1 to T-FR7 in `PLAN-tools-and-grammars.md`
    (waiting on the caching examination, then validation): the grammar fact
    and its shapes, `:grammar` as a control key, the tool fact, a run's
@@ -967,7 +997,9 @@ added later sits in its group under the next free number.
    unchanged and no new kept record slot or wire part; the micro record
    gains nothing, and "the latest grammar before its batch" stays derivable
    from the layer's log and the records' `:batch`, across both eras' logs in
-   a re-classed layer (`REVIEW-6b.md`, T-FR3).
+   a re-classed layer (`REVIEW-6b.md`, T-FR3). *The H-1 fix:* T-FR5's run
+   name follows its layer's class, `[L class :offer id]`, the id unchanged,
+   and a match counts as run under either tag (R113).
 8. **A passage's grain** (round three's). Top-level list items are
    passages; nested items stay inside their parent's block, and `read-span`
    reaches any line range. Unit positions are counted in UTF-16 units and a
@@ -1161,8 +1193,19 @@ from the code, not run):*
     `:by-entity` through the micro door once the layer is re-classed? It
     changes FR3 and FR4 (For Sid 3) and T-FR5's name. Phase 7's workloads
     never re-class; H-1 qualifies number 3's verdict, whose way out is
-    re-class ("Numbers so far"). *A fix step is building*
-    (`rig-build-spec-fixes`); its status comes with its landing.
+    re-class ("Numbers so far"). *Fixed (`5b95e70e`), built yes* (R113):
+    each of those acts names the working layer's class, read per act, and
+    goes through the gate that orders it, so a re-classed working layer's
+    reads are recorded and shown, its standing reads delivered and closed
+    across the re-class, its entries of both eras dropped, and a tool run
+    there once. The alternative keeps entries on a stream-ordered layer,
+    which changes default 4 ("recorded there"). First-record, as built: an
+    entry into a re-classed working layer is an ordinary act at the micro
+    gate, named `[W :by-entity :offer uuid7]`, a record with `:batch`,
+    stamped by the micro gate after its moment, its lock rows on the entry
+    entity's task (FR3, FR4; For Sid 3); a run's name follows its layer's
+    class (T-FR5; For Sid 7). Its costs are For Sid 90; For Sid 41 is now
+    live.
 72. **A micro value answered yes and then written with no lock**
     (first-record; the review's M-1, medium; PV-F6). Block 2b reads
     `$$persons` again to wrap the lock, a read at a moment that can differ
@@ -1178,8 +1221,21 @@ from the code, not run):*
     should the row carry a ledger entry dated by the forget that closed it,
     so it reads erased on that date, or should the micro gate refuse such a
     value as the stream gate does? And should a value leased under a person
-    forgotten before its lock was made survive, as A3 would have it? *A fix
-    step is building* (the same); its status comes with its landing.
+    forgotten before its lock was made survive, as A3 would have it?
+    *Fixed (`5b95e70e`):* built, refuse as the stream gate does, and lock
+    from the decision's own read (R112). A person forgotten before block
+    1a's read is refused as the stream gate refuses (the lease writer: the
+    face `:no-such-lock`; a wrap person: `:person-forgotten`); forgotten
+    after it, the value was wrapped under the lock live at that read, so it
+    reads "erased on" the forget's date, or opens when the person is not in
+    its wrap, and the person purge finds its row. Scenario A3's group note
+    about no one, leased by Bob, now survives Bob's forget. A yes the gate
+    cannot lock is the face `:gate-error`, nothing recorded or consumed.
+    *Still open:* a value whose lease was sealed under a person forgotten
+    before the gate's read is refused at both gates, the lease road's
+    price, where the model, which has no leases, admits it. M-1's race
+    itself cannot be timed on a cluster; its outcomes are pure tests
+    (`spec_fixes_test`).
 73. **Visibility is compiled code, where ruling 9 says seeded policy facts**
     (first-record; the review's M-2, medium). Ruling 9: "Default
     visibility: base open to any authenticated actor; a person's own and
@@ -1369,13 +1425,16 @@ was not exercised), KD10 in A1, A3, A6, B2 and B4 (28).
     does not reach her agent's lease rows until its session closes, For
     Sid 9's window); or agents lease as the operator, bare (For Sid 32's
     road for tools). Touches no record's form: lease rows are consumed
-    state.
+    state. *The H-1 fix:* the same at the micro gate (R114).
 41. **Forgetting one's own values after a re-class** (wave 1's question 4).
     Built: at the micro gate a forget is the operator's (M14, kept); a
     personal layer re-classed to the micro store keeps row locks, but its
     owner can no longer forget a value there. IMPLICIT_SPEC keeps "whether
     a person can always forget their own values" open. Should the owner's
-    forget follow the layer?
+    forget follow the layer? *Now live* (the H-1 fix, For Sid 71): the
+    owner's forget of a micro-era value is refused (M14), so Alice cannot
+    drop her own agent session's micro-era entries; the operator can. The
+    model and the stream gate say the owner forgets in her layer.
 42. **The person forget's enumeration at scale** (wave 1's question 5,
     carried from phase 2). It scans every act on each task inside the
     fan-out child, over any per-event budget at scale: for a person with
@@ -1696,7 +1755,9 @@ answered none of them; Q1, Q4 and Q10 are For Sid 23, 26 and 33):*
     are person ids, not values or locks, so M3's rule holds: data
     minimization, not exposure. The fix: the rows in the first emission
     only, as the name's rows are, and the subjects a materialized field of
-    their own.
+    their own. *The H-1 and M-1 fix settled the second half*: the skeleton
+    no longer carries `:subjects` (R115); the rows sent once per entity are
+    untouched.
 84. **Two of 6b's plan's falsifiers hold by construction, with no test**
     (REVIEW-6b L-5, low): the refusal branch of the micro `delta>` (a
     group's standing `[:kv k]` read, where k's grammar stops indexing it
@@ -1713,7 +1774,9 @@ answered none of them; Q1, Q4 and Q10 are For Sid 23, 26 and 33):*
     (For Sid 67 is one of them). `rig.bench.lock-slice` keeps its own
     `:mention`, the isolated phase 2 experiment, not a measurement of the
     finished store; phase 7's harnesses write grammar facts. Left in place,
-    not deleted: remove them in a separate cleanup?
+    not deleted: remove them in a separate cleanup? *The H-1 and M-1 fix*
+    adds one: `micro/wrap-persons-of`, which block 2b's wrap-person read
+    used, now called by no topology.
 
 *From phase 7's run (`BUILD_NOTES-numbers.md`, "What the run showed that
 the plan did not expect"):*
@@ -1798,8 +1861,8 @@ the plan did not expect"):*
     - `rig-review-6b` (`5dd472a0`): step 6b's review. Merged, `dad2fa69`.
     - `rig-run-numbers` (`97ada117`): phase 7's minimum set, run. Merged,
       `8576d13f`.
-    - `rig-build-spec-fixes` (`2443e0b8` at the fold): the fixes for H-1
-      and M-1. In flight at the fold, not merged.
+    - `rig-build-spec-fixes` (`e5f6eac0`): the fixes for H-1 and M-1.
+      Merged, `5b95e70e`.
     - `rig-fold-final`: this fold of RIG.md and README.md. Not merged until
       builder C lands it.
 89. **A 41,829-line suite log is committed.** Step 6b committed
@@ -1807,8 +1870,27 @@ the plan did not expect"):*
     one full suite, where the other runs keep a short summary in `runs/`
     and their full logs git-ignored (`runs/*.log`, the rig folder's
     `.gitignore`; `runs/wave2-suite.txt` is 148 lines,
-    `runs/review-fixes-run.txt` 18). Keep it, or keep a summary and move
-    the log out of git?
+    `runs/review-fixes-run.txt` 18). The H-1 and M-1 fix step committed two
+    more whole logs the same way: `runs/spec-fixes-run.txt` (26,208 lines,
+    3.1 MB) and `runs/spec-fixes-rerun.txt` (5,907 lines, 0.7 MB). Keep
+    them, or keep summaries and move the logs out of git?
+
+*From the H-1 and M-1 fix step (`BUILD_NOTES-spec-fixes.md`, "Costs" and
+its question 4):*
+
+90. **A read after its working layer's re-class waits, and a large point
+    read there is refused.** An act into a re-classed working layer goes
+    through the micro door, a lease act and then the act, about two
+    microbatch cycles (0.5 to 1 s at the 250 ms tick), where the stream
+    door pools 64 locks a lease; so a read after a re-class shows nothing
+    for that long. At the micro gate an act cites one lease of at most 256
+    locks (M24), so a point read of more than 256 fact ids into a
+    re-classed working layer is refused at its lease and shows nothing
+    (not tested, for that reason). Every act into a working layer also
+    reads the layer's class, one point read, so the exit's read goes from
+    two roundtrips to three. Acceptable for the re-class's hot layer, or
+    should the micro door pool leases, which the notes say would halve the
+    wait? Not built.
 
 ## Defaults taken overnight, not ruled
 
@@ -1889,7 +1971,10 @@ unless marked first-record.
    session's close act says `:reads :keep` or `:drop` (FRR5), a drop
    forgetting each entry by its own forget act (R83, For Sid 52). *The
    full-spec review:* once the working layer is re-classed, the exit
-   records no entry there and shows nothing (H-1, For Sid 71).
+   records no entry there and shows nothing (H-1, For Sid 71). *Fixed
+   (`5b95e70e`):* the entry, each standing line, the close and each drop's
+   forget go through the gate that orders the working layer (R113), so
+   agent session reads are recorded there across a re-class too.
 5. **Permissions** (R7): a root permission made with each layer; opening a
    session writes a narrower permission into each layer it may write,
    through that layer's gate; agents and tools narrower still; a revoke cuts
@@ -2171,7 +2256,7 @@ entries and the put page's cap are store state, rebuildable or consumed.
   and a writer in a layer with no person owner (the base, a group) is
   refused `:no-such-person` as before. The micro gate's lease road still
   refuses an agent, left to wave 2; lease rows are consumed state (For Sid
-  40).
+  40). *R114 carries it to the micro gate* (the H-1 fix).
 - **R21. A forget's purge is wired in the module** (W1-2): `reads/purge>`
   runs in the value forget's decision group right after the lock writes,
   and in the person forget's fan-out child once per value that died on
@@ -2636,12 +2721,60 @@ stand, and the micro record gains nothing (For Sid 7).
   answering from the micro era marked `:partial`, and micro-era opaque rows
   are marked from the effective rows.
 
+The fixes for the full-spec review's H-1 and M-1, R112 to R117
+(`BUILD_NOTES-spec-fixes.md`, "For RIG.md"): R113 and R116 fix forms that
+FR3, FR4, T-FR5 and FRR5 carry (For Sid 3, 6 and 7); the rest touch no
+record.
+
+- **R112. The micro gate does the lock work in block 1a, from the reads its
+  checks use** (M-1): `row-wraps` with the subjects `arrival-open`
+  computed, fresh nonces, `fact-rows` over the person entries the person
+  check read, and the keyed digests with 6b's hints; the finished rows and
+  digests travel to block 2b in 6b's attempt-local handoff (now eight
+  fields), and 2b reads no lease row and no `$$persons` entry and opens
+  nothing. A yes whose rows lack a lock record or a digest (`lock-failed?`)
+  is answered with the unrecorded face `:gate-error` before any other write
+  of the decision, nothing consumed, as the stream gate's `locks/fail!`
+  does. A refused act's wrap is work thrown away, which PV-F6's plan had
+  accepted.
+- **R113. An act into a working layer names the layer's class, read per
+  act, and goes to the gate that orders the layer** (H-1;
+  `micro-client/layer-class` and `offer-into!`), never a class the door
+  holds: the read entry, each standing-read line, the exit's session close,
+  each dropped entry's forget (a stream-era target to the stream gate, M25,
+  a micro-era one to the micro gate) and a tool run, whose name's tag
+  follows the class with the id unchanged, a match counting as run when its
+  name under either tag has a record. A layer no store has made reads as
+  `:by-layer`, as the stream door's `layer-class` does.
+- **R114. W1-1 at the micro gate**: a lease by a writer who is no person is
+  checked and sealed under the layer's person owner, as at the stream gate
+  (R20); before, an agent's or a tool's lease there was refused
+  `:no-such-person`.
+- **R115. The read exit's F1 at the micro gate**: the leader sees a read
+  entry's moment stamps, handed on from the arrival task in the skeleton,
+  and stamps the entry after them, both gates by one
+  `reads/entry-moments`; stamps travel as ids do (M3). The skeleton no
+  longer carries each value's `:subjects` (For Sid 83).
+- **R116. A drop's micro-era cut-off is the close's batch**, and a close
+  made in the micro era drops the session's whole stream era; the micro
+  gate's close takes the `:reads :keep | :drop` part (FRR5).
+- **R117. The micro-era maintenance reads take visibility from where each
+  row or record lives, not from the layer task's frontier**: the plan's
+  bound was wrong, since a door sees a line answered at its name task's
+  frontier while the layer task's frontier can still trail that batch
+  (the notes' divergence 1). `session-closes`, which feeds
+  `resume-drops!`, keeps the settled frontier.
+
 ## Numbers so far
 
 **On the finished store.** Phase 7's minimum set, 26 September, 09:27 to
 10:11 IST, on `dee0320a` (step 6b landed) with `cc011a22`, the harness's
-two fixes; landed at `8576d13f`. Method and every window:
-`BUILD_NOTES-numbers.md`, "The run"; results
+two fixes; landed at `8576d13f`. *Measured before the H-1 and M-1 fixes*
+(`5b95e70e`, landed after the run): H-1's fix adds a read of the layer's
+class for every entry act on the exit's path, one roundtrip, and M-1's
+moves the micro gate's lock work from block 2b to block 1a; whether they
+move numbers 1 and 3 is unmeasured, and no number was rerun. Method and
+every window: `BUILD_NOTES-numbers.md`, "The run"; results
 `runs/phase7-final-{agent-rate,one-thread,lock-growth}.{edn,txt}`. Every
 timing is the median of three runs, their spread in the result files; one
 run in three at 1 and at 4 writers of number 1 saw another session's JVM
@@ -2703,13 +2836,15 @@ over 20 ms**, every run over; this cluster cannot decide it, and on this
 machine one person writing at 100 acts a second sees a p99 near 46 ms. The
 closed-loop p99 at one writer, 15.7 ms, is a service time and understates
 it, and why an unleased offer's tail is about 15 ms is not measured (For
-Sid 87). **H-1 qualifies this verdict** (`REVIEW-full-spec.md`; For Sid
+Sid 87). **H-1 qualified this verdict** (`REVIEW-full-spec.md`; For Sid
 71): the way out for a person's layer that one thread cannot carry is
-re-class to the micro gate, and until H-1's fix lands a re-classed layer
-that is also someone's working layer refuses every read entry into it, so
-its owner reads nothing through the one exit. The workloads never
-re-class, so the numbers stand; the way out they point to does not, yet,
-for a working layer.
+re-class to the micro gate, and as measured a re-classed layer that is also
+someone's working layer refused every read entry into it, so its owner
+read nothing through the one exit. The workloads never re-class, so the
+numbers stand. *H-1's fix landed after the run* (`5b95e70e`): the way out
+now records and shows the owner's reads, at a cost of its own, a read
+after the re-class waiting about two microbatch cycles and a point read of
+more than 256 ids refused (For Sid 90).
 
 *Number 2, lock store growth under hand layers* (ruling 7). A hand layer on
 one task, 100,000 values through the door, a point every 10,000; the
@@ -2757,8 +2892,9 @@ store was finished, on the stream store as it was then and on a lock slice
 built from phase 2's plan; `README.md` has their tables, and
 `runs/phase7-agent-rate.txt` and `runs/phase7-one-thread.txt` have the
 method and every run. In short: each small act makes 4 index writes; one
-offerer waiting on acks gets about 300 acts a second; one layer's task passed 5,000 acts a second with 128
-offerers and was still rising; one act at a time takes 3.3 ms typically and
+offerer waiting on acks gets about 300 acts a second; one layer's task
+passed 5,000 acts a second with 128 offerers and was still rising; one act
+at a time takes 3.3 ms typically and
 4.7 ms for the slowest 1 in 100, mostly this machine's disk flushes. Lock
 growth: a lock row costs a fixed 169 bytes per value as raw bytes, 189 as
 base64 text, 87 or 108 on disk, whatever the value's size, and grows
@@ -2917,35 +3053,43 @@ experiment; phase 7's harnesses write grammar facts.
   `BUILD_NOTES-numbers.md` (the binding check, the build and the run; no
   implementation or test validation file, its tests being T1 to T11, the
   run's first step). The slices' running logs are `BENCH_NOTES-stream.md`
-  and `BENCH_NOTES-locks.md`.
+  and `BENCH_NOTES-locks.md`. The fixes for H-1 and M-1 have
+  `PLAN-spec-fixes.md`, its validation by reading in its last section, and
+  `BUILD_NOTES-spec-fixes.md`, whose sections hold the implementation's and
+  the tests' validations by reading; their tests are
+  `test/rig/store/spec_fixes_test.clj`.
 - The merges: `BUILD_NOTES-wave1.md` with
   `IMPLEMENTATION_VALIDATION-wave1.md` and `TEST_VALIDATION-wave1.md`, and
   `BUILD_NOTES-wave2.md`.
-- The examination and the reviews, all by reading: `EXAMINATION-copies.md`
-  (the caching rule on two copies), `REVIEW-wave1.md`,
-  `REVIEW-full-spec.md` and `REVIEW-6b.md`.
+- The examination and the reviews: `EXAMINATION-copies.md` (the caching
+  rule on two copies, by reading), `REVIEW-wave1.md` (which fixed F-1 and
+  ran a suite), and, by reading, `REVIEW-full-spec.md` and `REVIEW-6b.md`.
 - The starters: `STARTER-next.md` (25 September) and `STARTER-6b.md`.
 - The code under `src/rig/`: `store/` the module, `revision.clj` the
   revision reader, `claims.clj` phase 0, `bench/lock_slice.clj` the
   slice. The tests under `test/rig/`, with phase 7's harnesses in
   `test/rig/bench/`; the one full suite's command is
-  `runs/grammar-micro-suite-cmd.sh`. `runs/` keeps each run's summary,
-  full logs git-ignored (`runs/*.log`) except step 6b's suite log (For Sid
-  89).
+  `runs/grammar-micro-suite-cmd.sh`, and the fix step's run of its touched
+  namespaces `runs/spec-fixes-cmd.sh`. `runs/` keeps each run's summary,
+  full logs git-ignored (`runs/*.log`) except the logs step 6b and the fix
+  step committed (For Sid 89).
 - The formal model rides on the rig's test classpath, so a test can ask it
   for its answer to the same history. Its 14 fixed histories all come out
   as stated under the baseline configuration, and the rig replays all 14
-  as the model says (phase 8's pass 3, and again in the one full suite).
+  as the model says (phase 8's pass 3, again in the one full suite, and in
+  the fix step's run).
 
 ## What is next
 
 The build Sid's overnight brief asked for is done: every phase of SPEC.md
 is built on this branch, the one full suite passed on step 6b's tree, the
-14 fixed histories replay as the model says, and the three numbers are
-measured on the finished store. What is left is not more building here but
+full-spec review's H-1 and M-1 are fixed on top of it with the namespaces
+they touch rerun, the 14 fixed histories replay as the model says, and the
+three numbers are measured on the finished store, before those fixes. What
+is left is not more building here but
 Sid's reading and rulings, and the work that follows them:
 
-1. **Sid's rulings.** "For Sid", 1 to 89: the questions that would touch a
+1. **Sid's rulings.** "For Sid", 1 to 90: the questions that would touch a
    record, each with what the build does meanwhile, the forms that freeze
    at the first record first. "Defaults taken overnight, not ruled", 1 to
    8, which the model's third round puts to him at the step where each
@@ -2971,8 +3115,10 @@ Sid's reading and rulings, and the work that follows them:
    blind count.
 5. **The performance findings.** Number 1's gate ceiling, unmeasured
    behind the door's pool sort (For Sid 86); the one-writer tail's cause
-   (87); number 3's latency, near on the failing side at 100 acts a second
-   and qualified by H-1 (71); a re-classed layer's key rows costing seeks
+   (87); number 3's latency, near on the failing side at 100 acts a
+   second; whether the H-1 and M-1 fixes, which landed after the run, move
+   numbers 1 and 3 (unmeasured); the re-class way out's wait and its
+   256-id point read (90); a re-classed layer's key rows costing seeks
    on hash(L) for its life, whose cheap remedy is caching and so goes to
    the adversarial examination first (80); where a shared layer's indexes
    live at scale (29); the person forget's enumeration at scale (42); and
