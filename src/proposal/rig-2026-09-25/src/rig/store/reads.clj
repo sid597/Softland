@@ -891,7 +891,7 @@
   (the read exit built 4,096 when an open read nothing): with phase 2's open
   step a 4,096-row page of sealed values held its task about 0.47 s against
   0.16 s for rows that open nothing, over the plan's 0.1 to 0.3 s for a put
-  page, so the cap was halved (runs/wave1-put-page-bench.log). An act larger
+  page, so the cap was halved (runs/wave1-put-page-bench.txt). An act larger
   than the cap still goes whole into one page."
   2048)
 (def max-sweep-entries 512)
