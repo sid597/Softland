@@ -37,7 +37,8 @@
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
             [rig.store.inject :as inject]
-            [rig.store.locks :as locks])
+            [rig.store.locks :as locks]
+            [rig.store.shared-reads :as shared-reads])
   (:import [java.util HexFormat]))
 
 ;; ================================================================ constants
@@ -108,23 +109,30 @@
 
 (def ^:private sub {:subindex-options {:track-size? false}})
 
+(def micro-row-fields
+  "A micro log row's fields, named once: the row, and every shared index
+  entry of stage 5b, which is the row whole plus its own fields."
+  {:layer    clojure.lang.Keyword
+   :k        clojure.lang.Keyword
+   :v        String                 ; canonical EDN of a control fact; nil for a value and a retract
+   :sealed   byte/1                 ; phase 2's: the sealed bytes as offered
+   :replaces clojure.lang.PersistentVector
+   :mark     (set-schema clojure.lang.Keyword)
+   :lock-id  clojure.lang.PersistentVector ; [lease-name i]
+   :lock     lock-record-schema     ; the wrapped lock, kept in the record (ruling 7)
+   :digest   byte/1})               ; the value digest (R1, phase 2's L26)
+
 (def micro-schema
   "`$$micro`: everything keyed by an entity, on the entity's task; a layer
-  id doubles as the entity its projections live under (PLAN, `$$micro`)."
+  id doubles as the entity its projections live under (PLAN, `$$micro`).
+  Stage 5b merges in a shared layer's index fields (`:ix-*`), which live
+  under the layer id on the layer's task (PLAN-reads-rest.md, RR5)."
   {clojure.lang.Keyword
    (fixed-keys-schema
+    (merge
     {:log         (map-schema clojure.lang.PersistentVector                 ; name
                               (map-schema Long                               ; idx -> row
-                                          (fixed-keys-schema
-                                           {:layer    clojure.lang.Keyword
-                                            :k        clojure.lang.Keyword
-                                            :v        String                 ; canonical EDN of a control fact; nil for a value and a retract
-                                            :sealed   byte/1                 ; phase 2's: the sealed bytes as offered
-                                            :replaces clojure.lang.PersistentVector
-                                            :mark     (set-schema clojure.lang.Keyword)
-                                            :lock-id  clojure.lang.PersistentVector ; [lease-name i]
-                                            :lock     lock-record-schema     ; the wrapped lock, kept in the record (ruling 7)
-                                            :digest   byte/1})               ; the value digest (R1, phase 2's L26)
+                                          (fixed-keys-schema micro-row-fields)
                                           sub)
                               sub)
      :heads       (map-schema clojure.lang.PersistentVector                 ; [layer k fid]
@@ -154,7 +162,8 @@
                               sub)
      :replaced    (map-schema clojure.lang.PersistentVector                 ; [e k fid] of a stream-era head
                               (fixed-keys-schema {:by clojure.lang.PersistentVector :batch Long})
-                              sub)})})
+                              sub)}
+    (shared-reads/layer-fields micro-row-fields)))})
 
 (def names-schema
   "`$$micro-names`: everything keyed by a name, on the name's task."
@@ -178,8 +187,9 @@
                            sub)})})
 
 (def task-schema
-  "`$$micro-task`: the task's clock (a hybrid stamp) and the frontier."
-  (fixed-keys-schema {:clock Long :frontier Long}))
+  "`$$micro-task`: the task's clock (a hybrid stamp) and the frontier; stage
+  5b's shared layers homed here and its index pages' progress row."
+  (fixed-keys-schema (merge {:clock Long :frontier Long} shared-reads/task-fields)))
 
 ;; ============================================================ small helpers
 
@@ -817,6 +827,9 @@
               {:how how
                :lock-id lid
                :entities tes
+               ;; stage 5b: the fact ids this forget erased (every value under the lock),
+               ;; which block 2a purges from the shared indexes on the layer's task
+               :erased (mapv (fn [[_ idx _]] [tname idx]) sharing)
                :writes (-> []
                            (into (when excise?
                                    (for [[te idx _] sharing]
@@ -976,7 +989,10 @@
             ;; wave 1: a value forget's lock effect, and what this fold has erased
             w (if (:how fe)
                 (-> (reduce (fn [w [loc write]] (put w loc write)) w (:writes fe))
-                    (update :erased-now into (map (fn [te] [te (:lock-id fe)])) (:entities fe)))
+                    (update :erased-now into (map (fn [te] [te (:lock-id fe)])) (:entities fe))
+                    ;; stage 5b: each erased value purged from the shared indexes, dated by
+                    ;; this forget's stamp, the ledger's date (PLAN-reads-rest.md path 2)
+                    (as-> w (reduce (fn [w fid] (put w [:purge L fid] [:purge L nil fid stamp])) w (:erased fe))))
                 w)]
         w))))
 
@@ -1245,6 +1261,8 @@
   task, L1; since wave 1's merge there is no placeholder of it here)."
   [setup topologies]
   (declare-depot setup *micro-offers (hash-by route-key))
+  ;; stage 5b: the operator's index maintenance pages
+  (shared-reads/declare-depots! setup)
   (if replace-tick-depot?
     (declare-depot setup *micro-tick :random {:global? true})
     (declare-tick-depot setup *micro-tick 250))
@@ -1495,6 +1513,11 @@
           (ops/explode *mrows :> [*mi *mrow])
           (local-transform> [(keypath *route2 :leases *mi) (termval *mrow)] $$micro-names)
 
+          ;; stage 5b: a value forget's purge of the shared indexes, on the layer's task
+          (case> (= :purge *kind2))
+          (|hash *route2)
+          (shared-reads/purge-fact> *route2 *k2 *v2)
+
           (default>)
           (filter> false)))
 
@@ -1532,7 +1555,11 @@
             (continue> (rest *m3-todo) (assoc *m3-acc *m3-p *m3-entry))))
         (fresh-nonces (nonces-needed *ww) :> *nonces)
         (fact-rows *in3 *ww *wpersons *nonces :> *frows)
+        ;; stage 5b: the value index's keyed digests, taken here where the plaintext is;
+        ;; only they travel on (PLAN-reads-rest.md F12)
+        (shared-reads/kv-digests (get *in3 :offer) (get *ww :plain) :> *kvd3)
         (get *in3 :name :> *name3)
+        (get-in *in3 [:offer :layer] :> *layer3)
         (select-keys *in3 [:digest :fp] :> *id3)
         (get-in *in3 [:offer :stood-on] :> *stood3)
         (|hash *name3)
@@ -1541,6 +1568,13 @@
         (ops/current-microbatch-id :> *b3)
         (filter> (rows-written? *id3 *rec3 *dfp3 *b3))
         (inject/point! :micro-2b *name3)
+        ;; ---- block 2d (stage 5b): the act's shared index entries, on the layer's task, in
+        ;; the batch that decided it (PLAN-reads-rest.md, 'Written in which batch'); a
+        ;; branch, so the rows below are written once
+        (ops/explode [:rows :index] :> *part3)
+        (<<if (= :index *part3)
+          (shared-reads/index-block> *layer3 *name3 *frows *kvd3 *rec3 *b3))
+        (filter> (= :rows *part3))
         (<<atomic
           (ops/explode-map *stood3 :> *sf *ss)
           (local-transform> [(keypath *name3 :stood-on *sf) (termval *ss)] $$micro-names))
@@ -1563,7 +1597,15 @@
         (<<if (= :del-lease *kind4)
           (local-transform> [(keypath *lname4 :leases *i4) NONE>] $$micro-names)
          (else>)
-          (local-transform> [(keypath *lname4 :leases) NONE>] $$micro-names)))))
+          (local-transform> [(keypath *lname4 :leases) NONE>] $$micro-names)))
+
+      ;; ---- stage 5b: the operator's index pages (rebuild, person purge, forget replay),
+      ;; their own section of the batch: it may run beside the offers' blocks, so a page
+      ;; never writes a live entry over a tombstone and a rebuild ends with the forget
+      ;; replay (PLAN-reads-rest.md, 'Rebuild from the log, shared')
+      (source> *micro-index-ops :> %ops)
+      (%ops :> *raw5)
+      (shared-reads/micro-ops> *raw5)))
 
   ;; ---------------------------------------------------------------- queries
   ;; Every reader-facing read takes F explicitly (§D): nil means the reading

@@ -18,7 +18,8 @@
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.micro :as micro]
-            [rig.store.reads :as reads]))
+            [rig.store.reads :as reads]
+            [rig.store.shared-reads :as shared-reads]))
 
 (def row-fields
   "A log row's fields, named once: stage 1's positional core (`:v` the
@@ -224,5 +225,7 @@
   (locks/declare-queries! topologies)
   ;; stage 5a: the read queries read-point and read-pattern
   (reads/declare-queries! topologies)
+  ;; stage 5b: shared reads, deltas and the maintenance reads (rig.store.shared-reads)
+  (shared-reads/declare-queries! topologies)
   ;; the micro store (stage 3): its depot, gate and queries, from its own namespace (M1)
   (micro/declare! setup topologies))
