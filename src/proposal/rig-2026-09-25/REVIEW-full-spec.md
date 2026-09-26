@@ -7,6 +7,18 @@ Opus 5.5, for builder C. Branch `rig-review-full-spec`, worktree
 `rig-2026-09-25`'s head `13c8360b` (step R landed, phase 8's pass 3 landed,
 step 6b in flight in Codex).
 
+**Verdict: fail** (the skill's default while items are outstanding; nothing
+was fixed or rerun). **Summary.** Read the whole module against the whole
+spec, hunting the seams no single stage owned. Eight items: one high (H-1:
+a re-classed working layer refuses every read entry, so a hot agent layer
+moved to the micro gate can no longer read through the one exit), two
+medium (M-1: the micro gate can admit a value and then write it with no
+lock, which reads `:does-not-open` with no erasure date; M-2: ruling 9's
+visibility is code, not seed policy facts, and the pick never reached
+Sid), and five low. None blocks phase 7's runs; H-1 qualifies number 3's
+verdict. Every test the spec names has a covering test; what fails is at
+the seams those tests do not cross.
+
 ## How this review differs from the skill's
 
 The skill's full-spec review (`phase-full-spec-review.md`) is one session
@@ -93,11 +105,12 @@ Reasoned from the code, not run. No test re-classes a working layer.
 
   `read!` then returns `{:refused r :entry nm}` and shows nothing
   (`read_exit.clj` 136-142), since nothing is shown before the entry is
-  acknowledged. The same holds for every standing-read line. A drop cannot
-  run either: each dropped entry's forget is `:class-mismatch` at the home,
-  and a close with `:reads :drop` sent to the micro gate is
-  `:malformed-control`, since `micro/close-ok?` (354-359) takes only
-  `{:session s}`. A tool run in that layer is refused `:mis-tagged` on its
+  acknowledged. The same holds for every standing-read line. The session's
+  close and drop fail too: the exit's close (203) goes to the stream gate
+  and is `:class-mismatch`, the same close sent to the micro gate is
+  `:malformed-control` (`micro/close-ok?`, 354-359, takes only `{:session
+  s}`), and each dropped entry's forget (219) is `:class-mismatch` at the
+  home, so entries recorded before the re-class can no longer be dropped. A tool run in that layer is refused `:mis-tagged` on its
   face (a name tagged `:by-layer` on an act of class `:by-entity`), and
   the runner's own `[:k :tool]` read is refused first.
 - **Why it matters.** Default 4 records an agent's reads in its own
