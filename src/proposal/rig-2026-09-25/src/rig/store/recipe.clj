@@ -28,6 +28,7 @@
     [:count f]            the element count of a collection, else nil
     [:str f ...]          the concatenated string forms
     [:map {k f ...}]      a map from literal keywords to formula values
+    a plain scalar        itself (a string, number, keyword, boolean, nil)
 
   Total: at most 16 steps, each run once; a formula at most 8 deep and 256
   nodes; `[:got]` only to earlier steps (checked at parse); every function
@@ -66,7 +67,11 @@
   "[nodes depth] of a well-formed formula given the step names `earlier`
   it may refer to, or nil."
   [f earlier]
-  (when (and (vector? f) (keyword? (first f)))
+  (cond
+    ;; a plain scalar in a formula's place stands for itself (5.1's `" named"`)
+    (and (not (coll? f)) (env/edn-value? f)) [1 1]
+    (not (and (vector? f) (keyword? (first f)))) nil
+    :else
     (let [[head & args] f
           sub (fn [fs] (let [ms (mapv #(formula-measure % earlier) fs)]
                          (when (every? some? ms)
@@ -94,7 +99,9 @@
   parsed formula: a path into a missing place, or into something that is
   not a collection, is nil."
   [f row results]
-  (let [[head & args] f]
+  (if-not (vector? f)
+    f
+    (let [[head & args] f]
     (case head
       :lit (first args)
       :in (let [[part & path] args
@@ -104,7 +111,7 @@
       :count (let [x (eval-formula (first args) row results)] (when (coll? x) (count x)))
       :str (apply str (map #(eval-formula % row results) args))
       :map (into {} (map (fn [[k g]] [k (eval-formula g row results)])) (first args))
-      nil)))
+      nil))))
 
 ;; --------------------------------------------------------------- steps
 
