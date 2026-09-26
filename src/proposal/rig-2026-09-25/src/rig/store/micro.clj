@@ -34,10 +34,13 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.aggs :as aggs]
             [com.rpl.rama.ops :as ops]
+            [rig.store.box :as box]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
             [rig.store.inject :as inject]
-            [rig.store.locks :as locks])
+            [rig.store.locks :as locks]
+            [rig.store.promote-shape :as ps]
+            [rig.store.shared-reads :as shared-reads])
   (:import [java.util HexFormat]))
 
 ;; ================================================================ constants
@@ -67,6 +70,8 @@
    :no-permission :permission-revoked
    :malformed-control :control-not-allowed :stale-replaces :stale-revoke
    :layer-already-made :unsupported-reclass
+   ;; stage 4: a landing whose lock did not come out of its box (PR5), where the delivery sits
+   :landing-lock-gone
    :does-not-open :malformed-value :value-shape :too-many-subjects
    :grain-mismatch :no-such-person :person-forgotten :person-already-made :no-such-value])
 
@@ -108,23 +113,30 @@
 
 (def ^:private sub {:subindex-options {:track-size? false}})
 
+(def micro-row-fields
+  "A micro log row's fields, named once: the row, and every shared index
+  entry of stage 5b, which is the row whole plus its own fields."
+  {:layer    clojure.lang.Keyword
+   :k        clojure.lang.Keyword
+   :v        String                 ; canonical EDN of a control fact; nil for a value and a retract
+   :sealed   byte/1                 ; phase 2's: the sealed bytes as offered
+   :replaces clojure.lang.PersistentVector
+   :mark     (set-schema clojure.lang.Keyword)
+   :lock-id  clojure.lang.PersistentVector ; [lease-name i]
+   :lock     lock-record-schema     ; the wrapped lock, kept in the record (ruling 7)
+   :digest   byte/1})               ; the value digest (R1, phase 2's L26)
+
 (def micro-schema
   "`$$micro`: everything keyed by an entity, on the entity's task; a layer
-  id doubles as the entity its projections live under (PLAN, `$$micro`)."
+  id doubles as the entity its projections live under (PLAN, `$$micro`).
+  Stage 5b merges in a shared layer's index fields (`:ix-*`), which live
+  under the layer id on the layer's task (PLAN-reads-rest.md, RR5)."
   {clojure.lang.Keyword
    (fixed-keys-schema
+    (merge
     {:log         (map-schema clojure.lang.PersistentVector                 ; name
                               (map-schema Long                               ; idx -> row
-                                          (fixed-keys-schema
-                                           {:layer    clojure.lang.Keyword
-                                            :k        clojure.lang.Keyword
-                                            :v        String                 ; canonical EDN of a control fact; nil for a value and a retract
-                                            :sealed   byte/1                 ; phase 2's: the sealed bytes as offered
-                                            :replaces clojure.lang.PersistentVector
-                                            :mark     (set-schema clojure.lang.Keyword)
-                                            :lock-id  clojure.lang.PersistentVector ; [lease-name i]
-                                            :lock     lock-record-schema     ; the wrapped lock, kept in the record (ruling 7)
-                                            :digest   byte/1})               ; the value digest (R1, phase 2's L26)
+                                          (fixed-keys-schema micro-row-fields)
                                           sub)
                               sub)
      :heads       (map-schema clojure.lang.PersistentVector                 ; [layer k fid]
@@ -154,7 +166,8 @@
                               sub)
      :replaced    (map-schema clojure.lang.PersistentVector                 ; [e k fid] of a stream-era head
                               (fixed-keys-schema {:by clojure.lang.PersistentVector :batch Long})
-                              sub)})})
+                              sub)}
+    (shared-reads/layer-fields micro-row-fields)))})
 
 (def names-schema
   "`$$micro-names`: everything keyed by a name, on the name's task."
@@ -174,12 +187,16 @@
                                                :session clojure.lang.Keyword
                                                :kind    clojure.lang.Keyword ; the layer's kind at the lease (rig choice)
                                                :owner   clojure.lang.Keyword ; the layer's person owner at the lease (rig choice)
-                                               :batch   Long})
+                                               :batch   Long
+                                               ;; stage 4: a landing lease's row (PR4): its public key and the landing it opens
+                                               :public  byte/1
+                                               :for     clojure.lang.PersistentVector})
                            sub)})})
 
 (def task-schema
-  "`$$micro-task`: the task's clock (a hybrid stamp) and the frontier."
-  (fixed-keys-schema {:clock Long :frontier Long}))
+  "`$$micro-task`: the task's clock (a hybrid stamp) and the frontier; stage
+  5b's shared layers homed here and its index pages' progress row."
+  (fixed-keys-schema (merge {:clock Long :frontier Long} shared-reads/task-fields)))
 
 ;; ============================================================ small helpers
 
@@ -263,16 +280,22 @@
   (try
     (let [facts (when (map? raw) (:facts raw))
           split? (and (sequential? facts) (every? map? facts))
-          p (env/parse (cond-> raw split? (assoc :facts (mapv #(dissoc % :sealed :lock-id) facts))) :micro)]
+          p (env/parse (cond-> raw split? (assoc :facts (mapv #(dissoc % :sealed :lock-id :box) facts))) :micro)]
       (if (contains? p :refuse)
         p
         (let [o (:ok p)
-              raws (vec facts)]
-          (if (some (fn [[rf pf]] (not-sealed? rf pf)) (map vector raws (:facts o)))
-            {:refuse :not-sealed}
+              raws (vec facts)
+              landing? (ps/landing? (:name o))]
+          (cond
+            ;; stage 4: a box only on a landing, and a landing's faces ([F3], PR10)
+            (and (not landing?) (some #(contains? % :box) raws)) {:refuse :unknown-part}
+            (and landing? (ps/landing-face (:name o) raws)) {:refuse (ps/landing-face (:name o) raws)}
+            (some (fn [[rf pf]] (not-sealed? rf pf)) (map vector raws (:facts o))) {:refuse :not-sealed}
+            :else
             {:ok (assoc o :facts (mapv (fn [pf rf]
                                          (if (contains? rf :sealed)
-                                           (assoc pf :sealed (:sealed rf) :lock-id (norm-lock-id (:lock-id rf)))
+                                           (cond-> (assoc pf :sealed (:sealed rf) :lock-id (norm-lock-id (:lock-id rf)))
+                                             (contains? rf :box) (assoc :box (:box rf)))
                                            pf))
                                        (:facts o) raws))}))))
     (catch Throwable _ {:refuse :malformed})))
@@ -323,7 +346,10 @@
   [offer]
   (let [f (first (:facts offer)) n (lease-count f)]
     (boolean (and (lease-act? offer) (some? (:session offer)) (= (:session offer) (:e f))
-                  (map? (:v f)) (= #{:count} (set (keys (:v f)))) (int? n) (<= 1 n max-lease)))))
+                  (map? (:v f))
+                  ;; stage 4: or a landing lease, {:count 1 :landing L*}, L* bound to its own name (PR4, [F1])
+                  (or (= #{:count} (set (keys (:v f)))) (ps/landing-lease-value? offer (:v f)))
+                  (int? n) (<= 1 n max-lease)))))
 
 (defn close-ok?
   "A well-formed session close: `{:e s :k :session-closed :v {:session s}}`."
@@ -337,7 +363,11 @@
   replaced by the marker `true` (its lock id kept); control values stay,
   they are ids and settings, not the store's values (D2)."
   [offer]
-  (update offer :facts (fn [fs] (mapv #(cond-> % (contains? % :sealed) (assoc :sealed true)) fs))))
+  (update offer :facts (fn [fs] (mapv #(cond-> %
+                                         (contains? % :sealed) (assoc :sealed true)
+                                         ;; stage 4: a landing's box stays on the arrival task
+                                         (contains? % :box) (assoc :box true))
+                                      fs))))
 
 (defn intake
   "Block 1's first step on a raw depot record, pure and total. nil for a
@@ -396,12 +426,35 @@
 
 (defn delivered-locks
   "{lock-id K} for each owned id whose row unleases (phase 2's pure half of
-  the delivery, `locks/unlease`)."
+  the delivery, `locks/unlease`); stage 4: for a landing, the lock its box
+  holds, opened with its lease row's private key (the landing body,
+  `promote-shape/open-landing`, PR6). Block 1 and block 2b both take their
+  locks here."
   [in lrows persons]
-  (into {} (keep (fn [lid] (let [row (get lrows lid)
-                                 K (locks/unlease row (get persons (:under row)))]
-                             (when K [lid K]))))
-        (owned-ids in lrows)))
+  (let [o (:offer in)
+        landing? (ps/landing? (:name o))]
+    (into {} (keep (fn [lid] (let [row (get lrows lid)
+                                   K (if landing?
+                                       (ps/open-landing row (:name o) lid (:box (first (:facts o))))
+                                       (locks/unlease row (get persons (:under row))))]
+                               (when K [lid K]))))
+          (owned-ids in lrows))))
+
+(defn landing-gone?
+  "Whether a landing's lock did not come out of its box (stage 4, PR5,
+  [F3]): its bound lease row absent (consumed, deleted with its session,
+  never made), or present under its own session but not a landing row made
+  for this landing, or its box not opening under it. Recorded
+  `:landing-lock-gone`, the row consumed when owned. A row present under
+  another session is not this: it stays the face `:no-such-lock`, so a
+  forger citing someone's landing lease neither consumes it nor records a
+  refusal under their landing's name."
+  [in lrows owned delivered]
+  (boolean
+   (and (ps/landing? (:name (:offer in)))
+        (let [lid (first (:cited in))]
+          (or (nil? (get lrows lid))
+              (and (some #{lid} owned) (not (contains? delivered lid))))))))
 
 (defn lease-meta
   "The layer's kind and person owner, as the act's lease recorded them (a
@@ -424,8 +477,15 @@
         delivered (delivered-locks in lrows persons)
         missing (into [] (remove #(contains? delivered %)) cited)
         meta (lease-meta lrows)]
-    (if (seq missing)
+    (cond
+      ;; stage 4: a landing that cannot get its lock is recorded as refused (PR5)
+      (landing-gone? in lrows owned delivered)
+      {:status :ok :owned owned :value-reason :landing-lock-gone :union nil :kind (:kind meta) :owner (:owner meta)}
+
+      (seq missing)
       {:status :missing :owned owned :missing missing}
+
+      :else
       (let [rv (when (seq cited)
                  (locks/read-values (:facts o) delivered
                                     {:owner (:owner meta) :carried (:subjects o) :grain :per-value}))
@@ -817,6 +877,9 @@
               {:how how
                :lock-id lid
                :entities tes
+               ;; stage 5b: the fact ids this forget erased (every value under the lock),
+               ;; which block 2a purges from the shared indexes on the layer's task
+               :erased (mapv (fn [[_ idx _]] [tname idx]) sharing)
                :writes (-> []
                            (into (when excise?
                                    (for [[te idx _] sharing]
@@ -957,13 +1020,19 @@
             ;; a lease act mints its rows beside its name row (§A, M16)
             w (if (lease-act? o)
                 (update w :mints conj
-                        [:mint nm nil nil {:under (when-not (contains? gate/exempt-actors (:who o)) (:who o))
+                        ;; stage 4: a landing lease mints one bare key pair row :for its landing (PR4)
+                        [:mint nm nil nil (cond->
+                                           {:under (when-not (or (contains? gate/exempt-actors (:who o))
+                                                                 (ps/landing-of (first (:facts o))))
+                                                     (:who o))
                                            :session (:session o)
                                            :layer L
                                            :kind (:kind settings)
                                            :owner (locks/person-owner (:owner settings))
                                            :count (long (lease-count (first (:facts o))))
-                                           :batch b}])
+                                           :batch b}
+                                           (ps/landing-of (first (:facts o)))
+                                           (assoc :for (ps/landing-of (first (:facts o)))))])
                 w)
             ;; a session close deletes its unconsumed lease rows in the layer ([PV-F4])
             w (if (close-act? o)
@@ -976,7 +1045,10 @@
             ;; wave 1: a value forget's lock effect, and what this fold has erased
             w (if (:how fe)
                 (-> (reduce (fn [w [loc write]] (put w loc write)) w (:writes fe))
-                    (update :erased-now into (map (fn [te] [te (:lock-id fe)])) (:entities fe)))
+                    (update :erased-now into (map (fn [te] [te (:lock-id fe)])) (:entities fe))
+                    ;; stage 5b: each erased value purged from the shared indexes, dated by
+                    ;; this forget's stamp, the ledger's date (PLAN-reads-rest.md path 2)
+                    (as-> w (reduce (fn [w fid] (put w [:purge L fid] [:purge L nil fid stamp])) w (:erased fe))))
                 w)]
         w))))
 
@@ -1050,12 +1122,15 @@
   retried batch mints other bytes; only the committed attempt's exist."
   [meta entry]
   (try
-    (let [n (:count meta)
-          {:keys [locks nonces]} (locks/fresh n n)]
-      (into [] (keep (fn [i]
-                       (when-let [row (locks/lease-row (nth locks i) (:under meta) entry (nth nonces i))]
-                         [(long i) (merge row (select-keys meta [:layer :session :kind :owner :batch]))])))
-            (range n)))
+    (if-let [landing (:for meta)]
+      ;; stage 4: a landing lease's one row, bare, with a fresh X25519 key pair (PR4)
+      [[0 (merge (ps/landing-row (box/keypair) landing) (select-keys meta [:layer :session :kind :owner :batch]))]]
+      (let [n (:count meta)
+            {:keys [locks nonces]} (locks/fresh n n)]
+        (into [] (keep (fn [i]
+                         (when-let [row (locks/lease-row (nth locks i) (:under meta) entry (nth nonces i))]
+                           [(long i) (merge row (select-keys meta [:layer :session :kind :owner :batch]))])))
+              (range n))))
     (catch Throwable _ [])))
 
 ;; =============================================================== block 2b
@@ -1202,7 +1277,11 @@
                            (when (visible-at? row F)
                              (when-let [K (locks/unlease row (get persons (:under row)))]
                                [i K]))))
-                entries)})
+                entries)
+   ;; stage 4: a landing lease's public key and the landing it opens, never its private key
+   :landings (into {} (keep (fn [[i row]] (when (and (visible-at? row F) (ps/landing-row? row))
+                                            [i (ps/landing-public row)])))
+                   entries)})
 
 (defn lease-unders [entries] (into [] (comp (keep (fn [[_ row]] (:under row))) (distinct)) entries))
 
@@ -1245,6 +1324,8 @@
   task, L1; since wave 1's merge there is no placeholder of it here)."
   [setup topologies]
   (declare-depot setup *micro-offers (hash-by route-key))
+  ;; stage 5b: the operator's index maintenance pages
+  (shared-reads/declare-depots! setup)
   (if replace-tick-depot?
     (declare-depot setup *micro-tick :random {:global? true})
     (declare-tick-depot setup *micro-tick 250))
@@ -1495,6 +1576,11 @@
           (ops/explode *mrows :> [*mi *mrow])
           (local-transform> [(keypath *route2 :leases *mi) (termval *mrow)] $$micro-names)
 
+          ;; stage 5b: a value forget's purge of the shared indexes, on the layer's task
+          (case> (= :purge *kind2))
+          (|hash *route2)
+          (shared-reads/purge-fact> *route2 *k2 *v2)
+
           (default>)
           (filter> false)))
 
@@ -1532,7 +1618,11 @@
             (continue> (rest *m3-todo) (assoc *m3-acc *m3-p *m3-entry))))
         (fresh-nonces (nonces-needed *ww) :> *nonces)
         (fact-rows *in3 *ww *wpersons *nonces :> *frows)
+        ;; stage 5b: the value index's keyed digests, taken here where the plaintext is;
+        ;; only they travel on (PLAN-reads-rest.md F12)
+        (shared-reads/kv-digests (get *in3 :offer) (get *ww :plain) :> *kvd3)
         (get *in3 :name :> *name3)
+        (get-in *in3 [:offer :layer] :> *layer3)
         (select-keys *in3 [:digest :fp] :> *id3)
         (get-in *in3 [:offer :stood-on] :> *stood3)
         (|hash *name3)
@@ -1541,6 +1631,13 @@
         (ops/current-microbatch-id :> *b3)
         (filter> (rows-written? *id3 *rec3 *dfp3 *b3))
         (inject/point! :micro-2b *name3)
+        ;; ---- block 2d (stage 5b): the act's shared index entries, on the layer's task, in
+        ;; the batch that decided it (PLAN-reads-rest.md, 'Written in which batch'); a
+        ;; branch, so the rows below are written once
+        (ops/explode [:rows :index] :> *part3)
+        (<<if (= :index *part3)
+          (shared-reads/index-block> *layer3 *name3 *frows *kvd3 *rec3 *b3))
+        (filter> (= :rows *part3))
         (<<atomic
           (ops/explode-map *stood3 :> *sf *ss)
           (local-transform> [(keypath *name3 :stood-on *sf) (termval *ss)] $$micro-names))
@@ -1563,7 +1660,15 @@
         (<<if (= :del-lease *kind4)
           (local-transform> [(keypath *lname4 :leases *i4) NONE>] $$micro-names)
          (else>)
-          (local-transform> [(keypath *lname4 :leases) NONE>] $$micro-names)))))
+          (local-transform> [(keypath *lname4 :leases) NONE>] $$micro-names)))
+
+      ;; ---- stage 5b: the operator's index pages (rebuild, person purge, forget replay),
+      ;; their own section of the batch: it may run beside the offers' blocks, so a page
+      ;; never writes a live entry over a tombstone and a rebuild ends with the forget
+      ;; replay (PLAN-reads-rest.md, 'Rebuild from the log, shared')
+      (source> *micro-index-ops :> %ops)
+      (%ops :> *raw5)
+      (shared-reads/micro-ops> *raw5)))
 
   ;; ---------------------------------------------------------------- queries
   ;; Every reader-facing read takes F explicitly (§D): nil means the reading

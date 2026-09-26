@@ -53,9 +53,11 @@
             [com.rpl.rama :as rama :refer :all]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :refer :all]
+            [rig.store.box :as box]
             [rig.store.envelope :as env]
             [rig.store.grammar :as grammar]
-            [rig.store.inject :as inject])
+            [rig.store.inject :as inject]
+            [rig.store.promote-shape :as ps])
   (:import [java.nio.charset StandardCharsets]
            [java.security Key SecureRandom]
            [java.security.spec AlgorithmParameterSpec]
@@ -230,10 +232,13 @@
   when the row is missing, the person's lock is destroyed, or the row does
   not open. A row with `:under nil` holds K bare. Never throws; public so a
   gate that keeps lease rows in a PState of its own can call it over a row
-  it read."
+  it read. A landing lease's row (stage 4) holds a private key, never a
+  lock: it answers nil, so an ordinary offer citing it is refused
+  `:no-such-lock` on its face (PR10); only a landing's own delivery opens
+  its box with it (`promote-shape/open-landing`)."
   [row entry]
   (try
-    (when (map? row)
+    (when (and (map? row) (not (ps/landing-row? row)))
       (let [s (:sealed row)
             K (if (nil? (:under row)) s (open (:lock entry) s))]
         (when (lock? K) K)))
@@ -448,7 +453,8 @@
              {:reason :malformed-value}
              (let [values (update-vals decoded :value)
                    plain (update-vals decoded :plain)
-                   named (into {} (map (fn [[i f]] [i (grammar/subjects-of grammars (:k f) (get values i))])) idx)]
+                   ;; phase 6: the shape check, opacity and subjects in one call (grammar/named)
+                   named (into {} (map (fn [[i f]] [i (grammar/named grammars (:k f) (get values i))])) idx)]
                (if (some #{:value-shape} (vals named))
                  {:reason :value-shape :values values :plain plain}
                  (let [subjects (update-vals named #(into base %))
@@ -622,12 +628,42 @@
 
 (defn value-context
   "`read-values` over the offer's facts with the layer's person owner, the
-  offer's carried subjects and the grain in force."
-  [offer settings delivered]
-  (read-values (:facts offer) delivered
-               {:owner (person-owner (:owner settings))
-                :carried (:subjects offer)
-                :grain (:grain settings)}))
+  offer's carried subjects and the grain in force. Phase 6: `grammars`, the
+  map the layer's key rows give (`grammar/grammars-of`), which the gate's
+  event passes; the 3-arity, phase 2's pure tests', takes the constant."
+  ([offer settings delivered] (value-context offer settings delivered grammar/grammars))
+  ([offer settings delivered grammars]
+   (read-values (:facts offer) delivered
+                {:owner (person-owner (:owner settings))
+                 :carried (:subjects offer)
+                 :grain (:grain settings)}
+                grammars)))
+
+(defn landing-delivery
+  "What the delivery hands on for a landing (stage 4, PR5): its one lock
+  when the box opened under its lease row, else no lock and
+  `:landing-gone?`: recorded `:landing-lock-gone`, never refused on its
+  face, since a landing is never resent under another lease and a
+  promotion must end done or refused. A landing reaches this gate only by
+  the store's own hop (the depot refuses its scheme), so no forger is on
+  this road ([F3]'s face refusal is the micro gate's)."
+  [persons lid K]
+  {:persons persons :delivered (if K {lid K} {}) :missing? false :landing-gone? (nil? K)})
+
+(defn delivered-context
+  "The value checks over what the delivery handed on: `value-context`, or,
+  for a landing whose lock did not come out of its box, the recorded
+  reason `:landing-lock-gone` in its place (stage 4, PR5), placed where
+  the value checks' reason goes (`lock-refusal`). Phase 6: `grammars`,
+  the map the layer's key rows give, as `value-context` takes it; so a
+  landing into a layer the stream gate orders is checked, and its
+  subjects named, under that layer's grammar facts (wave 2's merge, W2-1).
+  The 3-arity takes the constant, as `value-context`'s does."
+  ([offer settings lk] (delivered-context offer settings lk grammar/grammars))
+  ([offer settings lk grammars]
+   (if (:landing-gone? lk)
+     {:reason :landing-lock-gone}
+     (value-context offer settings (:delivered lk) grammars))))
 
 (defn lock-plan
   "What a yes locks (plan, 'Re-wrap under the value's subjects'; L6): one
@@ -673,18 +709,21 @@
   "The fresh randomness a decision may write (plan step 7), drawn before
   the pure decision: a lease's locks and, when the lease's writer is a
   person, one nonce each for their rows' seals; the re-wraps' nonces in
-  `lock-plan` order; a new person's lock. Impure; total (a draw that fails
+  `lock-plan` order; a new person's lock; stage 4: a landing lease's one
+  X25519 key pair in place of its lock. Impure; total (a draw that fails
   is empty, and a decision that needs the bytes then fails closed)."
   [offer settings rv]
   (try
     (let [n (lease-count offer)
           n (if (and (int? n) (<= 1 n max-lease)) n 0)
+          landing? (some? (ps/landing-of (fact-of offer :lease)))
           wraps (reduce + 0 (map (comp seals-needed :wrap)
                                  (when (and rv (nil? (:reason rv))) (lock-plan offer settings rv))))]
-      {:locks (vec (repeatedly n fresh-lock))
-       :lease-nonces (vec (repeatedly (if (person-owner (:who offer)) n 0) fresh-nonce))
+      {:locks (vec (repeatedly (if landing? 0 n) fresh-lock))
+       :lease-nonces (vec (repeatedly (if (and (not landing?) (person-owner (:who offer))) n 0) fresh-nonce))
        :nonces (vec (repeatedly wraps fresh-nonce))
-       :person-lock (when (fact-of offer :person) (fresh-lock))})
+       :person-lock (when (fact-of offer :person) (fresh-lock))
+       :landing-pair (when landing? (box/keypair))})
     (catch Throwable _ {})))
 
 (defn lock-context
@@ -764,17 +803,36 @@
           (recur (next plan) (drop k ns) rows (cond-> lock-rows row? (conj [lock-id rec]))))
         {:rows rows :lock-rows lock-rows}))))
 
+(defn- landing-lease-writes
+  "A landing lease's one row (stage 4, PR4): bare whoever leases it, the
+  drawn key pair's private key in `:sealed`, its public key, and `:for`
+  the landing it may open."
+  [offer lx landing]
+  (let [ids (lease-ids (:name offer) 1)
+        pair (:landing-pair (:fresh lx))]
+    (when-not (and (bytes? (:public pair)) (bytes? (:private pair))) (fail! "a landing lease without its key pair"))
+    {:lease-rows [[(first ids) (ps/landing-row pair landing)]]
+     :ack {:lock-ids ids}}))
+
+(defn- symmetric-lease-writes
+  "A lease's rows (L20 to L23): `n` fresh locks, each sealed under the
+  lease act's person (bare for the root actor)."
+  [offer settings lx n]
+  (let [ids (lease-ids (:name offer) n)
+        under (lease-under offer settings (:persons lx))
+        entry (get (:persons lx) under)
+        Ks (:locks (:fresh lx))
+        ns (if under (:lease-nonces (:fresh lx)) (repeat n nil))]
+    (when-not (= n (count Ks) (count (take n ns))) (fail! "a lease without its fresh locks"))
+    {:lease-rows (mapv (fn [id K nonce] [id (or (lease-row K under entry nonce) (fail! "a lease row did not seal"))])
+                       ids Ks ns)
+     :ack {:lock-ids ids}}))
+
 (defn- lease-writes [offer settings lx]
   (when-let [n (lease-count offer)]
-    (let [ids (lease-ids (:name offer) n)
-          under (lease-under offer settings (:persons lx))
-          entry (get (:persons lx) under)
-          Ks (:locks (:fresh lx))
-          ns (if under (:lease-nonces (:fresh lx)) (repeat n nil))]
-      (when-not (= n (count Ks) (count (take n ns))) (fail! "a lease without its fresh locks"))
-      {:lease-rows (mapv (fn [id K nonce] [id (or (lease-row K under entry nonce) (fail! "a lease row did not seal"))])
-                         ids Ks ns)
-       :ack {:lock-ids ids}})))
+    (if-let [landing (ps/landing-of (fact-of offer :lease))]
+      (landing-lease-writes offer lx landing)
+      (symmetric-lease-writes offer settings lx n))))
 
 (defn- forget-writes [offer lx stamp]
   (when-let [[tname tidx] (forget-target offer)]
@@ -919,10 +977,14 @@
 
 (defn leased-locks
   "`lease-locks`' answer: the grain in force and every unconsumed lock of
-  the rows read, unleased; a row that does not unlease is left out."
+  the rows read, unleased; a row that does not unlease is left out. Stage
+  4: a landing lease's row gives its public key and the landing it is for
+  under `:landings`, never its private key, and never under `:locks`,
+  which the door pools as sealing locks."
   [settings rows persons]
   {:grain (:grain settings)
-   :locks (into {} (keep (fn [[id row]] (when-let [K (unlease row (get persons (:under row)))] [id K]))) rows)})
+   :locks (into {} (keep (fn [[id row]] (when-let [K (unlease row (get persons (:under row)))] [id K]))) rows)
+   :landings (into {} (keep (fn [[id row]] (when (ps/landing-row? row) [id (ps/landing-public row)]))) rows)})
 
 (defn wrap-persons-of "A lock record's persons, or none." [record]
   (if (map? record) (wrap-persons record) []))
@@ -1006,7 +1068,9 @@
                       {:subindex-options {:track-size? false}})
    :leases (map-schema clojure.lang.Keyword
                        (map-schema clojure.lang.PersistentVector
-                                   (fixed-keys-schema {:under clojure.lang.Keyword :sealed byte/1})
+                                   ;; stage 4: a landing lease's row adds its public key and :for (PR4)
+                                   (fixed-keys-schema {:under clojure.lang.Keyword :sealed byte/1
+                                                       :public byte/1 :for clojure.lang.PersistentVector})
                                    {:subindex-options {:track-size? false}})
                        {:subindex-options {:track-size? false}})
    :erased (map-schema clojure.lang.PersistentVector
@@ -1088,6 +1152,21 @@
         (local-transform> [(keypath *layer :leases *session *id) NONE>] $$layers)))
     (:>)))
 
+(deframafn deliver-landing>
+  "The delivery function's landing body (stage 4, PR6): the lock a
+  landing's box holds, opened with the private key of the lease row the
+  landing cites under its session, when that row is a landing lease's
+  made for this very landing (`promote-shape/open-landing`), else nil.
+  One seek. Read-only: the row is consumed with the decision, whatever it
+  is, by `consume-locks>` ([V-F3])."
+  [*layer *session *offer *lid *box]
+  (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
+    (<<if (deliverable? *layer *session *lid)
+      (local-select> (keypath *layer :leases *session *lid) $$layers :> *row)
+      (:> (ps/open-landing *row (get *offer :name) *lid *box))
+     (else>)
+      (:> nil))))
+
 (deframafn deliver-all>
   "The gate's delivery step (plan, gate event step 4): the up-front person
   entries (the layer's person owner, the offer's writer), then
@@ -1099,25 +1178,35 @@
   (read-persons> *ps {} :> *persons)
   (cited-ids (get *offer :facts) :> *ids)
   (get *offer :session :> *session)
-  (loop<- [*todo (seq *ids) *acc {} :> *delivered]
-    (<<if (empty? *todo)
-      (:> *acc)
-     (else>)
-      (first *todo :> *id)
-      (deliver-lock> *layer *session *id *persons :> *k)
-      (continue> (rest *todo) (assoc *acc *id *k))))
-  (:> (delivery *persons *delivered)))
+  (<<if (ps/landing? (get *offer :name))
+    ;; stage 4: a landing's one lock comes out of its box (the landing body)
+    (first (get *offer :facts) :> *lf)
+    (get *lf :lock-id :> *lid)
+    (deliver-landing> *layer *session *offer *lid (get *lf :box) :> *lk)
+    (:> (landing-delivery *persons *lid *lk))
+   (else>)
+    (loop<- [*todo (seq *ids) *acc {} :> *delivered]
+      (<<if (empty? *todo)
+        (:> *acc)
+       (else>)
+        (first *todo :> *id)
+        (deliver-lock> *layer *session *id *persons :> *k)
+        (continue> (rest *todo) (assoc *acc *id *k))))
+    (:> (delivery *persons *delivered))))
 
 (deframafn decision-reads>
   "The reads and draws a fresh decision needs beyond stage 1's (plan, gate
   event steps 5 to 7): the value checks over the delivered locks (pure),
   the person entries they and the act need, a forget's target act rows and
   the ledger entry of its lock, and the fresh randomness. Returns the lock
-  context `lx` for gate/decide."
-  [*layer *offer *settings *lk]
+  context `lx` for gate/decide. Phase 6: `*key-rows`, the rows of the act's
+  keys read in the same event ({k row}); the value checks take their
+  grammars, and `lx` carries them to the decision under `:key-rows`."
+  [*layer *offer *settings *lk *key-rows]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
     (get *lk :delivered :> *delivered)
-    (value-context *offer *settings *delivered :> *rv)
+    (grammar/grammars-of *key-rows :> *grammars)
+    (delivered-context *offer *settings *lk *grammars :> *rv)
     (persons-needed *offer *settings *rv :> *ps)
     (read-persons> *ps (get *lk :persons) :> *persons)
     (forget-target *offer :> *target)
@@ -1133,7 +1222,7 @@
       (identity nil :> *trows)
       (identity nil :> *tledger))
     (fresh-for *offer *settings *rv :> *fresh)
-    (:> (lock-context *delivered *rv *persons *trows *tledger *fresh))))
+    (:> (assoc (lock-context *delivered *rv *persons *trows *tledger *fresh) :key-rows *key-rows))))
 
 (deframafn row-records>
   "{lock-id record} for every value row of an act: the row's own `:lock` (a

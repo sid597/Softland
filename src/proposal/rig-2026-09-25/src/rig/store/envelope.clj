@@ -47,9 +47,14 @@
   session-close keys, and stage 3's `:members`, a group's making fact at the
   micro gate (without it here the sealed parse refuses a group's making act
   `:not-sealed`; rig.store.micro keeps the same set). Every other fact with
-  a value is a value fact, sealed at the door (L24, L27)."
+  a value is a value fact, sealed at the door (L24, L27). Phase 6 adds
+  `:grammar` (T-FR2: a grammar is read on every later decision, so no lock
+  a forget can destroy may stand between it and the gate; rig.store.micro
+  keeps its own copy without it until phase 6b, and so refuses a grammar
+  fact on its face)."
   #{:forget :lock-grain :class :promote-request :crossed :permission :revoke
-    :kind :owner :person :forget-person :lease :session-closed :members})
+    :kind :owner :person :forget-person :lease :session-closed :members
+    :grammar})
 
 (def setting-keys
   "Fact keys on a layer's own entity that the gate projects into settings,
@@ -199,11 +204,14 @@
   "A fact as the parts digest sees it (L26, [V-F1]): a sealed fact's bytes
   replaced by `true` and its lock id removed, so a resend sealed again, or
   sealed under a newly leased lock, digests the same, while a value fact, a
-  retract and a control fact under the same e and k still digest apart."
+  retract and a control fact under the same e and k still digest apart.
+  Stage 4: a landing's `:box` is replaced by `true` too: it is sealed
+  material, and a byte array prints by identity, so its bytes would make
+  two reads of one landing digest apart."
   [f]
-  (if (contains? f :sealed)
-    (-> f (dissoc :lock-id) (assoc :sealed true))
-    f))
+  (cond-> f
+    (contains? f :sealed) (-> (dissoc :lock-id) (assoc :sealed true))
+    (contains? f :box) (assoc :box true)))
 
 (defn digest
   "The parts digest (change E, D8, P6; L26): the keyed digest of what a
@@ -270,10 +278,13 @@
   [(nth req-name 0) nil :crossing (nth req-name 3)])
 
 (defn landing-name
-  "The landing's name, derived from the request's under a reserved scheme,
-  tagged for the target layer's micro gate (stage 4)."
-  [req-name target]
-  [target :by-entity :landing (nth req-name 3)])
+  "The landing's name, derived from the request's under a reserved scheme
+  (stage 4): the request's id in the target, tagged with the target's
+  class as the request carries it, so the name reaches the one gate that
+  orders the target (PLAN-promotion.md, 'Names'). Without a class, the
+  micro gate's `:by-entity`."
+  ([req-name target] (landing-name req-name target :by-entity))
+  ([req-name target class] [target class :landing (nth req-name 3)]))
 
 ;; ------------------------------------------------------------------- parse
 
