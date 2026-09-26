@@ -8,6 +8,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [rig.store.box :as box]
             [rig.store.envelope :as env]
+            [rig.store.gate :as gate]
             [rig.store.locks :as locks]
             [rig.store.promote :as promote]
             [rig.store.promote-shape :as ps])
@@ -290,3 +291,40 @@
         (is (re-find #"Landed in group" (:text (promote/statement {:status :done :landing-stamp 0} :group))))
         (is (re-find #"forgotten before it was read out" (:text (promote/statement {:status :refused :reason :source-erased} :group))))
         (is (nil? (promote/statement {:status :none} :group)))))))
+
+;; ------------------------------------ the stream gate's decision, R-1
+
+(deftest the-gate-admits-promotion-facts-only-on-their-own-path
+  (let [settings {:kind :personal :owner :alice :class :by-layer :grain :per-value}
+        rows {[:alice :alice :alice] {:granted [[:alice :by-layer :offer (env/uuid7)] 0] :revoked nil}}
+        decide (fn [raw]
+                 (let [p (env/parse raw)]
+                   (if-let [r (:refuse p)]
+                     {:face r}
+                     (let [o (:ok p)
+                           d (gate/decide o settings rows {} 0 1000 (env/digest o))]
+                       (if (= :decide (:kind d))
+                         (or (get-in d [:record :reason]) :yes)
+                         {:face (get-in d [:ack :reason])})))))
+        act (fn [who facts & {:as more}]
+              (let [raw (merge {:version 1 :who who :layer :alice :class :by-layer
+                                :permission (when-not (= :operator who) [:alice :alice :alice])
+                                :stood-on {} :subjects #{} :facts facts}
+                               more)]
+                (assoc raw :name (env/name-for raw))))
+        crossed {:e :e0 :k :crossed :v {:request [:alice :by-layer :offer (env/uuid7)] :source src}}]
+    (testing "a client's :crossed fact is refused: the crossing is the store's read-out's alone"
+      (is (= :control-not-allowed (decide (act :alice [crossed]))) "by the layer's owner")
+      (is (= :control-not-allowed (decide (act :operator [crossed]))) "by the operator")
+      (is (= :malformed-control (decide (act :alice [(assoc crossed :v {:request :x})]))) "a malformed one is malformed first")
+      (is (= {:face :reserved-who} (decide (act :store [crossed]))) "and no depot record may claim to be the store"))
+    (testing "a :promote-request fact is admitted only as a request, whose yes goes on to its read-out"
+      (let [req (request)]
+        (is (= :yes (decide req)) "a well-formed request, its act's one fact")
+        (is (= :malformed-control (decide (update req :facts conj {:e :e1 :k :tag :v nil})))
+            "beside another fact: never a free-standing control fact in a larger act")
+        (is (= :malformed-control (decide (assoc-in req [:facts 0 :v] {}))) "a value of another shape")
+        (is (= :malformed-control (decide (assoc-in req [:facts 0 :v :lease] [[:group :by-entity :offer (env/uuid7)] 0])))
+            "[F1] a lease not bound to the request's own uuid")
+        (is (true? (promote/continues? (:ok (env/parse req)) {:answer :yes})) "a yes continues to the read-out")
+        (is (false? (promote/continues? (:ok (env/parse (update req :facts conj {:e :e1 :k :tag :v nil}))) {:answer :no})))))))
