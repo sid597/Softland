@@ -211,3 +211,186 @@ not.
   before those facts exist by code, and the entries of those reads are kept.
 - **Beside the count.** Phase 6's count asks only about one tool and one
   grammar, so it does not show this fixed-side piece either.
+
+### L-1 (low; first-record): a refused act's answer record keeps, in plaintext, the people its values name, though none of its values was admitted
+
+Reasoned from the code.
+
+- **Where.** `locks.clj` `decision-reads>` 1205-1225 runs the value checks
+  (`read-values`) for every act whose locks were delivered, before the
+  decision. `gate.clj` `decide*` 468 hands `(:union (:read lx))` to
+  `answer-record` 409-429, whose `:subjects` (427-429) takes the union for a
+  no as for a yes. At the micro gate `record-subjects` 892-903 keeps the
+  union unless the reason is `:too-many-subjects` (`decide-envelope` 970).
+- **What happens.** An act refused after its locks were delivered, say
+  `:permission-revoked` or `:stale-replaces`, keeps in its answer record
+  every person its values' grammar names. Its lease rows are consumed, so
+  its values open nowhere, yet whom they mentioned stays in plaintext, out
+  of reach of every forget.
+- **Against.** The model's answer has no subjects (`model.clj` `decide`
+  513-518: answer, reason, stamp, tick, because-of, digest); subjects sit on
+  admitted facts (`admit` 495-496). PROGRESS 139-140: the act's subject slot
+  is "the union, for finding", and a refused act leaves nothing to find.
+  For Sid 17 raises plaintext subjects for admitted acts and the request's
+  `:subjects`, not for refused acts.
+- **First-record.** Yes: the answer record's `:subjects` on a no is part of
+  every kept record.
+
+### L-2 (low): the one-owner value index keeps each value's text in plaintext as its address, where the shared store keeps a keyed digest
+
+Reasoned from the code.
+
+- **Where.** `reads.clj` `address` 186-198 (`:ix-kv`: key, length, value
+  text, stamp, fact id) and `fact-writes` 262-263. The shared side keys it:
+  `shared_reads.clj` `address` 42-53 and `kv-digests` 165-183, through
+  `reads/kv-digest` (PLAN-reads-rest.md F12).
+- **What happens.** For every key a layer's grammar indexes by value, each
+  value's canonical text is a PState key on the layer's home. A forget
+  purges it (`purge-writes` 298-321), so no read finds it again; but a
+  deleted key stays in RocksDB's files, on every replica, until compaction.
+  For Sid 25 names that physical reach for a destroyed lock's bytes, which
+  open only the sealed copies; the leftover here is the value itself, and
+  it needs no lock.
+- **Against.** PROGRESS 45-47: "Erasure by destroying a lock, not values
+  beside the log." IMPLICIT_SPEC I-L4 (derived): "nothing the store keeps
+  holds that value's plaintext". The rig constraint (PROGRESS 167-168)
+  allows an index over values that is purgeable by value id, which this one
+  is; the point is that the two stores keep different things, and the keyed
+  form loses nothing, since a `[:kv]` read is an exact prefix either way.
+- **First-record.** No: indexes are rebuildable state.
+
+### L-3 (low): a shared index entry carries a copy of its value's lock row on the layer's task; the reads-rest plan named this reading "for Sid", and RIG.md does not carry it
+
+- **Where.** `shared_reads.clj` `entry-of` 122-129: an entry whose row keeps
+  no `:lock` takes a copy of the value's lock row. So every value of a
+  re-classed personal or hand layer, and every `:own-row` value in a shared
+  layer, has its wrapped lock on the layer's task beside the lock row on
+  its entity's task.
+- **Against.** SPEC phase 2: "Lock rows in a lock store for personal and
+  hand layers, on the same task as their values". The rig constraint
+  (PROGRESS 168): "Lock rows sit on the same task as their values."
+  PLAN-reads-rest.md 356-365: "A reading of the rig constraint 'lock rows
+  sit on the same task as their values', named for Sid: the index keeps, on
+  the layer's task, a copy of the sealed value and a copy of its wrapped
+  lock together, and the forget's batch nils both copies with the original
+  (atomic across tasks)".
+- **Checked by reading.** A value forget reaches both in one batch (block
+  2a's `:purge` write and the lock-row delete), and after a person forget
+  the copy no longer opens, so no forget window opens. The gap is only that
+  the reading has not reached Sid.
+- **First-record.** No.
+
+### L-4 (low; first-record): the group's rule of ruling 7b is not built, and a group member can never forget a group value, marked or not; RIG.md lists neither
+
+- **Where.** `micro.clj` `micro-extras` 765-773: every `:forget` at the
+  micro gate is the operator's (`:control-not-allowed` otherwise, M14), and
+  nothing states or reads a group's rule. PLAN-micro-store.md 2124-2127:
+  "a group's rule that requires the mark on write (O17) is not implemented,
+  and stays open."
+- **Against.** Ruling 7b (PROGRESS 101-102): "dies by a mark at write or a
+  group's rule." The second consequence (PROGRESS 117-118): "A group member
+  cannot forget one value in a group layer themselves unless the group's
+  rule requires the mark on write; otherwise it is an excision."
+  IMPLICIT_SPEC OP12 and O17.
+- **Status.** The model has no group rule and the D cases do not need one,
+  so the replays cannot see this. For Sid 41 raises only the owner's forget
+  after a re-class.
+- **First-record.** Yes: the rule decides how a group's values are written
+  (with the mark), and a value written before the rule exists keeps no mark.
+
+### L-5 (low): README.md and five sections of RIG.md still describe the rig as it stood on 25 September
+
+- README.md: the status note (12-18), "At a glance" (145-163: phases 2 and
+  3 "designed, not built", 4 to 8 "not started"), "What exists" (405-440),
+  and the appendix's R1-R18 (537-561). README says "Read this first".
+- RIG.md: "Status, 25 September, evening" (1391-1398: "Phases 2, 3 and 4
+  wait"), "Status after phase 1" (1410 on), "Numbers so far" (1975-1997:
+  "each small act makes 4 index writes", where PLAN-numbers.md counts 9),
+  "The skill's artifacts so far" (2065-2084: phase 2's plan "not yet
+  validated", phase 3's "being written"), "What is next" (2085-2107).
+- The Overnight state says it wins on build state, so no builder is misled;
+  a reader who follows README's "Read this first" is. SPEC.md: "Each phase
+  ends with its tests run, `RIG.md` rewritten, and a commit."
+- **First-record.** No.
+
+## What held (read, not run)
+
+- **Every test the spec names has a covering test** (the gatherer's map,
+  three citations spot-checked): R7's fourteen stream branches in
+  `stream_gate_test.clj` 205-787; R8's eight A cases both ways in
+  `forget_test.clj` 612-665, whose shared cases run on the base while it is
+  placed by layer, and through the micro gate in `replay_test.clj`; D1, D2
+  and the revocation race in `micro_test.clj` 318-403 and
+  `micro_prepare_test.clj` 417-429; B1 to B4, a retried request landing
+  once and a failover between forward and landing in `promote_test.clj`
+  (T1 to T7, 353-540); the read entry's parts and the empty pattern read in
+  `reads_test.clj` 484-524; a grammar and a tool added as facts only in
+  `tools_test.clj`; the fourteen histories in `replay_test.clj` 2064-2081.
+- **The refusal order.** The stream gate's is the model's (`gate.clj`
+  207-267), with the rig's own reasons where SPEC.md (R13) and the plans put
+  them; the micro gate places every reason by one `reason-order`
+  (`micro.clj` 61-76).
+- **Step R holds.** No control-key fact is admitted that its gate does not
+  act on: `gate/control-fact?`, `misplaced-setting?` and `stream-refusal`
+  at the stream gate, `micro-extras` and `foreign-control-keys` at the
+  micro gate cover the whole of `env/control-keys`.
+- **No throw on an offer.** Every function the topologies call on an offer
+  is guarded (per function, per envelope in the fold, per value in block
+  2b), and every PState write I traced fits its schema.
+- **Replays.** Every promotion step answers from its record by name; a
+  replayed forward's duplicate landing is decided once (one `+map-agg` key
+  in one batch, the record path in a later one).
+- **The person fan-out.** `dying>` yields only between reads; the ledger
+  check and each value's purge run with no yield between them, and the
+  skill's rule ("A topology event's writes ... are atomic — yielding does
+  not change that") keeps the purge whole.
+- **Partition alignment.** `$$micro [L ...]`'s index fields, `$$layers
+  [L ...]`, the read queries and block 2d all route by the layer id; a
+  landing's forward appends on the task its lease rows were minted on.
+- **The frontier.** Block 0 writes b - 1 in batch b, so a reader at F sees
+  only batches every task has committed (SPEC "What Rama showed" 7).
+
+Nothing here was run, and "held" means only that reading found no break.
+
+## For RIG.md
+
+No new rig choice: this review picked nothing. Questions for Sid, one per
+finding that asks something of him:
+
+1. **H-1.** Should a read entry, a standing-read line, a drop's forget and a
+   tool run follow the working layer's class and gate, named `:by-entity`
+   through the micro door once the layer is re-classed? It changes FR3 and
+   FR4 (For Sid 3) and T-FR5's name.
+2. **M-1.** When the micro gate cannot lock a value it answered yes, should
+   the row carry a ledger entry dated by the forget that closed it, so it
+   reads erased on that date, or should the gate refuse such a value as the
+   stream gate does? And should a value leased under a person forgotten
+   before its lock was made survive, as A3 would have it?
+3. **M-2.** Seed policy facts now, as ruling 9 says, or accept RC6's
+   constant for the store core?
+4. **L-1.** Should a refused act's record keep the subjects its values
+   named?
+5. **L-3.** Is a copy of a lock row in a shared index entry a reading of
+   "lock rows on the same task as their values" Sid accepts?
+6. **L-4.** The group's rule, and a member's forget of a marked group value.
+
+## Items outstanding
+
+The working for each is in its finding above; this is the index.
+
+| Item | Location | Clause | Direction | Why unresolved |
+|---|---|---|---|---|
+| H-1 | `read_exit.clj` 101, 124, 203, 219; `standing.clj` 36, 73, 112, 126; `recipe.clj` 267 | SPEC phase 3; ruling 3; default 4 | route by the working layer's class and gate | first-record (FR3, FR4, T-FR5); findings only |
+| M-1 | `micro.clj` 1197-1240; `locks.clj` 501-528 | SPEC phase 2 ("erased on this date"); model `erasure`; A3 | date the row, or refuse as the stream gate does | first-record; Sid's reading |
+| M-2 | `reads.clj` 578-589; `shared_reads.clj` 296-314 | ruling 9; I-P2 | seed policy facts | ruling-level; not surfaced |
+| L-1 | `gate.clj` 409-429, 468; `micro.clj` 892-903 | model `decide`; PROGRESS 139-140 | no subjects on a no | first-record |
+| L-2 | `reads.clj` 186-198, 262-263 | PROGRESS 45-47; I-L4 | key the value index | design |
+| L-3 | `shared_reads.clj` 122-129 | SPEC phase 2; PROGRESS 168 | carry to For Sid | not surfaced |
+| L-4 | `micro.clj` 765-773 | ruling 7b; the second consequence | build the rule, or ask | open (O17) |
+| L-5 | README.md; RIG.md 1391-2107 | SPEC "RIG.md rewritten" | rewrite at the fold | documentation |
+
+Verdict: fail. Eight items are outstanding (one high, two medium, five
+low), nothing was fixed and nothing was rerun, as C's instructions and
+Sid's test rule ask.
+
+PHASE_VALIDATION:fail
