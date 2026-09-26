@@ -2,13 +2,22 @@
 
 ## Overnight state (26 September; rewritten after every commit)
 
-**Now: builder C builds, since 07:03 IST.** C took over on
-`handoff-ready-b` (the relay's rule 2, checked on B's message, since C's
-tick loop never started). C builds from the relay folder's
-`build-instructions`, Sid's brief verbatim with two dated addenda, checked
-against B's first prompt; this section wins on build state and deadlines.
-C hands off to builder D by `handoff-ready-c` and a message when C's
-transcript passes 3.5 MB, since D's loop is not running either.
+**Now: the night's build is done (builder C, 07:03 to 10:55 IST).** Every
+phase of Sid's brief is built, tested and committed on this branch: phases
+2 to 8, with phase 6's micro side (step 6b) built in Sid's Codex session,
+plus the review of wave 1's fixes (step R), the rama skill's full-spec
+review and its H-1 and M-1 fixes, and a review of step 6b. The last code
+landing is `5b95e70e`; the last fold of the notes is `b92bcd29`. Nothing
+is in flight and no subagent is running. What is left is Sid's: the
+rulings under For Sid (new items 69 to 90; the machinery count's unit rule
+is 79; every worktree is listed in 88, none deleted), the defaults taken
+overnight, and "What is next". The paragraphs below record how the night
+ran after B's handoff, in landing order.
+
+C took over on `handoff-ready-b` (the relay's rule 2, checked on B's
+message, since C's tick loop never started) and built from the relay
+folder's `build-instructions`, Sid's brief verbatim with two dated
+addenda, checked against B's first prompt.
 
 *Landed since the handoff:* **wave 2, at `27543fd7`** (merge of
 `rig-wave2` at `2ff9f3ab`): phase 4, phase 6's stream side and the rest of
@@ -20,11 +29,9 @@ RIG.md, so the merged code is the tested code and was not rerun. Three
 resolutions, none a choice between branches: W2-1 to W2-3 in
 `BUILD_NOTES-wave2.md`.
 
-*In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
-branch `rig-<name>`, reporting to C's session:
-- `fold-final`: the last fold of tonight's notes into the rest of RIG.md
-  and README.md (everything below this block), in two parts: all that has
-  landed now, and the H-1 and M-1 fixes when they land.
+*Also landed, last:* the fold of every landing's notes into the rest of
+RIG.md and README.md, at `b92bcd29` (merge of `rig-fold-final` at
+`ed7de31f`).
 
 *Also landed:* **phase 7's results, at `8576d13f`** (merge of
 `rig-run-numbers` at `97ada117`; `BUILD_NOTES-numbers.md`). The minimum
