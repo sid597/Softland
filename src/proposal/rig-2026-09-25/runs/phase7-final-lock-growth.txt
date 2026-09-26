@@ -1,0 +1,110 @@
+Phase 7, number 2: lock store growth under hand layers, bytes per value and the curve over 100,000 values
+
+Thresholds: thresholds assumed (RIG.md default 7), not Sid's
+Caveat: In-process cluster: every task, the RocksDB stores and the clients run in one JVM on one machine, with replication factor 1 and this machine's disk. The timings mean orders of magnitude only (the rama skill's testing.md, axiom 1; SPEC.md, "Tests and evidence"): a result ten times or more from its threshold decides the question; one within ten times needs a real cluster. Logical bytes are exact for Rama 1.6.0's serializers; bytes on disk depend on the RocksDB options Rama sets here.
+
+Machine (recorded by the harness at every run; 5 complete runs, every run on the same machine):
+  AMD Ryzen 9 9900X 12-Core Processor, 12 cores, 24 hardware threads, 65477336 kB RAM
+  Ubuntu 24.04.4 LTS, kernel 7.0.0-31-generic; OpenJDK 64-Bit Server VM 21.0.12.1+1-1-24.04.4-Ubuntu (Ubuntu)
+  JVM flags -XX:-OmitStackTraceInFastThrow -Xss16m -Xmx16g -Dclojure.basis=.cpcache/2185303280.basis; GC G1 Young Generation, G1 Concurrent GC, G1 Old Generation
+  rama-1.6.0.jar, rama-helpers-0.10.0.jar, Clojure 1.12.4
+  the cluster's files on ext4 on /dev/nvme0n1p6 (WD_BLACK SN850X 1000GB)
+  load at each run's start: 1.20 0.73 0.89; 2.54 2.10 1.57; 3.65 2.40 1.74; 2.95 2.58 1.90; 3.30 2.72 2.03
+  code: cc011a22
+
+Method: PLAN-numbers.md 6, as built: the store's own lock rows, sized in Rama 1.6.0's serializers (logical) and on disk after a forced compaction, picked out by value and re-packed alone (6.5); every point scans the whole family (BUILD_NOTES-numbers.md).
+
+The writes of the gate's decision event, per admitted act (2.3), named from the code; the harness's claim, which T1 to T4 hold to the store's own growth:
+  1   answer record                                $$layers [L :answers name] set    gate_event.clj write-decided> L49
+  2   the act's rows                               [L :log name]              set    gate_event.clj L52
+  3   the fact's head                              [L :heads [e k fid]]       set    gate_event.clj L62
+  4   id index by entity                           [L :ix-ek address]         set    gate_event.clj L67; reads.clj fact-writes L247
+  5   id index by key                              [L :ix-ke address]         set    gate_event.clj L67; reads.clj fact-writes L247
+  6   stamp index                                  [L :ix-s address]          set    gate_event.clj L67; reads.clj fact-writes L247 (stage 5b)
+  7   value index                                  [L :ix-kv address]         set    gate_event.clj L67; reads.clj fact-writes, a key its grammar indexes by value
+  8   value id to its value addresses              [L :ix-of fid]             set    gate_event.clj L70
+  9   lock row                                     [L :locks lock-id]         set    locks.clj write-decision> L1297 (lock-plan's :row?: personal, hand, or :own-row)
+  10  the cited lease row, consumed                [L :leases s lock-id]      delete locks.clj consume-locks> L1142, from write-decision>
+  11  the lease's rows                             [L :leases s lock-id]      set    locks.clj write-decision> L1297, lease-writes
+  12  stamp to name                                [L :by-stamp stamp]        set    locks.clj lock-effects L897, written by write-decision>
+  13  the task's last stamp                        $$clock                    set    gate_event.clj L93
+  :s  what the act stood on                        [L :stood-on name fid]     set    gate_event.clj L56
+  :k  the key's row, at its first use in the layer [L :key-rows k]            set    gate_event.clj L84-85; grammar.clj key-row-writes
+  per act: agent-value 9 (read indexes 3, deletes 1); agent-value-by-value 11 (read indexes 5, deletes 1); owner-value 10 (read indexes 3, deletes 1); lease 72 (read indexes 3, deletes 0); entry 10 (read indexes 3, deletes 1); agent-value-stood-on 10 (read indexes 3, deletes 1)
+  and once per layer, the first fact under a key that is not a store key: one :key-rows row (F2), in setup or warm-up, never in a window
+
+h200: 100,000 values of 200 B, per-value; persons required 1; errors 0, refused 0; lock rows 100000 (expected 100000); end checks {:checked 100, :sealed-is-not-plaintext 100, :opened 100, :closed-without-each-named 100, :wrap-as-expected 100}
+  values | logical lock rows (B/v) | lock store compacted (B/v, method) | whole layer store compacted (B/v) | the rest (B/v) | live dir | lease rows standing
+   10,000 |   1,809,843 ( 181.0) |     811,189 (  81.1, re-pack) |   17,044,486 (1704.4) |   16,233,297 (1623.3) |  31,346,787 | 48
+   20,000 |   3,619,687 ( 181.0) |   1,621,050 (  81.1, re-pack) |   34,071,464 (1703.6) |   32,450,414 (1622.5) |  97,282,813 | 32
+   30,000 |   5,429,531 ( 181.0) |   2,431,019 (  81.0, re-pack) |   51,099,975 (1703.3) |   48,668,956 (1622.3) | 127,945,886 | 16
+   40,000 |   7,239,375 ( 181.0) |   3,240,912 (  81.0, re-pack) |   68,137,223 (1703.4) |   64,896,311 (1622.4) | 193,848,830 | 0
+   50,000 |   9,049,218 ( 181.0) |   4,050,845 (  81.0, re-pack) |   85,158,650 (1703.2) |   81,107,805 (1622.2) | 225,213,581 | 48
+   60,000 |  10,859,062 ( 181.0) |   4,860,710 (  81.0, re-pack) |  102,192,954 (1703.2) |   97,332,244 (1622.2) | 291,075,273 | 32
+   70,000 |  12,668,906 ( 181.0) |   5,670,485 (  81.0, re-pack) |  119,212,509 (1703.0) |  113,542,024 (1622.0) | 322,344,608 | 16
+   80,000 |  14,478,750 ( 181.0) |   6,480,549 (  81.0, re-pack) |  136,205,584 (1702.6) |  129,725,035 (1621.6) | 386,213,801 | 0
+   90,000 |  16,288,593 ( 181.0) |   7,290,397 (  81.0, re-pack) |  153,258,527 (1702.9) |  145,968,130 (1621.9) | 417,504,558 | 48
+  100,000 |  18,098,437 ( 181.0) |   8,100,204 (  81.0, re-pack) |  170,260,449 (1702.6) |  162,160,245 (1621.6) | 483,296,381 | 32
+  bytes per value at the end: logical 181, compacted 81.00; per plaintext value (200 B): logical 0.90 (fine), compacted 0.41 (fine); lock store over the rest: 0.05
+  the curve: steps of 10,000 values, the largest departure of a step from the mean step 0.00%
+  the pick at the end: {:unpicked-under-p 0, :one-structure? true, :under-p 100000, :references 0, :unthawed 0, :value-bytes 12900000, :key-bytes 5598437, :runs 1, :picked 100000, :prefix-length 41, :scanned 912596} checks {:one-structure? true, :count? true, :bytes? true}; RocksDB's approximate size under P 7985244
+  breakdown: {:lock-row {:key 52, :record 129, :parts {:blob 62, :blob-length 60, :required 9, :any-of 1, :scheme 11, :any-blobs 1}}, :row {:whole 386, :sealed 231, :sealed-length 228, :lock-id 51, :digest 34}}
+h40: 100,000 values of 40 B, per-value; persons required 1; errors 0, refused 0; lock rows 100000 (expected 100000); end checks {:checked 100, :sealed-is-not-plaintext 100, :opened 100, :closed-without-each-named 100, :wrap-as-expected 100}
+  values | logical lock rows (B/v) | lock store compacted (B/v, method) | whole layer store compacted (B/v) | the rest (B/v) | live dir | lease rows standing
+   10,000 |   1,809,843 ( 181.0) |     811,261 (  81.1, re-pack) |   10,076,660 (1007.7) |    9,265,399 ( 926.5) |  24,896,408 | 48
+   20,000 |   3,619,687 ( 181.0) |   1,620,999 (  81.0, re-pack) |   20,137,794 (1006.9) |   18,516,795 ( 925.8) |  49,794,493 | 32
+   30,000 |   5,429,531 ( 181.0) |   2,430,993 (  81.0, re-pack) |   30,195,493 (1006.5) |   27,764,500 ( 925.5) |  99,445,582 | 16
+   40,000 |   7,239,375 ( 181.0) |   3,240,752 (  81.0, re-pack) |   40,230,937 (1005.8) |   36,990,185 ( 924.8) | 124,364,384 | 0
+   50,000 |   9,049,218 ( 181.0) |   4,050,522 (  81.0, re-pack) |   50,301,705 (1006.0) |   46,251,183 ( 925.0) | 174,928,830 | 48
+   60,000 |  10,859,062 ( 181.0) |   4,860,310 (  81.0, re-pack) |   60,363,016 (1006.1) |   55,502,706 ( 925.0) | 199,838,596 | 32
+   70,000 |  12,668,906 ( 181.0) |   5,670,016 (  81.0, re-pack) |   70,385,579 (1005.5) |   64,715,563 ( 924.5) | 224,675,601 | 16
+   80,000 |  14,478,750 ( 181.0) |   6,480,035 (  81.0, re-pack) |   80,466,322 (1005.8) |   73,986,287 ( 924.8) | 275,155,249 | 0
+   90,000 |  16,288,593 ( 181.0) |   7,290,011 (  81.0, re-pack) |   90,515,172 (1005.7) |   83,225,161 ( 924.7) | 300,010,792 | 48
+  100,000 |  18,098,437 ( 181.0) |   8,099,962 (  81.0, re-pack) |  100,572,657 (1005.7) |   92,472,695 ( 924.7) | 347,702,810 | 32
+  bytes per value at the end: logical 181, compacted 81.00; per plaintext value (40 B): logical 4.52 (over-four-times-change-the-default), compacted 2.02 (between-two-and-four); lock store over the rest: 0.09
+  the curve: steps of 10,000 values, the largest departure of a step from the mean step 0.00%
+  the pick at the end: {:unpicked-under-p 0, :one-structure? true, :under-p 100000, :references 0, :unthawed 0, :value-bytes 12900000, :key-bytes 5598437, :runs 1, :picked 100000, :prefix-length 41, :scanned 912596} checks {:one-structure? true, :count? true, :bytes? true}; RocksDB's approximate size under P 8072983
+  breakdown: {:lock-row {:key 52, :record 129, :parts {:blob 62, :blob-length 60, :required 9, :any-of 1, :scheme 11, :any-blobs 1}}, :row {:whole 225, :sealed 70, :sealed-length 68, :lock-id 51, :digest 34}}
+h40-p2: 100,000 values of 40 B, per-value; persons required 2; errors 0, refused 0; lock rows 100000 (expected 100000); end checks {:checked 100, :sealed-is-not-plaintext 100, :opened 100, :closed-without-each-named 100, :wrap-as-expected 100}
+  values | logical lock rows (B/v) | lock store compacted (B/v, method) | whole layer store compacted (B/v) | the rest (B/v) | live dir | lease rows standing
+   10,000 |   2,129,843 ( 213.0) |   1,112,159 ( 111.2, re-pack) |   10,576,721 (1057.7) |    9,464,562 ( 946.5) |  26,088,380 | 48
+   20,000 |   4,259,687 ( 213.0) |   2,222,696 ( 111.1, re-pack) |   21,127,179 (1056.4) |   18,904,483 ( 945.2) |  52,168,361 | 32
+   30,000 |   6,389,531 ( 213.0) |   3,333,480 ( 111.1, re-pack) |   31,677,938 (1055.9) |   28,344,458 ( 944.8) | 103,204,774 | 16
+   40,000 |   8,519,375 ( 213.0) |   4,444,416 ( 111.1, re-pack) |   42,227,709 (1055.7) |   37,783,293 ( 944.6) | 129,303,423 | 0
+   50,000 |  10,649,218 ( 213.0) |   5,555,020 ( 111.1, re-pack) |   52,786,430 (1055.7) |   47,231,410 ( 944.6) | 181,337,605 | 48
+   60,000 |  12,779,062 ( 213.0) |   6,665,920 ( 111.1, re-pack) |   63,340,751 (1055.7) |   56,674,831 ( 944.6) | 207,425,979 | 32
+   70,000 |  14,908,906 ( 213.0) |   7,776,403 ( 111.1, re-pack) |   73,890,129 (1055.6) |   66,113,726 ( 944.5) | 233,441,181 | 16
+   80,000 |  17,038,750 ( 213.0) |   8,887,315 ( 111.1, re-pack) |   84,436,453 (1055.5) |   75,549,138 ( 944.4) | 285,350,915 | 0
+   90,000 |  19,168,593 ( 213.0) |   9,997,818 ( 111.1, re-pack) |   94,986,855 (1055.4) |   84,989,037 ( 944.3) | 311,384,244 | 48
+  100,000 |  21,298,437 ( 213.0) |  11,108,931 ( 111.1, re-pack) |  105,530,120 (1055.3) |   94,421,189 ( 944.2) | 360,434,321 | 32
+  bytes per value at the end: logical 213, compacted 111; per plaintext value (40 B): logical 5.32 (over-four-times-change-the-default), compacted 2.78 (between-two-and-four); lock store over the rest: 0.12
+  the curve: steps of 10,000 values, the largest departure of a step from the mean step 0.00%
+  the pick at the end: {:unpicked-under-p 0, :one-structure? true, :under-p 100000, :references 0, :unthawed 0, :value-bytes 16100000, :key-bytes 5598437, :runs 1, :picked 100000, :prefix-length 41, :scanned 912612} checks {:one-structure? true, :count? true, :bytes? true}; RocksDB's approximate size under P 11116585
+  breakdown: {:lock-row {:key 52, :record 161, :parts {:blob 90, :blob-length 88, :required 13, :any-of 1, :scheme 11, :any-blobs 1}}, :row {:whole 243, :sealed 70, :sealed-length 68, :lock-id 51, :digest 34}}
+h40-p3: 10,000 values of 64 B, per-value; persons required 3; errors 0, refused 0; lock rows 10000 (expected 10000); end checks {:checked 100, :sealed-is-not-plaintext 100, :opened 100, :closed-without-each-named 100, :wrap-as-expected 100}
+  values | logical lock rows (B/v) | lock store compacted (B/v, method) | whole layer store compacted (B/v) | the rest (B/v) | live dir | lease rows standing
+    2,000 |     495,968 ( 248.0) |     287,880 ( 143.9, re-pack) |    2,399,864 (1199.9) |    2,111,984 (1056.0) |   5,522,196 | 48
+    4,000 |     991,937 ( 248.0) |     574,368 ( 143.6, re-pack) |    4,784,493 (1196.1) |    4,210,125 (1052.5) |  11,003,772 | 32
+    6,000 |   1,487,906 ( 248.0) |     860,913 ( 143.5, re-pack) |    7,173,695 (1195.6) |    6,312,782 (1052.1) |  16,485,697 | 16
+    8,000 |   1,983,875 ( 248.0) |   1,147,422 ( 143.4, re-pack) |    9,559,681 (1195.0) |    8,412,259 (1051.5) |  21,975,445 | 0
+   10,000 |   2,479,843 ( 248.0) |   1,433,983 ( 143.4, re-pack) |   11,952,176 (1195.2) |   10,518,193 (1051.8) |  27,477,975 | 48
+  bytes per value at the end: logical 248, compacted 143; per plaintext value (64 B): logical 3.87 (between-two-and-four), compacted 2.24 (between-two-and-four); lock store over the rest: 0.14
+  the curve: steps of 2,000 values, the largest departure of a step from the mean step 0.00%
+  the pick at the end: {:unpicked-under-p 0, :one-structure? true, :under-p 10000, :references 0, :unthawed 0, :value-bytes 1960000, :key-bytes 559843, :runs 1, :picked 10000, :prefix-length 42, :scanned 91388} checks {:one-structure? true, :count? true, :bytes? true}; RocksDB's approximate size under P 1433352
+  breakdown: {:lock-row {:key 52, :record 196, :parts {:blob 118, :blob-length 116, :required 20, :any-of 1, :scheme 11, :any-blobs 1}}, :row {:whole 267, :sealed 94, :sealed-length 92, :lock-id 51, :digest 34}}
+h40-p5: 10,000 values of 64 B, per-value; persons required 5; errors 0, refused 0; lock rows 10000 (expected 10000); end checks {:checked 100, :sealed-is-not-plaintext 100, :opened 100, :closed-without-each-named 100, :wrap-as-expected 100}
+  values | logical lock rows (B/v) | lock store compacted (B/v, method) | whole layer store compacted (B/v) | the rest (B/v) | live dir | lease rows standing
+    2,000 |     635,968 ( 318.0) |     409,483 ( 204.7, re-pack) |    2,526,545 (1263.3) |    2,117,062 (1058.5) |   5,689,503 | 48
+    4,000 |   1,271,937 ( 318.0) |     817,595 ( 204.4, re-pack) |    5,039,122 (1259.8) |    4,221,527 (1055.4) |  11,335,107 | 32
+    6,000 |   1,907,906 ( 318.0) |   1,225,843 ( 204.3, re-pack) |    7,552,880 (1258.8) |    6,327,037 (1054.5) |  16,980,656 | 16
+    8,000 |   2,543,875 ( 318.0) |   1,633,980 ( 204.2, re-pack) |   10,068,035 (1258.5) |    8,434,055 (1054.3) |  22,632,384 | 0
+   10,000 |   3,179,843 ( 318.0) |   2,042,118 ( 204.2, re-pack) |   12,585,683 (1258.6) |   10,543,565 (1054.4) |  28,300,182 | 48
+  bytes per value at the end: logical 318, compacted 204; per plaintext value (64 B): logical 4.97 (over-four-times-change-the-default), compacted 3.19 (between-two-and-four); lock store over the rest: 0.19
+  the curve: steps of 2,000 values, the largest departure of a step from the mean step 0.00%
+  the pick at the end: {:unpicked-under-p 0, :one-structure? true, :under-p 10000, :references 0, :unthawed 0, :value-bytes 2660000, :key-bytes 559843, :runs 1, :picked 10000, :prefix-length 42, :scanned 91404} checks {:one-structure? true, :count? true, :bytes? true}; RocksDB's approximate size under P 2049311
+  breakdown: {:lock-row {:key 52, :record 266, :parts {:blob 175, :blob-length 172, :required 33, :any-of 1, :scheme 11, :any-blobs 1}}, :row {:whole 267, :sealed 94, :sealed-length 92, :lock-id 51, :digest 34}}
+
+Each extra subject (bytes per lock row at 1, 2, 3 and 5 required persons):
+  1: 181 logical, 81.00 compacted; 2: 213 logical, 111 compacted; 3: 248 logical, 143 compacted; 5: 318 logical, 204 compacted
+  least-squares slope per extra person, logical: 34.40 B (from the code: one 28-byte seal and one keyword in :required)
+  slice: {:raw-one-person {:logical 169, :compacted 86.9}, :base64-two-persons {:logical 233, :compacted 148.0}, :extra-person-raw "32 to 35 B, computed", :ratios {40 {:logical 4.23, :compacted 2.17}, 200 {:logical 0.85, :compacted 0.43}}}

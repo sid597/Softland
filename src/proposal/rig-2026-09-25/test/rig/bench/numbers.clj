@@ -150,13 +150,16 @@
 
 (defn- file-field
   "The value after `sep` on the first line of file `path` that starts with
-  `prefix`, trimmed, or nil."
+  `prefix`, trimmed, or nil. Read through `cat`: on this machine's kernel
+  (7.0) Java's `FileInputStream.available` on a /proc file throws
+  `IOException: Invalid argument`, so `slurp` cannot read /proc/cpuinfo or
+  /proc/meminfo (the first run's T9, 26 September)."
   [path prefix sep]
   (try
     (some (fn [line]
             (when (str/starts-with? line prefix)
               (str/trim (subs line (inc (str/index-of line sep))))))
-          (str/split-lines (slurp path)))
+          (str/split-lines (or (sh-out "cat" path) "")))
     (catch Throwable _ nil)))
 
 (defn- lscpu-field [out label]
