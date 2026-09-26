@@ -22,13 +22,24 @@ resolutions, none a choice between branches: W2-1 to W2-3 in
 
 *In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
 branch `rig-<name>`, reporting to C's session:
-- `run-numbers`: phase 7's minimum set, the harnesses' first run, on the
-  finished store (`dee0320a`), in the background under the cluster lock,
-  about 45 minutes, progress under the rig folder's `runs/`; the results
-  go into `BUILD_NOTES-numbers.md` on that branch.
 - `build-spec-fixes`: the fixes for the full-spec review's H-1 and M-1
-  (`PLAN-spec-fixes.md`), building on `dee0320a`; one run of its touched
-  namespaces, queued behind the numbers.
+  (`PLAN-spec-fixes.md`), built on `dee0320a`; its one run of the touched
+  namespaces is under way.
+- `fold-final`: the last fold of tonight's notes into the rest of RIG.md
+  and README.md (everything below this block), in two parts: all that has
+  landed now, and the H-1 and M-1 fixes when they land.
+
+*Also landed:* **phase 7's results, at `8576d13f`** (merge of
+`rig-run-numbers` at `97ada117`; `BUILD_NOTES-numbers.md`). The minimum
+set ran on the finished store `dee0320a`: 14 steps, all exit 0, 09:27 to
+10:11 IST, after two harness fixes found by its first attempt's test step.
+Against RIG.md's assumed thresholds: number 1, about 1,200 small acts a
+second on one task, near the 1,000 line at every K, undecided on this
+cluster; number 3, rate far above 100 a second but p99 46.1 ms against
+20 ms, qualified by H-1; number 2, the lock row 181 B logical and 81 B on
+disk, 4.52 times a 40-byte value and 0.90 times a 200-byte one, 34.4 B more
+per extra person. D1 measured the door, which sorts its whole lock pool on
+every offer, so the gate's own ceiling is unmeasured.
 
 *Also landed:* **phase 7's harnesses, at `ad49bced`** (merge of
 `rig-build-numbers` at `fe57f4c2`, new files only), by Sid's word, after
