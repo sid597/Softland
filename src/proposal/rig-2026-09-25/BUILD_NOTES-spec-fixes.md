@@ -10,7 +10,46 @@ tests, validate them by reading, one run.
 
 ## Receipt
 
-RECEIPT-PENDING
+Commits on `rig-build-spec-fixes` (after the fast-forward to `dee0320a`):
+`4b37c213` the plan; `aecec1d4` the micro gate (M-1, and W1-1, F1, FRR5);
+`81f2a253` the doors and the exit's acts; `29af10fe` the maintenance
+reads' micro era; `8c1938af` their visibility revised (divergence 1);
+`fc11d00d` the tests; `e1791e19` `micro_prepare_test`'s wording;
+`bc895e16` the run command; `3d5f32a3` the one fix; and these notes.
+
+**The run, once, under the cluster lock** (`runs/spec-fixes-cmd.sh`,
+output `runs/spec-fixes-run.txt`): queued 10:08:36, lock 10:10:58, end
+10:27:47 IST, 26 September 2026, on the code of `bc895e16` (every
+namespace is loaded at the runner's start; the commits made during the run
+are notes, and the fix below was edited after the load). Fifteen
+namespaces, every one that loads a changed source namespace and takes a
+changed path: `spec-fixes-test`, `micro-prepare-test`,
+`review-fixes-test`, `recipe-test`, `shared-reads-test`, `micro-test`,
+`grammar-micro-test`, `read-exit-test`, `read-model-test`,
+`reads-rest-test`, `tools-test`, `wave1-test`, `review-wave1-test`,
+`promote-test`, `replay-test`. **83 tests, 3,404 assertions, 1 failure,
+0 errors.** The replays (`runs/spec-fixes-replays.txt`, 149 s): 14 cases,
+14 played as the model says, 0 differ, 0 not practical; its header names
+`2443e0b8` and uncommitted changes, the tree at the moment it wrote, not
+the code it ran. Not run, since they take no changed path: `smoke`,
+`claims`, `revision`, `clock`, `envelope`, `stream-gate`, `reads`,
+`lock`, `forget`, `promote-unit`, `shape`, `grammar`.
+
+**The failure, and the fix.** `read-exit-test` T3 (line 188): a read whose
+working layer was never made. `micro-client/layer-class` gave nil for a
+layer neither store has, so the entry was named with no class and refused
+`:malformed` on its face, where the store refused it as before: its lease
+`:no-such-layer`, the entry `:no-such-lock` (For Sid 14). Fixed in
+`3d5f32a3`: `layer-class` defaults to `:by-layer`, as the stream door's
+`client/layer-class` does. Only `read-exit-test` reaches that path (the
+micro tests' `:nowhere` cases use the micro door directly), so only it
+reran (`runs/spec-fixes-rerun.txt`, lock 10:28:25, end 10:28:50 IST): **1
+test, 318 assertions, 0 failures, 0 errors.**
+
+The new namespace passed whole in the run: its pure tests and the
+cluster test of a re-classed working layer (the agent's reads, the
+standing read across the re-class, the crash close, the operator's drop of
+both eras, For Sid 41 as built, and the runner once per match).
 
 ## M-1: the micro gate locks from the one read it decides by
 
@@ -116,10 +155,17 @@ in a layer by entity, `mc/lookup-many` for the `:by-entity` ones;
 2. **The skeleton's `:subjects` is removed.** 6b added it for block 2b's
    wrap; block 1a now wraps with `arrival-open`'s subjects on the same
    task, so nothing after the fold read it. It no longer travels to the
-   leader.
+   leader, which settles the second half of REVIEW-6b.md's L-4 (its first
+   half, the grammar rows sent once per entity, is untouched). What the
+   fix adds to the skeleton is what the fold uses: a read entry's moment
+   stamps, the lease's person, and one flag.
 3. The plan named `micro-lookup-many` visibility loosely; as built each
    name's record is taken at its own name task's frontier, as
    `micro-lookup` does with no F given.
+4. The plan's `layer-class` gave nil for no layer; the run showed that
+   refuses an act into a layer never made `:malformed` rather than as the
+   store refused it before, so it defaults to `:by-layer` (the receipt's
+   fix).
 
 ## Validation by reading (the build's phase 4)
 
@@ -245,6 +291,9 @@ working layer (refused at its lease, M24; noted below).
   `|direct` back to the arrival task, its lease-row, unders and wrap-person
   reads, and its `row-wraps`, `fresh-nonces`, `fact-rows` and
   `kv-digests` steps (moved to block 1a); the skeleton's `:subjects`.
+- Retained, now called by no topology: `micro/wrap-persons-of` (block 2b's
+  wrap-person read used it; the person check's read in block 1a covers
+  every wrap person). Its removal can be a separate cleanup.
 
 ## For RIG.md
 
