@@ -10,28 +10,58 @@ instructions for tonight, verbatim, are in that folder's
 `build-instructions`**: builders C and D, whose prompts end before them,
 build from that file, and this section wins on build state and deadlines.
 
-*Done since the handoff:* phase 2's build finished green on its own
-branch, `rig-build-locks` at `fd41f6d2` (30 tests, 1,454 assertions, green
-three runs in a row), so no step of it needs redoing.
+**Sid's test rule** (05:26, in builder B's chat: "only running test once
+is fine imo it just adds to the time"): after a fix, rerun only the
+namespaces the fix touches; run the full suite once, at the end; never
+rerun green code to confirm it; after a merge, rerun only when the merged
+code differs from the tested code.
 
-*In flight*, each in worktree `Softland-rig-<name>` on branch
-`rig-<name>`, made off this branch:
-- `wave1`: the merge of wave 1. Phases 2 and 3 were merged at 04:45; the
-  seams listed under "Unfinished" below are being wired and tested.
-- `build-replays`: phase 8's harness, first pass. It resolves each later
-  stage's functions by name, so it runs at every stage and gains cases as
-  they merge.
-- `plan-numbers`: phase 7's plan, written (`ae514e3e`), being validated.
-- `build-promotion`, `build-reads-rest`, `build-tools`: wave 2's builders
-  for phase 4, the rest of phase 5 and phase 6. Each loads its plan,
-  commits a prep note and waits for wave 1 to land; builder B then tells
-  each to merge and build. A successor to builder B cannot message them:
-  it starts fresh builders from those prep notes.
+*Done since the handoff:*
+- Phase 2 finished green on its own branch, `rig-build-locks` at
+  `fd41f6d2` (30 tests, 1,454 assertions), so no step of it was redone.
+- **Wave 1 landed here at `2034cce5`** (merge of `rig-wave1` at
+  `66a5721d`): phases 2 and 3 merged and wired to the read exit. Reads
+  open through phase 2's lock road; a value forget purges the read indexes
+  in its own event and a person forget on every task before its answer;
+  group layers and the base get phase 2's sealing; persons are phase 2's
+  acts. One full suite at the end: 14 namespaces, 93 tests, 5,538
+  assertions, 0 failures (`runs/wave1-suite.txt`); two later fixes rerun on
+  their own namespaces only. The merged code is the tested tree, so it was
+  not rerun here. Two behaviour changes beyond the brief: an agent's or a
+  tool's lease row is sealed under its layer's person owner (W1-1), and
+  `:members` is refused at the stream gate rather than stored in plain
+  text (W1-7). Notes: `BUILD_NOTES-wave1.md` and its two validations.
+- Phase 7's plan written (`rig-plan-numbers`, `ae514e3e`): the finished
+  store's small agent act makes 9 index writes where the slices counted 4.
+- Phase 8's harness, pass 1 (`rig-build-replays`, `29fae374`): all 14
+  cases not practical before wave 1, as expected; the model side exact (21
+  tests, 752 assertions, 30 mutants all caught). It merges here after pass
+  2, so a difference still being explained cannot block wave 2's suites.
 
-Builder A's empty `Softland-rig-integrate` is left as it is.
+*In flight*, each in worktree `Softland-rig-<name>` on branch `rig-<name>`:
+- `build-promotion` (phase 4). Its first commit moves the gate's
+  record-or-decide path out of `module.clj` into `rig.store.gate-event`,
+  verbatim, so promotion's crossing and landing use the one path; phases 5
+  and 6 merge that commit before editing that body.
+- `build-reads-rest` (the rest of phase 5).
+- `build-tools` (phase 6). The micro gate's grammar is deferred to a named
+  step, 6b, right after wave 2's merge, because it reorders the micro fold
+  that phases 4 and 5 are changing; the machinery count is reported in two
+  parts, the stream side now and the micro side after 6b.
+- `review-wave1`: an independent falsification review of wave 1's seams,
+  in a fresh session; a finding counts only with a test that fails before
+  its fix.
+- `build-replays`: phase 8, pass 2, on wave 1, in a fresh session.
+- `plan-numbers`: phase 7's plan validation.
 
-*Next:* wave 1 lands here, then wave 2 builds, their merge, phase 8's
-later passes, phase 7's runs, then the rama skill's full-spec review.
+Wave 2's builders were started by builder B and report to its session. A
+successor cannot message them; it reads their branches, where each commits
+as it goes and writes `BUILD_NOTES-<stage>.md`. Builder A's empty
+`Softland-rig-integrate` is left as it is.
+
+*Next:* the review's fixes land here; wave 2's merge; step 6b; phase 8's
+pass 3; phase 7's build and runs on the finished store; then the rama
+skill's full-spec review.
 
 **At the handoff (builder A, 04:15).** Builder A ran from 01:37 to 04:15 IST on Sid's overnight brief: build every
 remaining phase of SPEC.md (2 locks and forgetting, 3 the micro store, 4
