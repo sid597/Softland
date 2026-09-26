@@ -182,11 +182,14 @@ wave 2"; wave 2 builds on them):
   `mint-rows` under the writer): W1-1 is the stream gate's only.
 - The micro forget exposes no list of the fact ids it erased, which
   `PLAN-reads-rest.md`'s micro purge takes; `forget-effect` computes it
-  (its `sharing` rows), and wave 2 can emit it.
+  (its `sharing` rows), and wave 2 can emit it. *Wave 2 did:*
+  `forget-effect` returns `:erased`, which block 2a purges from the shared
+  indexes in the forget's own batch (the rest of phase 5).
 - `PLAN-reads-rest.md` changes the person purge (only the value-bearing
   entries, paged, after the forget, through `dying-with>`) and the rebuild
   with it; wave 1 keeps today's invariant, tombstones in both, under which
-  purge and rebuild agree.
+  purge and rebuild agree. *Wave 2 kept wave 1's rule* in both stores (the
+  rest of phase 5's D1; For Sid 56).
 - The sweep page was not re-measured under sealing (512 entries, each an
   open; estimated 0.5 to 0.8 s before sealing).
 - An act larger than the put page's cap makes one page of its size.
@@ -450,6 +453,39 @@ and the handoff commit that carries this section.
   fixes: a tool could have named any repository on the host for the
   runner to read into the store, now a literal from the operator's
   configuration, empty by default (F13, For Sid 33).
+- **Wave 2 landed (`27543fd7`)**: the merge of `rig-wave2` at `2ff9f3ab`,
+  three merges made off `c9684356`: phase 4, promotion
+  (`rig-build-promotion` `5303418f`, merged at `0feb72ef`); phase 6's
+  stream side, tools and grammars (`rig-build-tools` `2d2f666a`, at
+  `df980ac7`); the rest of phase 5, reads (`rig-build-reads-rest`
+  `33817364`, at `0edf1dac`). *Promotion:* the request act, the read-out
+  on the owner's task, the crossing, the stored forward, the landing on
+  either gate under the store's reserved scheme, the landing lease with
+  its X25519 key pair, the status query and the door
+  (`rig.store.promote-client`); the stream gate's decision path became
+  one op, `rig.store.gate-event` (R59). *The rest of phase 5:* shared-layer
+  reads through the one exit at a settled frontier; the micro store's
+  indexes on the layer's task, written in the batch that decides the act;
+  the one-owner `:ix-s`; standing reads with their lines and deltas; the
+  close act's keep or drop; the person purge pages and the restore.
+  *Phase 6, the stream side:* grammar facts checked at the stream gate
+  from per-key rows read in the decision's own event; hints and opaque
+  marks from the rows at the read exit; the recipe executor, the minimal
+  runner and `client/lookup-many`; the test grammar and tool added as facts
+  only. Its micro side, step 6b, is not built tonight (For Sid 65). Three
+  resolutions at the merge, R95 to R97 (W2-1 to W2-3). One full suite at
+  the end, on the merged code at `0edf1dac`: 24 namespaces, 148 tests,
+  7,699 assertions, 0 failures, 0 errors, 12 min 51 s
+  (`runs/wave2-suite.txt`); the landing commit changed only RIG.md, so
+  the tested code was not rerun. The replays on the merged tree: A1 to A8,
+  D1 and D2 as the model says, the group read through the exit; B1 to B4
+  not practical until phase 8's pass 3 binds phase 4's names in
+  `rig.store.promote-client` (`runs/wave2-replays.txt`). Each branch's own
+  full suite was green first: 102, 103 and 106 tests. The machinery
+  count's stream side is under "The machinery count" below. Notes:
+  `BUILD_NOTES-promotion.md`, `BUILD_NOTES-reads-rest.md`,
+  `BUILD_NOTES-tools-and-grammars.md`, each with its implementation and
+  test validations, and `BUILD_NOTES-wave2.md`.
 
 ## Found tonight
 
@@ -1915,6 +1951,66 @@ so measurements run one after another.
 
 Machine for every number: AMD Ryzen 9 9900X (12 cores, 24 threads), 62 GB
 RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
+
+## The machinery count so far
+
+SPEC.md's phase 6 asks, once one new tool and one new grammar are added by
+writing facts only, how many new compiled steps were needed, read in three
+classes: (a) fixed-side steps the frame already promised, (b) fixed-side
+steps nobody anticipated, (c) capabilities. It is taken in the plan's unit:
+one named code unit added to the fixed side or to the vocabulary, or one
+existing unit whose behaviour changes (the plan's assumed definition;
+IMPLICIT_SPEC O21 leaves it open). It is the machinery count, not the
+thesis count. Source: `BUILD_NOTES-tools-and-grammars.md`, "The machinery
+count (the stream side; the micro side comes with 6b)".
+
+**The stream side: 26**, 10 promised, 6 unanticipated, 10 capabilities
+(the plan predicted 25: 11, 5 and 9).
+- *(a) Promised, 10 built:* a1 `:grammar` a control key; a2 the key rows
+  written in the decision's event; a3 the stream gate reads the act's key
+  rows in its one event; a5 the shape language and its checker; a6 the
+  value checks take shape and subjects from the rows; a7 opaque: no shape,
+  no value subjects, no index; a8 index hints from the rows where hints
+  are taken; a9 "shown as opaque"; a10 the recipe executor; a11 the minimal
+  runner. a4, the micro gate reading and writing the rows, is step 6b's.
+- *(b) Unanticipated, 6 built:* b1 `:grammar-change-needs-rebuild` and
+  `:used`; b2 the run's derived name and content; b3 the loop check; b6
+  `client/lookup-many`; b8 the exit applies a key's grammar after its
+  visibility check, and b9 a replaced tool is not run, both found by the
+  build. b4, the micro gate's open getting the rows (larger than planned:
+  block 2b opens every value a second time), is step 6b's; b7, a "start
+  after" on the pattern read, is deferred as planned; b5, a lease road for
+  a tool, needs no step since W1-1 (R20, R89).
+- *(c) Capabilities, 10 vocabulary entries:* `:emit`;
+  `:revision/read-units` and `:revision/read-span` (the revision reader as
+  two steps); the formulas `:lit`, `:in`, `:got`, `:count`, `:str`, `:map`;
+  and a bare scalar standing for itself, found by the build (the plan's
+  own test tool writes `" named"`).
+- *The zero:* after these, the proof's test grammar (`:mention`) and test
+  tool (`:mention-count`) were added by writing facts only
+  (`rig.store.tools-test`, EDN in the test). Nothing under `src/` names
+  `:mention-count`, and the stream gate and the exit read `:mention`'s and
+  `:note`'s grammars only from facts.
+
+**Apart from the 26: 3 existing units wave 2's merge changed**, fixed
+side, unanticipated (`BUILD_NOTES-wave2.md`), listed apart so the count's
+base stays comparable with the plan's prediction. Each was needed where
+phase 6's facts had to reach code that phase 4 or phase 5 wrote beside it,
+and none showed until the branches met:
+- `gate/intake-offer`, which now names the key rows a stream landing's
+  decision reads (W2-1, R95);
+- `locks/delivered-context`, which now takes the rows' grammars, so a
+  landing's value checks and subjects follow the target layer's grammar
+  facts (W2-1, R95);
+- the stream side of `rig.store.shared-reads` (`delta>`, `opening-answer`,
+  `shared-pattern>`, `shared-point>`, with the new `stream-marks>` and
+  `stream-era-kv-refusal`), which reads the layer's rows where phase 5's
+  reads meet the stream store (W2-3, R97).
+
+**Not counted yet: the micro side** (a4, b4), step 6b, not built tonight
+(For Sid 65). Until it lands, the micro store compiles `:mention` into
+`grammar/grammars`, and `rig.bench.lock-slice` keeps its own copy for
+phase 7.
 
 ## The skill's artifacts so far
 
