@@ -30,8 +30,11 @@ branch `rig-<name>`, reporting to C's session:
   tested small. The minimum set runs last, on C's word, after step R lands.
   This builder stalled from 07:13 to 07:43 on a command that waited for an
   approval; C stopped the call and resumed it (the 06:19 addendum).
-- `fold-wave2`: the fold of wave 2's "For RIG.md" notes (P4-*, P5-*, P6-*,
-  W2-*) into the rest of RIG.md, below this block.
+
+*Also landed:* the fold of wave 2's "For RIG.md" notes into the rest of
+RIG.md, at `ec8525dc` (merge of `rig-fold-wave2` at `9fdfe5f4`): rig
+choices R59 to R97, For Sid 51 to 68 (65 is step 6b), "The machinery count
+so far", and "Wave 2 landed" under "Stages tonight".
 
 *Not started: step 6b*, the micro gate's grammar and then the machinery
 count's micro side. At 07:10 IST the session's auto-mode permission check
