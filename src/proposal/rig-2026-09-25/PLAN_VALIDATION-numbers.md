@@ -483,8 +483,8 @@ the plan's own promise that every workload goes "through its own road"
 
 **Source.** RIG.md L89-92: "Every in-process cluster run waits on `flock
 /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`." RIG.md L82-85:
-"long runs in the background with progress under `runs/`". README L789-790
-of RIG.md: "Only one in-process cluster can run on this machine at a time
+"long runs in the background with progress under `runs/`". RIG.md L789-790:
+"Only one in-process cluster can run on this machine at a time
 (port 2002)".
 
 **Trace.**
@@ -695,3 +695,113 @@ simulated; an erring run is marked (L1443-1445). A retried offer: C12. A
 run killed mid-way: partial lines the summary ignores (L1492-1493). Two
 sessions' clusters: `flock` across JVMs; two clusters in one JVM: F6.
 Concurrent writers into one door: the door's own locking, as built.
+
+## The fixes, applied in place in PLAN-numbers.md
+
+Each is marked `[F1]` … `[F12]` where it lands; the plan's section 15
+records them.
+
+- **F1** (C2, C10): 2.1 records the trace on the first merge, `d83e5ff8`
+  (the agent `:note` act writes 10 there, because `reads/seed-hints`
+  hints `:note` by value); 4.2 says which key the primary act uses when a
+  constant still hints `:note` (a key no hint names, `:memo` say, and A'
+  keeps `:note`), and that each result header names it; section 0, 8.5,
+  13.1 and B9 point to it.
+- **F2** (C2, C4): 2.3 names the first-use `:key-rows` write, made in setup
+  or the warm-up, never in a window; 9.2's `writes` carries it; T1 and T3
+  expect `:key-rows` by 1 for each fresh layer, T2 by 0 with `:used` read
+  back; B2 names it.
+- **F3** (C7, C4): variant C reads as `:reader :ada`, `:reader-kind
+  :model`, `:for :ada`, citing `[:ada L L]`, with the reason (the exit's
+  entry carries the reader as `:who` and no session; a non-person cannot
+  lease); the session's permission if the merged exit carries a session;
+  T4 uses the same spec; B10 names `entry-offer`.
+- **F4** (C7, C11): D1 stocks by `c/lease!` and one final `c/stock!` (one
+  `lease-locks` call, not one per lease), keeps its window only if the
+  door leased nothing in it, reports the stocking's time, and is expected
+  to run; 4.9 and 8.6 count it; B5 names `lease!`.
+- **F5** (C1, C6, C11): number 3 gains (b'), an open arrival at 100 and
+  1,000 value acts a second with latency from the schedule and a pool of
+  sender threads; its latency threshold is judged there (7.1); (a), (b)
+  and A's latencies are labeled closed-loop service times (4.3, 5.4, 8.5);
+  T5 checks the schedule accounting on a synthetic stall; section 0, 5.6,
+  8.2 and 8.6 follow.
+- **F6** (C8): the test namespace's two clusters are never open at once.
+- **F7** (C4): T6 checks `layers-on-task!` by one more act into each layer
+  it returns, an observation the search did not make.
+- **F8** (C4, C5): T7 scans the re-packed store back (the picked entries
+  exactly) and requires at least 60 bytes a row on disk.
+- **F9** (C5): the pick counts values `thaw` does not accept instead of
+  dropping them, runs its full scan at the first and last points, defines
+  P as the picked keys' longest common prefix, and the fallback prints what
+  it assumes and its two bounds (60 bytes a row; the raw bytes).
+- **F10** (C3): section 11's lease act reads 9 seeks with its query, not 7;
+  weighted 8.02, still flat (and section 15 with it).
+- **F11** (C11): a shortest set, `short`, about 19 minutes; the minimum set
+  about 45 and the full set about 65 with F4 and F5; section 0 and 8.2
+  follow.
+- **F12** (C5, C10): B5 gains `connect`, `offer-until-answered!` and
+  `lease!`; B12 the column families `default` and `subindexed` and
+  `OptionsUtil/loadLatestOptions`; a new B14 names the slice bench's
+  helpers and what loading them needs.
+
+## What the build must do after the merges
+
+In order, before a single number runs:
+
+1. Read the merged store's hints. If a constant still hints `:note` by
+   value (phase 6 not merged, or its `store-hints` keeping `:note`), use
+   another key for the primary act and name it (F1).
+2. Confirm every binding point, B1 to B14, against the merged branch,
+   including whether `:by-stamp` stayed (B4), whether `:ix-s` and the
+   `:own-row` mark landed (rows 6 and 9 of 2.3), and whether the exit's
+   entry carries a session (B10, F3).
+3. Write the harness with the first-use key row in its list (F2), C's read
+   spec (F3), D1's stocking (F4), (b') and its sender pool (F5), and the
+   test namespace's clusters opened one after the other (F6).
+4. Run `rig.bench.numbers-test` under the lock; the driver runs nothing
+   unless it passes. Where T1 to T4 disagree with the list, the list
+   follows the code, and the result files say what changed.
+
+## Self-consistency check
+
+Read back after writing. Every check that found a failure says FAIL and
+names its fix: C1 (latency), C2, C3, C4, C5, C6, C7, C8, C10 and C11. C9
+passes with no condition. C12 and C13 pass only with the fixes they name
+(F4, F5, F6, F8, F9, F10), and say so; each of those fixes is applied. No
+entry passes while describing a gap: the items this validation leaves
+open are open by the plan's design and are settled by its own tests at
+build (the merged store's exact lists, T1 to T4; the on-disk pick, T7;
+whether the door limits variant A, D1). Two things are only reasoned, and
+are marked so where they are used: the size of D1's quadratic stocking
+(a count of rows read, not a timing), and the bounds of number 2's
+fallback. No failure needs the plan's shape rethought: the three
+harnesses on the store's own road, the lists as data held to the store's
+growth, the pick from a compacted copy with checks that fail into a named
+fallback, and one JVM and one cluster per run under the lock all survive
+the traces. Hence minor-fail, fixed in place.
+
+## For Sid
+
+1. **The one-person latency threshold (a sharpening of the plan's Q1).**
+   "At least 100 acts a second at 20 ms or less for the slowest 1 in 100"
+   reads most naturally as an arrival rate, and F5 judges it so, on an
+   open schedule at 100 a second. The slices judged it on closed loops,
+   where a stall shows in one offer instead of in every offer that would
+   have arrived during it. The threshold is the main session's
+   assumption, not yours; which of the two you mean is yours.
+2. **Whose permission an agent's read entry is written under**, possibly
+   first-record. Found while tracing variant C, from the code, not run:
+   the read exit writes an entry with the reader as `:who` and no session
+   (read_exit.clj `entry-offer`), so an agent holding only its session's
+   permission cannot record its reads; the bench reads as the person
+   under the person's root permission instead. RIG.md default 4 records
+   agent session reads "there, and kept or dropped when the session
+   closes". Passing the reader's session into the entry would let an
+   agent's entry cite its session's permission and name its session in
+   the answer record, which a kept record would carry. The rest of phase 5
+   does not change this. Not a phase 7 question; carried so it is not
+   lost.
+3. The plan's Q2 to Q5 stand as written.
+
+PHASE_VALIDATION:minor-fail
