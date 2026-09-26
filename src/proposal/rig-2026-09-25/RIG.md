@@ -33,6 +33,9 @@ code differs from the tested code.
   text (W1-7). Notes: `BUILD_NOTES-wave1.md` and its two validations.
 - Phase 7's plan written (`rig-plan-numbers`, `ae514e3e`): the finished
   store's small agent act makes 9 index writes where the slices counted 4.
+- Phase 7's plan validated (minor-fail, twelve fixes, F1 to F12, applied in
+  place; `PLAN_VALIDATION-numbers.md`) and merged here at `4acf91fb` (merge
+  of `rig-plan-numbers` at `50c0fa4c`).
 - Phase 8's harness, pass 1 (`rig-build-replays`, `29fae374`): all 14
   cases not practical before wave 1, as expected; the model side exact (21
   tests, 752 assertions, 30 mutants all caught). It merges here after pass
@@ -52,7 +55,6 @@ code differs from the tested code.
   in a fresh session; a finding counts only with a test that fails before
   its fix.
 - `build-replays`: phase 8, pass 2, on wave 1, in a fresh session.
-- `plan-numbers`: phase 7's plan validation.
 
 Wave 2's builders were started by builder B and report to its session. A
 successor cannot message them; it reads their branches, where each commits
@@ -361,6 +363,52 @@ wraps, at 147.7 µs a wrap against 1.24 µs (measured, JVM only), and would
 change the wrap record. A forget must reach every task's entry, which the
 act does, and Rama's replicas and RocksDB's leftovers, which is For Sid 25.
 
+**No agent could record a read until wave 1 sealed an agent's or a tool's
+lease row under its layer's person owner** (W1-1, a behaviour change beyond
+the brief; `BUILD_NOTES-wave1.md`, divergence 4, W-V2). The read exit
+records an agent's reads in its person's session layer (default 4), and a
+sealed entry needs a lease there; a lease row was sealed under its writer's
+person lock (For Sid 9), so a writer with no person entry, an agent or a
+tool, could not lease. Wave 1 changed phase 2's lease road to follow
+default 1's text, "wrapped under the session owner's person lock": such a
+writer now seals under the layer's person owner, so the owner's forget
+reaches the agent's unconsumed rows (`locks.clj` `lease-under`; wave1_test
+"an agent's reads are recorded ..."). A writer in a layer with no person
+owner, the base or a group, is still refused `:no-such-person`, and the
+micro gate's lease road still refuses an agent: W1-1 is the stream gate's
+only. Whose lock it should be is For Sid 40.
+
+**`:members` is refused at the stream gate rather than kept there in plain
+text** (W1-7, a behaviour change beyond the brief; `BUILD_NOTES-wave1.md`,
+divergence 5, W-V3). `:members` joined phase 2's control keys, as the
+micro build asked so that a group's making act parses, and the stream
+gate refuses it `:control-not-allowed`, the mirror of the micro gate's
+`foreign-control-keys` (`envelope.clj` 43 to 52; `gate.clj` 219 to 235
+and 357; micro_prepare_test "members only in the making act", wave1_test
+":members ...", both gates).
+The stream gate of phases 1 and 2 admits a fact under a control key when
+the fact is not one it projects, and keeps its value as plaintext outside
+every lock, where it can never be forgotten; wave 1 closed that for
+`:members` only, and the rest is For Sid 37.
+
+**Phase 7's plan, as first written, timed one person's latency only on
+closed loops, which hide a stall** (coordinated omission;
+`PLAN_VALIDATION-numbers.md` C6, fixed by F5). In a closed loop a stall,
+a disk flush, a GC pause or a lease round trip, delays only the offers in
+flight; the offers an arrival at the same
+rate would have made during it are never sent, so none of them records the
+stall, and the measured p99 understates what a person writing at that rate
+would see. At one writer and about 300 acts a second a 20 ms stall costs
+the closed loop one slow offer, where an arrival at 100 a second makes two
+offers during it and at 1,000 a second twenty (*derived*). The
+plan knew the principle and applied it to variant B, not to number 3,
+whose threshold is itself a statement about a rate. F5, applied in place:
+number 3 gains (b'), an open arrival at 100 and 1,000 value acts a second
+with latency from the schedule and a pool of sender threads, and its
+latency threshold is judged there; (a), (b) and number 1 A's latencies are
+labelled closed-loop service times; T5 checks the schedule accounting on a
+synthetic stall. Which reading of the threshold Sid means is For Sid 43.
+
 ## For Sid
 
 Questions that would touch a record, each with what the build does meanwhile;
@@ -409,6 +457,58 @@ rig differs from the model; smaller questions.
    cut's name freezes its rules; both become first-record the moment a kept
    fact carries them.
 
+*From phase 2's and phase 3's build notes, wave 1's, and phase 7's plan
+validation:*
+
+34. **Phase 2's lock forms** (first-record), L3, L4, L20, L21, L24, L26,
+    L27 and L28 in `PLAN-locks-and-forgetting.md`
+    (`BUILD_NOTES-locks-and-forgetting.md`, "First-record picks"): the
+    sealed layout and plaintext, nonce ++ ciphertext ++ tag over the
+    canonical EDN's UTF-8 (L3); raw bytes (L4); the lease fact (L20); lock
+    ids `[lease-name i]` (L21); the sealed fact and the row's `:sealed`,
+    `:lock-id`, `:lock` and `:digest` (L24); the parts digest without lock
+    ids, which is For Sid 2, and the value digest keyed by the lock (L26);
+    the reasons' names (L27); the session-close fact (L28). Added tonight:
+    the lock record's `:scheme :aes-gcm-1` (builder A, `3ddc6eab`), and the
+    store layer's id `:people` and kind `:store` (L7's, as the build names
+    them). Built as listed; the root actor and the operator as one
+    principal is For Sid 1.
+35. **The micro store's lease rows** (first-record, as M16 in
+    `PLAN-micro-store.md` already is). Beside M16's `:layer` and `:session`
+    marks they carry the layer's kind and person owner, which blocks 1 and
+    2b need on the arrival task, before the layer task, to wrap under the
+    owner and to place a lock in a row or the record
+    (`BUILD_NOTES-micro-store.md`, "Build-level choices"). Lease rows are
+    consumed at decision; the build calls them "first-record as M16 already
+    is". Built so.
+36. **A forget fact's entity is its target's** (first-record; W1-5, R24).
+    Phase 2's client already built it so, and the micro gate now relies on
+    it to find the target; a kept forget fact carries this convention
+    (`BUILD_NOTES-wave1.md`, "First-record placeholders"). Built so. Wave 1
+    changed no other form: the lease rows' `:under`, the name row's
+    `:entities`, the index entries and the cap are store state, rebuildable
+    or consumed.
+37. **Which keys are control keys** (first-record; wave 1's question 3).
+    The stream gate of phases 1 and 2 admits a fact under a control key
+    when the fact is not one it projects (a setting key on an entity other
+    than the layer's; `:promote-request` or `:crossed` before phase 4) and
+    keeps its value as plaintext, outside every lock: such a value can
+    never be forgotten. Built: admitted so, except `:members`, refused at
+    the stream gate since wave 1 (W1-7, R26). Should any such fact be
+    refused (`:malformed-control`)? It narrows what a record may carry.
+38. **Whose permission an agent's read entry is written under** (possibly
+    first-record; `PLAN_VALIDATION-numbers.md`, For Sid 2). Found while
+    tracing phase 7's variant C, from the code, not run: the read exit
+    writes an entry with the reader as `:who` and no session
+    (`read_exit.clj` `entry-offer` at `703b8e26`), so an agent holding only
+    its session's permission cannot record its reads; phase 7's bench reads
+    as the person, under the person's root permission, instead. Default 4
+    records agent session reads "there, and kept or dropped when the
+    session closes". Passing the reader's session into the entry would let
+    an agent's entry cite its session's permission and name its session in
+    the answer record, which a kept record would carry. The rest of phase 5
+    does not change this.
+
 **Windows where a forget does not reach at once.** Is each inside "gone for
 everyone including the past"?
 
@@ -429,20 +529,31 @@ everyone including the past"?
 13. **A dropped agent session's read entries** stay openable until the
     drop's forgets finish (`PLAN-reads-rest.md`).
 
-**Where the rig differs from the model** (phase 8 reports each):
+**Where the rig differs from the model** (phase 8 reports each; the KD
+numbers are its pass 1's, `BUILD_NOTES-replays.md` on `rig-build-replays`):
 
-14. **A lease needs the write permission.** A lease act is an act in the
-    layer, so a value act from a writer without permission cites no lock
-    and is refused on its face (`:no-such-lock`, nothing recorded), where
-    the model records a permission refusal.
-15. **A resend inside one micro batch.** If an honest door reseals and
-    resends while its first offer is in the same batch, one is decided and
-    the other hears `:name-taken` on its face; the offerer then finds the
-    answer by name. In the stream store a resend always gets the recorded
-    answer.
-16. **Acts the model does not have:** a lease before each write, a landing
-    lease before a promotion, the read-out as the next event of the
-    request's own record, and the stored forward re-sent after a crash.
+14. **A lease needs the write permission** (phase 8's KD1). A lease act is
+    an act in the layer, so a value act from a writer without permission
+    cites no lock and is refused on its face (`:no-such-lock`, nothing
+    recorded), where the model records a permission refusal.
+15. **A resend inside one micro batch** (phase 8's KD19, which no fixed
+    history exercises). If an honest door reseals and resends while its
+    first offer is in the same batch, one is decided and the other hears
+    `:name-taken` on its face; the offerer then finds the answer by name.
+    In the stream store a resend always gets the recorded answer.
+16. **Acts the model does not have** (phase 8's KD2 to KD5): a lease
+    before each write, a landing lease before a promotion, the read-out as
+    the next event of the request's own record, and the stored forward
+    re-sent after a crash.
+
+*From wave 1's build notes:*
+
+39. **Per-act grain across entities** (wave 1's question 2; IMPLICIT_SPEC
+    D12, O8). Built: ruling 7's letter, one lock for all of an act's values
+    across entities, forgotten as a whole (W1-6, R25). The model keeps one
+    lock per act per partition (`[:act name p]`), so forgetting one value
+    of an act spanning entities erases only that partition's values there.
+    Phase 8 will report the difference. Which is meant?
 
 **Smaller questions:**
 
@@ -467,6 +578,40 @@ everyone including the past"?
 22. **Re-class and promotion.** A target re-classed between the request and
     the landing refuses the landing; promotion out of a re-classed layer is
     not built.
+
+*From wave 1's build notes and phase 7's plan validation:*
+
+40. **Whose lock seals an agent's lease?** (wave 1's question 1). Built
+    (W1-1, R20): the session layer's person owner. The alternatives: an
+    agent is its own principal with a lock of its own (then Alice's forget
+    does not reach her agent's lease rows until its session closes, For
+    Sid 9's window); or agents lease as the operator, bare (For Sid 32's
+    road for tools). Touches no record's form: lease rows are consumed
+    state.
+41. **Forgetting one's own values after a re-class** (wave 1's question 4).
+    Built: at the micro gate a forget is the operator's (M14, kept); a
+    personal layer re-classed to the micro store keeps row locks, but its
+    owner can no longer forget a value there. IMPLICIT_SPEC keeps "whether
+    a person can always forget their own values" open. Should the owner's
+    forget follow the layer?
+42. **The person forget's enumeration at scale** (wave 1's question 5,
+    carried from phase 2). It scans every act on each task inside the
+    fan-out child, over any per-event budget at scale: for a person with
+    100,000 values on a task, minutes inside one fan-out child
+    (`BUILD_NOTES-locks-and-forgetting.md`, "Seams and stubs"). Built: as
+    phase 2 left it, now purging. The named fix is an index from a person
+    to the locks wrapped under them, or `PLAN-reads-rest.md`'s paged
+    `dying-with>` run by the operator after the forget; not built tonight
+    (not small).
+43. **The one-person latency threshold** (`PLAN_VALIDATION-numbers.md`,
+    For Sid 1, a sharpening of `PLAN-numbers.md`'s Q1). "At least 100 acts
+    a second at 20 ms or less for the slowest 1 in 100" (default 7) reads
+    most naturally as an arrival rate, and F5 judges it so, on an open
+    schedule at 100 a second. The slices judged it on closed loops, where a
+    stall shows in one offer instead of in every offer that would have
+    arrived during it (Found tonight, coordinated omission). The threshold
+    is the main session's assumption, not Sid's; which of the two he means
+    is his.
 
 **From the caching examination** (`EXAMINATION-copies.md`):
 
@@ -493,7 +638,10 @@ everyone including the past"?
 28. **Forget's reach over reads** (phase 8's KD10). After a person is
     forgotten, no read can be recorded for them through the exit, since
     the read entry's lease is refused, so nobody reads their one-owner
-    layers there any more. Is that the intended reach?
+    layers there any more. Wave 1 asks it again (`BUILD_NOTES-wave1.md`,
+    question 6): in its build the exit refuses a forgotten person's reads,
+    since their read entries cannot lease, and `rig.store.wave1-test` reads
+    their layer below the exit. Is that the intended reach?
 29. **Where a shared layer's indexes live, at scale.** Tonight every index
     of a shared layer sits on that layer's own task (RR5): ruling 2's
     letter (rows and log by entity) but not its intent. At the yardstick
@@ -822,6 +970,106 @@ Four more findings, each ran:
   set, which the rama skill's cross-phase rule forbids. The walk reads at
   most four ancestors a check and writes once a revoke. Either can change
   later without touching a record.
+
+Wave 1's choices, R20 to R31 (`BUILD_NOTES-wave1.md`, "For RIG.md", W1-1
+to W1-12): each changes no record's form unless it says so, and only R24
+does; the lease rows' `:under`, the name row's `:entities`, the index
+entries and the put page's cap are store state, rebuildable or consumed.
+
+- **R20. An agent's or a tool's lease is sealed under its layer's person
+  owner** (W1-1, `locks.clj` 591 to 606), default 1's "session owner", so
+  the owner's forget reaches the agent's unconsumed rows; a person writer
+  still seals under their own lock (L23), the root actor's rows stay bare,
+  and a writer in a layer with no person owner (the base, a group) is
+  refused `:no-such-person` as before. The micro gate's lease road still
+  refuses an agent, left to wave 2; lease rows are consumed state (For Sid
+  40).
+- **R21. A forget's purge is wired in the module** (W1-2): `reads/purge>`
+  runs in the value forget's decision group right after the lock writes,
+  and in the person forget's fan-out child once per value that died on
+  that task. Phase 2's ops cannot call the read exit back, since the read
+  exit requires phase 2's namespace for its open step.
+- **R22. A person forget's purge is dated by the day the value's wrap
+  closed** (W1-3), `wrap-closed` over the entries on the task, the date the
+  open step and a rebuild give; a value with a ledger entry is not purged
+  again, and a resent person forget purges again, idempotently. Phase 2's
+  seam passed the person's own date, which would move the date of a value
+  an earlier forget had closed.
+- **R23. One read, one view of who is forgotten** (W1-4): the open step
+  carries the person entries through each read or page and reads each
+  person once, so a read racing a person forget judges all its rows by the
+  entries it first read, the same edge as For Sid 19 and 30.
+- **R24. A micro value forget names its target's entity in the forget
+  fact's `:e`** (W1-5), as the model's forget does and phase 2's client
+  already builds it; forgets at the micro gate stay the operator's (M14).
+  First-record: a kept forget fact carries this convention (For Sid 36).
+- **R25. An act whose one lock spans entities keeps them on its name row**
+  (W1-6): `$$micro-names [name :entities]`, entity to batch, written only
+  for such acts, a field the micro plan's schema lacks, so a forget of any
+  of its values reaches every entity and dates each entity's ledger.
+  Whether one lock should span entities is For Sid 39.
+- **R26. `:members` is a control key, refused at the stream gate** (W1-7)
+  with `:control-not-allowed`, the mirror of the micro gate's
+  `foreign-control-keys`. It closes `:members` only; the other control-key
+  facts the stream gate does not act on stay plaintext (For Sid 37).
+- **R27. The micro store's `$$persons` placeholder is removed** (W1-8), and
+  the micro gate reads the gate topology's `$$persons`. Removed rather than
+  set false, as the brief said: turned on, it would declare `$$persons`
+  twice and the module would not launch, so off was its only state.
+- **R28. `read-as-of` is internal by contract, not by construction**
+  (W1-9): kept as the store's own view for tests and the operator, since
+  phases 4 and 8 plan on `c/read-as-of` and `c/opens?`, never a reader's
+  path; the rig has no caller identity, so any client can still invoke it.
+  `:by-stamp` stays until wave 2's `:ix-s` decides it.
+- **R29. A sweep compares index entries by content** (W1-10), bytes as
+  vectors, where the read exit compared with `=`: phase 2's rows carry byte
+  arrays.
+- **R30. The test-only `:put` index op can copy a fact's log row** (W1-11,
+  `:copy? true`), so a test can plant a value-index entry whose value no
+  longer opens.
+- **R31. The rebuild's put page stops at 2,048 rows, down from 4,096**
+  (W1-12), from the re-measurement in `BUILD_NOTES-wave1.md` ("The put
+  page's cap, re-measured"); an act larger than the cap still makes one
+  page of its size.
+
+Phase 8's replays, R32 to R41 (pass 1; `BUILD_NOTES-replays.md` on
+`rig-build-replays`, "For RIG.md", P8-1 to P8-10): the replays write no
+record form of their own, and the names they choose (`:alice-session`,
+`:bob-session`, `:bob-hand`, the fallback's suffixed names) are test data
+in records nobody keeps, so each can change without touching a record.
+
+- **R32. The replays play in lockstep with the model** (P8-1): the model
+  is stepped op by op with its own public functions, and each rig act is
+  sent at the op that decides its counterpart (RP1).
+- **R33. A fresh module per case on one in-process cluster**, 4 tasks, 2
+  threads (P8-2), chosen by a road check made once per run (launch,
+  destroy, launch); the fallback, one module with a fresh world per case,
+  is taken when the second launch fails or passes 15 s, or when
+  `RIG_REPLAY_ROAD=one-module` forces it (RP2).
+- **R34. `:values` come from the store's own opening** (P8-3), found from
+  the rig's own records; reads go through the exit as a live reader, and
+  the store's view beside a refused exit read is compared too (RP3).
+- **R35. A continuation is held only when the model decides it in a later
+  op** (P8-4): a read-out by phase 4's `:before-read-out` hold and the
+  door's resend, a landing by pausing the micro topology, with
+  `:before-forward` as the fallback (RP4).
+- **R36. D1's prepare and commit play as one batch**, approximated (P8-5,
+  RP5).
+- **R37. Writers cite their own permission**, the model's pid mapped, the
+  direct road (P8-6); sessions `:alice-session` (in `:alice` and `:group`)
+  and `:bob-session` (in `:group`) are opened in every case's seed, and Bob
+  reads from a rig-only `:bob-hand` (RP6, F4).
+- **R38. Known differences are data** (P8-7): the test fails on a baseline
+  `:values` or `:shown` difference, on any difference none of them
+  explains, on a status worse than predicted, and on a namespace that is
+  there and does not load (RP7).
+- **R39. The report `runs/phase8-replays.txt` is rewritten by every run**
+  (P8-8, RP8); `RIG_REPLAY_REPORT` names another path.
+- **R40. Before each stream-side value act the door leases ahead** (P8-9,
+  `stock!`), so every lease's answer is seen and judged (F11).
+- **R41. Every rig call is bounded at 120 s and every poll at 60 s**
+  (P8-10); after a call that does not return no later case is played,
+  since a stale call could reach the next module of the same name.
 
 ## Numbers so far
 
