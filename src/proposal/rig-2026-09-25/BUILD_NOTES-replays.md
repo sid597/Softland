@@ -516,8 +516,9 @@ main's only later change there is `STARTER-round-3.md`.
   `:batch` (`shared-answer`, L378-388).
 - `rig.store.shared-reads/moment`, the adapter's sign for the shared read
   (here L629), exists (P5b L282), so the group's reads leave phase 3's
-  frontier read for the exit on their own, and A3, A4 and A6 reach KD10's
-  rule.
+  frontier read for the exit on their own. A3's and A6's closing reads then
+  reach KD10's rule (both members forgotten, Alice reads); A4's is Bob's
+  (F4), so KD10 does not show there.
 - The person forget with the micro index purge is `read-exit/forget-person!`
   (P5b read_exit.clj L362-370): phase 2's act, then `purge-person!`'s pages
   (L337-360), each waiting on the micro topology (`micro-op!`, L280-298).
@@ -561,3 +562,256 @@ main's only later change there is `STARTER-round-3.md`.
 | (new) the request's uuid | `env/uuid7`, made before the lease, as `promote!` makes it | B1-B4 |
 | (new) the model's grammar as facts | `rig.store.toy-grammars/write!` (stage 6) | all |
 | (dropped) `env/make-name` for the request's name | the name comes from `request-offer` | — |
+
+### The changes, in the order the build makes them
+
+**P3-1. The merge.** `git merge rig-2026-09-25` once wave 2 has landed
+there. No wave 2 branch touches the replay's files; if the merge brought an
+edit to `replay_test.clj` (wave 2's merger runs `rig.replay-test` in its
+suite), that edit is read first and kept.
+
+**P3-2. The API table** (`apis`, here L559-630). Stage 4 rebound to
+`rig.store.promote-client`: `connect`, `lease-landing!`, `request-offer`,
+`resend!` and `status-of`, each `:built`; `inject/hold!` and `release!`
+marked built. Added for the B cases: `client/raw-row` (stage 2) and
+`env/uuid7` (stage 1). Dropped: `env/make-name`, which only named the
+request. Added for every case: `rig.store.toy-grammars/write!` as stage
+"6", which joins `stage-order`.
+
+**P3-3. The promotion's plays** (here L1128-1303).
+
+- `play-request!`, at the model's decision of the request: u by
+  `env/uuid7`; the target's class by `micro-client/settings-of`, as
+  `promote!` reads it; `lease-landing!` into the target by Alice in her
+  session `:alice-session`, citing her permission there (the model's
+  landing permission mapped, `[:alice :group :group [:group :group
+  :group]]`). The landing lease is recorded as a rig-only act with its
+  `(:answer ll)`. KD3 is marked only when that answer is yes, `:public` is
+  there, and `:for` is the landing the request will cause, `(env/landing-name
+  req T C)`; otherwise a difference named as itself (F11). With no
+  `:public` the door sends no request (P4-11), so the model's request has
+  no counterpart, reported as such. Then `request-offer` with the mapped
+  source, its stamp and entity read as `promote!` reads them, the target,
+  its class, the public key, the landing permission, the model's
+  `:replaces` mapped (nil in all four), the subjects nil (the door's `#{}`)
+  and u. Then, by the model's later decisions as now (`decided-later?`):
+  the hold armed on the request's name at `:before-read-out` (B1, B2), or
+  the micro topology paused (B3, B4). Then the door's send. The request's
+  record keeps its offer and its ack.
+- `resend-request!`: `promote-client/resend!` with the kept offer; the
+  resend's ack is kept on the request's record.
+- `play-crossing!`: the road is unchanged (release and resend when held,
+  then the crossing's record by `c/record` of its name). Added, D2's check:
+  when the request's or the resend's ack carries `:crossing`, its answer
+  and reason must be the record's, else a difference.
+- `play-landing!`: the landing's name with the class the request carries.
+  On a model yes and a rig no, the line names the phase 4 F9 condition the
+  rig's reason points to: `:landing-lock-gone`, her landing lease row gone
+  (her forget deleted her lease rows in the target, or closed her session
+  there); `:person-forgotten`, a person check on the landing's `:who`,
+  which the micro gate does not make (PR13); `:no-such-lock`, no lease row
+  bound to the landing.
+- `call-promotion-status`: `status-of`, the keyword.
+- `connect` (here L759-766): the exit's handles merged with
+  promote-client's when phase 4 resolves, else with micro-client's.
+
+**P3-4. The group read through the exit** (here L1031-1037, L1372-1449,
+L1470-1539).
+
+- `exit-read!` takes the read's moment: nil for a one-owner layer,
+  `{:frontier F}` for the group, F read by `micro-client/frontier` just
+  before the read. The store's view below the exit, beside a refusal, takes
+  the same moment. The answer's `:moment` is kept, and the read line prints
+  it (`group as alice at F`).
+- A group read's moment must cover every batch the replay waited past:
+  `wait-frontier!` records the largest, and a read whose moment is
+  `{:frontier F'}` with F' below it is a difference (a read that could miss
+  a decided act).
+- F2 completed on the group. The group is also read by pattern below the
+  exit (`read-pattern`, `[:all]`, the same moment, as the live member); a
+  row that is no counterpart of a model fact in this read and not a
+  rig-only kind is a difference, as for one-owner layers. The group side of
+  F2 was "every rig name the replay sent into the group", a stand-in for
+  this read until it existed.
+- F1 completed on the group. `rig-values!` reads the group by `[:k k]` below
+  the exit too, as it reads a one-owner layer; a row matching a ref that no
+  act the replay knows of carries is a difference.
+- The layers a read covers include the target of every request sent so
+  far, where its landing lease went (D6: the layers the rig wrote into). So
+  B1 and B2 read the group at every read, and a landing the rig made where
+  the model made none would show.
+- `rig-only-keys` (here L931-936) gains `:grammar` (P3-5) and the standing
+  reads' keys `:read/standing`, `:read/delivery`, `:read/closed`.
+- The roads line says "the group read through the exit at {:frontier F}".
+
+**P3-5. The world after phase 6.**
+
+- The seed writes the model's grammar as facts, `toy-grammars/write!`, into
+  the model's three one-owner layers (`:alice`, `:alice-hand`,
+  `:alice-agent`), right after they are made and before any other act in
+  them. Bob's rig-only `:bob-hand` gets none: no value is written there.
+  The `:note` fact the helper also writes names no one, as the model's
+  `:note` does; its value index is read by no replay read.
+- KD8's rule gains the grammar: the model's one grammar is a constant; since
+  phase 6 the rig's is a fact in each one-owner layer, written by the
+  operator in the seed, and the micro side reads the constant until step
+  6b.
+- A guard, so step 6b cannot change the world under a case without it
+  showing: when the micro gate takes grammar facts (`:grammar` in
+  `rig.store.micro/control-keys`, the sign step 6b's own list names, P6b
+  BUILD_NOTES-tools-and-grammars.md L237, L248), a case that writes a
+  `:mention` into the group (A2, A4 to A7) is not practical: "step 6b is
+  built: the group's grammar is a fact, and the seed writes it on the
+  stream side only". With its stages resolved that fails the test.
+
+**P3-6. The report and these notes.** The header's stages line gains stage
+6; the roads line names the promotion's two steps and the group's moment. A
+section "Pass 3, after wave 2" records the run, the cases, every DIFFERS
+line with its cause, the findings and "For RIG.md".
+
+### The B cases: what each binds to, and what the model says it must answer
+
+The model's side is its own run under `baseline` (the traces, L117-244);
+names are the model's (`o0`, `o2`, `o3`, `crossing:o2`, `landing:o2`), and
+stamps are compared only by the relations KD12 names. Every case's seed is
+the world table's plus P3-5's grammar facts; every case settles Alice's
+note `o0` (`e0 :note {:token "v1"}` into `:alice`) first: the model's yes at
+`[:work 0]`, the rig's `stock!` lease in `:alice` (KD2) and the value act,
+both yes. Reads compare the case's own facts (KD11): in `:alice` through
+the exit as Alice (the store's view below it beside a refusal), in the
+group per the next section, and each request's status by `status-of`.
+
+**B1, a value forget queued before the read-out: pending, then refused.**
+
+| model op | the model decides | the rig plays, and must answer |
+|---|---|---|
+| `[:promote 0 :group 1]`, `[:forget-value 0]` | queues `o2` (source `o0#0`), then `o3` (target `o0#0`) | nothing yet: the rig acts at the decision |
+| `[:step 0]` | `o2` yes | the landing lease in `:group`, yes, `:for` the landing (KD3); the hold at `:before-read-out` on the request's name (the model decides `crossing:o2` two ops later); the request, yes, its ack with no `:crossing` |
+| `[:read :now]` | `o0#0` v1, `o2#0` `{:source o0#0 :target :group}`; `o2` pending | `[o0 0]` `{:token "v1"}`; `[req 0]` a value holding the mapped source and `:group` (KD20); the group holding no case fact; `:pending` |
+| `[:step 0]` | `o3` yes; `o0#0` erased | `forget-value!` by Alice of `[o0 0]`, yes, with `:how` (KD17) |
+| `[:read :now]` | `o0#0` erased, `o2#0`, `o3#0` `{:target o0#0}`; pending | `[o0 0]` erased after its stamp (KD12); `[req 0]`; `[o3 0]` holding `[o0 0]` (KD20); `:pending` |
+| `[:step 0]` | `crossing:o2` no `:source-erased` | release, the door's resend answered from the record (yes), whose event reads out: the crossing's record no `:source-erased` (KD4), the resend's ack `:crossing` the same (D2's check) |
+| closing read | as before; `o2` refused | as before; `:refused` |
+
+Values: `alice note` erased. Shown: `[:pending :pending :refused]`. Phase
+4's T1 played the same shape against the model's `:shown` (P4b
+promote_test.clj L327-357).
+
+**B2, Alice forgotten before the read-out: pending, then refused.**
+
+| model op | the model decides | the rig plays, and must answer |
+|---|---|---|
+| `[:promote 0 :group 1]`, `[:step 0]` | `o2` yes | the landing lease, yes (KD3); the hold; the request, yes |
+| `[:read :now]` | `o0#0` v1, `o2#0`; pending | `[o0 0]` v1, `[req 0]` (KD20); the group holding no case fact; `:pending` |
+| `[:forget-person :alice]` | her person lock destroyed | `forget-person!` of Alice, yes, its fan-out seen on all 64 keys (KD7) |
+| `[:work 0]` | `crossing:o2` no `:source-erased` | release, the door's resend by a forgotten requester, answered from the record (yes; phase 4's T2 did the same for Ann, P4b promote_test.clj L338-366); the crossing no `:source-erased` (KD4), the ack's the same |
+| closing read | `o0#0` erased, `o2#0`; refused | `:alice` refused for Alice (KD10, F3's rule: the entry's lease `:person-forgotten`, the entry `:no-such-lock`), the store's view beside it: `[o0 0]` erased, `[req 0]`; the group, read as Bob, holding no case fact; `:refused` |
+
+Values: `alice note` erased. Shown: `[:pending :refused]`.
+
+**B3, a value forget after the read-out: crossed, then done; the copy stays.**
+
+| model op | the model decides | the rig plays, and must answer |
+|---|---|---|
+| `[:promote 0 :group 1]`, `[:work 0]` | `o2` yes, then `crossing:o2` yes; `landing:o2` queued | the landing lease, yes (KD3); the micro topology paused (the model decides the landing at `[:batch]`); the request, yes, its ack `:crossing` yes; the forward waits in `*micro-offers`; the crossing's record yes (KD4), the ack's the same |
+| `[:read :now]` | `o0#0` v1, `o2#0`, `crossing:o2#0` `{:request o2 :source o0#0}`; crossed | `[o0 0]` v1, `[req 0]`, `[crossing 0]` holding the request's name and `[o0 0]` (KD20); the group holding no case fact (the shared read runs while paused: a query, not the batch); `:crossed` |
+| `[:forget-value 0]`, `[:work 0]` | `o3` yes; `o0#0` erased | `forget-value!`, yes, `:how` (KD17) |
+| `[:read :now]` | `o0#0` erased, `o2#0`, `crossing:o2#0`, `o3#0`; crossed | the same, `[o0 0]` erased; `:crossed` |
+| `[:batch]` | `landing:o2` yes, at `[:micro 0]` and `[:micro 2]` (one yes, F6) | the topology resumed; the landing's answer by `micro-client/lookup` of `(env/landing-name req :group :by-entity)`: yes, not `:landing-lock-gone`; the frontier past its batch (KD13) |
+| `[:read :now]` | adds `landing:o2#0` in the group, v1; done | `:alice` as before; the group as Alice through the exit at `{:frontier F}`: `[landing 0]` `{:token "v1"}`; `:done` |
+| closing read | the same | the same |
+
+Values: `alice note` erased, `group note` open (the store's opening of the
+landing's row through F). Shown: `[:crossed :crossed :done :done]`.
+
+**B4, Alice forgotten after the read-out: crossed, then done; the copy stays.**
+
+| model op | the model decides | the rig plays, and must answer |
+|---|---|---|
+| `[:promote 0 :group 1]`, `[:work 0]` | `o2` yes, `crossing:o2` yes | as B3: lease, pause, request, crossing |
+| `[:read :now]` | `o0#0` v1, `o2#0`, `crossing:o2#0`; crossed | as B3's first read; `:crossed` |
+| `[:forget-person :alice]` | her lock destroyed | `forget-person!` of Alice while the micro topology is paused: the act and its fan-out are the stream gate's, so nothing waits on the pause; yes, fan-out seen (KD7). Not `read-exit/forget-person!`, whose purge pages would wait on the paused topology |
+| `[:batch]` | `landing:o2` yes | resumed; the landing yes (F5: a refusal fails the test, its line naming F9's condition); her bare landing lease row outlived her forget (phase 4's T4, P4b promote_test.clj L433-434); the frontier past its batch (KD13) |
+| `[:read :now]` | `o0#0` erased, `o2#0`, `crossing:o2#0`, `landing:o2#0` v1; done | `:alice` refused for Alice (KD10), the store's view beside it; the group as Bob (F4) through the exit: `[landing 0]` v1; `:done` |
+| closing read | the same | the same |
+
+Values: `alice note` erased, `group note` open. Shown: `[:crossed :done
+:done]`.
+
+Under `baseline-but-not-p6-line-at-the-read-out` the model's B lines are as
+said with P6 objecting to B3's and B4's copies; the rig's line beside
+them says the outcome is baseline's and the objections are the model's own
+(unchanged since pass 1).
+
+### The group read through the exit, case by case
+
+The reader is the live member (F4): Alice, else Bob; with neither, Alice,
+whose refusal KD10 judges. Each group read asks `{:frontier F}` with F the
+frontier just before it; point reads of the counterparts of the model's
+group facts go through the exit (an entry in the reader's working layer,
+KD6), and the pattern read below the exit looks for anything else.
+Predicted from the code read, not run:
+
+| case | reader at the reads that touch the group | predicted |
+|---|---|---|
+| A2 | Alice (Bob forgotten) | the mention of Bob erased |
+| A3 | Alice, forgotten: refused | KD10; the store's view: the note open |
+| A4 | Bob (Alice forgotten) | the mention of both open; KD10 predicted by the plan's table and not seen, since F4 gave the group a live reader (a stale prediction, printed, failing nothing) |
+| A5 | Alice (Bob forgotten) | open |
+| A6 | Alice, forgotten: refused | KD10; the store's view: erased |
+| A7 | Alice (Bob forgotten) | the marked mention erased |
+| B1, B2 | Alice; Bob after B2's forget | no case fact in the group: no point read and no entry, the pattern read only |
+| B3 | Alice | reads 1 and 2 (paused): no case fact; read 3 and the closing read: the landing's copy v1 |
+| B4 | Alice at read 1; Bob after her forget | read 1: no case fact; read 2 and the closing read: the landing's copy v1 |
+| D1 | Alice | no case fact (the write refused): the pattern read only |
+| D2 | Alice | the revoke `o0#0`, a control fact holding the mapped pid (KD20) |
+
+The landing's copy through the exit (B3, B4) is the first read of a landed
+copy through the shared exit anywhere in the rig: phase 4's tests read it
+through the frontier (`micro-copy`, P4b promote_test.clj L127-131), and
+phase 5's rest's tests have no landing (neither `reads_rest_test.clj` nor
+`shared_reads_test.clj` names one). Block 2d indexes an act's rows in the
+batch that decides it, and `open-entry>` opens an entry from its copies of
+the row and its lock record (P5b shared_reads.clj L700-721); whether a
+landing's row gets such an entry depends on how wave 2's merger joined
+phase 4's landing path and phase 5's block 2d in `micro.clj`, in conflict
+at the prep. Predicted open. If the copy is unreadable or absent through
+the exit while the store's own opening finds it open, that is a finding
+about the rig (a seam between phases 4 and 5's rest), once the trace shows
+the entry; it is not the adapter's.
+
+### Not exercised, and why
+
+- `promote!` whole: its two steps are, with its own functions and order.
+- `read-exit/forget-person!`, the person forget with the micro index purge:
+  B4 forgets Alice while the micro topology is paused, and `purge-person!`'s
+  pages wait on it (`micro-op!`), so the wrapper would stall B4 for 120 s.
+  The replay keeps phase 2's act, as passes 1 and 2 did. The shared read
+  opens an entry through `$$persons` (`open-entry>`), so a dying entry reads
+  erased whether or not the purge ran; the purge's own promise is phase 5's
+  rest's tests' to check.
+- The re-classed base: no fixed history has a case fact there (KD8), and
+  the model's reads show only its grants, which KD11 leaves out, so the
+  replays do not read it. The shared read of the base is phase 5's rest's
+  tests'.
+- Standing reads, deltas and `[:kv]` reads: the fixed histories have no
+  counterpart.
+- The group's grammar as a fact: step 6b, not built; guarded (P3-5).
+
+### What the run should show
+
+One run, under the lock, from the rig folder, then `cp
+runs/phase8-replays.txt runs/phase8-replays-pass3.txt`. Predicted: 14
+cases, 14 played; A1 to A8 and D2 "as said"; D1 "approximated (prepare and
+commit are one batch …); as said"; B1 and B2 "approximated (the hold at
+:before-read-out and a resend …); as said"; B3 and B4 "approximated (the
+paused micro topology …); as said"; stages 1, 2, 3, 4, 5a, 5's rest and 6
+resolved; the group read through the exit at `{:frontier F}` in A2 to A7,
+B3, B4 and D2. Known differences seen, beyond pass 2's merged run
+(`runs/phase8-replays.txt` at 06:45:59, KD1 seen in D1 and D2): KD3, KD4 in
+B1 to B4; KD13 in B3, B4; KD17 in B1, B3; KD20 in B1 to B4; KD10 in B2, B4
+and, through the group, A3 and A6; KD6 in A2 to A7 and D2, whose group
+reads now make entries (pass 2 printed it "predicted, not seen" there).
+Predicted, not seen: KD10 in A4 (F4, above). Every DIFFERS line is either
+a finding about the rig, for RIG.md, or a bug in the adapter, and the
+notes say which, with the trace.
