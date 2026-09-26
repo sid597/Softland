@@ -223,6 +223,44 @@
           (is (empty? (c/lease-rows st :base :s/t6b)))
           (is (= :done (status-kw st p)))))
 
+      (testing "the hold hook: a hold ends the record's processing at its point and never blocks the task"
+        (let [n (note! st :alice :alice :h1 "held")
+              u (env/uuid7)
+              req (ps/request-name :alice u)
+              _ (inject/hold! :before-read-out req)
+              p (pc/promote! st (assoc (spec-into :alice (:fid n) :base :by-layer :s/h1) :uuid u))
+              t0 (System/currentTimeMillis)
+              other (note! st :alice :alice :h2 "decided while the hold stands")
+              t1 (System/currentTimeMillis)]
+          (testing "held before the read-out: the request answered, no crossing, and the task never blocked"
+            (is (inject/held? :before-read-out req))
+            (is (= :yes (get-in p [:request :answer])))
+            (is (nil? (:crossing p)))
+            (is (nil? (c/record st (env/crossing-name req))))
+            (is (= :yes (get-in other [:answer :answer])) "another act on the same layer's home task is decided while held")
+            (is (< (- t1 t0) 15000) "promptly: nothing waits on the hold")
+            (is (nil? (:crossing (pc/resend! st p))) "a resend while held stops there too")
+            (is (= :pending (status-kw st p))))
+          (testing "released, and held before the forward: the resend reads out, and stops before the landing"
+            (inject/release! :before-read-out req)
+            (is (not (inject/held? :before-read-out req)))
+            (inject/hold! :before-forward req)
+            (let [r (pc/resend! st p)]
+              (is (= :yes (get-in r [:crossing :answer])))
+              (is (nil? (:landing r)))
+              (is (nil? (c/record st (lname-of p))))
+              (is (= :crossed (status-kw st p)))))
+          (testing "released: the next resend sends the stored forward, and it lands"
+            (inject/release! :before-forward req)
+            (let [r (pc/resend! st p)]
+              (is (= :yes (get-in r [:landing :answer])))
+              (is (= :done (status-kw st p)))
+              (is (= {:value "held"} (c/opens? st :base [(lname-of p) 0])))))
+          (testing "reset-all! clears every hold"
+            (inject/hold! :before-read-out req)
+            (inject/reset-all!)
+            (is (not (inject/held? :before-read-out req))))))
+
       ;; the base's T10 c: the request before the re-class, the landing after it
       (let [n (note! st :alice :alice :t10c "crossed before the base's re-class")
             p (promote-held! st (spec-into :alice (:fid n) :base :by-layer :s/t10c) :before-forward)]
@@ -308,8 +346,8 @@
                 persons (into {} (for [q [:alice :bob :ann :ava]] [q (c/person st q)]))
                 ;; the stream store's lease rows and lock rows in the layers these acts touched
                 stream-rows (for [L [:alice :ann :base]
-                                  [_ rows] (foreign-select [(keypath L :leases) ALL] (:layers st))
-                                  [_ row] rows]
+                                  sess (foreign-select [(keypath L :leases) MAP-KEYS] (:layers st))
+                                  [_ row] (c/lease-rows st L sess)]
                               row)
                 lease-locks (keep #(locks/unlease % (get persons (:under %))) stream-rows)
                 row-locks (for [L [:alice :ann] [_ rec] (c/lock-rows st L)
@@ -374,6 +412,7 @@
 
           (testing "T5: both sides of the read-out line, by stamp"
             (let [rs (get-in p3 [:request :stamp]) cs (get-in p3 [:crossing :stamp]) ls (:landing-stamp s3)]
+              (is (< (:stamp n3) rs cs ls) "the source, the request, the crossing, the landing: in stamp order, across both stores")
               (is (= :none (status-as-of st p3 (dec rs))) "nothing admitted after the moment is shown ([F5])")
               (is (= :pending (status-as-of st p3 rs)))
               (is (= :pending (status-as-of st p3 (dec cs))))
@@ -613,6 +652,101 @@
           (is (contains? (mcopy) :erased-at) "about one person in a shared layer, it dies with her (7b as written)")
           (is (= "a note about no one" (:value (ncopy))) "a note about no one survives both")))
 
+      (testing "T15: the implicit spec's other cases (OP13 to OP15)"
+        (testing "a hand session's and an agent session's value promote as a personal one's; the agent source's excision leaves the copy"
+          (let [nh (note! st :alice :alice-hand :t15h "from the hand session")
+                na (note! st :alice :alice-agent :t15a "from the agent session")
+                ph (pc/promote! st (spec-into :alice (:fid nh) :group :by-entity :s/t15h :layer :alice-hand))
+                pa (pc/promote! st (spec-into :alice (:fid na) :group :by-entity :s/t15a :layer :alice-agent))]
+            (is (= :done (:status (settled! st ph))))
+            (is (= :done (:status (settled! st pa))))
+            (is (= "from the hand session" (:value (micro-copy st :t15h (lname-of ph)))))
+            (is (= :excised (:how (c/forget-value! st :alice :alice-agent (:fid na)))) "an agent layer keeps its locks in the record")
+            (is (contains? (c/opens? st :alice-agent (:fid na)) :erased-at))
+            (is (= "from the agent session" (:value (micro-copy st :t15a (lname-of pa)))) "the copy stays")))
+        (testing "two requests for one value are two promotions: both land, unless the first moved the head the second names"
+          (let [g (mc/write! st {:who :bob :layer :group :session :s/bob15 :permission (gp :bob)
+                                 :facts [{:e :t15d :k :note :v "the head"}]})
+                gfid [(:name (:offer g)) 0]
+                n (note! st :alice :alice :t15d "promoted twice")
+                pa (pc/promote! st (spec-into :alice (:fid n) :group :by-entity :s/t15d1 :replaces gfid))
+                sa (settled! st pa)
+                pb (pc/promote! st (spec-into :alice (:fid n) :group :by-entity :s/t15d2 :replaces gfid))
+                sb (settled! st pb)
+                pc3 (pc/promote! st (spec-into :alice (:fid n) :group :by-entity :s/t15d3))
+                pd (pc/promote! st (spec-into :alice (:fid n) :group :by-entity :s/t15d4))]
+            (is (= :done (:status sa)))
+            (is (= [:refused :landing :stale-replaces] ((juxt :status :at :reason) sb)))
+            (is (= [:done :done] [(:status (settled! st pc3)) (:status (settled! st pd))]) "replacing nothing, both land")))
+        (testing "a refused request is no promotion: no read-out, and the status says so"
+          (let [n (note! st :alice :alice :t15r "a request refused")
+                u (env/uuid7)
+                o (pc/request-offer {:who :alice :layer :alice :permission [:alice :alice :alice] :session :s/t15r
+                                     :source (:fid n) :source-stamp (:stamp n) :source-e :t15r
+                                     :target :group :class :by-entity :public (locks/fresh-bytes 44)
+                                     :landing-permission (gp :alice) :uuid u})
+                a (c/offer-until-answered! st o)
+                s (pc/promotion-status st :alice (:name o) nil)]
+            (is (= [:no :malformed-control] ((juxt :answer :reason) a)) "[F2] a public key that is no X25519 key")
+            (is (nil? (:crossing a)))
+            (is (nil? (c/record st (env/crossing-name (:name o)))))
+            (is (= {:status :none :request-refused :malformed-control} (select-keys s [:status :request-refused])))))
+        (testing "a request for a value already erased is admitted; its read-out refuses"
+          (let [n (note! st :alice :alice :t15e "erased before its request")
+                _ (c/forget-value! st :alice :alice (:fid n))
+                p (pc/promote! st (spec-into :alice (:fid n) :group :by-entity :s/t15e))]
+            (is (= :yes (get-in p [:request :answer])) "the request checks nothing about its source")
+            (is (= [:refused :source-erased] ((juxt :status (comp :reason :crossing)) p)))))
+        (testing "a request for a fact with no value: no such fact, a retract"
+          (let [n (note! st :alice :alice :t15f "a value")
+                none [(first (:fid n)) 3]
+                p1 (pc/promote! st (spec-into :alice none :group :by-entity :s/t15f1 :source-stamp (:stamp n) :source-e :t15f))
+                r (c/offer-until-answered! st (c/build {:who :alice :layer :alice :class :by-layer :permission [:alice :alice :alice]
+                                                        :facts [{:e :t15f :k :note :v nil :replaces (:fid n)}]}))
+                rfid [(:name r) 0]
+                p2 (pc/promote! st (spec-into :alice rfid :group :by-entity :s/t15f2 :source-stamp (:stamp r) :source-e :t15f))]
+            (is (= [:refused :source-has-no-value] ((juxt :status (comp :reason :crossing)) p1)))
+            (is (= :yes (:answer r)))
+            (is (= [:refused :source-has-no-value] ((juxt :status (comp :reason :crossing)) p2)))))
+        (make-promoter! st :amy)
+        (testing "a source under per-act grain: the act's one lock is opened"
+          (let [g (c/offer-until-answered! st (c/build {:who :amy :layer :amy :class :by-layer :permission [:amy :amy :amy]
+                                                        :facts [{:e :amy :k :lock-grain :v :per-act}]}))
+                o (c/build {:who :amy :layer :amy :class :by-layer :permission [:amy :amy :amy]
+                            :facts [{:e :t15g1 :k :note :v "first of the act"} {:e :t15g2 :k :note :v "second of the act"}]})
+                a (c/offer-until-answered! st o)
+                p (pc/promote! st (spec-into :amy [(:name o) 1] :group :by-entity :s/t15g))]
+            (is (= [:yes :yes] [(:answer g) (:answer a)]))
+            (is (= 1 (count (distinct (map :lock-id (c/raw-rows st :amy (:name o)))))) "one lock for the act")
+            (is (= :done (:status (settled! st p))))
+            (is (= "second of the act" (:value (micro-copy st :t15g2 (lname-of p)))))))
+        (testing "the source layer re-classed between the request and the read-out: read out where the lock is (V-2)"
+          (let [n (note! st :amy :amy :t15c "read out after its layer's re-class")
+                p (promote-held! st (spec-into :amy (:fid n) :group :by-entity :s/t15c) :before-read-out)
+                rc (c/offer-until-answered! st (mc/reclass-offer st :amy))
+                _ (inject/release! :before-read-out (:name p))
+                r (pc/resend! st p)
+                s (settled! st p)]
+            (is (= :yes (:answer rc)))
+            (is (= :by-entity (:class (c/settings st :amy))))
+            (is (= :yes (get-in r [:crossing :answer])) "the read-out claims no class, as the model's does (the plan's F8 refused it)")
+            (is (= :done (:status s)))
+            (is (= "read out after its layer's re-class" (:value (micro-copy st :t15c (lname-of p)))))))
+        (testing "a landing citing a permission that was never granted: refused :no-permission"
+          (let [n (note! st :alice :alice :t15p "its landing cites no permission")
+                u (env/uuid7)
+                missing [:s/t15p :group :group (gp :alice)]
+                lease (pc/lease-landing! st {:who :alice :target :group :class :by-entity :session :s/t15p
+                                             :permission (gp :alice) :uuid u})
+                o (pc/request-offer {:who :alice :layer :alice :permission [:alice :alice :alice] :session :s/t15p
+                                     :source (:fid n) :source-stamp (:stamp n) :source-e :t15p
+                                     :target :group :class :by-entity :public (:public lease)
+                                     :landing-permission missing :uuid u})
+                a (c/offer-until-answered! st o)
+                s (settled! st {:name (:name o) :offer o})]
+            (is (= :yes (get-in a [:crossing :answer])))
+            (is (= [:refused :landing :no-permission] ((juxt :status :at :reason) s))))))
+
       (testing "T14: what is said at the point of promotion"
         (let [n (note! st :alice :alice :t14 "said at the point of promotion")
               pp (promote-held! st (spec-into :alice (:fid n) :group :by-entity :s/t14p) :before-read-out)
@@ -630,49 +764,3 @@
           (let [s (status st pp)]
             (is (= :pending (get-in s [:statement :key])) "the read gives the statement of the state it found"))))
       (inject/reset-all!))))
-
-;; ========================================================== the hold hook
-
-(deftest the-hold-hook
-  (inject/reset-all!)
-  (with-open [ipc (rtest/create-ipc)]
-    (rtest/launch-module! ipc m/Store {:tasks 2 :threads 2 :workers 1})
-    (let [st (pc/connect ipc)]
-      (is (every? #(= :yes (:answer %)) (c/seed! st)))
-      (is (every? #(= :yes (:answer %)) (mc/make-base! st)))
-      (let [n (note! st :alice :alice :h1 "held")
-            u (env/uuid7)
-            req (ps/request-name :alice u)
-            _ (inject/hold! :before-read-out req)
-            p (pc/promote! st (assoc (spec-into :alice (:fid n) :base :by-layer :s/h1) :uuid u))
-            t0 (System/currentTimeMillis)
-            other (note! st :alice :alice :h2 "decided while the hold stands")
-            t1 (System/currentTimeMillis)]
-        (testing "held before the read-out: the request answered, no crossing, and the task never blocked"
-          (is (inject/held? :before-read-out req))
-          (is (= :yes (get-in p [:request :answer])))
-          (is (nil? (:crossing p)))
-          (is (nil? (c/record st (env/crossing-name req))))
-          (is (= :yes (get-in other [:answer :answer])) "another act on the same layer's home task is decided while held")
-          (is (< (- t1 t0) 15000) "promptly: nothing waits on the hold")
-          (is (nil? (:crossing (pc/resend! st p))) "a resend while held stops there too")
-          (is (= :pending (status-kw st p))))
-        (testing "released, and held before the forward: the resend reads out, and stops before the landing"
-          (inject/release! :before-read-out req)
-          (is (not (inject/held? :before-read-out req)))
-          (inject/hold! :before-forward req)
-          (let [r (pc/resend! st p)]
-            (is (= :yes (get-in r [:crossing :answer])))
-            (is (nil? (:landing r)))
-            (is (nil? (c/record st (lname-of p))))
-            (is (= :crossed (status-kw st p)))))
-        (testing "released: the next resend sends the stored forward, and it lands"
-          (inject/release! :before-forward req)
-          (let [r (pc/resend! st p)]
-            (is (= :yes (get-in r [:landing :answer])))
-            (is (= :done (status-kw st p)))
-            (is (= {:value "held"} (c/opens? st :base [(lname-of p) 0])))))
-        (testing "reset-all! clears every hold"
-          (inject/hold! :before-read-out req)
-          (inject/reset-all!)
-          (is (not (inject/held? :before-read-out req))))))))
