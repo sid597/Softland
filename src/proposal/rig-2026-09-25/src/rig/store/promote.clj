@@ -55,16 +55,16 @@
 ;; ---------------------------------------------------------------- the crossing
 
 (defn crossing-offer
-  "The read-out's act (PR2), built from the request and its record's stamp
-  alone, so a replay builds the same one and its digest finds its record:
-  named `(env/crossing-name req)`, `:who :store` with no permission (the
-  store's own steps act at the root, the model's `exempt?`), standing on
-  the source at the stamp the request carried and on the request at its
-  stamp, with one `:crossed` fact `{:request req :source src}` on the
-  request's entity (the source's; the read-out checks it). Placed by the
-  store: nil class in its name, `:by-layer` on the act, checked against
-  the layer's class ([F8])."
-  [req-offer req-stamp]
+  "The read-out's act (PR2): named `(env/crossing-name req)`, `:who
+  :store` with no permission (the store's own steps act at the root, the
+  model's `exempt?`), standing on the source at the stamp the request
+  carried and on the request at its stamp, with one `:crossed` fact
+  `{:request req :source src}` on the source's entity (the request's
+  when the source has no row). Placed by the store: nil class in its
+  name, `:by-layer` on the act, checked against the layer's class ([F8]).
+  Built on the read-out's fresh path only: a crossing's name is the
+  store's alone, so its record answers by name (`recorded-ack`)."
+  [req-offer req-stamp src-row]
   (let [f (request-fact req-offer)
         req (:name req-offer)
         src (get-in f [:v :source])]
@@ -79,7 +79,15 @@
      :because-of req
      :claimed-when nil
      :subjects #{}
-     :facts [{:e (:e f) :k :crossed :v {:request req :source src} :replaces nil :mark #{}}]}))
+     :facts [{:e (or (:e src-row) (:e f)) :k :crossed :v {:request req :source src} :replaces nil :mark #{}}]}))
+
+(defn recorded-ack
+  "A crossing's answer from its record. Its name is derived from the
+  request's under the store's reserved scheme, which no depot record may
+  carry (env/parse), so only the store's read-out ever wrote under it: the
+  record answers by name, with no digest to compare."
+  [crec cname]
+  {:answer (:answer crec) :reason (:reason crec) :stamp (:stamp crec) :name cname})
 
 (defn fresh-read-out
   "The read-out's one draw, made before its decision (as phase 2 draws its
@@ -105,8 +113,8 @@
     owner's person forget closing its wrap); a live lock failing on its
     bytes, which no write produces, reads the same;
   - `:source-has-no-value`: no such fact, a control fact, a retract;
-  - `:malformed-control`: the request's entity is not its source's, or no
-    box can be made to its public key (a small-order point, [F2]).
+  - `:malformed-control`: no box can be made to the request's public key
+    (a small-order point, [F2]).
   Else `{:reason nil :sealed copy :box b}`: the copy sealed under the
   fresh lock K, K boxed to the landing lease's public key, bound to the
   lease id and the landing name. The layer's class, `gate/decide`'s, is
@@ -120,7 +128,6 @@
         (contains? opened :erased-at) {:reason :source-erased}
         (= :does-not-open (:unreadable opened)) {:reason :source-erased}
         (not (and (contains? opened :value) (locks/sealed? src-row))) {:reason :source-has-no-value}
-        (not= (:e f) (:e src-row)) {:reason :malformed-control}
         :else
         (let [K (:lock fresh)
               copy (locks/seal-with K (locks/canonical-bytes (:value opened)) (:nonce fresh))

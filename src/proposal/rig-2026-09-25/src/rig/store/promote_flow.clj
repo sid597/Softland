@@ -46,8 +46,8 @@
   "The read-out's event on the owner layer's home (PLAN step 2): one event
   with no partitioner, needing nothing from another task (the source's
   lock row is here, `$$persons` is on every task, the public key came in
-  the request). The crossing's name has a record: its answer, and for a
-  yes the stored forward. Else, fresh: the settings, clock and wall; the
+  the request). The crossing's name has a record: its answer, by name
+  (`promote/recorded-ack`), and for a yes the stored forward. Else, fresh: the settings, clock and wall; the
   source's answer and row, opened by `locks/open-row>`, unless the layer
   was re-classed since the request ([F8]: the gate no longer orders it,
   so it opens nothing and `gate/decide` records `:class-mismatch`); the
@@ -59,14 +59,11 @@
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")
                          $$clock (rama/this-module-pobject-task-global "$$clock")]
     (get *offer :name :> *req)
-    (promote/crossing-offer *offer *req-stamp :> *crossing)
-    (get *crossing :name :> *cname)
-    (env/digest *crossing :> *cdigest)
+    (env/crossing-name *req :> *cname)
     (local-select> (keypath *layer :answers *cname) $$layers :> *crec)
     (<<if (some? *crec)
-      ;; read out before (a replay, a resend): the recorded answer, and the stored forward
-      (gate/answer-from-record *crec *cdigest *cname :> *cd0)
-      (get *cd0 :ack :> *cack)
+      ;; read out before (a replay, a resend): the recorded answer, by name, and the stored forward
+      (promote/recorded-ack *crec *cname :> *cack)
       (<<if (= :yes (get *cack :answer))
         (local-select> (keypath *layer :forwards *req) $$layers :> *rfwd)
        (else>)
@@ -77,7 +74,7 @@
       (local-select> STAY $$clock :> *clock)
       (gate/wall-now :> *wall)
       (promote/source-of *offer :> *sfid)
-      (<<if (= :by-layer (gate/class-in-force *crossing *settings))
+      (<<if (= :by-layer (gate/class-in-force *offer *settings))
         (first *sfid :> *sname)
         (second *sfid :> *sidx)
         (local-select> (keypath *layer :answers *sname) $$layers :> *srec)
@@ -89,6 +86,8 @@
        (else>)
         (identity nil :> *srow)
         (identity {:unreadable :not-opened} :> *opened))
+      (promote/crossing-offer *offer *req-stamp *srow :> *crossing)
+      (env/digest *crossing :> *cdigest)
       ;; the randomness, bound before the decision (as phase 2 binds its locks and nonces)
       (promote/fresh-read-out :> *fresh)
       (<<if (promote/fresh-ok? *fresh)
