@@ -130,7 +130,9 @@
 
 (deframafn key-rows-of>
   "The rows of layer `*layer`'s keys `*ks`, {k row} (nil for a key with no
-  row), read on this task: one local seek each (phase 6, RD-G3 to RD-G5)."
+  row), read on this task: one local seek each (phase 6, RD-G5). For the
+  rebuild's pages, which never yield (BUILD_NOTES-read-exit.md D3); the
+  queries read their keys' rows in their own yielding loops."
   [*layer *ks]
   (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
     (loop<- [*todo (seq *ks) *acc {} :> *out]
@@ -1311,8 +1313,17 @@
               (absent-row *fid :> *r)
               (identity *qpc :> *qpc2))
             (continue> (rest *todo) (conj *acc *r) *qpc2)))
-        ;; phase 6: shown as opaque, from the rows of the keys shown
-        (key-rows-of> *layer (shown-keys *rows) :> *qkrows)
+        ;; phase 6: shown as opaque, from the rows of the keys shown (one seek a
+        ;; distinct key; a read may show up to 10,000 rows, so the loop yields)
+        (shown-keys *rows :> *qks)
+        (loop<- [*qt *qks *qacc {} :> *qkrows]
+          (yield-if-overtime)
+          (<<if (empty? *qt)
+            (:> *qacc)
+           (else>)
+            (first *qt :> *qk)
+            (local-select> [(keypath *layer :key-rows *qk)] $$layers :> *qkrow)
+            (continue> (rest *qt) (assoc *qacc *qk *qkrow))))
         (mark-opaque *rows *qkrows :> *mrows)
         (point-answer *layer *m *mrows :> *answer)))
     (|origin))
@@ -1411,8 +1422,17 @@
               (shown-row *vk nil :> *vr)
               (identity *vpc :> *vpc2))
             (continue> (rest *vt) (conj *vacc *vr) *vpc2)))
-        ;; phase 6: shown as opaque, from the rows of the keys shown
-        (key-rows-of> *layer (shown-keys *vrows) :> *vkrows)
+        ;; phase 6: shown as opaque, from the rows of the keys shown (one seek a
+        ;; distinct key; a read may show up to 10,000 rows, so the loop yields)
+        (shown-keys *vrows :> *vks)
+        (loop<- [*vkt *vks *vkacc {} :> *vkrows]
+          (yield-if-overtime)
+          (<<if (empty? *vkt)
+            (:> *vkacc)
+           (else>)
+            (first *vkt :> *vkk)
+            (local-select> [(keypath *layer :key-rows *vkk)] $$layers :> *vkrow)
+            (continue> (rest *vkt) (assoc *vkacc *vkk *vkrow))))
         (mark-opaque *vrows *vkrows :> *mvrows)
         (pattern-answer *layer *m *pp *mvrows *more? :> *answer)))
     (|origin)))
