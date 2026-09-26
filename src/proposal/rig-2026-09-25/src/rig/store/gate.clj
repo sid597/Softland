@@ -98,8 +98,11 @@
                             (= (:e f) (:person v)))
         :lease (and (map? v) (= #{:count} (set (keys v))) (int? (:count v)) (<= 1 (:count v) locks/max-lease)
                     (some? (:session offer)) (= (:e f) (:session offer)))
-        :session-closed (and (map? v) (= #{:session} (set (keys v))) (env/readable-keyword? (:session v))
-                             (= (:e f) (:session v)))))))
+        ;; stage 5b (FRR5): an optional :reads part, :keep or :drop, what the session's
+        ;; read entries become; absent means keep
+        :session-closed (and (map? v) (contains? v :session) (every? #{:session :reads} (keys v))
+                             (env/readable-keyword? (:session v)) (= (:e f) (:session v))
+                             (or (not (contains? v :reads)) (contains? #{:keep :drop} (:reads v))))))))
 
 (defn- control-allowed?
   "Who may write a control fact (R13): the operator any; the layer's owner
