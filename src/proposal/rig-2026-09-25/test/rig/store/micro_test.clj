@@ -26,7 +26,8 @@
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.micro-client :as mc]
-            [rig.store.module :as m]))
+            [rig.store.module :as m]
+            [rig.store.toy-grammars :as tg]))
 
 ;; ================================================================ helpers
 
@@ -98,6 +99,7 @@
           (is (every? #(= :yes (:answer %)) base) "made, its root granted in the making act, Alice's and Bob's beneath it")
           (is (= {:kind :base :owner :operator :class :by-layer :grain :per-value} (c/settings st :base)))
           (is (= mc/base-making-name (first (:granted (c/permission st :base base-root)))) "the base's first facts have constant ids (§C)")))
+      (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent :base])))
       (let [base-offer (c/build {:who :alice :layer :base :class :by-layer :permission (bp :alice)
                                  :facts [{:e :eb0 :k :note :v {:token "stream-era"}}]})
             base-answer (c/offer! st base-offer)
@@ -107,6 +109,7 @@
           (is (= :yes (:answer base-answer))))
         (testing "the first group re-classes the base, then is made here standing on the re-class (§C, M6)"
           (let [g (mc/make-group! st :group (:group mc/shared-world))]
+            (is (every? #(= :yes (:answer %)) (tg/write-micro! st [:group])))
             (is (= :yes (get-in g [:reclass :answer :answer])))
             (is (= :yes (get-in g [:made :answer])))
             (is (= [[(get-in g [:reclass :offer :name]) 0]] (keys (:stood-on (:offer g)))) "it stood on the re-class fact")

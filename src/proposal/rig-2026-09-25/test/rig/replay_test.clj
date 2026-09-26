@@ -152,7 +152,7 @@
     :source "P2 L1904-1906; IMPLICIT_SPEC D3"}
    {:n 8 :group :acts :cases every-case
     :title "layers, the base and the group are made by acts"
-    :rule "the base is one-owner on the stream gate until the group's making re-classes it; the model's layers are static; since phase 6 the model's one grammar, a constant there, is a fact the operator writes in each one-owner layer in the seed (the micro side reads the constant until step 6b)"
+    :rule "the base is one-owner on the stream gate until the group's making re-classes it; the model's layers are static; the model's one grammar, a constant there, is a fact the operator writes in each layer in the seed through its owning gate"
     :source "P10, default 6, P3 L641-644; phase 6's D-P4, wave 2's W2-2"}
    {:n 9 :group :refusals :cases every-case
     :title "permission ids and chains"
@@ -617,7 +617,7 @@
    {:id :micro/revoke-offer :stage "3" :var 'rig.store.micro-client/revoke-offer :bound :built :cases #{"D2"}}
    ;; step 6b's sign, read by P3-5's guard (`world-refusal`), never a stage missing
    {:id :micro/control-keys :stage "3" :var 'rig.store.micro/control-keys :bound :built :cases :all :optional true
-    :plan-name "the micro gate's control keys: :grammar there is step 6b built, which the seed does not follow yet"}
+    :plan-name "the micro gate's control keys: :grammar there requires shared grammar seed facts, checked by P3-5"}
    ;; ---- stage 4, phase 4's promotion (rig-build-promotion 5303418f, merged at 27543fd7):
    ;; the door's promotion is rig.store.promote-client, not rig.store.client as the plan
    ;; named it (pass 3)
@@ -821,6 +821,13 @@
     ((api-fn api :micro/offer!) store ((api-fn api :micro/grant-offer) pid))
     ((api-fn api :client/offer-until-answered!) store ((api-fn api :client/grant-offer) store pid))))
 
+(defn shared-grammar-facts
+  "The same resolved facts used by the shared seed and P3-5's guard."
+  [api]
+  (let [ck (get-in api [:micro/control-keys :value])
+        facts (get-in api [:grammar/facts :value])]
+    (when (and (set? ck) (contains? ck :grammar) (vector? facts)) facts)))
+
 (defn seed-steps
   "The rig's seed (the world table, KD7, KD8), as labelled calls in order:
   the store layer and the persons, the one-owner layers (Bob's rig-only
@@ -847,6 +854,11 @@
        [["the base" #((f :micro/make-base!) store (:base w))]]
        (for [pid (get-in w [:base :grants])] [(str "grant " (pr-str pid)) #(grant! api store pid)]))
      [["the group" #((f :micro/make-group!) store (:group-layer w) (:group w))]]
+     ;; Step 6b: the model's grammar goes through each shared layer's own gate.
+     (when-let [facts (shared-grammar-facts api)]
+       (for [L (cond-> [(:group-layer w)] first? (conj :base))]
+         [(str "shared grammars in " (name L))
+          #((f :micro/offer!) store ((f :client/build) {:who :operator :layer L :class :by-entity :facts facts}))]))
      (for [[S p layers] (:session-layers w)]
        [(str "session " (name S)) #((f :micro/open-session!) store S p layers)]))))
 
@@ -1763,16 +1775,15 @@
                  history)))
 
 (defn world-refusal
-  "P3-5's guard, or nil. Step 6b built (`:grammar` among the micro gate's
-  control keys) makes the group's grammar a fact, which the seed writes on
-  the stream side only (W2-2), so a case writing a `:mention` into the
-  group would play in another world than the model's. With its stages
-  resolved the refusal fails the test, so 6b cannot change these cases
-  without it showing."
+  "P3-5's guard, or nil: once the micro gate reads grammar facts, the shared
+  seed must resolve the model's mention grammar. Missing facts still fail
+  these histories visibly; actual seed admissions are checked by the replay."
   [resolved c]
   (let [ck (get-in resolved [:micro/control-keys :value])]
-    (when (and (set? ck) (contains? ck :grammar) (group-mention? (:history c)))
-      "step 6b is built: the group's grammar is a fact, and the seed writes the model's grammar on the stream side only")))
+    (when (and (set? ck) (contains? ck :grammar) (group-mention? (:history c))
+               (not-any? #(and (= :grammar (:k %)) (= :mention (:e %)))
+                         (shared-grammar-facts resolved)))
+      "step 6b is built but the shared seed has no resolved mention grammar")))
 
 (defn prepare-case
   "A case before any cluster: the model's lockstep under baseline, its
@@ -2475,6 +2486,11 @@
         "the cases that write a :mention into the group")
     (is (empty? (refused #{:members :lease})) "step 6b not built: the micro gate reads the constant")
     (is (= #{"A2" "A4" "A5" "A6" "A7"} (refused #{:members :grammar})) "step 6b built: those five refused")
+    (let [api (assoc (with #{:grammar}) :grammar/facts
+                     {:value @(requiring-resolve 'rig.store.toy-grammars/facts)})]
+      (is (every? #(nil? (world-refusal api %)) cases) "the shared seed now supplies their grammar")
+      (is (= 2 (count (filter #(clojure.string/starts-with? (first %) "shared grammars in ")
+                             (seed-steps api nil (world main-road-names) true)))) "base and group seed steps exist"))
     (let [r (judge-case (prepare-case (with #{:grammar}) (case-by-id "A2")))]
       (is (= :not-practical (:status r)))
       (is (seq (:fails r)) "with its stages resolved the refusal fails the test"))))

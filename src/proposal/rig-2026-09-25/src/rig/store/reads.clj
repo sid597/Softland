@@ -47,8 +47,8 @@
    :no-copy #{:read/point :read/pattern :read/standing :read/delivery :read/closed}})
 
 (defn current-hints
-  "The hints the module decides with. A function, so the topology code calls
-  it rather than embedding the constant."
+  "Legacy pure fixture hints. Both gates and exits derive their application
+  hints from layer rows; retained compatibility callers are listed, not deleted."
   []
   seed-hints)
 

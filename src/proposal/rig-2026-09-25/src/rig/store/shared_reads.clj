@@ -1,6 +1,7 @@
 ;; IMPORTANT: Before modifying this file, re-read PLAN-reads-rest.md (its fixes
 ;; F1 to F18 are marked in place), PLAN-read-exit.md and
 ;; BUILD_NOTES-reads-rest.md, and adhere to their decisions.
+;; Step 6b: PLAN-grammar-micro.md supplies effective rows and pre-batch hints.
 (ns rig.store.shared-reads
   "Stage 5b, the rest of phase 5, module side (PLAN-reads-rest.md): the read
   of a shared layer through the one exit as of a settled frontier; the
@@ -108,6 +109,27 @@
 
 (def id-fields "The shared id indexes, whose entries a purge tombstones." [:ix-ek :ix-ke :ix-s])
 (def sweep-fields "The fields a shared rebuild sweeps, in order." [:ix-ek :ix-ke :ix-kv :ix-s :ix-of :ix-id])
+
+(deframaop key-rows-of>
+  "Effective grammar rows on hash(L): micro first, stream on a miss.
+  A present row with no grammar is a hit. Reads only the distinct keys
+  requested; the caller owns the layer partition before calling."
+  [*L *ks]
+  (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
+                         $$layers (this-module-pobject-task-global "$$layers")]
+    (loop<- [*todo (distinct *ks) *acc {} :> *out]
+      (yield-if-overtime)
+      (<<if (empty? *todo)
+        (:> *acc)
+       (else>)
+        (first *todo :> *k)
+        (local-select> [(keypath *L :key-rows *k)] $$micro :> *mr)
+        (<<if (some? *mr)
+          (identity *mr :> *row)
+         (else>)
+          (local-select> [(keypath *L :key-rows *k)] $$layers :> *row))
+        (continue> (rest *todo) (assoc *acc *k *row))))
+    (:> *out)))
 
 ;; ============================================================ entries and writes
 
@@ -593,6 +615,34 @@
 
 (defn merge-by-layer [a b] (merge-with into a b))
 
+(defn rebuild-facts
+  "Open results reduced on the entity task to sealed entries, keyed digests
+  and erased dates. No opened sealed-value plaintext crosses to the layer;
+  control values remain clear, as in the existing index and gather paths.
+  Grouped by layer, as a put page's existing bounded accumulator is."
+  [e nm rec opened]
+  (reduce (fn [acc [i row lock-row o]]
+            (let [L (:layer row)
+                  fid [(into [] nm) (long i)]
+                  text (when (some? (:value o)) (env/encode-value (:value o)))
+                  summary {:entry (entry-of row e fid (:stamp rec) (:batch rec) lock-row)
+                           :digest (when text (reads/kv-digest text))
+                           :erased-at (:erased-at o)}]
+              (update acc L (fnil conj []) [fid summary])))
+          {} opened))
+
+(defn rebuild-keys
+  "Distinct fact keys in a layer's safe rebuild summaries."
+  [facts]
+  (into [] (comp (map (fn [[_ s]] (get-in s [:entry :k]))) (distinct)) facts))
+
+(defn rebuild-writes
+  "The layer's current grammar applied to a safe summary, after the open."
+  [hints summary]
+  (if summary
+    (fact-writes hints (:entry summary) (:digest summary) (:erased-at summary))
+    no-writes))
+
 (defn fact-imp
   "What the log implies for the one fact of a sweep's `put-row-writes` in
   layer L, as `implied-map`, or {} when nothing."
@@ -866,10 +916,10 @@
   across tasks). One hop per admitted act, no seek. The layer joins its
   task's shared layers. An index error writes nothing for the act and
   marks the layer (RR6, F9)."
-  [*layer *nm *frows *kvd *rec *b]
+  [*layer *nm *frows *kvd *rec *b *hints]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
                          $$micro-task (this-module-pobject-task-global "$$micro-task")]
-    (index-writes (reads/current-hints) *nm *frows *kvd (get *rec :stamp) *b :> *w)
+    (index-writes *hints *nm *frows *kvd (get *rec :stamp) *b :> *w)
     (|hash *layer)
     (local-transform> [(keypath :layers) NONE-ELEM (termval *layer)] $$micro-task)
     (<<if (get *w :index-error)
@@ -992,7 +1042,7 @@
   on each layer's task. At most 64 entities and 2,048 rows; the rest waits
   for the next page. Puts only. The progress row on this task says where
   the next page starts."
-  [*op *hints *b]
+  [*op *b]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
                          $$micro-task (this-module-pobject-task-global "$$micro-task")]
     (get *op :after :> *after)
@@ -1030,7 +1080,7 @@
               (local-select> [(keypath *e :log *anm) (subselect ALL)] $$micro {:allow-yield? true} :> *arows0)
               (rows-of *arows0 :> *arows)
               (open-rows> *e *arows (get *arec :stamp) :> *opened)
-              (put-row-writes *hints *e *anm *arec *opened :> *w)
+              (rebuild-facts *e *anm *arec *opened :> *w)
               (continue> (rest *at) (merge-by-layer *acc2 *w) (+ *taken2 (count *arows)) *anm)
              (else>)
               (continue> (rest *at) *acc2 *taken2 *anm))))
@@ -1043,7 +1093,10 @@
     (ops/explode-map *byL :> *L *facts)
     (|hash *L)
     (local-transform> [(keypath :layers) NONE-ELEM (termval *L)] $$micro-task)
-    (ops/explode *facts :> [*fid *w])
+    (key-rows-of> *L (rebuild-keys *facts) :> *keyrows)
+    (reads/hints-of *keyrows :> *hints)
+    (ops/explode *facts :> [*fid *summary])
+    (rebuild-writes *hints *summary :> *w)
     (guarded-write> *L *w)))
 
 (deframafn sweep-start>
@@ -1081,7 +1134,7 @@
   row read and opened on the entity's task, what the log implies for it
   taken back to the layer's task, and the entry kept, rewritten or deleted.
   An entry whose act was decided in this batch is not judged. Two hops."
-  [*L *field *a *v *hints *b]
+  [*L *field *a *v *b]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
     (<<cond
       (case> (some? (entry-fid-e *field *v)))
@@ -1114,11 +1167,16 @@
           (identity nil :> *row))
         (<<if (some? *row)
           (open-rows> *e (one-row *idx *row) (get *rec :stamp) :> *opened)
-          (put-row-writes *hints *e *nm *rec *opened :> *byL)
-          (fact-imp *byL *L :> *imp0)
+          (rebuild-facts *e *nm *rec *opened :> *byL)
+          (get *byL *L :> *facts)
          (else>)
-          (identity {} :> *imp0))
+          (identity [] :> *facts))
         (|hash *L)
+        (key-rows-of> *L (rebuild-keys *facts) :> *keyrows)
+        (reads/hints-of *keyrows :> *hints)
+        (second (first *facts) :> *summary)
+        (rebuild-writes *hints *summary :> *iw)
+        (implied-map *iw :> *imp0)
         (guard-imp> *L *imp0 *hints :> *imp)
         (sweep-writes *field *a *v *imp :> *w)
         (write-index> *L *w)))))
@@ -1129,7 +1187,7 @@
   judged against the log (`sweep-one>`). When the last field's sweep
   finishes a layer, its index gap flag (F9) is cleared if the gap is older
   than the rebuild (`:since`, the rebuild's first batch)."
-  [*op *hints *b]
+  [*op *b]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
                          $$micro-task (this-module-pobject-task-global "$$micro-task")]
     (get *op :field :> *field)
@@ -1151,7 +1209,7 @@
       (local-transform> [(keypath :rebuild) (termval (progress *op (get *nx :cursor) (get *nx :done?) *b (count *ents)))]
                         $$micro-task)
       (ops/explode *ents :> [*ea *ev])
-      (sweep-one> *L *field *ea *ev *hints *b))))
+      (sweep-one> *L *field *ea *ev *b))))
 
 (deframaop person-purge-page>
   "A person purge page for the micro store on its task (path 3, the shared
@@ -1252,14 +1310,13 @@
   (filter> (reads/task-ok? *info (get *op :task)))
   (|direct (get *op :task))
   (ops/current-microbatch-id :> *b)
-  (reads/current-hints :> *hints)
   (get *op :op :> *kind)
   (<<cond
     (case> (= *kind :rebuild-put))
-    (put-page> *op *hints *b)
+    (put-page> *op *b)
 
     (case> (= *kind :rebuild-sweep))
-    (sweep-page> *op *hints *b)
+    (sweep-page> *op *b)
 
     (case> (= *kind :person-purge))
     (person-purge-page> *op *b)
@@ -1272,8 +1329,8 @@
 
 ;; ============================================================ the stream side's grammar (wave 2)
 ;; Phase 6 moved the stream store's index hints and opaque marks to the layer's
-;; grammar facts (its key rows in `$$layers`); the micro store keeps the compiled
-;; constant until phase 6b. Where a read of this stage meets the stream store (a
+;; grammar facts (its key rows in `$$layers`); the micro store uses
+;; effective rows in step 6b. Where a read meets the stream store (a
 ;; one-owner layer's delta, a re-classed layer's stream era), it takes the rows,
 ;; as the read exit's own queries do (wave 2's merge, W2-3).
 
@@ -1282,9 +1339,9 @@
   `parse-hints`, so the pattern's form is checked whatever the grammar and
   its key's grammar is applied after the visibility check
   (`reads/kv-refusal`), as `read-pattern` does since phase 6; for a shared
-  layer the micro store's constant, until phase 6b."
+  layer likewise form-only hints, with effective rows checked after visibility."
   [shared? pattern]
-  (if shared? (reads/current-hints) (reads/parse-hints pattern)))
+  (reads/parse-hints pattern))
 
 (defn stream-era-kv-refusal
   "Why a `[:kv]` read of a re-classed layer is refused by its stream era's
@@ -1344,6 +1401,19 @@
 
 ;; ============================================================ dataflow: the shared reads
 
+(defn micro-shown-keys [rows]
+  (reads/shown-keys (filterv (complement stream-row?) rows)))
+
+(defn mark-micro-rows [rows key-rows]
+  (mapv (fn [r m] (if (stream-row? r) r m)) rows (reads/mark-opaque rows key-rows)))
+
+(deframaop micro-marks>
+  "Micro-era shown values use effective grammar rows on the layer's task.
+  Stream-era rows retain W2-3's own marks."
+  [*layer *rows]
+  (key-rows-of> *layer (micro-shown-keys *rows) :> *keyrows)
+  (:> (mark-micro-rows *rows *keyrows)))
+
 (deframafn micro-visibility>
   "Step 2 of a shared read: the layer's micro settings as of F (one tail
   read, for a group; a re-classed layer's are its stream settings, already
@@ -1374,7 +1444,7 @@
   grammar facts, as the read exit does: a `[:kv]` read of a key that era
   used but never indexed by value (or made opaque) is refused
   (`stream-era-kv-refusal`), and its rows get their opaque marks
-  (`stream-marks>`); the micro era keeps the constant until phase 6b."
+  (`stream-marks>`); the micro era uses effective micro-first rows."
   [*layer *for *pattern *as-of *limit *ss]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
                          $$micro-task (this-module-pobject-task-global "$$micro-task")
@@ -1390,11 +1460,16 @@
       (<<if (not *vis)
         (:> {:refused :not-visible})
        (else>)
-        (reads/parse-pattern *pattern *limit *as-of :> *pp0)
+        (reads/parse-pattern *pattern *limit *as-of (reads/parse-hints *pattern) :> *pp0)
         (reads/check-layer *pp0 *layer :bad-pattern :> *pp)
         (micro-pp *pp :> *mpp)
         ;; the stream era's own grammar for a [:kv] read's key (one seek, a re-classed layer only)
         (reads/kv-key *pp :> *kvk)
+        (<<if (some? *kvk)
+          (key-rows-of> *layer [*kvk] :> *mkrows)
+         (else>)
+          (identity {} :> *mkrows))
+        (reads/kv-refusal *pp (get *mkrows *kvk) :> *mkvr)
         (<<if (and> (some? *ss) (some? *kvk))
           (local-select> [(keypath *layer :key-rows *kvk)] $$layers :> *kvrow)
          (else>)
@@ -1406,6 +1481,9 @@
 
           (case> (refusal? *mpp))
           (:> *mpp)
+
+          (case> (some? *mkvr))
+          (:> {:refused *mkvr})
 
           (case> (some? *skvr))
           (:> {:refused *skvr})
@@ -1424,9 +1502,10 @@
             (identity (tag-kept *mfinal :micro) :> *final))
           (show-kept> :micro *layer (get *final :kept) *clock *pc2 :> *rows0 *pc3)
           (<<if (some? *ss)
-            (stream-marks> *layer *rows0 false :> *rows)
+            (stream-marks> *layer *rows0 false :> *rows1)
            (else>)
-            (identity *rows0 :> *rows))
+            (identity *rows0 :> *rows1))
+          (micro-marks> *layer *rows1 :> *rows)
           (reads/pattern-answer *layer *F *pp *rows (get *final :more?) :> *a0)
           (:> (shared-answer *a0 *F *err)))))))
 
@@ -1507,9 +1586,10 @@
                   (identity *qpc :> *qpc2)))
               (continue> (rest *todo) (conj *acc *r) *qpc2)))
           (<<if (some? *ss)
-            (stream-marks> *layer *rows0 false :> *rows)
+            (stream-marks> *layer *rows0 false :> *rows1)
            (else>)
-            (identity *rows0 :> *rows))
+            (identity *rows0 :> *rows1))
+          (micro-marks> *layer *rows1 :> *rows)
           (reads/point-answer *layer *F *rows :> *a0)
           (:> (shared-answer *a0 *F nil)))))))
 
@@ -1568,7 +1648,7 @@
   (<<if (= :stream *store)
     (stream-marks> *layer *rows0 true :> *rows)
    (else>)
-    (identity *rows0 :> *rows))
+    (micro-marks> *layer *rows0 :> *rows))
   (next-scan *pp *m *final :> *nxt0)
   (assoc *nxt0 :kind *mkind :> *nxt)
   (:> (delta-answer *layer *mkind *m *pp *rows (get *final :more?) *prev *nxt)))
@@ -1587,7 +1667,7 @@
   `stream-hints` and applies its key's grammar after the visibility check,
   as `read-pattern` does (a `[:kv]` read of a key the layer does not index
   by value is refused `:not-indexed`, of an opaque one `:opaque`); a shared
-  layer's keeps the micro store's constant until phase 6b."
+  layer's uses effective micro-first rows after visibility as well."
   [*layer *for *pattern *limit *scan *prev]
   (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")
                          $$micro (this-module-pobject-task-global "$$micro")
@@ -1616,8 +1696,17 @@
         (:> *mpp)
 
         (default>)
-        (delta-read> :micro *layer *mpp *F (scan-from *scan) *prev :frontier :> *a)
-        (:> *a))
+        (reads/kv-key *pp :> *mkvk)
+        (<<if (some? *mkvk)
+          (key-rows-of> *layer [*mkvk] :> *mkrows)
+         (else>)
+          (identity {} :> *mkrows))
+        (reads/kv-refusal *pp (get *mkrows *mkvk) :> *mkvr)
+        (<<if (some? *mkvr)
+          (:> {:refused *mkvr})
+         (else>)
+          (delta-read> :micro *layer *mpp *F (scan-from *scan) *prev :frontier :> *a)
+          (:> *a)))
 
       (default>)
       (<<cond

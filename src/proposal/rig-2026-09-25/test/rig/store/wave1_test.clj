@@ -368,6 +368,7 @@
 
       ;; ------------------------------------------------------ the micro side
       (let [g (mc/make-group! st :group (:group mc/shared-world))]
+        (is (every? #(= :yes (:answer %)) (tg/write-micro! st [:group])))
         (testing "a group's making act passes with :members, a control fact the sealed parse takes as plaintext"
           (is (= :yes (get-in g [:made :answer])))
           (is (= #{:alice :bob} (set (keys (mc/members-of st :group)))))

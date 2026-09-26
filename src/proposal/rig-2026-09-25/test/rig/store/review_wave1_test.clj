@@ -248,6 +248,7 @@
 
       ;; ------------------------------------------------ the micro side
       (let [g (mc/make-group! st :group (:group mc/shared-world))]
+        (is (every? #(= :yes (:answer %)) (tg/write-micro! st [:group])))
         (is (= :yes (get-in g [:made :answer])))
         (mc/open-session! st :rvs :bob [:group])
 

@@ -151,6 +151,7 @@
 
         (testing "the group is made; the base is re-classed on the way (default 6)"
           (let [{:keys [reclass made]} (mc/make-group! st :group (:group mc/shared-world))]
+            (is (every? #(= :yes (:answer %)) (tg/write-micro! st [:group])))
             (is (= :yes (get-in reclass [:answer :answer])))
             (is (= :yes (:answer made)))
             (is (= :by-entity (:class (c/settings st :base))))))

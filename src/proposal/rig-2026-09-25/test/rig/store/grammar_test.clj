@@ -75,11 +75,11 @@
             "a changed shape keeps the hints: admitted")
         (is (= :grammar-change-needs-rebuild (refuse (act :operator [(assoc tg/note :v blob)]) {:note row}))
             "made opaque: no longer indexed by value")))
-    (testing "the 4-arity, the micro fold's: no key rows, no rebuild check; a sealed grammar there is malformed"
+    (testing "the legacy 4-arity: no key rows, no rebuild check; a grammar without its value is malformed"
       (is (nil? (gate/refusal (act :operator [tg/note {:e :e0 :k :note :v nil}]) settings {} {})))
       (is (= :malformed-control (gate/refusal (update (act :operator [tg/note]) :facts #(mapv (fn [f] (assoc f :v nil)) %))
                                               settings {} {}))
-          "D-P1: the micro client seals a grammar fact; its value never reaches the gate, so it is refused as data"))))
+          "a raw grammar without its value remains malformed; step 6b now sends real grammar facts unsealed"))))
 
 (deftest rows-and-what-they-give
   (let [nm [:alice :by-layer :offer #uuid "00000000-0000-7000-8000-000000000010"]

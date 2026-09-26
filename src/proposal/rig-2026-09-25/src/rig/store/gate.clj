@@ -276,9 +276,9 @@
   Phase 6: `key-rows`, the rows of the act's keys read in the same event
   ({k row}), for `:grammar-change-needs-rebuild`, placed right after
   `:control-not-allowed`; a malformed grammar, a grammar on a store key and
-  two grammars for one key are `:malformed-control`. The 4-arity is the
-  micro fold's, which reads no key rows until phase 6b (the micro gate
-  refuses grammar facts meanwhile), and skips the rebuild check.
+  two grammars for one key are `:malformed-control`. Both gates use the
+  5-arity. The legacy 4-arity, retained for pure fixtures, skips the
+  rebuild check.
 
   Step R (REVIEW-wave1 R-1, W1-7 widened): a setting key about another
   entity than the layer (`misplaced-setting?`) is `:malformed-control`
