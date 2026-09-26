@@ -2,7 +2,39 @@
 
 ## Overnight state (26 September; rewritten after every commit)
 
-**Now: the handoff from builder B to builder C (07:10 IST).** Builder B's
+**Now: builder C builds, since 07:03 IST.** C took over on
+`handoff-ready-b` (the relay's rule 2, checked on B's message, since C's
+tick loop never started). C builds from the relay folder's
+`build-instructions`, Sid's brief verbatim with two dated addenda, checked
+against B's first prompt; this section wins on build state and deadlines.
+C hands off to builder D by `handoff-ready-c` and a message when C's
+transcript passes 3.5 MB, since D's loop is not running either.
+
+*In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
+branch `rig-<name>`, started 07:10 IST off `c9684356`, reporting to C's
+session:
+- `wave2`: wave 2's merge of the three branches below, one full suite at
+  the end, `BUILD_NOTES-wave2.md`.
+- `build-fixes`: step R, prep: `PLAN-review-fixes.md`, validated; builds
+  when wave 2 lands.
+- `build-replays-3`: phase 8's pass 3, prep: a "Pass 3 plan" in
+  `BUILD_NOTES-replays.md`; builds when wave 2 lands.
+- `build-numbers`: phase 7, prep: a binding check in
+  `BUILD_NOTES-numbers.md` and the harness code not tied to wave 2; the
+  minimum set runs last, on the finished store.
+
+*Not started: step 6b*, the micro gate's grammar and then the machinery
+count's micro side. At 07:10 IST the session's auto-mode permission check
+denied the launch of its prep builder ("Modify Shared Resources"), and the
+denial covers the step, not only that launch, so C leaves step 6b to Sid.
+Everything else moves without it; whether phase 7's runs may count the
+store finished without 6b is C's call when the harnesses are ready,
+written here when made.
+
+A successor cannot message C's subagents: each commits its prep on its
+branch, and a fresh builder resumes from there.
+
+**The handoff from builder B to builder C (07:10 IST).** Builder B's
 transcript passed 3.5 MB at 06:48. Builder C's and D's loops never started:
 neither transcript holds a Relay tick or a loop, so C could not request the
 handoff. B followed the protocol's handoff steps as if C had asked, and
