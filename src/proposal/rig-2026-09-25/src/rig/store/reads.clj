@@ -862,6 +862,22 @@
   (when-let [bs (fingerprint-bytes pairs)]
     (hex (hmac fp-secret bs))))
 
+(defn recorded-pattern
+  "A pattern as a read line records it (REVIEW-wave1 R-2): a `[:kv k v]`
+  pattern's value keyed under the fingerprint secret, `[:kv k {:keyed hex}]`,
+  never its text, since no forget reaches a recorded line; every other form
+  as it is. Computed in the module, where the secret is: every pattern
+  answer carries it (`pattern-answer`), stage 5b's standing-read opening
+  records it, and it is the seam R-2's fix of `entry-facts` takes. Nil on
+  any failure."
+  [pattern]
+  (try
+    (if (and (vector? pattern) (= 3 (count pattern)) (= :kv (nth pattern 0)))
+      [:kv (nth pattern 1)
+       {:keyed (hex (hmac fp-secret (.getBytes (str "softland.read-pattern/1\n" (env/canonical (nth pattern 2))) "UTF-8")))}]
+      pattern)
+    (catch Throwable _ nil)))
+
 (def ^:private kv-secret
   "The micro value index's secret (stage 5b, PLAN-reads-rest.md F12),
   derived from the fingerprint secret under its own label and never stored
@@ -939,6 +955,8 @@
   (try
     (let [matched (mapv (fn [r] [(:fid r) (:stamp r)]) rows)]
       {:layer layer :moment {:stamp m} :kind :pattern :pattern (:pattern pp)
+       ;; stage 5b, R-2's seam: the pattern as a line may record it, keyed in the module
+       :recorded-pattern (recorded-pattern (:pattern pp))
        :rows rows
        :matched matched
        :mark (if more? :partial :complete)

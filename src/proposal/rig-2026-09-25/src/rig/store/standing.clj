@@ -76,7 +76,8 @@
       {:refused (:refused a)}
       (let [ent (reads/entry-entity nm)
             opening {:e ent :k :read/standing
-                     :v (cond-> {:layer (:layer spec) :pattern (:pattern a) :role (:role spec)
+                     ;; R-2: the pattern as recorded, a [:kv] value keyed, never its text
+                     :v (cond-> {:layer (:layer spec) :pattern (:recorded-pattern a) :role (:role spec)
                                  :limit (:limit spec) :moment (:moment a)}
                           (contains? a :max-stamp) (assoc :max-stamp (:max-stamp a)))}
             line (when-not (:nothing-new a) {:e ent :k :read/delivery :v (delivery-value spec a nil)})

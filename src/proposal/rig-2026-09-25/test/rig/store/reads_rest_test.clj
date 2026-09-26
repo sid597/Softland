@@ -302,6 +302,13 @@
             (is (= (reads/fingerprint [[[(:name g) 0] (:stamp (first (:rows d)))]]) (:fingerprint l)))
             (is (contains? (:moment l) :frontier))
             (is (= (:stamp (first (:rows d))) (:max-stamp l))))
+          (testing "R-2: a standing [:kv] read's opening line records its value keyed, never its text"
+            (let [s (sg/subscribe! st (merge alice {:layer :alice :pattern [:kv :note "e0 first"]}))
+                  [o] (lines st :alice-hand (:ent @(:handle s)) :read/standing)]
+              (is (= 1 (count (:rows s))))
+              (is (string? (get-in o [:pattern 2 :keyed])))
+              (is (not (str/includes? (pr-str o) "e0 first")))
+              (sg/unsubscribe! st (:handle s))))
           (testing "a limit of 2 and three new facts: the delivery is partial, and so is the closing mark"
             (let [s3 (sg/subscribe! st (merge alice {:layer :alice :pattern [:k :lim] :limit 2}))
                   h3 (:handle s3)]

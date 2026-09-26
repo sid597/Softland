@@ -152,6 +152,15 @@
   (is (= {:refused :bad-read} (sr/upkeep-args "x" nil nil nil nil 1)))
   (is (= {:refused :bad-read} (sr/reader-args :g 5))))
 
+(deftest recorded-patterns
+  (let [p (reads/recorded-pattern [:kv :note "a secret"])]
+    (is (= [:kv :note] (subvec p 0 2)))
+    (is (string? (get-in p [2 :keyed])))
+    (is (not (str/includes? (pr-str p) "a secret")) "R-2: a recorded [:kv] pattern holds no text")
+    (is (= p (reads/recorded-pattern [:kv :note "a secret"])) "the same value, the same key")
+    (is (not= p (reads/recorded-pattern [:kv :note "another"])))
+    (is (= [:e :e0] (reads/recorded-pattern [:e :e0])) "other forms as they are")))
+
 (defspec nothing-throws 200
   (prop/for-all [x (gen/one-of [gen/any-printable-equatable (gen/return nil) (gen/vector gen/any-printable-equatable)])]
     (and (map? (sr/micro-op x))
