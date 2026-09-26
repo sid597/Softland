@@ -10,18 +10,28 @@ against B's first prompt; this section wins on build state and deadlines.
 C hands off to builder D by `handoff-ready-c` and a message when C's
 transcript passes 3.5 MB, since D's loop is not running either.
 
+*Landed since the handoff:* **wave 2, at `27543fd7`** (merge of
+`rig-wave2` at `2ff9f3ab`): phase 4, phase 6's stream side and the rest of
+phase 5. One full suite on the merged code (`0edf1dac`): 24 namespaces,
+148 tests, 7,699 assertions, 0 failures, 0 errors (`runs/wave2-suite.txt`).
+The replays in it matched A1 to A8, D1 and D2, and the group read went
+through the exit (`runs/wave2-replays.txt`). This branch had changed only
+RIG.md, so the merged code is the tested code and was not rerun. Three
+resolutions, none a choice between branches: W2-1 to W2-3 in
+`BUILD_NOTES-wave2.md`.
+
 *In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
-branch `rig-<name>`, started 07:10 IST off `c9684356`, reporting to C's
-session:
-- `wave2`: wave 2's merge of the three branches below, one full suite at
-  the end, `BUILD_NOTES-wave2.md`.
-- `build-fixes`: step R, prep: `PLAN-review-fixes.md`, validated; builds
-  when wave 2 lands.
-- `build-replays-3`: phase 8's pass 3, prep: a "Pass 3 plan" in
-  `BUILD_NOTES-replays.md`; builds when wave 2 lands.
-- `build-numbers`: phase 7, prep: a binding check in
-  `BUILD_NOTES-numbers.md` and the harness code not tied to wave 2; the
-  minimum set runs last, on the finished store.
+branch `rig-<name>`, reporting to C's session:
+- `build-fixes`: step R, by `PLAN-review-fixes.md`, building on
+  `27543fd7`.
+- `build-replays-3`: phase 8's pass 3, by the "Pass 3 plan" in
+  `BUILD_NOTES-replays.md`, building on `27543fd7`.
+- `build-numbers`: phase 7's harnesses, by `BUILD_NOTES-numbers.md`, each
+  tested small. The minimum set runs last, on C's word, after step R lands.
+  This builder stalled from 07:13 to 07:43 on a command that waited for an
+  approval; C stopped the call and resumed it (the 06:19 addendum).
+- `fold-wave2`: the fold of wave 2's "For RIG.md" notes (P4-*, P5-*, P6-*,
+  W2-*) into the rest of RIG.md, below this block.
 
 *Not started: step 6b*, the micro gate's grammar and then the machinery
 count's micro side. At 07:10 IST the session's auto-mode permission check
