@@ -7,16 +7,26 @@
 
   The page loop is driven here exactly as the query's dataflow drives it:
   pages read from `:from`, `:page` entries each, the `[:kv]` candidates
-  opened in order until limit + 1 match, then `page-step`."
+  opened in order until limit + 1 match, then `page-step`.
+
+  Wave 1 (phases 2 and 3 merged): the open step's body is phase 2's
+  `rig.store.locks/open-row>`, so the pure tests drive the page loop and
+  the rebuild with its pure half, `locks/open-with`, over plaintext rows (a
+  control value's row, a retract; what the tests build); the gate's
+  offers are sealed at the door, so the gate's tests seal them with locks
+  they make up and decide with the lock context the event would read."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
+            [clojure.walk :as walk]
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
-            [rig.store.reads :as reads]))
+            [rig.store.locks :as locks]
+            [rig.store.reads :as reads])
+  (:import [java.util UUID]))
 
 ;; ------------------------------------------------------------------ helpers
 
@@ -32,12 +42,48 @@
 
 (defn- fid-of [n i] [n (long i)])
 
-(defn- log-rows [offer] (#'gate/log-rows offer))
+(defn- open-row
+  "The open step over one row, as phase 2's pure half gives it with no lock
+  context (`locks/open-with`): what `reads/open-row>` returns for a row
+  that holds no sealed value (a plaintext row, a retract), which is what
+  these pure tests build. Same arguments as the seam."
+  [_layer _fid row stamp T]
+  (locks/open-with row stamp T nil nil {}))
+
+(defn- bytes->vec
+  "Data with every byte array replaced by its bytes as a vector, so two
+  reads of the same bytes compare equal (a byte array compares by
+  identity)."
+  [x]
+  (walk/postwalk #(if (bytes? %) (vec %) %) x))
+
+(defn- seal-raw
+  "A plaintext offer sealed as the door seals it, under locks made up here:
+  each value fact under its own lock, cited as [lease-name i]. [raw
+  delivered]."
+  [raw]
+  (let [lease [(:layer raw) :by-layer :offer (UUID/randomUUID)]
+        idx (keep-indexed (fn [i f] (when (env/value-fact? f) i)) (:facts raw))
+        ids (zipmap idx (map (fn [j] [lease (long j)]) (range)))
+        Ks (into {} (map (fn [id] [id (locks/fresh-lock)])) (vals ids))]
+    [(update raw :facts (fn [fs] (vec (map-indexed (fn [i f]
+                                                     (if-let [id (get ids i)]
+                                                       (-> f (dissoc :v) (assoc :sealed (locks/seal (get Ks id) (locks/canonical-bytes (:v f))) :lock-id id))
+                                                       f))
+                                                   fs))))
+     Ks]))
+
+(defn- lx-for
+  "The lock context the gate's event would read for `offer`: the delivered
+  locks, the value checks over them, the persons given, the fresh draw."
+  [offer settings delivered persons]
+  (let [rv (locks/value-context offer settings delivered)]
+    (locks/lock-context delivered rv persons nil nil (locks/fresh-for offer settings rv))))
 
 (defn- drive
   "The query's page loop over a sorted map of address -> entry, as the
   dataflow runs it; `open` stands for `open-row>`."
-  ([pp m smap] (drive pp m smap (fn [e] (reads/open-row :alice (:fid e) e (:stamp e) m))))
+  ([pp m smap] (drive pp m smap (fn [e] (open-row :alice (:fid e) e (:stamp e) m))))
   ([pp m smap open]
    (loop [st (reads/page-init pp m) pages 0 sizes []]
      (let [page (take (:page st) (subseq smap >= (:from st)))
@@ -206,22 +252,40 @@
       (is (:index-error (reads/index-writes hints :alice n1 "rows" 42))))))
 
 (deftest gate-integration
-  (let [offer (:ok (env/parse (-> {:version 1 :who :alice :layer :alice :class :by-layer
-                                   :permission [:alice :alice :alice] :stood-on {} :subjects #{}
-                                   :facts [{:e :e0 :k :note :v "x"} {:e :e0 :k :mention :v {:persons #{:bob}}}]}
-                                  (assoc :name (nm)))))
+  (let [[raw Ks] (seal-raw (-> {:version 1 :who :alice :layer :alice :class :by-layer
+                                :permission [:alice :alice :alice] :session :s1 :stood-on {} :subjects #{}
+                                :facts [{:e :e0 :k :note :v "x"} {:e :e0 :k :mention :v {:persons #{:bob}}}]}
+                               (assoc :name (nm))))
+        offer (:ok (env/parse raw))
         settings {:kind :personal :owner :alice :class :by-layer :grain :per-value}
-        prow {[:alice :alice :alice] {:granted [(nm) 0]}}]
-    (testing "decide carries the index lists for a yes, from the rows as the gate writes them"
-      (let [d (gate/decide offer settings prow {} 0 1000 (env/digest offer))]
+        persons {:alice {:lock (locks/fresh-lock) :erased-at nil} :bob {:lock (locks/fresh-lock) :erased-at nil}}
+        prow {[:alice :alice :alice] {:granted [(nm) 0]}}
+        lx (lx-for offer settings Ks persons)]
+    (testing "the offer is sealed: the gate's rows hold no plaintext"
+      (is (some? offer))
+      (is (every? #(nil? (:v %)) (:facts offer))))
+    (testing "decide carries the index lists for a yes, from the rows as the gate writes them and the texts it opened (wave 1)"
+      (let [d (gate/decide offer settings prow {} 0 1000 (env/digest offer) lx)
+            opened (:values (:read lx))]
         (is (= :decide (:kind d)))
-        (is (= (select-keys (reads/index-writes hints :alice (:name offer) (log-rows offer) (:stamp d))
-                            [:index-put :index-of :index-del])
-               (select-keys d [:index-put :index-of :index-del])))
+        (is (= :yes (get-in d [:record :answer])))
+        (is (every? #(nil? (:v %)) (:log d)) "the log rows carry the sealed bytes, never the text")
+        (is (= ["\"x\"" (env/encode-value {:persons #{:bob}})] (gate/plain-texts (:log d) opened))
+            "the texts the gate opened, one per fact")
+        (is (= (bytes->vec (select-keys (reads/index-writes hints :alice (:name offer) (:log d) (:stamp d)
+                                                            (gate/plain-texts (:log d) opened))
+                                        [:index-put :index-of :index-del]))
+               (bytes->vec (select-keys d [:index-put :index-of :index-del]))))
         (is (= [5 1] [(count (:index-put d)) (count (:index-of d))])
-            "2 id entries per fact and a value entry for the note; its :ix-of set")))
+            "2 id entries per fact and a value entry for the note, from its opened text; its :ix-of set")
+        (let [[_ kv-address] (first (filter #(= :ix-kv (first %)) (:index-put d)))]
+          (is (str/includes? kv-address "\"x\"") "the value index is addressed by the opened text"))))
+    (testing "a sealed value the gate could not open gives no value entry: the act is refused, nothing indexed"
+      (let [d (gate/decide offer settings prow {} 0 1000 (env/digest offer) (lx-for offer settings {} persons))]
+        (is (= :does-not-open (get-in d [:record :reason])))
+        (is (= [[] [] []] ((juxt :index-put :index-of :index-del) d)))))
     (testing "and empty lists for a no"
-      (let [d (gate/decide (assoc offer :who :bob :permission [:bob :alice :alice]) settings {} {} 0 1000 "d")]
+      (let [d (gate/decide (assoc offer :who :bob :permission [:bob :alice :alice]) settings {} {} 0 1000 "d" lx)]
         (is (= :no (get-in d [:record :answer])))
         (is (= [[] [] []] ((juxt :index-put :index-of :index-del) d)))))))
 
@@ -259,7 +323,7 @@
   (let [n1 (nm) n2 (nm)
         rows1 [(row :e0 :note "x") (row :e0 :mention {:persons #{:bob}})]
         rows2 [(row :e0 :note "y" :replaces [n1 0]) (row :e1 :note nil) (row :r :read/pattern {:moment {:stamp 3}})]
-        opens (fn [n s rows] (vec (for [[i r] (map-indexed vector rows)] (reads/open-row :alice [n i] r s nil))))
+        opens (fn [n s rows] (vec (for [[i r] (map-indexed vector rows)] (open-row :alice [n i] r s nil))))
         acts [{:name n1 :stamp 10 :rows rows1 :opens (opens n1 10 rows1)}
               {:name n2 :stamp 20 :rows rows2 :opens (opens n2 20 rows2)}]
         admitted (reads/merge-writes (reads/index-writes hints :alice n1 rows1 10)
@@ -284,7 +348,7 @@
             ek0 (reads/address :ix-ek {:e :e0 :k :note :stamp 10 :fid [n1 0]})
             right (get-in imp [:ix-ek ek0])
             stale-a (reads/address :ix-ek {:e :zz :k :note :stamp 10 :fid [n1 0]})
-            found {:rec rec :row (rows1 0) :open (reads/open-row :alice [n1 0] (rows1 0) 10 nil)}
+            found {:rec rec :row (rows1 0) :open (open-row :alice [n1 0] (rows1 0) 10 nil)}
             w (reads/sweep-page-writes hints :alice :ix-ek
                                        [[ek0 right] [stale-a right] [ek0 (assoc right :v "\"drift\"")]]
                                        [found found found])]
@@ -371,7 +435,7 @@
             kv (fn [n s] (let [fid [n 0] r (row :t19 :note "same")]
                            [(reads/address :ix-kv {:k :note :vtext "\"same\"" :stamp s :fid fid}) (assoc r :fid fid :stamp s)]))
             m (into (sorted-map) [(kv n1 10) (kv n2 11)])
-            erased-n1 (fn [e] (if (= n1 (first (:fid e))) {:erased-at 77} (reads/open-row :alice (:fid e) e (:stamp e) 100)))
+            erased-n1 (fn [e] (if (= n1 (first (:fid e))) {:erased-at 77} (open-row :alice (:fid e) e (:stamp e) 100)))
             r (drive (pp [:kv :note "same"] 10) 100 m erased-n1)]
         (is (= [[n2 0]] (map (comp :fid :entry) (:kept r))) "the erased candidate is not kept")
         (is (= 1 (:matched r)) "nor counted")
@@ -441,13 +505,15 @@
         (is (not (str/includes? (pr-str fs) "secret")))))
     (testing "an empty pattern read gives its line with count 0"
       (is (= 0 (:count (:v (first (reads/entry-facts (assoc pans :matched []) (spec :person))))))))
-    (testing "every entry fact is an offer the envelope accepts"
+    (testing "every entry fact is an offer the envelope accepts once the door has sealed it (wave 1: its facts are value facts)"
       (doseq [facts [(reads/entry-facts pans (spec :person))
                      (reads/entry-facts (assoc pans :pattern [:kv :note {:a [1 #{:b}]}]) (spec :tool))]]
-        (is (contains? (env/parse {:version 1 :name enm :who :alice :layer :alice-hand :class :by-layer
-                                   :permission [:alice :alice-hand :alice-hand] :stood-on {} :subjects #{}
-                                   :facts facts})
-                       :ok))))
+        (let [raw {:version 1 :name enm :who :alice :layer :alice-hand :class :by-layer
+                   :permission [:alice :alice-hand :alice-hand] :session :s1 :stood-on {} :subjects #{}
+                   :facts facts}]
+          (is (= :not-sealed (:refuse (env/parse raw))) "as plaintext the gate refuses it on its face")
+          (is (contains? (env/parse (first (seal-raw raw))) :ok) "sealed, the envelope accepts it")
+          (is (every? env/value-fact? facts) "every entry fact is sealed at the door, like any value"))))
     (testing "total"
       (is (nil? (reads/entry-facts {:kind :pattern} {:entry-name "x"}))))))
 
@@ -496,23 +562,26 @@
                    {:layer :a :op :explode}]]
         (is (= {:refuse :bad-op} (reads/index-op bad)) (pr-str bad))))))
 
-(deftest open-row
+(deftest open-shapes
   (let [n1 (nm)]
-    (testing "tonight's pass-through, phase 2's return shapes"
-      (is (= {:value "x" :stamp 5} (reads/open-row :alice [n1 0] (row :e :note "x") 5 nil)))
-      (is (= {:value nil :stamp 5} (reads/open-row :alice [n1 0] (row :e :note nil) 5 10)) "a retract")
-      (is (= {:unreadable :after-moment} (reads/open-row :alice [n1 0] (row :e :note "x") 11 10)))
-      (is (= {:unreadable :no-such-fact} (reads/open-row :alice [n1 0] nil 5 10)))
-      (is (= {:unreadable :no-such-fact} (reads/open-row :alice [n1 0] (row :e :note "x") nil 10)))
-      (is (= {:unreadable :does-not-open} (reads/open-row :alice [n1 0] {:v "{:unclosed"} 5 10))))
-    (testing "the test double stands in for phase 2's erasure, and falls through on nil"
-      (try
-        (reset! reads/open-double (fn [_ fid _ _ _] (when (= [n1 0] fid) {:erased-at 3})))
-        (is (= {:erased-at 3} (reads/open-row :alice [n1 0] (row :e :note "x") 5 10)))
-        (is (= {:value "y" :stamp 5} (reads/open-row :alice [n1 1] (row :e :note "y") 5 10)))
-        (reset! reads/open-double (fn [& _] (throw (ex-info "double" {}))))
-        (is (= {:unreadable :does-not-open} (reads/open-row :alice [n1 1] (row :e :note "y") 5 10)) "never throws")
-        (finally (reset! reads/open-double nil))))))
+    (testing "the open step's return shapes over plaintext rows, phase 2's pure half (the seam's body since wave 1)"
+      (is (= {:value "x" :stamp 5} (open-row :alice [n1 0] (row :e :note "x") 5 nil)))
+      (is (= {:value nil :stamp 5} (open-row :alice [n1 0] (row :e :note nil) 5 10)) "a retract")
+      (is (= {:unreadable :after-moment} (open-row :alice [n1 0] (row :e :note "x") 11 10)))
+      (is (= {:unreadable :no-such-fact} (open-row :alice [n1 0] nil 5 10)))
+      (is (= {:unreadable :no-such-fact} (open-row :alice [n1 0] (row :e :note "x") nil 10)))
+      (is (= {:unreadable :does-not-open} (open-row :alice [n1 0] {:v "{:unclosed"} 5 10))))
+    (testing "a sealed row: its lock record opens it; its ledger entry dates its erasure, whatever the moment (I-L7)"
+      (let [K (locks/fresh-lock)
+            persons {:alice {:lock (locks/fresh-lock) :erased-at nil}}
+            w (locks/wrap-of :alice #{} false)
+            rec (locks/wrap K w persons (repeatedly (locks/seals-needed w) locks/fresh-nonce))
+            sealed-row {:e :e :k :note :sealed (locks/seal K (locks/canonical-bytes "y")) :lock-id [n1 0] :lock rec}]
+        (is (= {:value "y" :stamp 5} (locks/open-with sealed-row 5 nil nil rec persons)))
+        (is (= {:erased-at 9} (locks/open-with sealed-row 5 7 {:stamp 9 :how :excised} rec persons))
+            "erased after the moment: the date shows, and nothing else")
+        (is (= {:erased-at 3} (locks/open-with sealed-row 5 nil nil rec {:alice {:lock nil :erased-at 3}}))
+            "the owner forgotten: the wrap closed on her date")))))
 
 ;; ------------------------------------------------------ property tests (T14)
 
@@ -533,7 +602,7 @@
                             #(reads/put-page-writes hints a b) #(reads/sweep-page-writes hints a b c d)
                             #(reads/implied hints a [{:name b :stamp c :rows d :opens e}])
                             #(reads/entry-moments a) #(reads/entry-facts a b) #(reads/fingerprint a)
-                            #(reads/index-op a) #(reads/open-row a b c d e) #(reads/visible? a b)
+                            #(reads/index-op a) #(open-row a b c d e) #(reads/visible? a b) #(reads/purge-fid a)
                             #(reads/tail-state {:prefix "x"} a 5) #(reads/page-entries a)
                             #(reads/point-row a b c d) #(reads/shown-row a b)
                             #(reads/pattern-answer a 5 {:pattern b} [] c)]]
@@ -557,20 +626,29 @@
         (assoc :name (nm)))))
 
 (deftest generated-offers
-  (testing "index-writes has no error on any offer the gate would parse; replay-equal; one value entry per note"
-    (let [r (tc/quick-check
+  (testing "index-writes has no error on any sealed offer the gate would admit; replay-equal; one value entry per note (wave 1: sealed at the door, texts from the gate's opening)"
+    (let [settings {:kind :personal :owner :alice :class :by-layer :grain :per-value}
+          persons {:alice {:lock (locks/fresh-lock) :erased-at nil}}
+          prow {[:alice :alice :alice] {:granted [(nm) 0]}}
+          r (tc/quick-check
              300
              (prop/for-all [raw gen-offer]
-               (let [p (env/parse raw)]
+               (let [[sealed Ks] (seal-raw (assoc raw :session :s1))
+                     p (env/parse sealed)]
                  (or (contains? p :refuse)
                      (let [o (:ok p)
-                           rows (log-rows o)
-                           w (reads/index-writes hints :alice (:name o) rows 12345)]
-                       (and (not (:index-error w))
-                            (= w (reads/index-writes hints :alice (:name o) rows 12345))
-                            (= (* 2 (count rows)) (count (filter #(#{:ix-ek :ix-ke} (first %)) (:index-put w))))
-                            (= (count (filter #(and (= :note (:k %)) (some? (:v %))) rows))
-                               (count (:index-of w)))
-                            (every? #(= (:v %) (env/encode-value (env/decode-value (:v %)))) rows))))))
+                           lx (lx-for o settings Ks persons)
+                           d (gate/decide o settings prow {} 0 1000 (env/digest o) lx)
+                           rows (:log d)
+                           texts (gate/plain-texts rows (:values (:read lx)))
+                           w (reads/index-writes hints :alice (:name o) rows 12345 texts)]
+                       (or (not= :yes (get-in d [:record :answer]))
+                           (and (not (:index-error w))
+                                (= (bytes->vec w) (bytes->vec (reads/index-writes hints :alice (:name o) rows 12345 texts)))
+                                (= (* 2 (count rows)) (count (filter #(#{:ix-ek :ix-ke} (first %)) (:index-put w))))
+                                (= (count (filter (fn [[f t]] (and (= :note (:k f)) (some? t))) (map vector (:facts raw) texts)))
+                                   (count (:index-of w)))
+                                (every? #(nil? (:v %)) (filter #(some? (:sealed %)) rows))
+                                (every? #(or (nil? %) (= % (env/encode-value (env/decode-value %)))) texts)))))))
              :seed 20260926)]
       (is (:pass? r) (pr-str (select-keys r [:fail :shrunk]))))))
