@@ -19,6 +19,8 @@
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.micro :as micro]
+            [rig.store.promote :as promote]
+            [rig.store.promote-flow :as promote-flow]
             [rig.store.reads :as reads]))
 
 (def row-fields
@@ -85,7 +87,9 @@
   stage 5a: its four index fields, whose entries carry the row's fields)."
   {clojure.lang.Keyword (fixed-keys-schema (merge layer-fields
                                                   (locks/layer-fields)
-                                                  (reads/layer-fields row-fields)))})
+                                                  (reads/layer-fields row-fields)
+                                                  ;; stage 4: the stored forwards
+                                                  (promote/layer-fields)))})
 
 ;; The one event, on the layer's home task, with no partitioner, so every
 ;; read sees this task's state and every write commits in one group (RQ 1):
@@ -125,6 +129,9 @@
         ;; the record path or the decision, and its writes (rig.store.gate-event)
         (gate-event/record-or-decide> *layer *offer *name *digest *in :> *ack *fan-out)
         (ack-return> *ack)
+        ;; stage 4: a promotion request answered yes goes on to its read-out and
+        ;; forward (rig.store.promote-flow); every other act passes through
+        (promote-flow/continue> *layer *offer *ack)
         ;; the person fan-out, after the answer is set: the ack returns once
         ;; every task holds the entry (stream.md, the event tree); a recorded
         ;; person act fans out again (L9); for a person forget each task then
@@ -138,5 +145,7 @@
   (locks/declare-queries! topologies)
   ;; stage 5a: the read queries read-point and read-pattern
   (reads/declare-queries! topologies)
+  ;; stage 4: promotion-status
+  (promote-flow/declare-queries! topologies)
   ;; the micro store (stage 3): its depot, gate and queries, from its own namespace (M1)
   (micro/declare! setup topologies))
