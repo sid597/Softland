@@ -1430,6 +1430,171 @@ From the review of wave 1, R58 (`REVIEW-wave1.md`, "For RIG.md"):
   whose `take-locks` times out after 30 s still seals under no lock, where
   the stream door throws after its tries.
 
+Phase 4's choices, R59 to R72 (`BUILD_NOTES-promotion.md`, "For RIG.md",
+P4-1 to P4-14, in its order): each can change without touching a record,
+except where it fixes a form that PR1 to PR5 carry (For Sid 5): the
+crossing's class (R61), the request's value (R63, R67), the landing lease
+(R65) and `:landing-lock-gone` (R66).
+
+- **R59. The stream gate's decision path is one op, `rig.store.gate-event`**
+  (P4-1; the orchestrator's decision (a) at promotion's prep): the depot's
+  records, the crossing's writes and a landing into a layer the stream gate
+  orders all go through it.
+- **R60. The promotion continues in the request's own record** (P4-2; the
+  plan's PR7): `promote-flow/continue>` after the request's answer, past a
+  commit boundary; the request's ack carries the crossing's answer, and a
+  stream landing's (D2).
+- **R61. The read-out claims no class** (P4-3; V-2), as the model decides
+  it: a source layer re-classed since the request is read out where the
+  source's lock is, on the stream side. This reverses the plan's F8
+  (For Sid 55).
+- **R62. A crossing's record answers by name** (P4-4; V-1): its name is
+  under the store's reserved scheme, so no digest is compared on its record
+  path.
+- **R63. The request is checked whole at the gate** (P4-5; D7): exactly its
+  keys; the source a readable fact id in the owner's layer that the act
+  stands on; the target another layer; the lease id bound to the request's
+  own uuid (F1); the public key a decodable X25519 key (F2); the landing
+  permission for the target; the head in the target; at most 256 subjects;
+  a session; and the request its act's one fact.
+- **R64. `:crossed` is the store's alone** (P4-6): anyone else writing one,
+  the operator included, is `:control-not-allowed` (the review's R-1, For
+  Sid 37).
+- **R65. A landing lease is a lease act with `:landing`** (P4-7), minting
+  one bare X25519 key pair row on either gate; lease queries show its
+  public key under `:landings`, never its private key (D3).
+- **R66. A landing that cannot get its lock is recorded
+  `:landing-lock-gone`** (P4-8), placed at the head of the lock reasons on
+  both gates. On the micro gate a row present under another session stays
+  a face refusal (F3); on the stream gate, where only the store's hop
+  brings landings, a row missing under the landing's session is recorded
+  (D6; For Sid 51).
+- **R67. The public key travels in the request as base64 text** (P4-9): a
+  control value is EDN, which has no bytes.
+- **R68. The status read carries a forward's summary** (P4-10; V-3), and
+  reads the landing only once it is settled under the frontier.
+- **R69. The door's rules** (P4-11): no request without a landing lease;
+  one session for the lease and the request; the session kept open in the
+  target until the promotion ends (PR9). The store cannot check them.
+- **R70. The hold is a predicate** (P4-12; `inject/held?`): a held
+  continuation ends the record's processing at its point, never blocking a
+  task; the door's resend continues it (PR15). Plus a `:before-read-out`
+  crash point.
+- **R71. The sealed box** (P4-13; PR6): the JDK's X25519, the wrapping lock
+  HMAC-SHA256 keyed by the shared secret over `softland/landing-box/v1` and
+  both public keys, AES-256-GCM with a 12-byte nonce, the associated data
+  the canonical text of `[lock-id landing-name]`. A box is read only at a
+  landing's decision, so it can change without touching a record.
+- **R72. The stored forward is the envelope as sent** (P4-14; PR8, F4), in
+  `$$layers [L :forwards req]`, subindexed; every send is it.
+
+The rest of phase 5's choices, R73 to R87 (`BUILD_NOTES-reads-rest.md`,
+"For RIG.md", P5-1 to P5-15, in its order): each changes without touching
+a record, the notes say; R83's one forget act per dropped entry is also
+FRR9's recorded form (For Sid 52).
+
+- **R73. Every index of a shared layer sits on the layer's own task**
+  (P5-1; Option B, RR5); the bucket count `:ix-place` is maintenance state,
+  unwritten (absent is 1). Accepted for the rig, not for the store core
+  (For Sid 29).
+- **R74. A shared read is as of F = min(asked, the frontier on the layer's
+  task)** (P5-2); a stamp moment on a shared layer, or a frontier on a
+  one-owner layer, is refused `:moment-kind` (RR1).
+- **R75. Group membership is read as of F** (P5-3): the batch that named the
+  member.
+- **R76. The exit's two queries hand a shared layer to
+  `shared-read-pattern` / `shared-read-point` by `invoke-query` on the same
+  task** (P5-4).
+- **R77. Standing reads poll at the delivery rate** (P5-5; RR9; the doorbell
+  is the named upgrade).
+- **R78. A delta cut by the limit resumes after the last shown row; cut by
+  the scan budget, past the last address it scanned**, sealed under a
+  module lock so the client cannot read it (P5-6; the build's repair of F2,
+  Found tonight).
+- **R79. An opening read cut by its limit is not caught up by later
+  deliveries** (P5-7); its line and the closing mark say `:partial`.
+- **R80. The micro index pages run in their own section of the batch**
+  (P5-8): no put or sweep writes a live entry over a tombstone, and every
+  micro rebuild ends with the replay of the forgets decided since it
+  began.
+- **R81. The micro person purge sweeps `:ix-s` of the task's shared
+  layers** (P5-9; RR17: a subject index by person is the named upgrade).
+- **R82. Person purges run in the operator's pages on every task** (P5-10):
+  for the one-owner store beside wave 1's purge in the forget's own fan-out
+  (the pages find the same values: recovery and a restore's replay), for
+  the micro store the only road.
+- **R83. A drop takes pages of 64 ids, one forget act per entry fact**
+  (P5-11; For Sid 52).
+- **R84. `standing-close`, `standing-open` and `entry-ids` are maintenance
+  reads**, ids and stamps only, not recorded; their callers are trusted
+  (P5-12; RR11).
+- **R85. An index gap in block 2d writes nothing for the act and flags its
+  layer** (P5-13); every read of the layer is `:partial` until a rebuild
+  clears the flag (RR6, F9).
+- **R86. Micro put pages of at most 64 entities and 2,048 rows; sweep pages
+  of 512 entries; person pages of 256** (P5-14; both stores).
+- **R87. The one-owner `:ix-s` index** (P5-15; one more put per fact, every
+  layer), so a delta costs one seek and the new facts' iterations.
+
+Phase 6's choices, R88 to R94 (`BUILD_NOTES-tools-and-grammars.md`, "For
+RIG.md", P6-1 to P6-7, in its order), the stream side; the micro side is
+step 6b's (For Sid 65):
+
+- **R88. The micro gate's grammar is phase 6b** (P6-1; D-P1, the
+  orchestrator's). Until then the micro store checks the compiled constant
+  and refuses a grammar fact `:malformed-control`; the question block 2b
+  needs answered is in the notes' "Phase 6b".
+- **R89. A tool leases as itself through the door** (P6-2; D-P2): wave 1's
+  W1-1 (R20) seals its lease rows under the layer's person owner, so the
+  owner's forget reaches them; no runner lease step (For Sid 32).
+- **R90. A replaced tool is not run** (P6-3): the runner runs a tool fact
+  only while no other tool fact in the page replaces it; its outputs stay
+  (For Sid 64).
+- **R91. A `[:kv]` read applies its key's grammar after the visibility
+  check** (P6-4), so a reader who cannot see a layer learns nothing of its
+  grammars.
+- **R92. In a recipe, a bare scalar stands for itself, and an `:emit` whose
+  value is nil fails its step** (P6-5), since a nil would be a retract (For
+  Sid 31).
+- **R93. The constants stay in source for what still reads them** (P6-6;
+  D-P3): `grammar/grammars` for the micro store's opens and phase 2's pure
+  tests, `seed-hints` for the micro side and the store keys' `:no-copy`;
+  the stream gate and the exit read only rows.
+- **R94. Earlier suites write the toy grammars as test data** (P6-7;
+  `rig.store.toy-grammars`, D-P4), never from `src/`.
+- **The plan's T-RC1 to T-RC12 stand as built** (`PLAN-tools-and-grammars.md`):
+  rows per key, read per distinct key, `:key-rows` subindexed; a key with
+  no grammar permissive; the rebuild refusal and `:used`; grammar writers
+  the operator and the owner; the shape bounds (8 deep, 256 nodes, 8
+  branches, 64 values) and budget (65,536); the run name's derivation
+  (SHA-256, version 8 UUID, no secret); a tool's grant a plain operator
+  grant; opaque means never interpreted (the gate still unseals); a shown
+  opaque value marked; the key-level loop graph in stamp order; the runner
+  as operator code by passes; a mark with no grammar admitted.
+
+Wave 2's merge, R95 to R97 (`BUILD_NOTES-wave2.md`, W2-1 to W2-3): each
+changes without touching a record; none adds a first-record form.
+
+- **R95. A landing into a layer the stream gate orders is decided under
+  that layer's grammar facts**, as any act there (W2-1): `gate/intake-offer`
+  carries the key rows' names and `locks/delivered-context` takes the rows'
+  grammars. Merged as each branch had it, promotion's stream landing, which
+  enters the gate's path through `intake-offer`, would have read no key
+  rows, and a promoted `:mention` would have landed in the base naming no
+  one.
+- **R96. Every suite written against the compiled constants writes the toy
+  grammars as facts first** (W2-2), extending R94 to the review's,
+  promotion's and phase 5's suites and to the replays' seed, where
+  `:grammar` is a rig-only key.
+- **R97. Where phase 5's reads meet the stream store they take the layer's
+  grammar facts** (W2-3): a one-owner layer's delta and its opening cursor
+  parse with `parse-hints` and apply `kv-refusal`, and mark opaque rows; a
+  re-classed layer's stream era refuses a `[:kv]` read of a key it used but
+  never indexed by value (or made opaque), and its rows are marked opaque
+  from `$$layers`' rows. The micro side keeps the constant until step 6b. A
+  reading 6b may revisit: such a read is refused, where it could instead
+  answer from the micro era marked `:partial`.
+
 ## Numbers so far
 
 All three are measured; `README.md` has the table under "The
