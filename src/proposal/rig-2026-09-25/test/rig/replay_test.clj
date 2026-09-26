@@ -298,8 +298,8 @@
 ;; ================================================================ the world
 
 (def main-road-names
-  "The rig's names on the main road: the model's own (a fresh module per
-  case, RP2)."
+  "The rig's names on the main road: the model's own (a fresh cluster and
+  module per case, RP2 as pass 2 changed it)."
   identity)
 
 (defn fallback-names
@@ -732,10 +732,11 @@
 (defn destroy! [ipc] (rtest/destroy-module! ipc (module-name)))
 
 (defn road-check
-  "RP2's check, made once per run before the cases: launch, destroy and
-  launch again, timed. The fresh-module road runs unless the second launch
-  fails or takes longer than 15 s, or RIG_REPLAY_ROAD=one-module forces the
-  fallback. The module is destroyed after."
+  "RP2's check, made once per run before the cases, in a cluster the run
+  closes before any case: launch, destroy and launch again, timed. The main
+  road (a cluster and a module of its own per case) runs unless the second
+  launch fails or takes longer than 15 s, or RIG_REPLAY_ROAD=one-module
+  forces the fallback. The module is destroyed after."
   [ipc]
   (let [forced (= "one-module" (System/getenv "RIG_REPLAY_ROAD"))
         t0 (System/nanoTime)
@@ -1588,16 +1589,24 @@
 
 (defn play-case!
   "One practical case through the rig in lockstep with the model's run `ls`
-  (under baseline). On the main road a fresh module is launched for it and
-  destroyed after. Returns the play record with the rig's `seen`."
+  (under baseline). On the main road the case gets an in-process cluster of
+  its own: the module launched in it, destroyed after, and the cluster
+  closed (pass 2: on one shared cluster every destroyed module's client
+  channels timed out about 25 s later, each case ran longer than the one
+  before, 5 s to 42 s, and two cases' seeds stopped on a 10 s read
+  timeout). On the fallback road the one module in `env`'s cluster is
+  shared. Returns the play record with the rig's `seen`."
   [env c ls]
-  (let [{:keys [ipc road]} env
+  (let [t0 (System/nanoTime)
+        {:keys [road]} env
+        own (when (= :fresh road) (rtest/create-ipc))
+        env (cond-> env own (assoc :ipc own))
+        ipc (:ipc env)
         rn (if (= :one-module road) (fallback-names (:id c)) main-road-names)
-        p (atom (assoc (fresh-play c rn (world rn)) :steps (:steps ls)))
-        t0 (System/nanoTime)]
+        p (atom (assoc (fresh-play c rn (world rn)) :steps (:steps ls)))]
     (try
       ((f env :inject/reset-all!))
-      (when (= :fresh road) (launch! ipc))
+      (when own (launch! ipc))
       (let [store (connect (:api env) ipc)]
         (run-seed! env store p (:first? env))
         (when-not (:stopped @p)
@@ -1614,7 +1623,9 @@
                                        (when-let [st (first (.getStackTrace t))] (str " at " st)))))))
       (finally
         (cleanup! env p)
-        (when (= :fresh road) (try (destroy! ipc) (catch Throwable _ nil)))))
+        (when own
+          (try (destroy! ipc) (catch Throwable _ nil))
+          (try (.close ^java.io.Closeable own) (catch Throwable _ nil)))))
     (assoc (dissoc @p :steps) :ms (ms-since t0))))
 
 ;; ============================================================== the verdicts
@@ -1783,7 +1794,7 @@
       (str "model    formal-model-2026-09-24 at " (sh-out "git" "log" "-1" "--format=%h" "--" "../formal-model-2026-09-24")
            "; the rig is compared under baseline")
       (str "cluster  in-process, " (:tasks module-options) " tasks, " (:threads module-options) " threads; road: "
-           (case (:road check) :fresh "a fresh module per case" :one-module "one module, a fresh world per case (the fallback)"
+           (case (:road check) :fresh "a fresh cluster and module per case" :one-module "one module, a fresh world per case (the fallback)"
                  :none "none (the module did not launch)" "not checked")
            (when check (str " (launch " (:launch-ms check) " ms, destroy " (:destroy-ms check) " ms, relaunch "
                             (:relaunch-ms check) " ms" (when (:forced check) ", forced by RIG_REPLAY_ROAD")
@@ -1847,44 +1858,54 @@
 (defn- now-ist []
   (.format (ZonedDateTime/now (ZoneId/of "Asia/Kolkata")) (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss 'IST'")))
 
+(defn- play-all
+  "Every prepared case: played when practical, on `road`, in the fallback
+  road's shared cluster `ipc` (nil on the main road, where each case makes
+  its own); each judged, into `state` as it goes."
+  [state resolved prepared check road ipc]
+  (let [played (volatile! 0)
+        stuck (volatile! nil)]
+    (mapv (fn [r]
+            (cond
+              (:not-practical r) (judge-case r)
+              (= :none road) (assoc (judge-case (assoc r :not-practical "the module did not launch"))
+                                    :fails [(str "the module did not launch: " (:error check))])
+              @stuck (assoc (judge-case (assoc r :not-practical (str "not run: " @stuck)))
+                            :fails [(str "not run: " @stuck)])
+              :else
+              (let [env {:ipc ipc :api resolved :road road :first? (or (= :fresh road) (zero? @played))}
+                    play (play-case! env (:case r) (:ls r))]
+                (vswap! played inc)
+                (when (:stuck-call play)
+                  (vreset! stuck (str "a call in " (:id r) " did not return (" (:stuck-call play)
+                                      "), so a stale call could reach a later case's module")))
+                (let [j (judge-case (assoc r :play play))]
+                  (swap! state update :results (fn [rs] (mapv #(if (= (:id %) (:id j)) j %) rs)))
+                  j))))
+          prepared)))
+
 (defn run-replays!
   "The whole run, into `state` as it goes (so a `finally` can report a
   partial run): resolve the APIs; prepare every case (lockstep, and
-  whether it is practical); one in-process cluster; RP2's road check; each
-  practical case played (a fresh module each on the main road); each case
-  judged."
+  whether it is practical); RP2's road check, in an in-process cluster of
+  its own, closed before any case; each practical case played (in a
+  cluster and a module of its own on the main road; in one shared cluster
+  and module on the fallback road); each case judged."
   [state]
   (let [t0 (System/nanoTime)
         resolved (resolve-apis)
         prepared (mapv #(prepare-case resolved %) cases)]
     (swap! state assoc :resolved resolved :results (mapv judge-case prepared))
-    (with-open [ipc (rtest/create-ipc)]
-      (let [check (road-check ipc)
-            road (:road check)
-            _ (swap! state assoc :check check)
-            _ (when (= :one-module road) (launch! ipc))
-            played (volatile! 0)
-            stuck (volatile! nil)
-            results (mapv (fn [r]
-                            (cond
-                              (:not-practical r) (judge-case r)
-                              (= :none road) (assoc (judge-case (assoc r :not-practical "the module did not launch"))
-                                                    :fails [(str "the module did not launch: " (:error check))])
-                              @stuck (assoc (judge-case (assoc r :not-practical (str "not run: " @stuck)))
-                                            :fails [(str "not run: " @stuck)])
-                              :else
-                              (let [env {:ipc ipc :api resolved :road road :first? (or (= :fresh road) (zero? @played))}
-                                    play (play-case! env (:case r) (:ls r))]
-                                (vswap! played inc)
-                                (when (:stuck-call play)
-                                  (vreset! stuck (str "a call in " (:id r) " did not return (" (:stuck-call play)
-                                                      "), so a stale call could reach a later case's module")))
-                                (let [j (judge-case (assoc r :play play))]
-                                  (swap! state update :results (fn [rs] (mapv #(if (= (:id %) (:id j)) j %) rs)))
-                                  j))))
-                          prepared)]
-        (when (= :one-module road) (try (destroy! ipc) (catch Throwable _ nil)))
-        (swap! state assoc :results results :ms (ms-since t0))))))
+    (let [check (with-open [ipc (rtest/create-ipc)] (road-check ipc))
+          road (:road check)
+          _ (swap! state assoc :check check)
+          results (if (= :one-module road)
+                    (with-open [ipc (rtest/create-ipc)]
+                      (launch! ipc)
+                      (try (play-all state resolved prepared check road ipc)
+                           (finally (try (destroy! ipc) (catch Throwable _ nil)))))
+                    (play-all state resolved prepared check road nil))]
+      (swap! state assoc :results results :ms (ms-since t0)))))
 
 ;; ============================================================== the replays
 
