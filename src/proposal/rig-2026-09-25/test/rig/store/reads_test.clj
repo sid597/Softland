@@ -484,8 +484,10 @@
 (deftest entry-facts
   (let [n1 (nm) enm (nm :alice-hand)
         ent (reads/entry-entity enm)
-        pans {:layer :alice :moment {:stamp 99} :kind :pattern :pattern [:e :e0]
+        ;; :recorded-pattern as the module's pattern answers carry it (step R, R-2)
+        pans {:layer :alice :moment {:stamp 99} :kind :pattern :pattern [:e :e0] :recorded-pattern [:e :e0]
               :matched [[[n1 0] 10] [[n1 1] 10]] :mark :partial :fingerprint "ab" :fp-secret :read-fp/v1}
+        kv [:kv :note {:a [1 #{:b}]}]
         spec (fn [kind & [rows?]] {:entry-name enm :role :shown :reader-kind kind :rows? rows?})]
     (testing "FR5, FR8: one line for a pattern read, about one fresh entity from the entry's name"
       (let [[f :as fs] (reads/entry-facts pans (spec :person))]
@@ -511,7 +513,7 @@
       (is (= 0 (:count (:v (first (reads/entry-facts (assoc pans :matched []) (spec :person))))))))
     (testing "every entry fact is an offer the envelope accepts once the door has sealed it (wave 1: its facts are value facts)"
       (doseq [facts [(reads/entry-facts pans (spec :person))
-                     (reads/entry-facts (assoc pans :pattern [:kv :note {:a [1 #{:b}]}]) (spec :tool))]]
+                     (reads/entry-facts (assoc pans :pattern kv :recorded-pattern (reads/recorded-pattern kv)) (spec :tool))]]
         (let [raw {:version 1 :name enm :who :alice :layer :alice-hand :class :by-layer
                    :permission [:alice :alice-hand :alice-hand] :session :s1 :stood-on {} :subjects #{}
                    :facts facts}]

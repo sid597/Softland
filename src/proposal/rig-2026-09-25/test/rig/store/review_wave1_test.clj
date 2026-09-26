@@ -5,13 +5,15 @@
   Rama showed'. One in-process cluster of 4 tasks; crashes (R3) last; tests
   assert 'at least once' (R4).
 
-  Blocks marked PENDING test a behaviour whose fix would change what a kept
-  record carries (a first-record question for Sid). They print what the
-  store does today as OBSERVED lines and assert the rulings' reading only
-  when the environment variable RIG_PENDING is 1, so the suite stays green
-  while the question is open:
-
-    RIG_PENDING=1 clojure -M:test rig.store.review-wave1-test"
+  The review left two blocks PENDING, first-record questions for Sid (R-1
+  and R-2), asserting the rulings' reading only under RIG_PENDING=1. Step R
+  (PLAN-review-fixes.md) built the default each question names, so both are
+  ordinary assertions now: a setting key about another entity is refused at
+  both gates and no door sends one (R-1, For Sid 37); a read entry's `[:kv]`
+  line keeps its value keyed (R-2, For Sid 4). Step R also adds F-1's last
+  edge: the micro door never seals under no lock. OBSERVED lines remain for
+  what the review only observes (the probes, and the depot copies a door or
+  a client leaves)."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [clojure.walk :as walk]
@@ -25,15 +27,18 @@
             [rig.store.micro-client :as mc]
             [rig.store.module :as m]
             [rig.store.read-exit :as rx]
-            [rig.store.toy-grammars :as tg]))
+            [rig.store.reads :as reads]
+            [rig.store.toy-grammars :as tg])
+  (:import [clojure.lang ExceptionInfo]))
 
 ;; ------------------------------------------------------------------ helpers
 
-(def ^:private pending?
-  "Whether the PENDING blocks assert the rulings' reading (see the ns doc)."
-  (= "1" (System/getenv "RIG_PENDING")))
-
 (defn- say [& xs] (apply println "OBSERVED" xs) (flush))
+
+(defn- door-refusal
+  "What a door threw for `f`, as ex-data, or :sent when it threw nothing."
+  [f]
+  (try (f) :sent (catch ExceptionInfo e (ex-data e))))
 
 (defn- retrying
   "A foreign call, retried while a worker restarts after an injected crash."
@@ -67,7 +72,7 @@
 
 (defn- field [st layer f] (into {} (retrying #(foreign-select [(keypath layer f) ALL] (:layers st)))))
 
-(defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-of]] [f (field st layer f)])))
+(defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-of :ix-s]] [f (field st layer f)])))
 
 (defn- entries-of [fs fid] (for [f [:ix-ek :ix-ke] e (vals (get fs f)) :when (= fid (:fid e))] e))
 
@@ -121,8 +126,8 @@
         (doseq [p [:rv-b :rv-q :rv-z]] (is (= :yes (:answer (mc/make-person! st p)))))
         (ok! (c/grant-offer st (bp :rv-b))))
 
-      ;; ------------------------------------------------ R-2, PENDING (first-record)
-      (testing "R-2 PENDING: a person forget does not reach a read entry's recorded [:kv] pattern, which pairs the value's text with its fact id"
+      ;; ------------------------------------------------ R-2 (step R; For Sid 4)
+      (testing "R-2 (step R): a read entry's recorded [:kv] pattern keeps the value keyed, so the subject's forget leaves nothing of the value in the entry"
         (let [text "rv2 a value about rv-b alone"
               o (act :rv-b :base [{:e :rv2 :k :note :v text}] :subjects #{:rv-b} :permission (bp :rv-b))
               _ (ok! o)
@@ -138,34 +143,58 @@
             (is (= [] (:rows after)) "holds: the value index no longer confirms the text (the purge)")
             (is (= {:erased-at (:stamp f)} (c/opens? st :base fid)) "holds: the value reads erased on the forget's date")
             (say "R-2: after rv-b's forget, Alice's read entry" (:entry r) "reads" (pr-str (select-keys line [:layer :pattern :exact :count])))
-            (when pending?
-              (is (not pairs?)
-                  "the forget ruling ('gone for everyone including the past') and I-L4: nothing the store keeps confirms the forgotten value; Alice's entry still pairs its text with its fact id")))))
+            (is (= (reads/recorded-pattern [:kv :note text]) (:pattern line)) "the line records the pattern as the module keyed it")
+            (is (string? (get-in line [:pattern 2 :keyed])))
+            (is (some #(= fid (first %)) (:exact line)) "the exact list still names what matched: ids and stamps")
+            (is (not pairs?)
+                "the forget ruling ('gone for everyone including the past') and I-L4: nothing the store keeps pairs the forgotten value's text with its fact id")
+            (is (not (text-anywhere? line text)) "the text is nowhere in Alice's entry"))))
 
-      ;; ------------------------------------------------ R-1, PENDING (first-record)
-      (testing "R-1 PENDING (W1-7 widened): a fact under a control key the stream gate does not act on keeps its value as plaintext, and a forget answered yes erases nothing"
-        (let [texts {:owner "rv1 owner text" :kind "rv1 kind text" :class "rv1 class text"
-                     :lock-grain "rv1 grain text" :promote-request "rv1 request text" :crossed "rv1 crossed text"}
-              sent (into {} (for [[k t] texts] (let [o (act :alice :alice [{:e :rv1 :k k :v t}])] [k [o (send! o)]])))
-              admitted (sort (for [[k [_ a]] sent :when (= :yes (:answer a))] k))
+      ;; ------------------------------------------------ R-1 (step R; For Sid 37)
+      (testing "R-1 (step R, W1-7 widened): a setting key about another entity is never sent by the door, and the stream gate refuses it and keeps nothing of it"
+        (let [setting-keys [:owner :kind :class :lock-grain]
+              door-text (fn [k] (str "rv1 door " (name k) " text"))
+              raw-text (fn [k] (str "rv1 raw " (name k) " text"))
+              door (into {} (for [k setting-keys]
+                              [k (door-refusal #(send! (act :alice :alice [{:e :rv1 :k k :v (door-text k)}])))]))
+              ;; a client that is not the door: the raw record appended as it is
+              raw (into {} (for [k setting-keys]
+                             (let [o (act :alice :alice [{:e :rv1 :k k :v (raw-text k)}])]
+                               [k [o (get (foreign-append! (:depot st) o :ack) "gate")]])))
               depot (c/depot-records st)
               fs (fields st :alice)
-              in-depot (filter (fn [k] (let [[o] (sent k)] (plaintext-in-depot? depot (:name o) (texts k)))) admitted)
-              in-log (filter (fn [k] (let [[o] (sent k)] (= (env/encode-value (texts k)) (:v (c/raw-row st :alice [(:name o) 0]))))) admitted)
-              in-index (filter (fn [k] (let [[o] (sent k)] (some #(= (env/encode-value (texts k)) (:v %)) (entries-of fs [(:name o) 0])))) admitted)
-              shown (fn [] (set (keep :value (:rows (rd st {:layer :alice :read [:pattern [:e :rv1]]})))))
-              before (shown)]
-          (say "R-1: admitted at the stream gate as plaintext control facts:" admitted)
-          (say "R-1: plaintext in the depot:" (vec in-depot) "| in the log's :v:" (vec in-log) "| in the id-index entries:" (vec in-index))
-          (is (contains? (set admitted) :owner) "a writer with a permission can put free text under :owner on another entity")
-          (let [[o] (sent :owner)
-                fo (c/forget-value! st :alice :alice [(:name o) 0])
-                after (shown)]
-            (say "R-1: the owner's forget of the :owner fact answers" (pr-str (select-keys fo [:answer :how])) "| the exit shows it before:" (contains? before (texts :owner)) "after:" (contains? after (texts :owner)))
-            (is (= :yes (:answer fo)))
-            (when pending?
-              (is (empty? admitted) "no act keeps a plaintext value under a control key the gate does not act on (W1-7's rule, beyond :members)")
-              (is (not (contains? after (texts :owner))) "a forget answered yes leaves the value readable nowhere")))))
+              shown (set (keep :value (:rows (rd st {:layer :alice :read [:pattern [:e :rv1]]}))))]
+          (doseq [k setting-keys]
+            (is (= {:door :refused :reason :malformed-control} (select-keys (door k) [:door :reason]))
+                (str k ": the door does not send it"))
+            (is (not-any? #(= (:name (door k)) (:name %)) depot) (str k ": nothing appended under the door's name"))
+            (is (not-any? #(text-anywhere? % (door-text k)) depot) (str k ": no record in *offers holds the door's text"))
+            (let [[o a] (raw k)]
+              (is (= [:no :malformed-control] ((juxt :answer :reason) a)) (str k ": a client that is not the door is refused"))
+              (is (empty? (c/raw-rows st :alice (:name o))) (str k ": no row"))
+              (is (empty? (entries-of fs [(:name o) 0])) (str k ": no id-index entry"))
+              (is (not (text-anywhere? fs (raw-text k))) (str k ": no index field holds its text"))
+              (is (not (contains? shown (raw-text k))) (str k ": the exit shows nothing of it"))))
+          (let [[o] (raw :owner)
+                fo (c/forget-value! st :alice :alice [(:name o) 0])]
+            (is (= [:no :no-such-value] ((juxt :answer :reason) fo)) "the owner's forget finds no value: nothing was kept"))
+          (say "R-1: a client that is not the door leaves its own record in *offers:"
+               (pr-str (into {} (for [k setting-keys :let [[o] (raw k)]] [k (plaintext-in-depot? depot (:name o) (raw-text k))]))))))
+
+      (testing "R-1 (step R): the other control keys the review found admitted are refused at the stream gate (phase 4's rules, W1-7), and nothing of them is kept"
+        (let [others {:promote-request :malformed-control :crossed :malformed-control :members :control-not-allowed}
+              sent (into {} (for [[k _] others]
+                              (let [t (str "rv1 " (name k) " text")
+                                    o (act :alice :alice [{:e :rv1 :k k :v t}])]
+                                [k [o t (send! o)]])))
+              fs (fields st :alice)]
+          (doseq [[k reason] others :let [[o t a] (sent k)]]
+            (is (= [:no reason] ((juxt :answer :reason) a)) (str k " refused"))
+            (is (empty? (c/raw-rows st :alice (:name o))) (str k ": no row"))
+            (is (not (text-anywhere? fs t)) (str k ": no index field holds its text")))
+          (say "R-1: through the door a control value out of shape is refused by the gate, but its text is in *offers (the door checks no shape; For RIG.md):"
+               (pr-str (let [depot (c/depot-records st)]
+                         (into {} (for [[k [o t]] sent] [k (plaintext-in-depot? depot (:name o) t)])))))))
 
       ;; ------------------------------------------ W1-1: who opens an agent's lease row
       (testing "W1-1: an agent's unconsumed lease rows are sealed under its layer's owner; who can take them"
@@ -231,21 +260,44 @@
             (is (= [:no :no-such-lock] ((juxt :answer :reason) (:answer r)))
                 "the value act cites the ids the refused lease would have minted, so no lock is delivered: :no-such-lock on its face")))
 
-        (testing "R-1 PENDING at the micro gate: a setting key on another entity keeps its value as plaintext in a group layer"
+        (testing "F-1's last edge (step R): a lease answered yes whose locks the door cannot take: seal throws, the door sends nothing and never seals under no lock"
+          (let [real-take mc/take-locks
+                spec {:who :bob :layer :group :session :rvs :permission (sp :rvs :bob)
+                      :facts [{:e :rvf2 :k :note :v {:token "rv f2"}}]}
+                spec2 (assoc spec :facts [{:e :rvf2 :k :note :v {:token "rv f2 a"}} {:e :rvf3 :k :note :v {:token "rv f2 b"}}])
+                ;; take-locks' own timeout gives {}; the redefinition gives what the timeout gives, without the 30 s
+                none (with-redefs [mc/take-locks (fn [& _] {})]
+                       (door-refusal #(mc/write! st spec :grain :per-value)))
+                ;; the lease's first lock taken, its second not
+                one-of-two (with-redefs [mc/take-locks (fn [store ln & more]
+                                                         (select-keys (apply real-take store ln more) [[(into [] ln) 0]]))]
+                             (door-refusal #(mc/write! st spec2 :grain :per-value)))
+                records (depot-records (:micro-depot st))]
+            (say "F-1's last edge: no lock taken" (pr-str none) "| one lock of two" (pr-str one-of-two))
+            (doseq [[what r] [["no lock taken" none] ["one lock of two taken" one-of-two]]]
+              (is (= :no-lock (:door r)) what)
+              (is (= :yes (:answer (mc/record-of st (locks/lease-name-of (:lock-id r))))) (str what ": its lease was answered yes"))
+              (is (not-any? #(= (:name r) (:name %)) records) (str what ": nothing appended under the act's name"))
+              (is (nil? (mc/record-of st (:name r))) (str what ": no answer under the act's name")))
+            (is (= [0 1] (mapv #(second (:lock-id %)) [none one-of-two])) "seal stops at the first value with no lock")))
+
+        (testing "R-1 at the micro gate (step R): a setting key about another entity is never sent by the door, and the gate refuses it"
           (let [text "rv1 micro owner text"
-                r (mc/write! st {:who :bob :layer :group :session :rvs :permission (sp :rvs :bob)
-                                 :facts [{:e :rv1m :k :owner :v text}]})
-                nm (get-in r [:offer :name])
-                row (mc/row-of st :rv1m [nm 0])
-                in-depot (plaintext-in-depot? (depot-records (:micro-depot st)) nm text)]
-            (say "R-1 micro: the act" (pr-str (select-keys (:answer r) [:answer :reason])) "| the row's :v" (pr-str (:v row)) "| plaintext in *micro-offers:" in-depot)
-            (when (= :yes (get-in r [:answer :answer]))
-              (let [f (mc/forget-value! st :group [nm 0] :rv1m)]
-                (say "R-1 micro: the operator's forget answers" (pr-str (select-keys f [:answer :reason])) "| the act reads" (pr-str (mc/open-act st :rv1m nm)))
-                (when pending?
-                  (is (not= text (:value (first (mc/open-act st :rv1m nm)))) "a forget answered yes leaves the value readable nowhere"))))
-            (when pending?
-              (is (not in-depot) "no plaintext value in the micro depot"))))
+                spec {:who :bob :layer :group :session :rvs :permission (sp :rvs :bob)
+                      :facts [{:e :rv1m :k :owner :v text}]}
+                door (door-refusal #(mc/write! st spec))]
+            (is (= {:door :refused :reason :malformed-control} (select-keys door [:door :reason])) "the door does not send it")
+            (let [records (depot-records (:micro-depot st))]
+              (is (not-any? #(= (:name door) (:name %)) records) "nothing appended under the act's name")
+              (is (not-any? #(text-anywhere? % text) records) "no plaintext value in the micro depot"))
+            (doseq [k [:owner :kind :class :lock-grain]]
+              (let [t (str "rv1 micro raw " (name k) " text")
+                    ;; a client that is not the door: the envelope appended as it is
+                    o (mc/build (assoc spec :facts [{:e :rv1m :k k :v t}]))
+                    _ (mc/send! st o)
+                    a (mc/await-answer st o)]
+                (is (= [:no :malformed-control] ((juxt :answer :reason) a)) (str k ": a client that is not the door is refused"))
+                (is (nil? (mc/row-of st :rv1m [(:name o) 0])) (str k ": no row"))))))
 
         (testing "probe (O11, open; observed only): an unmarked mention of an already forgotten person in a one-owner layer, before and after the layer's re-class"
           (ok! (c/make-layer-offer :rv-pl {:kind :personal :owner :alice}))
