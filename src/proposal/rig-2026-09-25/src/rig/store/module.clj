@@ -15,6 +15,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
             [rig.store.gate :as gate]
+            [rig.store.gate-event :as gate-event]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.micro :as micro]
@@ -89,19 +90,16 @@
 ;; The one event, on the layer's home task, with no partitioner, so every
 ;; read sees this task's state and every write commits in one group (RQ 1):
 ;;   intake (parse, digest, read keys; total) -> a face refusal is answered
-;;   and nothing else happens (P7) -> the name's record (F4: first) -> a
-;;   record answers or refuses as taken, nothing written -> else settings,
-;;   clock, wall, permission rows and heads rows (loop<-, never explode: an
-;;   act with no replaces must still reach the decision, F7) -> decide
-;;   (total) -> the writes it precomputed, every one a set keyed by name,
-;;   fact id, pid or layer (I-G2) -> the answer through the ack.
-;; Stage 2's steps are calls into rig.store.locks inside this one event
-;; (PLAN-locks-and-forgetting.md, gate event steps 3 to 11): the record
-;; path's value check and consumption; the delivery, whose missing lock is a
-;; face refusal; the decision reads and fresh draw; the lock writes, in the
-;; decision's group; and the person fan-out, the one partitioner, after the
-;; answer is set. Stage 5a's index writes are the decision's too, in the
-;; same group.
+;;   and nothing else happens (P7) -> the record path or the decision and
+;;   its writes, in rig.store.gate-event (`record-or-decide>`: the name's
+;;   record first, F4; else the settings, clock, wall, permission rows and
+;;   heads rows, stage 2's delivery and lock reads, `decide` (total) and the
+;;   writes it precomputed, every one a set keyed by name, fact id, pid or
+;;   layer, I-G2; stage 5a's index writes in the same group) -> the answer
+;;   through the ack -> the person fan-out, the one partitioner, after the
+;;   answer is set. The path lives in rig.store.gate-event so that the
+;;   store's own steps (stage 4) take the same one; a record of `*offers`
+;;   enters it here.
 (defmodule Store
   [setup topologies]
   (declare-depot setup *offers (hash-by :layer))
@@ -124,100 +122,16 @@
         (get *offer :layer :> *layer)
         (get *offer :name :> *name)
         (inject/point! :seen *name)
-        (local-select> (keypath *layer :answers *name) $$layers :> *rec)
-        (<<if (some? *rec)
-          ;; decided before: the recorded answer, or the name is taken; the one
-          ;; write is the consumption of the cited lease rows (stage 2, V-F1)
-          (gate/answer-from-record *rec *digest *name :> *d0)
-          (locks/record-path> *layer *offer *rec *d0 :> *d)
-          (inject/point! :recorded *name)
-          (locks/consume-locks> *layer (get *offer :session) (get *d :consume))
-          (ack-return> (get *d :ack))
-          ;; a recorded person act fans out again (L9); a recorded person forget's
-          ;; values are purged again on every task, idempotently
-          (locks/fan-out> *name (get *d :fan-out) :> *rlayer *rerased *rdate)
-          (reads/purge> *rlayer *rerased *rdate)
-         (else>)
-          (local-select> (keypath *layer :settings) $$layers :> *settings)
-          ;; stage 2: the delivery; a missing lock is refused on its face
-          (locks/deliver-all> *layer *offer *settings :> *lk)
-          (<<if (get *lk :missing?)
-            (ack-return> (gate/no-such-lock-ack *name))
-           (else>)
-            (local-select> STAY $$clock :> *clock)
-            (gate/wall-now :> *wall)
-            (get *in :pids :> *pids)
-            (loop<- [*todo *pids *acc {} :> *rows]
-              (<<if (empty? *todo)
-                (:> *acc)
-               (else>)
-                (first *todo :> *pid)
-                (local-select> (keypath *layer :permissions *pid) $$layers :> *row)
-                (continue> (rest *todo) (assoc *acc *pid *row))))
-            (get *in :heads :> *hkeys)
-            (loop<- [*todo *hkeys *acc {} :> *heads]
-              (<<if (empty? *todo)
-                (:> *acc)
-               (else>)
-                (first *todo :> *hk)
-                (local-select> (keypath *layer :heads *hk) $$layers :> *hstamp)
-                (continue> (rest *todo) (assoc *acc *hk *hstamp))))
-            (locks/decision-reads> *layer *offer *settings *lk :> *lx)
-            (gate/decide *offer *settings *rows *heads *clock *wall *digest *lx :> *d)
-            (<<if (= :decide (get *d :kind))
-              (inject/point! :before-writes *name)
-              ;; every write is a set of a value computed before any write, so a
-              ;; replay that reaches here writes the same rows (I-G2)
-              (get *d :record :> *record)
-              (local-transform> [(keypath *layer :answers *name) (termval *record)] $$layers)
-              (<<if (= :yes (get *record :answer))
-                ;; the act's rows, one whole-vector write into the subindexed vector (F1, F14)
-                (local-transform> [(keypath *layer :log *name) (termval (get *d :log))] $$layers)
-                ;; what the act stood on, one set per carried entry (F2)
-                (<<atomic
-                  (ops/explode-map (get *d :stood-on) :> *sf *ss)
-                  (local-transform> [(keypath *layer :stood-on *name *sf) (termval *ss)] $$layers))
-                (<<atomic
-                  (ops/explode (get *d :heads-del) :> *hk)
-                  (local-transform> [(keypath *layer :heads *hk) NONE>] $$layers))
-                (<<atomic
-                  (ops/explode (get *d :heads-put) :> [*hk *hs])
-                  (local-transform> [(keypath *layer :heads *hk) (termval *hs)] $$layers))
-                ;; stage 5a: the act's index entries, computed in decide (reads/index-writes);
-                ;; the same three blocks apply a purge's and a rebuild's lists
-                (<<atomic
-                  (ops/explode (get *d :index-put) :> [*ix *ia *ie])
-                  (local-transform> [(keypath *layer *ix *ia) (termval *ie)] $$layers))
-                (<<atomic
-                  (ops/explode (get *d :index-of) :> [*ofid *ias])
-                  (local-transform> [(keypath *layer :ix-of *ofid) (termval *ias)] $$layers))
-                (<<atomic
-                  (ops/explode (get *d :index-del) :> [*dx *da])
-                  (local-transform> [(keypath *layer *dx *da) NONE>] $$layers))
-                ;; settings and permission rows as they stand after the act; both were
-                ;; read in this event, so each is one write with no read
-                (get *d :settings :> *new-settings)
-                (<<if (some? *new-settings)
-                  (local-transform> [(keypath *layer :settings) (termval *new-settings)] $$layers))
-                (<<atomic
-                  (ops/explode (get *d :permissions) :> [*pp *prow])
-                  (local-transform> [(keypath *layer :permissions *pp) (termval *prow)] $$layers)))
-              ;; stage 2's lock writes, yes or no, in the same group
-              (locks/write-decision> *layer *offer *d)
-              ;; a value forget purges the read exit's indexes of every value its lock
-              ;; erased, in the same group, dated by its stamp (the ledger's date)
-              (get (get *d :locks) :purge :> *purge)
-              (<<if (seq *purge)
-                (reads/purge> *layer *purge (get *d :stamp)))
-              (local-transform> [(termval (get *d :stamp))] $$clock)
-              (inject/point! :after-writes *name))
-            (ack-return> (get *d :ack))
-            ;; the person fan-out, after the answer is set: the ack returns once
-            ;; every task holds the entry (stream.md, the event tree); for a person
-            ;; forget each task purges the read exit's indexes of every value that
-            ;; died there with the person, dated by its wrap's close
-            (locks/fan-out> *name (get (get *d :locks) :fan-out) :> *dlayer *derased *ddate)
-            (reads/purge> *dlayer *derased *ddate)))))
+        ;; the record path or the decision, and its writes (rig.store.gate-event)
+        (gate-event/record-or-decide> *layer *offer *name *digest *in :> *ack *fan-out)
+        (ack-return> *ack)
+        ;; the person fan-out, after the answer is set: the ack returns once
+        ;; every task holds the entry (stream.md, the event tree); a recorded
+        ;; person act fans out again (L9); for a person forget each task then
+        ;; purges the read exit's indexes of every value that died there with
+        ;; the person, dated by its wrap's close
+        (locks/fan-out> *name *fan-out :> *flayer *ferased *fdate)
+        (reads/purge> *flayer *ferased *fdate)))
     ;; stage 5a: the *index-ops source (rebuild pages, test-only ops) on this topology
     (reads/declare-index-ops-source! s))
   ;; stage 2's query topologies: lease-locks and read-as-of
