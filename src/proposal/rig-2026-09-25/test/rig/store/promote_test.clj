@@ -130,6 +130,15 @@
   [st e lname]
   (first (mc/open-act st e lname)))
 
+(defn- spki-of-u
+  "A well-formed 44-byte X25519 public key whose u-coordinate is the byte
+  `u` (little-endian): u = 0 and u = 1 are small-order points."
+  [u]
+  (let [out (byte-array 44)]
+    (System/arraycopy (byte-array (map unchecked-byte [0x30 0x2a 0x30 0x05 0x06 0x03 0x2b 0x65 0x6e 0x03 0x21 0x00])) 0 out 0 12)
+    (aset-byte out 12 (unchecked-byte u))
+    out))
+
 (defn- make-promoter!
   "A fresh person with a personal layer, her permission there, and her
   permission in the group (through the micro gate)."
@@ -222,6 +231,23 @@
           (is (= {:value "retried into the base"} (c/opens? st :base [lname 0])))
           (is (empty? (c/lease-rows st :base :s/t6b)))
           (is (= :done (status-kw st p)))))
+
+      (testing "D6: on the stream gate, a landing whose lease was taken in another session is recorded :landing-lock-gone"
+        (let [n (note! st :alice :alice :d6 "leased in one session, requested in another")
+              u (env/uuid7)
+              lease (pc/lease-landing! st {:who :alice :target :base :class :by-layer :session :s/d6a
+                                           :permission (bp :alice) :uuid u})
+              o (pc/request-offer {:who :alice :layer :alice :permission [:alice :alice :alice] :session :s/d6b
+                                   :source (:fid n) :source-stamp (:stamp n) :source-e :d6
+                                   :target :base :class :by-layer :public (:public lease)
+                                   :landing-permission (bp :alice) :uuid u})
+              a (c/offer-until-answered! st o)]
+          (is (= :yes (get-in a [:crossing :answer])))
+          (is (= [:no :landing-lock-gone] ((juxt :answer :reason) (:landing a)))
+              "recorded, so the promotion ends refused (no forger reaches this gate)")
+          (is (= :refused (:status (pc/promotion-status st :alice (:name o) nil))))
+          (is (= 1 (count (c/lease-rows st :base :s/d6a)))
+              "the other session's row stays until that session closes (open question 2)")))
 
       (testing "the hold hook: a hold ends the record's processing at its point and never blocks the task"
         (let [n (note! st :alice :alice :h1 "held")
@@ -468,7 +494,8 @@
                   lname (lname-of p)]
               (is (= 1 (inject/fired-count :after-forward req)) "the crash fired")
               (is (= :done (:status s)))
-              (is (>= (count (micro-records-named st lname)) 2) "the replay appended the stored forward again")
+              (is (wait-until #(<= 2 (count (micro-records-named st lname))) 30000)
+                  "the replay appended the stored forward again (it and the landing's batch are ordered by nothing)")
               (is (= 1 (count (:rows (mc/act st :t7a lname)))) "decided once: one copy row")
               (is (= "crash after the forward" (:value (micro-copy st :t7a lname))))
               (is (empty? (mc/lease-rows st (lease-name-of p))))))
@@ -745,7 +772,36 @@
                 a (c/offer-until-answered! st o)
                 s (settled! st {:name (:name o) :offer o})]
             (is (= :yes (get-in a [:crossing :answer])))
-            (is (= [:refused :landing :no-permission] ((juxt :status :at :reason) s))))))
+            (is (= [:refused :landing :no-permission] ((juxt :status :at :reason) s)))))
+        (testing "[F2] a small-order public key passes the request's check; the read-out records :malformed-control, never a throw"
+          (let [n (note! st :alice :alice :t15s "boxed to a small-order point")
+                o (pc/request-offer {:who :alice :layer :alice :permission [:alice :alice :alice] :session :s/t15s
+                                     :source (:fid n) :source-stamp (:stamp n) :source-e :t15s
+                                     :target :group :class :by-entity :public (spki-of-u 1)
+                                     :landing-permission (gp :alice) :uuid (env/uuid7)})
+                a (c/offer-until-answered! st o)]
+            (is (= :yes (:answer a)))
+            (is (= [:no :malformed-control] ((juxt :answer :reason) (:crossing a))))
+            (is (= [:refused :read-out :malformed-control]
+                   ((juxt :status :at :reason) (pc/promotion-status st :alice (:name o) nil))))))
+        (testing "the copy carries no marks: a mark is set at write, and the landing is a new write in the target"
+          (let [o (c/build {:who :alice :layer :alice :class :by-layer :permission [:alice :alice :alice]
+                            :facts [{:e :t15m :k :note :v "a marked source" :mark #{:die-with-any}}]})
+                _ (c/offer-until-answered! st o)
+                p (pc/promote! st (spec-into :alice [(:name o) 0] :group :by-entity :s/t15m))]
+            (is (= :done (:status (settled! st p))))
+            (is (= #{:die-with-any} (:mark (c/raw-row st :alice [(:name o) 0]))))
+            (is (= #{} (:mark (mc/row-of st :t15m [(lname-of p) 0]))))))
+        (testing "the head the request names, erased since: the replace is still allowed (OP4)"
+          (let [g (mc/write! st {:who :bob :layer :group :session :s/bob15x :permission (gp :bob)
+                                 :facts [{:e :t15x :k :note :v "a head, then erased"}]})
+                gfid [(:name (:offer g)) 0]
+                fg (mc/forget-value! st :group gfid :t15x)
+                n (note! st :alice :alice :t15x "replaces an erased head")
+                p (pc/promote! st (spec-into :alice (:fid n) :group :by-entity :s/t15x :replaces gfid))]
+            (is (= :yes (:answer fg)))
+            (is (= :done (:status (settled! st p))))
+            (is (= "replaces an erased head" (:value (micro-copy st :t15x (lname-of p))))))))
 
       (testing "T14: what is said at the point of promotion"
         (let [n (note! st :alice :alice :t14 "said at the point of promotion")
