@@ -918,8 +918,9 @@
   was sent, so a queue shows as latency instead of the writers quietly
   slowing down. The first `warm` seconds are unmeasured; the slots scheduled
   in the `secs` after them are measured. Each lane: {:threads :period-ns
-  :phase-ns :send (fn [slot] outcome) :kind}. Placement, leases, CPU and GC
-  cover the whole window. `:trace? true` keeps every slot's [lane slot
+  :phase-ns :send (fn [slot] outcome) :kind}; an admitted outcome carrying
+  `:sample-item` is kept for the read-back, one in 50. Placement, leases,
+  CPU and GC cover the whole window. `:trace? true` keeps every slot's [lane slot
   scheduled started ended] (ns), for T5."
   [{:keys [ctx variant k lanes warm secs trace?] :as w}]
   (let [threads (vec (for [[li lane] (map-indexed vector lanes) _ (range (:threads lane))] li))
@@ -956,9 +957,13 @@
                                          (let [started (System/nanoTime)
                                                o (try (send slot) (catch Exception e e))
                                                ended (System/nanoTime)
-                                               s (if (>= ts mstart) (nth m-stats ti) (nth w-stats ti))]
-                                           (record! s kind o (- ended ts))
+                                               s (if (>= ts mstart) (nth m-stats ti) (nth w-stats ti))
+                                               ok (record! s kind o (- ended ts))]
                                            (record-lat! s :lateness (- started ts))
+                                           ;; a lane's send may attach what the read-back needs
+                                           (when (and (= :yes ok) (:sample-item o)
+                                                      (zero? (mod (yes-count s kind) 50)))
+                                             (sample! s (:sample-item o)))
                                            (when trace (.add trace [li slot ts started ended]))
                                            (recur (inc sent))))))))))))
               (range (count threads)))
@@ -980,9 +985,12 @@
         offered (reduce + 0 (vals (get moc :value)))
         s (merge
            {:variant variant :k k :loop :open
-            :schedule (mapv #(select-keys % [:threads :period-ns :phase-ns]) lanes)
+            :schedule {:lanes (count lanes) :threads (count threads)
+                       :periods-ns (vec (distinct (map :period-ns lanes)))}
             :warm warm :secs secs
             :offered offered :admitted {:value (:admitted v)}
+            :whole-window {:sent all-sent
+                           :admitted (+ (:admitted v) (:admitted (counts-of (:outcomes wm) :value)))}
             :offered-per-s (rate offered secs-ns)
             :value-acts-per-s (rate (:admitted v) secs-ns)
             :admitted-share (when (pos? offered) (/ (Math/round (* 1000.0 (/ (:admitted v) offered))) 1000.0))
