@@ -8,9 +8,17 @@
   Every read goes through `read!`, recorded by the helper `rd`, and a global
   check at the end asserts that every read that returned rows has its
   entry's answer :yes (T11). Crashes are injected through rig.store.inject
-  (R3); tests assert 'at least once', never a replay count (R4)."
+  (R3); tests assert 'at least once', never a replay count (R4).
+
+  Wave 1 (phases 2 and 3 merged): values are sealed at the door and opened
+  by phase 2's open step, so what the log implies is computed from the
+  store's own opening (`read-as-of`, the internal view), index entries are
+  compared with their bytes as vectors (a byte array compares by
+  identity), and T19 erases with a real value forget instead of the
+  pass-through's test double, which the merge removed."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [clojure.walk :as walk]
             [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.test :as rtest]
@@ -69,24 +77,42 @@
   [st working entry-name]
   (first (retrying #(c/facts st working entry-name))))
 
+(defn- bytes->vec
+  "Data with every byte array as a vector of its bytes, so two reads of the
+  same stored bytes compare equal (wave 1: entries carry sealed values)."
+  [x]
+  (walk/postwalk #(if (bytes? %) (vec %) %) x))
+
 (defn- field
-  "One index field of a layer, whole, as {address-or-fid value}."
+  "One index field of a layer, whole, as {address-or-fid value}, its bytes
+  as vectors."
   [st layer f]
-  (into {} (retrying #(foreign-select [(keypath layer f) ALL] (:layers st)))))
+  (bytes->vec (into {} (retrying #(foreign-select [(keypath layer f) ALL] (:layers st))))))
 
 (defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-of]] [f (field st layer f)])))
 
+(defn- open-result
+  "One fact of `read-as-of` as the open step's result for it."
+  [f]
+  (cond (contains? f :value) {:value (:value f) :stamp (:stamp f)}
+        (contains? f :erased-at) {:erased-at (:erased-at f)}
+        :else {:unreadable (:unreadable f)}))
+
 (defn- log-acts
   "A layer's yes acts as `reads/implied` takes them, read by foreign-select,
-  each row opened by the pass-through as the rebuild opens it."
+  each row with the result of the store's own open step now (wave 1: phase
+  2's, through the internal `read-as-of`, which opens every row as the
+  rebuild does)."
   [st layer]
-  (vec (for [[nm rec] (retrying #(foreign-select [(keypath layer :answers) ALL] (:layers st)))
-             :when (= :yes (:answer rec))
-             :let [rows (retrying #(foreign-select [(keypath layer :log nm) ALL] (:layers st)))]]
-         {:name nm :stamp (:stamp rec) :rows rows
-          :opens (vec (for [[i r] (map-indexed vector rows)] (reads/open-row layer [nm i] r (:stamp rec) nil)))})))
+  (let [opened (into {} (map (fn [f] [(:id f) (open-result f)]))
+                     (:facts (retrying #(c/read-as-of st layer Long/MAX_VALUE))))]
+    (vec (for [[nm rec] (retrying #(foreign-select [(keypath layer :answers) ALL] (:layers st)))
+               :when (= :yes (:answer rec))
+               :let [rows (retrying #(foreign-select [(keypath layer :log nm) ALL] (:layers st)))]]
+           {:name nm :stamp (:stamp rec) :rows rows
+            :opens (vec (for [i (range (count rows))] (get opened [nm i] {:unreadable :no-such-fact})))}))))
 
-(defn- implied [st layer] (reads/implied reads/seed-hints layer (log-acts st layer)))
+(defn- implied [st layer] (bytes->vec (reads/implied reads/seed-hints layer (log-acts st layer))))
 
 (defn- q-pattern [st layer for pattern & [as-of limit]]
   (retrying #(foreign-invoke-query (:read-pattern st) layer for pattern as-of limit)))
@@ -151,7 +177,10 @@
             (is (= :no (:answer (c/lookup st (:entry r) nil))) "the refusal is the gate's, recorded under the entry's name")))
         (let [r (rd st {:layer :alice :read [:pattern [:e :t2]] :working :alice-nowhere
                         :permission [:alice :alice-nowhere :alice-nowhere]})]
-          (is (= :no-such-layer (:refused r)))
+          ;; wave 1: the entry is sealed at the door, so it leases first; a lease into a
+          ;; layer never made is refused (recorded under the lease's name) and the entry,
+          ;; citing no leased lock, is refused on its face (RIG.md For Sid 14)
+          (is (= :no-such-lock (:refused r)) "the entry's lease was refused :no-such-layer, the entry :no-such-lock")
           (is (not (contains? r :rows)))))
 
       (testing "T4: an empty pattern read is recorded, with count 0, complete, and the empty set's fingerprint"
@@ -420,20 +449,31 @@
             "F4: a layer never made answers as a private one")
         (let [fa (act :alice :alice [{:e :t19 :k :note :v "t19 same"}])
               fb (act :alice :alice [{:e :t19 :k :note :v "t19 same"}])
-              _ (ok! fa)
-              sb (:stamp (ok! fb))]
-          (try
-            (reset! reads/open-double (fn [_ fid _ _ _] (when (= [(:name fa) 0] fid) {:erased-at 777})))
-            (let [r (rd st {:layer :alice :read [:pattern [:kv :note "t19 same"]]})
-                  l (line st :alice-hand (:entry r))]
-              (is (= [[(:name fb) 0]] (fids-of r)) "F5: the candidate that no longer opens is not shown")
-              (is (= 1 (:count (:v l))) "nor counted")
-              (is (= (reads/fingerprint #{[[(:name fb) 0] sb]}) (:fingerprint r)) "nor in the fingerprint"))
-            (let [p (rd st {:layer :alice :read [:point [[(:name fa) 0]]]})]
-              (is (= [777 false] ((juxt :erased-at #(contains? % :value)) (first (:rows p))))
-                  "E8 R3: a point read of an erased fact shows its date, no value")
-              (is (= :erased (:shown (:v (line st :alice-hand (:entry p)))))))
-            (finally (reset! reads/open-double nil))))
+              sa (:stamp (ok! fa))
+              sb (:stamp (ok! fb))
+              fa-id [(:name fa) 0]
+              kv-a (reads/address :ix-kv {:k :note :vtext (env/encode-value "t19 same") :stamp sa :fid fa-id})
+              ;; wave 1: a real value forget of fa (in place of the pass-through's test double)
+              forgot (c/forget-value! st :alice :alice fa-id)]
+          (is (= [:yes :row-deleted] ((juxt :answer :how) forgot)))
+          (is (not (contains? (field st :alice :ix-kv) kv-a)) "the forget purged fa's value entry in its own event")
+          ;; F5 needs a value-index entry whose value no longer opens: plant fa's, a copy of its row
+          (is (= {:put true} (rx/index-op! st {:layer :alice :op :put :field :ix-kv :address kv-a :fid fa-id
+                                               :stamp sa :e :t19 :k :note :copy? true})))
+          (let [r (rd st {:layer :alice :read [:pattern [:kv :note "t19 same"]]})
+                l (line st :alice-hand (:entry r))]
+            (is (= [[(:name fb) 0]] (fids-of r)) "F5: the candidate that no longer opens is not shown")
+            (is (= 1 (:count (:v l))) "nor counted")
+            (is (= (reads/fingerprint #{[[(:name fb) 0] sb]}) (:fingerprint r)) "nor in the fingerprint"))
+          (let [p (rd st {:layer :alice :read [:point [fa-id]]})]
+            (is (= [(:stamp forgot) false] ((juxt :erased-at #(contains? % :value)) (first (:rows p))))
+                "E8 R3: a point read of an erased fact shows the forget's date, no value")
+            (is (= :erased (:shown (:v (line st :alice-hand (:entry p)))))))
+          (loop [after nil]
+            (let [pg (rx/index-op! st {:layer :alice :op :rebuild-sweep :field :ix-kv :after after :entries 512})]
+              (when-not (:done? pg) (recur (:next pg)))))
+          (is (not (contains? (field st :alice :ix-kv) kv-a))
+              "a sweep deletes the planted entry: the log implies no value entry for an erased value"))
         (let [r (rd st {:layer :alice :read [:pattern [:e :t2]]})
               ent (reads/entry-entity (:entry r))
               es (filter #(= ent (:e %)) (vals (field st :alice-hand :ix-ek)))]

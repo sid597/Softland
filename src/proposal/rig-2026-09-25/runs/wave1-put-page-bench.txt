@@ -1,0 +1,18 @@
+# Wave 1: the read exit's put page, re-measured with phase 2's open step (test/rig/bench/put_page_bench.clj)
+# run 1, cap 4,096 (the read exit's), 05:27:47 to 05:28:13 IST, from runs/wave1-put-page-bench.log (git-ignored)
+RUN put-page-bench rows-per-act 512 acts 10 repeats 7 cap 4096 machine 24 cores, Linux 21.0.12.1
+FILLED :bench-retracts 5120 facts in 574 ms
+PAGE :bench-retracts | personal, retracts (no seal: the open reads nothing) | acts in the page 10 | rows about 4096 | ms median 164.8 max 215.8 | us per row 40.2 | all [216 172 162 159 182 158 165]
+FILLED :alice 5120 facts in 1675 ms
+PAGE :alice | personal, sealed notes (lock rows) | acts in the page 24 | rows about 4096 | ms median 467.3 max 531.8 | us per row 114.1 | all [532 465 467 522 449 440 469]
+FILLED :alice-agent 5120 facts in 1441 ms
+PAGE :alice-agent | agent, sealed notes (locks in the record) | acts in the page 24 | rows about 4096 | ms median 445.4 max 505.2 | us per row 108.8 | all [505 436 485 462 436 445 439]
+
+# run 2, cap 2,048 (wave 1), 05:29:18 start, from runs/wave1-put-page-bench-2048.log (git-ignored)
+RUN put-page-bench rows-per-act 512 acts 10 repeats 7 cap 2048 machine 24 cores, Linux 21.0.12.1
+FILLED :bench-retracts 5120 facts in 557 ms
+PAGE :bench-retracts | personal, retracts (no seal: the open reads nothing) | acts in the page 6 | rows about 2048 | ms median 95.8 max 122.7 | us per row 46.8 | all [123 96 87 100 84 85 100]
+FILLED :alice 5120 facts in 1748 ms
+PAGE :alice | personal, sealed notes (lock rows) | acts in the page 12 | rows about 2048 | ms median 233.9 max 263.6 | us per row 114.2 | all [260 264 260 234 231 232 229]
+FILLED :alice-agent 5120 facts in 1427 ms
+PAGE :alice-agent | agent, sealed notes (locks in the record) | acts in the page 12 | rows about 2048 | ms median 231.0 max 287.9 | us per row 112.8 | all [288 225 222 239 235 224 231]
