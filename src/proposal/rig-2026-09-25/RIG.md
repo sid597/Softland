@@ -1936,7 +1936,11 @@ of its code against the rulings. Its records are not kept, and nothing is
 kept until edition one is written. The order of work is
 `src/proposal/frame-2026-09-15/PROGRESS.md`, "Next". Phases 2, 3 and 4
 wait; the next build is the read exit the count needs, `STARTER-next.md`.
-Text below this note that says "throwaway" is history.
+Text below this note that says "throwaway" is history. *26 September:*
+Sid's overnight brief widened `STARTER-next.md` and changed "phases 2 to 4
+wait" for the rig: every remaining phase was built overnight ("Overnight
+state" and "Stages tonight" above; "What is next" below). The rest of this
+note stands: a candidate, its adoption Sid's, its records not kept.
 
 Branch `rig-2026-09-25`, worktree `/mnt/data/projects/Softland-rig-2026-09-25`,
 folder `src/proposal/rig-2026-09-25/`. Rama 1.6.0, rama-helpers 0.10.0,
@@ -1949,6 +1953,10 @@ running record, rewritten at the end of every phase. A fresh session
 continues from "What is next".
 
 ## Status after phase 1 (25 September 2026, 09:35 IST)
+
+*History: the state at 09:35 IST on 25 September, kept as written. Phases 2
+to 8 were built overnight on 26 September; the current state is "Overnight
+state" at the top, "Numbers so far" and "What is next".*
 
 **Phases 0 and 1 are done; phases 2 to 8 are not built.** Sid is weighing
 whether to continue the rig as briefed, measure only the numbers on thin
@@ -2892,22 +2900,94 @@ experiment; phase 7's harnesses write grammar facts.
   lists where the sources differ; D2 and D3 are Sid's to settle. Its "Open"
   list, O1 to O23, is what the stage plans pick.
 - `DECOMPOSITION.json`: the six build stages.
-- Phase 1: `PLAN-stream-store.md`, `PLAN_VALIDATION-stream-store.md`,
-  `IMPLEMENTATION_VALIDATION-stream-store.md`,
-  `TEST_VALIDATION-stream-store.md`, `BUILD_NOTES-stream-store.md`; the code
-  under `src/rig/store/`; the tests `test/rig/smoke_test.clj`,
-  `test/rig/store/envelope_test.clj` and
-  `test/rig/store/stream_gate_test.clj`; the last runs in
-  `runs/phase1-suite.txt` and `runs/phase1-smoke.txt`.
-- Phase 2: `PLAN-locks-and-forgetting.md`, not yet validated.
-- Phase 3: `PLAN-micro-store.md`, being written.
+- Each stage's steps, in the rama skill's order, `PLAN-<stage>.md`,
+  `PLAN_VALIDATION-<stage>.md`, `IMPLEMENTATION_VALIDATION-<stage>.md`,
+  `TEST_VALIDATION-<stage>.md` and `BUILD_NOTES-<stage>.md`, for these
+  stages:
+  - phase 1, `stream-store`;
+  - phase 2, `locks-and-forgetting`;
+  - phase 3, `micro-store`;
+  - phase 4, `promotion`;
+  - phase 5, `read-exit` (the one-owner exit) and `reads-rest` (the rest);
+  - phase 6, `revision-reader`, `tools-and-grammars` (the stream side) and
+    `grammar-micro` (step 6b, from `STARTER-6b.md`);
+  - phase 8, `replays` (passes 1 to 3 in one notes file);
+  - step R, `review-fixes`.
+  Phase 7 has `PLAN-numbers.md`, `PLAN_VALIDATION-numbers.md` and
+  `BUILD_NOTES-numbers.md` (the binding check, the build and the run; no
+  implementation or test validation file, its tests being T1 to T11, the
+  run's first step). The slices' running logs are `BENCH_NOTES-stream.md`
+  and `BENCH_NOTES-locks.md`.
+- The merges: `BUILD_NOTES-wave1.md` with
+  `IMPLEMENTATION_VALIDATION-wave1.md` and `TEST_VALIDATION-wave1.md`, and
+  `BUILD_NOTES-wave2.md`.
+- The examination and the reviews, all by reading: `EXAMINATION-copies.md`
+  (the caching rule on two copies), `REVIEW-wave1.md`,
+  `REVIEW-full-spec.md` and `REVIEW-6b.md`.
+- The starters: `STARTER-next.md` (25 September) and `STARTER-6b.md`.
+- The code under `src/rig/`: `store/` the module, `revision.clj` the
+  revision reader, `claims.clj` phase 0, `bench/lock_slice.clj` the
+  slice. The tests under `test/rig/`, with phase 7's harnesses in
+  `test/rig/bench/`; the one full suite's command is
+  `runs/grammar-micro-suite-cmd.sh`. `runs/` keeps each run's summary,
+  full logs git-ignored (`runs/*.log`) except step 6b's suite log (For Sid
+  89).
 - The formal model rides on the rig's test classpath, so a test can ask it
   for its answer to the same history. Its 14 fixed histories all come out
-  as stated under the baseline configuration.
+  as stated under the baseline configuration, and the rig replays all 14
+  as the model says (phase 8's pass 3, and again in the one full suite).
+
 ## What is next
 
-The order is PROGRESS.md "Next", settled on 25 September in the evening.
-Two lanes now. The model's third round designs the seed against the
+The build Sid's overnight brief asked for is done: every phase of SPEC.md
+is built on this branch, the one full suite passed on step 6b's tree, the
+14 fixed histories replay as the model says, and the three numbers are
+measured on the finished store. What is left is not more building here but
+Sid's reading and rulings, and the work that follows them:
+
+1. **Sid's rulings.** "For Sid", 1 to 89: the questions that would touch a
+   record, each with what the build does meanwhile, the forms that freeze
+   at the first record first. "Defaults taken overnight, not ruled", 1 to
+   8, which the model's third round puts to him at the step where each
+   applies. And the machinery count's unit rule (For Sid 79). Adoption of
+   the rig as the store core is his, after a read of its code against the
+   rulings ("Status, 25 September, evening").
+2. **Edition one's review of the first-record placeholders.** The forms
+   marked first-record under "For Sid" (its first group, and each item
+   marked so elsewhere) freeze at the first kept record; nothing is kept
+   until edition one is written, so edition one reviews them.
+3. **The model's third round**: the store's seed designed against the
+   reference tool, a reference to a passage or a function at a revision
+   that shows its result, or that it is stale, when the material changes;
+   and how a passage stays the same across revisions
+   (`src/proposal/formal-model-2026-09-24/STARTER-round-3.md`, on `main`).
+   The revision reader built here (`rig.revision`) cuts a file at a
+   revision into passages and functions with no store identity.
+4. **The thesis count**, which a fresh session takes later, on a tool
+   nobody tonight knows (Sid's brief for phase 6, quoted in
+   `PLAN_VALIDATION-tools-and-grammars.md`). The machinery count above is
+   not it. The order of 25 September below has a fresh session write a
+   held-back tool and grammar from round three's one-page contract, the
+   blind count.
+5. **The performance findings.** Number 1's gate ceiling, unmeasured
+   behind the door's pool sort (For Sid 86); the one-writer tail's cause
+   (87); number 3's latency, near on the failing side at 100 acts a second
+   and qualified by H-1 (71); a re-classed layer's key rows costing seeks
+   on hash(L) for its life, whose cheap remedy is caching and so goes to
+   the adversarial examination first (80); where a shared layer's indexes
+   live at scale (29); the person forget's enumeration at scale (42); and
+   the full set's steps that did not run (variant B, variant C and the
+   entry bytes, `h40-again`, `h40-act4`, the person's own reads).
+
+What only Sid can settle, carried from README.md: the three thresholds,
+how big hand-layer values are, whether two nodes can run here, the partial
+`test/rig/store/gate_test.clj`, and the phase 0 call. The stamp's unit is
+built as the hybrid clock (default 2) and is ruled before the first kept
+record, not here. The worktrees left from tonight are For Sid 88.
+
+*History: the order of work as of 25 September, evening, kept as
+written.* The order is PROGRESS.md "Next", settled on 25 September in the
+evening. Two lanes now. The model's third round designs the seed against the
 reference tool with Sid, walking the tool through the protocol act by act
 (main, `src/proposal/formal-model-2026-09-24/STARTER-round-3.md`). This
 worktree builds the read exit the count needs, on the stream store as it
