@@ -89,7 +89,7 @@
   [st layer f]
   (bytes->vec (into {} (retrying #(foreign-select [(keypath layer f) ALL] (:layers st))))))
 
-(defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-of]] [f (field st layer f)])))
+(defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-s :ix-of]] [f (field st layer f)])))
 
 (defn- open-result
   "One fact of `read-as-of` as the open step's result for it."
@@ -347,9 +347,9 @@
             (is (< 1 (:put-pages r)) "the small pages span the history")
             (is (= snap (fields st :t10))))
           (testing "dropped to empty, then rebuilt: entry for entry the snapshot"
-            (doseq [f [:ix-ek :ix-ke :ix-kv :ix-of]]
+            (doseq [f [:ix-ek :ix-ke :ix-kv :ix-s :ix-of]]
               (loop [] (when (pos? (:dropped (rx/index-op! st {:layer :t10 :op :drop :field f :entries 512}))) (recur))))
-            (is (= {:ix-ek {} :ix-ke {} :ix-kv {} :ix-of {}} (fields st :t10)))
+            (is (= {:ix-ek {} :ix-ke {} :ix-kv {} :ix-s {} :ix-of {}} (fields st :t10)))
             (rx/rebuild! st :t10 :acts 2 :entries 3)
             (is (= snap (fields st :t10))))
           (testing "a stale entry at an address no act implies is deleted by the sweep"
@@ -367,7 +367,7 @@
               (loop [after (:next p1)]
                 (let [p (rx/index-op! st {:layer :t10 :op :rebuild-put :after after :acts 2})]
                   (when-not (:done? p) (recur (:next p)))))
-              (doseq [f [:ix-ek :ix-ke :ix-kv :ix-of]]
+              (doseq [f [:ix-ek :ix-ke :ix-kv :ix-s :ix-of]]
                 (loop [after nil]
                   (let [p (rx/index-op! st {:layer :t10 :op :rebuild-sweep :field f :after after :entries 3})]
                     (when-not (:done? p) (recur (:next p))))))
