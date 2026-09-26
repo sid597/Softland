@@ -560,9 +560,10 @@
   "Every rig API the replay calls (PLAN-replays.md, 'The APIs it needs, by
   stage'), with the var it binds to, found at run time. `:bound` says where
   the name comes from: `:built` as the stage's build names it (phase 1 and
-  phase 5a on this branch; phase 2 on rig-build-locks at fd41f6d2; phase 3
-  on rig-build-micro at e60c8ee1), `:plan` as the plan names it for a stage
-  not built yet, a binding to confirm. `:plan-name` is the plan's name where
+  phase 5a on this branch; phases 2 and 3 as wave 1 merged them onto
+  rig-2026-09-25 at 2034cce5, the names and arities their builds gave,
+  confirmed in pass 2), `:plan` as the plan names it for a stage not built
+  yet, a binding to confirm. `:plan-name` is the plan's name where
   the build's differs. `:cases` is who needs it; `:optional` ones never make
   a case not practical (the line names the road taken without them)."
   [;; ---- stage 1, phase 1's (built on this branch)
@@ -575,7 +576,7 @@
    {:id :client/revoke-offer :stage "1" :var 'rig.store.client/revoke-offer :bound :built :cases #{"D1"}}
    {:id :env/make-name :stage "1" :var 'rig.store.envelope/make-name :bound :built :cases b-cases}
    {:id :inject/reset-all! :stage "1" :var 'rig.store.inject/reset-all! :bound :built :cases :all}
-   ;; ---- stage 2, phase 2's door, persons and forgets (rig-build-locks, fd41f6d2)
+   ;; ---- stage 2, phase 2's door, persons and forgets (wave 1 at 2034cce5: client.clj 322-499)
    {:id :client/people-layer :stage "2" :var 'rig.store.client/people-layer :bound :built :cases :all
     :plan-name "the :people layer (P2 L1926-1927)"}
    {:id :client/make-person! :stage "2" :var 'rig.store.client/make-person! :bound :built :cases :all}
@@ -591,7 +592,7 @@
     :cases #{"A1" "A2" "A4" "A5" "A6" "A7" "A8"}
     :check (fn [g] (= {:subjects-at [:persons]} (get g :mention)))
     :check-says "the grammar {:mention {:subjects-at [:persons]}}"}
-   ;; ---- stage 3, phase 3's micro store (rig-build-micro, e60c8ee1)
+   ;; ---- stage 3, phase 3's micro store (wave 1 at 2034cce5: micro_client.clj)
    {:id :micro/connect :stage "3" :var 'rig.store.micro-client/connect :bound :built :cases :all}
    {:id :micro/make-base! :stage "3" :var 'rig.store.micro-client/make-base! :bound :built :cases :all}
    {:id :micro/make-group! :stage "3" :var 'rig.store.micro-client/make-group! :bound :built :cases :all}
@@ -696,7 +697,7 @@
 
 (def micro-topology
   "The micro gate's microbatch topology, paused to hold a landing (phase 3's
-  micro.clj L1149, built at e60c8ee1)."
+  micro.clj L1251 as wave 1 merged it at 2034cce5)."
   "micro")
 
 (def wait-ms "Every wait's bound: an answer, a frontier, a fan-out (P3 L2128-2133)." 60000)
@@ -757,7 +758,9 @@
 (defn connect
   "The merged handles, once per module (F8): the read exit's (which wraps
   the client's) and the micro client's (which wraps it too), so one door,
-  one lease pool and every query handle."
+  one lease pool and every query handle: the micro client's keys win, the
+  exit's `:read-point`, `:read-pattern` and `:index-ops` stay, as wave 1's
+  own test merges them (wave1_test.clj L158)."
   [api ipc]
   (merge ((api-fn api :exit/connect) ipc) ((api-fn api :micro/connect) ipc)))
 
