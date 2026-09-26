@@ -1,4 +1,4 @@
-# Build notes: phase 8, the replays (pass 1 of up to 3)
+# Build notes: phase 8, the replays (passes 1 and 2 of up to 3)
 
 Built by Claude Opus 5.5 at max effort, 26 September 2026 (first commit
 05:05 IST, the run 05:29 IST), on branch `rig-build-replays` (made off `rig-2026-09-25` at `9730010c`), per
@@ -150,6 +150,213 @@ the four call functions; then check `:shown` against the model's
 `[:crossed :crossed :done :done]`, `[:crossed :done :done]`), KD3, KD4 and
 KD13 seen, and that B4's landing is not refused (F5: a refusal fails the
 test and its line names which of phase 4's F9 conditions it points to).
+
+## Pass 2, after wave 1
+
+Claude Opus 5.5 at max effort, 26 September 2026, from 05:33 IST, in
+`/mnt/data/projects/Softland-rig-build-replays`. `git merge rig-2026-09-25`
+at `2034cce5` (wave 1: phases 2 and 3 merged and wired to the read exit)
+made `2e3e9abd`, with no conflict.
+
+### The bindings pass 1 left for wave 1
+
+Each was read against the merged code before the run, then seen at work
+(or not) in it. Wave 1 kept every name and arity the replay binds, so the
+table changed only in its provenance comments (`9a22407e`).
+
+- **The merged handle** `(merge (read-exit/connect ipc)
+  (micro-client/connect ipc))`: confirmed. Both wrap `c/connect`; the micro
+  client's keys win, so the handle holds one door atom and one lease pool,
+  and the exit's `:read-point`, `:read-pattern` and `:index-ops` stay.
+  Wave 1's own test merges them the same way (`wave1_test.clj` L158).
+- **`opens? [store layer fid]`**: confirmed, kept by wave 1 (W1-9,
+  `read-as-of` internal by contract; `client.clj` L396-410). It gave A1's
+  and A8's `:values`.
+- **The stream gate and 4-element permission ids**: confirmed. The gate
+  walks `permit/chain` (`permit.clj` L29-38) and `env/pid?` takes ids four
+  deep (`envelope.clj` L296-305); `open-session!`'s grant
+  `[:alice-session :alice :alice [:alice :alice :alice]]` answered yes in
+  all ten seeds.
+- **`:members` as a control key**: confirmed. It is one (`envelope.clj`
+  L43-52) and the stream gate refuses it (W1-7), but the group's making act
+  goes to the micro gate (`make-group!` builds it by entity), which admitted
+  it in all ten seeds.
+- **Phase 3's door after a refused lease (KD1)**: not confirmed, and not a
+  binding to change: `write!` seals under no lock and the micro gate
+  answers `:not-sealed`. Finding 1 below.
+- **Phase 2's person functions**: confirmed. `people-layer` is `:people`
+  (`client.clj` L346); `make-person! [store p]` L348, `forget-person!
+  [store p]` L355, `person-on-task [store p pkey]` L483. A forgotten
+  entry is `{:lock nil :erased-at stamp}` (`locks.clj` L806), which the
+  fan-out wait polls for; every forget's fan-out was seen on all 64 keys
+  within the wait.
+- **Phase 3's micro-client seed**: confirmed. `make-base! [store {:root
+  :grants}]`, `make-group! [store L {:members :root :grants}]`,
+  `open-session! [store S p layers]` (`micro_client.clj` L438-516), their
+  answers in the shapes `answers-in` reads; the world's base root
+  `[:operator :base :base]` is the micro seed's own (`locks/root-actor` is
+  `:operator`). All 19 seed acts answered yes in every case.
+- **`write!`, `open-act`, `stock!`**: confirmed. `write! [store spec &
+  {:keys [lease-who lease-permission grain]}]` gives `{:answer :offer
+  :lease :locks}`, the answer carrying the `:batch` the frontier wait
+  needs (`micro_client.clj` L298-318; `micro.clj` L1176-1188); `open-act
+  [store e nm]` reads micro-act's `{:record :rows}` through the name's F
+  (L331-341); `stock! [store who layer session n permission]`
+  (`client.clj` L322-332).
+
+### The road, changed
+
+Try 1 (05:42 IST, on `9a22407e`) ran the main road as pass 1 built it: a
+fresh module per case on one in-process cluster. It was the first run
+with cases played, so the first time the road launched and destroyed the
+merged module more than twice. What it showed:
+
+- every destroyed instance's client channels timed out about 25 s after
+  its destroy: 22 "Unexpected channel pong timeout; closing channel" and 33
+  "ModuleAssignmentInfoNotFoundException from resolve-leader; clearing
+  caches" lines, the road check's two instances among them, though no
+  client ever connected to those;
+- each case ran longer than the one before: A1 5.1 s, A2 7.4, A3 8.3, A4
+  10.6, A5 14.9, A6 22.6, A7 33.4, then about 42 s for A8, D1 and D2;
+- A8's and D2's seeds stopped at their fifteenth act, the grant `[:bob
+  :bob-hand :bob-hand]`, on a 10 s Rama read timeout at task 3
+  (`c/grant-offer` reads the layer's settings, with no retry), where the
+  same act answered yes in the other eight cases.
+
+The machine was idle (load average 0.77 over the five minutes to 05:48,
+0.95 over fifteen, on 24 CPUs), and the store starts no threads of its own
+(no `future`, executor or timer under `src/rig`). Checked: the case times,
+the log lines, the load, the store's source. Derived, not proven: that the
+stale instances' channels, closing while a case runs, stall that case's
+reads. The rerun is consistent with it and does not isolate it further.
+
+The fix is the replay's (`ceacabdc`): on the main road each case gets an
+in-process cluster of its own, its module launched in it, destroyed, and
+the cluster closed after; the road check runs in a cluster closed before
+any case; the fallback road keeps one shared cluster and module. In try 2
+no pong timeout or resolve error appeared, and every case ran in 5.1 to
+7.3 s. Separately, the report's roads line said "the group read through
+the exit" whenever no read went through the frontier, which A1 (it reads
+no group) and the cases that stopped early printed, though the shared
+read does not exist yet; it now names a road only for a read of a group
+layer, else "no group read" (`c83e939a`).
+
+### The runs
+
+This namespace, each run once, under the lock, from the rig folder:
+
+- Try 1: 05:42:13 to 05:46:19 IST, 246 s wall (the report's 236 s): 21
+  tests, 752 assertions, 3 failures (A8, D1, D2), 0 errors. Its report is
+  kept as `runs/phase8-replays-pass2-try1.txt` (`e0371b53`).
+- Try 2, after the road fix: 05:52:38 to 05:53:59 IST, 81 s wall (the
+  report's 72 s): 21 tests, 752 assertions, 2 failures (D1, D2), 0 errors.
+  Road check: launch 2,965 ms, destroy 261 ms, relaunch 2,284 ms (pass 1:
+  1,402, 246, 799; the merged module is larger). Stages 1 (11 APIs), 2 (9),
+  3 (12) and 5a (2) resolved; 4 (0 of 5) and 5's rest (0 of 1) missing.
+  Its report is `runs/phase8-replays-pass2.txt`. Raw logs, git-ignored:
+  `runs/phase8-replays-pass2.log` (try 1), `-pass2-rerun.log` (try 2).
+
+### The cases (try 2)
+
+| case | state | known differences |
+|---|---|---|
+| A1 | as said | KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12. KD10 attributed: Alice's exit read of `:alice` after her forget, the entry's lease refused `:person-forgotten` and the entry `:no-such-lock` on its face; the store's view beside it shows both facts erased |
+| A2 to A7 | as said | KD2 KD7 KD8 KD9 KD11 KD12. KD6 predicted, not seen: their reads are group reads through phase 3's frontier, which record no entry. KD10 predicted, not seen in A3, A4, A6, for the same reason, as pass 1's notes foresaw |
+| A8 | as said | KD2 KD6 KD7 KD8 KD9 KD11 KD12 (7b: the mention of Bob in Alice's own layer open after Bob's forget) |
+| B1 to B4 | not practical | stage 4 missing: `client/lease-landing!`, `promote!`, `promotion-status`, and for B1 and B2 `inject/hold!`, `release!` |
+| D1 | approximated (prepare and commit are one batch); fails on finding 1 | KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20; KD1 predicted, not seen (finding 1) |
+| D2 | practical; fails on finding 1 | KD2 KD7 KD8 KD9 KD11 KD12 KD20; KD1 and KD6 predicted, not seen |
+
+Every played case's `:values` equals the model's: A1's note and mention
+erased; A2 erased; A3, A4, A5 open; A6, A7 erased; A8 open; D1 and D2
+missing.
+
+### Every DIFFERS line, with its cause
+
+The rig's, under baseline:
+
+1. D1: `answer o0: its lease was refused: no permission-from-another-layer;
+   model no permission-from-another-layer, rig no not-sealed`. Finding 1.
+2. D2: `answer o1: its lease was refused: no permission-revoked; model no
+   permission-revoked, rig no not-sealed`. Finding 1.
+
+The model's own lines under the configurations other than baseline
+(`scenarios/report`'s, the same as pass 1's), now each with the rig's
+played outcome beside it: A1 under `baseline-but-not-owner-required`
+(the mention open there, erased in the rig); A8 under
+`baseline-with-a-read-as-owner-and-an-other` (erased there, open in the
+rig); A2 and A6 under `baseline-with-the-third-reading-of-a` (open there,
+erased in the rig); D1 under `baseline-but-not-permissions-in-their-layer`
+(open there, missing in the rig). Each configuration is a reading the
+rulings did not take; the rig implements baseline, so it differs from
+each exactly where the model's baseline does. None fails the test.
+
+Try 1's other two, not in the saved report: A8 and D2, `the play: error
+ExecutionException: CallbackException: Callback failure {:reason :timeout
+... :timeout-millis 10000 ... :task-id 3 ... :intent :read}`. The road,
+above, fixed in the replay.
+
+### Findings about the rig
+
+1. **The micro door answers `:not-sealed` after a refused lease, where the
+   plans give `:no-such-lock`.** D1 and D2. The model refuses the value act
+   itself: D1's o0 `:permission-from-another-layer` (Alice's session
+   permission lives in `:alice-hand`), D2's o1 `:permission-revoked` (her
+   group permission revoked first). The rig refuses the lease act with the
+   same reason, recorded, as KD1 expects. Then `micro-client/write!`
+   (`micro_client.clj` L298-318) takes no locks (`ks` is `{}`), `seal`
+   calls `locks/seal` with a nil lock, which returns nil (`locks.clj`
+   L118-139), and the value act goes out with `:sealed nil`; the micro
+   gate's parse refuses it `:not-sealed` on its face (`micro.clj`
+   `not-sealed?` and `parse-micro`, L240-278), before any lock is looked
+   up. The stream door does otherwise, by a documented rig choice: after a
+   refused lease it seals under throwaway locks citing the ids the refused
+   lease would have minted, so its gate answers `:no-such-lock`
+   (`client.clj` `assign!`, L155-185). P2 L1968-1973 says such a value act
+   "can cite no lock, so it is refused `:no-such-lock` on the face,
+   unrecorded"; P3's test list names "a lock id never leased" among the
+   `:no-such-lock` faces (PLAN-micro-store.md L773-777). The outcome is the
+   model's (the value missing on both sides, nothing recorded for the value
+   act); the reason is not, and `:not-sealed` names a malformed offer where
+   the cause was a permission. Not fixed here: the store is not the
+   replay's to change. The likely fix is the store's: `write!` doing what
+   the stream door's `assign!` does, or sending no value act (then F8's
+   rule, the lease alone, matches). Until then D1 and D2 fail the test by
+   design.
+
+No other finding: every other answer, read and value matched the model or
+a named known difference.
+
+### New known differences
+
+None. Finding 1 is not a known difference: it is a difference between the
+rig's two doors, and between the micro door and its plans, not a designed
+difference from the model. KD1's rule is unchanged, so KD1 shows in D1
+and D2 once the door is fixed.
+
+### For RIG.md (pass 2)
+
+- **P8-2, revised.** A fresh in-process cluster and module per case (was:
+  a fresh module per case on one cluster); the road check in a cluster
+  closed before any case; the fallback (one module, a fresh world per
+  case) unchanged. Why: on one cluster every destroyed instance's client
+  channels timed out about 25 s after its destroy, cases slowed from 5 s
+  to 42 s, and two seeds stopped on a 10 s read timeout; with a cluster
+  per case every case ran in 5 to 7 s.
+- **Found (finding 1).** The micro door answers a value act `:not-sealed`
+  after its lease is refused, where the stream door and P2 answer
+  `:no-such-lock`: D1 and D2.
+
+### Still to confirm, for wave 2
+
+Pass 1's items 1 and 2, unchanged: phase 4's `lease-landing!`, `promote!`
+(and its resend with the same name and claimed-when), `promotion-status`,
+`inject/hold!` and `release!` at `:before-read-out` and `:before-forward`,
+`env/landing-name`'s 3-arity, the crossing's answer by `c/record` of
+`env/crossing-name` and the landing's by the micro `lookup`; phase 5's
+rest, `rig.store.shared-reads/moment` (with it, A3, A4, A6 and B2, B4 read
+the group through the exit, and KD6 and KD10 should show there). For pass
+3 also: KD1 in D1 and D2 once finding 1 is fixed in the store.
 
 ## Divergences from the plan (IMPLEMENTATION_VALIDATION D1 to D12)
 
