@@ -241,7 +241,18 @@
                 (when pending?
                   (is (not= text (:value (first (mc/open-act st :rv1m nm)))) "a forget answered yes leaves the value readable nowhere"))))
             (when pending?
-              (is (not in-depot) "no plaintext value in the micro depot")))))
+              (is (not in-depot) "no plaintext value in the micro depot"))))
+
+        (testing "probe (O11, open; observed only): an unmarked mention of an already forgotten person in a one-owner layer, before and after the layer's re-class"
+          (ok! (c/make-layer-offer :rv-pl {:kind :personal :owner :alice}))
+          (ok! (c/grant-offer st [:alice :rv-pl :rv-pl]))
+          (let [before (send! (act :alice :rv-pl [{:e :rv9 :k :note :v "rv9 about forgotten rv-b, stream gate"}] :subjects #{:rv-b}))
+                rc (send! (mc/reclass-offer st :rv-pl))
+                after (mc/write! st {:who :alice :layer :rv-pl :session :rvp :permission [:alice :rv-pl :rv-pl]
+                                     :subjects #{:rv-b} :facts [{:e :rv9 :k :note :v "rv9 about forgotten rv-b, micro gate"}]})]
+            (say "O11 probe: the stream gate answers" (pr-str (select-keys before [:answer :reason])) "| the re-class" (:answer rc)
+                 "| the micro gate answers" (pr-str (select-keys (:answer after) [:answer :reason]))
+                 "| its lease" (pr-str (select-keys (get-in after [:lease :answer]) [:answer :reason]))))))
 
       ;; ------------------------------------------------------------ crashes
       (testing "a crash between a value forget's lock writes and its purge's writes discards both; the replay writes both (the notes' claim)"
@@ -291,4 +302,30 @@
               (is (nil? on-alice) "the lock destroyed on the value's task at the answer")
               (is (not kv-left) "the value index purged at the answer")
               (is (wait-until #(= [nil] (lock-on-every-task st :rv-z)) 120000) "eventually on every task"))
-            (finally (set-validator! inject/purges nil))))))))
+            (finally (set-validator! inject/purges nil)))))
+
+      (testing "probe, four times: a person forget whose fan-out child crashed, answered by name (RD1) as the door answers after an append error: is the value closed at that answer?"
+        (let [tries (vec (for [i (range 4)]
+                           (let [p (keyword (str "rv-y" i))
+                                 text (str "rv8 dies with " (name p))
+                                 _ (is (= :yes (:answer (mc/make-person! st p))))
+                                 o (act :alice :alice [{:e (keyword (str "rv8-" i)) :k :note :v text :mark #{:die-with-any}}] :subjects #{p})
+                                 _ (ok! o)
+                                 fid [(:name o) 0]
+                                 fo (c/build {:who :operator :layer :people :class :by-layer :facts [{:e p :k :forget-person :v {:person p}}]})
+                                 armed (atom true)]
+                             (inject/record-purges!)
+                             (set-validator! inject/purges (fn [v] (if (and @armed (some #(= fid (:fid %)) v)) (do (reset! armed false) false) true)))
+                             (try
+                               (let [threw? (try (c/offer! st fo) false (catch Exception _ true))
+                                     rec (wait-until #(let [r (c/lookup st (:name fo) nil)] (when (map? r) r)) 120000)
+                                     opens (retrying #(c/opens? st :alice fid))
+                                     lock (some-> (retrying #(c/person-on-task st p :alice)) :lock)]
+                                 {:try i :threw? threw? :fired? (false? @armed) :answer (:answer rec)
+                                  :closed? (contains? opens :erased-at) :lock-gone? (nil? lock)})
+                               (finally (set-validator! inject/purges nil))))))]
+          (say "probe: at the answer found by name after a fan-out crash:" (pr-str tries))
+          (is (every? :fired? tries) "each crash fired")
+          (is (every? #(= :yes (:answer %)) tries))
+          (doseq [t tries :when (:threw? t)]
+            (is (and (:closed? t) (:lock-gone? t)) (str "OP10 at the answer found by name, try " (:try t)))))))))
