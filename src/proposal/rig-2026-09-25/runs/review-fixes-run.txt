@@ -1,0 +1,18 @@
+Step R (the fixes from the review of wave 1), the one run: Sat 26 Sep 2026, lock taken 08:15:25 IST (no queue), finished 08:21:54 IST, 389 s.
+Branch rig-build-fixes at 30e9cf81 (the source at 468476f6, the tests at 30e9cf81), on rig-2026-09-25 merged in at f89addf0 (wave 2 and phase 8's pass 3); Rama 1.6.0 in-process cluster; under /mnt/data/projects/rig-relay-2026-09-26/cluster.lock.
+Command, from src/proposal/rig-2026-09-25:
+  flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.store.review-fixes-test rig.store.review-wave1-test rig.store.envelope-test rig.store.grammar-test rig.store.reads-test rig.store.micro-prepare-test rig.store.stream-gate-test rig.store.read-exit-test rig.store.micro-test
+Full output: runs/review-fixes-run1.log (git-ignored, beside this file).
+
+Result:
+Ran 54 tests containing 2218 assertions.
+{:test 54, :pass 2218, :fail 0, :error 0}
+Failures and errors: none. The one ERROR line in the log (08:15:52, "Invalid reference state") is the review's own injected crash inside a value forget's purge, which its block expects.
+
+Why these namespaces (PLAN-review-fixes.md, "Runs"): the two whose assertions step R writes (review-fixes-test, new; review-wave1-test), and the tests of the four source namespaces it changes: gate.clj's shared decision (envelope-test, stream-gate-test, grammar-test), reads.clj's entry (reads-test, read-exit-test), the micro door (micro-prepare-test, micro-test), the stream door (stream-gate-test). Each ran once (Sid's rule).
+
+Step R's OBSERVED lines (review-wave1-test):
+  R-2: after rv-b's forget, Alice's entry reads {:layer :base, :pattern [:kv :note {:keyed "0d078087..."}], :exact [[fid stamp]], :count 1}: the keyed pattern, no text.
+  R-1: a client that is not the door leaves its own record in *offers: {:owner true, :kind true, :class true, :lock-grain true} (refused by the gate, nothing kept; the depot keeps the append: For RIG.md, a question).
+  R-1: through the door a control value out of shape is refused by the gate, but its text is in *offers: {:promote-request true, :crossed true, :members true} (the door checks no shape: For RIG.md, a question).
+  F-1's last edge: no lock taken -> {:door :no-lock, :lock-id [lease 0]}; one lock of two -> {:door :no-lock, :lock-id [lease 1]}; nothing appended under either act's name.
