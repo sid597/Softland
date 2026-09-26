@@ -20,28 +20,43 @@
   left). One caller per handle.
 
   Test hooks (R3): the exit's `:exit-after-entry` and `:exit-shown`, named
-  by each line's act name."
+  by each line's act name.
+
+  The spec fixes (H-1): every line act is named with the working layer's
+  class as the layer has it when the line is made, and offered through the
+  door of the gate that orders the layer (`micro-client/offer-into!`), as
+  the exit's entries are; a session's close also finds the entries left
+  open in a re-classed layer's micro era."
   (:require [com.rpl.rama :refer :all]
             [rig.store.client :as c]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
+            [rig.store.micro-client :as mc]
             [rig.store.read-exit :as rx]
             [rig.store.reads :as reads]))
+
+(defn- fresh-line-name
+  "A fresh name for a line act, tagged with the working layer's class now
+  (the spec fixes, H-1)."
+  [store working]
+  (env/make-name working (mc/layer-class store working)))
 
 (defn- line-offer
   "One act of a standing read's lines, into the reader's working layer, as
   the exit's entries are: `:who` the reader, its permission and session
-  there, facts about the entry entity, each marked `:own-row` (FRR6)."
+  there, the class its name carries, facts about the entry entity, each
+  marked `:own-row` (FRR6)."
   [{:keys [reader working permission session]} nm facts]
-  (c/build {:name nm :who reader :layer working :class :by-layer :permission permission
+  (c/build {:name nm :who reader :layer working :class (nth nm 1) :permission permission
             :stood-on {} :because-of nil :subjects #{} :session session
             :facts (mapv #(assoc % :mark #{:own-row}) facts)}))
 
 (defn- offer-line!
-  "Offer a line act until answered, through the exit's hooks: nothing is
-  shown unless it is answered yes."
+  "Offer a line act until answered, through the door of the gate its name
+  is tagged for and the exit's hooks: nothing is shown unless it is
+  answered yes."
   [store spec nm facts]
-  (let [a (c/offer-until-answered! store (line-offer spec nm facts))]
+  (let [a (mc/offer-into! store (line-offer spec nm facts))]
     (inject/point! :exit-after-entry nm)
     a))
 
@@ -70,11 +85,11 @@
   [store spec]
   (let [spec (cond-> (merge {:role :shown :limit reads/default-limit} spec)
                (and (= :person (:reader-kind spec)) (nil? (:for spec))) (assoc :for (:reader spec)))
-        nm (env/make-name (:working spec) :by-layer)
         a (delta store spec nil nil)]
     (if (contains? a :refused)
       {:refused (:refused a)}
-      (let [ent (reads/entry-entity nm)
+      (let [nm (fresh-line-name store (:working spec))
+            ent (reads/entry-entity nm)
             opening {:e ent :k :read/standing
                      ;; R-2: the pattern as recorded, a [:kv] value keyed, never its text
                      :v (cond-> {:layer (:layer spec) :pattern (:recorded-pattern a) :role (:role spec)
@@ -109,7 +124,7 @@
       (contains? a :refused) {:refused (:refused a)}
       (:nothing-new a) (do (swap! h assoc :scan (:next-scan a)) :nothing-new)
       :else
-      (let [nm (or line-name (env/make-name (:working spec) :by-layer))
+      (let [nm (or line-name (fresh-line-name store (:working spec)))
             r (offer-line! store spec nm [{:e ent :k :read/delivery :v (delivery-value spec a line)}])]
         (if (= :yes (:answer r))
           (do (swap! h assoc :scan (:next-scan a) :line (:moment a) :so-far (:so-far a))
@@ -123,7 +138,7 @@
   closed. The act's answer."
   [store spec ent closed-by]
   (let [c (foreign-invoke-query (:standing-close store) (:working spec) ent)
-        nm (env/make-name (:working spec) :by-layer)]
+        nm (fresh-line-name store (:working spec))]
     (offer-line! store spec nm [{:e ent :k :read/closed
                                  :v (cond-> {:layer (:layer c) :moment (:moment c) :deliveries (:deliveries c)
                                              :fingerprint (:fingerprint c) :fp-secret reads/fp-secret-id
@@ -152,10 +167,23 @@
   every entry of the session left open in the working layer (a crashed
   door's) closed `:crash`, found from the record (`standing-open`). `spec`
   names the closer (`:reader`, `:working`, `:permission`, `:session`).
-  Returns `{:closed n :crash n}`."
+  Returns `{:closed n :crash n}`.
+
+  The spec fixes (H-1): for a working layer re-classed by entity the record
+  has two eras. An entry the stream era opened and the micro era closed is
+  not open; an entry the micro era opened and did not close is
+  (`micro-standing-open`, the micro era's opens of the session and every
+  entry it closed)."
   ([store spec] (close-session! store spec []))
   ([store spec handles]
    (let [live (count (mapv #(close-entry! store (:spec @%) (:ent @%) :session-close) handles))
-         open (foreign-invoke-query (:standing-open store) (:working spec) (:session spec))
+         W (:working spec)
+         sopen (foreign-invoke-query (:standing-open store) W (:session spec))
+         sopen (if (sequential? sopen) sopen [])
+         m (when (= :by-entity (mc/layer-class store W))
+             (foreign-invoke-query (:micro-standing-open store) W (:session spec)))
+         open (if (map? m)
+                (into [] (distinct) (concat (remove (set (:closed m)) sopen) (:open m)))
+                sopen)
          crash (count (mapv #(close-entry! store spec % :crash) open))]
      {:closed live :crash crash})))

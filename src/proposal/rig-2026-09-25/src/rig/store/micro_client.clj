@@ -37,6 +37,8 @@
            :task (foreign-pstate cluster mn "$$micro-task")
            :persons (foreign-pstate cluster mn "$$persons")
            :lookup-q (foreign-query cluster mn "micro-lookup")
+           ;; the spec fixes (H-1): the runner's batch lookup on this side
+           :lookup-many-q (foreign-query cluster mn "micro-lookup-many")
            :act-q (foreign-query cluster mn "micro-act")
            :lease-q (foreign-query cluster mn "micro-lease")
            :leases-of-q (foreign-query cluster mn "micro-leases-of"))))
@@ -442,6 +444,56 @@
   (if (= :micro (gate-for store offer))
     (offer! store offer)
     (c/offer-until-answered! store offer)))
+
+;; ================================================ acts into a working layer (H-1)
+;; The spec fixes, H-1: an act the store's own machinery writes into a layer (a
+;; read entry, a standing read's line, a session close, a dropped entry's forget,
+;; a tool run) is an ordinary act (FR3): it names the layer's class and goes to
+;; the gate that orders the layer, the stream gate for a layer placed by layer
+;; and this gate once the layer is re-classed.
+
+(defn layer-class
+  "The class an offerer names for an act into layer `L` (the class fact the
+  gate checks the act against, SPEC phase 1): the stream settings' class,
+  which every one-owner layer has from its making act and which a re-class
+  changes (a working layer is always one-owner, FR3); else this store's
+  settings' (a group); nil for no layer. Read for each act, never held by
+  the door: a re-class can come during a session, and an act named for the
+  class the layer had is refused `:class-mismatch`. One point read for a
+  one-owner layer."
+  [store L]
+  (when (env/readable-keyword? L)
+    (or (:class (c/settings store L))
+        (:class (settings-of store L)))))
+
+(defn offer-into!
+  "Offer a built act through the door of the gate that orders its layer,
+  as its name's tag says (`gate-for`, M13): a `:by-layer` name through the
+  stream door (`client/offer-until-answered!`), a `:by-entity` one through
+  this door's `write!` (lease as the act's writer, take, seal, offer, wait),
+  an act the store places (a forget) by its layer and target. The act is
+  sent as built: `write!` rebuilds a built map unchanged, so its name,
+  claimed-when and digest stay. Returns the stream door's shape, `{:answer
+  :reason :stamp :name}`, with `:batch` from this gate. Throws when this
+  gate gives no answer, as the stream door throws after its tries; nothing
+  may be shown then."
+  [store offer]
+  (if (= :micro (gate-for store offer))
+    (let [a (:answer (write! store offer))]
+      (when (or (not (map? a)) (= :no-answer (:answer a)))
+        (throw (ex-info "the micro gate gave no answer" {:door :no-answer :name (:name offer)})))
+      (-> (select-keys a [:answer :reason :stamp :batch])
+          (assoc :name (:name offer))))
+    (c/offer-until-answered! store offer)))
+
+(defn lookup-many
+  "This gate's records under `names`, {name record} for the names answered
+  and visible at their name task's frontier (the query `micro-lookup-many`,
+  one roundtrip), as `client/lookup-many` gives the stream side's (RD-T3)."
+  [store names]
+  (if (empty? names)
+    {}
+    (retrying #(foreign-invoke-query (:lookup-many-q store) (vec names)))))
 
 ;; ================================================================= seeding
 

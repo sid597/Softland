@@ -9,9 +9,13 @@
   (R5's read gateway), which takes the reader's kind, `:for` and working
   layer from the actor, never from the call.
 
-  The entry goes through the ordinary client offer path,
-  `client/offer-until-answered!`, as any act: decided by the gate that
-  orders the working layer, answered by name, retried from the record.
+  The entry goes through the ordinary offer path as any act: decided by the
+  gate that orders the working layer, answered by name, retried from the
+  record. The spec fixes (H-1): its name carries the working layer's class
+  as the layer has it at the read (`micro-client/layer-class`), and it is
+  offered through that gate's door (`micro-client/offer-into!`), so a read
+  whose working layer was re-classed is recorded at the micro gate, as
+  every act the exit and its neighbours write into a working layer is.
 
   Test hooks (R3, the in-process cluster only), each naming the read by its
   entry's name: `:exit-after-query` between the query and the entry,
@@ -23,16 +27,22 @@
             [rig.store.client :as c]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
+            [rig.store.micro-client :as mc]
             [rig.store.reads :as reads]
             [rig.store.shared-reads :as shared-reads]))
 
 (defn connect
-  "Handles on the store, taken once: phase 1's `client/connect` map, the two
-  read queries and the `*index-ops` depot."
+  "Handles on the store, taken once: the micro door's `micro-client/connect`
+  map (phase 1's `client/connect` with the micro store's; the spec fixes,
+  H-1: an act into a re-classed working layer goes through the micro
+  door), the two read queries and the `*index-ops` depot."
   [cluster]
-  (let [store (c/connect cluster)
+  (let [store (mc/connect cluster)
         mn (:module-name store)]
     (assoc store
+           ;; the spec fixes (H-1): the maintenance reads' micro era
+           :micro-entry-ids (foreign-query cluster mn "micro-entry-ids")
+           :micro-standing-open (foreign-query cluster mn "micro-standing-open")
            :read-point (foreign-query cluster mn "read-point")
            :read-pattern (foreign-query cluster mn "read-pattern")
            :index-ops (foreign-depot cluster mn "*index-ops")
@@ -90,15 +100,17 @@
 
 (defn entry-offer
   "The read entry as an ordinary offer into the working layer (FR3, FR4,
-  first-record): `:who` the reader, its permission there, `:class
-  :by-layer`, nothing stood on, no because-of, no subjects; its facts from
-  `reads/entry-facts`. Stage 5b (FRR10, first-record): the entry names the
-  session the read was taken in (`:session`, the reader's session in the
-  working layer; the door's own when none is given), so its session's close
-  keeps or drops it, and it acts under the reader's permission there. The
-  built map is what is sent and resent."
+  first-record): `:who` the reader, its permission there, the class its
+  name carries (the working layer's at the read: `:by-layer`, or
+  `:by-entity` once the layer is re-classed, the spec fixes' H-1,
+  first-record), nothing stood on, no because-of, no subjects; its facts
+  from `reads/entry-facts`. Stage 5b (FRR10, first-record): the entry names
+  the session the read was taken in (`:session`, the reader's session in
+  the working layer; the door's own when none is given), so its session's
+  close keeps or drops it, and it acts under the reader's permission
+  there. The built map is what is sent and resent."
   [answer {:keys [reader working permission entry-name session] :as spec}]
-  (c/build {:name entry-name :who reader :layer working :class :by-layer
+  (c/build {:name entry-name :who reader :layer working :class (nth entry-name 1)
             :permission permission :stood-on {} :because-of nil :subjects #{} :session session
             :facts (reads/entry-facts answer spec)}))
 
@@ -110,7 +122,9 @@
   layer and its permission there, where the entry lands), `:layer` (the
   layer read), `:read` (`[:point [fid ...]]` or `[:pattern p]`), `:as-of`,
   `:limit`, `:role` (default `:shown`), and `:entry-name` (tests arm hooks
-  on it; else made fresh here, before anything else).
+  on it; else made fresh here, once the call is checked and before the
+  query, tagged with the working layer's class as the layer has it now:
+  the spec fixes, H-1).
 
   Returns, only after the gate acknowledged the entry:
   `{:rows [...] :moment {:stamp m} :matched [[fid stamp] ...] :mark ..
@@ -120,18 +134,18 @@
   Throws when the entry's answer cannot be had; nothing was shown then."
   [store spec]
   (let [spec (cond-> (merge {:role :shown} spec)
-               (and (= :person (:reader-kind spec)) (nil? (:for spec))) (assoc :for (:reader spec)))
-        nm (or (:entry-name spec) (env/make-name (:working spec) :by-layer))
-        spec (assoc spec :entry-name nm)]
+               (and (= :person (:reader-kind spec)) (nil? (:for spec))) (assoc :for (:reader spec)))]
     (if-let [bad (check-call spec)]
       {:refused bad}
-      (let [answer (query store spec)]
+      (let [nm (or (:entry-name spec) (env/make-name (:working spec) (mc/layer-class store (:working spec))))
+            spec (assoc spec :entry-name nm)
+            answer (query store spec)]
         (if (contains? answer :refused)
           {:refused (:refused answer)}
           (do
             (inject/point! :exit-after-query nm)
             (let [entry (entry-offer answer spec)
-                  a (c/offer-until-answered! store entry)]
+                  a (mc/offer-into! store entry)]
               (inject/point! :exit-after-entry nm)
               (if (= :yes (:answer a))
                 (do
@@ -196,11 +210,14 @@
   operator. Its answer. The drop is not run here: the closer runs
   `drop-reads!` after the yes, as the layer's owner or the operator (an
   agent cannot forget in its layer; `resume-drops!` finds a pending drop
-  from the record)."
+  from the record). The spec fixes (H-1): named with the layer's class and
+  offered through the door of the gate that orders it, so a re-classed
+  working layer's session closes at the micro gate, which takes the same
+  `:reads` part."
   [store who layer session & {:keys [reads permission]}]
-  (c/offer-until-answered!
+  (mc/offer-into!
    store
-   (c/build {:who who :layer layer :class :by-layer
+   (c/build {:who who :layer layer :class (mc/layer-class store layer)
              :permission (when-not (= :operator who) (or permission [who layer layer]))
              :session session
              :facts [{:e session :k :session-closed :v (cond-> {:session session} reads (assoc :reads reads))}]})))
@@ -211,46 +228,97 @@
   [store layer session before after n]
   (foreign-invoke-query (:entry-ids store) layer session before after n))
 
+(defn micro-entry-ids
+  "The spec fixes (H-1): one page of a re-classed working layer's micro-era
+  read-entry facts of `session` decided in a batch at or below
+  `before-batch`, `{:ids [[fid stamp e] ...] :next :done?}`, as `entry-ids`
+  pages the stream era."
+  [store layer session before-batch after n]
+  (foreign-invoke-query (:micro-entry-ids store) layer session before-batch after n))
+
 (defn forget-entry-offer
   "One dropped entry's forget (FRR9 as built, first-record): phase 2's
   ordinary value forget, by the layer's owner or the operator, standing on
-  its target, because of the close act."
-  [who layer fid stamp e because]
-  (c/build {:who who :layer layer :class :by-layer
+  its target, because of the close act. The spec fixes (H-1): `class` is
+  the layer's class in force, which either gate checks the act against (a
+  forget is placed by the store, so its name carries no class); `gate-for`
+  sends a stream-era target to the stream gate (M25) and a micro-era one to
+  the micro gate, where a forget is the operator's (M14, For Sid 41)."
+  [who layer class fid stamp e because]
+  (c/build {:who who :layer layer :class class
             :permission (when-not (= :operator who) [who layer layer])
             :stood-on {fid stamp} :because-of because
             :facts [{:e e :k :forget :v {:target fid}}]}))
 
+(defn- page-forgets!
+  "Page through a drop's candidates with `page` (a function of the cursor,
+  giving `{:ids :next :done?}` or a refusal, which ends the pages) and
+  offer each one's forget; the number answered yes."
+  [store close-name page forget-offer]
+  (loop [after nil n 0]
+    (let [r (page after)
+          ids (when (map? r) (:ids r))
+          yes (count (filter #(= :yes (:answer %))
+                             (mapv (fn [id] (mc/offer-into! store (forget-offer id))) ids)))]
+      (inject/point! :drop-page close-name)
+      (if (or (not (map? r)) (contains? r :refused) (:done? r))
+        (+ n yes)
+        (recur (:next r) (+ n yes))))))
+
 (defn drop-reads!
   "The drop at a session's close (PLAN-reads-rest.md, 'Dropped'): the
-  session's read entries admitted at or before the close act's stamp,
-  forgotten one ordinary forget act per entry fact (phase 2's rule: a lock
-  control fact is its act's one fact), each named before it is offered,
-  answered by name and retried from the record, `:because-of` the close
-  act. Pages of 64 ids; a rerun finds only what is not yet erased. Returns
-  the number of forget acts answered yes."
+  session's read entries admitted at or before the close act, forgotten
+  one ordinary forget act per entry fact (phase 2's rule: a lock control
+  fact is its act's one fact), each named before it is offered, answered by
+  name and retried from the record, `:because-of` the close act. Pages of
+  64 ids; a rerun finds only what is not yet erased. Returns the number of
+  forget acts answered yes.
+
+  The spec fixes (H-1): each forget names the layer's class in force and
+  goes to the gate that holds its target. A close made in the stream era
+  (its name `:by-layer`) drops the stream era's entries stamped at or
+  before it and none of the micro era's, which all come after it. A close
+  made at the micro gate, after a re-class, drops every stream-era entry
+  of the session (all come before the re-class) and the micro era's decided
+  in a batch at or below the close's (a rig choice: the micro store's
+  stamps come from per-task clocks, so its order is the batch's). The
+  micro era's forgets are the operator's (M14); as the owner they are
+  refused `:control-not-allowed` until Sid answers For Sid 41."
   [store who layer session close-name close-stamp]
-  (loop [after nil n 0]
-    (let [{:keys [ids next done?]} (entry-ids store layer session close-stamp after drop-page)
-          yes (count (filter #(= :yes (:answer %))
-                             (mapv (fn [[fid stamp e]]
-                                     (c/offer-until-answered! store (forget-entry-offer who layer fid stamp e close-name)))
-                                   ids)))]
-      (inject/point! :drop-page close-name)
-      (if done? (+ n yes) (recur next (+ n yes))))))
+  (let [class (mc/layer-class store layer)
+        micro-close? (= :by-entity (nth close-name 1))
+        forget-offer (fn [[fid stamp e]] (forget-entry-offer who layer class fid stamp e close-name))
+        stream (page-forgets! store close-name
+                              #(entry-ids store layer session (when-not micro-close? close-stamp) % drop-page)
+                              forget-offer)
+        batch (when micro-close? (:batch (mc/lookup store close-name nil nil)))
+        micro (if (int? batch)
+                (page-forgets! store close-name #(micro-entry-ids store layer session batch % drop-page) forget-offer)
+                0)]
+    (+ stream micro)))
+
+(defn- settled-frontier
+  "The micro store's settled frontier as task 0 holds it (every task has
+  committed every batch at or below it), or nil."
+  [store]
+  (try (:frontier (foreign-invoke-query (:micro-progress store) 0)) (catch Exception _ nil)))
 
 (defn session-closes
   "A working layer's session close facts, from the `:ix-ke` range of
   `:session-closed` (control facts, plaintext, indexed like any fact):
   `[[session reads stamp name] ...]`, reads `:keep` when the act said
-  nothing."
+  nothing. The spec fixes (H-1): with a re-classed layer's micro-era closes
+  after the stream era's, those at or below the settled frontier."
   [store layer]
   (let [from (str "session-closed" reads/sep)
-        to (reads/prefix-end from)]
-    (vec (for [e (foreign-select [(keypath layer :ix-ke) (sorted-map-range from to) MAP-VALS] (:layers store))
-               :let [v (try (env/decode-value (:v e)) (catch Exception _ nil))]
-               :when (map? v)]
-           [(:session v) (or (:reads v) :keep) (:stamp e) (first (:fid e))]))))
+        to (reads/prefix-end from)
+        line (fn [e] (let [v (try (env/decode-value (:v e)) (catch Exception _ nil))]
+                       (when (map? v) [(:session v) (or (:reads v) :keep) (:stamp e) (first (:fid e))])))
+        stream (keep line (foreign-select [(keypath layer :ix-ke) (sorted-map-range from to) MAP-VALS] (:layers store)))
+        mes (foreign-select [(keypath layer :ix-ke) (sorted-map-range from to) MAP-VALS] (:micro-state store))
+        F (when (seq mes) (settled-frontier store))
+        micro (keep (fn [e] (when (and (int? (:batch e)) (int? F) (<= (:batch e) F)) (line e))) mes)]
+    (vec (concat stream micro))))
 
 (defn resume-drops!
   "F11: the drops a crashed closer left, found from the record: every
