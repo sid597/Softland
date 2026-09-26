@@ -568,6 +568,44 @@ consistent with it and does not isolate it further. The replays now run a
 cluster per case (`ceacabdc`, R33): in try 2 no pong timeout or resolve
 error appeared, and every case ran in 5.1 to 7.3 s.
 
+**A `<<branch` inside a `<<batch` block does not build in Rama 1.6.0**
+(the rest of phase 5; `IMPLEMENTATION_VALIDATION-reads-rest.md`, item 12;
+`BUILD_NOTES-reads-rest.md`, D12). The first try's module build refused it
+with a MarkerSegment error in the pre-aggregation phase. Block 2d, a
+shared layer's index writes in the batch that decides the act, is an
+explode fork instead (`micro.clj` block 2b: `(ops/explode [:rows :index]
+:> *part3)`, the index writes under `<<if`, then `(filter> (= :rows
+*part3))`), with the same writes.
+
+**A depot can be appended to from inside a `deframaop`**, through
+`this-module-pobject-task-global` under `<<with-substitutions` (phase 4's
+binding point 42: the rama skill documents the pattern for PStates, and
+for a depot it was assumed). Promotion's `promote-flow/forward>` appends
+the stored landing to `*micro-offers` so, after a commit boundary, and the
+landings into the group land through it (`promote_test` T6 and T7 a, green
+on the merged tree, `runs/wave2-suite.txt`).
+
+**The plan's cursor for a delta cut by the scan budget could not pass an
+act larger than the budget** (the rest of phase 5, D6, found by its test
+RT9 on its second try). The plan's F2 resumed from a time part, and every
+fact of an act shares its stamp, so such a delta never moved past that
+act. The build resumes past the last address it scanned, sealed under a
+module lock so the client holds nothing of an unshown fact (R78).
+
+**Two seams no test covered, found by reading the merge**
+(`BUILD_NOTES-wave2.md`, W2-1 and W2-3). Each wave 2 branch was green on
+its own, and each fix is where one branch's work reached code another had
+written. Promotion decides a stream landing by the gate's one path,
+entered from `gate/intake-offer`; phase 6 had put the key rows' names in
+`gate/intake` alone, so a landing would have been checked, wrapped and
+indexed under no grammar (R95). The rest of phase 5 parsed a standing
+read's deltas with the compiled constant, so a standing `[:kv]` read of a
+key a layer's grammar indexes, any key but `:note`, would have opened
+through `read-pattern` and then had every delta refused (R97). *Derived,
+not run:* no case in the merged suite would have failed without the fixes,
+since none writes a grammar into the base before a landing or opens a
+standing `[:kv]` read of another key.
+
 ## For Sid
 
 Questions that would touch a record, each with what the build does meanwhile;
@@ -1216,6 +1254,11 @@ unless marked first-record.
    forget still reaches every value. *Checked against:* ruling 3; R1's rider
    "read-entry fingerprints cover the ids of the matched facts, not their
    values"; the rig constraint that fingerprints over values are keyed.
+   *Status (wave 2):* a shared layer's moment is built as `{:frontier F}`,
+   F the smaller of the asked frontier and the layer task's (R74), its
+   entry carrying `:max-stamp` (FRR8); a `[:kv]` value in a recorded
+   pattern is keyed only in a standing read's opening line so far (For Sid
+   4).
 4. **One exit for every read** (R5): it queries, appends the entry, then
    answers; nothing is shown before its entry is acknowledged. Agent session
    reads are recorded there, and kept or dropped when the session closes;
@@ -1223,19 +1266,31 @@ unless marked first-record.
    frame's promise that you find out when something you built on changes;
    reads that happened cannot be unread. *Checked against:* R5 and R6;
    ruling 3's "agent session layers may default to none", which R5 partly
-   reopens.
+   reopens. *Status (wave 2):* built by the rest of phase 5: shared layers
+   read through the same exit (R76); standing reads poll through it (R77);
+   the entry names the session it was read in (FRR10, For Sid 38); an agent
+   session's close act says `:reads :keep` or `:drop` (FRR5), a drop
+   forgetting each entry by its own forget act (R83, For Sid 52).
 5. **Permissions** (R7): a root permission made with each layer; opening a
    session writes a narrower permission into each layer it may write,
    through that layer's gate; agents and tools narrower still; a revoke cuts
    everything below it. *For:* a gate checks only permissions in layers it
    orders. *Checked against:* the permissions sharpening; the model's trace
    14 (a gate checking a permission in the other store misses a revocation).
+   *Status (wave 2):* a tool's grant is a plain operator grant tonight
+   (T-RC7), not yet narrower than a session's, which a four-element
+   permission id could express (For Sid 45); the tool leases as itself
+   (R89).
 6. **The base** (R8): one-owner on the stream gate, owned by the root actor,
    re-classed to shared at the first group; its lock rules are shared-layer
    rules from day one (7b as written, locks in the record). This overrides
    SPEC.md phase 3's placement of the base. *For:* the re-class changes
    nothing about locks. *Checked against:* ruling 9 (first facts stay
-   facts); the layer kinds.
+   facts); the layer kinds. *Status (wave 2):* a promotion lands in the base
+   while it is one-owner by the stream gate's own path, a hop with no depot
+   on the road, under the base's grammar facts (R95), and after its
+   re-class through `*micro-offers` (`promote_test` T10 a and b); a read of
+   the re-classed base shows both eras (For Sid 57).
 7. **The numbers** are judged against the thresholds assumed in this file
    and README.md (at least 1,000 admitted acts a second a task with every
    index written; at least 100 acts a second at 20 ms or less for the
