@@ -491,11 +491,13 @@
           (is (= (mapv #(vector (:name o) %) (range 12)) (fids-of ek)))
           (is (= [[(:name o) 11]] (fids-of lt)) "the model's chain-head: the last of the act")))
 
-      (testing "D7: a layer re-classed by entity is not read here"
+      (testing "D7, stage 5b: a layer re-classed by entity is read through the shared path, as of a frontier"
         (make-layer! st :t21 :personal :alice [:alice :t21 :t21])
         (ok! (act :alice :t21 [{:e :e0 :k :note :v "before the re-class"}]))
         (ok! (act :operator :t21 [{:e :t21 :k :class :v :by-entity}]))
-        (is (= {:refused :re-classed} (rx/read! st (merge alice {:layer :t21 :read [:pattern [:all]]}))))
+        (let [r (rx/read! st (merge alice {:layer :t21 :read [:pattern [:k :note]]}))]
+          (is (= ["before the re-class"] (mapv :value (:rows r))) "its stream era, shown by the shared path")
+          (is (contains? (:moment r) :frontier)))
         (is (= {:refused :not-visible}
                (rx/read! st {:reader :bob :reader-kind :person :working :bob-hand :permission [:bob :bob-hand :bob-hand]
                              :layer :t21 :read [:pattern [:all]]}))
