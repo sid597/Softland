@@ -886,7 +886,14 @@
 ;; ------------------------------------------------------ index operations
 
 (def max-put-acts 256)
-(def max-put-rows "A put page stops once its acts hold this many rows." 4096)
+(def max-put-rows
+  "A put page stops once its acts hold this many rows. 2,048 since wave 1
+  (the read exit built 4,096 when an open read nothing): with phase 2's open
+  step a 4,096-row page of sealed values held its task about 0.47 s against
+  0.16 s for rows that open nothing, over the plan's 0.1 to 0.3 s for a put
+  page, so the cap was halved (runs/wave1-put-page-bench.log). An act larger
+  than the cap still goes whole into one page."
+  2048)
 (def max-sweep-entries 512)
 
 (defn- bounded? [n lo hi] (and (int? n) (<= lo n hi)))
@@ -1039,7 +1046,7 @@
 (defn declare-index-ops-source!
   "The gate topology's second source (F2), on `*index-ops`: one bounded
   event per record, on the layer's home. A put page reads up to n answer
-  records after its cursor and each yes act's rows (stopping once 4,096 rows
+  records after its cursor and each yes act's rows (stopping once 2,048 rows
   are gathered), opens every row, and puts every entry they imply; a sweep
   page reads up to n entries of one field after its cursor, each entry's
   record, row and open (and for `:ix-kv` its `:ix-of` set), and deletes or
