@@ -333,10 +333,18 @@
   (if-let [s (statement st target)] (assoc st :statement s) st))
 
 (defn status-target
-  "The target a request names, from its forward or its request record's
-  act (for the statement)."
+  "The target a request names, from its forward's summary (for the
+  statement)."
   [fwd]
   (get-in fwd [:landing :layer]))
+
+(defn forward-summary
+  "What the status read needs of a stored forward: the landing's road, name
+  and target. The sealed copy and its box stay on the owner's home task."
+  [fwd]
+  (when fwd
+    (cond-> {:landing (select-keys (:landing fwd) [:name :layer])}
+      (:route fwd) (assoc :route (:route fwd)))))
 
 (defn gate-intake
   "The intake of a store-made act the stream gate decides (a landing into

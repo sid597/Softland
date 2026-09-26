@@ -163,7 +163,8 @@
 (deframafn status-home>
   "`promotion-status`' first part, on the owner layer's home: the
   request's answer; for a yes at or before T the crossing's; for a yes of
-  that at or before T the stored forward (the landing's name and road).
+  that at or before T the stored forward's summary (the landing's name,
+  road and target; its sealed bytes stay on this task).
   Each read only when the state before it does not already decide
   ([F5])."
   [*layer *req *as-of]
@@ -174,7 +175,7 @@
       (local-select> (keypath *layer :answers *cname) $$layers :> *crec)
       (<<if (promote/crossed-by? *crec *as-of)
         (local-select> (keypath *layer :forwards *req) $$layers :> *fwd)
-        (:> {:req *rrec :crossing *crec :forward *fwd})
+        (:> {:req *rrec :crossing *crec :forward (promote/forward-summary *fwd)})
        (else>)
         (:> {:req *rrec :crossing *crec}))
      (else>)
