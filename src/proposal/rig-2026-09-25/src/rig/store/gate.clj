@@ -23,6 +23,7 @@
             [rig.store.envelope :as env]
             [rig.store.locks :as locks]
             [rig.store.permit :as permit]
+            [rig.store.promote-shape :as ps]
             [rig.store.reads :as reads])
   (:import [com.rpl.rama.helpers TopologyUtils]))
 
@@ -39,9 +40,11 @@
 
 (def exempt-actors
   "Who acts at the root, cites no permission and skips the four permission
-  checks (model.clj `exempt?`). The operator only in this stage: `:store`
-  is refused on its face (F6)."
-  #{:operator})
+  checks (model.clj `exempt?`): the operator, and, stage 4, the store's own
+  steps (a promotion's read-out, `:who :store`). No record on a depot may
+  claim `:store` (env/parse refuses it on its face, F6), so only the
+  store's own steps act as it."
+  #{:operator :store})
 
 ;; ------------------------------------------------------------ control facts
 
@@ -58,12 +61,14 @@
 
 (defn control-fact?
   "A fact the gate projects or acts on: a setting, a grant or a
-  revocation, and stage 2's lock control facts (a forget, a lease, a
-  session close, a person made or forgotten)."
+  revocation, stage 2's lock control facts (a forget, a lease, a session
+  close, a person made or forgotten), and stage 4's promotion request and
+  crossing fact."
   [offer f]
   (or (setting-fact? offer f)
       (contains? #{:permission :revoke} (:k f))
-      (contains? locks/lock-control-keys (:k f))))
+      (contains? locks/lock-control-keys (:k f))
+      (contains? #{:promote-request :crossed} (:k f))))
 
 (defn grant-target
   "The permission a grant fact grants, when its value names one."
@@ -96,8 +101,13 @@
         :person (and (map? v) (= #{:id} (set (keys v))) (env/readable-keyword? (:id v)) (= (:e f) (:id v)))
         :forget-person (and (map? v) (= #{:person} (set (keys v))) (env/readable-keyword? (:person v))
                             (= (:e f) (:person v)))
-        :lease (and (map? v) (= #{:count} (set (keys v))) (int? (:count v)) (<= 1 (:count v) locks/max-lease)
+        ;; stage 4: a landing lease is {:count 1 :landing L*}, L* bound to its own name (PR4, F1)
+        :lease (and (map? v) (or (= #{:count} (set (keys v))) (ps/landing-lease-value? offer v))
+                    (int? (:count v)) (<= 1 (:count v) locks/max-lease)
                     (some? (:session offer)) (= (:e f) (:session offer)))
+        ;; stage 4 (PLAN-promotion.md step 1, PR1, PR2)
+        :promote-request (ps/request-value-ok? offer v)
+        :crossed (ps/crossed-value-ok? v)
         :session-closed (and (map? v) (= #{:session} (set (keys v))) (env/readable-keyword? (:session v))
                              (= (:e f) (:session v)))))))
 
@@ -108,16 +118,20 @@
   owner may also forget a value (L10); anyone whose cited permission
   covers the layer may lease (L20) and close their own session, the
   operator any session (L28); person acts are the operator's, in the store
-  layer only (L7), so every person act is ordered on one task (L8)."
+  layer only (L7), so every person act is ordered on one task (L8).
+  Stage 4: a crossing fact is the store's own step's alone; anyone whose
+  permission covers the layer may request a promotion (PR1)."
   [offer settings f]
   (let [who (:who offer)
         k (:k f)]
     (cond
+      (= :crossed k) (= :store who)
       (contains? #{:person :forget-person} k) (and (contains? exempt-actors who) (= :store (:kind settings)))
       (contains? exempt-actors who) true
       :else (or (and (setting-fact? offer f) (= :lock-grain k) (= who (:owner settings)))
                 (and (= :forget k) (= who (:owner settings)))
                 (= :lease k)
+                (= :promote-request k)
                 (and (= :session-closed k) (= (:session offer) (get-in f [:v :session])))))))
 
 (defn class-in-force
@@ -192,8 +206,10 @@
       perm
 
       (or (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
-          ;; a lock control fact is the act's one fact (rig choice)
-          (and (some #(contains? locks/lock-control-keys (:k %)) facts) (not= 1 (count facts))))
+          ;; a lock control fact is the act's one fact (rig choice); stage 4: so is
+          ;; a promotion request, whose read-out continues its record
+          (and (some #(contains? locks/lock-control-keys (:k %)) facts) (not= 1 (count facts)))
+          (and (some #(= :promote-request (:k %)) facts) (not= 1 (count facts))))
       :malformed-control
 
       (some #(and (control-fact? offer %) (not (control-allowed? offer settings %))) facts)
@@ -290,20 +306,26 @@
   [refused raw]
   (ack :no (:refuse refused) nil (env/name-of raw)))
 
+(defn intake-offer
+  "The intake of a parsed offer: the offer, its digest, and the keys of the
+  permission rows and heads rows the decision reads. `intake`'s for a depot
+  record; stage 4's for a store-made act this gate decides (a landing into
+  a layer it orders), which never passes the depot's parse."
+  [o]
+  {:offer o
+   :digest (env/digest o)
+   :pids (pids-to-read o)
+   :heads (heads-to-read o)})
+
 (defn intake
   "The gate's first step on a raw depot record. Total. {:refuse reason} for
-  a record refused on its face; else the parsed offer, its digest, and the
-  keys of the permission rows and heads rows the decision reads."
+  a record refused on its face; else `intake-offer` over the parsed offer."
   [raw]
   (try
     (let [p (env/parse raw :stream)]
       (if (contains? p :refuse)
         p
-        (let [o (:ok p)]
-          {:offer o
-           :digest (env/digest o)
-           :pids (pids-to-read o)
-           :heads (heads-to-read o)})))
+        (intake-offer (:ok p))))
     (catch Throwable _ {:refuse :gate-error})))
 
 ;; ----------------------------------------------------------------- decide
