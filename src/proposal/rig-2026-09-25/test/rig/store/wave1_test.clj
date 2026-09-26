@@ -31,6 +31,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.test :as rtest]
             [rig.store.client :as c]
+            [rig.store.toy-grammars :as tg]
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
@@ -160,11 +161,15 @@
           ok! (fn [o] (let [a (send! o)] (is (= :yes (:answer a)) (pr-str (:facts o))) a))
           layer! (fn [layer kind owner]
                    (ok! (c/make-layer-offer layer {:kind kind :owner owner}))
-                   (ok! (c/grant-offer st [owner layer layer])))]
+                   (ok! (c/grant-offer st [owner layer layer]))
+                   ;; phase 6: the toy grammars as facts in the layer (D-P4)
+                   (doseq [a (tg/write! st [layer])] (is (= :yes (:answer a)))))]
 
       (testing "seed: the one-owner world, the base (the micro world's making act, default 6), Carol and Dan"
         (is (every? #(= :yes (:answer %)) (c/seed! st)))
         (is (every? #(= :yes (:answer %)) (mc/make-base! st)))
+        ;; phase 6: the toy grammars as facts in the seeded layers and the base (D-P4)
+        (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent :base])))
         (doseq [p [:carol :dan]] (is (= :yes (:answer (mc/make-person! st p))) (str "made " p " by phase 2's act"))))
 
       (testing "persons are phase 2's acts on the micro side: the entry is on every task before the answer"

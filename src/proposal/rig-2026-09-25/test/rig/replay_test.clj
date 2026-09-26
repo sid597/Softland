@@ -627,9 +627,15 @@
    {:id :exit/read! :stage "5a" :var 'rig.store.read-exit/read! :bound :built :cases :all}
    ;; ---- stage 5, the rest: the exit's shared-layer read (to confirm; optional)
    {:id :shared/moment :stage "5-rest" :var 'rig.store.shared-reads/moment :bound :plan :cases :all :optional true
-    :plan-name "the exit's shared-layer read (PLAN-reads-rest.md: read-exit/read! on a group layer, rig.store.shared-reads)"}])
+    :plan-name "the exit's shared-layer read (PLAN-reads-rest.md: read-exit/read! on a group layer, rig.store.shared-reads)"}
+   ;; ---- phase 6, grammars as facts (wave 2's merge, W2-2): the stream gate and the
+   ;; one-owner exit read a key's grammar only from facts in the layer, so the seed writes
+   ;; the model's grammar into each one-owner layer (the test data phase 6's suites use,
+   ;; D-P4); optional, so a tree without phase 6 seeds as pass 2 did
+   {:id :grammar/facts :stage "6" :var 'rig.store.toy-grammars/facts :bound :built :cases :all :optional true
+    :plan-name "the model's grammars as facts in each one-owner layer (phase 6's D-P4)"}])
 
-(def stage-order ["1" "2" "3" "4" "5a" "5-rest"])
+(def stage-order ["1" "2" "3" "4" "5a" "5-rest" "6"])
 
 (defn- needs? [api id]
   (and (not (:optional api)) (or (= :all (:cases api)) (contains? (:cases api) id))))
@@ -808,6 +814,12 @@
        [["the store layer" #(send store ((f :client/make-layer-offer) (f :client/people-layer) {:kind :store}))]])
      (for [p (:persons w)] [(str "person " (name p)) #((f :client/make-person!) store p)])
      (for [[l spec] (:one-owner w)] [(str "layer " (name l)) #(send store ((f :client/make-layer-offer) l spec))])
+     ;; phase 6 (W2-2): the model's grammars as facts in each one-owner layer, before
+     ;; any case act there, when phase 6's facts resolve
+     (when (contains? (get api :grammar/facts) :value)
+       (for [[l _] (:one-owner w)]
+         [(str "grammars in " (name l))
+          #(send store ((f :client/build) {:who :operator :layer l :class :by-layer :facts (f :grammar/facts)}))]))
      (for [pid (:stream-grants w)] [(str "grant " (pr-str pid)) #(send store ((f :client/grant-offer) store pid))])
      (if first?
        [["the base" #((f :micro/make-base!) store (:base w))]]
@@ -931,9 +943,10 @@
 (def rig-only-keys
   "Fact keys only the rig's own acts carry, which a read that finds them
   does not count as a fact the model lacks: making and settings, grants,
-  leases and session closes, persons and their forgets, read entries."
+  leases and session closes, persons and their forgets, read entries, and
+  the grammars the seed writes (phase 6, W2-2)."
   #{:kind :owner :class :lock-grain :members :permission :lease :session-closed :person :forget-person
-    :read/point :read/pattern})
+    :read/point :read/pattern :grammar})
 
 (def ^:private status-rank {:practical 0 :approximated 1})
 

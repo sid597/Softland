@@ -56,6 +56,7 @@
             [formal.model :as fm]
             [formal.scenarios :as fsc]
             [rig.store.client :as c]
+            [rig.store.toy-grammars :as tg]
             [rig.store.module :as m]
             [rig.store.read-exit :as rx]
             [rig.store.reads :as reads])
@@ -155,6 +156,9 @@
   [st ren]
   (let [world (rig-world ren)
         answers (c/seed! st world)
+        ;; phase 6 (V-F12): the model's grammars as facts in each layer, before its first :note or :mention
+        _ (doseq [a (tg/write! st (map ren one-owner))]
+            (when-not (= :yes (:answer a)) (throw (ex-info "toy grammars refused" {:answer a}))))
         ;; wave 1: phase 2's seed answers the store layer, then each person, then each layer
         grants (drop (+ 1 (count (:persons world)) (count (:layers world))) answers)
         by-pid (zipmap (:permissions world) grants)]
@@ -190,8 +194,10 @@
 
 (def door-keys
   "Wave 1: the door's own acts in a layer, which the model does not have
-  (RIG.md For Sid 16): the lease before a write, a session close."
-  #{:lease :session-closed})
+  (RIG.md For Sid 16): the lease before a write, a session close. Phase 6:
+  the toy grammars written as facts before a history (V-F12, D-P4), which
+  the model has compiled."
+  #{:lease :session-closed :grammar})
 
 (defn- kt [k] (subs (str k) 1))
 

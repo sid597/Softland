@@ -1,0 +1,13 @@
+Phase 6: rig.store.tools-test rerun after the R3 count fix (32905440), 26 Sep 2026, lock 06:52:20, ended 06:52:35 IST; Rama 1.6.0 in-process cluster, under the cluster lock.
+Command, from src/proposal/rig-2026-09-25: clojure -M:test rig.store.tools-test
+Below: the test runner's lines; Rama's log lines removed.
+
+Testing rig.store.tools-test
+OBSERVED R1 report {:layer :alice, :tools-read {:entry [:alice :by-layer :offer #uuid "01a0db4e-8f75-73a6-9557-44f59d433245"], :mark :complete, :matched [[[[:alice :by-layer :offer #uuid "01a0db4e-8f40-7981-b676-28eb7e2f65b1"] 0] 117334720769949696]]}, :tools [{:tool [[:alice :by-layer :offer #uuid 
+OBSERVED two runners, the new match's runs ({:answer :yes, :reason nil, :stamp 117334720787120128, :match [[:alice :by-layer :offer #uuid "01a0db4e-902e-7029-a05c-7a231bf9c9a6"] 0], :name [:alice :by-layer :offer #uuid "aadaece7-69f8-87b9-9e97-f79d181b570b"]} {:answer :yes, :reason nil, :stamp 11733
+OBSERVED R4 after the revoke {:tool [[:alice :by-layer :offer #uuid "01a0db4e-8f40-7981-b676-28eb7e2f65b1"] 0], :id :mention-count, :read {:refused :permission-revoked, :entry [:alice :by-layer :offer #uuid "01a0db4e-9179-7ad6-8ad9-97b419e82525"]}}
+OBSERVED R5 first pass {:layer :r5, :tools-read {:entry [:r5 :by-layer :offer #uuid "01a0db4e-92b2-76aa-ad3a-a332200af5a9"], :mark :complete, :matched [[[[:r5 :by-layer :offer #uuid "01a0db4e-927d-7fb7-993c-aa03cb86c470"] 0] 117334720823427072] [[[:r5 :by-layer :offer #uuid "01a0db4e-9297-7dec-9cf8-
+Ran 1 tests containing 160 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 160, :fail 0, :error 0}
+exit 0 06:52:35

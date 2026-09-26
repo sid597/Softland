@@ -34,6 +34,7 @@
             [com.rpl.rama.test :as rtest]
             [formal.model :as fm]
             [rig.store.client :as c]
+            [rig.store.toy-grammars :as tg]
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
@@ -177,6 +178,8 @@
           (is (= 13 (count answers)))
           (is (every? #(= :yes (:answer %)) answers))
           (is (= :yes (:answer (c/make-person! st :carol))) "Carol is a person: E1 names her, and she writes below")
+          ;; phase 6: a key's grammar is facts in the layer (D-P4); E1's "the grammar's Bob" reads Alice's
+          (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent])))
           (is (= {:kind :personal :owner :alice :class :by-layer :grain :per-value} (c/settings st :alice)))
           (is (= {:kind :hand :owner :alice :class :by-layer :grain :per-value} (c/settings st :alice-hand)))
           (is (= {:kind :agent :owner :alice :class :by-layer :grain :per-value} (c/settings st :alice-agent)))

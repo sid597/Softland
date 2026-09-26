@@ -23,6 +23,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.test :as rtest]
             [rig.store.client :as c]
+            [rig.store.toy-grammars :as tg]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
             [rig.store.module :as m]
@@ -129,6 +130,8 @@
 
 (defn- make-layer! [st layer kind owner & grants]
   (is (= :yes (:answer (c/offer-until-answered! st (c/make-layer-offer layer {:kind kind :owner owner})))) (str layer))
+  ;; phase 6: the toy grammars as facts in the layer (D-P4)
+  (is (every? #(= :yes (:answer %)) (tg/write! st [layer])) (str "grammars in " layer))
   (doseq [pid grants]
     (is (= :yes (:answer (c/offer-until-answered! st (c/grant-offer st pid)))) (pr-str pid))))
 
@@ -145,6 +148,8 @@
 
       (testing "seed: the model's one-owner world, Bob's layers, the base, an agent's and a tool's permissions"
         (is (every? #(= :yes (:answer %)) (c/seed! st)))
+        ;; phase 6: the toy grammars as facts in the seeded layers (D-P4)
+        (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent])))
         (make-layer! st :bob :personal :bob [:bob :bob :bob])
         (make-layer! st :bob-hand :hand :bob [:bob :bob-hand :bob-hand])
         (make-layer! st :base :base :operator)

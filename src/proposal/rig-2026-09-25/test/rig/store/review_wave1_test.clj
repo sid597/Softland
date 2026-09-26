@@ -24,7 +24,8 @@
             [rig.store.locks :as locks]
             [rig.store.micro-client :as mc]
             [rig.store.module :as m]
-            [rig.store.read-exit :as rx]))
+            [rig.store.read-exit :as rx]
+            [rig.store.toy-grammars :as tg]))
 
 ;; ------------------------------------------------------------------ helpers
 
@@ -114,6 +115,9 @@
       (testing "seed: the one-owner world, the base on the stream gate (default 6), the review's persons"
         (is (every? #(= :yes (:answer %)) (c/seed! st)))
         (is (every? #(= :yes (:answer %)) (mc/make-base! st)))
+        ;; phase 6: a key's grammar is facts in the layer (D-P4; wave 2's merge, W2-2):
+        ;; R-2's [:kv :note ..] read of the base needs :note indexed by value there
+        (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent :base])))
         (doseq [p [:rv-b :rv-q :rv-z]] (is (= :yes (:answer (mc/make-person! st p)))))
         (ok! (c/grant-offer st (bp :rv-b))))
 
@@ -246,6 +250,8 @@
         (testing "probe (O11, open; observed only): an unmarked mention of an already forgotten person in a one-owner layer, before and after the layer's re-class"
           (ok! (c/make-layer-offer :rv-pl {:kind :personal :owner :alice}))
           (ok! (c/grant-offer st [:alice :rv-pl :rv-pl]))
+          ;; phase 6: the toy grammars as facts in the layer (D-P4; W2-2)
+          (doseq [a (tg/write! st [:rv-pl])] (is (= :yes (:answer a))))
           (let [before (send! (act :alice :rv-pl [{:e :rv9 :k :note :v "rv9 about forgotten rv-b, stream gate"}] :subjects #{:rv-b}))
                 rc (send! (mc/reclass-offer st :rv-pl))
                 after (mc/write! st {:who :alice :layer :rv-pl :session :rvp :permission [:alice :rv-pl :rv-pl]

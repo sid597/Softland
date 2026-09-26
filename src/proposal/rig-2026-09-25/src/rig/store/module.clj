@@ -16,6 +16,7 @@
             [com.rpl.rama.ops :as ops]
             [rig.store.gate :as gate]
             [rig.store.gate-event :as gate-event]
+            [rig.store.grammar :as grammar]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.micro :as micro]
@@ -84,12 +85,16 @@
   "Everything keyed by a one-owner layer, on the layer's home task: stage
   1's fields, then each later stage's, one merge argument per stage (stage
   2: the lock rows, the lease rows, the erasure ledger, the by-stamp index;
-  stage 5a: its four index fields, whose entries carry the row's fields)."
+  stage 5a: its four index fields, whose entries carry the row's fields;
+  stage 4: the stored forwards; phase 6: a row per key, its grammar and
+  whether the layer uses it)."
   {clojure.lang.Keyword (fixed-keys-schema (merge layer-fields
                                                   (locks/layer-fields)
                                                   (reads/layer-fields row-fields)
                                                   ;; stage 4: the stored forwards
-                                                  (promote/layer-fields)))})
+                                                  (promote/layer-fields)
+                                                  ;; phase 6: the key rows
+                                                  (grammar/layer-fields)))})
 
 ;; The one event, on the layer's home task, with no partitioner, so every
 ;; read sees this task's state and every write commits in one group (RQ 1):

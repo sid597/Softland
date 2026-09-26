@@ -453,7 +453,8 @@
              {:reason :malformed-value}
              (let [values (update-vals decoded :value)
                    plain (update-vals decoded :plain)
-                   named (into {} (map (fn [[i f]] [i (grammar/subjects-of grammars (:k f) (get values i))])) idx)]
+                   ;; phase 6: the shape check, opacity and subjects in one call (grammar/named)
+                   named (into {} (map (fn [[i f]] [i (grammar/named grammars (:k f) (get values i))])) idx)]
                (if (some #{:value-shape} (vals named))
                  {:reason :value-shape :values values :plain plain}
                  (let [subjects (update-vals named #(into base %))
@@ -627,12 +628,16 @@
 
 (defn value-context
   "`read-values` over the offer's facts with the layer's person owner, the
-  offer's carried subjects and the grain in force."
-  [offer settings delivered]
-  (read-values (:facts offer) delivered
-               {:owner (person-owner (:owner settings))
-                :carried (:subjects offer)
-                :grain (:grain settings)}))
+  offer's carried subjects and the grain in force. Phase 6: `grammars`, the
+  map the layer's key rows give (`grammar/grammars-of`), which the gate's
+  event passes; the 3-arity, phase 2's pure tests', takes the constant."
+  ([offer settings delivered] (value-context offer settings delivered grammar/grammars))
+  ([offer settings delivered grammars]
+   (read-values (:facts offer) delivered
+                {:owner (person-owner (:owner settings))
+                 :carried (:subjects offer)
+                 :grain (:grain settings)}
+                grammars)))
 
 (defn landing-delivery
   "What the delivery hands on for a landing (stage 4, PR5): its one lock
@@ -649,11 +654,16 @@
   "The value checks over what the delivery handed on: `value-context`, or,
   for a landing whose lock did not come out of its box, the recorded
   reason `:landing-lock-gone` in its place (stage 4, PR5), placed where
-  the value checks' reason goes (`lock-refusal`)."
-  [offer settings lk]
-  (if (:landing-gone? lk)
-    {:reason :landing-lock-gone}
-    (value-context offer settings (:delivered lk))))
+  the value checks' reason goes (`lock-refusal`). Phase 6: `grammars`,
+  the map the layer's key rows give, as `value-context` takes it; so a
+  landing into a layer the stream gate orders is checked, and its
+  subjects named, under that layer's grammar facts (wave 2's merge, W2-1).
+  The 3-arity takes the constant, as `value-context`'s does."
+  ([offer settings lk] (delivered-context offer settings lk grammar/grammars))
+  ([offer settings lk grammars]
+   (if (:landing-gone? lk)
+     {:reason :landing-lock-gone}
+     (value-context offer settings (:delivered lk) grammars))))
 
 (defn lock-plan
   "What a yes locks (plan, 'Re-wrap under the value's subjects'; L6): one
@@ -1189,11 +1199,14 @@
   event steps 5 to 7): the value checks over the delivered locks (pure),
   the person entries they and the act need, a forget's target act rows and
   the ledger entry of its lock, and the fresh randomness. Returns the lock
-  context `lx` for gate/decide."
-  [*layer *offer *settings *lk]
+  context `lx` for gate/decide. Phase 6: `*key-rows`, the rows of the act's
+  keys read in the same event ({k row}); the value checks take their
+  grammars, and `lx` carries them to the decision under `:key-rows`."
+  [*layer *offer *settings *lk *key-rows]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
     (get *lk :delivered :> *delivered)
-    (delivered-context *offer *settings *lk :> *rv)
+    (grammar/grammars-of *key-rows :> *grammars)
+    (delivered-context *offer *settings *lk *grammars :> *rv)
     (persons-needed *offer *settings *rv :> *ps)
     (read-persons> *ps (get *lk :persons) :> *persons)
     (forget-target *offer :> *target)
@@ -1209,7 +1222,7 @@
       (identity nil :> *trows)
       (identity nil :> *tledger))
     (fresh-for *offer *settings *rv :> *fresh)
-    (:> (lock-context *delivered *rv *persons *trows *tledger *fresh))))
+    (:> (assoc (lock-context *delivered *rv *persons *trows *tledger *fresh) :key-rows *key-rows))))
 
 (deframafn row-records>
   "{lock-id record} for every value row of an act: the row's own `:lock` (a

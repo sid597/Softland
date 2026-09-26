@@ -31,7 +31,8 @@
             [rig.store.module :as m]
             [rig.store.promote-client :as pc]
             [rig.store.promote-shape :as ps]
-            [rig.store.read-exit :as rx]))
+            [rig.store.read-exit :as rx]
+            [rig.store.toy-grammars :as tg]))
 
 ;; ================================================================ helpers
 
@@ -146,6 +147,9 @@
   (c/make-person! st p)
   (c/offer-until-answered! st (c/make-layer-offer p {:kind :personal :owner p}))
   (c/offer-until-answered! st (c/grant-offer st [p p p]))
+  ;; phase 6: the toy grammars as facts in her layer (D-P4; wave 2's merge, W2-2),
+  ;; so T13's :mention names Bea in the source as the constant did
+  (tg/write! st [p])
   (mc/offer! st (mc/grant-offer (gp p))))
 
 (defn- b-case
@@ -173,6 +177,8 @@
       (testing "seed: the one-owner world, then the base on the stream gate, no group yet (default 6)"
         (is (every? #(= :yes (:answer %)) (c/seed! st)))
         (is (every? #(= :yes (:answer %)) (mc/make-base! st)))
+        ;; phase 6: the toy grammars as facts in the seeded layers and the base (D-P4; W2-2)
+        (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent :base])))
         (is (= :by-layer (:class (c/settings st :base)))))
 
       ;; ------------------------------------------ the base on the stream gate
