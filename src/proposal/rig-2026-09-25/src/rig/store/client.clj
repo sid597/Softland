@@ -99,6 +99,27 @@
     (into [] (keep-indexed (fn [i f] (when (env/value-fact? f) i))) (:facts offer))
     []))
 
+(defn refuse-misplaced!
+  "The doors' first check, before anything is sealed, leased or appended
+  (step R, REVIEW-wave1 R-1): an offer with a fact under a setting key
+  about another entity than its layer (`gate/misplaced-setting?`) is not
+  sent. No gate acts on such a fact and both refuse it
+  `:malformed-control`, but a depot keeps what is appended, so only the
+  sender can keep its plaintext out of the depot. Throws `{:door :refused
+  :reason :malformed-control :name nm :misplaced [[e k] ...]}`; nil for
+  anything else. Total over what a caller hands a door: it looks only when
+  `:facts` is sequential, and leaves every other fault to the gate's parse,
+  as `value-indices` does. Both doors call it (this namespace's `offer!`
+  and `offer-until-answered!`, rig.store.micro-client's `offer!` and
+  `write!`); the raw roads (`foreign-append!` on a depot) stay open for a
+  client that is not the door."
+  [offer]
+  (let [facts (when (and (map? offer) (sequential? (:facts offer))) (:facts offer))
+        misplaced (into [] (comp (filter #(gate/misplaced-setting? offer %)) (map (juxt :e :k))) facts)]
+    (when (seq misplaced)
+      (throw (ex-info "the door does not send a setting key about another entity than its layer"
+                      {:door :refused :reason :malformed-control :name (:name offer) :misplaced misplaced})))))
+
 (defn- refresh!
   "Take the session's unconsumed locks by `lease-locks` into the pool and
   note the grain in force. Only the locks of leases the door has not taken
@@ -237,8 +258,10 @@
   "Seal the offer's values, append it with a full ack and return the gate's
   answer. Blocks until the decision is visible. Throws when the append
   fails; the offer may still have gone in (RIG.md finding 3), and the door
-  keeps its locks for the resend."
+  keeps its locks for the resend. Step R: an offer `refuse-misplaced!`
+  refuses throws before anything is sealed or appended."
   [store offer]
+  (refuse-misplaced! offer)
   (let [a (get (foreign-append! (:depot store) (sealed store offer) :ack) "gate")]
     (answered! store offer a)
     a))
@@ -287,9 +310,11 @@
   "Send; after an error look the answer up with the offer's own digest, and
   send the same map again while there is none, up to `tries` times, then
   throw the last error (I-G3, RQ 4). Each sending is sealed again under the
-  same held locks."
+  same held locks. Step R: an offer `refuse-misplaced!` refuses throws at
+  once, before the loop, which would take its throw for an append error."
   ([store offer] (offer-until-answered! store offer 60))
   ([store offer tries]
+   (refuse-misplaced! offer)
    (let [nm (:name offer)
          d (env/offer-digest offer)]
      (loop [n 1]

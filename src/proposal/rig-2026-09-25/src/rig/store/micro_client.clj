@@ -179,18 +179,29 @@
 (defn seal
   "The door's sealing (phase 2's): each value fact's `:v` sealed under the
   lock `assign` gives its index (a lock id), citing that id; control facts
-  and retracts as they are. `locks` maps lock id to the lock."
+  and retracts as they are. `locks` maps lock id to the lock.
+
+  It never seals under no lock (step R, REVIEW-wave1 F-1's last edge): when
+  `locks` holds no lock for a cited id (or not a lock), it throws `{:door
+  :no-lock :name nm :lock-id lid}` and builds nothing, where it used to put
+  `:sealed nil` in the envelope. So `write!`, after a lease answered yes
+  whose locks `take-locks` could not take in time (all or some), sends
+  nothing, as the stream door throws after its tries (rig.store.client
+  `assign!`); the lease's unconsumed rows go when its session closes."
   [offer assign locks]
   (update offer :facts
           (fn [fs]
             (let [vi (volatile! -1)]
               (mapv (fn [f]
                       (if (value-fact? f)
-                        (let [lid (assign (vswap! vi inc))]
+                        (let [lid (assign (vswap! vi inc))
+                              sealed (locks/seal (get locks lid) (locks/canonical-bytes (:v f)))]
+                          (when (nil? sealed)
+                            (throw (ex-info "the door holds no lock for this id, and never seals under no lock"
+                                            {:door :no-lock :name (:name offer) :lock-id lid})))
                           (-> f
                               (dissoc :v)
-                              (assoc :sealed (locks/seal (get locks lid) (locks/canonical-bytes (:v f)))
-                                     :lock-id lid)))
+                              (assoc :sealed sealed :lock-id lid)))
                         f))
                     fs)))))
 
@@ -244,9 +255,13 @@
 
 (defn offer!
   "Send an envelope and wait for its answer; after a send error, look its
-  answer up and resend the same map while there is none (P6's road, I-G3)."
+  answer up and resend the same map while there is none (P6's road, I-G3).
+  Step R: an envelope rig.store.client `refuse-misplaced!` refuses (a
+  setting key about another entity) throws before it is appended; `send!`
+  is the raw road, for a test's client that is not the door."
   ([store offer] (offer! store offer 60000))
   ([store offer timeout-ms]
+   (c/refuse-misplaced! offer)
    (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
      (loop []
        (let [sent (try (send! store offer) true (catch Exception _ false))
@@ -306,9 +321,16 @@
   refused lease would have minted, under locks it throws away, so the gate
   refuses the act on its face (`:no-such-lock`) and the act's answer is the
   gate's, as the stream door does (rig.store.client `assign!`). Review of
-  wave 1, F-1: sealed under no lock, the act was refused `:not-sealed`."
+  wave 1, F-1: sealed under no lock, the act was refused `:not-sealed`.
+
+  Step R: an act with a setting key about another entity throws before
+  the door reads the grain or leases (rig.store.client
+  `refuse-misplaced!`); and a lease answered yes whose locks `take-locks`
+  could not take in time (all or some) makes `seal` throw `:no-lock`, so
+  nothing is sent (F-1's last edge)."
   [store spec & {:keys [lease-who lease-permission grain]}]
   (let [o (build spec)
+        _ (c/refuse-misplaced! o)
         n (value-count o)]
     (if (zero? n)
       {:answer (offer! store o) :offer o}
