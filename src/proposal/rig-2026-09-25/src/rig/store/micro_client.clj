@@ -300,7 +300,13 @@
   the grain in force needs (by `:lease-who`, default the act's `:who`,
   under the act's own permission and session), take them, seal each value,
   offer the sealed act, and wait. An act with no value to seal is offered
-  as it is. {:answer :offer :lease :locks}."
+  as it is. {:answer :offer :lease :locks}, `:locks` the locks taken.
+
+  A refused lease leaves the door no lock: it then cites the ids the
+  refused lease would have minted, under locks it throws away, so the gate
+  refuses the act on its face (`:no-such-lock`) and the act's answer is the
+  gate's, as the stream door does (rig.store.client `assign!`). Review of
+  wave 1, F-1: sealed under no lock, the act was refused `:not-sealed`."
   [store spec & {:keys [lease-who lease-permission grain]}]
   (let [o (build spec)
         n (value-count o)]
@@ -311,8 +317,10 @@
             l (lease! store {:who lw :layer (:layer o) :session (:session o) :class (:class o)
                              :permission (or lease-permission (:permission o))
                              :n (if (= :per-act g) 1 n)})
-            ks (if (= :yes (get-in l [:answer :answer])) (take-locks store (:name l)) {})
-            sealed (seal o (assign-by-grain g (:ids l)) ks)]
+            leased? (= :yes (get-in l [:answer :answer]))
+            ks (if leased? (take-locks store (:name l)) {})
+            seal-ks (if leased? ks (into {} (map (fn [id] [id (locks/fresh-lock)])) (:ids l)))
+            sealed (seal o (assign-by-grain g (:ids l)) seal-ks)]
         {:answer (offer! store sealed) :offer sealed :lease l :locks ks}))))
 
 ;; ========================================================= opening values
