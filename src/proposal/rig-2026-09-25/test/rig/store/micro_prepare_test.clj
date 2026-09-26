@@ -242,8 +242,17 @@
       (is (= :reserved-who (:refuse (micro/parse-micro (assoc so :who :store)))))
       (is (= :unknown-part (:refuse (micro/parse-micro (assoc-in so [:facts 0 :colour] :red)))))
       (is (= :empty-act (:refuse (micro/parse-micro (assoc so :facts [])))))
-      (is (contains? (micro/parse-micro (assoc so :name [:group :by-entity :landing (env/uuid7)])) :ok)
-          "stage 4's :landing is taken as data here (M4)"))
+      ;; stage 4 (PLAN-promotion.md PR10, [F3]): :landing is no reserved scheme here (M4), and a
+      ;; name under it is taken as a landing only: one sealed value fact with a box, citing the one
+      ;; lease id its name binds
+      (let [u (env/uuid7)
+            lname [:group :by-entity :landing u]
+            landing (assoc so :name lname
+                           :facts [(assoc (first (:facts so)) :lock-id [[:group :by-entity :offer u] 0]
+                                          :box {:eph (byte-array 44) :nonce (byte-array 12) :wrapped (byte-array 48)})])]
+        (is (contains? (micro/parse-micro landing) :ok) "stage 4's :landing is taken as data here (M4), as a landing")
+        (is (= :malformed (:refuse (micro/parse-micro (assoc so :name lname))))
+            "an ordinary act under a landing name is refused on its face (PR10)")))
     (testing "the parts digest holds no value and names no lock ([PV-F2]): a resend sealed again, even under other locks, digests the same"
       (let [[so2 _ _] (sealed (assoc o :name (:name so)))
             d1 (mc/digest-of so)
