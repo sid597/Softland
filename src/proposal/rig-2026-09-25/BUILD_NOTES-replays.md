@@ -1,4 +1,4 @@
-# Build notes: phase 8, the replays (passes 1 and 2 of up to 3)
+# Build notes: phase 8, the replays (passes 1 to 3)
 
 Built by Claude Opus 5.5 at max effort, 26 September 2026 (first commit
 05:05 IST, the run 05:29 IST), on branch `rig-build-replays` (made off `rig-2026-09-25` at `9730010c`), per
@@ -987,3 +987,204 @@ is as pass 2 left it. Next, on builder C's word that wave 2 has landed on
 changes need, with no cluster; validate them), then `rig.replay-test`
 once under the lock, then "Pass 3, after wave 2" in this file with each
 case's match or finding and "For RIG.md", committed, and the report to C.
+
+## Pass 3, after wave 2
+
+Claude Opus 5.5 at max effort, 26 September 2026 from 07:52 IST, in
+`/mnt/data/projects/Softland-rig-build-replays-3`, on builder C's word that
+wave 2 had landed on `rig-2026-09-25` at `27543fd7` (one suite on the merged
+code: 148 tests, 7,699 assertions, 0 failures). `git merge rig-2026-09-25`
+made `ab36a274` with no conflict. Wave 2's merge had already edited the
+replay (W2-2 in BUILD_NOTES-wave2.md): the seed writes phase 6's toy
+grammars as facts into each one-owner layer, and `:grammar` is a rig-only
+key. Builder C's two calls: build on W2-2's write and add no second one;
+yes to P3-5's guard (step 6b is left to Sid).
+
+### What was built
+
+Against the pass 3 plan (P3-2 to P3-6; P3-5's grammar write is W2-2's),
+in `test/rig/replay_test.clj`, commit `b91ce2f4`:
+
+- **The API table**: phase 4's door bound where it was built,
+  `rig.store.promote-client` (`connect`, `lease-landing!`, `request-offer`,
+  `resend!`, `status-of`); `inject/hold!` and `release!` built;
+  `env/uuid7`, `client/raw-row` and `micro/control-keys` added;
+  `env/make-name` gone; the shared read's sign marked built.
+- **The promotion's plays**: `play-request!` sends `promote!`'s two steps
+  (the landing lease under the request's uuid, then `request-offer` and the
+  door's send), with the hold or the pause between them; KD3 marked only
+  on the lease's `:for`; D2's check (`crossing-ack-says`) of every ack's
+  crossing against the crossing's record; a refused landing names phase 4's
+  F9 condition (`f9-condition`); `status-of` for `:shown`; `connect` merges
+  promote-client's handles (they carry `:status-q`).
+- **The group read through the exit**: `read!` at `{:frontier F}`, F the
+  frontier just before the read; an answered moment checked against the
+  largest batch waited past (`moment-says`); the group read by pattern
+  below the exit for facts the model lacks (F2) and by `[:k k]` in
+  `rig-values!` (F1); each request's target read at every read.
+- **The guard**: `world-refusal` makes A2 and A4 to A7 not practical, which
+  fails the test, once `:grammar` is among the micro gate's control keys.
+- **Tests with no cluster**: four new deftests and two extended (TEST_VALIDATION-replays.md,
+  "Pass 3").
+- **Validations**: IMPLEMENTATION_VALIDATION-replays.md and
+  TEST_VALIDATION-replays.md, "Pass 3", both pass before the run
+  (`dcf43247`). Two divergences: a refused F1 pattern read is now a
+  difference in `rig-values!`, as it was in `read-layer!` (D-P3-1); W2-2
+  writes the grammars into `:bob-hand` too (D-P3-2), kept.
+
+### The bindings, seen at work
+
+Every binding the plan listed resolved on the merged tree (the report's
+stages line: stage 4 all 7, stage 5's rest 1, stage 6 1) and did its work
+in the run:
+
+- **The landing lease** (`promote-client/lease-landing!`): answered yes
+  with its public key in all four B cases, and its `:for` was the landing
+  the request caused in all four, so KD3 was marked (a mismatch would have
+  been a DIFFERS line).
+- **The request** (`request-offer`, then the door's send): yes in all four,
+  its fact read back through the exit holding the mapped source and
+  `:group` (KD20).
+- **The hold and the resend** (`inject/hold!`, `release!`,
+  `promote-client/resend!`): B1 and B2 read `:pending` while held; each
+  resend answered yes from the record and read out, the crossing refused
+  `:source-erased`. D2's check found no ack whose crossing differed from
+  the crossing's record (it compares only an ack that carries one).
+- **The pause** (Rama's `pause-microbatch-topology!` on `"micro"`): while
+  the landing waited in the depot, B3 read `:crossed` twice and B4 once;
+  the frontier stayed at 12 while paused and was 14 after the landing.
+- **`status-of`**: the four `:shown` sequences, the model's exactly.
+- **The shared read** (`read-exit/read!` at `{:frontier F}`): every group
+  read went through the exit, its moment covering every batch waited past
+  (no `moment-says` line). The landing's copy read open through the exit,
+  `{:token "v1"}`, in B3 as Alice and in B4 as Bob: the first read of a
+  landed copy through the shared exit, where phases 4 and 5's rest meet.
+- **The grammar facts** (W2-2): the seed's four "grammars in L" acts
+  answered yes in every case (seed 23 acts, 19 in pass 2).
+
+### The run
+
+From the rig folder, once, under the lock:
+
+```
+flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.replay-test
+cp runs/phase8-replays.txt runs/phase8-replays-pass3.txt
+```
+
+Queued at 08:01:55 IST and took the lock at once (no other run held it);
+the JVM ran to 08:03:56 IST: **25 tests, 792 assertions, 0 failures, 0
+errors**. The report (`runs/phase8-replays.txt`, copied to
+`runs/phase8-replays-pass3.txt`): run 08:02:05 IST, 110 s, on `fab4f8f8`
+with nothing uncommitted in the rig folder; road check launch 3,639 ms,
+destroy 286 ms, relaunch 3,051 ms, so a fresh cluster and module per case
+(R33); every stage resolved; **14 cases, 14 played, 14 as said, 0 differ,
+0 not practical, 0 failing**. Each case ran in 5.9 to 8.3 s. The log,
+git-ignored: `runs/phase8-replays-pass3.log` (no pong timeout, no
+`ModuleAssignmentInfoNotFoundException`, no exception).
+
+### The cases
+
+| case | state | answers | reads, and the group's reader | known differences |
+|---|---|---|---|---|
+| A1 | as said | 1 of 1 | `:alice` refused for Alice after her forget, the store's view: note and mention erased | KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12 |
+| A2 | as said | 1 of 1 | group as Alice at F=14: the mention of Bob erased | KD2 KD6 KD7 KD8 KD9 KD11 KD12 |
+| A3 | as said | 1 of 1 | group as Alice (both forgotten) refused `:no-such-lock`, the store's view: the note open | KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12 |
+| A4 | as said | 1 of 1 | group as Bob (F4) at F=14: open | KD2 KD6 KD7 KD8 KD9 KD11 KD12; KD10 predicted, not seen |
+| A5 | as said | 1 of 1 | group as Alice at F=14: open | KD2 KD6 KD7 KD8 KD9 KD11 KD12 |
+| A6 | as said | 1 of 1 | group as Alice (both forgotten) refused, the store's view: erased | KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12 |
+| A7 | as said | 1 of 1 | group as Alice at F=14: the marked mention erased | KD2 KD6 KD7 KD8 KD9 KD11 KD12 |
+| A8 | as said | 1 of 1 | `:alice` as Alice: the mention of Bob open | KD2 KD6 KD7 KD8 KD9 KD11 KD12 |
+| B1 | approximated (the hold at :before-read-out and a resend …); as said | 4 of 4: `o0` yes, `o2` yes, `o3` yes, `crossing:o2` no `:source-erased` | `:alice` as Alice at each read; group as Alice at F=11, no case fact; `:pending :pending :refused` | KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD11 KD12 KD17 KD20 |
+| B2 | approximated (the hold …); as said | 3 of 3: `o0`, `o2` yes, `crossing:o2` no `:source-erased` | read 1 as Alice; closing: `:alice` refused for Alice, the store's view beside it; group as Bob; `:pending :refused` | KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD10 KD11 KD12 KD20 |
+| B3 | approximated (the paused micro topology …); as said | 5 of 5: `o0`, `o2`, `crossing:o2`, `o3`, `landing:o2` yes | group at F=12 twice (paused, no case fact), then as Alice at F=14: the landing's copy v1; `:crossed :crossed :done :done` | KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD11 KD12 KD13 KD17 KD20 |
+| B4 | approximated (the paused micro topology …); as said | 4 of 4: `o0`, `o2`, `crossing:o2`, `landing:o2` yes | read 1 as B3's; then `:alice` refused for Alice, the store's view beside it, and group as Bob at F=14: the copy v1; `:crossed :done :done` | KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD10 KD11 KD12 KD13 KD20 |
+| D1 | approximated (prepare and commit are one batch …); as said | 2 of 2: `o0` KD1, `o2` yes | `:alice-hand` as Alice: the revoke; group at F=14, no case fact | KD1 KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20 |
+| D2 | as said | 2 of 2: `o0` yes, `o1` KD1 | group as Alice at F=17: the revoke, a control fact holding the mapped pid | KD1 KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20 |
+
+Every played case's `:values` and `:shown` equal the model's: A1's note and
+mention erased; A2 erased; A3, A4, A5 open; A6, A7 erased; A8 open; B1 and
+B2 the note erased; B3 and B4 the note erased and the group's copy open;
+D1 and D2 missing. KD10's attributions: A1, A3 and A6 by the entry's lease
+refused `:person-forgotten`; B2 and B4 by the entry sealed under a lock
+leased before the forget (Alice had read before she was forgotten, so her
+door's pool held locks), `:no-such-lock` on its face, F3's third rule.
+KD6 now shows in A2 to A7 and D2, whose group reads make entries (pass 2
+printed it "predicted, not seen" there). KD17's `:how` was `:row-deleted`
+in B1 and B3.
+
+### Every DIFFERS line, with its cause
+
+The rig's, under baseline: **none**. The model's own lines under the
+configurations other than baseline are pass 2's, each with the rig's
+played outcome beside it: A1 under `baseline-but-not-owner-required`, A8
+under `baseline-with-a-read-as-owner-and-an-other`, A2 and A6 under
+`baseline-with-the-third-reading-of-a`, D1 under
+`baseline-but-not-permissions-in-their-layer`; the rig implements baseline,
+so it differs from each where the model's baseline does. Under
+`baseline-but-not-p6-line-at-the-read-out` all four B lines agree, with P6
+objecting to B3's and B4's copies, which the rig's line calls the model's
+own property. None fails the test.
+
+### Findings about the rig
+
+None new. What pass 3 is the first to show, each as the plans said:
+
+1. A landed copy reads open through the shared exit, for a member and for
+   a member other than the requester after the requester is forgotten (B3,
+   B4): block 2b opens a landing with its box's lock and block 2d indexes
+   the rows it makes, on the merged tree as on the plans.
+2. A promotion's read-out held at `:before-read-out` resumes from the
+   door's resend, also after the requester is forgotten (B2), and refuses
+   `:source-erased` as the model does.
+3. A forgotten requester's bare landing lease still lands her copy (B4):
+   F5's prediction, from PR9, holds.
+4. A control fact in a group (D2's revoke) reads through the shared exit.
+
+### New known differences
+
+None. KD10 in A4 prints "predicted, not seen" every run: the plan's case
+table predicted a refusal there before its fix F4 gave the group a live
+reader, Bob. It is left as the plan's data, printed, failing nothing.
+
+### For RIG.md (pass 3)
+
+Rig choices, each changeable without touching a record (the orchestrator
+assigns R numbers):
+
+- **P8-11.** The replay sends `promote-client/promote!`'s two steps itself
+  (`lease-landing!`, then `request-offer` and the door's send), with the
+  functions and order `promote!` uses, so a hold or the pause sits between
+  them; KD3 is counted only when the lease's `:for` is the request's
+  landing, and every ack's crossing is checked against the crossing's
+  record.
+- **P8-12.** Group reads go through the one exit at `{:frontier F}`, F the
+  frontier just before the read; an answered moment must cover every batch
+  the replay waited past. The group is also read by pattern below the exit
+  (F2) and by key (F1), like a one-owner layer, and each request's target
+  is read at every read.
+- **P8-13.** The person forget stays phase 2's act: phase 5's rest's wrapper
+  (`read-exit/forget-person!`, the act and then the micro index purge) is
+  not exercised, since its pages wait on the micro topology, which B4 holds
+  paused; the shared read opens through `$$persons` either way.
+- **P8-14.** Step 6b's guard: a case writing a `:mention` into the group is
+  refused, failing the test, once the micro gate takes grammar facts, until
+  the seed writes the group's grammar.
+
+Found tonight: nothing new. Questions for Sid: none new; the run shows
+For Sid 14 (KD1), 16 (KD2 to KD5) and 28 (KD10) case by case, as before.
+First-record placeholders: none. The replays write no record form of
+their own; the request's uuid and names are the door's, and the replay's
+own names are test data in records nobody keeps.
+
+### Not exercised yet
+
+The fallback road and phase 4's `:before-forward` hold (KD5; TV6); the
+person forget's micro purge (P8-13); a read of the re-classed base, which
+no fixed history gives a case fact; standing reads, deltas and `[:kv]`
+reads; step 6b.
+
+### For Sid to look at, not to delete
+
+`runs/phase8-replays.txt` (rewritten by every run) and
+`runs/phase8-replays-pass3.txt` (this pass's copy) are the same bytes
+tonight. Pass 3's plan above stays as the record of what was predicted.
