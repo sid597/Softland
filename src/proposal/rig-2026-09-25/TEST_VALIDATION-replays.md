@@ -159,7 +159,7 @@ gains the grammar facts and the standing reads' keys as rig-only kinds.
 The rig side (the B cases, the group read through the exit) is the
 cluster test, `replays`, run once below: no new IPC launch is added, the
 fourteen cases keep a cluster each (R33). The namespace compiles on the
-merged tree (loaded with no test run, 08:02 IST). What the cluster run
+merged tree (loaded with no test run, before the run). What the cluster run
 cannot show: the fallback road, the `:before-forward` hold (KD5), and
 step 6b's refusal on a real tree (6b not built), as before.
 

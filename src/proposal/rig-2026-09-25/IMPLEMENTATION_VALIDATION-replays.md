@@ -452,7 +452,7 @@ PHASE_VALIDATION:minor-fail
 
 ## Pass 3, after wave 2 (the rama skill's phase 4, adversarial)
 
-Claude Opus 5.5 at max effort, 26 September 2026 from 08:05 IST, on
+Claude Opus 5.5 at max effort, 26 September 2026 at 08:00 IST, on
 `rig-build-replays-3` after `git merge rig-2026-09-25` at `27543fd7` (wave
 2 landed; merge `ab36a274`), against the pass 3 plan
 (BUILD_NOTES-replays.md, "Pass 3 plan, after wave 2 (prep)") and the
