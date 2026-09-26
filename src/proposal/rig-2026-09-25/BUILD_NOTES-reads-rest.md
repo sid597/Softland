@@ -450,3 +450,30 @@ fact id, `[:kv]` stream era first); FRR9 as built (one forget act per dropped
 entry, `:because-of` the close act); FRR10 (the entry's `:session`). Secrets
 derived by label, never stored: the kv index `"softland.kv-index/1"`, the
 scan cursor `"softland.scan-cursor/1"`.
+
+## The suite
+
+Full suite, every namespace named (wave 1's fourteen and this stage's two),
+once, under the cluster lock: `clojure -M:test rig.smoke-test rig.claims-test
+rig.revision-test rig.store.clock-test rig.store.envelope-test
+rig.store.stream-gate-test rig.store.reads-test rig.store.read-exit-test
+rig.store.read-model-test rig.store.lock-test rig.store.forget-test
+rig.store.micro-prepare-test rig.store.micro-test rig.store.wave1-test
+rig.store.shared-reads-test rig.store.reads-rest-test`, lock taken 06:28:10
+IST: 103 tests, 6,132 assertions, 3 failures, 0 errors, 587 s
+(runs/reads-rest-suite.log). The three failures were read_exit_test's T10 and
+T12, comparing four index fields with `reads/implied`, which now implies five
+(`:ix-s`): a test fix (c5e... below). Along the way, runs of this stage's
+cluster test: try 1 (every shared read failed: the page loop emitted nothing),
+try 2 (7 failures: F2's time part, the lines' order, a forget fact in `[:e]`,
+the restore's own acts), try 3 green (runs/reads-rest-try3.log: 1 test, 511
+assertions). Per Sid's rule the fixes after the full run were rerun alone:
+see "The rerun".
+
+**Wave 1's review, R-2** (the coordinator): a recorded `[:kv]` pattern keeps
+its value's text, which no forget reaches. This stage's new lines never
+record it: `reads/recorded-pattern` keys the value under the fingerprint
+secret in the module, every pattern answer carries it as
+`:recorded-pattern` (the seam R-2's fix of `entry-facts` takes), and a
+standing read's opening line records it. The one-owner entries of
+`entry-facts` are R-2's fix, after wave 2's merge.
