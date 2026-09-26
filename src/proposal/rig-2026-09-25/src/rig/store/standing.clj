@@ -98,8 +98,9 @@
   the rows, both of the handle's moments moving; a refused line shows
   nothing and moves nothing, so the same facts are new again. A handle held
   across its layer's re-class is closed `:reclass` and reopened on a
-  frontier moment, its first read's rows the delivery (F18)."
-  [store h]
+  frontier moment, its first read's rows the delivery (F18). `:line-name`
+  names the line's act (tests arm hooks on it); else it is made fresh."
+  [store h & {:keys [line-name]}]
   (let [{:keys [ent spec scan line so-far]} @h
         a (delta store spec scan so-far)]
     (cond
@@ -107,7 +108,7 @@
       (contains? a :refused) {:refused (:refused a)}
       (:nothing-new a) (do (swap! h assoc :scan (:next-scan a)) :nothing-new)
       :else
-      (let [nm (env/make-name (:working spec) :by-layer)
+      (let [nm (or line-name (env/make-name (:working spec) :by-layer))
             r (offer-line! store spec nm [{:e ent :k :read/delivery :v (delivery-value spec a line)}])]
         (if (= :yes (:answer r))
           (do (swap! h assoc :scan (:next-scan a) :line (:moment a) :so-far (:so-far a))

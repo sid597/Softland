@@ -319,7 +319,20 @@
         (let [p (micro-op! store {:op :rebuild-sweep :task t :field f :after after :entries entries :since @since})]
           (vswap! pages inc)
           (when-not (:done? p) (recur (:cursor p))))))
-    {:pages @pages :since @since}))
+    ;; the forgets decided since the rebuild began, replayed after it: a put page runs
+    ;; beside the offers' blocks, and a forget of a fact its page had not yet indexed finds
+    ;; no entry to purge (PLAN-reads-rest.md, 'Rebuild from the log, shared')
+    (let [per-task (mapv #(foreign-invoke-query (:task-layers store) %) (range N))
+          replays (for [t (range N) L (:micro (nth per-task t))
+                        e (foreign-select [(keypath L :ix-ke)
+                                           (sorted-map-range (str "forget" reads/sep) (reads/prefix-end (str "forget" reads/sep)))
+                                           MAP-VALS]
+                                          (:micro-state store))
+                        :when (and (int? (:batch e)) (int? @since) (<= @since (:batch e)))
+                        :let [v (try (env/decode-value (:v e)) (catch Exception _ nil))]
+                        :when (and (map? v) (:target v))]
+                    (micro-op! store {:op :replay-forget :task t :layer L :fid (:target v)}))]
+      {:pages @pages :since @since :replayed (count (doall replays))})))
 
 (defn purge-person!
   "Path 3's purge after a person forget (PLAN-reads-rest.md, F17), driven

@@ -878,6 +878,29 @@
   (try (when (string? text) (hex (hmac kv-secret (.getBytes text "UTF-8"))))
        (catch Throwable _ nil)))
 
+(def ^:private cursor-lock
+  "The lock a standing read's resume cursor is sealed under (stage 5b),
+  derived from the fingerprint secret and never stored or sent."
+  (hmac fp-secret (.getBytes "softland.scan-cursor/1" "UTF-8")))
+
+(defn seal-cursor
+  "A delta's resume address sealed for its handle (stage 5b, the build's
+  repair of F2): the client holds it and cannot read it, so nothing of an
+  unshown fact reaches the client, and the next delta resumes exactly past
+  what this one scanned, even inside one act larger than the scan budget.
+  Hex, or nil."
+  [^String address]
+  (try (when (string? address) (hex (locks/seal cursor-lock (.getBytes address "UTF-8"))))
+       (catch Throwable _ nil)))
+
+(defn open-cursor
+  "The address a sealed cursor holds, or nil when it does not open (not one
+  of this module's, or tampered with). Total."
+  [token]
+  (try (when (string? token)
+         (some-> (locks/open cursor-lock (.parseHex (java.util.HexFormat/of) ^String token)) (String. "UTF-8")))
+       (catch Throwable _ nil)))
+
 (def standing-seed
   "The first link of a standing read's closing chain (FRR3), before any
   delivery line: the prefix alone."

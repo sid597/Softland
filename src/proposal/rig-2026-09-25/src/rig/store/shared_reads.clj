@@ -21,8 +21,7 @@
   Everything that runs in a topology is total: a refusal is data, never an
   exception, which is fatal to the worker (SPEC 'What Rama showed' 3; the
   read exit's probe for query topologies)."
-  (:require [clojure.string :as str]
-            [com.rpl.rama :refer :all]
+  (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
             [rig.store.envelope :as env]
@@ -60,16 +59,6 @@
   (when-let [d (reads/kv-digest (env/encode-value v))]
     (str (reads/kw-text k) sep d sep)))
 
-(defn time-part
-  "The time part of an address after `prefix`: everything but its last two
-  parts, which are the fact id's (its name's text, U+0000, its index). A
-  budget-cut delta hands back only this, never an id (F2)."
-  [prefix a]
-  (try
-    (let [parts (str/split (subs a (count prefix)) #"\u0000" -1)]
-      (str/join sep (drop-last 2 parts)))
-    (catch Throwable _ nil)))
-
 ;; ============================================================ the fields
 
 (defn index-entry
@@ -89,8 +78,9 @@
 (defn layer-fields
   "The fields this stage adds to the value `$$micro` keeps under a layer id
   (PLAN-reads-rest.md, 'The fields'), every map subindexed with size
-  tracking off. Option D's bucket count (`:ix-place`) is not a field: every
-  layer is Option B tonight (RR5), and the field would be read by nothing."
+  tracking off. `:ix-place` is Option D's bucket count (F5), maintenance
+  state, never a fact: absent means 1, Option B, the only placement built
+  tonight (RR5), so nothing writes it yet and a read takes its absence as 1."
   [row-fields]
   (let [entry (index-entry row-fields)
         sub {:subindex-options {:track-size? false}}]
@@ -100,7 +90,8 @@
      :ix-s     (map-schema String entry sub)
      :ix-of    (map-schema clojure.lang.PersistentVector (set-schema String) sub)
      :ix-id    (map-schema clojure.lang.PersistentVector String sub)
-     :ix-error Long}))
+     :ix-error Long
+     :ix-place Long}))
 
 (def task-fields
   "The fields this stage adds to `$$micro-task`: the shared layers whose
@@ -426,20 +417,27 @@
 (defn next-scan
   "The handle's next cursor after a delta (RR10, F2), from the delta's final
   loop state: past the moment when it was not cut; after the last shown
-  row's address when the limit cut it; when the scan budget cut it, the
-  later of that and the time part of the last address scanned (never an id
-  of an unshown fact). Pure."
+  row's address when the limit cut it (the limit + 1st match comes next);
+  when the scan budget cut it, past the last address it scanned, sealed
+  (`reads/seal-cursor`), so the client holds nothing of an unshown fact.
+  The plan's time part (F2) could not move past one act larger than the
+  budget (every fact of an act shares its stamp): found by RT9 at the
+  build. Pure but for the seal's nonce."
   [pp m st]
   (try
-    (let [shown (some-> (peek (:kept st)) :address (str sep))
-          prefix (delta-prefix pp)]
-      (case (:cut st)
-        :limit {:from shown}
-        :budget (let [t (some->> (:last st) (time-part prefix) (str prefix))
-                      cands (remove nil? [shown t])]
-                  {:from (if (seq cands) (last (sort cands)) (after-bound pp m))})
-        {:from (after-bound pp m)}))
+    (case (:cut st)
+      :limit {:from (str (:address (peek (:kept st))) sep)}
+      :budget (if-let [t (some-> (:last st) (str sep) reads/seal-cursor)]
+                {:token t}
+                {:from (after-bound pp m)})
+      {:from (after-bound pp m)})
     (catch Throwable _ {:from (after-bound pp m)})))
+
+(defn scan-from
+  "Where a delta starts: the cursor's address, or the address its sealed
+  token holds; nil when it holds none."
+  [scan]
+  (when (map? scan) (or (:from scan) (reads/open-cursor (:token scan)))))
 
 (defn latest-new?
   "Whether a `[:latest]` delta's head is new: its address at or above the
@@ -641,6 +639,41 @@
 
 (defn refusal? [x] (boolean (and (map? x) (contains? x :refused))))
 
+(defn or-refusal "The first argument when it is a refusal, else the second." [a b] (if (refusal? a) a b))
+
+(defn reader-args
+  "A read's layer and reader checked before any PState read keyed by them
+  (every `$$micro` and `$$layers` key is a Keyword; a read refuses as data,
+  never by throwing): nil when readable, else the refusal."
+  [layer for]
+  (when-not (and (env/readable-keyword? layer) (env/readable-keyword? for)) {:refused :bad-read}))
+
+(defn scan-ok?
+  "A standing read's cursor as the delta takes it: an address in its index,
+  or a sealed one that opens, and the moment kind it was made in."
+  [scan]
+  (boolean (and (map? scan) (string? (scan-from scan)) (#{:stamp :frontier} (:kind scan)))))
+
+(defn delta-args
+  "A delta's arguments checked before any read keyed by them: nil when
+  readable, else the refusal (a cursor that is not one, `:bad-scan`)."
+  [layer for scan]
+  (or (reader-args layer for)
+      (when (and (some? scan) (not (scan-ok? scan))) {:refused :bad-scan})))
+
+(defn upkeep-args
+  "The maintenance reads' arguments, checked before any read keyed by them:
+  a readable layer (and entity), an optional session keyword, an optional
+  stamp bound, an optional String cursor, a page of 1 to 512."
+  [layer ent session before after n]
+  (when-not (and (env/readable-keyword? layer)
+                 (or (nil? ent) (env/readable-keyword? ent))
+                 (or (nil? session) (env/readable-keyword? session))
+                 (or (nil? before) (int? before))
+                 (or (nil? after) (string? after))
+                 (or (nil? n) (and (int? n) (<= 1 n 512))))
+    {:refused :bad-read}))
+
 
 (defn record-of
   "A row's lock record: its own `:lock` (in the record), else its lock row."
@@ -748,7 +781,8 @@
     (<<if (get *pst2 :done?)
       (:> *pst2 *kpc3)
      (else>)
-      (continue> *pst2 *kpc3))))
+      (continue> *pst2 *kpc3)))
+  (:> *pfinal *pcfinal))
 
 (deframaop pattern-loop>
   "A pattern read's matching step over one store (step 4): the tail read for
@@ -982,10 +1016,10 @@
         (put-offset *after *e :> *off)
         (- max-put-rows *taken :> *room)
         (<<if (nil? *off)
-          (local-select> [(keypath *e :answers) (sorted-map-range-from-start *room)] $$micro :> *recs)
+          (local-select> [(keypath *e :answers) (sorted-map-range-from-start *room)] $$micro {:allow-yield? true} :> *recs)
          (else>)
           (local-select> [(keypath *e :answers) (sorted-map-range-from *off (reads/after-opts *room))]
-                         $$micro :> *recs))
+                         $$micro {:allow-yield? true} :> *recs))
         (reads/put-todo *recs :> *todo)
         (loop<- [*at *todo *acc2 *acc *taken2 *taken *lastnm *off :> *acc3 *taken3 *lastnm2]
           (<<if (or> (empty? *at) (>= *taken2 max-put-rows))
@@ -993,7 +1027,7 @@
            (else>)
             (first *at :> [*anm *arec])
             (<<if (= :yes (get *arec :answer))
-              (local-select> [(keypath *e :log *anm) (subselect ALL)] $$micro :> *arows0)
+              (local-select> [(keypath *e :log *anm) (subselect ALL)] $$micro {:allow-yield? true} :> *arows0)
               (rows-of *arows0 :> *arows)
               (open-rows> *e *arows (get *arec :stamp) :> *opened)
               (put-row-writes *hints *e *anm *arec *opened :> *w)
@@ -1035,9 +1069,9 @@
   [*L *field *a *n]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
     (<<if (nil? *a)
-      (local-select> [(keypath *L *field) (sorted-map-range-from-start *n)] $$micro :> *sub)
+      (local-select> [(keypath *L *field) (sorted-map-range-from-start *n)] $$micro {:allow-yield? true} :> *sub)
      (else>)
-      (local-select> [(keypath *L *field) (sorted-map-range-from *a (reads/after-opts *n))] $$micro :> *sub))
+      (local-select> [(keypath *L *field) (sorted-map-range-from *a (reads/after-opts *n))] $$micro {:allow-yield? true} :> *sub))
     (:> (entries-todo *sub))))
 
 (deframaop sweep-one>
@@ -1268,7 +1302,7 @@
                          $$micro-task (this-module-pobject-task-global "$$micro-task")
                          $$clock (this-module-pobject-task-global "$$clock")]
     (local-select> [(keypath :frontier)] $$micro-task :> *Ft)
-    (moment *as-of *Ft :> *mo)
+    (or-refusal (reader-args *layer *for) (moment *as-of *Ft) :> *mo)
     (<<if (refusal? *mo)
       (:> *mo)
      (else>)
@@ -1325,7 +1359,7 @@
                          $$layers (this-module-pobject-task-global "$$layers")
                          $$clock (this-module-pobject-task-global "$$clock")]
     (local-select> [(keypath :frontier)] $$micro-task :> *Ft)
-    (moment *as-of *Ft :> *mo)
+    (or-refusal (reader-args *layer *for) (moment *as-of *Ft) :> *mo)
     (<<if (refusal? *mo)
       (:> *mo)
      (else>)
@@ -1468,7 +1502,7 @@
         (:> *mpp)
 
         (default>)
-        (delta-read> :micro *layer *mpp *F (get *scan :from) *prev :frontier :> *a)
+        (delta-read> :micro *layer *mpp *F (scan-from *scan) *prev :frontier :> *a)
         (:> *a))
 
       (default>)
@@ -1481,7 +1515,7 @@
 
         (default>)
         (local-select> STAY $$clock :> *clock)
-        (delta-read> :stream *layer *pp *clock (get *scan :from) *prev :stamp :> *a2)
+        (delta-read> :stream *layer *pp *clock (scan-from *scan) *prev :stamp :> *a2)
         (:> *a2)))))
 
 
@@ -1596,9 +1630,10 @@
   [*layer *session *before *after *n]
   (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
     (<<if (nil? *after)
-      (local-select> [(keypath *layer :ix-ke) (sorted-map-range-from "read/" *n)] $$layers :> *sub)
+      (local-select> [(keypath *layer :ix-ke) (sorted-map-range-from "read/" *n)] $$layers {:allow-yield? true} :> *sub)
      (else>)
-      (local-select> [(keypath *layer :ix-ke) (sorted-map-range-from *after (reads/after-opts *n))] $$layers :> *sub))
+      (local-select> [(keypath *layer :ix-ke) (sorted-map-range-from *after (reads/after-opts *n))] $$layers
+                     {:allow-yield? true} :> *sub))
     (reads/page-entries *sub :> *ents0)
     (below "read0" *ents0 :> *ents)
     (id-candidates *ents *before :> *cands)
@@ -1662,26 +1697,40 @@
   #_:clj-kondo/ignore
   (<<query-topology topologies "read-delta" [*layer *for *pattern *limit *scan *prev :> *answer]
     (|hash *layer)
-    (<<if (nil? *scan)
+    (<<cond
+      (case> (some? (delta-args *layer *for *scan)))
+      (delta-args *layer *for *scan :> *answer)
+
+      (case> (nil? *scan))
       (invoke-query "read-pattern" *layer *for *pattern nil *limit :> *a)
       (opening-answer *a *pattern *limit *prev :> *answer)
-     (else>)
+
+      (default>)
       (delta> *layer *for *pattern *limit *scan *prev :> *answer))
     (|origin))
   #_:clj-kondo/ignore
   (<<query-topology topologies "standing-close" [*layer *ent :> *answer]
     (|hash *layer)
-    (standing-close> *layer *ent :> *answer)
+    (<<if (some? (upkeep-args *layer *ent nil nil nil 1))
+      (identity {:refused :bad-read} :> *answer)
+     (else>)
+      (standing-close> *layer *ent :> *answer))
     (|origin))
   #_:clj-kondo/ignore
   (<<query-topology topologies "standing-open" [*layer *session :> *answer]
     (|hash *layer)
-    (standing-open> *layer *session :> *answer)
+    (<<if (some? (upkeep-args *layer nil *session nil nil 1))
+      (identity {:refused :bad-read} :> *answer)
+     (else>)
+      (standing-open> *layer *session :> *answer))
     (|origin))
   #_:clj-kondo/ignore
   (<<query-topology topologies "entry-ids" [*layer *session *before *after *n :> *answer]
     (|hash *layer)
-    (entry-ids> *layer *session *before *after *n :> *answer)
+    (<<if (or> (nil? *n) (some? (upkeep-args *layer nil *session *before *after *n)))
+      (identity {:refused :bad-read} :> *answer)
+     (else>)
+      (entry-ids> *layer *session *before *after *n :> *answer))
     (|origin))
   #_:clj-kondo/ignore
   (<<query-topology topologies "micro-index-progress" [*task :> *answer]
