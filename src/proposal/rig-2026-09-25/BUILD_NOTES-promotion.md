@@ -205,3 +205,273 @@ Commits as I go, one change each.
   merge. Default (a).
 - Point 42 is unverified until the first compile; its fallback costs a
   few lines in module.clj, no design change.
+
+## Build (26 September, from 05:33 IST)
+
+Wave 1 merged at `2034cce5` (merge `4d53e643`); `module.clj` was
+unchanged since the prep read it. The orchestrator chose (a).
+
+### What was built, commit by commit
+
+1. `1b1d416c`: the stream gate's record-or-decide path and its writes
+   moved verbatim into `rig.store.gate-event` (`record-or-decide>`,
+   `write-decided>`); `module.clj`'s flow calls the op and keeps the ack
+   and the fan-out. stream-gate, lock and forget tests: 13 tests, 935
+   assertions, 0 failures (`runs/promotion-move-tests.log`). Sent to the
+   orchestrator.
+2. `49706eb2`: `rig.store.box` (the sealed box) and
+   `rig.store.promote-shape` (names, the request's and the landing lease's
+   checks, the landing row, the landing body, a landing's faces).
+3. `28a67c24`: the gates take promotion's acts (envelope, gate, locks,
+   micro, inject; see "Shared-file changes").
+4. `72561f2e`: `rig.store.promote` (pure), `rig.store.promote-flow` (the
+   continuation, the read-out, the forward, the stream landing, the
+   `promotion-status` query), `rig.store.promote-client` (the door), and
+   the module's wiring. A smoke run landed a note in the group
+   (`runs/promotion-smoke.log`).
+5. `1a3a11e8`, `3f9a928e`, `f5e38f6b`: the implementation validation's
+   three fixes (V-1 the crossing on the source's entity, answered by
+   name; V-2 the read-out claims no class, as the model; V-3 the status
+   read's forward summary). `7126a224`: the validation, minor-fail, fixed
+   in place.
+6. `444b9068`, `25811c57`, `7bf0515e`, `b0721065`: the tests; `d2e3be54`
+   the test validation, minor-fail, fixed in place; `26415703` the review's
+   R-1 refusals through `gate/decide`.
+
+### How a promotion runs, as built
+
+The door (`promote-client/promote!`) makes the request's uuid u first, so
+every name is known before anything is sent: it takes a landing lease in
+the target T (`[T C :offer u]`, `{:count 1 :landing [T C :landing u]}`),
+which T's gate mints as one bare X25519 key pair row, and reads its
+public key back (`:landings`); then it sends the request `[L :by-layer
+:offer u]`, one `:promote-request` fact carrying the source, the target,
+the class, the lease id, the public key (base64), the landing permission,
+the head to replace and the copy's subjects. The stream gate admits it
+like any act (the value checked, F1, F2). After its answer,
+`promote-flow/continue>` goes on past a commit boundary: the read-out on
+L's home opens the source (`locks/open-row>`), seals the copy under a
+fresh lock K, boxes K to the lease's public key bound to the lease id and
+the landing name, and writes the crossing (`[L nil :crossing u]`, `:who
+:store`) and the stored forward in one group; past another commit
+boundary the forward goes to `*micro-offers` on the lease's task, or by a
+hop to T's home on the stream gate. T's gate decides the landing like any
+sealed act, K coming out of the box with the lease row's private key, and
+consumes the row whatever it decides. `promotion-status` reads the
+request's, the crossing's and the landing's answers (the landing's only
+once settled under the frontier) and says the state with its statement.
+
+### Divergences from the plan (each in IMPLEMENTATION_VALIDATION-promotion.md)
+
+- **V-2 / D5, for Sid and the orchestrator:** the read-out claims no
+  class, as the model's `refusal` has it (model.clj 411-419: "a read-out
+  is the store's own step, placed where the source's lock is; it claims
+  no class"), and as IMPLICIT_SPEC OP7 draws it. The plan's validation
+  fix F8 refused such a read-out `:class-mismatch`; SPEC.md makes the
+  model the gates' executable spec, so the build follows the model. A
+  promotion pending when its source layer is re-classed is read out on
+  the stream side, where the lock is, and lands (T15).
+- D2: the request's ack is its answer plus `:crossing` (and `:landing`
+  for a stream target), so the door's ack path and lookup path give one
+  shape.
+- D3: the lease queries give a landing row's public key under
+  `:landings`, beside `:locks`, which the door pools as sealing locks.
+- D4: the read-out reads the source's answer and row and calls
+  `open-row>`, since `open-value>` answers `{:value}` for a control fact
+  or a retract and hands back no row; 8 seeks, the eighth phase 2's
+  ledger read, which the plan's count of 7 left out.
+- D6: on the stream gate a landing whose bound row is missing under its
+  session is recorded `:landing-lock-gone`, also when a row exists under
+  another session (rows are keyed by session there; the plan's face
+  refusal for that case guards against forgers, who cannot reach this
+  gate).
+- D7: the request's check also requires a session, the source among the
+  act's stood-on, and a source index a row vector holds.
+- V-1: the crossing's record answers by name with no digest (its name is
+  the store's alone).
+
+### Shared-file changes (for the merge)
+
+- `module.clj` (`1b1d416c`, `72561f2e`): the `<<sources` body after
+  `(inject/point! :seen *name)`, old lines 127-220, moved verbatim to
+  `rig.store.gate-event` (`record-or-decide>` holds the record lookup, the
+  record path and the decide path; `write-decided>` the writes of a
+  decided act): **another branch's edit to those lines is ported into
+  `gate_event.clj`**, where the same lines sit, re-indented. The comment
+  block above `defmodule` rewritten. New requires `gate-event`, `promote`,
+  `promote-flow`; `layers-schema`'s merge gains `(promote/layer-fields)`;
+  one line after `(ack-return> *ack)`: `(promote-flow/continue> *layer
+  *offer *ack)`; one line after the reads' queries:
+  `(promote-flow/declare-queries! topologies)`.
+- `gate.clj` (`28a67c24`): require `promote-shape`; `exempt-actors` gains
+  `:store`; `control-fact?` gains `:promote-request`, `:crossed`;
+  `control-value-ok?`'s `:lease` clause also takes a landing lease, and
+  two clauses, `:promote-request`, `:crossed`; `control-allowed?` starts
+  with `(= :crossed k) (= :store who)` and admits `:promote-request`; the
+  `:malformed-control` clause of `refusal` adds the request's one-fact
+  rule; `intake` split into `intake-offer` and `intake` (no change in
+  behavior).
+- `envelope.clj`: `landing-name` gains a 3-arity with the class (the
+  2-arity kept); `parts-fact` replaces `:box` by `true`.
+- `locks.clj`: requires `box`, `promote-shape`; the lease row schema gains
+  `:public`, `:for`; `unlease` answers nil for a landing row; `fresh-for`
+  draws `:landing-pair`; `lease-writes` split into `landing-lease-writes`
+  and `symmetric-lease-writes`; `leased-locks` gains `:landings`; new
+  `landing-delivery` and `delivered-context` after `value-context`; new
+  `deliver-landing>` before `deliver-all>`, whose body gains a landing
+  branch; `decision-reads>` calls `delivered-context`.
+- `micro.clj`: requires `box`, `promote-shape`; `reason-order` gains
+  `:landing-lock-gone` before `:does-not-open`; the `$$micro-names` lease
+  row gains `:public`, `:for`; `parse-micro` sets `:box` aside and applies
+  a landing's faces; `skeleton-offer` replaces `:box`; `lease-ok?` takes a
+  landing lease; `delivered-locks` gains the landing body; new
+  `landing-gone?`; `arrival-open`'s `if` becomes a `cond` with the landing
+  case first; the fold's mint meta gives a landing lease `:under nil` and
+  `:for`; `mint-rows` mints a key pair for it; `lease-result` gains
+  `:landings`.
+- `inject.clj`: a `holds` atom, cleared by `reset-all!`; `hold!`,
+  `release!`, `held?` at the end.
+- Not changed: `client.clj`, `micro_client.clj`, `reads.clj`,
+  `read_exit.clj`.
+
+### Phase 8's names
+
+- `rig.store.promote-client/lease-landing! [store {:who :target :class
+  :session :permission :uuid}]` → `{:name :offer :lock-id :answer :public
+  :for}`.
+- `rig.store.promote-client/promote! [store spec]`, spec `:who :layer
+  :permission :session :source :target :class :landing-permission
+  :replaces :subjects :uuid`; the request's name is
+  `(promote-shape/request-name L u)` for the `:uuid` given, known before
+  sending. Also `request-offer`, `resend!`, `connect` (micro-client's
+  handles plus the status query).
+- `rig.store.promote-client/promotion-status [store layer req as-of]` →
+  `{:status .. :reason .. :at .. :statement ..}`; `status-of` → the
+  keyword alone (`:none` `:pending` `:crossed` `:done` `:refused`).
+- `rig.store.envelope/crossing-name [req]`, `landing-name [req target]`
+  and `[req target class]`.
+- `rig.store.inject/hold! [point nm]`, `release!`, `held?`, points
+  `:before-read-out` and `:before-forward`, keyed by the request's name;
+  crash points `:before-read-out`, `:before-forward`, `:after-forward`.
+
+### Review R-1 (the wave 1 review, 9f6ccc91)
+
+Built and tested here: a client's `:crossed` fact is
+`:control-not-allowed` at the stream gate, the operator's too (only the
+store's read-out writes one, and no depot record may claim `:store`); a
+`:promote-request` is a control fact the gate checks, admitted only as its
+act's one fact with a well-formed value, so the only admitted request is
+one whose yes goes on to its read-out
+(`promote_unit_test/the-gate-admits-promotion-facts-only-on-their-own-path`,
+through `gate/decide`; the micro gate already refused both,
+`foreign-control-keys`). The rest of R-1 is left to its own step.
+
+## For RIG.md
+
+### Rig choices (not rulings), P4-1 onward
+
+Each can change later without touching a record unless marked
+first-record (those are also listed below).
+
+- **P4-1. The stream gate's decision path is one op**, `rig.store.gate-event`
+  (the orchestrator's decision (a)): the depot's records, the crossing's
+  writes and a landing into a layer the stream gate orders all go through
+  it.
+- **P4-2. The promotion continues in the request's own record** (the
+  plan's PR7): `promote-flow/continue>` after the request's answer, past
+  a commit boundary; the request's ack carries the crossing's answer, and
+  a stream landing's (D2).
+- **P4-3. The read-out claims no class** (V-2), as the model decides it:
+  a source layer re-classed since the request is read out where the
+  source's lock is, on the stream side. This reverses the plan's F8.
+- **P4-4. A crossing's record answers by name** (V-1): its name is under
+  the store's reserved scheme, so no digest is compared on its record
+  path.
+- **P4-5. The request is checked whole at the gate** (D7): exactly its
+  keys; the source a readable fact id in the owner's layer that the act
+  stands on; the target another layer; the lease id bound to the
+  request's own uuid (F1); the public key a decodable X25519 key (F2); the
+  landing permission for the target; the head in the target; at most 256
+  subjects; a session; and the request its act's one fact.
+- **P4-6. `:crossed` is the store's alone**: anyone else writing one,
+  the operator included, is `:control-not-allowed` (review R-1).
+- **P4-7. A landing lease is a lease act with `:landing`**, minting one
+  bare X25519 key pair row on either gate; lease queries show its public
+  key under `:landings`, never its private key (D3).
+- **P4-8. A landing that cannot get its lock is recorded
+  `:landing-lock-gone`**, placed at the head of the lock reasons on both
+  gates. On the micro gate a row present under another session stays a
+  face refusal (F3); on the stream gate, where only the store's hop brings
+  landings, a row missing under the landing's session is recorded (D6).
+- **P4-9. The public key travels in the request as base64 text**: a
+  control value is EDN, which has no bytes.
+- **P4-10. The status read carries a forward's summary** (V-3), and reads
+  the landing only once it is settled under the frontier.
+- **P4-11. The door's rules**: no request without a landing lease; one
+  session for the lease and the request; the session kept open in the
+  target until the promotion ends (PR9). The store cannot check them.
+- **P4-12. The hold is a predicate** (`inject/held?`): a held
+  continuation ends the record's processing at its point, never blocking
+  a task; the door's resend continues it (PR15). Plus a `:before-read-out`
+  crash point.
+- **P4-13. The sealed box** (PR6): the JDK's X25519, the wrapping lock
+  HMAC-SHA256 keyed by the shared secret over `softland/landing-box/v1`
+  and both public keys, AES-256-GCM with a 12-byte nonce, the associated
+  data the canonical text of `[lock-id landing-name]`. A box is read only
+  at a landing's decision, so it can change without touching a record.
+- **P4-14. The stored forward is the envelope as sent** (PR8, F4), in
+  `$$layers [L :forwards req]`, subindexed; every send is it.
+
+### Questions for Sid
+
+1. **A promotion pending when its source layer is re-classed** (P4-3):
+   the model reads it out where the lock is, and so does the build; the
+   plan's validation refused it `:class-mismatch`. The model's reading
+   follows P16 (a re-classed layer's store-placed acts stay with the
+   stream gate). Which do you want?
+2. **A landing lease taken in another session than its request's**
+   (open question 2, D6). On the micro gate the promotion stays crossed
+   until a resend after that session closes; on the stream gate it ends
+   refused at once. Either way that session's bare landing row stays
+   until the session closes, an opener of a copy that was refused. A
+   request could carry the lease's session (a first-record field), so the
+   store could check it and consume the row. Should it?
+3. **Promotion's forms** (RIG.md "For Sid" 5, PR1 to PR5), as built,
+   below.
+4. **Promotion's windows and limits** as the plan put them and the build
+   kept them: For Sid 11 (between the read-out and the landing the
+   landing lease is bare and opens the copy, even if a subject is
+   forgotten meanwhile, closed at the landing's decision, T13's F7); 20
+   (a door can forge a landing for its own promotion; signing closes it,
+   T12 shows a third writer cannot); 21 (a landing lease dies with its
+   session, T9 c); 22 (a target re-classed between the request and the
+   landing refuses the landing, T10 c).
+5. **For phase 8 to report**: the rig's stored forward lands a crossed
+   promotion whose source is erased before the first send (T7 b, held),
+   where the model's `forward` sends nothing; in the model the first send
+   cannot be lost, so the B cases agree. `promotion-status` shows `:none`
+   for a request admitted after the moment asked (F5), where the model
+   shows pending. A landing lease act precedes every request, which the
+   model does not have.
+
+### First-record placeholders
+
+- **PR1, the request**: a control fact `:promote-request` on the source's
+  entity in the owner's layer, its value exactly `{:source :target :class
+  :lease :public :permission :replaces :subjects}`, the public key as
+  base64 text (P4-9); the act stands on the source.
+- **PR2, the crossing**: named `[L nil :crossing u]`, `:who :store`, no
+  permission, the class in force on the act (P4-3), standing on the source
+  and the request, one `:crossed` fact `{:request req :source src}` on the
+  source's entity; its recorded refusals `:source-erased`,
+  `:source-has-no-value`, and `:malformed-control` when no box can be made
+  (F2).
+- **PR3, the landing**: named `[T C :landing u]`, C the class the request
+  carries; `:who` the requester; because of the request; standing on the
+  source and the crossing; one sealed value fact on the source's entity
+  and key, with the store-owned fact part `:box`, accepted on a landing
+  name only; version 1 unchanged.
+- **PR4, the landing lease**: `[T C :offer u]` with `{:count 1 :landing
+  [T C :landing u]}`; its row bare, the private key in `:sealed`, with
+  `:public` and `:for`.
+- **PR5, `:landing-lock-gone`**, recorded (P4-8).
