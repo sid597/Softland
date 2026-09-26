@@ -2630,11 +2630,126 @@ stand, and the micro record gains nothing (For Sid 7).
 
 ## Numbers so far
 
-All three are measured; `README.md` has the table under "The
-numbers so far", and `runs/phase7-agent-rate.txt` and
-`runs/phase7-one-thread.txt` have the method and every run. In short: each
-small act makes 4 index writes; one offerer waiting on acks gets about 300
-acts a second; one layer's task passed 5,000 acts a second with 128
+**On the finished store.** Phase 7's minimum set, 26 September, 09:27 to
+10:11 IST, on `dee0320a` (step 6b landed) with `cc011a22`, the harness's
+two fixes; landed at `8576d13f`. Method and every window:
+`BUILD_NOTES-numbers.md`, "The run"; results
+`runs/phase7-final-{agent-rate,one-thread,lock-growth}.{edn,txt}`. Every
+timing is the median of three runs, their spread in the result files; one
+run in three at 1 and at 4 writers of number 1 saw another session's JVM
+(26 to 28 s of CPU in the window), and the figures there use the clean
+runs. The in-process cluster gives orders of magnitude: a result more than
+ten times from its threshold decides the question, one within ten times
+needs a real cluster. **Every verdict is against default 7's thresholds,
+which are assumed, not Sid's.**
+
+*Number 1, index writes at the agent rate* (ruling 2). One agent session
+layer on one task, K writers sharing one door, the small act of
+`PLAN-numbers.md` 2.2: 9 index writes, 10.1 with its share of lease acts,
+which the run confirms at every K (the slices counted 4, on the stream
+store alone). Latencies are closed-loop service times, reported, not
+judged (F5).
+
+| K | value acts a second | index writes a second | p50 / p99 ms | home task's thread |
+|---|---|---|---|---|
+| 1 | 227 | 2,305 | 3.96 / 16.2 | 26% |
+| 4 | 413 | 4,179 | 8.95 / 25.8 | 34% |
+| 16 | 907 | 9,186 | 16.0 / 43.2 | 48% |
+| 32 | 1,103 | 11,166 | 29.2 / 59.7 | 56% |
+| 64 | 1,222 | 12,378 | 49.8 / 91.6 | 61% |
+| 128 | 1,186 | 12,010 | 98.9 / 249 | 58% |
+
+Verdict: within ten times of 1,000 admitted acts a second at every K, with
+every index written, so this cluster cannot decide it; one task carried
+about 1,200 small agent acts a second, 12,400 index writes, its thread
+never past 61% of a core. What flattened the rate past 64 writers is the
+door, not the gate (D1, "Found tonight"), so the task's own ceiling is
+unmeasured (For Sid 86). Against the slices: 0.76, 0.64 and 0.40 of their
+rate at 1, 4 and 16 writers, the task thread working harder per act (48% at
+16, where the slice's was 37%). With a by-value grammar (A', 11 writes):
+210, 321 and 803 acts a second at 1, 4 and 16. With the owner's root
+permission (D2, a chain of one): 883 at 16 beside A's 907, so the second
+permission read does not show. How many agent sessions a task carries
+stays derived: about 1,200 / 100 = 12 at 100 acts a second each (variant
+B, which measures it, is in the full set and did not run).
+
+*Number 3, one person's layer on one thread* (ruling 2). A personal layer
+on one task of four, each task on its own thread; every offer of every
+window was decided on the layer's one task.
+- (a) One writer, 6,400 acts: 226 acts a second; closed-loop p50 3.95 ms,
+  p99 15.7, max 45.3. The one offer in 64 that paid for a lease: p50 12.8,
+  p99 29.6; the others p50 3.94, p99 15.3. The slice: 299 a second, p50
+  3.26, p99 4.72.
+- (b) K writers: 228, 257, 420, 626, 842, 1,062, 1,183 and 1,198 acts a
+  second at 1, 2, 4, 8, 16, 32, 64 and 128; closed-loop p99 from 15.5 ms at
+  one writer to 236 ms at 128; the thread at most 62% of a core. The slice
+  reached 5,192 at 128.
+- (b') Open arrival, latency from the schedule: at 100 acts a second every
+  act admitted, p50 4.19 ms, **p99 46.1 ms** (the three runs 22.7, 46.1 and
+  67.0); at 1,000 a second every act admitted, p50 37.1, p99 254.
+
+Verdict: the rate passes, near at one writer (2.3 times 100) and far from
+32 writers on (10.6 to 12 times). The latency, judged on the open arrival
+at 100 a second (F5; For Sid 43), is **near on the failing side, 2.3 times
+over 20 ms**, every run over; this cluster cannot decide it, and on this
+machine one person writing at 100 acts a second sees a p99 near 46 ms. The
+closed-loop p99 at one writer, 15.7 ms, is a service time and understates
+it, and why an unleased offer's tail is about 15 ms is not measured (For
+Sid 87). **H-1 qualifies this verdict** (`REVIEW-full-spec.md`; For Sid
+71): the way out for a person's layer that one thread cannot carry is
+re-class to the micro gate, and until H-1's fix lands a re-classed layer
+that is also someone's working layer refuses every read entry into it, so
+its owner reads nothing through the one exit. The workloads never
+re-class, so the numbers stand; the way out they point to does not, yet,
+for a working layer.
+
+*Number 2, lock store growth under hand layers* (ruling 7). A hand layer on
+one task, 100,000 values through the door, a point every 10,000; the
+store's own lock rows read back (logical, Rama's serializers) and, after a
+forced compaction, picked out by value and re-packed alone. The pick and
+every end check held at every point of every variant (100 sampled values
+open through their lock rows and stay shut without each named person).
+
+| Variant | bytes a value, logical | on disk, compacted | over the value, logical / on disk |
+|---|---|---|---|
+| 40-byte values (`h40`) | 181.0 | 81.0 | 4.52 / 2.02 |
+| 200-byte values (`h200`) | 181.0 | 81.0 | 0.90 / 0.41 |
+| 40 B, two persons (`h40-p2`) | 213.0 | 111.1 | 5.32 / 2.78 |
+| 64 B, three persons (`h40-p3`) | 248.0 | 143.4 | 3.87 / 2.24 |
+| 64 B, five persons (`h40-p5`) | 318.0 | 204.2 | 4.97 / 3.19 |
+
+A straight line from 10,000 to 100,000 values at both sizes: the lock row
+does not depend on the value's size (a 52-byte key, the lock id, and a
+129-byte record, the sealed lock 60 of it), and each extra person in the
+wrap adds 34.4 bytes logical, about 30 on disk. Against what the store
+already keeps for each value (the row and three id-index copies, 925 bytes
+on disk at 40 B, 1,622 at 200 B) the lock store is 9% and 5%. The slice's
+raw variant was 169 bytes logical and 86.9 on disk. Verdict: it turns, as
+the slice's did, on how big hand-layer values are, which is Sid's: at 40
+bytes over the assumed four times logically and just over two on disk; at
+200 bytes fine.
+
+*Beside the three:* the hybrid clock held stamps at the wall (default 2);
+the idle micro topology keeps each task thread at 2 to 4% of a core with no
+offers; the finished store is slower per act than the slices at every K
+(0.4 to 0.76 of their rate), as `PLAN-numbers.md` section 10 allowed. Not
+run, by Sid's test rule: the full set's variant B, variant C and the entry
+bytes, `h40-again`, the per-act grain `h40-act4`, and the person's own
+reads. The harness departs from its plan in nine named ways, none touching
+a record (`BUILD_NOTES-numbers.md`, "The build").
+
+Machine for every number, the slices' and the finished store's: AMD Ryzen
+9 9900X (12 cores, 24 threads), 62 GB RAM, Ubuntu 24.04.4, Linux
+7.0.0-31-generic, OpenJDK 21.0.12.1, Rama 1.6.0, the cluster's files on
+ext4 on a WD_BLACK SN850X. Only one in-process cluster can run on it at a
+time (port 2002), so measurements run one after another.
+
+**History: the numbers on slices (25 September).** Measured before the
+store was finished, on the stream store as it was then and on a lock slice
+built from phase 2's plan; `README.md` has their tables, and
+`runs/phase7-agent-rate.txt` and `runs/phase7-one-thread.txt` have the
+method and every run. In short: each small act makes 4 index writes; one
+offerer waiting on acks gets about 300 acts a second; one layer's task passed 5,000 acts a second with 128
 offerers and was still rising; one act at a time takes 3.3 ms typically and
 4.7 ms for the slowest 1 in 100, mostly this machine's disk flushes. Lock
 growth: a lock row costs a fixed 169 bytes per value as raw bytes, 189 as
@@ -2652,12 +2767,6 @@ to be settled before the first kept record. *(26 September: stamps are now
 the hybrid clock, default 2 above; this paragraph describes the
 millisecond stamps the numbers were measured with.)*
 
-Only one in-process cluster can run on this machine at a time (port 2002),
-so measurements run one after another.
-
-Machine for every number: AMD Ryzen 9 9900X (12 cores, 24 threads), 62 GB
-RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
-
 ## The machinery count so far
 
 SPEC.md's phase 6 asks, once one new tool and one new grammar are added by
@@ -2667,8 +2776,19 @@ steps nobody anticipated, (c) capabilities. It is taken in the plan's unit:
 one named code unit added to the fixed side or to the vocabulary, or one
 existing unit whose behaviour changes (the plan's assumed definition;
 IMPLICIT_SPEC O21 leaves it open). It is the machinery count, not the
-thesis count. Source: `BUILD_NOTES-tools-and-grammars.md`, "The machinery
-count (the stream side; the micro side comes with 6b)".
+thesis count. Sources: `BUILD_NOTES-tools-and-grammars.md`, "The machinery
+count (the stream side; the micro side comes with 6b)";
+`BUILD_NOTES-wave2.md` for the three units apart;
+`BUILD_NOTES-grammar-micro.md`, "The machinery count", for the micro side;
+and `REVIEW-6b.md`, "The machinery count's micro side".
+
+**As built: 33**, 12 promised, 11 unanticipated, 10 capabilities: the
+stream side's 26, the 3 units wave 2's merge changed, and the micro side's
+4. **Counted by one unit rule throughout: 35**, 14, 11 and 10, the micro
+side 6 (`REVIEW-6b.md`). The arithmetic holds either way; O21 leaves the
+unit open, so neither number is wrong, and which rule the count uses is
+Sid's (For Sid 79). After these, the proof's test grammar and tool, and
+step 6b's own test keys, were added by writing facts only: the zero below.
 
 **The stream side: 26**, 10 promised, 6 unanticipated, 10 capabilities
 (the plan predicted 25: 11, 5 and 9).
@@ -2678,13 +2798,14 @@ count (the stream side; the micro side comes with 6b)".
   value checks take shape and subjects from the rows; a7 opaque: no shape,
   no value subjects, no index; a8 index hints from the rows where hints
   are taken; a9 "shown as opaque"; a10 the recipe executor; a11 the minimal
-  runner. a4, the micro gate reading and writing the rows, is step 6b's.
+  runner. a4, the micro gate reading and writing the rows, was step 6b's
+  (the micro side, below).
 - *(b) Unanticipated, 6 built:* b1 `:grammar-change-needs-rebuild` and
   `:used`; b2 the run's derived name and content; b3 the loop check; b6
   `client/lookup-many`; b8 the exit applies a key's grammar after its
   visibility check, and b9 a replaced tool is not run, both found by the
   build. b4, the micro gate's open getting the rows (larger than planned:
-  block 2b opens every value a second time), is step 6b's; b7, a "start
+  block 2b opens every value a second time), was step 6b's; b7, a "start
   after" on the pattern read, is deferred as planned; b5, a lease road for
   a tool, needs no step since W1-1 (R20, R89).
 - *(c) Capabilities, 10 vocabulary entries:* `:emit`;
@@ -2713,10 +2834,55 @@ and none showed until the branches met:
   `stream-era-kv-refusal`), which reads the layer's rows where phase 5's
   reads meet the stream store (W2-3, R97).
 
-**Not counted yet: the micro side** (a4, b4), step 6b, not built tonight
-(For Sid 65). Until it lands, the micro store compiles `:mention` into
-`grammar/grammars`, and `rig.bench.lock-slice` keeps its own copy for
-phase 7.
+`REVIEW-6b.md` would class W2-3 promised rather than unanticipated, by
+`PLAN-reads-rest.md` line 1424 ("Phase 6: `seed-hints` becomes the keys'
+grammar facts, for both stores' indexes at once"), as the micro side's
+notes class its half; the same argument reaches W2-1, through the promotion
+sharpening's "the target's grammar". The line above keeps its classes until
+the rule is ruled (For Sid 79); moving W2-3 would make the classes 13, 10
+and 10 as built.
+
+**The micro side, step 6b: 4 as built**, 2 promised, 2 unanticipated, 0
+capabilities (`BUILD_NOTES-grammar-micro.md`, which groups 30 new or
+changed production definitions, 13 in `micro` and 17 in `shared-reads`,
+into these units):
+- *a4, the micro key-row reader and writer* (promised): `:grammar` in
+  `micro/control-keys`, the key rows in the micro schema, their projection
+  composed in the fold and written in block 2a.
+- *The micro shared reads' grammar inputs* (promised): index writes, put
+  and sweep, the pattern, point, opening and delta reads and the opaque
+  marks; the phase 5 constant's replacement that `PLAN-reads-rest.md`
+  promised for phase 6, counted as one unit as W2-3 counted the
+  namespace's stream side.
+- *b4, the pre-batch open and block 2b's handoff* (unanticipated):
+  `arrival-open`, the skeleton, `row-wraps` and blocks 1a, 1b and 2b (R107).
+- *The micro F4 gather and fold* (unanticipated): the offered-use rows and
+  the immutable refusal inputs (R109, R110); the notes' reason is that b1's
+  one-act guard is not enough when another envelope in the batch uses the
+  key.
+No capability was added. Once these four exist, the proof's custom
+grammars (the test keys `:custom`, `:before`, `:after`, `:shape-change`,
+`:private`, `:opaque`, `:inherited` and `:landed`) need no key-specific
+store branch: they are written only as facts.
+
+**The micro side by one unit rule throughout: 6** (`REVIEW-6b.md`). The
+stream side's 26 applies the unit one plan row at a time; the micro line
+applies it three ways: it counts b1's micro half as a unit of its own,
+folds a1's micro half (`:grammar` in `micro/control-keys`) into a4, and
+lumps a8's kind (hints where hints are taken: 2b's digests, 2d's index
+writes, the rebuild's put and sweep, the pattern parse and kv refusal) and
+a9's ("shown as opaque", `micro-marks>`) into one unit, where the 26 counts
+a8 and a9 apart. With each plan row's micro half a unit: a1, a4, a8 and a9
+promised, b1 and b4 unanticipated, 6; total 35 (14, 11, 10). The review
+would also name the fourth unit "b1, micro half (planned under V-F4,
+deferred by D-P1)", since the plan's b1 row already said "a use in the same
+act or batch counts" and D-P1 deferred it by name, so the comparison with
+the plan's prediction of 25 stays honest. The reviewer would count 6, so
+the micro side reads row for row against the stream side it mirrors.
+
+The compiled constants stay in source for pure fixtures only (For Sid 85),
+and `rig.bench.lock-slice` keeps its own `:mention`, the phase 2
+experiment; phase 7's harnesses write grammar facts.
 
 ## The skill's artifacts so far
 
