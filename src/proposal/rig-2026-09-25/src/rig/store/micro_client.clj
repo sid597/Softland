@@ -457,14 +457,18 @@
   gate checks the act against, SPEC phase 1): the stream settings' class,
   which every one-owner layer has from its making act and which a re-class
   changes (a working layer is always one-owner, FR3); else this store's
-  settings' (a group); nil for no layer. Read for each act, never held by
-  the door: a re-class can come during a session, and an act named for the
-  class the layer had is refused `:class-mismatch`. One point read for a
-  one-owner layer."
+  settings' (a group); else `:by-layer`, as the stream door's
+  `client/layer-class` defaults, so an act into a layer never made goes to
+  the stream gate and is refused there as before (`:no-such-layer` on its
+  lease, For Sid 14). Read for each act, never held by the door: a
+  re-class can come during a session, and an act named for the class the
+  layer had is refused `:class-mismatch`. One point read for a one-owner
+  layer."
   [store L]
-  (when (env/readable-keyword? L)
-    (or (:class (c/settings store L))
-        (:class (settings-of store L)))))
+  (or (when (env/readable-keyword? L)
+        (or (:class (c/settings store L))
+            (:class (settings-of store L))))
+      :by-layer))
 
 (defn offer-into!
   "Offer a built act through the door of the gate that orders its layer,
