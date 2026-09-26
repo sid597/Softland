@@ -22,10 +22,9 @@ resolutions, none a choice between branches: W2-1 to W2-3 in
 
 *In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
 branch `rig-<name>`, reporting to C's session:
-- `build-fixes`: step R, by `PLAN-review-fixes.md`, building on
-  `27543fd7`.
-- `build-numbers`: phase 7's harnesses, by `BUILD_NOTES-numbers.md`, each
-  tested small. The minimum set runs last, on C's word, after step R lands.
+- `build-numbers`: phase 7's harnesses, by `BUILD_NOTES-numbers.md`, with
+  no test runs (Sid's rule of about 08:20, below). The minimum set is their
+  first run, last, on C's word.
   This builder stalled from 07:13 to 07:43 on a command that waited for an
   approval; C stopped the call and resumed it (the 06:19 addendum).
 
@@ -43,13 +42,30 @@ group read goes through the exit. A guard fails A2 and A4 to A7 once step
 6b is built, so 6b cannot change them silently. Its "For RIG.md" (P8-11 to
 P8-14, in `BUILD_NOTES-replays.md`) waits for the next fold.
 
-*Not started: step 6b*, the micro gate's grammar and then the machinery
-count's micro side. At 07:10 IST the session's auto-mode permission check
-denied the launch of its prep builder ("Modify Shared Resources"), and the
-denial covers the step, not only that launch, so C leaves step 6b to Sid.
-Everything else moves without it; whether phase 7's runs may count the
-store finished without 6b is C's call when the harnesses are ready,
-written here when made.
+*Also landed:* **step R, at `5bf802fc`** (merge of `rig-build-fixes` at
+`0b49c215`). A setting key about another entity than its layer is refused
+at both gates and both doors (R-1); every recorded pattern line keeps its
+`[:kv]` value keyed (R-2); a yes lease whose locks cannot be taken sends
+nothing (F-1's last edge); the review's pending blocks are ordinary
+assertions. One run on the tested tree `30e9cf81`, which already held pass
+3: 9 namespaces, 54 tests, 2,218 assertions, 0 failures
+(`runs/review-fixes-run.txt`). Its "For RIG.md" waits for the next fold.
+
+*Step 6b is Sid's, in Codex* (Sid, about 08:20: "i will run the phase 6
+in codex"): the micro gate's grammar and then the machinery count's micro
+side, outside this relay. C's builder for it was denied at 07:10 by the
+session's auto-mode permission check ("Modify Shared Resources"; For Sid
+65). When its branch lands, the builder merges it; pass 3's guard then
+fails A2 and A4 to A7 until 6b updates them, by design. Whether phase 7's
+minimum set waits for 6b is asked of Sid; C recommends waiting, since the
+brief has phase 7 last, on the finished store.
+
+*Sid's test rule, about 08:20* (in C's chat): "We want to optimize for
+throughput of the system doing testing only when it is needed not after
+every ... step". As C applies it: no step runs its own tests, and the rama
+skill's validations are done by reading; one full suite runs once, after
+the last code lands; a failure there is fixed and only the namespaces the
+fix touches rerun; phase 7's minimum set is its harnesses' first run.
 
 A successor cannot message C's subagents: each commits its prep on its
 branch, and a fresh builder resumes from there.
