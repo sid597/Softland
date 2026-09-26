@@ -128,3 +128,86 @@ Reasoned from the code, not run. No test re-classes a working layer.
   It does qualify number 3's verdict: re-class is "the way out for a hot
   layer" the verdict points to (README.md 121), and today that way out
   ends the layer owner's reads when the layer is also a working layer.
+
+### M-1 (medium; first-record): at the micro gate a value can be answered yes and then written with no lock, and every read of it shows `:does-not-open`, never "erased on" a date
+
+Reasoned from the code. The write is unit-tested; the read of such a row is
+not.
+
+- **Where.** `micro.clj` block 2b: `row-wraps` 1138-1170, `wrap-live`
+  1185-1195, `fact-rows` 1197-1240 (the closed row at 1219-1220, `:lock`
+  at 1233), and its second read of `$$persons` at 1603-1618; the read side,
+  `shared_reads.clj` `open-entry>` 700-721 and `locks.clj` `open-with`
+  501-528; the person purge, `shared_reads.clj` `person-purge-page>`
+  1156-1188 with `live-for?` 910-914.
+- **What happens.** Block 1 opens the act's values on the arrival task with
+  the person entries it reads there, and the fold answers yes. Block 2b
+  reads `$$persons` again to wrap the lock, and that read is "a read at a
+  moment, so it can differ from block 1's read" (PLAN-micro-store.md
+  320-327, PV-F6): a person forget's fan-out child can run on the task
+  between the two blocks, since the stream topology shares the task
+  thread. Two cases follow.
+  - The lease act's writer was forgotten in between: `unlease` gives nil,
+    the value's row is written `{:lock nil :digest nil}` with its lock id,
+    and block 2c consumes the lease row, so the value's lock exists
+    nowhere.
+  - Every person the wrap needs was forgotten in between (a required
+    person, or the last of the any-of people): `locks/wrap` gives nil, so
+    the row is written the same way, and for a row lock (a re-classed
+    personal or hand layer, or `:own-row`) no lock row is written.
+
+  No ledger entry is written, and the answer stays yes. Every read of the
+  value then reaches `locks/open-with` with no ledger entry and no record:
+  `erasure` is nil, `unwrap` of nil is nil, and the read shows
+  `{:unreadable :does-not-open}`. `open-with`'s docstring (512-513) says no
+  write produces that result; PV-F6 produces it. The date cannot be
+  recovered later, since the row keeps neither its wrap nor a ledger entry.
+  And the person purge never finds the row, because `live-for?` looks for
+  the person in the entry's lock record, which is nil; for a key indexed by
+  value the keyed digest stays in `:ix-kv` until an operator's value forget.
+- **How the other gate and the model decide.** The stream gate reads the
+  persons, decides and writes in one event, so the same race cannot happen
+  there: a forgotten lease writer makes the delivery fail (`:no-such-lock`
+  on its face) and a forgotten wrap person is recorded `:person-forgotten`;
+  it never admits a value it cannot lock. The model locks at commit with the
+  wrap as data (`model.clj` `micro-commit` 748-753, `lock-for` 371-389), so
+  a value about a person forgotten between prepare and commit reads
+  `:erased-at` the forget's stamp (`erasure` 391-398, `read-as-of`
+  1001-1021), and a group note about no one survives Bob's forget
+  (scenarios A3, 36-38). In the rig, the same group note leased by Bob and
+  caught by the first case is admitted and then lost to everyone, with no
+  date.
+- **Against the spec.** SPEC phase 2: "time travel shows 'erased on this
+  date' and nothing else from after its moment." SPEC's sources, item 3:
+  "The rig's gates must decide the same way." Scenario A3.
+- **Tests.** `micro_prepare_test.clj` 619-640 asserts the rows block 2b
+  writes (`:lock nil`, `:digest nil`); nothing reads such a row back.
+- **First-record.** Yes: a kept log row of a yes act holding sealed bytes
+  and a lock id with neither a lock nor a ledger entry, and no erasure date
+  to recover.
+
+### M-2 (medium; first-record): ruling 9's default visibility is compiled code, where the ruling makes it seed policy facts, and RIG.md does not carry the pick
+
+- **Where.** `reads.clj` `visible?` 578-589 (the one-owner exit: personal,
+  hand and agent layers to their owner, the base to any actor, every other
+  kind to no one) and `shared_reads.clj` `visible?` 296-314 (a group by its
+  `:members` row as of F). Nothing under `src/` writes or reads a policy
+  fact.
+- **Against.** Ruling 9 (PROGRESS 105-107): "Default visibility: base open
+  to any authenticated actor; a person's own and session layers private to
+  that person; group layers visible to the group's members. Seed policy
+  facts, so a store can differ." IMPLICIT_SPEC I-P2: "Seeded as policy
+  facts, so a store can differ. Every read below applies it." Sid's frame
+  (PROGRESS 38-40): "the menu is baked in code, the default lives in the
+  first facts, the pick is a fact on a layer, key, tool or value." SPEC.md
+  gives rig choices to the places where "the rulings are silent"; ruling 9
+  is not silent here.
+- **Where the pick was made.** PLAN-read-exit.md RC6 (1255-1256):
+  "Visibility by ruling 9's default as a constant: ... seed policy facts
+  later." RIG.md lists neither RC6 among its rig choices nor a For Sid
+  item, so the pick has not reached Sid.
+- **First-record.** Yes: ruling 9 puts the defaults in the first facts. A
+  store whose first record holds no policy fact decides every read taken
+  before those facts exist by code, and the entries of those reads are kept.
+- **Beside the count.** Phase 6's count asks only about one tool and one
+  grammar, so it does not show this fixed-side piece either.
