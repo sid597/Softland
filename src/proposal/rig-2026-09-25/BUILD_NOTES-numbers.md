@@ -219,3 +219,177 @@ and changes no file `rig-2026-09-25` has, so the merge should be
 conflict-free; the harness was checked against the landed tree by reading
 it (above), and it compiles against this branch's tree, whose namespaces
 and signatures the harness uses are unchanged by wave 2.
+
+## The run: the minimum set on the finished store (26 September, 09:24 to 10:11 IST)
+
+*Run on branch `rig-run-numbers` (worktree `Softland-rig-run-numbers`),
+made by builder C at `dee0320a` (step 6b landed; the harness landed before
+it at `ad49bced`), plus `cc011a22`, the harness's two fixes below. Results:
+`runs/phase7-final-{agent-rate,one-thread,lock-growth}.{edn,txt}`. The
+machine, recorded by the harness at every run: AMD Ryzen 9 9900X (12 cores,
+24 hardware threads), 62 GiB RAM, Ubuntu 24.04.4, kernel 7.0.0-31, OpenJDK
+21.0.12.1, Rama 1.6.0, the cluster's files on ext4 on the WD_BLACK SN850X,
+the slices' machine. Every timing is the median of three runs, spread in
+the result files; the in-process cluster gives orders of magnitude only,
+and every verdict below is against RIG.md default 7's thresholds, which are
+assumed and not Sid's.*
+
+**The bindings on 6b held** (read, 09:15): 6b changed the micro gate and
+shared reads only (`gate.clj`, `grammar.clj` and `reads.clj` in docstrings);
+step R's door check (`refuse-misplaced!`) passes every setting fact the
+harness sends, each about its own layer; R-2 changes pattern entries only,
+which the minimum set never makes.
+
+**The first attempt** (09:24:36) measured nothing: its `test` step failed
+in 44 s and the driver stopped, as it is built to. T1 to T6 and T8 passed
+on it: every field of the finished store grew by exactly what the write
+list claims (T1: `:answers`, `:heads`, the three id indexes and `:by-stamp`
+by 102, `:leases` by 28, `:key-rows` by 1, every other field by 0, the home
+task's clock alone moved). Two harness faults, fixed in `cc011a22`: Rama's
+`thaw` accepts the references to nested subindexed structures and returns
+a `ReferenceID`, whose lookup of an undeclared key throws, which ended T7's
+pick (F9 had expected `thaw` to refuse them); and on this kernel Java's
+`FileInputStream.available` throws on /proc files, so the machine record
+had no CPU or RAM (T9). **The second attempt** (09:27:47) ran every step to
+exit 0: `test` 33 s, then 12 measured steps, then the report; 43 minutes.
+Every window's checks held (sample read-back complete, every offer decided
+on its layer's one task, the two lease counts equal, no error), except that
+one run in three at K = 1 and K = 4 of number 1 saw another session's JVM
+(26 to 28 s of CPU in the window); the tables use the clean runs there.
+
+### Number 1: index writes a second, an agent session layer writing small acts
+
+One agent session layer on one task, K writers sharing one door, the act
+of 2.2 (9 writes; with its share of lease acts 10.1, which the run
+confirms: index writes a second over value acts a second is 10.1 at every
+K). Latencies here are closed-loop service times, reported, not judged
+(F5).
+
+| K | value acts a second | index writes a second | read-index writes a second | p50 / p99 ms | home task's thread | against 1,000 (assumed) |
+|---|---|---|---|---|---|---|
+| 1 | 227 | 2,305 | 693 | 3.96 / 16.2 | 26% | near, 4.4 times under |
+| 4 | 413 | 4,179 | 1,257 | 8.95 / 25.8 | 34% | near, 2.4 times under |
+| 16 | 907 | 9,186 | 2,764 | 16.0 / 43.2 | 48% | near, 1.1 times under |
+| 32 | 1,103 | 11,166 | 3,360 | 29.2 / 59.7 | 56% | near, 1.1 times over |
+| 64 | 1,222 | 12,378 | 3,725 | 49.8 / 91.6 | 61% | near, 1.2 times over |
+| 128 | 1,186 | 12,010 | 3,614 | 98.9 / 249 | 58% | near, 1.2 times over |
+
+**Verdict** (assumed threshold): within ten times of 1,000 admitted acts a
+second at every K, with every index written (the read-back complete at
+every K), so the in-process cluster cannot decide it; one task carries
+about 1,200 small agent acts a second here, 12,400 index writes, and the
+home task's thread never passed 61% of a core. Against the slices (0.76,
+0.64 and 0.40 of their 299, 646 and 2,249 acts a second at K = 1, 4 and
+16): the finished rules cost the rate, most at K = 16, and the thread works
+harder per act (48% at K = 16 where the slice's was 37%). A' (a by-value
+grammar, 11 writes): 210, 321 and 803 acts a second at K = 1, 4 and 16.
+D2 (the owner's root permission, a chain of one): 883 at K = 16 beside A's
+907, so the second permission read does not show. Variant B, the divisor
+at an assumed agent speed, is in the full set and did not run, so the
+number of agent sessions a task carries stays derived (about 1,200 / 100 =
+12 at 100 acts a second each, *derived*, not measured).
+
+### Number 3: one person's layer on one thread, acts a second and latency
+
+A personal layer on one task of four, each task on its own thread; every
+offer of every window was decided on the layer's one task.
+
+- **(a) One writer**, 6,400 measured acts: 226 acts a second (225 to 227);
+  closed-loop latency p50 3.95 ms, p99 15.7, max 45.3. The offers that paid
+  for a lease (one in 64, 100 a run): p50 12.8, p99 29.6. The others: p50
+  3.94, p99 15.3. The slice: 299 acts a second, p50 3.26, p99 4.72.
+- **(b) K writers**: 228, 257, 420, 626, 842, 1,062, 1,183 and 1,198 acts a
+  second at K = 1, 2, 4, 8, 16, 32, 64 and 128; closed-loop p99 15.5 ms at
+  K = 1 rising to 236 ms at K = 128; the thread at most 62% of a core. The
+  slice reached 5,192 at K = 128.
+- **(b') Open arrival**, latency from the schedule: at 100 acts a second
+  every act admitted, p50 4.19 ms, **p99 46.1 ms** (the three runs 22.7,
+  46.1 and 67.0); at 1,000 a second every act admitted, p50 37.1, p99 254
+  (114 to 270).
+
+**Verdict** (assumed thresholds): the rate, at least 100 acts a second, is
+far on the passing side from K = 32 (10.6 to 12 times) and near below it
+(2.3 times at one writer). The latency, 20 ms or less for the slowest 1 in
+100, judged on the open arrival at 100 a second (F5), is **near on the
+failing side: 2.3 times over**, and every one of the three runs was over
+20 ms; the in-process cluster cannot decide it, and on this machine one
+person writing at 100 acts a second sees a p99 near 46 ms. The closed-loop
+p99 at one writer, 15.7 ms, is a service time and understates it.
+
+**H-1 qualifies this verdict** (REVIEW-full-spec.md, H-1): the way out the
+README gives for a person's layer that one thread cannot carry is re-class
+to the micro gate, and until H-1's fix lands a re-classed layer that is also
+someone's working layer refuses every read entry into it, so its owner
+reads nothing through the one exit. The workloads here never re-class, so
+the numbers stand; the way out they point to does not, yet, for a working
+layer.
+
+### Number 2: lock store growth under hand layers
+
+A hand layer on one task, 100,000 values through the door, a point every
+10,000; the store's own lock rows read back (logical, Rama's serializers)
+and, after a forced compaction, picked out by value and re-packed alone.
+The pick held at every point of every variant (one structure, the exact
+count, the bytes within 4 a row, the re-pack read back exactly), and every
+end check passed (100 sampled values open through their lock rows and stay
+shut without each named person).
+
+| Variant | Bytes a value, logical | On disk, compacted | Over the plaintext, logical / on disk | Verdict (assumed: 2 times fine, over 4 change the default) |
+|---|---|---|---|---|
+| **40-byte values** (`h40`) | 181.0 | 81.0 | 4.52 / 2.02 | over four times logically; between two and four on disk |
+| **200-byte values** (`h200`) | 181.0 | 81.0 | 0.90 / 0.41 | fine both ways |
+| 40 B, two persons (`h40-p2`) | 213.0 | 111.1 | 5.32 / 2.78 | |
+| 64 B, three persons (`h40-p3`) | 248.0 | 143.4 | 3.87 / 2.24 | |
+| 64 B, five persons (`h40-p5`) | 318.0 | 204.2 | 4.97 / 3.19 | |
+
+The curve is a straight line: 181.0 bytes a value logical at every point
+and 81.0 to 81.1 on disk, from 10,000 to 100,000 values, for both sizes.
+The lock row does not depend on the value's size: a 52-byte key (the lock
+id) and a 129-byte record, the sealed lock 60 of it. Each extra person in
+the wrap adds 34.4 bytes logical (least squares; one 28-byte seal and a
+keyword in `:required`, as the code says), about 30 on disk. Against what
+the store already keeps for each value (the row and three id-index copies,
+925 bytes on disk at 40 B, 1,622 at 200 B), the lock store is 9% and 5%.
+The slice's raw variant: 169 bytes logical and 86.9 on disk; the finished
+row is 7% bigger logically (the scheme tag, a longer lock id) and 7%
+smaller on disk. So the verdict turns, as the slice's did, on how big
+hand-layer values are, which is Sid's (Q2): at 40 bytes the lock store is
+over the assumed four times logically and just over two on disk; at 200
+bytes it is fine.
+
+### What the run showed that the plan did not expect
+
+1. **D1 measured the door, not the gate.** In all three runs A's rate
+   flattened from K = 64 to 128 with the home thread under 60%, so D1 ran:
+   the pool stocked with about 43,000 locks (165 to 171 lease acts of 256,
+   2 s), then K = 128 admitted 1.1 acts a second, every act yes, no lease in
+   the window, while the home task's thread idled at 1.5%. The door's
+   `take!` (client.clj) sorts its whole pool by the lock ids' text on every
+   offer, under the door's lock, so with a pool that large each offer waits
+   about a second on the sort (*derived* from the code and the rate; the
+   sort was not timed). The gate's own ceiling is therefore not measured:
+   at every K the home thread stayed at or under 62% of a core, so what
+   limits A and (b) at high K is on the client's side of the depot, the
+   door's one-lease-at-a-time and its locking (*derived*). A door that
+   takes a lock without sorting the pool, then D1 again, would measure the
+   gate; both are Sid's or builder C's to authorize.
+2. **The one-writer tail is not the lease tier alone.** The unleased
+   offers' p99 is 15.3 ms where the slice's p99 was 4.72; one offer in 100
+   waits about 15 ms with no lease in it. The cause was not measured (D3's
+   strace road did not run); the disk flushes of the replication log and
+   RocksDB are a hypothesis, not a finding.
+3. **The finished store is slower per act than the slices** at every K
+   (0.4 to 0.76 of their rate) with more work per act on the task thread,
+   as the plan's section 10 allowed.
+4. **The hybrid clock holds stamps at the wall**: the home clock led the
+   wall by -3 to -4 ms in every window, where the slices' millisecond
+   stamps ran 21 s ahead (default 2 did what it was for).
+5. **The idle micro topology** keeps each task thread at 2 to 4% of a core
+   with no offers at all (the 10 s idle windows).
+6. **Rama's `thaw` accepts subindexed references** and returns a
+   `ReferenceID` (the first attempt's T7); F9 expected a refusal. Such
+   values are classified total and never picked; none was a lock row.
+
+**Not run**: the full set's steps (variant B, the divisor at an assumed
+agent speed; variant C and the entry bytes; `h40-again`; the per-act grain,
+`h40-act4`; the person's own reads), by Sid's test rule. Nothing else ran.

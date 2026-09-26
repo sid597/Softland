@@ -1,0 +1,61 @@
+Phase 7, number 3: one person's layer on one thread, acts a second and latency, on the finished store
+
+Thresholds: thresholds assumed (RIG.md default 7), not Sid's
+Caveat: In-process cluster: every task, the RocksDB stores and the clients run in one JVM on one machine, with replication factor 1 and this machine's disk. The timings mean orders of magnitude only (the rama skill's testing.md, axiom 1; SPEC.md, "Tests and evidence"): a result ten times or more from its threshold decides the question; one within ten times needs a real cluster. Logical bytes are exact for Rama 1.6.0's serializers; bytes on disk depend on the RocksDB options Rama sets here.
+
+Machine (recorded by the harness at every run; 3 complete runs, every run on the same machine):
+  AMD Ryzen 9 9900X 12-Core Processor, 12 cores, 24 hardware threads, 65477336 kB RAM
+  Ubuntu 24.04.4 LTS, kernel 7.0.0-31-generic; OpenJDK 64-Bit Server VM 21.0.12.1+1-1-24.04.4-Ubuntu (Ubuntu)
+  JVM flags -XX:-OmitStackTraceInFastThrow -Xss16m -Xmx16g -Dclojure.basis=.cpcache/2185303280.basis; GC G1 Young Generation, G1 Concurrent GC, G1 Old Generation
+  rama-1.6.0.jar, rama-helpers-0.10.0.jar, Clojure 1.12.4
+  the cluster's files on ext4 on /dev/nvme0n1p6 (WD_BLACK SN850X 1000GB)
+  load at each run's start: 2.22 1.72 1.34; 2.40 2.40 2.16; 2.67 2.14 2.12
+  code: cc011a22
+
+Method: PLAN-numbers.md 5, as built. (a) and (b) are closed loops: their latencies are service times at a fixed number in flight (coordinated omission, F5). (b') is an open schedule; its latency runs from each slot.
+
+The writes of the gate's decision event, per admitted act (2.3), named from the code; the harness's claim, which T1 to T4 hold to the store's own growth:
+  1   answer record                                $$layers [L :answers name] set    gate_event.clj write-decided> L49
+  2   the act's rows                               [L :log name]              set    gate_event.clj L52
+  3   the fact's head                              [L :heads [e k fid]]       set    gate_event.clj L62
+  4   id index by entity                           [L :ix-ek address]         set    gate_event.clj L67; reads.clj fact-writes L247
+  5   id index by key                              [L :ix-ke address]         set    gate_event.clj L67; reads.clj fact-writes L247
+  6   stamp index                                  [L :ix-s address]          set    gate_event.clj L67; reads.clj fact-writes L247 (stage 5b)
+  7   value index                                  [L :ix-kv address]         set    gate_event.clj L67; reads.clj fact-writes, a key its grammar indexes by value
+  8   value id to its value addresses              [L :ix-of fid]             set    gate_event.clj L70
+  9   lock row                                     [L :locks lock-id]         set    locks.clj write-decision> L1297 (lock-plan's :row?: personal, hand, or :own-row)
+  10  the cited lease row, consumed                [L :leases s lock-id]      delete locks.clj consume-locks> L1142, from write-decision>
+  11  the lease's rows                             [L :leases s lock-id]      set    locks.clj write-decision> L1297, lease-writes
+  12  stamp to name                                [L :by-stamp stamp]        set    locks.clj lock-effects L897, written by write-decision>
+  13  the task's last stamp                        $$clock                    set    gate_event.clj L93
+  :s  what the act stood on                        [L :stood-on name fid]     set    gate_event.clj L56
+  :k  the key's row, at its first use in the layer [L :key-rows k]            set    gate_event.clj L84-85; grammar.clj key-row-writes
+  per act: agent-value 9 (read indexes 3, deletes 1); agent-value-by-value 11 (read indexes 5, deletes 1); owner-value 10 (read indexes 3, deletes 1); lease 72 (read indexes 3, deletes 0); entry 10 (read indexes 3, deletes 1); agent-value-stood-on 10 (read indexes 3, deletes 1)
+  and once per layer, the first fact under a key that is not a store key: one :key-rows row (F2), in setup or warm-up, never in a window
+
+(a) One writer, one act at a time, 6,400 measured (closed loop: service times).
+  value acts/s 226 (225 to 227); verdict (at least 100 a second): near-passes, 2.26 times
+  all offers: p50 3.95 p95 6.63 p99 15.65 max 45.32 mean 4.42
+  leased offers (100 a run): p50 12.82 p95 23.52 p99 29.64 max 35.00 mean 14.08
+  unleased offers: p50 3.94 p95 5.29 p99 15.31 max 25.44 mean 4.27
+  slice: {:acts-per-s 299, :p50 3.26, :p99 4.72, :max 20.9}
+  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+
+(b) K writers sharing one door (closed loops: service times).
+  K=1    value acts/s 228 (227 to 229)           p50 3.92 p95 6.53 p99 15.51 max 32.89 mean 4.39  home thread 25.90%  verdict (100 a second) near-passes, 2.28 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=2    value acts/s 257 (254 to 258)           p50 7.03 p95 16.59 p99 22.14 max 38.15 mean 7.78  home thread 27.90%  verdict (100 a second) near-passes, 2.57 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=4    value acts/s 420 (419 to 423)           p50 8.24 p95 19.38 p99 24.15 max 44.52 mean 9.53  home thread 33.60%  verdict (100 a second) near-passes, 4.20 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=8    value acts/s 626 (617 to 639)           p50 9.70 p95 24.61 p99 38.08 max 96.51 mean 12.76  home thread 38.90%  verdict (100 a second) near-passes, 6.26 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=16   value acts/s 842 (829 to 852)           p50 16.71 p95 34.31 p99 47.13 max 60.29 mean 19.00  home thread 47.90%  verdict (100 a second) near-passes, 8.41 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=32   value acts/s 1,062 (1,015 to 1,074)     p50 29.55 p95 51.51 p99 65.86 max 142 mean 30.12  home thread 53.30%  verdict (100 a second) far-passes, 10.62 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=64   value acts/s 1,183 (1,172 to 1,198)     p50 51.57 p95 76.50 p99 93.49 max 139 mean 54.06  home thread 61.50%  verdict (100 a second) far-passes, 11.83 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  K=128  value acts/s 1,198 (1,171 to 1,221)     p50 96.96 p95 195 p99 236 max 362 mean 106  home thread 60.80%  verdict (100 a second) far-passes, 11.98 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  slice: K = 1 to 128: 300 to 5,192 acts a second, p99 4.71 to 43.94 ms, the thread never above 60%
+
+(b') Open arrival: value acts on a fixed schedule, latency from the schedule; the latency threshold (100 a second at p99 of 20 ms or less) is judged at 100 a second.
+  100 a second: offered/s 100 admitted/s 100 (100 to 100)  from the schedule p50 4.19 p95 18.70 p99 46.13 max 94.04 mean 6.64
+      verdict on p99 (20 ms or less): near-fails, 2.31 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  1000 a second: offered/s 1,000 admitted/s 1,000 (1,000 to 1,000)  from the schedule p50 37.10 p95 206 p99 254 max 281 mean 56.91
+      at ten times the rate, p99 against 20 ms: far-fails, 12.69 times  checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+
+(c) The person's own reads through the exit (a query and an acked entry each).
