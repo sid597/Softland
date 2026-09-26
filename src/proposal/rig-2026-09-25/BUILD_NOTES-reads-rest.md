@@ -463,7 +463,7 @@ rig.store.shared-reads-test rig.store.reads-rest-test`, lock taken 06:28:10
 IST: 103 tests, 6,132 assertions, 3 failures, 0 errors, 587 s
 (runs/reads-rest-suite.log). The three failures were read_exit_test's T10 and
 T12, comparing four index fields with `reads/implied`, which now implies five
-(`:ix-s`): a test fix (c5e... below). Along the way, runs of this stage's
+(`:ix-s`): a test fix (ce1b0441). Along the way, runs of this stage's
 cluster test: try 1 (every shared read failed: the page loop emitted nothing),
 try 2 (7 failures: F2's time part, the lines' order, a forget fact in `[:e]`,
 the restore's own acts), try 3 green (runs/reads-rest-try3.log: 1 test, 511
@@ -477,3 +477,17 @@ secret in the module, every pattern answer carries it as
 `:recorded-pattern` (the seam R-2's fix of `entry-facts` takes), and a
 standing read's opening line records it. The one-owner entries of
 `entry-facts` are R-2's fix, after wave 2's merge.
+
+## The rerun
+
+After the full run, the two fixes (ce1b0441, the read exit's tests over five
+fields; 255c5eac, R-2's keyed pattern) were rerun alone, the namespaces they
+touch, under the lock taken 06:49:17 IST: `rig.store.reads-test
+rig.store.shared-reads-test rig.store.read-exit-test rig.store.reads-rest-test`:
+28 tests, 1,120 assertions, 0 failures, 0 errors, 183 s
+(runs/reads-rest-rerun.log). The other twelve namespaces were green in the
+full run (runs/reads-rest-suite.log) and nothing they load changed since.
+With both runs: 103 tests, every one green on its last run; the build's
+verdict is pass.
+
+PHASE_VALIDATION:pass
