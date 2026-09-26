@@ -1,16 +1,38 @@
 # The store rig: where it fits, what it checks, where it stands
 
-Read this first. It is the text of the overview page
+Read this first. It began as the text of the overview page
 (https://claude.ai/artifact/Nd6s5VymTNiFRLdH1QnAd4), kept here so any session
-can load it. `RIG.md` is the detailed running record. Written 25 September
-2026.
+can load it. `RIG.md` is the detailed running record; its "Overnight state"
+wins on build state. Written 25 September 2026; brought up to date on 26
+September, after the overnight build, where a section says so. That update
+did not change the overview page.
 
 Location: branch `rig-2026-09-25`, worktree
 `/mnt/data/projects/Softland-rig-2026-09-25`, folder
 `src/proposal/rig-2026-09-25/`. Nothing here reads or touches `src/app`.
 
-**Status, 25 September, evening.** This is the page as written at 11:05
-IST. Since then, Sid's decision: the rig is a candidate for the store
+**Status, 26 September, after the overnight build.** Sid's decision of 25
+September, evening, stands: the rig is a candidate for the store core,
+built in the form it should be because it may be kept; its adoption is
+his, after a read of its code against the rulings; its records are not
+kept until edition one. On his overnight brief every remaining phase of
+SPEC.md was built on this branch, from 01:37 to about 10:30 IST ("What
+happened" has the times). The one full suite passed on step 6b's tree: 26
+namespaces, 163 tests, 8,085 assertions, 0 failures; the fixes for H-1 and
+M-1 after it ran the 15 namespaces they touch once, one failure fixed and
+its namespace rerun green. All 14 of the model's fixed histories replay as
+the model says. The three numbers are measured on the finished store,
+before those fixes, against thresholds that are still guesses. The
+machinery count is 33 as built, 35 by one unit rule. Two reviews by
+reading: the full-spec review found eight items at the seams no stage's
+tests cross (H-1, high, and M-1, medium, are fixed; M-2, medium, and five
+lows are questions for Sid), and step 6b's review five lows. What is left
+is Sid's reading and his rulings: "What is left" below, and `RIG.md`'s
+"For Sid" and "What is next". Text below that says "throwaway" is
+history.
+
+*Status, 25 September, evening (history).* This is the page as written at
+11:05 IST. Since then, Sid's decision: the rig is a candidate for the store
 core, not a throwaway; built in the form it should be, because it may be
 kept; records not kept until edition one. The order of work is
 `src/proposal/frame-2026-09-15/PROGRESS.md`, "Next"; "What is left: two
@@ -19,9 +41,10 @@ build is `STARTER-next.md`.
 
 Softland is meant to be a place people and agents change from the inside,
 including the tools they change it with. Its frame keeps everything in one
-store as facts and leaves only the runtime fixed. The rig is a throwaway
-build of that store's rules on Rama, whose records nobody keeps. It checks
-the line before the store's first record: whether the platform gives what
+store as facts and leaves only the runtime fixed. The rig is a build of
+that store's rules on Rama, a candidate for the store core, whose records
+nobody keeps until edition one. It checks the line before the store's
+first record: whether the platform gives what
 the rules assume, whether it stays affordable at the scale Sid holds, and
 whether new tools can arrive as facts alone.
 
@@ -105,12 +128,12 @@ rulings written to keep it.
 
 | The frame's promise | What the rig checked | Where it stands |
 |---|---|---|
-| "When something you built on changes, you find out. Always." | Read entries that fingerprint what a read matched, so a later change can be noticed. Phase 5. | not built |
-| "Every change says who made it, when, and what they were looking at." | The envelope: every act carries who, when, the permission it acts under, and the stamps of what it stood on. Phase 1. | built and tested; reads not yet |
-| "Many people and agents work at once, each in their own working copy, without blocking each other." | Each person's layer and each agent session on its own home task, measured as one person's layer on one thread and the agent rate. Phase 7. | measured |
+| "When something you built on changes, you find out. Always." | Read entries that fingerprint what a read matched, so a later change can be noticed. Phase 5. | built and tested (26 September): every read through one exit, standing reads delivering changes |
+| "Every change says who made it, when, and what they were looking at." | The envelope: every act carries who, when, the permission it acts under, and the stamps of what it stood on. Phase 1. | built and tested; reads recorded through the one exit (26 September) |
+| "Many people and agents work at once, each in their own working copy, without blocking each other." | Each person's layer and each agent session on its own home task, measured as one person's layer on one thread and the agent rate. Phase 7. | measured on the finished store (26 September) |
 | "Things from outside enter ... and none of the above breaks." | A gate that never throws, refusing malformed records as data, needed because an exception kills the worker. Phases 0 and 1. | tested |
-| "The place cannot lie. It never shows a guess as a fact or old as current." | Answers only once the decision is visible; no batch read half-committed, planned as the settled frontier; stamps that run ahead of real time, found in phase 7. | partly: frontier designed, stamp unit open |
-| "It stays affordable as the number of people and agents grows." | The three numbers. Phase 7. | measured against guessed thresholds |
+| "The place cannot lie. It never shows a guess as a fact or old as current." | Answers only once the decision is visible; no batch read half-committed, planned as the settled frontier; stamps that run ahead of real time, found in phase 7. | built (26 September): the settled frontier; stamps on the hybrid clock, not yet ruled |
+| "It stays affordable as the number of people and agents grows." | The three numbers. Phase 7. | measured on the finished store against guessed thresholds |
 
 ### Each rig question checks a ruling
 
@@ -141,32 +164,40 @@ here in-process, and an agent at full speed writes about 100 a second, one
 task carries about 50 agents at full speed. A person running 1,000 agents at
 full speed would span about 20 tasks. How fast an agent really writes, and
 how many run at once, are the inputs that turn this into a threshold.
+*(26 September: on the finished store one task admitted about 1,200 small
+agent acts a second, so the same arithmetic gives about 12 agents at full
+speed a task, derived, not measured; the step that measures it, variant B,
+did not run.)*
 
 ## At a glance
 
-Phases 0 and 1 are built and tested. Phases 2 and 3 are designed, not
-built. The three numbers were measured on thin slices of what exists,
-rather than by building the whole rig. The count was not taken, because it
-needs most of the store built. Each verdict below is judged against
-thresholds the main session assumed; Sid sets the real ones.
+*Brought up to date on 26 September.* Every phase is built and tested on
+this branch. The one full suite, on step 6b's tree: 26 namespaces, 163
+tests, 8,085 assertions, 0 failures, 0 errors. The full-spec review's H-1
+and M-1 were fixed after it: the 15 namespaces the fixes touch ran once,
+and their one failure was fixed and its namespace rerun green. The three
+numbers are measured on the finished store, before those fixes; each
+verdict is judged against thresholds the main session assumed, and Sid
+sets the real ones. On 25 September they had been measured on thin slices
+of what existed then; those are kept as history below.
 
 | Phase | What it is | State |
 |---|---|---|
-| 0 | Rama claims | built and tested |
-| 1 | Stream store | built and tested |
-| 2 | Locks and forgetting | designed, not built |
-| 3 | Micro store | designed, not built |
-| 4 | Promotion | not started |
-| 5 | Reads and read entries | not started |
-| 6 | Tools, grammars and the count | not started |
-| 7 | The three numbers | measured on slices |
-| 8 | Replays of the model's histories | not started |
+| 0 | Rama claims | built and tested (25 September) |
+| 1 | Stream store | built and tested; stamps on the hybrid clock |
+| 2 | Locks and forgetting | built and tested (wave 1) |
+| 3 | Micro store | built and tested (wave 1) |
+| 4 | Promotion | built and tested (wave 2) |
+| 5 | Reads and read entries | built and tested (the read exit, then the rest in wave 2) |
+| 6 | Tools, grammars and the count | built and tested (the stream side in wave 2, the micro side in step 6b); the machinery count 33, or 35 by one unit rule |
+| 7 | The three numbers | measured on the finished store (the minimum set) |
+| 8 | Replays of the model's histories | all 14 as the model says |
 
-| Number (ruling) | Result | Verdict |
+| Number (ruling) | Result on the finished store | Verdict (assumed thresholds) |
 |---|---|---|
-| Agent layer rate (ruling 2) | about 2,250 acts/s at 16 writers; measured at 1, 4 and 16 writers; the same code path on a personal layer passed 5,000/s at 128, still rising; each small act makes 4 index writes | points to yes; the in-process cluster cannot confirm |
-| One person's layer on one thread (ruling 2) | 13 times the rate needed; 4.7 ms for the slowest 1 in 100, mostly this machine's disk syncs | rate decided; latency near |
-| Lock store growth (ruling 7) | a fixed ~169 bytes per value; smaller than 200-byte values, four to five times 40-byte ones; grows linearly | depends on value size |
+| Agent layer rate (ruling 2) | about 1,200 small acts a second on one task, 12,400 index writes (9 per act, 10.1 with its share of lease acts); the task's thread never past 61% of a core | near 1,000, undecided on this cluster; the door, not the gate, limited it, so the task's own ceiling is unmeasured |
+| One person's layer on one thread (ruling 2) | 226 acts a second at one writer, 1,062 to 1,198 at 32 to 128 writers; at 100 acts a second arriving on a schedule, 46.1 ms for the slowest 1 in 100 | rate passes; latency near, on the failing side (2.3 times 20 ms); its way out, re-class, was qualified by the full-spec review's H-1, fixed after the run |
+| Lock store growth (ruling 7) | a fixed 181 bytes a value logical, 81 on disk, whatever the value's size; linear to 100,000 values; about 34 more for each extra person | depends on value size: over four times 40-byte values logically, just over two on disk; fine at 200 bytes |
 
 ## Why now: some choices freeze at the first record
 
@@ -209,7 +240,7 @@ caught real problems, among them 14 fixes to the stream store's plan, a
 layer's owner given as text instead of an id, which would have crashed the
 worker and replayed forever, and a float in a set that broke the digest.
 
-## What happened: one night, then a morning (25 September, IST)
+## What happened: a night and a morning (25 September), then the next night (26 September)
 
 Times marked ~ are reconstructed from the session; the rest are commit
 times.
@@ -239,7 +270,9 @@ times.
   the numbers first and start the real store.
 - **08:52, unexplained rewrite.** Something rewrote `gate.clj`, undoing one
   fix. The build restored it and checked its files against a backup after
-  every step. Neither plan session admits to it.
+  every step. Neither plan session admits to it. *(Traced on 26 September
+  to Claude Code's own checkpoint restore in the main session; `RIG.md`,
+  "Found tonight".)*
 - **09:30, phase 1 suite passes.** 13 tests, 728 checks, on 2, 4 and 8
   tasks. Phase 2's plan committed alongside.
 - **09:52, phase 3 plan.** The micro store designed, not yet validated.
@@ -248,6 +281,34 @@ times.
   stream store, with a starter for the next session.
 - **12:29, third number.** Lock store growth, on a slice built from the
   phase 2 plan. All three numbers in.
+
+**The next night (26 September, IST; commit times)**, on Sid's overnight
+brief: build every remaining phase. Three builders ran in turn (A from
+01:37, B from 04:26, C from 07:03), each handing off when its transcript
+passed 3.5 MB; plans, builds and reviews ran in fresh sessions, each in
+its own worktree. `RIG.md`, "Stages tonight", has each landing in full.
+
+- **01:49 to 04:05, the plans.** The overnight defaults and questions
+  (01:49); stamps on the hybrid clock (02:07); phase 2's plan revised for
+  sealing values at the door (02:36); the read exit, the revision reader
+  and phase 3 planned and validated (02:39 to 02:48); phase 4 (03:32); the
+  revision reader and the read exit built (03:36, 03:40); the caching rule
+  run on two copies (03:39); phase 8, the rest of phase 5 and phase 6
+  planned (03:54 to 04:05).
+- **05:32, wave 1.** Phases 2 and 3 built, merged and wired to the read
+  exit; phase 7's plan (05:35); the review of wave 1 (06:28); phase 8's
+  replays, pass 2 (06:47).
+- **07:51, wave 2.** Phase 4, the rest of phase 5 and phase 6's stream
+  side, merged; one full suite, 148 tests.
+- **08:07 to 09:07.** Phase 8's pass 3: all 14 histories as the model says
+  (08:07); step R, the review's fixes (08:23); the full-spec review (09:02);
+  phase 7's harnesses (09:07).
+- **09:21, step 6b**, the micro gate's grammar, built in Sid's Codex session
+  after the session's permission check denied builder C's builder for it;
+  the night's one full suite, 163 tests, 0 failures. Its review (09:59).
+- **10:14, the three numbers** measured on the finished store.
+- **10:30, the full-spec review's H-1 and M-1 fixed**, the 15 namespaces
+  the fixes touch run, one failure fixed, the replays 14 of 14.
 
 ## Phase 0: the Rama claims the model assumes
 
@@ -295,18 +356,54 @@ after the phase 0 commit is what to discard.
   wall clock: 21 seconds ahead after 18 seconds at 2,250 a second. A read by
   wall time, such as "as of 3pm", and a comparison of stamps across the two
   stores would then mislead; that consequence is reasoned, not measured. The
-  stamp's unit must be settled before the first record.
+  stamp's unit must be settled before the first record. *(26 September:
+  stamps are now a hybrid clock, wall milliseconds plus a counter, `RIG.md`
+  default 2, not yet ruled; on the finished store they stayed within 4 ms
+  of the wall.)*
 - **The depot keeps plaintext after a forget** (open gap). A forget destroys
   a value's lock, but the original offer sits readable in the depot until it
   is trimmed. The locks plan names this and leaves it open. It has to be
-  settled before the first kept record.
+  settled before the first kept record. *(26 September: closed for values
+  by `RIG.md` default 1, not yet ruled: the door seals each value under a
+  lock leased from the gate, so the depot holds only sealed values. A
+  control fact's text still reaches the depot as sent, `RIG.md` For Sid 69
+  and 70.)*
 - **A module update drains, it does not fail over.** An update waits for
   in-flight records to finish. It is not a stand-in for a failover.
 - **Small quirks of Rama 1.6.0.** No `ops/random-uuid7`, though the rama
   skill's reference names one, so the rig makes its own. Only one in-process
   cluster runs at a time on port 2002, so measurement sessions take turns.
 
-## The numbers, measured on slices of the stream store
+What the overnight build found, the Rama facts and the seams among them, is
+in `RIG.md`, "Found tonight".
+
+## The numbers on the finished store (26 September)
+
+Phase 7's minimum set ran on the finished store, step 6b's tree, from 09:27
+to 10:11 IST: every timing the median of three runs, on the same machine as
+the slices below, against the same thresholds, which are still the main
+session's guesses. Details, every window and the verdicts: `RIG.md`,
+"Numbers so far", and `BUILD_NOTES-numbers.md`, "The run".
+
+| Number | What the finished store gave | Against the guessed threshold |
+|---|---|---|
+| Index writes at the agent rate | 227, 413, 907 and about 1,200 small acts a second at 1, 4, 16 and 64 writers on one task; 9 index writes an act (10.1 with its share of lease acts), 12,400 a second at the top; the task's thread at most 61% of a core | within ten times of 1,000 at every count, so undecided here; past 64 writers the door's pool sort, not the gate, set the rate |
+| One person's layer on one thread | 226 acts a second at one writer, 1,198 at 128; at an arrival of 100 acts a second, 4.2 ms typical and 46.1 ms for the slowest 1 in 100 | rate passes; latency 2.3 times over 20 ms, near, on the failing side |
+| Lock store under hand layers | 181 bytes a value logical, 81 on disk, whatever the value's size, linear to 100,000 values; about 34 more for each extra person | 4.52 times a 40-byte value logically (2.02 on disk); 0.90 times a 200-byte value (0.41) |
+
+The finished store does more per act than the slices did (locks, read
+indexes, grammar rows), so its rates are 0.4 to 0.76 of theirs. Number 3's
+verdict had a qualification: its way out for a layer one thread cannot
+carry is re-class to the micro gate, which the full-spec review's H-1
+found ended the owner's reads through the one exit when the layer is also
+a working layer. H-1's fix landed after the run: a re-classed working
+layer's reads are recorded and shown, a read after the re-class waiting
+about two microbatch cycles (`RIG.md` For Sid 71 and 90). The numbers were
+measured before the H-1 and M-1 fixes; H-1's adds a read of the layer's
+class to every entry act on the exit's path, and whether the fixes move
+numbers 1 and 3 is unmeasured.
+
+## The numbers on slices of the stream store (25 September, history)
 
 Two numbers ran on the stream store as built; the third ran on a small slice
 that writes real lock rows the way the phase 2 plan says. Four tasks, a
@@ -402,9 +499,63 @@ already writes for each value, the lock store is under one times
 everywhere, because a 40-byte value already costs the store about seven
 times its size before any lock.
 
-## What exists: the stream store, built and tested
+## What exists: the store, built and tested (26 September)
 
-Every offer is one act under one name. It lands on its layer's home task,
+*Brought up to date on 26 September.* One module holds both stores. The
+code is under `src/rig/store/`; `RIG.md` has each stage's landing ("Stages
+tonight") and every rig choice (R1 to R117).
+
+- **The stream store** (phase 1), for one-owner layers: described below.
+  Its stamps are a hybrid clock, wall milliseconds times 65,536 plus a
+  counter, so they stay at the wall at any rate (`RIG.md` default 2).
+- **Locks and forgetting** (phase 2). The door leases locks from the gate
+  and seals every value under one before it is sent, so the offer depot
+  holds no plaintext value. At decision the gate wraps the value's lock
+  under the person locks of whoever the value is about; the lock sits as a
+  row beside its value in personal and hand layers and in the record for
+  agent layers. A value forget and a person forget are facts that destroy
+  locks, and a read shows a forgotten value only as the date it was erased.
+- **The micro store** (phase 3), for shared layers: a microbatch gate whose
+  batch is folded on one task and decided in name order, read through a
+  settled frontier so no reader sees half a batch. A permission check walks
+  its chain; a revoke is one write.
+- **Promotion** (phase 4): a request in the owner's layer, the read-out on
+  the owner's task, the crossing, a stored forward that is re-sent after a
+  crash, and a landing on either gate. The copy travels sealed to a landing
+  lease's X25519 public key, so its only opener is the private key in that
+  lease row, on the task where the landing is decided, and the decision
+  deletes it whatever the answer.
+- **Reads** (phase 5): one exit for every read. It queries, records a read
+  entry (the read's moment and a keyed fingerprint of what matched), and
+  shows nothing until the entry is acknowledged. Shared layers are read at
+  a settled frontier; standing reads deliver changes; an agent session's
+  close keeps or drops its entries; indexes are purged by a forget and
+  rebuilt in pages. Every act into a working layer goes through the gate
+  that orders it, so reads stay recorded after the layer is re-classed
+  (the H-1 fix).
+- **Tools and grammars** (phase 6). A key's grammar is a fact in the layer
+  it governs, checked at both gates from rows read in the decision's own
+  event; a tool is a fact run by a minimal runner over a recipe of named
+  steps; the revision reader cuts a file at a git revision into passages and
+  functions. The proof's test grammar and tool were added as facts alone.
+  The machinery count, the compiled steps that took: 33 as built, 35 by one
+  unit rule (`RIG.md`, "The machinery count so far").
+- **The numbers** (phase 7): harnesses under `test/rig/bench/`, run once as
+  the minimum set (above).
+- **Replays** (phase 8): the model's 14 fixed histories played through the
+  store in lockstep with the model; all 14 answer as the model says.
+
+The one full suite, on step 6b's tree: 26 namespaces, 163 tests, 8,085
+assertions, 0 failures, 0 errors, in about 17 minutes
+(`runs/grammar-micro-suite-cmd.sh` runs it under the cluster lock). Three
+reviews: of wave 1, which fixed one fault and left two for step R; and, by
+reading, of the whole module against the whole spec (eight items; H-1 and
+M-1 fixed after the full suite, their 15 namespaces run) and of step 6b
+(five lows). What they raised for
+Sid is in `RIG.md`, "For Sid".
+
+**The stream gate, as phase 1 built it** (25 September). Every offer is one
+act under one name. It lands on its layer's home task,
 and a single stream gate decides it in one atomic event: it checks the
 envelope, reads what it needs, decides in the formal model's order of
 refusals, writes, and answers the offerer through the ack. There is no
@@ -416,7 +567,7 @@ offerer --append :ack--> offer depot (hash-by :layer) --routes--> the layer's ho
                                                                      |
                                                         gate event, one atomic write, no hop:
                                                         check envelope -> read state -> decide
-                                                        (refusal order) -> write (4 index writes)
+                                                        (refusal order) -> write (every index)
                                                                      |
                                    layer state, all on this task: settings, answers by name,
                                    log, chain heads, permissions, clock
@@ -424,20 +575,19 @@ offerer <--ack: yes/no + stamp-- gate        (a replay is answered from the reco
                                                nothing is written twice)
 ```
 
-The suite passes: 13 tests and 728 checks, on 2, 4 and 8 tasks, in about 17
-seconds. It covers the model's stream cases: admission whole on the layer's
-home, resends answered from the record, reused names refused by a keyed
-digest, refusals in the model's order, permissions, control facts,
-re-class, chains of replaces, the clock promises, a 600-fact act, and
-crashes on both sides of the writes.
+On 25 September a small act made 4 index writes there; the finished store's
+makes 9, with its locks and read indexes. Phase 1's own suite passed then:
+13 tests and 728 checks, on 2, 4 and 8 tasks, in about 17 seconds. It
+covers the model's stream cases: admission whole on the layer's home,
+resends answered from the record, reused names refused by a keyed digest,
+refusals in the model's order, permissions, control facts, re-class, chains
+of replaces, the clock promises, a 600-fact act, and crashes on both sides
+of the writes.
 
-**Designed, not built.** Phase 2 is a per-value AES-256-GCM lock wrapped
-under the person locks of whoever the value is about, kept as a row beside
-its value in personal and hand layers and in the record for agent layers,
-with value and person forgets as facts and a read that shows an erasure
-only as its date. Phase 3 is a microbatch gate for shared layers, its batch
-folded to one task and decided in name order, with a settled frontier so no
-reader sees half a batch. Both plans are written and not yet validated.
+*History (25 September): "Designed, not built."* Phase 2 was then a plan
+for a per-value AES-256-GCM lock wrapped under the person locks of whoever
+the value is about, and phase 3 a plan for the microbatch gate; both are
+built now, as above.
 
 ## How the work was run
 
@@ -451,10 +601,45 @@ turn, since one design step alone took 25 to 75 minutes.
 |---|---|
 | Three Opus plan sessions cut off by the API's safeguard filter | Moved the design steps to Fable; it finished the plan in 26 minutes |
 | A safety classifier stopped the response writing the stage 1 test suite | Stopped, wrote the state down and committed; the tests were written later in a fresh session |
-| An unexplained rewrite of `gate.clj` at 08:52 | Restored the fix and checked files against a backup after each step; cause still unverified |
+| An unexplained rewrite of `gate.clj` at 08:52 | Restored the fix and checked files against a backup after each step; the cause was traced on 26 September to a checkpoint restore in the main session |
 | Two measurement sessions colliding on the cluster port | Ran them one at a time, each waiting for a quiet window |
+| *26 September:* a builder sat 30 minutes on a command waiting for an approval nobody saw | Stopped and resumed; builders were told to avoid commands that may need approval |
+| *26 September:* a fresh module per case on one in-process cluster degraded the cluster | The replays run a cluster per case |
+| *26 September:* the session's permission check denied the launch of step 6b's builder, and refused one builder's merge | Sid's Codex session built step 6b; the harnesses landed by Sid's word |
 
-## What is left: two ways forward
+Overnight, on 26 September, Sid's test rule set the pace: test only when
+needed, not after every step. The rama skill's validations and the reviews
+were done by reading, the one full suite ran once, on step 6b's tree, the
+fixes for H-1 and M-1 after it ran only the namespaces they touch, and
+phase 7's minimum set was its harnesses' first run. Every in-process
+cluster run queued on one lock, one cluster at a time.
+
+## What is left
+
+*Brought up to date on 26 September.* The build is done; what is left is
+Sid's, and the work that follows his rulings (`RIG.md`, "What is next",
+has each with its pointers):
+
+1. **His rulings**: `RIG.md`'s "For Sid", 1 to 90, the questions that would
+   touch a record, the forms that freeze at the first record first; the
+   eight defaults taken overnight; and the machinery count's unit rule.
+   Whether the rig becomes the store core is his, after a read of its code
+   against the rulings.
+2. **Edition one's review of the first-record placeholders**, since
+   nothing is kept until edition one is written.
+3. **The model's third round**: the seed designed against the reference
+   tool, and how a passage stays the same across revisions.
+4. **The thesis count**, which a fresh session takes later, on a tool
+   nobody knows yet.
+5. **The performance findings**: the gate's own ceiling, unmeasured behind
+   the door; the one-writer latency's tail; number 3's latency near the
+   line; the cost of a re-classed layer's key rows, whose cheap remedy is
+   caching and so goes to an adversarial examination first.
+
+*History (25 September): two ways forward.* The page offered two paths:
+continue the rig as briefed, or start the real store now. Sid's decision
+that evening made the rig a candidate for the store core, and his overnight
+brief had every remaining phase built. The page's text, as written:
 
 The rig has checked the Rama claims, taken the three numbers and produced a
 tested stream gate. The count and the model-history replay are still
@@ -472,7 +657,9 @@ Sid's call.
   histories its acceptance tests. The stream gate and the plans carry over
   as input.
 
-### Readiness of the remaining phases
+### Readiness of the remaining phases (25 September, history)
+
+Every phase in this table is built now (see "At a glance").
 
 | Phase | What it needs first |
 |---|---|
@@ -486,6 +673,10 @@ Sid's call.
 
 ### What only Sid can settle
 
+*Brought up to date on 26 September:* items 3 and 4 have moved on, marked
+below; the rest stand, beside `RIG.md`'s "For Sid" and its defaults, and
+whether two nodes can run here, which `RIG.md` carries too.
+
 1. **The three thresholds.** The rate, latency and lock size that turn each
    number into a yes or no. The ones used here are guesses; the scale set
    out on 21 September is the yardstick they should come from.
@@ -493,8 +684,12 @@ Sid's call.
    value is an affordable default.
 3. **The stamp's unit.** Milliseconds let a busy task's stamps run ahead of
    real time. A finer unit, or a wall time plus a counter, freezes at the
-   first record.
-4. **The direction.** Path A or Path B above.
+   first record. *(26 September: built as the hybrid clock, wall
+   milliseconds plus a counter, `RIG.md` default 2; still Sid's to rule
+   before the first kept record.)*
+4. **The direction.** Path A or Path B above. *(Decided on 25 September,
+   evening: the rig is a candidate for the store core; the overnight brief
+   had every phase built. Its adoption is still his.)*
 5. **Where the real store lives.** A new module beside the server, or the
    server's existing Rama modules evolved toward the rulings. This needs the
    map of the rulings onto `src/app/server` that another session made.
@@ -509,36 +704,68 @@ Sid's call.
 
 ## Where to find it
 
+*Brought up to date on 26 September;* `RIG.md`, "The skill's artifacts so
+far", lists every file.
+
 | File | What it is |
 |---|---|
 | `README.md` | this overview |
-| `RIG.md` | the running record: status, phase 0's table, rig choices R1 to R18, what is next |
-| `STARTER-next.md` | an earlier starter for the next session |
+| `RIG.md` | the running record: the overnight state, the stages as each landed, what was found, the questions for Sid, the defaults, phase 0's table, rig choices R1 to R117, the numbers, the machinery count, what is next |
 | `SPEC.md` | the brief the build follows: Sid's phases verbatim, pointers to the rulings and the model |
 | `IMPLICIT_SPEC.md` | every requirement the rulings imply, where the sources differ, and the open picks |
 | `DECOMPOSITION.json` | the six build stages |
-| `PLAN-stream-store.md`, `PLAN_VALIDATION-stream-store.md` | phase 1's design and its review |
-| `IMPLEMENTATION_VALIDATION-stream-store.md`, `TEST_VALIDATION-stream-store.md`, `BUILD_NOTES-stream-store.md` | phase 1's build: code review, test review, build log |
-| `PLAN-locks-and-forgetting.md`, `PLAN-micro-store.md` | phases 2 and 3's designs, not yet validated |
-| `src/rig/store/` | the stream store: envelope, gate decision, module, client |
-| `src/rig/bench/`, `test/rig/bench/` | the lock slice and the measurement harnesses |
-| `test/rig/` | the tests; `test/rig/store/stream_gate_test.clj` is phase 1's main suite |
-| `runs/` | saved results, including the numbers (`phase7-*.txt`) |
-| `BENCH_NOTES-stream.md`, `BENCH_NOTES-locks.md` | the measurement sessions' running logs |
+| `PLAN-<stage>.md`, `PLAN_VALIDATION-<stage>.md` | each stage's design and its review |
+| `IMPLEMENTATION_VALIDATION-<stage>.md`, `TEST_VALIDATION-<stage>.md`, `BUILD_NOTES-<stage>.md` | each stage's build: code review, test review, build log |
+| `BUILD_NOTES-wave1.md`, `BUILD_NOTES-wave2.md` | the two merges of stages built side by side |
+| `EXAMINATION-copies.md`, `REVIEW-wave1.md`, `REVIEW-full-spec.md`, `REVIEW-6b.md` | the caching examination and the three reviews |
+| `STARTER-next.md`, `STARTER-6b.md` | the starters for the read exit's session (25 September) and for step 6b |
+| `src/rig/store/` | the store: both gates, locks, promotion, reads, grammars, tools, the doors |
+| `src/rig/revision.clj`, `src/rig/claims.clj` | the revision reader, and phase 0's check |
+| `src/rig/bench/`, `test/rig/bench/` | the lock slice, and the measurement harnesses |
+| `test/rig/` | the tests; `test/rig/replay_test.clj` plays the model's histories |
+| `runs/` | saved results: each run's summary, the numbers (`phase7-*`, `phase7-final-*`), the replays (`phase8-*`) |
+| `BENCH_NOTES-stream.md`, `BENCH_NOTES-locks.md` | the slices' measurement logs |
 
 From the rig folder:
 
     clojure -M:test rig.claims-test
     clojure -M:test rig.smoke-test rig.store.envelope-test rig.store.stream-gate-test
+    sh runs/grammar-micro-suite-cmd.sh
 
 The first checks the Rama claims, in about a minute. The second is phase
-1's suite, in under half a minute.
+1's suite, in under half a minute. The third is the one full suite, 26
+namespaces, about 17 minutes, under the cluster lock; it rewrites the
+replay report `runs/grammar-micro-replays.txt`, and step 6b saved its
+output as `runs/grammar-micro-suite.txt`.
 
 ## Appendix: rig choices
 
 Where the rulings were silent, the rig picked the simplest thing and wrote
 it down as a choice, never a ruling. The full text is in `RIG.md`; the
-stream store's own picks, P1 to P16, are in `PLAN-stream-store.md`.
+stream store's own picks, P1 to P16, are in `PLAN-stream-store.md`. R1 to
+R18, below, are phases 0 and 1's. *Brought up to date on 26 September:*
+the night's choices, by stage, each group with its full text in `RIG.md`,
+"Rig choices so far":
+
+- **R19** a permission check walks its chain; a revoke is one write
+- **R20 to R31** wave 1, the merge of phases 2 and 3 (`BUILD_NOTES-wave1.md`)
+- **R32 to R41** phase 8's replays, passes 1 and 2
+- **R42 to R48** phase 2, locks and forgetting
+- **R49 to R57** phase 3, the micro store
+- **R58** the review of wave 1's fix: after a refused lease the micro door
+  seals under throwaway locks
+- **R59 to R72** phase 4, promotion
+- **R73 to R87** the rest of phase 5, reads
+- **R88 to R94** phase 6's stream side, tools and grammars
+- **R95 to R97** wave 2's merge
+- **R98 to R101** phase 8's pass 3
+- **R102 to R105** step R, the review's fixes
+- **R106** visibility as ruling 9's default in code, the read exit's RC6
+  (a question for Sid, since ruling 9 says seed policy facts)
+- **R107 to R111** step 6b, the micro gate's grammar
+- **R112 to R117** the fixes for the full-spec review's H-1 and M-1
+
+Phases 0 and 1's:
 
 - **R1** the branch lives in a sibling worktree
 - **R2** phase 0 was a check, not a module
