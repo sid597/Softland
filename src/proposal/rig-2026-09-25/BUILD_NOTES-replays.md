@@ -586,18 +586,19 @@ request. Added for every case: `rig.store.toy-grammars/write!` as stage
   session `:alice-session`, citing her permission there (the model's
   landing permission mapped, `[:alice :group :group [:group :group
   :group]]`). The landing lease is recorded as a rig-only act with its
-  `(:answer ll)`. KD3 is marked only when that answer is yes, `:public` is
-  there, and `:for` is the landing the request will cause, `(env/landing-name
-  req T C)`; otherwise a difference named as itself (F11). With no
+  `(:answer ll)`; a refusal is a difference named as itself (F11). With no
   `:public` the door sends no request (P4-11), so the model's request has
-  no counterpart, reported as such. Then `request-offer` with the mapped
+  no counterpart, reported as such. Else `request-offer` with the mapped
   source, its stamp and entity read as `promote!` reads them, the target,
   its class, the public key, the landing permission, the model's
   `:replaces` mapped (nil in all four), the subjects nil (the door's `#{}`)
-  and u. Then, by the model's later decisions as now (`decided-later?`):
-  the hold armed on the request's name at `:before-read-out` (B1, B2), or
-  the micro topology paused (B3, B4). Then the door's send. The request's
-  record keeps its offer and its ack.
+  and u. KD3 is marked once the lease answered yes with its `:public` and
+  its `:for` is the landing this request will cause, `(env/landing-name
+  (:name o) T C)`; a lease bound to another landing is a difference. Then,
+  by the model's later decisions as now (`decided-later?`): the hold armed
+  on `(:name o)` at `:before-read-out` (B1, B2), or the micro topology
+  paused (B3, B4). Then the door's send. The request's record keeps its
+  offer and its ack.
 - `resend-request!`: `promote-client/resend!` with the kept offer; the
   resend's ack is kept on the request's record.
 - `play-crossing!`: the road is unchanged (release and resend when held,
@@ -623,10 +624,10 @@ L1470-1539).
   before the read. The store's view below the exit, beside a refusal, takes
   the same moment. The answer's `:moment` is kept, and the read line prints
   it (`group as alice at F`).
-- A group read's moment must cover every batch the replay waited past:
-  `wait-frontier!` records the largest, and a read whose moment is
+- An answered group read's moment must cover every batch the replay waited
+  past: `wait-frontier!` records the largest, and an answer whose moment is
   `{:frontier F'}` with F' below it is a difference (a read that could miss
-  a decided act).
+  a decided act). A refused read has no moment to check.
 - F2 completed on the group. The group is also read by pattern below the
   exit (`read-pattern`, `[:all]`, the same moment, as the live member); a
   row that is no counterpart of a model fact in this read and not a
@@ -634,8 +635,9 @@ L1470-1539).
   F2 was "every rig name the replay sent into the group", a stand-in for
   this read until it existed.
 - F1 completed on the group. `rig-values!` reads the group by `[:k k]` below
-  the exit too, as it reads a one-owner layer; a row matching a ref that no
-  act the replay knows of carries is a difference.
+  the exit too, as the live member (else Alice) at `{:frontier F}`, as it
+  reads a one-owner layer by its owner; a row matching a ref that no act
+  the replay knows of carries is a difference.
 - The layers a read covers include the target of every request sent so
   far, where its landing lease went (D6: the layers the rig wrote into). So
   B1 and B2 read the group at every read, and a landing the rig made where
@@ -815,3 +817,173 @@ reads now make entries (pass 2 printed it "predicted, not seen" there).
 Predicted, not seen: KD10 in A4 (F4, above). Every DIFFERS line is either
 a finding about the rig, for RIG.md, or a bug in the adapter, and the
 notes say which, with the trace.
+
+### The plan validated, the rama skill's way (its phase 2)
+
+The skill's rule: the verdict starts at FAIL, and a check passes only after
+a concrete scenario is traced through the plan's lines and the code they
+bind to; a check whose body calls something a gap, not ideal or a tradeoff
+fails. The template's module checks (PState schemas, partitioning,
+topologies, depots, query topologies, throughput) have nothing to check in
+a test adapter that adds no part to the module, as pass 1's self-validation
+found (PLAN-replays.md L788-795). The plan's lines below are this file's.
+
+**V1. SPEC.md's phase 8**, verbatim: "Where practical, replay the model's
+fixed histories from scenarios.clj through the rig and compare answers and
+reads with the model's. Report every difference; a difference is a finding,
+not something to hide." Scenario, B1: the model decides `o0`, `o2`, `o3`
+and `crossing:o2` (traces L121-124); the rig's counterparts are played at
+those ops and judged name by name (L686-700), 4 of 4, the landing lease a
+rig-only act that must answer yes (KD3, F11). Each of the three reads
+compares `[o0 0]`, `[req 0]` and `[o3 0]` fact by fact, control facts by
+their references (KD20), and reads the group too (L641-644), so a landing
+where the model has none would be a DIFFERS line. `:shown` is the three
+`status-of` answers against `[:pending :pending :refused]`. PASS.
+
+**V2. The brief's B cases**, verbatim: "the B cases, with phase 4's names
+from rig-build-promotion: rig.store.promote-client, where status-of gives
+the bare keyword". Scenario, B3's first read: `call-promotion-status` calls
+`status-of store :alice req nil` (L615), which is `(:status
+(promotion-status …))` (P4b promote_client.clj L47-50); the request's record
+is yes, the crossing's yes, no landing record while the topology is paused,
+so `promote/status` gives `:crossed` (P4b promote.clj L253-293). The four
+call functions: the lease reads its answer under `:answer`, which pass 1's
+shape did not (L583-591); the request is `request-offer` sent by the door
+(L591-601); the resend is `resend!` (L602-603); the status is `status-of`.
+PASS.
+
+**V3. The brief's group reads**, verbatim: "group reads through the exit,
+from rig-build-reads-rest: rig.store.read-exit/read! with a group or the
+re-classed base and {:frontier F}". Scenario, A4's closing read: Alice is
+forgotten, so the reader is Bob (F4); F is `micro-client/frontier`, say 57;
+`read!` gets `:reader :bob :working :bob-hand :permission [:bob :bob-hand
+:bob-hand] :layer :group :read [:point [[o0 0]]] :as-of {:frontier 57}`;
+`check-call` takes the moment map (P5b read_exit.clj L66-75); `read-point`
+finds no stream settings for `:group`, a layer of the shared kind (P5b
+reads.clj L485-493), and hands it to `shared-read-point` (L1511); F' =
+min(57, the group task's frontier) = 57 (P5b shared_reads.clj L282-294);
+Bob's membership batch is below 57 (L296-316); the row opens; the entry
+lands in `:bob-hand`; the answer carries `:moment {:frontier 57}`, which
+P3-4 checks against the largest waited batch (L627-630). The re-classed
+base is not read: no fixed history has a case fact there, and the model's
+reads show only its grants, which KD11 leaves out (L795-798), so a base
+read would compare nothing. PASS.
+
+**V4. The brief's comparison**, verbatim: "Wherever the formal model (…)
+has the same history, compare answers. A difference is a finding: record
+it, never hide it." Scenario, A8 on the merged tree without P3-5: `:alice`
+has no `:mention` grammar row, so the stream gate names no one in `{:token
+"v2" :persons #{:bob}}` where the model's grammar names Bob; A8's value is
+open on both sides, but the rig's history is no longer the model's, and
+the match would stand on another world. With P3-5 the seed's grammar act
+makes the row before the first mention (L651-660), and the gate reads the
+model's grammar again. Step 6b, when built, would do the same to the group
+under A2 and A4 to A7; the guard names it instead of letting "seen
+differs" hide the cause (L661-667). PASS.
+
+**V5. R33**, verbatim: "A fresh in-process cluster and module per case".
+Scenario, B3's pause: `pause!` uses the env's `:ipc`, which `play-case!`
+sets to the case's own cluster (here L1602-1603); `cleanup!` resumes the
+topology in `play-case!`'s `finally` before that cluster closes (here
+L1582-1588, L1624-1628). Nothing in P3-3 or P3-4 shares a cluster between
+cases. PASS.
+
+**V6. Pass 3's own ask** (L144-152), verbatim: "First confirm phase 4's
+shapes against its build (the list above) and adapt the four call
+functions; then check `:shown` against the model's (…), KD3, KD4 and KD13
+seen, and that B4's landing is not refused (F5: a refusal fails the test
+and its line names which of phase 4's F9 conditions it points to)."
+Scenario, B4's landing answered `:landing-lock-gone`: `judge-answer` finds
+model yes, rig no, unexplained, so the case fails, and P3-3's note names
+"her landing lease row gone" (L608-614). KD3 is marked only on its evidence,
+the lease's `:for` (L595-597); KD4 when the crossing's record is read; KD13
+after the frontier passes the landing's batch. `:shown` is compared by
+`judge-case`, `rig-seen` against `seen-of` (here L1541-1546, L502-512).
+PASS.
+
+**V7. F1 and F2** (PLAN-replays.md L182-192, L203-213), verbatim in part:
+"a rig fact matching the ref that the adapter does not know of is a
+difference"; "a value fact that is not a rig-only kind (…) and has no
+counterpart is a difference". Scenario, B1 against a rig that lands a copy
+it should not: before P3-4 the group is not read in B1 at all (no model
+fact and no replay act there); with P3-4 the group is read at every read
+(L641-644), and its `[:all]` pattern read below the exit finds `[landing 0]`,
+key `:note`, no counterpart: DIFFERS. The same rule runs on every group
+read (L631-640). PASS.
+
+**V8. R35**, verbatim: "A continuation is held only when the model decides
+it in a later op". Scenario: `decided-later?` (here L1168-1174) at B1's
+request finds `crossing:o2` two ops later, so the hold; at B3's `[:work 0]`
+the crossing is in the same op and the landing at `[:batch]`, so the pause.
+The test `holds-follow-the-model` (here L2218-2236) pins both. The hold is
+armed on `(:name o)`, the name the gate checks (`(get *offer :name)`, P4b
+promote_flow.clj L147-151), the same name phase 4's own test arms
+(`promote-held!`, P4b promote_test.clj L87-93). PASS.
+
+**V9. The pause blocks nothing the model decides meanwhile** (PLAN-replays.md
+open question 2, L832-842). Scenario, B4 between the pause and the resume:
+the request (the stream gate), the crossing's record (a PState read), the
+`:alice` read through the exit (its entry in `:alice-hand`, the stream
+gate), the group's pattern read below the exit (the `read-pattern` and
+`shared-read-pattern` query topologies, P5b reads.clj L1562, shared_reads.clj
+L1688), `status-of` (the `promotion-status` query, which phase 4's T3 read
+while paused, P4b promote_test.clj L403-406), Alice's forget
+(`client/forget-person!`, the stream gate's act and fan-out; phase 5's rest
+adds to the stream flow only a require and query declarations) and its
+wait (`person-on-task`, a PState read). None runs in the micro topology.
+The purge wrapper, which would, is not called (L788-794). PASS.
+
+**V10. B2's resend by a forgotten requester**, answered from the record:
+phase 4's T2 resent Ann's request after `forget-person! :ann` and read
+`:source-erased` in the ack's `:crossing` (P4b promote_test.clj L338-366).
+The replay sends the same map again (`resend!` with the kept offer), so the
+digest is the record's. PASS.
+
+**V11. The new checks cannot fire on a correct rig.** The ack's
+`:crossing` is the decision's own ack, whose record `write-decided>`
+writes, or on a resend the record's `recorded-ack` (P4b promote_flow.clj
+L65-72, L91-103), so answer and reason agree with `c/record`. A landing
+row's `:for` is the landing its lease act named, `[T C :landing u]` (P4b
+promote_shape.clj L113-133), and `(env/landing-name (:name o) T C)` is `[T C
+:landing u]` for the same u (P4b envelope.clj L275-282). Block 0 writes the
+frontier on every task in every batch (here micro.clj L1262-1266) and a
+microbatch's writes become visible together, so after `wait-frontier!` the
+group's task holds the frontier task 0 showed: F' = F, at or above every
+waited batch. The model has no `:grammar` fact and no standing reads, so
+the keys P3-4 adds to `rig-only-keys` hide none of its facts. PASS.
+
+**V12. Sid's rules for the build**: one run under the lock (L805-806); a fix
+reruns only `rig.replay-test`, the one namespace the build touches; no
+reset, checkout, restore, stash, rm or mv of tracked files; `git add` of
+named files; commits on this branch only, never pushed; nothing deleted
+(`env/make-name` leaves the replay's table, not the store). PASS.
+
+**What only the run can show**, each a prediction with its other outcome
+named, which is what the replays are for: the landing's copy read through
+the exit (L771-783); D2's revoke read through the shared exit, a control
+fact in the micro index (block 2d indexes every row block 2b gives, P5b
+shared_reads.clj L191-206, so predicted there); Bob's first reads through
+the exit (A4, B4; pass 2 read the group through the frontier, so his
+working layer has never taken an entry).
+
+**Self-consistency.** Nothing above calls a constraint's handling a gap or
+a tradeoff. The items not exercised (L785-801) sit outside the checked
+constraints: no model counterpart, or the model's step played by another
+of the store's roads, each with its reason. The first reading of the plan
+found three places to fix, in P3-3's and P3-4's wording rather than their
+design, fixed in place above: KD3's `:for` check named the request's name
+before `request-offer` made it; the moment check did not say a refused
+read has none; F1's group read named no reader or moment.
+
+Verdict: **minor-fail**, the three fixes applied in place.
+PHASE_VALIDATION:minor-fail
+
+### Prep: where it stopped (07:41 IST)
+
+The plan is written and validated, and nothing is built: `replay_test.clj`
+is as pass 2 left it. Next, on builder C's word that wave 2 has landed on
+`rig-2026-09-25`: P3-1 to P3-6, through the rama skill's build step
+(implement; validate the implementation against this plan; the tests the
+changes need, with no cluster; validate them), then `rig.replay-test`
+once under the lock, then "Pass 3, after wave 2" in this file with each
+case's match or finding and "For RIG.md", committed, and the report to C.
