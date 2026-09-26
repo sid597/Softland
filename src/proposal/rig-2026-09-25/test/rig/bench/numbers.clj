@@ -602,3 +602,513 @@
                    [f (if (and (number? a) (number? b)) (- a b) (if (= a b) :same :changed))]))
    :log-rows (- (:log-rows after) (:log-rows before))
    :clocks-moved (grown (:clocks before) (:clocks after))})
+
+;; ================================================================ counting
+
+(definterface ILongBuf
+  (^void add [^long x])
+  (^long size [])
+  (^longs toArray []))
+
+(deftype LongBuf [^:unsynchronized-mutable ^longs arr ^:unsynchronized-mutable ^long n]
+  ILongBuf
+  (add [_ x]
+    (when (== n (alength arr))
+      (set! arr (Arrays/copyOf arr (int (* 2 (alength arr))))))
+    (aset arr (int n) x)
+    (set! n (unchecked-inc n)))
+  (size [_] n)
+  (toArray [_] (Arrays/copyOf arr (int n))))
+
+(defn long-buf
+  "A growable primitive long array, one writer's own (9.2)."
+  ^LongBuf []
+  (LongBuf. (long-array 1024) 0))
+
+(defn sorted-ns
+  "The latencies held by `bufs`, as one sorted long array."
+  ^longs [bufs]
+  (let [total (reduce + 0 (map #(.size ^LongBuf %) bufs))
+        out (long-array total)]
+    (loop [bs (seq bufs) at 0]
+      (if bs
+        (let [^longs a (.toArray ^LongBuf (first bs))]
+          (System/arraycopy a 0 out (int at) (alength a))
+          (recur (next bs) (+ at (alength a))))
+        (do (Arrays/sort out) out)))))
+
+(defn ms "Nanoseconds as milliseconds, to the microsecond." [ns]
+  (when ns (/ (Math/round (/ (double ns) 1e3)) 1e3)))
+
+(defn percentiles
+  "Nearest rank over sorted ns latencies: count, p50, p95, p99, max and mean,
+  in ms; nil when there are none."
+  [^longs sorted]
+  (let [n (alength sorted)]
+    (when (pos? n)
+      (let [at (fn [q] (aget sorted (int (max 0 (dec (long (Math/ceil (* q n))))))))]
+        {:n n
+         :p50 (ms (at 0.50)) :p95 (ms (at 0.95)) :p99 (ms (at 0.99))
+         :max (ms (aget sorted (int (dec n))))
+         :mean (ms (/ (areduce sorted i s 0.0 (+ s (aget sorted i))) n))}))))
+
+(defn rate
+  "Events a second over `elapsed-ns`, to one decimal."
+  [n elapsed-ns]
+  (if (pos? elapsed-ns)
+    (/ (Math/round (* 10.0 (/ (double n) (/ (double elapsed-ns) 1e9)))) 10.0)
+    0.0))
+
+(defn new-stats
+  "A writer's own tally, merged only after its window (9.2): per kind its
+  latencies (a `LongBuf`) and its outcomes, the first error, and what its
+  steps sampled; `shared` holds the window's two progress adders."
+  [shared]
+  {:lat (HashMap.) :outcomes (HashMap.) :first-error (volatile! nil) :sample (ArrayList.)
+   :acts (:acts shared) :errors (:errors shared)})
+
+(defn- buf-of ^LongBuf [stats kind]
+  (let [^HashMap m (:lat stats)]
+    (or (.get m kind) (let [b (long-buf)] (.put m kind b) b))))
+
+(defn record-lat!
+  "A latency of `kind` in ns, with no outcome (a send's lateness, say)."
+  [stats kind ns]
+  (.add (buf-of stats kind) (long ns)))
+
+(defn outcome-key
+  "`:yes`, `:error` for a throwable, else the refusal's reason."
+  [outcome]
+  (cond
+    (instance? Throwable outcome) :error
+    (= :yes (:answer outcome)) :yes
+    :else (or (:reason outcome) :no)))
+
+(defn record!
+  "One outcome of `kind` (`:value`, `:entry`, `:read`, ...) and its latency
+  in ns. `outcome` is the gate's answer, a map with `:answer`, or a
+  throwable. Returns the outcome's key."
+  [stats kind outcome lat-ns]
+  (record-lat! stats kind lat-ns)
+  (let [^HashMap om (:outcomes stats)
+        ^HashMap m (or (.get om kind) (let [m (HashMap.)] (.put om kind m) m))
+        k (outcome-key outcome)]
+    (.put m k (inc (long (or (.get m k) 0))))
+    (case k
+      :error (do (.increment ^LongAdder (:errors stats))
+                 (when (nil? @(:first-error stats)) (vreset! (:first-error stats) (str outcome))))
+      :yes (.increment ^LongAdder (:acts stats))
+      nil)
+    k))
+
+(defn yes-count
+  "How many outcomes of `kind` this writer had admitted so far."
+  ^long [stats kind]
+  (let [^HashMap m (.get ^HashMap (:outcomes stats) kind)]
+    (long (or (some-> m (.get :yes)) 0))))
+
+(defn sample!
+  "Keep `x` for the read-back after the window."
+  [stats x]
+  (.add ^ArrayList (:sample stats) x))
+
+(defn merge-stats
+  "The writers' tallies as one: per kind the sorted latencies and the
+  outcome counts; the first error; everything sampled."
+  [ss]
+  (let [kinds (distinct (mapcat #(keys (:lat %)) ss))
+        okinds (distinct (mapcat #(keys (:outcomes %)) ss))]
+    {:lat (into {} (for [k kinds] [k (sorted-ns (keep #(.get ^HashMap (:lat %) k) ss))]))
+     :outcomes (into {} (for [k okinds]
+                          [k (apply merge-with + {} (keep #(some->> (.get ^HashMap (:outcomes %) k) (into {})) ss))]))
+     :first-error (some #(deref (:first-error %)) ss)
+     :sample (vec (mapcat #(vec (:sample %)) ss))}))
+
+;; =============================================================== snapshots
+
+(defn gc-totals
+  "[collections milliseconds] over every collector so far."
+  []
+  (reduce (fn [[n t] ^GarbageCollectorMXBean b]
+            [(+ n (max 0 (.getCollectionCount b))) (+ t (max 0 (.getCollectionTime b)))])
+          [0 0] (ManagementFactory/getGarbageCollectorMXBeans)))
+
+(defn thread-cpu
+  "Thread id -> [name cpu-ns], every live thread."
+  []
+  (let [^ThreadMXBean tb (ManagementFactory/getThreadMXBean)]
+    (into {} (for [id (.getAllThreadIds tb)
+                   :let [info (.getThreadInfo tb (long id))
+                         cpu (.getThreadCpuTime tb (long id))]
+                   :when (and info (pos? cpu))]
+               [id [(.getThreadName info) cpu]]))))
+
+(defn busiest
+  "The `n` threads that used the most CPU between two `thread-cpu`
+  snapshots, as [name percent-of-one-core]."
+  [cpu0 cpu1 elapsed-ns n]
+  (->> cpu1
+       (map (fn [[id [nm c1]]] [nm (- c1 (second (get cpu0 id [nm 0])))]))
+       (sort-by second >)
+       (take n)
+       (mapv (fn [[nm d]] [nm (/ (Math/round (* 1000.0 (/ (double d) elapsed-ns))) 10.0)]))))
+
+(defn store-busiest
+  "The busiest thread that is not the harness's own (the harness names its
+  threads `phase7-*`): in a window on one layer, the home task's thread (the
+  slices found it the busiest in every window)."
+  [busy]
+  (first (remove #(str/starts-with? (first %) "phase7-") busy)))
+
+(defn known-leases
+  "The leases the given doors came to know (B5: each door's `:known` lease
+  names for [layer session]), summed; `lease-doors` is [[store layer
+  session] ...]."
+  [lease-doors]
+  (reduce + 0 (for [[st layer session] lease-doors]
+                (count (get-in @(:door st) [:known [layer session]])))))
+
+(defn- worker-pool
+  "`n` daemon threads named `phase7-<role>-<i>`."
+  ^ExecutorService [n role]
+  (let [ctr (AtomicLong.)]
+    (Executors/newFixedThreadPool
+     (int n)
+     (reify java.util.concurrent.ThreadFactory
+       (newThread [_ r]
+         (doto (Thread. ^Runnable r (str "phase7-" role "-" (.getAndIncrement ctr)))
+           (.setDaemon true)))))))
+
+(defn- start-progress!
+  "A PROGRESS line every 5 s while the writers run (8.3). Returns its stop
+  flag."
+  [{:keys [ctx variant k]} ^LongAdder acts ^LongAdder errors t0]
+  (let [stop (volatile! false)
+        t (Thread. ^Runnable
+                   (fn []
+                     (loop []
+                       (Thread/sleep 5000)
+                       (when-not @stop
+                         (let [el (/ (- (System/nanoTime) t0) 1e9)
+                               n (.sum acts)]
+                           (progress! {:number (:number ctx) :run (:run ctx) :variant variant :k k
+                                       :t (Math/round el) :acts n :rate (Math/round (/ n (max 1e-9 el)))
+                                       :errors (.sum errors)}))
+                         (recur))))
+                   "phase7-progress")]
+    (.setDaemon t true)
+    (.start t)
+    stop))
+
+(defn- edges
+  "What a window records at each edge (never between them): partitions,
+  task clocks, the doors' leases, GC, every thread's CPU, the wall."
+  [{:keys [st tasks lease-doors]}]
+  (cond-> {:gc (gc-totals) :cpu (thread-cpu) :wall (System/currentTimeMillis)}
+    st (assoc :parts (partition-ends st tasks) :clocks (task-clocks st tasks)
+              :leases (known-leases lease-doors))))
+
+(defn- edge-summary
+  "Placement (4.8: only the home partition grew, by exactly the value, entry
+  and lease offers sent; only the home task's clock moved), the two lease
+  counts (2.5), the home clock's lead over the wall, CPU, GC and overlap,
+  between two `edges`. `offers` is the value and entry offers sent."
+  [{:keys [st home ctx]} e0 e1 elapsed offers]
+  (merge
+   {:cpu (let [b (busiest (:cpu e0) (:cpu e1) elapsed 6)] {:busiest b :store-busiest (store-busiest b)})
+    :gc {:count (- (first (:gc e1)) (first (:gc e0))) :ms (- (second (:gc e1)) (second (:gc e0)))}
+    :overlap (overlap-during (:monitor ctx) (:wall e0) (:wall e1))
+    :wall-ms [(:wall e0) (:wall e1)]}
+   (when st
+     (let [pd (mapv - (:parts e1) (:parts e0))
+           cd (mapv - (:clocks e1) (:clocks e0))
+           door (- (:leases e1) (:leases e0))
+           rama (when home (- (get pd home) offers))]
+       {:leases {:door door :rama rama :agree? (= door rama)}
+        :placement {:partition-deltas pd :clock-deltas cd :home home
+                    :one-task? (boolean (and home
+                                             (= [home] (grown (:parts e0) (:parts e1)))
+                                             (= [home] (grown (:clocks e0) (:clocks e1)))
+                                             (= (get pd home) (+ offers door))))}
+        :clock-lead-ms (when home (- (hlc/ms-of (get (:clocks e1) home)) (:wall e1)))}))))
+
+(defn- counts-of
+  "Per kind: sent (every outcome but an error, which may not have reached the
+  depot) and admitted."
+  [outcomes kind]
+  {:sent (reduce + 0 (vals (dissoc (get outcomes kind) :error)))
+   :admitted (get-in outcomes [kind :yes] 0)})
+
+;; ================================================================= windows
+
+(defn closed-window
+  "K writers in closed loops with no pause (4.3, 5.4): each a thread calling
+  `(step w i stats)` until `secs` pass, or until it has made `n` iterations;
+  a step times and records its own outcomes (`record!`, `sample!`). At the
+  window's edges only: placement, the doors' leases, CPU, GC, the clock's
+  lead, overlap. The window ends at the last writer's last answer; its
+  rates are over that time. Latencies here are closed-loop service times
+  (F5): reported, never judged. `w`: {:ctx :st :tasks :home :lease-doors
+  :variant :k :secs :n :step}."
+  [{:keys [ctx variant k secs n step] :as w}]
+  (let [ex (worker-pool k "writer")
+        shared {:acts (LongAdder.) :errors (LongAdder.)}
+        stats (vec (repeatedly k #(new-stats shared)))
+        go (CountDownLatch. 1)
+        deadline (volatile! Long/MAX_VALUE)
+        stop? (if n (fn [i] (>= i n)) (fn [_] (>= (System/nanoTime) @deadline)))
+        e0 (edges w)
+        futs (mapv (fn [wi]
+                     (.submit ex ^Callable
+                              (fn []
+                                (.await go)
+                                (let [s (nth stats wi)]
+                                  (loop [i 0]
+                                    (if (stop? i) i (do (step wi i s) (recur (inc i)))))))))
+                   (range k))
+        t0 (System/nanoTime)
+        _ (when secs (vreset! deadline (+ t0 (long (* 1e9 secs)))))
+        prog (start-progress! w (:acts shared) (:errors shared) t0)
+        _ (progress! {:number (:number ctx) :run (:run ctx) :variant variant :k k :t 0 :acts 0 :rate 0 :errors 0})
+        _ (.countDown go)
+        iterations (mapv #(.get ^Future %) futs)
+        t1 (System/nanoTime)
+        _ (vreset! prog true)
+        e1 (edges w)
+        _ (.shutdown ex)
+        merged (merge-stats stats)
+        elapsed (- t1 t0)
+        oc (:outcomes merged)
+        v (counts-of oc :value)
+        e (counts-of oc :entry)
+        s (merge
+           {:variant variant :k k :loop :closed
+            :secs (/ (Math/round (/ elapsed 1e6)) 1e3)
+            :iterations (reduce + iterations)
+            :iterations-per-writer [(reduce min iterations) (reduce max iterations)]
+            :sent {:value (:sent v) :entry (:sent e)}
+            :admitted {:value (:admitted v) :entry (:admitted e)}
+            :outcomes oc
+            :errors (reduce + 0 (keep :error (vals oc)))
+            :first-error (:first-error merged)
+            :value-acts-per-s (rate (:admitted v) elapsed)
+            :iterations-per-s (rate (reduce + iterations) elapsed)
+            :lat-kind :closed-loop-service-time
+            :lat (into (sorted-map) (for [[kind a] (:lat merged)] [kind (percentiles a)]))}
+           (edge-summary w e0 e1 elapsed (+ (:sent v) (:sent e))))
+        s (assoc s :all-acts-per-s (rate (+ (:admitted v) (:admitted e) (or (get-in s [:leases :door]) 0)) elapsed))]
+    (progress! {:number (:number ctx) :run (:run ctx) :variant variant :k k :t (Math/round (/ elapsed 1e9))
+                :acts (:admitted v) :rate (Math/round (double (:value-acts-per-s s))) :errors (:errors s)})
+    (assoc s :sample (:sample merged) :sorted-lat (:lat merged))))
+
+(defn- park-until
+  "Wait until `System/nanoTime` reaches `t`."
+  [^long t]
+  (loop []
+    (let [d (- t (System/nanoTime))]
+      (when (pos? d)
+        (LockSupport/parkNanos d)
+        (recur)))))
+
+(defn open-window
+  "Open arrival (4.5; 5.4b, F5): each lane is a fixed schedule t(n) = t0 +
+  phase + n × period, served by its own sender threads, each taking the next
+  slot, so a late answer delays no other slot; a send that falls behind its
+  slot goes at once, and its latency runs from the slot, not from when it
+  was sent, so a queue shows as latency instead of the writers quietly
+  slowing down. The first `warm` seconds are unmeasured; the slots scheduled
+  in the `secs` after them are measured. Each lane: {:threads :period-ns
+  :phase-ns :send (fn [slot] outcome) :kind}. Placement, leases, CPU and GC
+  cover the whole window. `:trace? true` keeps every slot's [lane slot
+  scheduled started ended] (ns), for T5."
+  [{:keys [ctx variant k lanes warm secs trace?] :as w}]
+  (let [threads (vec (for [[li lane] (map-indexed vector lanes) _ (range (:threads lane))] li))
+        ex (worker-pool (count threads) "sender")
+        shared {:acts (LongAdder.) :errors (LongAdder.)}
+        m-stats (vec (repeatedly (count threads) #(new-stats shared)))
+        w-stats (vec (repeatedly (count threads) #(new-stats shared)))
+        slots (mapv (fn [_] (AtomicLong.)) lanes)
+        trace (when trace? (java.util.concurrent.ConcurrentLinkedQueue.))
+        go (CountDownLatch. 1)
+        t0-box (volatile! 0)
+        warm-ns (long (* 1e9 (or warm 0)))
+        secs-ns (long (* 1e9 secs))
+        e0 (edges w)
+        futs (mapv
+              (fn [ti]
+                (let [li (nth threads ti)
+                      {:keys [period-ns phase-ns send kind] :or {phase-ns 0 kind :value}} (nth lanes li)
+                      ^AtomicLong next-slot (nth slots li)
+                      period (long period-ns)
+                      phase (long phase-ns)]
+                  (.submit ex ^Callable
+                           (fn []
+                             (.await go)
+                             (let [t0 (long @t0-box)
+                                   mstart (+ t0 warm-ns)
+                                   end (+ mstart secs-ns)]
+                               (loop [sent 0]
+                                 (let [slot (.getAndIncrement next-slot)
+                                       ts (+ t0 phase (* slot period))]
+                                   (if (>= ts end)
+                                     sent
+                                     (do (park-until ts)
+                                         (let [started (System/nanoTime)
+                                               o (try (send slot) (catch Exception e e))
+                                               ended (System/nanoTime)
+                                               s (if (>= ts mstart) (nth m-stats ti) (nth w-stats ti))]
+                                           (record! s kind o (- ended ts))
+                                           (record-lat! s :lateness (- started ts))
+                                           (when trace (.add trace [li slot ts started ended]))
+                                           (recur (inc sent))))))))))))
+              (range (count threads)))
+        t0 (System/nanoTime)
+        _ (vreset! t0-box t0)
+        prog (start-progress! w (:acts shared) (:errors shared) t0)
+        _ (.countDown go)
+        _ (mapv #(.get ^Future %) futs)
+        t1 (System/nanoTime)
+        _ (vreset! prog true)
+        e1 (edges w)
+        _ (.shutdown ex)
+        mm (merge-stats m-stats)
+        wm (merge-stats w-stats)
+        moc (:outcomes mm)
+        v (counts-of moc :value)
+        all-sent (+ (:sent v) (:sent (counts-of (:outcomes wm) :value))
+                    (:sent (counts-of moc :entry)) (:sent (counts-of (:outcomes wm) :entry)))
+        offered (reduce + 0 (vals (get moc :value)))
+        s (merge
+           {:variant variant :k k :loop :open
+            :schedule (mapv #(select-keys % [:threads :period-ns :phase-ns]) lanes)
+            :warm warm :secs secs
+            :offered offered :admitted {:value (:admitted v)}
+            :offered-per-s (rate offered secs-ns)
+            :value-acts-per-s (rate (:admitted v) secs-ns)
+            :admitted-share (when (pos? offered) (/ (Math/round (* 1000.0 (/ (:admitted v) offered))) 1000.0))
+            :outcomes moc
+            :errors (+ (reduce + 0 (keep :error (vals moc))) (reduce + 0 (keep :error (vals (:outcomes wm)))))
+            :first-error (or (:first-error mm) (:first-error wm))
+            :lat-kind :from-schedule
+            :lat (into (sorted-map) (for [[kind a] (:lat mm)] [kind (percentiles a)]))
+            :whole-secs (/ (Math/round (/ (- t1 t0) 1e6)) 1e3)}
+           (edge-summary w e0 e1 (- t1 t0) all-sent))]
+    (progress! {:number (:number ctx) :run (:run ctx) :variant variant :k k :t (Math/round (/ (- t1 t0) 1e9))
+                :acts (:admitted v) :rate (Math/round (double (:value-acts-per-s s))) :errors (:errors s)})
+    (cond-> (assoc s :sample (into (:sample mm) (:sample wm)) :sorted-lat (:lat mm))
+      trace (assoc :trace (vec trace)))))
+
+(defn idle-window
+  "3.2: `secs` with no offers, every thread's CPU recorded, so whatever the
+  idle micro topology costs the task threads is on record."
+  [secs]
+  (let [c0 (thread-cpu) g0 (gc-totals) t0 (System/nanoTime)]
+    (Thread/sleep (long (* 1000 secs)))
+    (let [t1 (System/nanoTime) g1 (gc-totals)]
+      {:variant :idle :secs secs
+       :busiest (busiest c0 (thread-cpu) (- t1 t0) 12)
+       :gc {:count (- (first g1) (first g0)) :ms (- (second g1) (second g0))}})))
+
+;; ============================================================ the read-back
+
+(defn- at-address [ps L field addr] (foreign-select-one [(keypath L field addr)] ps))
+
+(def value-parts "An id-index entry's value fields (reads.clj `value-fields`)." [:v :sealed :lock :digest])
+
+(defn check-act
+  "Every write of one sampled admitted act, read back (2.3, 4.3): its answer
+  record says yes with its stamp; its log holds one row with the sealed
+  bytes and the lock id, and the lock record inside the row in an agent
+  layer (none there in a personal or hand layer, or for an entry); its head
+  at that stamp; its `:ix-ek`, `:ix-ke` and `:ix-s` entries at their
+  addresses (an entry's without value fields, `:no-copy`); for a key its
+  grammar indexes by value, the `:ix-kv` entry and the `:ix-of` set; the
+  cited lease row gone; the stamp-to-name entry; the lock row, or none; what
+  it stood on. `item`: {:layer :session :name :kind :stamp :e :k :v
+  :stood-on}, `:e` and `:k` read from the row when absent. Check name ->
+  passed?."
+  [st {:keys [layer session name kind stamp v stood-on] :as item}]
+  (let [ps (:layers st)
+        rec (c/record st name)
+        rows (vec (c/raw-rows st layer name))
+        row (first rows)
+        e (or (:e item) (:e row))
+        k (or (:k item) (:k row))
+        fid [name 0]
+        lid (:lock-id row)
+        row-lock? (contains? #{:owner-value :entry} kind)
+        id-entry (fn [field] (at-address ps layer field (reads/address field {:e e :k k :stamp stamp :fid fid})))
+        ids {:ix-ek (id-entry :ix-ek) :ix-ke (id-entry :ix-ke) :ix-s (id-entry :ix-s)}
+        lock-row (when lid (c/lock-row st layer lid))]
+    (cond->
+     {:answer (and (= :yes (:answer rec)) (= stamp (:stamp rec)))
+      :rows (and (= 1 (count rows)) (bytes? (:sealed row)) (vector? lid)
+                 (or (nil? v) (not (Arrays/equals ^bytes (:sealed row) ^bytes (locks/canonical-bytes v)))))
+      :lock-in-record (if (or row-lock? (nil? row)) (nil? (:lock row)) (map? (:lock row)))
+      :head (= stamp (c/head st layer e k fid))
+      :ix-ek (= fid (:fid (:ix-ek ids)))
+      :ix-ke (= fid (:fid (:ix-ke ids)))
+      :ix-s (= fid (:fid (:ix-s ids)))
+      :lease-consumed (and (some? lid) (nil? (foreign-select-one [(keypath layer :leases session lid)] ps)))
+      :by-stamp (= name (foreign-select-one [(keypath layer :by-stamp stamp)] ps))
+      :lock-row (if row-lock? (and (map? lock-row) (some? (:scheme lock-row))) (nil? lock-row))}
+      (= :entry kind)
+      (assoc :no-copy (every? (fn [ie] (and (false? (:copy ie)) (every? #(nil? (get ie %)) value-parts))) (vals ids)))
+      (= :agent-value-by-value kind)
+      (merge (let [a (reads/address :ix-kv {:k k :vtext (env/encode-value v) :stamp stamp :fid fid})]
+               {:ix-kv (= fid (:fid (at-address ps layer :ix-kv a)))
+                :ix-of (= #{a} (foreign-select-one [(keypath layer :ix-of fid)] ps))}))
+      (some? stood-on)
+      (assoc :stood-on (= stood-on (c/stood-on st layer name))))))
+
+(defn check-sample
+  "4.3's read-back after a window, never during it: up to 200 of the acts
+  the steps sampled (one in 50 as answered), each through `check-act`.
+  {:checked :ok :failed {check n} :first-failure {...}}; complete when
+  `:ok` = `:checked`."
+  [st sample]
+  (let [picked (take 200 (shuffle sample))
+        results (mapv (fn [item] [item (check-act st item)]) picked)
+        bad (filter (fn [[_ r]] (some false? (vals r))) results)]
+    {:checked (count results)
+     :ok (- (count results) (count bad))
+     :failed (frequencies (for [[_ r] bad [ck ok?] r :when (false? ok?)] ck))
+     :first-failure (when-let [[item r] (first bad)]
+                      {:item (dissoc item :v) :checks r})}))
+
+;; ================================================================ verdicts
+
+(defn verdict
+  "7.2's rule for a timing, kept from the slices: `value` against
+  `threshold`, `better` `:higher` (at least) or `:lower` (at most). Ten
+  times or more on one side decides (far); within ten times the in-process
+  cluster cannot decide (near). Each level is judged on its own; the call
+  names the side and the factor."
+  [value threshold better]
+  (when (number? value)
+    (let [v (double value)
+          r (if (= :higher better) (/ v threshold) (if (zero? v) Double/POSITIVE_INFINITY (/ (double threshold) v)))
+          meets? (>= r 1.0)
+          factor (if meets? r (if (zero? r) Double/POSITIVE_INFINITY (/ 1.0 r)))
+          far? (>= factor 10.0)]
+      {:value value :threshold threshold :better better :meets? meets?
+       :factor (if (Double/isInfinite factor) :infinite (/ (Math/round (* 100.0 factor)) 100.0))
+       :call (cond (and meets? far?) :far-passes
+                   meets? :near-passes
+                   far? :far-fails
+                   :else :near-fails)
+       :decides? far?})))
+
+(defn bytes-verdict
+  "7.3's rule for bytes, judged directly: at most twice the value's bytes is
+  fine; above four times, change the default; between, neither."
+  [ratio]
+  (when (number? ratio)
+    {:ratio (/ (Math/round (* 100.0 ratio)) 100.0)
+     :call (cond (<= ratio 2.0) :fine (> ratio 4.0) :over-four-times-change-the-default :else :between-two-and-four)}))
+
+(defn result
+  "A window's map as a RESULT line carries it: without what is only for the
+  read-back or the tests (the sample, the sorted latencies, a trace)."
+  [w]
+  (dissoc w :sample :sorted-lat :trace))
