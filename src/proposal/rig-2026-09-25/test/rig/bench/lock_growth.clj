@@ -295,11 +295,21 @@
 
 ;; ======================================================= the pick (6.5)
 
-(defn- lock-record?
-  "In a hand layer, a lock record is the only value that is a map carrying
-  `:scheme` and `:required` (6.5; locks.clj `lock-record-schema`)."
+(defn- classify
+  "What a thawed value is, for the pick: `:lock` for a lock record, in a
+  hand layer the only value that is a plain map carrying `:scheme` and
+  `:required` (6.5; locks.clj `lock-record-schema`); `:ref` for a value
+  whose key lookup throws; `:other` for everything else. Total. Rama's
+  `thaw` accepts the references to nested subindexed structures (`:log`'s
+  vectors, `:leases`' session maps): it returns a
+  `key_encoding.ReferenceID`, whose lookup of an undeclared key throws
+  `NoSuchFieldError` (the first run's T7, 26 September). F9 expected
+  `thaw` to refuse them; they are counted, never picked, never silently
+  dropped."
   [x]
-  (and (map? x) (contains? x :scheme) (contains? x :required)))
+  (try
+    (if (and (map? x) (not (record? x)) (contains? x :scheme) (contains? x :required)) :lock :other)
+    (catch Throwable _ :ref)))
 
 (defn- thawed
   "[:ok value] by Rama's own `thaw` (B12), or [:unthawed nil] (F9)."
@@ -358,15 +368,17 @@
   (let [kept (ArrayList.)]
     (with-open [^RocksIterator it (.newIterator db h)]
       (.seekToFirst it)
-      (loop [n 0 picked 0 kb 0 vb 0 unthawed 0 lcp nil lcp-len 0 runs 0 prev? false]
+      (loop [n 0 picked 0 kb 0 vb 0 unthawed 0 refs 0 lcp nil lcp-len 0 runs 0 prev? false]
         (if (.isValid it)
           (let [k (.key it) v (.value it)
                 [s x] (thawed v)
-                lock? (lock-record? x)]
+                cls (if (= :unthawed s) :unthawed (classify x))
+                lock? (= :lock cls)]
             (when lock? (.add kept [k v]))
             (.next it)
             (recur (inc n) (if lock? (inc picked) picked) (if lock? (+ kb (alength k)) kb)
-                   (if lock? (+ vb (alength v)) vb) (if (= :unthawed s) (inc unthawed) unthawed)
+                   (if lock? (+ vb (alength v)) vb) (if (= :unthawed cls) (inc unthawed) unthawed)
+                   (if (= :ref cls) (inc refs) refs)
                    (if (and lock? (nil? lcp)) k lcp)
                    (cond (not lock?) lcp-len
                          (nil? lcp) (alength ^bytes k)
@@ -375,7 +387,7 @@
                    lock?))
           (let [p (when lcp (Arrays/copyOf ^bytes lcp (int lcp-len)))
                 under (when p (count-under db h p))]
-            {:scanned n :picked picked :key-bytes kb :value-bytes vb :unthawed unthawed
+            {:scanned n :picked picked :key-bytes kb :value-bytes vb :unthawed unthawed :references refs
              :prefix p :prefix-length (when p (alength ^bytes p)) :runs runs :under-p under
              :unpicked-under-p (when under (- under picked))
              :one-structure? (boolean (and p (= under picked)))
