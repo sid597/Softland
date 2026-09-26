@@ -13,6 +13,7 @@
   `seed-hints` had it. Test data, not store code: nothing under `src/`
   knows either key."
   (:require [rig.store.client :as c]
+            [rig.store.micro-client :as mc]
             [rig.store.grammar :as grammar]))
 
 (def mention
@@ -39,6 +40,11 @@
          (c/offer-until-answered!
           store (c/build {:who :operator :layer l :class (or (:class (c/settings store l)) :by-layer)
                           :facts facts})))))
+
+(defn write-micro!
+  "Both model grammars admitted as facts by each shared layer's own gate."
+  [store layers]
+  (mapv (fn [L] (mc/offer! store (mc/build {:who :operator :layer L :facts facts}))) layers))
 
 (def ^:private grammar-act
   "A name standing for the act that wrote the toy grammars, for pure tests."

@@ -617,7 +617,8 @@
 
 (defn rebuild-facts
   "Open results reduced on the entity task to sealed entries, keyed digests
-  and erased dates. No plaintext crosses to the layer holding the grammar.
+  and erased dates. No opened sealed-value plaintext crosses to the layer;
+  control values remain clear, as in the existing index and gather paths.
   Grouped by layer, as a put page's existing bounded accumulator is."
   [e nm rec opened]
   (reduce (fn [acc [i row lock-row o]]
@@ -1443,7 +1444,7 @@
   grammar facts, as the read exit does: a `[:kv]` read of a key that era
   used but never indexed by value (or made opaque) is refused
   (`stream-era-kv-refusal`), and its rows get their opaque marks
-  (`stream-marks>`); the micro era keeps the constant until phase 6b."
+  (`stream-marks>`); the micro era uses effective micro-first rows."
   [*layer *for *pattern *as-of *limit *ss]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
                          $$micro-task (this-module-pobject-task-global "$$micro-task")

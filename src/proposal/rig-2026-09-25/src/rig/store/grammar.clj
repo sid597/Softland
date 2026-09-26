@@ -14,10 +14,9 @@
   `hints`). A key with no grammar in a layer is permissive (T-RC2). No copy
   of any layer's grammar is kept elsewhere (EXAMINATION-copies.md).
 
-  `grammars`, the model's one grammar as a constant, is what the micro store
-  still reads until phase 6b gives its gate the rows (D-P1 in
-  BUILD_NOTES-tools-and-grammars.md); the stream gate and the one-owner read
-  exit read only the layer's rows. Pure and total.
+  Both gates and their read exits use layer rows. `grammars`, the model's
+  former constant, remains only for legacy pure helper arities and fixtures;
+  no topology calls those arities after step 6b. Pure and total.
 
   Vocabulary: \"key\" is a fact's key; \"lock\" is an encryption key."
   (:require [clojure.edn :as edn]
@@ -27,9 +26,9 @@
 
 (def grammars
   "The one grammar the model has (`fact-subjects` in model.clj): a
-  `:mention`'s `:persons` collection names people. The micro store's two
-  opens and phase 2's pure tests read it through `locks/read-values`'
-  3-arity until phase 6b; the stream gate reads the layer's rows."
+  `:mention`'s `:persons` collection names people. Retained for legacy pure
+  fixtures through compatibility arities; both gates pass layer grammars
+  explicitly. Listed for removal, not deleted in step 6b."
   {:mention {:subjects-at [:persons]}})
 
 (defn subjects-of

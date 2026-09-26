@@ -38,8 +38,9 @@ The source trace, in execution order:
   yields. New durable state is grammar/layer-fields, the existing typed
   subindexed schema; no Object schema, new depot, external side effect or
   TaskGlobal state is introduced.
-- rebuild-facts reduces opened values to an encrypted entry, keyed digest
-  and erasure date on the entity task. put-page> groups those by layer, then
+- rebuild-facts reduces opened sealed values to an encrypted entry, keyed
+  digest and erasure date on the entity task; control facts remain clear.
+  put-page> groups those by layer, then
   reads distinct effective keys on hash(L) and applies rebuild-writes.
   sweep-one> does the same after its entity visit. Existing bounds, progress,
   current-batch exclusion, tombstone guards and forget replay are retained.

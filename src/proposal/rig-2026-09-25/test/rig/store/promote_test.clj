@@ -302,6 +302,7 @@
 
         (testing "seed: the group, made with the base's re-class (default 6)"
           (let [g (mc/make-group! st :group (:group mc/shared-world))]
+            (is (every? #(= :yes (:answer %)) (tg/write-micro! st [:group])))
             (is (= :yes (get-in g [:reclass :answer :answer])))
             (is (= :yes (get-in g [:made :answer])))
             (is (= :by-entity (:class (c/settings st :base))))))

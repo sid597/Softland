@@ -71,7 +71,8 @@ or :by-value for a used key because F4 refuses it.
 
 For rebuilds, open rows on their entity task and turn each open result into
 a safe summary: the sealed index entry, keyed value digest, and erased date.
-No plaintext leaves the entity. Group these summaries by layer as the
+No opened sealed-value plaintext leaves the entity; control facts stay clear.
+Group these summaries by layer as the
 existing put page already groups writes. On hash(L), read the distinct
 keys' effective rows once, derive hints and make the writes. Sweep does
 the same for its single found row, returning to hash(L) before reading
