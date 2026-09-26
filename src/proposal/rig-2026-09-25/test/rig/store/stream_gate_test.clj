@@ -16,7 +16,18 @@
 
   `layers-schema-probe` repeats, as assertions, the build's first check
   (F14): the Rama behaviours of the exact `$$layers` schema the module
-  rests on. It needs no module."
+  rests on. It needs no module.
+
+  Stage 2 (PLAN-locks-and-forgetting.md, [V-F4]): every value act goes
+  through the door, which leases and seals, so where an expected answer
+  changed because of it the test says so at the place: a writer whose
+  lease is refused cites no lock, and its value act is refused
+  `:no-such-lock` on its face while the lease act carries the recorded
+  refusal (a difference from the model's answer, which phase 8 reports);
+  a making act needs its owner to be a person (L11); a log row holds its
+  value sealed; the subject slot holds the grammar's subjects; the parts
+  digest covers no value. Where a test predicts stamps, the door's pool is
+  stocked first so no lease act takes a stamp between."
   (:require [clojure.test :refer [deftest is testing]]
             [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
@@ -162,8 +173,10 @@
 
       (testing "seed: the model's one-owner world, every making and granting act admitted"
         (let [answers (c/seed! st)]
-          (is (= 10 (count answers)))
+          ;; stage 2: the store layer :people and a person act per person come first
+          (is (= 13 (count answers)))
           (is (every? #(= :yes (:answer %)) answers))
+          (is (= :yes (:answer (c/make-person! st :carol))) "Carol is a person: E1 names her, and she writes below")
           (is (= {:kind :personal :owner :alice :class :by-layer :grain :per-value} (c/settings st :alice)))
           (is (= {:kind :hand :owner :alice :class :by-layer :grain :per-value} (c/settings st :alice-hand)))
           (is (= {:kind :agent :owner :alice :class :by-layer :grain :per-value} (c/settings st :alice-agent)))
@@ -192,17 +205,20 @@
             (is (< grant-stamp s) "after what it stood on")
             (is (= {:answer :yes :reason nil :stamp s :digest (env/offer-digest o) :who :alice :class :by-layer
                     :permission [:alice :alice :alice] :session :alice-hand :because-of because
-                    :claimed-when 12345 :subjects #{:alice :carol}}
+                    :claimed-when 12345 :subjects #{:alice :bob :carol}}
                    r)
-                "the act's parts once; its subjects the owner with what it carried (P15)")
+                "the act's parts once; its subjects the owner, what it carried (P15), and (stage 2) the grammar's Bob")
             (is (= [{:e :e0 :k :note :v {:token "v1"} :replaces nil :mark #{}}
                     {:e :e1 :k :mention :v {:persons #{:bob}} :replaces nil :mark #{:die-with-any}}
                     {:e :e2 :k :note :v 7 :replaces nil :mark #{}}]
                    (rows :alice nm))
                 "every fact, in the act's order, its value as offered")
-            (is (= {:e :e1 :k :mention :v "{:persons #{:bob}}" :replaces nil :mark #{:die-with-any}}
-                   (raw-answer-row layers-ps :alice nm 1))
-                "one row by its fact id [name idx], the value slot as canonical text (P12)")
+            (let [raw-row (raw-answer-row layers-ps :alice nm 1)]
+              (is (= {:e :e1 :k :mention :v nil :replaces nil :mark #{:die-with-any}}
+                     (select-keys raw-row [:e :k :v :replaces :mark]))
+                  "one row by its fact id [name idx]; stage 2: the value slot holds no plaintext")
+              (is (and (bytes? (:sealed raw-row)) (bytes? (:digest raw-row)) (vector? (:lock-id raw-row)))
+                  "the value sealed, its lock id and its value digest instead"))
             (is (= [s s s] (for [[i f] (map-indexed vector facts)] (head :alice (:e f) (:k f) [nm i])))
                 "every fact heads its chain at the act's one stamp")
             (is (= {[grant-name 0] grant-stamp} (retrying #(c/stood-on st :alice nm))) "what it stood on, kept beside the record (F2)")
@@ -231,6 +247,8 @@
               (is (model-says? [(m-offer) [:work 0] [:reuse 0 {:who :alice :layer :alice :facts [(assoc m-note :e :e1)]}]]
                                #"taken by other content"))))
           (testing "the same name under another layer or class: refused on its face, reading nothing (E1 N2 × tag mismatch)"
+            ;; stage 2: the door holds locks for :alice-hand first, so no lease act takes a stamp here
+            (c/stock! st :alice :alice-hand :alice-hand 8)
             (let [c1 (clock :alice)
                   c1h (clock :alice-hand)]
               (is (= {:answer :no :reason :mis-tagged :stamp nil :name nm}
@@ -248,9 +266,14 @@
             (is (= {:answer :no :reason :name-taken :name nm}
                    (c/lookup st nm (env/offer-digest (assoc o :facts [(note-fact :e0 "other")])))))
             (is (= :no-answer (c/lookup st (env/make-name :alice :by-layer) nil)) "no answer yet is not a refusal")
-            (is (= :no-answer (c/lookup st (assoc nm 0 :alice-hand) nil))))))
+            (is (= :no-answer (c/lookup st (assoc nm 0 :alice-hand) nil)))
+            (is (= r (c/lookup st nm (env/offer-digest (assoc-in o [:facts 0 :v] {:token "other"}))))
+                "stage 2 ([V-F4]): the parts digest covers no value, so value-only other content looks like the record here; only the gate's value check tells")
+            (is (= {:answer :no :reason :name-taken :stamp nil :name nm} (send! (assoc-in o [:facts 0 :v] {:token "other"})))
+                "and the gate does, on the resend"))))
 
       (testing "refused on its face, reading and recording nothing (P7, O4)"
+        (c/stock! st :alice :alice :door/alice 16)
         (let [c0 (clock :alice)
               base (act :alice :alice [(note-fact :e3 "x")])]
           (doseq [[what o want]
@@ -282,41 +305,71 @@
                            (is (every? nil? (for [[i f] (map-indexed vector (:facts o))]
                                               (head layer (:e f) (:k f) [(:name o) i])))
                                what)
-                           a))]
+                           a))
+              ;; stage 2 ([V-F4], trace 6 item 7): a writer whose cause of refusal holds at the
+              ;; lease cannot lease, so its value act cites no lock: refused on its face, recorded
+              ;; nowhere; the lease act, an offer like any other, carries the recorded refusal
+              check-lease-refused (fn [o want what]
+                                    (let [layer (:layer o)
+                                          a (send! o)
+                                          lease (c/lease! st (:who o) layer (:session o) 1 (:permission o))]
+                                      (is (= {:answer :no :reason :no-such-lock :stamp nil :name (:name o)} a)
+                                          (str what ": the value act cites no lock"))
+                                      (is (nil? (raw-answer layer (:name o))) (str what ": recorded nowhere"))
+                                      (is (= [] (rows layer (:name o))) (str what ": nothing admitted"))
+                                      (is (= [:no want] ((juxt :answer :reason) lease)) (str what ": the lease act carries the recorded refusal"))
+                                      (is (= [:no want (:stamp lease)] ((juxt :answer :reason :stamp) (rec (:name lease))))
+                                          (str what ": recorded under the lease's name, with a stamp"))
+                                      a))]
           (check-no (act :alice :alice [(note-fact :e4 "a") {:e :e4 :k :tag :v 1 :layer :alice-hand}])
                     :fact-outside-the-acts-layer "a fact naming another layer")
           (is (= :fact-outside-the-acts-layer
                  (model-answer [(m-offer :facts [(assoc m-note :other-layer :alice-hand)])] 0)))
           (check-no (act :alice :alice [{:e :alice :k :lock-grain :v :per-act}] :class :by-entity)
                     :class-mismatch "a class other than the layer's class fact, before any re-class")
-          (check-no (act :bob :alice [(note-fact :e4 "b")] :permission [:alice :alice :alice])
-                    :permission-does-not-cover-this "Bob citing Alice's permission")
+          (check-lease-refused (act :bob :alice [(note-fact :e4 "b")] :permission [:alice :alice :alice])
+                               :permission-does-not-cover-this "Bob citing Alice's permission, with no lease in the layer")
+          ;; a writer who holds a lease in the layer (Alice's pool here is stocked) has the act's own
+          ;; permission checked at the decision: recorded, as phase 1 and the model have it
+          (c/stock! st :alice :alice :door/alice 8)
           (check-no (act :alice :alice [(note-fact :e4 "c")] :permission nil)
-                    :permission-does-not-cover-this "a person citing no permission")
+                    :permission-does-not-cover-this "a person citing no permission, holding a lease")
           (check-no (act :alice :alice [(note-fact :e4 "d")] :permission [:alice :alice-hand :alice-hand])
-                    :permission-does-not-cover-this "a permission for another layer")
+                    :permission-does-not-cover-this "a permission for another layer, holding a lease")
           (check-no (act :alice :alice [(note-fact :e4 "e")] :permission [:alice :alice :alice-hand])
                     :permission-from-another-layer "a permission kept in the hand session, cited on her own layer")
           (is (= :permission-from-another-layer (model-answer [(m-offer :cite :session)] 0)))
-          (check-no (act :alice :alice-agent [(note-fact :e4 "f")] :permission [:alice :alice-agent :alice-hand])
-                    :permission-from-another-layer "[:alice :alice-agent :alice-hand] cited on :alice-agent")
+          ;; with no lease in the layer, the same cause refuses the lease, and the value act cites no lock ([V-F4])
+          (check-lease-refused (act :alice :alice-agent [(note-fact :e4 "f")] :permission [:alice :alice-agent :alice-hand])
+                               :permission-from-another-layer "[:alice :alice-agent :alice-hand] cited on :alice-agent, no lease there")
           (let [bob-no (act :bob :alice [(note-fact :e4 "g")])
-                a (check-no bob-no :no-permission "a permission that does not exist (E4 P0 × write)")]
+                a (check-lease-refused bob-no :no-permission "a permission that does not exist (E4 P0 × write)")]
             (is (= :no-permission (model-answer [(m-offer :who :bob)] 0)))
-            (testing "granted since: the refused name stays refused, a new name is admitted (E1 N3 × resend, E4 P0 × grant)"
+            (testing "granted since: the resend, now able to lease, is decided fresh ([V-F4]; phase 1 kept the refused name refused)"
               (is (= :yes (:answer (send! (c/grant-offer st [:bob :alice :alice])))))
-              (is (= a (send! bob-no)) "the same no and stamp, though its cause has gone")
-              (is (= :yes (:answer (send! (act :bob :alice [(note-fact :e4 "h")]))))))
-            (testing "a refused first use still holds its name (E1 N0 × refused: RD1x; N3 × other content, × tag mismatch)"
-              (is (= :name-taken (:reason (send! (assoc bob-no :facts [(note-fact :e4 "other")])))))
-              (is (= {:answer :no :reason :name-taken :name (:name bob-no)}
-                     (c/lookup st (:name bob-no) (env/offer-digest (assoc bob-no :facts [(note-fact :e4 "other")])))))
-              (is (= :mis-tagged (:reason (send! (assoc bob-no :layer :alice-hand)))))
-              (is (= a (send! bob-no)) "the record is untouched")))
-          (check-no (act :alice :yan [(note-fact :e4 "i")]) :no-such-layer "a layer with no class fact (E3 L0 × offer)")
+              (let [y (send! bob-no)]
+                (is (= :yes (:answer y)) "a face refusal is recorded nowhere, so the name was still free")
+                (is (= :yes (:answer (send! (act :bob :alice [(note-fact :e4 "h")])))))
+                (testing "now admitted, the name holds (E1 N2 × other content, × tag mismatch)"
+                  (is (= :name-taken (:reason (send! (assoc bob-no :facts [(note-fact :e4 "other")]))))
+                      "other value content under it: the gate's value check")
+                  (is (= :yes (:answer (c/lookup st (:name bob-no) (env/offer-digest (assoc bob-no :facts [(note-fact :e4 "other")])))))
+                      "the client's lookup compares the parts digest only (L26)")
+                  (is (= :mis-tagged (:reason (send! (assoc bob-no :layer :alice-hand)))))
+                  (is (= y (send! bob-no)) "the record is untouched"))))
+            (testing "a refusal whose cause arises between the lease and the offer stays recorded, and the refused name stays refused"
+              (c/stock! st :bob :alice :door/bob 4)
+              (let [late (act :bob :alice [(note-fact :e4 "after the revoke")])]
+                (is (= :yes (:answer (c/offer-until-answered! st (c/revoke-offer st [:bob :alice :alice])))))
+                (let [n1 (check-no late :permission-revoked "Bob's permission revoked after his lease")]
+                  (is (= n1 (send! late)) "the same no and stamp on a resend")))))
+          (check-lease-refused (act :alice :yan [(note-fact :e4 "i")]) :no-such-layer "a layer with no class fact (E3 L0 × offer)")
           (is (nil? (c/settings st :yan)))))
 
       (testing "making a layer (OP5, E3 L0 × make), making it again (F8), control facts (R13), grain switches (OP8)"
+        ;; stage 2 (L11): a making act naming an owner with no person lock is refused, so Xia is made a person first
+        (is (= :no-such-person (:reason (send! (c/make-layer-offer :xia-early {:kind :hand :owner :xia})))))
+        (is (= :yes (:answer (c/make-person! st :xia))))
         (is (= :yes (:answer (send! (c/make-layer-offer :xia {:kind :hand :owner :xia})))))
         (is (= {:kind :hand :owner :xia :class :by-layer :grain :per-value} (c/settings st :xia)))
         (is (= :yes (:answer (send! (c/grant-offer st [:xia :xia :xia])))))
@@ -351,6 +404,7 @@
             (is (= :yes (:answer (send! (act :xia :xia [(note-fact :e2 "still up")]))))))))
 
       (testing "re-class (OP7, E3 L1 × re-class, L3 × offer), P16, and re-class back (F8)"
+        (is (= :yes (:answer (c/make-person! st :zed))) "stage 2 (L11): the owner is a person")
         (is (= :yes (:answer (send! (c/make-layer-offer :zed {:kind :personal :owner :zed})))))
         (is (= :yes (:answer (send! (c/grant-offer st [:zed :zed :zed])))))
         (let [before (act :zed :zed [(note-fact :e0 "before")])
@@ -385,9 +439,11 @@
               a1 (send! carol-1)]
           (is (= :yes (:answer g)))
           (is (= :yes (:answer a1)) "P1 × a write citing it in its own layer")
-          (is (= :permission-does-not-cover-this
-                 (:reason (send! (act :carol :alice [(note-fact :e0 "x")] :permission pid))))
-              "P1 × a write into another layer citing it")
+          (let [into-alice (act :carol :alice [(note-fact :e0 "x")] :permission pid)]
+            (is (= :no-such-lock (:reason (send! into-alice)))
+                "P1 × a write into another layer citing it: stage 2, the lease cannot be made, so the act cites no lock ([V-F4])")
+            (is (= :permission-does-not-cover-this (:reason (c/lease! st :carol :alice (:session into-alice) 1 pid)))
+                "the lease act carries the refusal"))
           (let [rv (c/revoke-offer st pid)
                 ra (send! rv)]
             (is (= :yes (:answer ra)))
@@ -466,11 +522,14 @@
                 (is (= sb (head :alice :e5 :note [(:name beside) 0]))))))))
 
       (testing "stamps keep the clock promises (I-O2, P9), as hybrid stamps: ms × 65536 + counter (rig.store.clock)"
+        ;; stage 2: Alice's pool stocked first; Bob's refused offers are his lease acts, since a
+        ;; value act of his cites no lock and is refused on its face with no stamp ([V-F4])
+        (c/stock! st :alice :alice-agent :door/alice 16)
         (let [layer :alice-agent
               answers (vec (for [i (range 6)]
-                             (send! (if (even? i)
-                                      (act :alice layer [(note-fact :e6 i)])
-                                      (act :bob layer [(note-fact :e6 i)])))))
+                             (if (even? i)
+                               (send! (act :alice layer [(note-fact :e6 i)]))
+                               (c/lease! st :bob layer :door/bob 1))))
               stamps (map :stamp answers)]
           (is (= [:yes :no :yes :no :yes :no] (map :answer answers)))
           (is (apply < stamps) "never backward on a task: one stamp per decided offer, yes or no, strictly increasing")
@@ -506,6 +565,7 @@
             (is (some #(pos? (hlc/counter-of %)) stamps) "some millisecond held more than one decision, told apart by the counter")
             (is (= (last in-order) (clock layer)))))
         (testing "a stood-on stamp ahead of the wall clock is honoured, and the task keeps the lead: never backward"
+          (c/stock! st :alice :alice-agent :door/alice 4)
           (let [layer :alice-agent
                 ahead (hlc/pack (+ (System/currentTimeMillis) 60000) 7)
                 fid [(env/make-name :alice-hand :by-layer) 0]
@@ -516,6 +576,7 @@
             (is (= (inc (:stamp a)) (:stamp b)) "the next act: one past the last, though the wall is behind")
             (is (= [(hlc/ms-of ahead) 9] ((juxt hlc/ms-of hlc/counter-of) (:stamp b))))
             (is (= (:stamp b) (clock layer)))))
+        (c/stock! st :alice :alice-hand :door/alice 16)
         (with-open [_ (TopologyUtils/startSimTime)]
           (let [layer :alice-hand
                 wall (+ (hlc/ms-of (clock layer)) 5000000)
@@ -551,7 +612,10 @@
           (is (= :yes (:answer a)))
           (is (= 600 (count rs)))
           (is (= (range 600) (map :v rs)))
-          (is (= {:e :big599 :k :note :v "599" :replaces nil :mark #{}} (raw-answer-row layers-ps :alice-agent (:name o) 599)))
+          (let [raw-row (raw-answer-row layers-ps :alice-agent (:name o) 599)]
+            (is (= {:e :big599 :k :note :v nil :replaces nil :mark #{}} (select-keys raw-row [:e :k :v :replaces :mark]))
+                "stage 2: the value sealed in the row, no plaintext")
+            (is (= [:alice] (:required (:lock raw-row))) "an agent layer: the lock in the record"))
           (is (= (:stamp a) (head :alice-agent :big0 :note [(:name o) 0]) (head :alice-agent :big599 :note [(:name o) 599])))))
 
       (testing "records a client should never send are refused as data and the gate never throws (I-G1, F6, F13)"
@@ -563,10 +627,6 @@
                    [(assoc ok :name (str (:name ok))) :bad-name]
                    [(assoc ok :facts []) :empty-act]
                    [(assoc ok :who :store :permission nil) :reserved-who]
-                   [(assoc-in ok [:facts 0 :v] (nest 40)) :malformed]
-                   [(assoc-in ok [:facts 0 :v] '(1 2)) :malformed]
-                   [(assoc-in ok [:facts 0 :v] 1/3) :malformed]
-                   [(assoc-in ok [:facts 0 :v] (keyword "a b")) :malformed]
                    [(assoc ok :subjects (set (map #(keyword (str "p" %)) (range 257)))) :malformed]
                    [(assoc ok :stood-on {[(:name ok) 0] Long/MAX_VALUE}) :malformed]]]
           (doseq [[x want] bad]
@@ -574,6 +634,15 @@
               (is (= [:no want] [(:answer r) (:reason r)])
                   (str "answered through the ack, the append did not fail: " (pr-str (if (map? x) (dissoc x :facts :subjects) x))))))
           (is (nil? (raw-answer :alice (:name ok))) "none of them was recorded under the name")
+          (testing "stage 2 ([V-F4]): a value outside the domain is sealed, so the gate sees it only when it opens it: recorded :malformed-value, with a stamp"
+            (doseq [v [(nest 40) '(1 2) 1/3 (keyword "a b")]]
+              (let [o (act :alice :alice [(note-fact :e7 v)])
+                    a (send! o)]
+                (is (= [:no :malformed-value] [(:answer a) (:reason a)]) (pr-str v))
+                (is (number? (:stamp a)) "recorded, with a stamp")
+                (is (= :malformed-value (:reason (rec (:name o)))))))
+            (is (= :not-sealed (:reason (get (foreign-append! (:depot st) (assoc ok :name (env/make-name :alice :by-layer)) :ack) "gate")))
+                "the same value unsealed, past the door: refused on its face"))
           (let [r (try (send! (update ok :name subv)) (catch Exception e {:client-threw (.getName (class e))}))]
             (say "a subvec name through the depot:" (select-keys r [:answer :reason :client-threw]))
             (is (or (= :yes (:answer r)) (contains? r :client-threw))
@@ -592,11 +661,13 @@
               ob (act :alice :alice [(note-fact :e8 "b")] :name nm)
               [a b] (map deref (doall [(future (send! oa)) (future (send! ob))]))
               r (rec nm)
-              winner (if (= (:digest r) (env/offer-digest oa)) oa ob)
+              ;; stage 2: the two differ in value only, so their parts digests are equal; the winner is the one admitted
+              winner (if (= :yes (:answer a)) oa ob)
               outcome #(if (= :yes (:answer %)) :yes (:reason %))]
           (is (= #{:yes :name-taken} (set [(outcome a) (outcome b)]))
               "other content under one name in flight: whichever is decided first holds the name")
-          (is (contains? #{(env/offer-digest oa) (env/offer-digest ob)} (:digest r)))
+          (is (= (env/offer-digest oa) (env/offer-digest ob) (:digest r))
+              "stage 2: the two differ in value only, so they share one parts digest (L26)")
           (is (= [(:v (first (:facts winner)))] (map :v (rows :alice nm)))))
         (let [o (act :alice :alice [(note-fact :e13 "original")])
               mis (assoc o :layer :alice-hand :permission [:alice :alice-hand :alice-hand])
@@ -613,12 +684,13 @@
               outcome #(if (= :yes (:answer %)) :yes (:reason %))]
           (is (= #{:yes :stale-replaces} (set [(outcome a) (outcome b)]))
               "two replaces of one head at once: the first decided is admitted, the other refused stale (OP1)"))
-        (let [make (c/make-layer-offer :vic {:kind :personal :owner :vic})
+        (let [_ (is (= :yes (:answer (c/make-person! st :vic))) "stage 2 (L11): the owner is a person")
+              make (c/make-layer-offer :vic {:kind :personal :owner :vic})
               early (act :vic :vic [(note-fact :e0 "early")])
               [a b] (map deref (doall [(future (send! make)) (future (send! early))]))]
           (is (= :yes (:answer a)))
-          (is (contains? #{:no-such-layer :no-permission} (:reason b))
-              "an offer racing its layer's making is refused as data (OP5)")))
+          (is (= :no-such-lock (:reason b))
+              "an offer racing its layer's making is refused as data (OP5); stage 2: its lease is refused (no layer yet, or no permission), so it cites no lock ([V-F4])")))
 
       ;; the crashes come last: each restarts the worker and replays records
 
@@ -668,7 +740,8 @@
       (testing "a completed offer replayed by a later crash on the same layer: answer, stamp and rows unchanged (F13, RQ 2, D4, E1 N2 × crash)"
         (let [attempt (fn []
                         (let [a (act :alice :alice-agent [(note-fact :e11 "completed")])
-                              refused (act :bob :alice-agent [(note-fact :e11 "refused")])
+                              ;; stage 2: a refusal recorded after the delivery (Bob's no-permission is now a face refusal, [V-F4])
+                              refused (act :alice :alice-agent [(note-fact :e11 "refused") {:e :e11 :k :tag :v 1 :layer :alice-hand}])
                               b (act :alice :alice-agent [(note-fact :e11 "crashes")])
                               an (:name a)
                               rn (:name refused)
@@ -702,7 +775,7 @@
             (is (< (:stamp aa) clock-after) "though the task's clock has moved past it")
             (is (= 1 (count rows)) "no second admission")
             (is (= 1 decided) "the replay decided nothing and gave no stamp")
-            (is (= :no-permission (:reason ra)))
+            (is (= :fact-outside-the-acts-layer (:reason ra)))
             (is (= rr-before rr-after) "E1 N3 × crash: the same no and stamp")
             (is (= 1 r-decided)))
           (is (some #(and (<= 2 (:seen %)) (<= 1 (:recorded %))) results)
@@ -711,6 +784,8 @@
               "and the completed refusal likewise")))
 
       (testing "E4 P1 (a session root) × revoke: offers citing it refused, the permissions kept under it stay live (no cascade, P8)"
+        ;; stage 2: Alice's pool in :alice-hand stocked before the revoke, so her act cites a lock and its refusal is recorded
+        (retrying #(c/stock! st :alice :alice-hand :door/alice 4))
         (let [root [:alice :alice-hand :alice-hand]
               rv (retrying #(c/revoke-offer st root))]
           (is (= :yes (:answer (c/offer-until-answered! st rv))))
