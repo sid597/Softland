@@ -449,3 +449,146 @@ two observations, the holds and the pause, the fresh module per case, the
 known differences as data). Hence minor-fail, fixed in place.
 
 PHASE_VALIDATION:minor-fail
+
+## Pass 3, after wave 2 (the rama skill's phase 4, adversarial)
+
+Claude Opus 5.5 at max effort, 26 September 2026 from 08:05 IST, on
+`rig-build-replays-3` after `git merge rig-2026-09-25` at `27543fd7` (wave
+2 landed; merge `ab36a274`), against the pass 3 plan
+(BUILD_NOTES-replays.md, "Pass 3 plan, after wave 2 (prep)") and the
+merged code. The default verdict is major-fail; each check below is traced
+through the code at `b91ce2f4` (`test/rig/replay_test.clj`, line numbers
+there) and the store code it calls. Rig-side behaviour is traced against the
+merged source and phase 4's and 5's own tests, not yet run in this
+namespace; the run follows.
+
+**Before the build: the merged code against the branches read at the prep.**
+`promote_client.clj`, `promote_flow.clj`, `promote.clj`, `promote_shape.clj`,
+`inject.clj` and `read_exit.clj` are byte for byte the branches'
+(`git diff` quiet). `envelope.clj` differs from phase 4's by phase 6's
+`:grammar` control key; `shared_reads.clj` gains W2-3's stream-era grammar
+functions after L1270, none of `moment`, `visible?`, `shared-answer`,
+`open-entry>` or `index-writes`; `micro_client.clj` is unchanged since
+`c9684356`. The landing's copy reaches the shared index: block 2b's
+`row-wraps` opens a landing with its box's lock (micro.clj L1138-1170,
+`delivered-locks` L425-441), `fact-rows` makes its rows with their lock rows,
+and block 2d's `index-block>` takes the same `*frows` (L1636-1639); wave 2's
+merge touched only `micro.clj`'s requires (BUILD_NOTES-wave2.md L95-107).
+W2-2 already writes the model's grammars into each one-owner layer in the
+seed (L840-845) and made `:grammar` a rig-only key: pass 3 builds on it and
+adds no second write (builder C's call).
+
+### P3V1. The API table (P3-2). PASS (traced; resolved dry)
+
+`apis` (L559-651): stage 4 bound to `rig.store.promote-client` (`connect`,
+`lease-landing!`, `request-offer`, `resend!`, `status-of`), `inject/hold!` and
+`release!` built; `env/uuid7` (stage 1) and `client/raw-row` (stage 2) added
+for the B cases; `env/make-name` gone; `micro/control-keys` added, optional,
+for P3-5's guard; `shared/moment` marked built. Resolved with no cluster
+(`resolve-apis`, then `prepare-case` for every case): every API resolves,
+all fourteen cases practical, `micro/control-keys` without `:grammar`, the
+toy grammars two facts.
+
+### P3V2. The request as `promote!` sends it (P3-3). PASS (traced)
+
+`play-request!` (L1256-1317), B3's request: u by `env/uuid7`; `cls` by
+`micro-client/settings-of` of `:group`, `:by-entity`, as `promote!` reads it
+(promote_client.clj L130); the lease into `:group` by Alice in
+`:alice-session` citing `[:alice :group :group [:group :group :group]]`
+(`cited-pid` of the model's landing permission); `(:answer ll)` read as the
+answer (the map pass 1 took for the answer is the lease's record). No
+`:public`, or a refusal, is a difference and the request gets no counterpart,
+as the door would send none (P4-11). Then `request-offer` with the source's
+stamp by `client/record` and entity by `client/raw-row`, exactly
+`promote!`'s L136-137, `:replaces` mapped (nil here), u; KD3 marked only when
+`:for` equals `(env/landing-name (:name o) :group :by-entity)`, both `[:group
+:by-entity :landing u]` (promote_shape.clj L113-133). The hold or the pause
+is armed after the offer is built and before the door's send; the hold is
+on `(:name o)`, the name `continue>` checks (promote_flow.clj L147-151). The
+request's record keeps the offer and every ack.
+
+### P3V3. The resend, the crossing and D2's check (P3-3). PASS (traced)
+
+B1's third `[:step 0]`: `play-crossing!` (L1330-1353) finds the hold, releases
+it, and `resend-request!` (L1319-1328) sends the kept offer by
+`promote-client/resend!`, which is `offer-until-answered!` of the same map
+(same digest, so answered from the record; `continues?` is true for a yes
+from the record, promote.clj L44-48); the resend's ack joins the request's
+acks. The crossing's record by `client/record` of `env/crossing-name`;
+`crossing-ack-says` (L1203-1210) compares each ack's `:crossing` with it by
+answer and reason: the first ack carries none (held), the resend's carries
+the decision's own ack, whose record `write-decided>` wrote
+(promote_flow.clj L91-103), so they agree on a correct rig and differ only
+on a real split. B3: one ack, carrying the crossing from the request's own
+event.
+
+### P3V4. The landing (P3-3). PASS (traced)
+
+`play-landing!` (L1355-1384), B4 at `[:batch]`: the landing's name with the
+class the request carries, `[:group :by-entity :landing u]`; the topology
+resumed; `micro-client/lookup` by that name answers only once the frontier
+passes its batch (micro.clj `lookup-result`, L1176-1190); `wait-frontier!`
+(L1067-1075) keeps the batch as the largest waited past; KD13. A model yes
+and a rig no is judged unexplained by `record-act!` and names its F9
+condition in a note (`f9-condition`, L1192-1201).
+
+### P3V5. The group read at `{:frontier F}` (P3-4). PASS (traced)
+
+A4's closing read: `read-layer!` (L1512-1583) takes the group branch; the
+shared read resolves; the reader is Bob (`group-reader`, L1506-1510); F is
+`micro-client/frontier`, task 0's frontier; `exit-read!` (L1465-1504) asks
+`read!` with `:as-of {:frontier F}`, which `check-call` accepts (read_exit.clj
+L66-75) and `read-point` hands to `shared-read-point` (reads.clj L1511);
+the answer's moment is checked by `moment-says` (L1452-1463) against the
+largest batch waited past. A refused read (A3, A6) is judged by KD10's
+rule with the store's view below the exit at the same moment. The pattern
+read below the exit (`[:all]`, the same moment, the same reader) adds F2's
+extras, merged by fact id with those of the point read. With no case fact
+and no replay act in the group (B1, B2, D1; B3 and B4 before the landing)
+only the pattern read runs, and no entry is written.
+
+### P3V6. Reads cover each request's target, and F1 on the group (P3-4). PASS (traced)
+
+`play-read!` (L1585-1606) adds `(keep :model-target (:requests @p))` to the
+layers read, so B1's three reads each read the group. `rig-values!`
+(L1621-1662) reads the group by `[:k k]` below the exit as its reader at
+`{:frontier F}` once the shared read resolves. **A divergence, D-P3-1**:
+`rig-values!` now reports a refused pattern read as a difference, as
+`read-layer!` already did; before, it passed over the refusal silently,
+which could hide a stream-side fact F1 is meant to find. It applies to the
+one-owner layers too.
+
+### P3V7. The world and the guard (P3-5). PASS (traced; the guard's test pure)
+
+The grammar facts are W2-2's (L840-845), before any case act in each
+one-owner layer; KD8's rule (L153-156) names them; `rig-only-keys`
+(L965-972) holds `:grammar` and the standing reads' three keys.
+`world-refusal` (L1765-1775) refuses a case whose history offers a
+`:mention` into `:group` when `:grammar` is among the micro gate's control
+keys, through `prepare-case` (L1777-1790), which fails a case not practical
+with its stages resolved. Tonight the micro keys lack `:grammar`, so
+nothing is refused (checked dry above). **D-P3-2**: W2-2 writes the grammars
+into `:bob-hand` too, which the plan left out; harmless (no value is
+written there) and kept, as builder C asked.
+
+### P3V8. The report (P3-6). PASS (traced)
+
+`read-str` (L1846-1861) prints a group read's moment (`at F=…`); the roads
+line (L1892-1901) names the group read at `{:frontier F}` and, for a case
+with requests, the promotion's two steps; the stages line has stage 6
+(`stage-order`, L656).
+
+### P3V9. Nothing else moved. PASS (traced)
+
+`judge-answer`, `judge-exit-refusal`, `judge-fact`, the lockstep, the
+holds' rule (`decided-later?`), the road (a cluster per case, R33), the
+seed and the verdict rules are unchanged; `cleanup!` still resumes a paused
+topology and releases holds in `play-case!`'s `finally`.
+
+### Self-consistency (pass 3)
+
+Nothing above calls a check's handling a gap. D-P3-1 widens an existing
+rule to the one place it was missing; D-P3-2 is wave 2's, kept on the
+coordinator's word. No failure was found, so nothing was fixed.
+
+PHASE_VALIDATION:pass

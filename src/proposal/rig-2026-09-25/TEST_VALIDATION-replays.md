@@ -142,3 +142,25 @@ designs it. Hence minor-fail: every failure was a local edit to an existing
 test.
 
 PHASE_VALIDATION:minor-fail
+
+## Pass 3, after wave 2 (the rama skill's phase 6)
+
+The tests pass 3 needs, all without a cluster, in `rig.replay-test`:
+`a-refused-landing-names-its-f9-condition` (each reason named),
+`an-ack-carries-the-crossing-its-record-holds` (D2's check: no crossing, the
+same, another answer, another reason), `a-group-read-covers-every-batch-waited-past`
+(`moment-says`: no frontier asked, at, nothing waited, before, a stamp
+moment), `step-6b-cannot-change-the-group-cases-unseen` (the five group
+mention cases found from the histories; none refused without 6b, exactly
+those five with it, and `judge-case` failing A2 then); `the-api-table`
+gains that stages 4, 5's rest and 6 resolve on the merged tree and that
+promotion is never bound under the plan's old names; `extra-rows-are-facts-the-model-lacks`
+gains the grammar facts and the standing reads' keys as rig-only kinds.
+The rig side (the B cases, the group read through the exit) is the
+cluster test, `replays`, run once below: no new IPC launch is added, the
+fourteen cases keep a cluster each (R33). The namespace compiles on the
+merged tree (loaded with no test run, 08:02 IST). What the cluster run
+cannot show: the fallback road, the `:before-forward` hold (KD5), and
+step 6b's refusal on a real tree (6b not built), as before.
+
+PHASE_VALIDATION:pass
