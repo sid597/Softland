@@ -12,19 +12,23 @@
   One batch, block by block (each a `<<batch`, a global barrier):
   0. every task writes the frontier, the previous batch's id (M7, §D);
   1a. the layer visit for pre-batch settings, permissions, heads and grammar
-     rows, then the arrival task's lock/value checks. Materialize only the
-     sealed input, subject ids, hints and gathered projections for this attempt;
+     rows, then the arrival task's lock/value checks and, from the same
+     lease rows and person entries, the lock work: each value's lock
+     re-wrapped, its digest and keyed digest (the spec fixes, M-1).
+     Materialize only the sealed input, subject ids, hints, gathered
+     projections and the finished rows for this attempt;
   1b. name/entity reads and the pure ordered fold on task 0. Admission sees
      pre-batch grammar; yes projections compose separately, once per location;
   2a. the fold's writes (records, faces, heads, settings, permissions,
      clocks, and the lease rows a yes lease act mints);
-  2b. the rows, from the offers themselves: re-wrapped locks and value
-     digests made on the arrival task, written on each fact's entity task
-     for an act decided yes in this batch with this envelope (M10, [PV-F3]);
+  2b. the rows block 1a made, written on each fact's entity task for an act
+     decided yes in this batch with this envelope (M10, [PV-F3]), with no
+     read of a lease row or a person entry;
   2c. the leases consumed at decision, and a closed session's (M19, [PV-F4]).
 
   A lock never leaves the task it is read on and a plaintext value never
-  leaves the task it is opened on; the leader sees digests and ids only.
+  leaves the task it is opened on; the leader sees digests, ids and a read
+  entry's moment stamps only.
   Every function here that topology code calls is total: a refusal is data,
   never an exception (SPEC 'What Rama showed' 3; a microbatch that throws
   deterministically retries for ever).
@@ -355,10 +359,15 @@
                   (int? n) (<= 1 n max-lease)))))
 
 (defn close-ok?
-  "A well-formed session close: `{:e s :k :session-closed :v {:session s}}`."
+  "A well-formed session close: `{:e s :k :session-closed :v {:session s}}`,
+  with stage 5b's optional part `:reads :keep | :drop` (FRR5, what the
+  session's read entries become, first-record): the stream gate's form
+  (`gate/control-value-ok?`), so a close of a re-classed working layer is
+  the same act at both gates (the spec fixes, H-1)."
   [offer]
   (let [f (first (:facts offer)) v (:v f)]
-    (boolean (and (close-act? offer) (map? v) (= #{:session} (set (keys v)))
+    (boolean (and (close-act? offer) (map? v) (contains? v :session) (every? #{:session :reads} (keys v))
+                  (or (not (contains? v :reads)) (contains? #{:keep :drop} (:reads v)))
                   (env/readable-keyword? (:session v)) (= (:session v) (:e f))))))
 
 (defn skeleton-offer
@@ -431,8 +440,9 @@
   "{lock-id K} for each owned id whose row unleases (phase 2's pure half of
   the delivery, `locks/unlease`); stage 4: for a landing, the lock its box
   holds, opened with its lease row's private key (the landing body,
-  `promote-shape/open-landing`, PR6). Block 1 and block 2b both take their
-  locks here."
+  `promote-shape/open-landing`, PR6). Block 1a takes its locks here, once
+  for the checks and once for the lock work, from one read of the lease
+  rows and persons (the spec fixes, M-1)."
   [in lrows persons]
   (let [o (:offer in)
         landing? (ps/landing? (:name o))]
@@ -466,6 +476,22 @@
   [lrows]
   (some-> (first (keep val lrows)) (select-keys [:kind :owner])))
 
+(defn entry-moment-parts
+  "The moment of each read entry fact an act carries (`reads/read-keys`),
+  from the values the arrival task opened: `{i {:moment m :max-stamp s}}`,
+  the only parts of those values `reads/entry-moments` reads, so the leader
+  stamps a read entry after the moment it records (F1) as the stream gate
+  does, without holding a value (M3; the spec fixes, H-1). Nothing else of
+  a value. Pure, total."
+  [facts values]
+  (try
+    (into {} (keep (fn [[i v]]
+                     (let [f (nth facts i nil)]
+                       (when (and (map? f) (contains? reads/read-keys (:k f)) (map? v))
+                         [(long i) (select-keys v [:moment :max-stamp])]))))
+          values)
+    (catch Throwable _ {})))
+
 (defn arrival-open
   "Block 1's lock work on the arrival task (§A, M17), pure: which cited ids
   are owned, whether every cited lock delivers, and, when they do, the
@@ -474,7 +500,9 @@
   on the layer's task) and the act's subject union. Nothing it returns
   opens a value: the plaintext and the locks stay here. The topology passes
   the pre-batch grammars explicitly; the 3-arity is retained for legacy pure
-  fixtures only. Per-value subjects survive for block 2b."
+  fixtures only. Per-value subjects, for block 1a's lock work (the spec
+  fixes, M-1), and each read entry fact's moment parts (`:entry-moments`,
+  H-1's F1)."
   ([in lrows persons] (arrival-open in lrows persons grammar/grammars))
   ([in lrows persons grammars]
   (let [o (:offer in)
@@ -502,19 +530,51 @@
          :value-reason (when-not (= :grain-mismatch r) r)
          :union (when (seq cited) (:union rv))
          :subjects (:subjects rv)
+         :entry-moments (entry-moment-parts (:facts o) (:values rv))
          :kind (:kind meta)
          :owner (:owner meta)})))))
+
+(defn lease-persons
+  "Whose `$$persons` entries block 1a reads to place a lease act's rows (the
+  spec fixes, H-1: W1-1 at this gate): the act's writer and the layer's
+  person owner, for a lease act by a writer who is not exempt; none
+  otherwise. `settings` are the layer's settings in force, as the layer
+  visit read them."
+  [in settings]
+  (let [o (:offer in)]
+    (if (and (lease-act? o) (not (contains? gate/exempt-actors (:who o))))
+      (into [] (comp (keep identity) (distinct))
+            [(locks/person-owner (:who o)) (locks/person-owner (:owner settings))])
+      [])))
+
+(defn lease-under-of
+  "Whose person lock the gate checks for a lease act, and seals its rows
+  under (W1-1, R20, the stream gate's `locks/lease-under`): the writer when
+  a person, else the layer's person owner, else the writer (then refused
+  `:no-such-person`). Nil for any other act and for an exempt writer (the
+  root actor's rows are bare). `persons` holds the entries `lease-persons`
+  named, a person with no entry mapped to nil."
+  [in settings persons]
+  (let [o (:offer in)]
+    (when (and (lease-act? o) (not (contains? gate/exempt-actors (:who o))))
+      (locks/lease-under o settings persons))))
 
 (defn persons-to-check
   "Whose person locks the decision needs alive (phase 2's L11): every wrap
   person of a value act (its subject union, which holds every value's own
-  subjects), a lease act's `:who`. None for the operator."
-  [in a]
-  (let [o (:offer in)]
-    (cond
-      (lease-act? o) (if (contains? gate/exempt-actors (:who o)) [] [(:who o)])
-      (and (= :ok (:status a)) (nil? (:value-reason a)) (seq (:cited in))) (vec (sort (:union a)))
-      :else [])))
+  subjects), and for a lease act the person `lease-under-of` gives (the
+  3-arity, the topology's: a writer who is no person leases under the
+  layer's owner, W1-1). None for the operator. The 2-arity keeps the older
+  rule (a lease act's `:who`) for the pure fixtures that call it."
+  ([in a]
+   (let [o (:offer in)]
+     (persons-to-check in a (when-not (contains? gate/exempt-actors (:who o)) (:who o)))))
+  ([in a lease-under]
+   (let [o (:offer in)]
+     (cond
+       (lease-act? o) (if (some? lease-under) [lease-under] [])
+       (and (= :ok (:status a)) (nil? (:value-reason a)) (seq (:cited in))) (vec (sort (:union a)))
+       :else []))))
 
 (defn person-reason
   "`:no-such-person` when a needed person has no entry, else
@@ -529,23 +589,69 @@
   lock (M3, §A). The offer with its sealed bytes replaced by a marker, the
   parts digest, the fingerprint, the cited and owned ids, the lease status,
   the first value reason, the subject union, the person reason, and a
-  session close's lease names."
-  [in a preason close-names]
-  (let [o (:offer in)]
-    {:name (:name in)
-     :fp (:fp in)
-     :digest (:digest in)
-     :offer (skeleton-offer o)
-     :cited (:cited in)
-     :owned (:owned a)
-     :status (:status a)
-     :value-reason (:value-reason a)
-     :union (:union a)
-     :subjects (:subjects a)
-     :person-reason preason
-     :entities (:entities in)
-     :close-names (when (:close in)
-                    (into [] (filter #(= (:layer o) (nth % 0))) close-names))}))
+  session close's lease names. The spec fixes add three: `:entry-moments`,
+  a read entry's moment stamps (F1; stamps, as ids, travel); `:lease-under`,
+  whose lock a lease act's rows are sealed under (W1-1); and
+  `:lock-failed`, true when block 1a could not lock a value whose checks
+  passed (M-1: the fold then answers the face `:gate-error`, never a yes
+  under no lock). The 4-arity keeps the older lease rule and no failure,
+  for the pure fixtures that call it."
+  ([in a preason close-names]
+   (let [o (:offer in)]
+     (skeleton in a preason close-names
+               (when-not (or (contains? gate/exempt-actors (:who o)) (not (lease-act? o))) (:who o))
+               false)))
+  ([in a preason close-names lease-under lock-failed]
+   (let [o (:offer in)]
+     {:name (:name in)
+      :fp (:fp in)
+      :digest (:digest in)
+      :offer (skeleton-offer o)
+      :cited (:cited in)
+      :owned (:owned a)
+      :status (:status a)
+      :value-reason (:value-reason a)
+      :union (:union a)
+      :entry-moments (or (:entry-moments a) {})
+      :person-reason preason
+      :lease-under lease-under
+      :lock-failed (boolean lock-failed)
+      :entities (:entities in)
+      :close-names (when (:close in)
+                     (into [] (filter #(= (:layer o) (nth % 0))) close-names))})))
+
+(defn layer-settings
+  "The layer's settings in force as block 1a's layer visit read them: this
+  store's latest version, else the stream store's (M5)."
+  [msettings ssettings]
+  (or msettings ssettings))
+
+(defn lock-work-due?
+  "Whether block 1a makes an act's rows (the spec fixes, M-1): an act that
+  cites no lock (its rows need no lock), or one whose lock, value and
+  person checks all passed. A sealed act refused here gets none: it is
+  never written."
+  [in a preason]
+  (boolean (or (empty? (:cited in))
+               (and (= :ok (:status a)) (nil? (:value-reason a)) (nil? preason)))))
+
+(defn lock-failed?
+  "Whether block 1a could not lock a value of a sealed act whose checks
+  passed (the spec fixes, M-1): some value's row, of `fact-rows`' `[e i row
+  lock-row]`, has no lock record (in the row's `:lock` or as its lock row)
+  or no value digest. With every wrap person in the union the person
+  check found alive in the same read, only an internal failure gives true.
+  False for an act whose checks failed (refused whatever its rows) and for
+  an act with no sealed value. Total: a failure to judge is a failure."
+  [in a preason frows]
+  (try
+    (boolean
+     (and (seq (:cited in)) (lock-work-due? in a preason)
+          (let [by-i (into {} (map (fn [[_ i row lrow]] [(long i) [row lrow]])) frows)]
+            (some (fn [i] (let [[row lrow] (get by-i (long i))]
+                            (or (nil? row) (nil? (or (:lock row) lrow)) (nil? (:digest row)))))
+                  (keep-indexed (fn [i f] (when (value-fact? f) i)) (:facts (:offer in)))))))
+    (catch Throwable _ true)))
 
 ;; ==================================================== block 1, the name task
 
@@ -929,9 +1035,14 @@
   the permission rows it grants or revokes (the first grant per pid stays,
   P8). Not `gate/decide`, whose later form (phase 2) opens the act's values
   itself, which this gate's leader never holds (M3); the value and person
-  reasons come from the arrival task in the skeleton."
-  ([o settings rows heads clock wall] (micro-decision o settings rows heads clock wall nil))
-  ([o settings rows heads clock wall key-rows]
+  reasons come from the arrival task in the skeleton. The 8-arity (the
+  spec fixes, H-1) takes `opened`, the moment parts of the act's read entry
+  facts the arrival task opened (`entry-moment-parts`), as `gate/stamp-for`
+  takes the stream gate's opened values, so an entry is stamped after its
+  moment at both gates (F1)."
+  ([o settings rows heads clock wall] (micro-decision o settings rows heads clock wall nil nil))
+  ([o settings rows heads clock wall key-rows] (micro-decision o settings rows heads clock wall key-rows nil))
+  ([o settings rows heads clock wall key-rows opened]
   (let [facts (:facts o)
         indexed (map-indexed vector facts)
         nm (:name o)
@@ -945,7 +1056,7 @@
                                  [p [nm (long i)]])))
         revokes (for [[i f] indexed :let [p (gate/revoke-target f)] :when p] [p [nm (long i)]])]
     {:reason (gate/refusal o settings rows heads key-rows)
-     :stamp (gate/stamp-for o heads clock wall)
+     :stamp (gate/stamp-for o heads clock wall opened)
      :settings (when (seq updates) (merge settings updates))
      :permissions (into [] (concat (for [[p g] grants] [p {:granted g}])
                                    (for [[p r] revokes] [p (assoc (get rows p) :revoked r)])))})))
@@ -968,7 +1079,12 @@
 
 (defn- decide-envelope
   "Rule 4 of the fold: the decision over W's inputs (`micro-decision`),
-  with this gate's reasons placed in `reason-order`; then W and the writes."
+  with this gate's reasons placed in `reason-order`; then W and the writes.
+  The spec fixes, M-1: an act that would be answered yes while block 1a
+  could not lock one of its values (`:lock-failed`) gets the unrecorded
+  face `:gate-error` and nothing else, no record and nothing consumed, as
+  the stream gate's `locks/fail!` does, so no value is admitted under no
+  lock."
   [w sk wall b]
   (let [o (:offer sk) nm (:name sk) fp (:fp sk) L (:layer o)
         settings (settings-in-force w L)
@@ -978,7 +1094,8 @@
         clock (reduce max 0 (map #(clock-of w %) tasks))
         before (get-in w [:pre-key-rows L])
         checked (reduce (fn [rs k] (assoc-in rs [k :used] true)) before (get-in w [:batch-uses L]))
-        d (micro-decision o settings rows heads clock wall checked)
+        ;; the spec fixes, H-1 (F1): a read entry's moment parts, from the arrival task
+        d (micro-decision o settings rows heads clock wall checked (:entry-moments sk))
         grain (or (:grain settings) :per-value)
         stamp (:stamp d)
         ;; wave 1: a value forget's lock effect at this gate (phase 2's seam)
@@ -990,17 +1107,27 @@
                                         (:person-reason sk)
                                         (:reason fe)]))
         yes? (nil? reason)
+        ;; the spec fixes, M-1: a yes that block 1a could not lock is the face :gate-error
+        failed? (and yes? (boolean (:lock-failed sk)))
         rec (micro-record o reason stamp (:digest sk) (record-subjects sk settings reason) b)
         entities (:entities sk)
-        w (-> w
-              (assoc-in [:names nm] {:record rec :fp fp})
-              (put [:name nm :answer] [:name nm :answer nil rec])
-              (put [:name nm :fp] [:name nm :fp nil fp])
-              (as-> w (reduce (fn [w e] (put w [:entity e :answers nm] [:entity e :answers nm rec])) w entities))
-              (as-> w (reduce (fn [w t] (update-in w [:given t] (fnil max 0) stamp)) w tasks))
-              (consume (:owned sk)))]
-    (if-not yes?
+        w (if failed?
+            w
+            (-> w
+                (assoc-in [:names nm] {:record rec :fp fp})
+                (put [:name nm :answer] [:name nm :answer nil rec])
+                (put [:name nm :fp] [:name nm :fp nil fp])
+                (as-> w (reduce (fn [w e] (put w [:entity e :answers nm] [:entity e :answers nm rec])) w entities))
+                (as-> w (reduce (fn [w t] (update-in w [:given t] (fnil max 0) stamp)) w tasks))
+                (consume (:owned sk))))]
+    (cond
+      failed?
+      (face w nm fp :gate-error b)
+
+      (not yes?)
       w
+
+      :else
       (let [indexed (map-indexed vector (:facts o))
             ;; Compose yes projections separately from the immutable admission rows.
             ;; put coalesces every changed [L k] to one final write for this batch.
@@ -1051,10 +1178,11 @@
             w (if (lease-act? o)
                 (update w :mints conj
                         ;; stage 4: a landing lease mints one bare key pair row :for its landing (PR4)
+                        ;; the spec fixes (W1-1 at this gate): the person block 1a checked,
+                        ;; the writer when a person, else the layer's person owner
                         [:mint nm nil nil (cond->
-                                           {:under (when-not (or (contains? gate/exempt-actors (:who o))
-                                                                 (ps/landing-of (first (:facts o))))
-                                                     (:who o))
+                                           {:under (when-not (ps/landing-of (first (:facts o)))
+                                                     (:lease-under sk))
                                            :session (:session o)
                                            :layer L
                                            :kind (:kind settings)
@@ -1163,17 +1291,20 @@
               (range n))))
     (catch Throwable _ [])))
 
-;; =============================================================== block 2b
+;; ============================================ the lock work (block 1a, for 2b)
 
 (defn row-wraps
-  "Block 2b on the arrival task (§A): for a sealed act, open each value
-  with its delivered lock, then its wrap from block 1's subjects (per value:
-  the value's own subjects; per act, one lock cited by several values:
-  one wrap over the act's union, marked when any value is, phase 2's L6).
-  {:lock-of {lid K} :plain {i bytes} :wraps {lid wrap} :marked {lid bool}
-  :row? {lid bool}}. Pure, total; a lock that does not deliver now (its
-  person forgotten since block 1, PV-F6) is left out, and its value's row
-  is written with no lock."
+  "The lock work's first step, in block 1a on the arrival task (§A; the
+  spec fixes moved it from block 2b, M-1): for a sealed act, open each
+  value with its delivered lock, then its wrap from block 1a's subjects
+  (per value: the value's own subjects; per act, one lock cited by several
+  values: one wrap over the act's union, marked when any value is, phase
+  2's L6). {:lock-of {lid K} :plain {i bytes} :wraps {lid wrap} :marked
+  {lid bool} :row? {lid bool}}. Pure, total; a lock that does not deliver
+  is left out, and its value's row gets no lock (`lock-failed?` then turns
+  a would-be yes into the face `:gate-error`). Called with the same lease
+  rows and person entries the decision is made by, so for an act the
+  checks passed every lock delivers."
   ([in lrows persons]
    ;; Legacy pure fixtures only. The topology passes the subjects from block 1.
    (row-wraps in lrows persons (:subjects (arrival-open in lrows persons))))
@@ -1218,11 +1349,13 @@
   (try (:nonces (locks/fresh 0 n)) (catch Throwable _ [])))
 
 (defn- wrap-live
-  "The lock record of K under wrap w. A subject forgotten since block 1
-  (PV-F6) cannot get an any-of blob: the record keeps the whole any-of
-  list (the subject list, never the live list) with blobs for the live
-  ones only, so the value is closed for the forgotten one; a required
-  person forgotten, or every any-of one, leaves no record (closed)."
+  "The lock record of K under wrap w. A subject whose lock is gone cannot
+  get an any-of blob: the record keeps the whole any-of list (the subject
+  list, never the live list) with blobs for the live ones only, so the
+  value is closed for the forgotten one; a required person forgotten, or
+  every any-of one, leaves no record (closed). Since the spec fixes the
+  topology calls it with the entries the person check found alive (M-1),
+  so these closed cases reach no written row; the pure fixtures keep them."
   [K w persons nonces]
   (let [live (into [] (filter #(locks/lock? (:lock (get persons %)))) (:any-of w))]
     (if (and (seq (:any-of w)) (seq live) (not= live (:any-of w)))
@@ -1230,8 +1363,9 @@
       (locks/wrap K w persons nonces))))
 
 (defn fact-rows
-  "Block 2b's rows, one per fact, `[e i row lock-row]`, computed on the
-  arrival task before any hop (so no plaintext and no bare lock leaves it,
+  "The rows block 2b writes, one per fact, `[e i row lock-row]`, computed
+  in block 1a on the arrival task (the spec fixes, M-1: from the entries
+  the decision read) before any hop (so no plaintext and no bare lock leaves it,
   except the empty wrap of a value about no one, K bare in `:blob` by
   phase 2's lock record, [PV-F2]): `:v` for a control fact, `:sealed` as
   offered, `:lock-id`, the lock record in `:lock` or as the value's lock
@@ -1250,7 +1384,9 @@
                                       (+ off k)]))
                                  [{} 0] (sort-by (comp str key) (:wraps ww))))
                   (catch Throwable _ {}))
-        ;; a value whose lock work fails is written admitted and closed (PV-F6): never a throw
+        ;; a value whose lock work fails gets a closed row, never a throw; since the spec
+        ;; fixes (M-1) `lock-failed?` sees it and the fold answers the face :gate-error,
+        ;; so such a row is never written for a yes
         closed (fn [f] {:layer L :k (:k f) :v nil :sealed (:sealed f) :replaces (:replaces f) :mark (:mark f)
                         :lock-id (:lock-id f) :lock nil :digest nil})]
     (into []
@@ -1298,6 +1434,14 @@
     (and (visible-at? rec F) (or (nil? digest) (= digest (:digest rec)))) (assoc rec :frontier F :decided-fp dfp)
     (visible-at? rec F) {:frontier F :answer :no :reason :name-taken}
     :else {:frontier F :answer :no-answer}))
+
+(defn valid-names
+  "The well-formed names of `xs`, each rebuilt as a vector (a subvector is
+  not the key a name row sits under), for `micro-lookup-many`; [] for
+  anything that is not a sequence of them. Total."
+  [xs]
+  (try (into [] (comp (filter env/valid-name?) (map #(into [] %))) (when (sequential? xs) xs))
+       (catch Throwable _ [])))
 
 (defn recorded-trace? "A faces entry that says its envelope was answered from the record." [face]
   (= :recorded (:reason face)))
@@ -1395,6 +1539,8 @@
           (identity nil :> *carry)
           (identity nil :> *lstep)
           (identity nil :> *hints)
+          (identity nil :> *frows)
+          (identity nil :> *kvd)
          (else>)
           ;; the layer's task: settings, the chain's permission rows, stream-era heads (M5)
           (get-in *in [:offer :layer] :> *layer)
@@ -1457,30 +1603,46 @@
               (first *l2-todo :> *l2-p)
               (local-select> [(keypath *l2-p)] $$persons :> *l2-entry)
               (continue> (rest *l2-todo) (assoc *l2-acc *l2-p *l2-entry))))
+          ;; the spec fixes, H-1 (W1-1 at this gate): a lease by a writer who is no person
+          ;; is sealed under the layer's person owner, as the stream gate seals it
+          (layer-settings *msettings *ssettings :> *lsettings)
+          (lease-persons *in *lsettings :> *lps)
+          (locks/read-persons> *lps {} :> *lpersons)
+          (lease-under-of *in *lsettings *lpersons :> *lunder)
           (arrival-open *in *lrows *upersons (grammar/grammars-of *krows) :> *arr)
-          (persons-to-check *in *arr :> *cps)
-          (loop<- [*l3-todo *cps *l3-acc {} :> *cpersons]
-            (<<if (empty? *l3-todo)
-              (:> *l3-acc)
-             (else>)
-              (first *l3-todo :> *l3-p)
-              (local-select> [(keypath *l3-p)] $$persons :> *l3-entry)
-              (continue> (rest *l3-todo) (assoc *l3-acc *l3-p *l3-entry))))
+          (persons-to-check *in *arr *lunder :> *cps)
+          (locks/read-persons> *cps *lpersons :> *cpersons)
           (person-reason *cps *cpersons :> *preason)
+          ;; the spec fixes, M-1: the lock work, here and from these reads, the ones the
+          ;; decision is made by (the stream gate's one event); block 2b reads nothing again.
+          ;; The plaintext and the delivered locks stay in *ww, which nothing carries on.
+          (lock-work-due? *in *arr *preason :> *due)
+          (<<if *due
+            (row-wraps *in *lrows *upersons (get *arr :subjects) :> *ww)
+            (fresh-nonces (nonces-needed *ww) :> *nonces)
+            (fact-rows *in *ww *cpersons *nonces :> *frows)
+            ;; stage 5b: the value index's keyed digests, taken here where the plaintext is;
+            ;; only they travel on (PLAN-reads-rest.md F12)
+            (shared-reads/kv-digests *hints (get *in :offer) (get *ww :plain) :> *kvd)
+           (else>)
+            (identity nil :> *frows)
+            (identity {} :> *kvd))
+          (lock-failed? *in *arr *preason *frows :> *lfail)
           ;; a session close reads its session's acts on this task, its first entity's (§A, [PV-F4])
           (get *in :close :> *close)
           (<<if (some? *close)
             (local-select> [(keypath *close :answers) (subselect MAP-KEYS)] $$micro {:allow-yield? true} :> *cnames)
            (else>)
             (identity nil :> *cnames))
-          (skeleton *in *arr *preason *cnames :> *sk)
+          (skeleton *in *arr *preason *cnames *lunder *lfail :> *sk)
           (carry-rows *lrows :> *carry))
-        ;; Only ciphertext, ids, hints and projection rows survive this barrier.
-        (materialize> *arrival *in *sk *carry *lstep *hints :> $$micro-arrivals))
+        ;; Only ciphertext, ids, hints, projection rows and the act's finished rows (sealed
+        ;; bytes, wrapped lock records, digests: what block 2b writes) survive this barrier.
+        (materialize> *arrival *in *sk *carry *lstep *hints *frows *kvd :> $$micro-arrivals))
 
       ;; ---- block 1b: name/entity reads and the ordered fold
       (<<batch
-        ($$micro-arrivals :> *arrival1 *in *sk *carry *lstep *hints1)
+        ($$micro-arrivals :> *arrival1 *in *sk *carry *lstep *hints1 *frows1 *kvd1)
         (get *in :name :> *name)
         (<<if (= :face (get *in :kind))
           (get *in :rows :> *rows)
@@ -1641,43 +1803,12 @@
           (default>)
           (filter> false)))
 
-      ;; ---- block 2b: the rows, from the offers themselves (M10, §A)
+      ;; ---- block 2b: the rows block 1a made, written for an act decided yes in this batch
+      ;; (M10, §A). The spec fixes, M-1: 2b reads no lease row and no person entry and opens
+      ;; nothing, so the rows are locked from the reads the decision was made by
       (<<batch
-        ($$micro-arrivals :> *arrival3 *in3 *sk3 *carry3 *lstep3 *hints3)
+        ($$micro-arrivals :> *arrival3 *in3 *sk3 *carry3 *lstep3 *hints3 *frows *kvd3)
         (filter> (= :offer (get *in3 :kind)))
-        (|direct *arrival3)
-        (get *in3 :lease-name :> *lname3)
-        (lease-keys *in3 :> *lkeys3)
-        (loop<- [*m1-todo *lkeys3 *m1-acc {} :> *lrows3]
-          (<<if (empty? *m1-todo)
-            (:> *m1-acc)
-           (else>)
-            (first *m1-todo :> *m1-lid)
-            (nth *m1-lid 1 :> *m1-i)
-            (local-select> [(keypath *lname3 :leases *m1-i)] $$micro-names :> *m1-row)
-            (continue> (rest *m1-todo) (assoc *m1-acc *m1-lid *m1-row))))
-        (unders *lrows3 :> *ups3)
-        (loop<- [*m2-todo *ups3 *m2-acc {} :> *upersons3]
-          (<<if (empty? *m2-todo)
-            (:> *m2-acc)
-           (else>)
-            (first *m2-todo :> *m2-p)
-            (local-select> [(keypath *m2-p)] $$persons :> *m2-entry)
-            (continue> (rest *m2-todo) (assoc *m2-acc *m2-p *m2-entry))))
-        (row-wraps *in3 *lrows3 *upersons3 (get *sk3 :subjects) :> *ww)
-        (wrap-persons-of *ww :> *wps)
-        (loop<- [*m3-todo *wps *m3-acc {} :> *wpersons]
-          (<<if (empty? *m3-todo)
-            (:> *m3-acc)
-           (else>)
-            (first *m3-todo :> *m3-p)
-            (local-select> [(keypath *m3-p)] $$persons :> *m3-entry)
-            (continue> (rest *m3-todo) (assoc *m3-acc *m3-p *m3-entry))))
-        (fresh-nonces (nonces-needed *ww) :> *nonces)
-        (fact-rows *in3 *ww *wpersons *nonces :> *frows)
-        ;; stage 5b: the value index's keyed digests, taken here where the plaintext is;
-        ;; only they travel on (PLAN-reads-rest.md F12)
-        (shared-reads/kv-digests *hints3 (get *in3 :offer) (get *ww :plain) :> *kvd3)
         (get *in3 :name :> *name3)
         (get-in *in3 [:offer :layer] :> *layer3)
         (select-keys *in3 [:digest :fp] :> *id3)
@@ -1749,6 +1880,19 @@
       (identity nil :> *dfp))
     (lookup-result *face *rec *dfp *digest *F :> *result)
     (|origin))
+
+  ;; the spec fixes (H-1, the runner): the records under many names at once, each at its
+  ;; name task's own frontier, so a runner learns which matches already ran in one
+  ;; roundtrip here as `client/lookup-many` gives it on the stream side (RD-T3)
+  (<<query-topology topologies "micro-lookup-many" [*names :> *result]
+    (valid-names *names :> *vnames)
+    (ops/explode *vnames :> *nm)
+    (|hash *nm)
+    (local-select> [(keypath :frontier)] $$micro-task :> *own)
+    (local-select> [(keypath *nm :answer)] $$micro-names :> *rec)
+    (filter> (visible-at? *rec (frontier-of nil *own)))
+    (|origin)
+    (aggs/+map-agg *nm *rec :> *result))
 
   (<<query-topology topologies "micro-act" [*e *name *f :> *result]
     (|hash *e)

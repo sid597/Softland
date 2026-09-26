@@ -36,11 +36,18 @@
   cannot parse, a loop, a failed step, a refused offer and an error from
   the door are each a line of the report.
 
+  The spec fixes (H-1): a run is named with the layer's class and offered
+  through the door of the gate that orders the layer, so a pass over a
+  layer re-classed by entity runs at the micro gate; a match counts as run
+  when its name under either class tag has a record, so a match run before
+  the re-class does not run again after it.
+
   Vocabulary: \"key\" is a fact's key; \"lock\" is an encryption key."
   (:require [rig.store.client :as c]
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
+            [rig.store.micro-client :as mc]
             [rig.store.read-exit :as rx]
             [rig.store.recipe :as recipe]))
 
@@ -77,7 +84,7 @@
   stood-on stamp (V-F5), under the run's derived name. Pure: the same
   (layer, tool fact, matched fact) give the same act."
   [layer class tool-id tool-fid tool-stamp tool row facts]
-  (c/build {:name (recipe/run-name layer tool-fid (:fid row))
+  (c/build {:name (recipe/run-name layer class tool-fid (:fid row))
             :who tool-id
             :layer layer
             :class class
@@ -90,13 +97,30 @@
             :facts facts}))
 
 (defn- offer-run
-  "Offer one run's act through the door; its answer, or the door's error,
-  as data."
+  "Offer one run's act through the door of the gate its name is tagged for
+  (the spec fixes, H-1); its answer, or the door's error, as data."
   [store act]
   (try
-    (let [a (c/offer-until-answered! store act)]
+    (let [a (mc/offer-into! store act)]
       (select-keys a [:answer :reason :stamp]))
     (catch Throwable t (failed t))))
+
+(defn- tagged [nm class] (assoc nm 1 class))
+
+(defn answered-runs
+  "The records of the runs among `names` already answered, {name record},
+  looked up once per store (the spec fixes, H-1): the `:by-layer` tag of
+  every name on the stream side (`client/lookup-many`, one read), and, in a
+  layer whose class is by entity, the `:by-entity` tag on the micro side
+  (`micro-client/lookup-many`, one query)."
+  [store layer class names]
+  (merge (c/lookup-many store layer (mapv #(tagged % :by-layer) names))
+         (when (= :by-entity class) (mc/lookup-many store (mapv #(tagged % :by-entity) names)))))
+
+(defn run-record
+  "The record of a run under either class tag of its name, or nil."
+  [answered nm]
+  (or (get answered nm) (get answered (tagged nm :by-layer)) (get answered (tagged nm :by-entity))))
 
 (defn- run-tool
   "Step 3 for one tool: its match read, its runs, their answers."
@@ -116,7 +140,7 @@
                                   (when-let [facts (:facts r)]
                                     [(:fid m) (output-act layer class tool-id tool-fid tool-stamp tool m facts)])))
                        runs)
-            answered (try (c/lookup-many store layer (map :name (vals acts)))
+            answered (try (answered-runs store layer class (mapv :name (vals acts)))
                           (catch Throwable _ {}))]
         {:tool tool-fid
          :id tool-id
@@ -126,7 +150,7 @@
          :runs (mapv (fn [[m r]]
                        (if-let [act (get acts (:fid m))]
                          (let [nm (:name act)]
-                           (if-let [rec (get answered nm)]
+                           (if-let [rec (run-record answered nm)]
                              {:match (:fid m) :name nm :recorded (select-keys rec [:answer :reason :stamp])}
                              (assoc (offer-run store act) :match (:fid m) :name nm)))
                          (assoc r :match (:fid m))))

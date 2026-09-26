@@ -260,11 +260,18 @@
   bits of SHA-256 over the canonical text of `[layer tool-fid
   matched-fid]`. The same triple always gives the same name, so a second
   pass, a restarted runner or two runners at once offer one name, and the
-  gate answers the later ones from its record."
-  [layer tool-fid matched-fid]
-  (let [md (MessageDigest/getInstance "SHA-256")
-        text (env/canonical [layer tool-fid matched-fid])]
-    [layer :by-layer :offer (uuid-v8 (.digest md (.getBytes ^String text StandardCharsets/UTF_8)))]))
+  gate answers the later ones from its record.
+
+  The spec fixes (H-1, T-FR5 as built, first-record): the 4-arity tags the
+  name with the layer's class, `[layer class :offer id]`, so a run in a
+  layer re-classed by entity goes to the micro gate; the id is the same
+  function of the triple under either tag, so the runner finds a match's
+  run under the tag its layer had when it ran. The 3-arity is `:by-layer`."
+  ([layer tool-fid matched-fid] (run-name layer :by-layer tool-fid matched-fid))
+  ([layer class tool-fid matched-fid]
+   (let [md (MessageDigest/getInstance "SHA-256")
+         text (env/canonical [layer tool-fid matched-fid])]
+     [layer class :offer (uuid-v8 (.digest md (.getBytes ^String text StandardCharsets/UTF_8)))])))
 
 ;; ------------------------------------------------------------ the loop
 

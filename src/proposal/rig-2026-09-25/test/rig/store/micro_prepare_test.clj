@@ -616,7 +616,7 @@
             [[_ _ r0 _] [_ _ r1 _]] (micro/fact-rows in ww persons (micro/fresh-nonces (micro/nonces-needed ww)))]
         (is (= (:lock-id r0) (:lock-id r1)))
         (is (= [:bob] (:any-of (:lock r0)) (:any-of (:lock r1))))))
-    (testing "a subject forgotten since block 1 (PV-F6): the whole any-of list kept, no blob for the forgotten one"
+    (testing "a subject whose lock is gone at the wrap (PV-F6's pure case): the whole any-of list kept, no blob for the forgotten one; since the spec fixes (M-1) the gate wraps from the entries its person check found alive, so it never writes this"
       (let [o (offer {:facts [{:e :e0 :k :mention :v {:persons #{:alice :bob}}}]})
             [so rows _] (sealed o)
             in (micro/intake so)
@@ -626,17 +626,18 @@
         (is (= [:alice :bob] (:any-of (:lock r))))
         (is (= #{:alice} (set (keys (:any-blobs (:lock r))))))
         (is (some? (locks/unwrap (:lock r) gone)))))
-    (testing "a lease person forgotten since block 1: the row written with no lock (admitted and closed), nothing thrown"
+    (testing "a lease person whose lock is gone at the lock work: a row with no lock, nothing thrown; since the spec fixes (M-1) `lock-failed?` sees it, so the fold answers the face :gate-error and never admits it"
       (let [o (offer {:facts [{:e :e0 :k :note :v 1}]})
             [so rows ks] (sealed o)
             lid (first (keys rows))
             prow (merge (locks/lease-row (get ks lid) :alice (:alice persons) (locks/fresh-nonce)) (select-keys (get rows lid) [:layer :session :kind :owner :batch]))
             in (micro/intake so)
             ww (micro/row-wraps in {lid prow} {:alice {:lock nil :erased-at 2}})
-            [[_ _ r _]] (micro/fact-rows in ww persons [])]
+            [[_ _ r _] :as frows] (micro/fact-rows in ww persons [])]
         (is (nil? (:lock r)))
         (is (nil? (:digest r)))
-        (is (bytes? (:sealed r)))))
+        (is (bytes? (:sealed r)))
+        (is (true? (micro/lock-failed? in {:status :ok :value-reason nil} nil frows)))))
     (testing "control facts and retracts get no lock; a control value is plaintext EDN"
       (let [o (offer {:who :operator :permission nil :session nil :facts [{:e :group :k :lock-grain :v :per-act} {:e :e0 :k :note :v nil}]})
             in (micro/intake o)
