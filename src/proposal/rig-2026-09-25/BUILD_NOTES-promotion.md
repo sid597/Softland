@@ -333,6 +333,13 @@ once settled under the frontier) and says the state with its statement.
   `release!`, `held?` at the end.
 - Not changed: `client.clj`, `micro_client.clj`, `reads.clj`,
   `read_exit.clj`.
+- A test file of phase 3's: `test/rig/store/micro_prepare_test.clj`'s
+  `parse-and-digests`, whose assertion "stage 4's :landing is taken as
+  data here (M4)" parsed an ordinary sealed act under a landing name.
+  Stage 4's rule (PR10, F3) takes a landing name as a landing only, so
+  the assertion now parses a landing-shaped envelope (`:ok`) and refuses
+  an ordinary act under a landing name on its face (`:malformed`); M4's
+  point, that the scheme is not reserved on the micro side, holds.
 
 ### Phase 8's names
 
@@ -475,3 +482,22 @@ first-record (those are also listed below).
   [T C :landing u]}`; its row bare, the private key in `:sealed`, with
   `:public` and `:for`.
 - **PR5, `:landing-lock-gone`**, recorded (P4-8).
+
+## The suite
+
+Run once, at the end, under the cluster lock, every namespace named: the
+14 of wave 1 (rig.smoke-test rig.claims-test rig.revision-test
+rig.store.clock-test rig.store.envelope-test rig.store.stream-gate-test
+rig.store.reads-test rig.store.read-exit-test rig.store.read-model-test
+rig.store.lock-test rig.store.forget-test rig.store.micro-prepare-test
+rig.store.micro-test rig.store.wave1-test) and rig.store.promote-unit-test
+and rig.store.promote-test. Log `runs/promotion-suite.log` (in the
+worktree; runs/*.log are not committed). Waited 06:28 to 06:37:57 for the
+lock, ran to 06:45:50 (7 min 53 s): **102 tests, 5,921 assertions, 1
+failure, 0 errors**. The failure: phase 3's `micro-prepare-test`
+assertion that stage 4 supersedes (above); fixed, and that namespace
+alone rerun, no cluster: 14 tests, 236 assertions, 0 failures. The
+review's R-1 deftest, added to rig.store.promote-unit-test while the
+suite ran, ran alone, no cluster: 8 tests, 137 assertions, 0 failures.
+Before the suite, rig.store.promote-test alone (`runs/promotion-test-try3.log`):
+1 test, 231 assertions, 0 failures, on 8 tasks.
