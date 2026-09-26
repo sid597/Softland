@@ -280,7 +280,7 @@
           (let [rep (runner/run-pass! st {:layer :alice})
                 line (first (filter #(= :mention-rows (:id %)) (:tools rep)))
                 entry (first (c/facts st :alice (:entry line)))]
-            (is (= 3 (count (:runs line))))
+            (is (= (count (:rows (rd :alice [:k :mention]))) (count (:runs line))) "one run per mention in the layer")
             (is (= (set (map (fn [r] [(:fid r) (:stamp r)]) (:rows (rd :alice [:k :mention]))))
                    (set (get-in entry [:v :exact])))
                 "a tool whose signature asks for rows: the exact matched pairs")))
