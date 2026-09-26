@@ -48,9 +48,9 @@
   lock row is here, `$$persons` is on every task, the public key came in
   the request). The crossing's name has a record: its answer, by name
   (`promote/recorded-ack`), and for a yes the stored forward. Else, fresh: the settings, clock and wall; the
-  source's answer and row, opened by `locks/open-row>`, unless the layer
-  was re-classed since the request ([F8]: the gate no longer orders it,
-  so it opens nothing and `gate/decide` records `:class-mismatch`); the
+  source's answer and row, opened by `locks/open-row>` (also after a
+  re-class of the layer: the read-out is placed where the source's lock
+  is and claims no class, as in the model; the plan's F8 refused it); the
   draw; the read-out's verdict; the crossing decided by `gate/decide` and
   written by `gate-event/write-decided>` with the stored forward, in one
   atomic group. Emits once `[crossing-ack forward]`, the forward nil for
@@ -74,19 +74,16 @@
       (local-select> STAY $$clock :> *clock)
       (gate/wall-now :> *wall)
       (promote/source-of *offer :> *sfid)
-      (<<if (= :by-layer (gate/class-in-force *offer *settings))
-        (first *sfid :> *sname)
-        (second *sfid :> *sidx)
-        (local-select> (keypath *layer :answers *sname) $$layers :> *srec)
-        (<<if (= :yes (get *srec :answer))
-          (local-select> (keypath *layer :log *sname *sidx) $$layers :> *srow)
-         (else>)
-          (identity nil :> *srow))
-        (locks/open-row> *layer *sfid *srow (get *srec :stamp) nil :> *opened)
+      (first *sfid :> *sname)
+      (second *sfid :> *sidx)
+      (local-select> (keypath *layer :answers *sname) $$layers :> *srec)
+      (<<if (= :yes (get *srec :answer))
+        (local-select> (keypath *layer :log *sname *sidx) $$layers :> *srow)
        (else>)
-        (identity nil :> *srow)
-        (identity {:unreadable :not-opened} :> *opened))
-      (promote/crossing-offer *offer *req-stamp *srow :> *crossing)
+        (identity nil :> *srow))
+      (locks/open-row> *layer *sfid *srow (get *srec :stamp) nil :> *opened)
+      ;; placed where the source's lock is, the read-out claims no class (the model's refusal)
+      (promote/crossing-offer *offer *req-stamp *srow (gate/class-in-force *offer *settings) :> *crossing)
       (env/digest *crossing :> *cdigest)
       ;; the randomness, bound before the decision (as phase 2 binds its locks and nonces)
       (promote/fresh-read-out :> *fresh)

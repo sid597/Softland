@@ -60,11 +60,16 @@
   model's `exempt?`), standing on the source at the stamp the request
   carried and on the request at its stamp, with one `:crossed` fact
   `{:request req :source src}` on the source's entity (the request's
-  when the source has no row). Placed by the store: nil class in its
-  name, `:by-layer` on the act, checked against the layer's class ([F8]).
-  Built on the read-out's fresh path only: a crossing's name is the
-  store's alone, so its record answers by name (`recorded-ack`)."
-  [req-offer req-stamp src-row]
+  when the source has no row). Placed by the store, where the source's
+  lock is: nil class in its name, and on the act the class in force,
+  `class`, so it claims no class of its own (model.clj `refusal`: 'a
+  read-out is the store's own step, placed where the source's lock is; it
+  claims no class'); a source layer re-classed since the request is still
+  read out on its home, as P16 keeps a re-classed layer's store-placed
+  acts with this gate. Built on the read-out's fresh path only: a
+  crossing's name is the store's alone, so its record answers by name
+  (`recorded-ack`)."
+  [req-offer req-stamp src-row class]
   (let [f (request-fact req-offer)
         req (:name req-offer)
         src (get-in f [:v :source])]
@@ -72,7 +77,7 @@
      :name (env/crossing-name req)
      :who :store
      :layer (:layer req-offer)
-     :class :by-layer
+     :class class
      :permission nil
      :session nil
      :stood-on {src (get (:stood-on req-offer) src) [req 0] req-stamp}
@@ -117,8 +122,7 @@
     (a small-order point, [F2]).
   Else `{:reason nil :sealed copy :box b}`: the copy sealed under the
   fresh lock K, K boxed to the landing lease's public key, bound to the
-  lease id and the landing name. The layer's class, `gate/decide`'s, is
-  placed before these ([F8]). Total."
+  lease id and the landing name. Total."
   [req-offer src-row opened fresh]
   (try
     (let [f (request-fact req-offer)
