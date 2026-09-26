@@ -34,6 +34,7 @@
             [rig.store.module :as m]
             [rig.store.reads :as reads])
   (:import [java.io File]
+           [java.lang ProcessHandle ProcessHandle$Info]
            [java.lang.management GarbageCollectorMXBean ManagementFactory ThreadMXBean]
            [java.time Instant LocalTime ZoneId]
            [java.time.temporal ChronoUnit]
@@ -1120,3 +1121,290 @@
   read-back or the tests (the sample, the sorted latencies, a trace)."
   [w]
   (dissoc w :sample :sorted-lat :trace))
+
+;; ================================================================== report
+
+(def slices
+  "The slices' numbers of 25 September, beside the final ones (section 10;
+  runs/phase7-agent-rate.txt runs 4 to 6, runs/phase7-one-thread.txt runs 4
+  to 6, runs/phase7-lock-growth.txt), for the comparison."
+  {:agent-rate {1 {:acts-per-s 299 :index-writes-per-s 1196 :p99 4.74 :thread 20}
+                4 {:acts-per-s 646 :index-writes-per-s 2584 :p99 9.79 :thread 24}
+                16 {:acts-per-s 2249 :index-writes-per-s 8996 :p99 9.94 :thread 37}
+                :writes-per-act 4}
+   :one-thread {:sequential {:acts-per-s 299 :p50 3.26 :p99 4.72 :max 20.9}
+                :concurrent "K = 1 to 128: 300 to 5,192 acts a second, p99 4.71 to 43.94 ms, the thread never above 60%"}
+   :lock-growth {:raw-one-person {:logical 169 :compacted 86.9}
+                 :base64-two-persons {:logical 233 :compacted 148.0}
+                 :extra-person-raw "32 to 35 B, computed"
+                 :ratios {40 {:logical 4.23 :compacted 2.17} 200 {:logical 0.85 :compacted 0.43}}}})
+
+(defn- read-lines
+  "Every tagged map a number's `.edn` holds, in order."
+  [number]
+  (let [f (io/file (out-file number))]
+    (if (.exists f)
+      (->> (str/split-lines (slurp f)) (remove str/blank?) (mapv edn/read-string))
+      [])))
+
+(defn complete-runs
+  "The runs whose RUN-END says ok (15: a killed run's lines are left out):
+  [{:meta :results :end}], in order."
+  [lines]
+  (let [by-uid (group-by :uid lines)]
+    (vec (for [[uid ls] by-uid
+               :let [end (first (filter #(= "RUN-END" (:tag %)) ls))]
+               :when (:ok? end)]
+           {:uid uid
+            :meta (first (filter #(= "META" (:tag %)) ls))
+            :results (filterv #(= "RESULT" (:tag %)) ls)
+            :end end}))))
+
+(defn med-spread
+  "Median and spread (minimum to maximum) of the numbers in `xs`."
+  [xs]
+  (let [s (vec (sort (filter number? xs)))
+        n (count s)]
+    (when (pos? n)
+      {:median (s (quot n 2)) :min (first s) :max (peek s) :runs n})))
+
+(defn- fmt
+  "A number for a table: whole above 100, else two decimals; '-' for none."
+  [x]
+  (cond (nil? x) "-"
+        (not (number? x)) (str x)
+        (>= (Math/abs (double x)) 100) (format "%,d" (Math/round (double x)))
+        :else (format "%.2f" (double x))))
+
+(defn- ms-cell [{:keys [median min max]}]
+  (if median (format "%s (%s to %s)" (fmt median) (fmt min) (fmt max)) "-"))
+
+(defn- clean-share
+  "8.4: when at least two of three runs are clean, the clean ones; else all,
+  marked."
+  [rs]
+  (let [clean (remove :overlap rs)]
+    (if (>= (count clean) (min 2 (count rs))) {:rs (vec clean) :marked? false} {:rs (vec rs) :marked? true})))
+
+(defn- by-level
+  "A number's results of `variant` across runs, grouped by K."
+  [runs variant]
+  (into (sorted-map) (group-by :k (for [r runs x (:results r) :when (= variant (:variant x))] x))))
+
+(defn- machine-lines [runs]
+  (let [ms (distinct (map #(dissoc (get-in % [:meta :machine]) :at :load :ran :git :cluster-dir) runs))
+        m (get-in (first runs) [:meta :machine])]
+    (concat
+     [(str "Machine (recorded by the harness at every run; " (count runs) " complete runs"
+           (if (= 1 (count ms)) ", every run on the same machine" ", MACHINES DIFFER across runs: see the .edn") "):")
+      (str "  " (:cpu m) ", " (:cores m) " cores, " (:hardware-threads m) " hardware threads, " (:ram m) " RAM")
+      (str "  " (:os m) ", kernel " (:kernel m) "; " (get-in m [:jdk :vm]) " " (get-in m [:jdk :runtime]) " (" (get-in m [:jdk :vendor]) ")")
+      (str "  JVM flags " (str/join " " (:jvm-flags m)) "; GC " (str/join ", " (:gc m)))
+      (str "  " (:rama m) ", " (:rama-helpers m) ", Clojure " (:clojure m))
+      (str "  the cluster's files on " (get-in m [:disk :filesystem]) " on " (get-in m [:disk :device]) " ("
+           (get-in m [:disk :disk-model]) ")")
+      (str "  load at each run's start: " (str/join "; " (map #(str/join " " (get-in % [:meta :machine :load])) runs)))
+      (str "  code: " (str/join ", " (distinct (map #(str (let [h (str (get-in % [:meta :machine :git :head]))] (subs h 0 (min 8 (count h))))
+                                                          (when-not (get-in % [:meta :machine :git :code-clean?]) " (not clean)"))
+                                                    runs))))])))
+
+(defn- write-list-lines []
+  (concat
+   ["The writes of the gate's decision event, per admitted act (2.3), named from the code; the harness's claim, which T1 to T4 hold to the store's own growth:"]
+   (for [{:keys [row write path kind site]} write-rows]
+     (format "  %-3s %-44s %-26s %-6s %s" row write path (name kind) site))
+   [(str "  per act: " (str/join "; " (for [k [:agent-value :agent-value-by-value :owner-value :lease :entry :agent-value-stood-on]]
+                                        (let [p (per-act-writes k)] (format "%s %d (read indexes %d, deletes %d)" (name k) (:total p) (:read-indexes p) (:deletes p))))))
+    "  and once per layer, the first fact under a key that is not a store key: one :key-rows row (F2), in setup or warm-up, never in a window"]))
+
+(defn- header [title runs extra]
+  (concat [title "" (str "Thresholds: " thresholds-line) (str "Caveat: " caveat) ""]
+          (machine-lines runs) [""] extra [""] (write-list-lines) [""]))
+
+(defn- verdict-str [v]
+  (if v (format "%s, %s times" (name (:call v)) (fmt (:factor v))) "-"))
+
+(defn- checks-str [rs]
+  (str/join "; " (for [[label f] [["read-back complete" #(let [c (:check %)] (and c (= (:ok c) (:checked c))))]
+                                  ["one task" #(get-in % [:placement :one-task?])]
+                                  ["lease counts agree" #(get-in % [:leases :agree?])]
+                                  ["no error" #(zero? (or (:errors %) 0))]
+                                  ["no other JVM" #(nil? (:overlap %))]]]
+                           (format "%s %d/%d" label (count (filter f rs)) (count rs)))))
+
+(defn- agent-report [runs]
+  (let [rruns (filter #(= "run" (get-in % [:end :fn])) runs)
+        sruns (filter #(= "sessions" (get-in % [:end :fn])) runs)
+        cruns (filter #(= "reads" (get-in % [:end :fn])) runs)
+        level-lines (fn [variant rs-by-k judge?]
+                      (for [[k rs0] rs-by-k
+                            :let [{:keys [rs marked?]} (clean-share rs0)
+                                  acts (med-spread (map :value-acts-per-s rs))
+                                  iw (med-spread (map #(get-in % [:index-writes :per-s :all]) rs))
+                                  ri (med-spread (map #(get-in % [:index-writes :per-s :read-indexes]) rs))
+                                  p50 (med-spread (map #(get-in % [:lat :value :p50]) rs))
+                                  p99 (med-spread (map #(get-in % [:lat :value :p99]) rs))
+                                  mx (med-spread (map #(get-in % [:lat :value :max]) rs))
+                                  cpu (med-spread (map #(second (get-in % [:cpu :store-busiest])) rs))
+                                  lead (med-spread (map :clock-lead-ms rs))
+                                  sl (get-in slices [:agent-rate k])]]
+                        (str (format "  %s K=%-4s value acts/s %-26s index writes/s %-28s read indexes/s %-10s p50 %-7s p99 %-7s max %-7s home thread %s%%  clock lead %s ms%s"
+                                     (name variant) k (ms-cell acts) (ms-cell iw) (fmt (:median ri)) (fmt (:median p50)) (fmt (:median p99))
+                                     (fmt (:median mx)) (fmt (:median cpu)) (fmt (:median lead)) (if marked? "  [runs marked :overlap]" ""))
+                             (when judge? (str "\n      verdict (at least 1,000 value acts a second): " (verdict-str (verdict (:median acts) (:agent-acts-per-s thresholds) :higher))))
+                             (when (and judge? sl) (format "\n      slice: %s acts/s, %s index writes/s at %d an act, p99 %s ms, thread %s%%; final/slice %s"
+                                                           (:acts-per-s sl) (:index-writes-per-s sl) (get-in slices [:agent-rate :writes-per-act])
+                                                           (:p99 sl) (:thread sl) (fmt (when (:median acts) (/ (:median acts) (:acts-per-s sl))))))
+                             (str "\n      checks: " (checks-str rs0)))))]
+    (concat
+     ["Variant A: one agent session layer, K writers sharing one door, closed loops (latencies are closed-loop service times, reported, not judged; F5)."]
+     (level-lines :A (by-level rruns :A) true)
+     ["" "Variant A': the same act under a by-value :note grammar (11 writes an act)."]
+     (level-lines :A-prime (by-level rruns :A-prime) false)
+     ["" "D2: A's act citing the owner's root permission (a chain of 1), beside A at K = 16."]
+     (level-lines :D2 (by-level rruns :D2) false)
+     ["" "D1: the pool stocked ahead (only when A's rate flattened while the home thread stayed under 60%); valid only if the door leased nothing in the window."]
+     (for [r rruns x (:results r) :when (= :D1 (:variant x))]
+       (format "  run %s: value acts/s %s, valid %s%s, stocking %s" (:run x) (fmt (:value-acts-per-s x)) (:d1-valid? x)
+               (if (:d1-mark x) (str " (" (name (:d1-mark x)) ")") "") (pr-str (:stocking x))))
+     ["" "Variant B: S sessions on one task, each at an assumed 100 acts a second, open schedule, latency from the schedule."]
+     (for [[k rs] (by-level sruns :B)]
+       (format "  S=%-4s offered/s %-8s admitted/s %-26s admitted %s  p50 %s p99 %-26s max %s  lease acts/s %s  index writes/s %s  home thread %s%%  checks: %s"
+               k (fmt (:median (med-spread (map :offered-per-s rs)))) (ms-cell (med-spread (map :value-acts-per-s rs)))
+               (fmt (:median (med-spread (map :admitted-share rs)))) (fmt (:median (med-spread (map #(get-in % [:lat :value :p50]) rs))))
+               (ms-cell (med-spread (map #(get-in % [:lat :value :p99]) rs))) (fmt (:median (med-spread (map #(get-in % [:lat :value :max]) rs))))
+               (fmt (:median (med-spread (map :lease-acts-per-s rs)))) (fmt (:median (med-spread (map #(get-in % [:index-writes :per-s :all]) rs))))
+               (fmt (:median (med-spread (map #(second (get-in % [:cpu :store-busiest])) rs)))) (checks-str rs)))
+     (for [r sruns x (:results r) :when (= :B-summary (:variant x))]
+       (format "  run %s: the largest S at 95%% admitted and p99 at most 20 ms: %s sessions, %s acts a second on one task (agent speed assumed); against 1,000: %s"
+               (:run x) (:largest-s x) (some-> (:largest-s x) (* 100)) (verdict-str (some-> (:largest-s x) (* 100) (verdict (:agent-acts-per-s thresholds) :higher)))))
+     ["" "Variant C: read (through the exit, recorded) then write standing on what was read; closed loops."]
+     (for [[k rs] (by-level cruns :C)]
+       (format "  K=%-3s iterations/s %-26s value/entry/lease acts/s %s/%s/%s  index writes/s %s  entry lock rows %s  read p50/p99/max %s/%s/%s  write p50/p99/max %s/%s/%s  checks: %s"
+               k (ms-cell (med-spread (map :iterations-per-s rs)))
+               (fmt (:median (med-spread (map #(get-in % [:acts-per-s :value]) rs)))) (fmt (:median (med-spread (map #(get-in % [:acts-per-s :entry]) rs))))
+               (fmt (:median (med-spread (map #(get-in % [:acts-per-s :lease]) rs)))) (fmt (:median (med-spread (map #(get-in % [:index-writes :per-s :all]) rs))))
+               (fmt (:median (med-spread (map :entry-lock-rows rs))))
+               (fmt (:median (med-spread (map #(get-in % [:lat :read :p50]) rs)))) (fmt (:median (med-spread (map #(get-in % [:lat :read :p99]) rs))))
+               (fmt (:median (med-spread (map #(get-in % [:lat :read :max]) rs))))
+               (fmt (:median (med-spread (map #(get-in % [:lat :value :p50]) rs)))) (fmt (:median (med-spread (map #(get-in % [:lat :value :p99]) rs))))
+               (fmt (:median (med-spread (map #(get-in % [:lat :value :max]) rs)))) (checks-str rs)))
+     (for [r cruns x (:results r) :when (= :entry-bytes (:variant x)) e (:entries x)]
+       (format "  entry bytes, run %s: %d matched, row %s B (sealed %s B), id-index entries %s B, lock row %s B, total %s B"
+               (:run x) (:matched e) (+ (get-in e [:row :key]) (get-in e [:row :value])) (:sealed-bytes e)
+               (reduce + (map #(+ (:key %) (:value %)) (vals (:id-index-entries e))))
+               (+ (get-in e [:lock-row :key]) (get-in e [:lock-row :value])) (:total e)))
+     ["" "Idle windows (10 s, no offers): the busiest threads, % of one core."]
+     (for [r runs x (:results r) :when (#{:idle :idle-B :idle-C} (:variant x))]
+       (str "  run " (:run x) ": " (str/join ", " (map (fn [[n p]] (str n " " p)) (take 6 (:busiest x)))))))))
+
+(defn- person-report [runs]
+  (let [rruns (filter #(= "run" (get-in % [:end :fn])) runs)
+        cruns (filter #(= "reads" (get-in % [:end :fn])) runs)
+        a (for [r rruns x (:results r) :when (= :a (:variant x))] x)
+        lat-cells (fn [rs kind] (str/join " " (for [q [:p50 :p95 :p99 :max :mean]]
+                                               (str (name q) " " (fmt (:median (med-spread (map #(get-in % [:lat kind q]) rs))))))))]
+    (concat
+     ["(a) One writer, one act at a time, 6,400 measured (closed loop: service times)."]
+     [(format "  value acts/s %s; verdict (at least 100 a second): %s"
+              (ms-cell (med-spread (map :value-acts-per-s a)))
+              (verdict-str (verdict (:median (med-spread (map :value-acts-per-s a))) (:person-acts-per-s thresholds) :higher)))
+      (str "  all offers: " (lat-cells a :value))
+      (str "  leased offers (" (fmt (:median (med-spread (map #(get-in % [:lat :value-leased :n]) a)))) " a run): " (lat-cells a :value-leased))
+      (str "  unleased offers: " (lat-cells a :value-unleased))
+      (str "  slice: " (pr-str (get-in slices [:one-thread :sequential])))
+      (str "  checks: " (checks-str a))]
+     ["" "(b) K writers sharing one door (closed loops: service times)."]
+     (for [[k rs] (by-level rruns :b)]
+       (format "  K=%-4s value acts/s %-26s %s  home thread %s%%  verdict (100 a second) %s  checks: %s"
+               k (ms-cell (med-spread (map :value-acts-per-s rs))) (lat-cells rs :value)
+               (fmt (:median (med-spread (map #(second (get-in % [:cpu :store-busiest])) rs))))
+               (verdict-str (verdict (:median (med-spread (map :value-acts-per-s rs))) (:person-acts-per-s thresholds) :higher))
+               (checks-str rs)))
+     [(str "  slice: " (get-in slices [:one-thread :concurrent]))]
+     ["" "(b') Open arrival: value acts on a fixed schedule, latency from the schedule; the latency threshold (100 a second at p99 of 20 ms or less) is judged at 100 a second."]
+     (for [[k rs] (by-level rruns :b-prime)]
+       (format "  %s a second: offered/s %s admitted/s %s  from the schedule %s%s  checks: %s"
+               k (fmt (:median (med-spread (map :offered-per-s rs)))) (ms-cell (med-spread (map :value-acts-per-s rs)))
+               (lat-cells rs :value)
+               (if (= 100 k)
+                 (str "\n      verdict on p99 (20 ms or less): " (verdict-str (verdict (:median (med-spread (map #(get-in % [:lat :value :p99]) rs))) (:person-p99-ms thresholds) :lower)))
+                 (str "\n      at ten times the rate, p99 against 20 ms: " (verdict-str (verdict (:median (med-spread (map #(get-in % [:lat :value :p99]) rs))) (:person-p99-ms thresholds) :lower))))
+               (checks-str rs)))
+     ["" "(c) The person's own reads through the exit (a query and an acked entry each)."]
+     (for [r cruns x (:results r) :when (= :c (:variant x))]
+       (str "  run " (:run x) ": reads " (get-in x [:lat :read :n]) ", " (lat-cells [x] :read))))))
+
+(defn- lock-report [runs]
+  (let [by-v (into (sorted-map) (for [r runs x (:results r)] [(:variant x) x]))
+        per (fn [x n] (when (and x (pos? n)) (/ (double x) n)))
+        last-p (fn [x] (peek (:points x)))
+        lock-sst (fn [p] (get-in p [:lock-store :sst]))
+        logical (fn [p] (+ (get-in p [:logical :key-bytes]) (get-in p [:logical :record-bytes])))
+        row-bytes (fn [x] (let [p (last-p x) n (get-in p [:logical :rows])]
+                            {:logical (per (logical p) n) :compacted (per (lock-sst p) n)}))]
+    (concat
+     (for [[v x] by-v]
+       (let [n (:values x)
+             size (get-in x [:config :size])
+             steps (let [xs (cons 0 (map logical (:points x)))] (map - (rest xs) xs))
+             mean-step (when (seq steps) (/ (double (reduce + steps)) (count steps)))
+             worst (when (and mean-step (pos? mean-step)) (apply max (map #(/ (Math/abs (- % mean-step)) mean-step) steps)))
+             p (last-p x)
+             lg (per (logical p) n)
+             cp (per (lock-sst p) n)]
+         (str/join "\n"
+                   (concat
+                    [(format "%s: %,d values of %d B, %s; persons required %s; errors %d, refused %d; lock rows %s (expected %s); end checks %s"
+                             v n size (name (get-in x [:config :grain])) (inc (count (get-in x [:config :persons])))
+                             (:errors x) (:refused x) (:lock-rows-at-end x) (:lock-rows-expected x) (pr-str (:checks x)))
+                     "  values | logical lock rows (B/v) | lock store compacted (B/v, method) | whole layer store compacted (B/v) | the rest (B/v) | live dir | lease rows standing"]
+                    (for [q (:points x) :let [m (:values q)]]
+                      (format "  %,7d | %,11d (%6.1f) | %,11d (%6.1f, %s) | %,12d (%6.1f) | %,12d (%6.1f) | %,11d | %d"
+                              m (logical q) (per (logical q) m) (or (lock-sst q) 0) (or (per (lock-sst q) m) 0.0)
+                              (some-> (get-in q [:lock-store :method]) name)
+                              (get-in q [:compacted :sst] 0) (or (per (get-in q [:compacted :sst]) m) 0.0)
+                              (or (:rest-sst q) 0) (or (per (:rest-sst q) m) 0.0)
+                              (reduce + (vals (dissoc (:live q) :info-log))) (:lease-rows-standing q)))
+                    [(format "  bytes per value at the end: logical %s, compacted %s; per plaintext value (%d B): logical %s (%s), compacted %s (%s); lock store over the rest: %s"
+                             (fmt lg) (fmt cp) size (fmt (per lg size)) (some-> (bytes-verdict (per lg size)) :call name)
+                             (fmt (per cp size)) (some-> (bytes-verdict (per cp size)) :call name)
+                             (fmt (per (lock-sst p) (:rest-sst p))))
+                     (format "  the curve: steps of %,d values, the largest departure of a step from the mean step %s%%"
+                             (:every x) (fmt (some-> worst (* 100))))
+                     (str "  the pick at the end: " (pr-str (get-in p [:lock-store :pick])) " checks " (pr-str (get-in p [:lock-store :checks]))
+                          (when-let [a (get-in p [:lock-store :approximate])] (str "; RocksDB's approximate size under P " a)))
+                     (str "  breakdown: " (pr-str (:breakdown x)))]))))
+     [""
+      "Each extra subject (bytes per lock row at 1, 2, 3 and 5 required persons):"
+      (str "  " (str/join "; " (for [[v k] [["h40" 1] ["h40-p2" 2] ["h40-p3" 3] ["h40-p5" 5]] :when (by-v v)]
+                                 (let [{:keys [logical compacted]} (row-bytes (by-v v))] (format "%d: %s logical, %s compacted" k (fmt logical) (fmt compacted))))))
+      (let [pts (for [[v k] [["h40" 1] ["h40-p2" 2] ["h40-p3" 3] ["h40-p5" 5]] :when (by-v v)] [k (:logical (row-bytes (by-v v)))])
+            n (count pts)]
+        (if (< n 2)
+          "  slope: fewer than two variants"
+          (let [mx (/ (reduce + (map first pts)) n) my (/ (reduce + (map second pts)) n)
+                slope (/ (reduce + (map (fn [[x y]] (* (- x mx) (- y my))) pts)) (reduce + (map (fn [[x _]] (* (- x mx) (- x mx))) pts)))]
+            (format "  least-squares slope per extra person, logical: %s B (from the code: one 28-byte seal and one keyword in :required)" (fmt slope)))))
+      (str "  slice: " (pr-str (:lock-growth slices)))])))
+
+(defn report
+  "8.5: the three `.txt` files from the three `.edn` files, complete runs
+  only; no cluster and no lock. The session that runs the numbers adds the
+  reading in words."
+  [& _]
+  (doseq [[number title body extra]
+          [[:agent-rate "Phase 7, number 1: index writes a second, an agent session layer writing small acts continuously, on the finished store" agent-report
+            [(str "Method: PLAN-numbers.md 4, as built (BUILD_NOTES-numbers.md). The act: one fact under " primary-key
+                  " (F1: no grammar in the layer, so no value index), a 40-byte value sealed at the door, written by :ada in the session :bench-s1 citing its permission.")
+             "Index writes a second: the sum over act kinds of admitted acts times that kind's writes below, over the window's seconds (2.5)."]]
+           [:one-thread "Phase 7, number 3: one person's layer on one thread, acts a second and latency, on the finished store" person-report
+            ["Method: PLAN-numbers.md 5, as built. (a) and (b) are closed loops: their latencies are service times at a fixed number in flight (coordinated omission, F5). (b') is an open schedule; its latency runs from each slot."]]
+           [:lock-growth "Phase 7, number 2: lock store growth under hand layers, bytes per value and the curve over 100,000 values" lock-report
+            ["Method: PLAN-numbers.md 6, as built: the store's own lock rows, sized in Rama 1.6.0's serializers (logical) and on disk after a forced compaction, picked out by value and re-packed alone (6.5); every point scans the whole family (BUILD_NOTES-numbers.md)."]]]]
+    (let [runs (complete-runs (read-lines number))
+          f (io/file (str/replace (out-file number) #"\.edn$" ".txt"))]
+      (if (empty? runs)
+        (log! "no complete runs for" (name number))
+        (do (spit f (str (str/join "\n" (concat (header title runs extra) (body runs))) "\n"))
+            (log! "wrote" (str f) "from" (count runs) "complete runs"))))))
