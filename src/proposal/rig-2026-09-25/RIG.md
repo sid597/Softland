@@ -24,8 +24,6 @@ resolutions, none a choice between branches: W2-1 to W2-3 in
 branch `rig-<name>`, reporting to C's session:
 - `build-fixes`: step R, by `PLAN-review-fixes.md`, building on
   `27543fd7`.
-- `build-replays-3`: phase 8's pass 3, by the "Pass 3 plan" in
-  `BUILD_NOTES-replays.md`, building on `27543fd7`.
 - `build-numbers`: phase 7's harnesses, by `BUILD_NOTES-numbers.md`, each
   tested small. The minimum set runs last, on C's word, after step R lands.
   This builder stalled from 07:13 to 07:43 on a command that waited for an
@@ -35,6 +33,15 @@ branch `rig-<name>`, reporting to C's session:
 RIG.md, at `ec8525dc` (merge of `rig-fold-wave2` at `9fdfe5f4`): rig
 choices R59 to R97, For Sid 51 to 68 (65 is step 6b), "The machinery count
 so far", and "Wave 2 landed" under "Stages tonight".
+
+*Also landed:* **phase 8's pass 3, at `26a30aca`** (merge of
+`rig-build-replays-3` at `ffc4f49a`). `rig.replay-test` ran once on the
+merged tree: 25 tests, 792 assertions, 0 failures, 0 errors; all 14 fixed
+histories played, 14 as the model says, 0 not practical
+(`runs/phase8-replays-pass3.txt`). The B cases use phase 4's names; every
+group read goes through the exit. A guard fails A2 and A4 to A7 once step
+6b is built, so 6b cannot change them silently. Its "For RIG.md" (P8-11 to
+P8-14, in `BUILD_NOTES-replays.md`) waits for the next fold.
 
 *Not started: step 6b*, the micro gate's grammar and then the machinery
 count's micro side. At 07:10 IST the session's auto-mode permission check
