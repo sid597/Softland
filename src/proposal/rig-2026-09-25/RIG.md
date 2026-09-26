@@ -564,6 +564,94 @@ and the handoff commit that carries this section.
   `BUILD_NOTES-promotion.md`, `BUILD_NOTES-reads-rest.md`,
   `BUILD_NOTES-tools-and-grammars.md`, each with its implementation and
   test validations, and `BUILD_NOTES-wave2.md`.
+- **Phase 8's pass 3 landed (`26a30aca`)**: the merge of
+  `rig-build-replays-3` at `ffc4f49a`. The B cases play on phase 4's names
+  in `rig.store.promote-client` (the landing lease, the request, the hold
+  and the resend, the paused micro topology for a landing in flight,
+  `status-of` for `:shown`); every group read goes through the one exit at
+  `{:frontier F}`, and B3 and B4 are the first reads of a landed copy
+  through the shared exit. A guard fails A2 and A4 to A7 once the micro
+  gate takes grammar facts while the seed writes no group grammar. One run
+  of `rig.replay-test` on the branch with wave 2 merged in (`fab4f8f8`): 25
+  tests, 792 assertions, 0 failures, 0 errors; all 14 fixed histories
+  played, 14 as the model says, 0 differ, 0 not practical, each case 5.9
+  to 8.3 s on a cluster of its own (`runs/phase8-replays-pass3.txt`). This
+  branch had changed only RIG.md since wave 2, so the merged code is the
+  tested code and was not rerun. Rig choices R98 to R101; nothing new found,
+  no new question, no first-record form. Notes: `BUILD_NOTES-replays.md`,
+  "Pass 3, after wave 2", with its two validations.
+- **Step R landed (`5bf802fc`)**: the merge of `rig-build-fixes` at
+  `0b49c215`, the fixes the review of wave 1 had left pending
+  (`PLAN-review-fixes.md`, validated minor-fail, sixteen edits in place). A
+  setting key about another entity than its layer is refused at both gates
+  and both doors (R-1; R102, R103); every recorded `:read/pattern` line
+  keeps its `[:kv]` value keyed (R-2; R104); the micro door never seals
+  under no lock (F-1's last edge; R105). The review's pending blocks are
+  ordinary assertions; the `pending?` switch is gone. One run on the tested tree
+  `30e9cf81`, which already held pass 3: 9 namespaces, 54 tests, 2,218
+  assertions, 0 failures, 0 errors, 389 s (`runs/review-fixes-run.txt`);
+  the merged code is the tested code. For Sid 4 and 37 are built as their
+  defaults; two new questions, For Sid 69 and 70. Notes:
+  `BUILD_NOTES-review-fixes.md`, with its two validations.
+- **The rama skill's full-spec review landed (`72604176`)**: the merge of
+  `rig-review-full-spec` at `34a9f103`, `REVIEW-full-spec.md`, by reading
+  at `13c8360b` (no fixes and no runs, by C's instructions and Sid's test
+  rule; step 6b's path out of scope). Verdict fail, the skill's form while
+  items are outstanding: 8 findings, 1 high, 2 medium, 5 low, five of them
+  bearing on a kept record. Every test the spec names has a covering test;
+  what fails is at the seams those tests do not cross. H-1 and M-1 (For Sid
+  71 and 72) went to a fix step, `rig-build-spec-fixes`; M-2 and the five
+  lows are For Sid 73 to 78, and the pick behind M-2, the read exit's RC6,
+  is R106.
+- **Phase 7's harnesses landed (`ad49bced`)**: the merge of
+  `rig-build-numbers` at `fe57f4c2`, new files only, by Sid's word, after
+  its builder's own merge of this branch into it was refused by the
+  session's permission check. Six files under `test/rig/bench/`:
+  `rig.bench.numbers` (the shared harness), `agent-rate` (number 1),
+  `one-thread` (number 3), `lock-growth` (number 2), `numbers-test` (T1 to
+  T11) and the driver `phase7-final.sh`, built by `PLAN-numbers.md` as
+  validated (F1 to F12), with nine departures from the plan, each with its
+  why; the binding check against wave 2's three branches, B1 to B14, held
+  on `42619066` (`BUILD_NOTES-numbers.md`). Compiled with no cluster and
+  never run: under Sid's test rule the minimum set was their first run.
+- **Step 6b landed (`dee0320a`)**: the merge of `rig-build-grammar-micro`
+  at `1ca407cd`, built in Sid's Codex session (GPT-6) from
+  `STARTER-6b.md`, after the session's permission check had denied builder
+  C's own builder for it (For Sid 65). The micro gate's grammar, a4 and b4:
+  `:grammar` a micro control key, its rows projected in `$$micro [L
+  :key-rows k]`, admission under the pre-batch rows with F4's in-batch
+  rule, and each value's subjects and hints carried from block 1 to block
+  2b (road 1; R107 to R111); the shared reads, index writes and rebuild
+  take the effective rows, so no production path reads the compiled
+  constants (For Sid 85). The night's one full suite ran on its tree
+  (`acf33699`), 09:01 to 09:18 IST: 26 namespaces, 163 tests, 8,085
+  assertions, 0 failures, 0 errors (`runs/grammar-micro-suite.txt`, For Sid
+  89); the replays in it, 14 histories, 14 as the model says
+  (`runs/grammar-micro-replays.txt`). This branch had added only phase 7's
+  harness files, which the suite does not run, and documents, so nothing
+  was rerun. Machinery count: micro side 4 (2 promised, 2 unanticipated, 0
+  capabilities), total 33 (12, 11, 10). Notes:
+  `BUILD_NOTES-grammar-micro.md`, `PLAN-grammar-micro.md` and its three
+  validations.
+- **Step 6b's review landed (`dad2fa69`)**: the merge of `rig-review-6b`
+  at `5dd472a0`, `REVIEW-6b.md`, by reading at `dee0320a` (no fixes, no
+  runs). Verdict minor-fail: 0 high, 0 medium, 5 low (For Sid 80 to 84).
+  Everything `STARTER-6b.md` listed holds, as do the plan's a4, b4, F4, M1
+  and T-FR3, step R's clause, P3-5's guard and the replay seed. The count's
+  arithmetic holds; counted by one unit rule throughout it is 35, not 33,
+  so the rule goes to Sid with both readings (For Sid 79). L-1's cheap fix
+  would be caching, which the project's rule sends to an adversarial
+  examination in a fresh session first; not done tonight.
+- **Phase 7's numbers landed (`8576d13f`)**: the merge of `rig-run-numbers`
+  at `97ada117`, the minimum set on the finished store (`dee0320a`, with
+  `cc011a22`, the harness's two fixes after the first attempt's test step
+  failed in 44 s). The second attempt ran every step to exit 0 from 09:27
+  to 10:11 IST: the test step (T1 to T11), 12 measured steps and the
+  report, every window's checks holding. The numbers are under "Numbers so
+  far"; three findings the plan did not expect are under "Found tonight",
+  two of them For Sid 86 and 87. The full set's other steps did not run
+  (Sid's test rule). Notes: `BUILD_NOTES-numbers.md`, "The run"; results
+  `runs/phase7-final-{agent-rate,one-thread,lock-growth}.{edn,txt}`.
 
 ## Found tonight
 
@@ -1948,7 +2036,8 @@ step 6b's (For Sid 65):
 - **R88. The micro gate's grammar is phase 6b** (P6-1; D-P1, the
   orchestrator's). Until then the micro store checks the compiled constant
   and refuses a grammar fact `:malformed-control`; the question block 2b
-  needs answered is in the notes' "Phase 6b".
+  needs answered is in the notes' "Phase 6b". *Built in step 6b* (R107 to
+  R111), which answered it with road 1.
 - **R89. A tool leases as itself through the door** (P6-2; D-P2): wave 1's
   W1-1 (R20) seals its lease rows under the layer's person owner, so the
   owner's forget reaches them; no runner lease step (For Sid 32).
@@ -1964,7 +2053,10 @@ step 6b's (For Sid 65):
 - **R93. The constants stay in source for what still reads them** (P6-6;
   D-P3): `grammar/grammars` for the micro store's opens and phase 2's pure
   tests, `seed-hints` for the micro side and the store keys' `:no-copy`;
-  the stream gate and the exit read only rows.
+  the stream gate and the exit read only rows. *Since step 6b* the micro
+  side reads rows too; 6b's notes list what it kept and say the store's
+  production paths now pass rows, hints or saved subjects, their
+  compatibility callers being pure fixtures (For Sid 85).
 - **R94. Earlier suites write the toy grammars as test data** (P6-7;
   `rig.store.toy-grammars`, D-P4), never from `src/`.
 - **The plan's T-RC1 to T-RC12 stand as built** (`PLAN-tools-and-grammars.md`):
@@ -1998,7 +2090,118 @@ changes without touching a record; none adds a first-record form.
   never indexed by value (or made opaque), and its rows are marked opaque
   from `$$layers`' rows. The micro side keeps the constant until step 6b. A
   reading 6b may revisit: such a read is refused, where it could instead
-  answer from the micro era marked `:partial`.
+  answer from the micro era marked `:partial`. *Step 6b kept it* (R111).
+
+Phase 8's pass 3, R98 to R101 (`BUILD_NOTES-replays.md`, "For RIG.md (pass
+3)", P8-11 to P8-14): each changes without touching a record; the replays
+write no record form of their own.
+
+- **R98. The replay sends `promote-client/promote!`'s two steps itself**
+  (P8-11): `lease-landing!`, then `request-offer` and the door's send, with
+  the functions and order `promote!` uses, so a hold or the pause sits
+  between them; KD3 is counted only when the lease's `:for` is the
+  request's landing, and every ack's crossing is checked against the
+  crossing's record.
+- **R99. Group reads go through the one exit at `{:frontier F}`**, F the
+  frontier just before the read (P8-12); an answered moment must cover
+  every batch the replay waited past. The group is also read by pattern
+  below the exit and by key, like a one-owner layer, and each request's
+  target is read at every read.
+- **R100. The person forget stays phase 2's act** (P8-13): the rest of
+  phase 5's wrapper (`read-exit/forget-person!`, the act and then the micro
+  index purge) is not exercised, since its pages wait on the micro
+  topology, which B4 holds paused; the shared read opens through
+  `$$persons` either way.
+- **R101. Step 6b's guard** (P8-14): a case writing a `:mention` into the
+  group is refused, failing the test, once the micro gate takes grammar
+  facts, until the seed writes the group's grammar. *Step 6b:* the seed
+  writes the model's grammars into the base and each group through the
+  micro gate, and the guard still refuses the five mention histories if
+  that seed is missing; all 14 replay as the model says
+  (`runs/grammar-micro-replays.txt`).
+
+Step R, R102 to R105 (`BUILD_NOTES-review-fixes.md`, "For RIG.md"; the
+review of wave 1's R-1, R-2 and F-1's last edge): R102 narrows what a
+record may carry; the other three touch no record.
+
+- **R102. A setting key about another entity is refused at both gates**
+  (`:malformed-control`, through `gate/misplaced-setting?`, one disjunct in
+  `gate/refusal`, which both gates decide stage 1's list by), extending
+  W1-7 (R26): no gate admits a control-key fact it does not act on. For Sid
+  37's road 1, built as its default.
+- **R103. No door sends one**: both doors throw `{:door :refused :reason
+  :malformed-control ...}` before sealing, leasing or appending
+  (`client/refuse-misplaced!`, called first by `c/offer!`,
+  `c/offer-until-answered!`, `mc/offer!` and `mc/write!`), so no depot holds
+  that plaintext from the door. The raw roads (`foreign-append!`,
+  `mc/send!`) stay open, and the tests use them to play a client that is
+  not the door (For Sid 70).
+- **R104. Every `:read/pattern` line records the module's keyed pattern**
+  (`entry-facts` takes the answer's `:recorded-pattern`), one-owner and
+  shared; a pattern answer without it gives no entry. For Sid 4's default,
+  built.
+- **R105. The micro door never seals under no lock**: `seal` throws
+  `{:door :no-lock ...}` for a cited id it holds no lock for, so `write!`
+  after a lease answered yes whose locks `take-locks` could not take sends
+  nothing, as the stream door throws after its tries (F-1's last edge,
+  R58). The lease stays answered yes; its unconsumed rows go when the
+  session closes. A refused lease keeps R58's throwaway locks.
+
+From the full-spec review, R106 (`REVIEW-full-spec.md`, M-2): a pick the
+read exit's plan made, which had never reached this list.
+
+- **R106. Visibility is ruling 9's default as a constant** (RC6 in
+  `PLAN-read-exit.md`: "Visibility by ruling 9's default as a constant:
+  personal, hand and agent layers to their owner, the base to anyone; seed
+  policy facts later"). As built: `reads.clj` `visible?` for the one-owner
+  exit (personal, hand and agent layers to their owner, the base to any
+  actor, every other kind to no one) and `shared_reads.clj` `visible?` (a
+  group by its `:members` row as of F); nothing under `src/` writes or
+  reads a policy fact. Ruling 9 is not silent here, so the pick is For Sid
+  73. The plan's other picks, RC1 to RC5 and RC7 to RC12, are in its "Rig
+  choices"; later stages changed some of them (RC7's hints are grammar
+  facts since phase 6 and step 6b; RC8's put page is R31's 2,048 rows).
+
+Step 6b, R107 to R111 (`BUILD_NOTES-grammar-micro.md`, "For RIG.md" and
+"What was built"): the micro side of phase 6. The notes call them
+reversible implementation choices; none touches a record: T-FR1 to T-FR3
+stand, and the micro record gains nothing (For Sid 7).
+
+- **R107. Road 1: block 1 carries each value's subjects and index hints to
+  block 2b.** Block 1a visits hash(L) for the settings, permissions, stream
+  heads and the distinct relevant key rows, then returns to the arrival
+  task to open and check under those pre-batch rows; block 2b routes back
+  to that task and applies no grammar, wrapping each value under its own
+  subject set, not the act's union. The handoff is attempt-local
+  materialized data (`$$micro-arrivals`): the parsed sealed envelope, the
+  safe skeleton, the hints, the layer projections and the sealed resend
+  lease rows, with no opened value and no bare lock. Its cost: one more
+  logical transfer per fresh offer, one more batch barrier, and K seeks
+  for K distinct relevant keys, 2K when every key falls back to the stream
+  rows; no new depot, durable PState or decision field. Roads 2 and 3
+  were not needed.
+- **R108. The micro gate's key row: `$$micro [L :key-rows k]` first,
+  `$$layers`' row only when it is absent**; a present micro row with a nil
+  grammar wins whole. `:grammar` is a micro control key; only `:kind`,
+  `:owner`, `:class` and `:lock-grain` are misplaced about another entity
+  (R102), so a grammar fact about its key's id is legal. Its cost on a
+  re-classed layer is For Sid 80.
+- **R109. Admission reads immutable pre-batch rows; a yes composes on
+  separate evolving rows**, coalesced to one final write per `[L k]` that
+  keeps the last admitted grammar and every admitted use. Shape and
+  subject-path changes govern the next batch; a hint change beside any use
+  of the key in the batch is refused `:grammar-change-needs-rebuild`,
+  which follows `:control-not-allowed` in the micro gate's order, with
+  `:malformed-control` and the misplaced setting ahead of it.
+- **R110. The offered use set is per layer and counts every envelope that
+  offers the key**, faces and recorded offers included (F4's "any
+  envelope"); a refused use blocks a hint-changing grammar in the same
+  batch but writes no `:used` (its consequence is For Sid 82).
+- **R111. A shared read keeps W2-3's stream-era check beside the effective
+  micro check** (R97): a re-classed layer's stream era still refuses a
+  `[:kv]` read of a key it used but never indexed by value, rather than
+  answering from the micro era marked `:partial`, and micro-era opaque rows
+  are marked from the effective rows.
 
 ## Numbers so far
 
