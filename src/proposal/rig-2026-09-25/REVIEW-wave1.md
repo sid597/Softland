@@ -198,7 +198,21 @@ follows.
 
 ## The suite
 
-(Filled in below after the one full run.)
+One full run at the end, from the rig folder, on this branch with F-1's
+fix: wave 1's 14 namespaces plus `rig.store.review-wave1-test`, without
+`RIG_PENDING`:
+
+```
+flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.smoke-test rig.claims-test rig.revision-test rig.store.clock-test rig.store.envelope-test rig.store.stream-gate-test rig.store.reads-test rig.store.read-exit-test rig.store.read-model-test rig.store.lock-test rig.store.forget-test rig.store.micro-prepare-test rig.store.micro-test rig.store.wave1-test rig.store.review-wave1-test
+```
+
+It finished at 06:26:32 IST, after 11 min 14 s including the wait for the
+lock: **94 tests, 5,630 assertions, 0 failures, 0 errors**
+(`runs/review-wave1-suite.log`, git-ignored). The other runs were try 1
+(the review namespace with `RIG_PENDING=1`: 6 failures, as listed above),
+try 2 (the review namespace and micro-test after F-1's fix: 337
+assertions, 0 failures) and try 3 (the review namespace with the two
+probes: 77 assertions, 0 failures).
 
 ## For RIG.md
 
