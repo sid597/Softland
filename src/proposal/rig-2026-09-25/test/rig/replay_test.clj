@@ -1744,8 +1744,12 @@
              (str pad "known    " (str/join " " (map kd-str (sort (:kd-seen play))))
                   (when (seq (:not-seen r)) (str "; predicted, not seen: " (str/join " " (map kd-str (sort (:not-seen r)))))))
              (str pad "roads    permissions " (name door-road) "; stream door stock! then offer!; micro door write!; "
-                  (if (some #(= :frontier (:road %)) (mapcat :layers (:reads play)))
-                    "the group read through phase 3's frontier" "the group read through the exit")
+                  (let [group-roads (set (for [rd (:reads play) l (:layers rd)
+                                               :when (not (one-owner-layer? (:layer l)))]
+                                           (:road l)))]
+                    (cond (contains? group-roads :frontier) "the group read through phase 3's frontier"
+                          (contains? group-roads :exit) "the group read through the exit"
+                          :else "no group read"))
                   "; " (:ms play) " ms")]
             (into (for [x (:notes play)] (str pad "note     " x)))
             (into (for [d (:diffs play) :when (:kd d)] (str pad "known    " (:where d) ": " (:says d) " (" (kd-str (:kd d)) ")")))
