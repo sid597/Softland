@@ -96,3 +96,126 @@ key-row block; and that step R and step 6b, which follow the merge, leave
 the counts as they are (step R refuses control-key facts the gate does not
 act on and changes pattern entries, neither of which these workloads make;
 6b is the micro gate's). T1 to T4 are the check.
+
+**Confirmed on the landed tree** (08:05 IST, read with `git show
+rig-2026-09-25:<path>` at `42619066`, wave 2 at `27543fd7`; not merged
+here, see "The merge" below): the stream gate's `decide*` takes
+`(reads/hints-of key-rows)` (gate.clj L440), so the primary key is `:note`
+(F1's first case); `write-decided>` keeps the key-row block
+(gate_event.clj L84-85) and writes the clock at L93; `fact-writes` writes
+`:ix-s` for every fact (reads.clj L259-264); the read entry carries its
+session (read_exit.clj L102) and is marked `#{:own-row}` (reads.clj
+L1089); `lock-effects` still sets `:by-stamp` (locks.clj L897); the lease
+row gains `:public` and `:for` (L1073); `module.clj` merges promotion's and
+grammar's fields (L92-98); the door, `open-session!` (micro_client.clj
+L513), `permit/chain` and `:grammar` as a control key (envelope.clj L57)
+are as the branches had them. The bench files the harness reuses
+(`test/rig/bench`, `src/rig/bench`, deps.edn) are unchanged. So the
+branch-by-branch check above holds on the landed tree, and the harness's
+write lists are the plan's: 9, 11, 10, 72, 10 and the first-use key row.
+
+## The build (26 September, 07:55 to 08:30 IST)
+
+**What was built**, all new files under the rig folder, nothing that exists
+changed (9.1):
+
+| File | Namespace | What it is |
+|---|---|---|
+| `test/rig/bench/numbers.clj` | `rig.bench.numbers` | the shared harness: META, one cluster a run with the busy-port retry, the overlap monitor, setup through the store's own acts, 2.3's write lists as data with their landed sites, the store's field counts, closed and open windows, the counts, the read-back, the verdict rules, the report |
+| `test/rig/bench/agent_rate.clj` | `rig.bench.agent-rate` | number 1: `run` (A, A', D2, D1), `sessions` (B), `reads` (C and the entry bytes) |
+| `test/rig/bench/one_thread.clj` | `rig.bench.one-thread` | number 3: `run` ((a), (b), (b')), `reads` ((c)) |
+| `test/rig/bench/lock_growth.clj` | `rig.bench.lock-growth` | number 2: `run <variant>` for the seven variants of 6.3 |
+| `test/rig/bench/numbers_test.clj` | `rig.bench.numbers-test` | T1 to T11 |
+| `test/rig/bench/phase7-final.sh` | | the driver of 8.2 |
+
+**What ran: nothing on a cluster.** Sid's rule of 26 September (relayed by
+builder C: optimize for the system's throughput, run tests only when they
+are needed) dropped the one small run each harness was to get. The only
+things run were JVMs with no cluster: the serializer signatures (B12), and
+two loads of the five namespaces, the second clean. The first load found
+that Clojure does not import `java.lang.ProcessHandle` by itself, and
+running the META's commands by hand found that `df` refuses `-T` with
+`--output`; both fixed. So the harness is written and compiled, not run:
+the minimum set is its first run. Its first step is `test`, which loads
+every harness (the test namespace requires `rig.bench.one-thread` for that
+alone) and runs T1 to T11 on the finished store; the driver measures
+nothing unless it passes.
+
+**The run order** (Sid's rule: a broken harness must fail near the start
+of the set, not late in it): `test`; then the first run of each harness,
+the shortest first; then the repeats. `min`: test, lock-growth-h40-p3
+(about a minute: the lock pipeline with a grammar and three persons),
+agent-rate-1, one-thread-1, lock-growth h40, h200, h40-p2, h40-p5,
+agent-rate-2, one-thread-2, agent-rate-3, one-thread-3, report. `short` and
+`full` are ordered the same way. The plan put the timing runs first "on the
+quietest machine the night will give"; my own steps never overlap, so the
+order does not change the noise, and failing early is worth more. From the
+merged tree's rig folder:
+
+    nohup test/rig/bench/phase7-final.sh min > runs/phase7-final-driver.log 2>&1 &
+
+Progress: `tail -f runs/phase7-final-progress.log runs/phase7-final-*.log`.
+
+**Where the build departs from the plan, and why:**
+
+1. **Number 2 scans the whole `subindexed` family at every point** (6.5
+   says the points between the first and the last seek to the first
+   point's P). P is the longest common prefix of the picked keys, so it can
+   reach into the lock ids' own bytes: their lease names are
+   `[layer class :offer uuid7]`, and a uuid7 begins with the millisecond,
+   so rows written a minute later need not start with the first point's P
+   and a seek would miss them (*derived* from the envelope's `make-name`
+   and `uuid7`). The full scan costs seconds a point and runs both checks,
+   one structure and the exact count, at every point.
+2. **Variant C and T4 cite the session's permission**, the session named in
+   the read spec: the landed exit carries it into the entry (F3's second
+   case). Entries and value acts share one pool, two locks an iteration.
+3. **T4 writes the facts it reads in the owner's default session.** A door
+   takes a session's unconsumed locks from any earlier lease (the door's
+   `refresh!` takes every lease it has not seen), so facts written in the
+   read session would leave the reader's fresh door no lease to make, and
+   the entry's lease path would go untested.
+4. **The harness writes its own `:mention` grammar**, one to eight persons;
+   tools' toy grammar admits two, and `h40-p5` names four (binding check,
+   change 4).
+5. **The home task's thread** is the busiest thread that is not the
+   harness's own (it names its threads `phase7-*`), as the slices found the
+   home task's thread the busiest in every window; its name is in every
+   result, so a reader can check it.
+6. **The overlap monitor also records the CPU** each other JVM used over
+   its sightings, so an idle JVM can be told from a busy one; a window is
+   still marked `:overlap` whenever one was seen (8.4).
+7. **B's and (b')'s index writes a second** take the doors' lease count
+   over the whole window (warm-up included) and pro-rate it to the measured
+   part by the admitted value acts; marked `:derived` in the result.
+8. **T7's "two prefixes"** is shown as how many separate stretches of key
+   order the picked rows make (`:runs`), printed, not asserted, since it
+   depends on Rama's key layout; what is asserted is the failed
+   one-structure check and the named estimate.
+9. B's target task is task 0.
+
+Each number's result file and each RESULT line carry the primary key, the
+latency kind (`:closed-loop-service-time` or `:from-schedule`), the caveat
+and the thresholds line, as 8.5 asks.
+
+**First-record placeholders**: none. The benches keep no record; every
+shape they write is the store's own (acts through the door, reads through
+the exit).
+
+**Nothing was deleted.** The harness removes, at run time, only the scratch
+copies it makes of a RocksDB directory under the JVM's temp dir, as the
+slice did.
+
+## The merge
+
+Builder C asked twice for `rig-2026-09-25` to be merged into this branch.
+The first `git merge --no-edit rig-2026-09-25` was refused by the session's
+permission check (the auto mode classifier, with no reason given), and it
+has not been retried by any other road. The merge is needed before the set
+runs: this branch sits on `c9684356`, before wave 2, and the harness is
+written for the landed store (`:ix-s`, key rows, the session in the read
+entry). This branch adds new files only (the six above and these notes)
+and changes no file `rig-2026-09-25` has, so the merge should be
+conflict-free; the harness was checked against the landed tree by reading
+it (above), and it compiles against this branch's tree, whose namespaces
+and signatures the harness uses are unchanged by wave 2.

@@ -167,7 +167,7 @@
   "The filesystem type, device and disk model under `dir`."
   [dir]
   (when dir
-    (let [out (sh-out "df" "-T" "--output=source,fstype" (str dir))
+    (let [out (sh-out "df" "--output=source,fstype" (str dir))
           [src fstype] (some-> out str/split-lines second str/trim (str/split #"\s+"))
           parent (when src (sh-out "lsblk" "-no" "PKNAME" src))
           disk (if (str/blank? parent) src (str "/dev/" (first (str/split-lines parent))))
