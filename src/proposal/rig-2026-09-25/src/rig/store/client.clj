@@ -265,6 +265,17 @@
        (and (some? digest) (not= digest (:digest rec))) {:answer :no :reason :name-taken :name nm}
        :else rec))))
 
+(defn lookup-many
+  "The answer records under `names` in `layer`, by name plus layer, in one
+  read on the layer's home (phase 6, b6: the batch form of `lookup`, RD-T3,
+  so a runner learns which of a tool's matches already ran in one
+  roundtrip, not one per match): {name record} for the names answered;
+  names with no answer are absent. Every name must be made for `layer`."
+  [store layer names]
+  (if (empty? names)
+    {}
+    (into {} (foreign-select-one [(keypath layer :answers) (submap (vec names))] (:layers store)))))
+
 (defn answer-of
   "The answer shape the ack carries, from a record found by lookup."
   [nm rec]

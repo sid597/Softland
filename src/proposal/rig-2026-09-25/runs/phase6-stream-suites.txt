@@ -1,0 +1,76 @@
+Phase 6's first run of the suites its change touches, 26 Sep 2026, lock taken 06:47:12, ended 06:49:17 IST
+Branch rig-build-tools at 5a258789 (tools-test as committed there); Rama 1.6.0 in-process cluster; under /mnt/data/projects/rig-relay-2026-09-26/cluster.lock.
+Command, from src/proposal/rig-2026-09-25:
+  clojure -M:test rig.store.tools-test rig.store.stream-gate-test rig.store.reads-test rig.store.read-exit-test rig.store.read-model-test rig.store.forget-test rig.store.wave1-test rig.smoke-test rig.store.lock-test rig.store.envelope-test
+Below: the test runner's lines (Testing, OBSERVED, FAIL, the summary); Rama's log and stack lines removed.
+
+Testing rig.store.tools-test
+OBSERVED R1 report {:layer :alice, :tools-read {:entry [:alice :by-layer :offer #uuid "01a0db49-de7e-7e05-adac-add351496f4c"], :mark :complete, :matched [[[[:alice :by-layer :offer #uuid "01a0db49-de44-7117-a545-dea0ff63b376"] 0] 117334700620775424]]}, :tools [{:tool [[:alice :by-layer :offer #uuid 
+OBSERVED two runners, the new match's runs ({:answer :yes, :reason nil, :stamp 117334700639584256, :match [[:alice :by-layer :offer #uuid "01a0db49-df42-73d2-812c-c609603bc5be"] 0], :name [:alice :by-layer :offer #uuid "27e97a72-2761-8c93-9fd4-fde0fb2c5174"]} {:answer :yes, :reason nil, :stamp 11733
+FAIL in (tools-and-grammars) (tools_test.clj:283)
+expected: (= 3 (count (:runs line)))
+  actual: (not (= 3 4))
+OBSERVED R4 after the revoke {:tool [[:alice :by-layer :offer #uuid "01a0db49-de44-7117-a545-dea0ff63b376"] 0], :id :mention-count, :read {:refused :permission-revoked, :entry [:alice :by-layer :offer #uuid "01a0db49-e0a8-76f1-8370-fd43a6402c08"]}}
+OBSERVED R5 first pass {:layer :r5, :tools-read {:entry [:r5 :by-layer :offer #uuid "01a0db49-e1df-7525-91be-e8f99c5d1d15"], :mark :complete, :matched [[[[:r5 :by-layer :offer #uuid "01a0db49-e1ad-78be-8b4d-c98826ee2bea"] 0] 117334700677201920] [[[:r5 :by-layer :offer #uuid "01a0db49-e1c8-73e4-89fd-
+Testing rig.store.stream-gate-test
+OBSERVED tasks 2
+OBSERVED burst: 3200 acts in 3.94 s, 813 a second; largest lead of a stamp's millisecond over the wall at its ack -3 ms; largest counter 2 ; the millisecond unit over the same decisions would have ended 7 ms ahead
+OBSERVED a subvec name through the depot: {:answer :yes, :reason nil}
+OBSERVED crash before the writes: the append threw | the gate saw the offer 3 times, reached its writes 2 times
+OBSERVED crash after the writes: the append threw | decision code ran 2 times
+OBSERVED completed-record replay: attempts 1 | times the completed offer was seen [2] | answered from its record [1]
+Testing rig.store.reads-test
+Testing rig.store.read-exit-test
+OBSERVED T2 points for the entry: [:exit-after-query :seen :before-writes :after-writes :exit-after-entry :exit-shown]
+OBSERVED purge during a paged read: the row shows the value
+OBSERVED T10 rebuild over an intact layer: {:put-pages 6, :deleted 0, :rewritten 0}
+OBSERVED T18 read layer clock 117335801679052801 | working layers on other tasks: [:t18w0 :t18w2 :t18w3 :t18w4 :t18w5 :t18w6 :t18w7]
+OBSERVED reads that returned rows: 47
+Testing rig.store.read-model-test
+OBSERVED not replayed: A: in Alice's own layer a note and a mention of Bob both die with Alice -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A: in the group a mention of Bob alone dies with Bob -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A: in the group a plain note about no one survives both forgets -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A: in the group a value about Alice and Bob survives Alice alone -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A: in the group a value about Alice and Bob survives Bob alone -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A: ... and dies when both are forgotten ('either one alone') -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A: in the group a value about Alice and Bob, marked, dies with Bob -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b) -- a person forget (phase 2), and for most the group layer (phase 3)
+OBSERVED not replayed: B: a value forget queued before the read-out: pending, then refused -- a promotion (phase 4) into the group layer (phase 3), and a forget (phase 2)
+OBSERVED not replayed: B: Alice forgotten before the read-out: pending, then refused -- a promotion (phase 4) into the group layer (phase 3), and a forget (phase 2)
+OBSERVED not replayed: B: a value forget after the read-out: crossed, then done; the copy stays -- a promotion (phase 4) into the group layer (phase 3), and a forget (phase 2)
+OBSERVED not replayed: B: Alice forgotten after the read-out: crossed, then done; the copy stays -- a promotion (phase 4) into the group layer (phase 3), and a forget (phase 2)
+OBSERVED not replayed: D: a group write under Alice's session permission; the session revokes it between prepare and commit -- a write into the group layer on the micro gate (phase 3)
+OBSERVED not replayed: D: a group write under her group permission, revoked in the group first -- a write into the group layer on the micro gate (phase 3)
+OBSERVED chains : 32 ops, 6 reads compared, 11 offers answered; 0 differences; single-moment observations: [{:where [:chains 4 [:read :now]], :layer :alice, :model-only 3, :rig-only 0} {:where [:chains 29 [:read [:at 7]]], :layer :alice-hand, :model-only 0, :rig-only 3} {:where [:chains 30 [:read [:
+OBSERVED chains : known differences (For Sid 14, 2): ({:kind :offer, :model :no-permission, :rig :no-such-lock})
+OBSERVED random11 : 62 ops, 4 reads compared, 21 offers answered; 0 differences; single-moment observations: [{:where [:random11 61 [:read [:at 4]]], :layer :alice-hand, :model-only 0, :rig-only 3}]
+OBSERVED random11 : known differences (For Sid 14, 2): ({:kind :offer, :model :no-permission, :rig :no-such-lock})
+OBSERVED random23 : 52 ops, 4 reads compared, 21 offers answered; 0 differences; single-moment observations: [{:where [:random23 3 [:read :now]], :layer :alice, :model-only 1, :rig-only 0}]
+OBSERVED random23 : known differences (For Sid 14, 2): ({:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such-lock})
+OBSERVED random37 : 54 ops, 8 reads compared, 14 offers answered; 0 differences; single-moment observations: []
+OBSERVED random37 : known differences (For Sid 14, 2): ({:kind :reuse-of-a-face} {:kind :reuse-of-a-face} {:kind :reuse-of-a-face} {:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such-l
+OBSERVED stood-on : 9 ops, 3 reads compared, 3 offers answered; 0 differences; single-moment observations: []
+OBSERVED stood-on : known differences (For Sid 14, 2): ()
+Testing rig.store.forget-test
+OBSERVED tasks 8
+OBSERVED a forgotten value resent under new locks : locks the store holds 207 , depot copies of the value 4
+OBSERVED record path replay: times the resent offer was answered from its record [4]
+OBSERVED value forget, personal : locks the store holds 204 , depot copies of the value 1
+OBSERVED value forget, agent : locks the store holds 202 , depot copies of the value 1
+OBSERVED A1's person forget : locks the store holds 204 , depot copies of the value 1
+OBSERVED crash at :seen: the append threw
+OBSERVED crash at :before-writes : the append threw | decisions 2
+OBSERVED crash at :after-writes : the append threw | decisions 2
+OBSERVED crash in the fan-out: the append threw
+OBSERVED crash in a value forget: the append threw
+Testing rig.store.wave1-test
+OBSERVED homes of the layers (a task each): {:w1p-layer 0, :alice 0, :base 2}
+OBSERVED person forget purges: [{:task 2, :layer :base} {:task 0, :layer :alice} {:task 0, :layer :w1p-layer}]
+OBSERVED per-act entities :w1pe0 :w1pe1 on tasks 1 3
+Testing rig.smoke-test
+Testing rig.store.lock-test
+Testing rig.store.envelope-test
+Ran 45 tests containing 2344 assertions.
+1 failures, 0 errors.
+{:test 45, :pass 2343, :fail 1, :error 0}
+exit 1 06:49:17

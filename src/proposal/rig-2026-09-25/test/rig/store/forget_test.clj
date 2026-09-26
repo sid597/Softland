@@ -24,6 +24,7 @@
             [formal.model :as fm]
             [formal.scenarios :as fs]
             [rig.store.client :as c]
+            [rig.store.toy-grammars :as tg]
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
@@ -110,7 +111,9 @@
   permission in it."
   [st layer kind owner]
   (is (= :yes (:answer (c/offer-until-answered! st (c/make-layer-offer layer {:kind kind :owner owner})))) (str "made " layer))
-  (is (= :yes (:answer (c/offer-until-answered! st (c/grant-offer st [owner layer layer])))) (str "granted " owner " in " layer)))
+  (is (= :yes (:answer (c/offer-until-answered! st (c/grant-offer st [owner layer layer])))) (str "granted " owner " in " layer))
+  ;; phase 6: the toy grammars as facts in the layer (D-P4)
+  (is (every? #(= :yes (:answer %)) (tg/write! st [layer])) (str "grammars in " layer)))
 
 (defn- grant! [st pid]
   (is (= :yes (:answer (c/offer-until-answered! st (c/grant-offer st pid)))) (str "granted " (pr-str pid))))
@@ -218,6 +221,8 @@
               base (c/seed-base! st)]
           (is (= 13 (count answers)))
           (is (every? #(= :yes (:answer %)) (concat answers base)))
+          ;; phase 6: the toy grammars as facts in the seeded layers and the base (D-P4)
+          (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent :base])))
           (is (= {:kind :store :class :by-layer :grain :per-value} (c/settings st :people)) "the store layer has no owner")
           (is (= {:kind :base :owner :operator :class :by-layer :grain :per-value} (c/settings st :base))
               "the base is made with the root actor as its owner, not refused for want of a person lock")

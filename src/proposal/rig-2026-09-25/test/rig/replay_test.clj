@@ -152,8 +152,8 @@
     :source "P2 L1904-1906; IMPLICIT_SPEC D3"}
    {:n 8 :group :acts :cases every-case
     :title "layers, the base and the group are made by acts"
-    :rule "the base is one-owner on the stream gate until the group's making re-classes it; the model's layers are static"
-    :source "P10, default 6, P3 L641-644"}
+    :rule "the base is one-owner on the stream gate until the group's making re-classes it; the model's layers are static; since phase 6 the model's one grammar, a constant there, is a fact the operator writes in each one-owner layer in the seed (the micro side reads the constant until step 6b)"
+    :source "P10, default 6, P3 L641-644; phase 6's D-P4, wave 2's W2-2"}
    {:n 9 :group :refusals :cases every-case
     :title "permission ids and chains"
     :rule "the model's [p l :own] is [p l l] for p's own layer, else [p l l root]; [p l :session] is [p l :alice-hand]; on the session road a write cites [S l l pid] beneath it"
@@ -562,8 +562,9 @@
   the name comes from: `:built` as the stage's build names it (phase 1 and
   phase 5a on this branch; phases 2 and 3 as wave 1 merged them onto
   rig-2026-09-25 at 2034cce5, the names and arities their builds gave,
-  confirmed in pass 2), `:plan` as the plan names it for a stage not built
-  yet, a binding to confirm. `:plan-name` is the plan's name where
+  confirmed in pass 2; phases 4, 5's rest and 6 as wave 2 merged them at
+  27543fd7, bound in pass 3), `:plan` as the plan names it for a stage not
+  built yet, a binding to confirm. `:plan-name` is the plan's name where
   the build's differs. `:cases` is who needs it; `:optional` ones never make
   a case not practical (the line names the road taken without them)."
   [;; ---- stage 1, phase 1's (built on this branch)
@@ -574,7 +575,8 @@
    {:id :client/grant-offer :stage "1" :var 'rig.store.client/grant-offer :bound :built :cases :all}
    {:id :client/make-layer-offer :stage "1" :var 'rig.store.client/make-layer-offer :bound :built :cases :all}
    {:id :client/revoke-offer :stage "1" :var 'rig.store.client/revoke-offer :bound :built :cases #{"D1"}}
-   {:id :env/make-name :stage "1" :var 'rig.store.envelope/make-name :bound :built :cases b-cases}
+   {:id :env/uuid7 :stage "1" :var 'rig.store.envelope/uuid7 :bound :built :cases b-cases
+    :plan-name "the request's uuid, made before its landing lease, as promote-client/promote! makes it"}
    {:id :inject/reset-all! :stage "1" :var 'rig.store.inject/reset-all! :bound :built :cases :all}
    ;; ---- stage 2, phase 2's door, persons and forgets (wave 1 at 2034cce5: client.clj 322-499)
    {:id :client/people-layer :stage "2" :var 'rig.store.client/people-layer :bound :built :cases :all
@@ -588,6 +590,8 @@
    {:id :client/opens? :stage "2" :var 'rig.store.client/opens? :bound :built :cases stream-writes}
    {:id :client/depot-records :stage "2" :var 'rig.store.client/depot-records :bound :built
     :cases #{"A1" "A3" "A4" "A6" "B2" "B4"} :plan-name "(KD10's attribution: the entry's cited lease, F3)"}
+   {:id :client/raw-row :stage "2" :var 'rig.store.client/raw-row :bound :built :cases b-cases
+    :plan-name "(the request's source entity, as promote-client/promote! reads it)"}
    {:id :grammar/grammars :stage "2" :var 'rig.store.grammar/grammars :bound :built
     :cases #{"A1" "A2" "A4" "A5" "A6" "A7" "A8"}
     :check (fn [g] (= {:subjects-at [:persons]} (get g :mention)))
@@ -611,25 +615,45 @@
     :cases #{"A2" "A3" "A4" "A5" "A6" "A7" "B3" "B4" "D1" "D2"}
     :plan-name "micro-act at F and the pure open of a row (open-row)"}
    {:id :micro/revoke-offer :stage "3" :var 'rig.store.micro-client/revoke-offer :bound :built :cases #{"D2"}}
-   ;; ---- stage 4, phase 4's promotion (not built: the plan's names, to confirm)
-   {:id :client/lease-landing! :stage "4" :var 'rig.store.client/lease-landing! :bound :plan :cases b-cases}
-   {:id :client/promote! :stage "4" :var 'rig.store.client/promote! :bound :plan :cases b-cases}
-   {:id :client/promotion-status :stage "4" :var 'rig.store.client/promotion-status :bound :plan :cases b-cases}
-   {:id :inject/hold! :stage "4" :var 'rig.store.inject/hold! :bound :plan :cases #{"B1" "B2"}
+   ;; step 6b's sign, read by P3-5's guard (`world-refusal`), never a stage missing
+   {:id :micro/control-keys :stage "3" :var 'rig.store.micro/control-keys :bound :built :cases :all :optional true
+    :plan-name "the micro gate's control keys: :grammar there is step 6b built, which the seed does not follow yet"}
+   ;; ---- stage 4, phase 4's promotion (rig-build-promotion 5303418f, merged at 27543fd7):
+   ;; the door's promotion is rig.store.promote-client, not rig.store.client as the plan
+   ;; named it (pass 3)
+   {:id :promote/connect :stage "4" :var 'rig.store.promote-client/connect :bound :built :cases b-cases
+    :plan-name "the merged handle, micro-client's plus the promotion-status query"}
+   {:id :promote/lease-landing! :stage "4" :var 'rig.store.promote-client/lease-landing! :bound :built :cases b-cases
+    :plan-name "client/lease-landing!"}
+   {:id :promote/request-offer :stage "4" :var 'rig.store.promote-client/request-offer :bound :built :cases b-cases
+    :plan-name "client/promote! (promote-client/promote!'s two steps, sent by the replay so a hold or the pause sits between them)"}
+   {:id :promote/resend! :stage "4" :var 'rig.store.promote-client/resend! :bound :built :cases b-cases
+    :plan-name "the door's resend of the same request, answered from the record"}
+   {:id :promote/status-of :stage "4" :var 'rig.store.promote-client/status-of :bound :built :cases b-cases
+    :plan-name "client/promotion-status (status-of gives the keyword)"}
+   {:id :inject/hold! :stage "4" :var 'rig.store.inject/hold! :bound :built :cases #{"B1" "B2"}
     :plan-name "inject/hold! at :before-read-out and :before-forward (never rig.claims/hold!, F8)"}
-   {:id :inject/release! :stage "4" :var 'rig.store.inject/release! :bound :plan :cases #{"B1" "B2"}}
+   {:id :inject/release! :stage "4" :var 'rig.store.inject/release! :bound :built :cases #{"B1" "B2"}}
    {:id :env/crossing-name :stage "1" :var 'rig.store.envelope/crossing-name :bound :built :cases b-cases
     :plan-name "env/crossing-name (the plan lists it under stage 4; phase 1 built it)"}
    {:id :env/landing-name :stage "1" :var 'rig.store.envelope/landing-name :bound :built :cases #{"B3" "B4"}
-    :plan-name "env/landing-name (listed under stage 4; phase 1 built it, and phase 4 makes it take the class: the 3-arity is tried first)"}
+    :plan-name "env/landing-name (listed under stage 4; phase 4 gave it the class, the one the request carries)"}
    ;; ---- stage 5a, the one-owner read exit (built on this branch)
    {:id :exit/connect :stage "5a" :var 'rig.store.read-exit/connect :bound :built :cases :all}
    {:id :exit/read! :stage "5a" :var 'rig.store.read-exit/read! :bound :built :cases :all}
-   ;; ---- stage 5, the rest: the exit's shared-layer read (to confirm; optional)
-   {:id :shared/moment :stage "5-rest" :var 'rig.store.shared-reads/moment :bound :plan :cases :all :optional true
-    :plan-name "the exit's shared-layer read (PLAN-reads-rest.md: read-exit/read! on a group layer, rig.store.shared-reads)"}])
+   ;; ---- stage 5, the rest: the exit's shared-layer read (rig-build-reads-rest 33817364,
+   ;; merged at 27543fd7): read-exit/read! itself on a group layer at {:frontier F}; this
+   ;; var is its sign, optional (without it the group is read through phase 3's frontier)
+   {:id :shared/moment :stage "5-rest" :var 'rig.store.shared-reads/moment :bound :built :cases :all :optional true
+    :plan-name "the exit's shared-layer read (PLAN-reads-rest.md: read-exit/read! on a group layer, rig.store.shared-reads)"}
+   ;; ---- phase 6, grammars as facts (wave 2's merge, W2-2): the stream gate and the
+   ;; one-owner exit read a key's grammar only from facts in the layer, so the seed writes
+   ;; the model's grammar into each one-owner layer (the test data phase 6's suites use,
+   ;; D-P4); optional, so a tree without phase 6 seeds as pass 2 did
+   {:id :grammar/facts :stage "6" :var 'rig.store.toy-grammars/facts :bound :built :cases :all :optional true
+    :plan-name "the model's grammars as facts in each one-owner layer (phase 6's D-P4)"}])
 
-(def stage-order ["1" "2" "3" "4" "5a" "5-rest"])
+(def stage-order ["1" "2" "3" "4" "5a" "5-rest" "6"])
 
 (defn- needs? [api id]
   (and (not (:optional api)) (or (= :all (:cases api)) (contains? (:cases api) id))))
@@ -761,9 +785,13 @@
   the client's) and the micro client's (which wraps it too), so one door,
   one lease pool and every query handle: the micro client's keys win, the
   exit's `:read-point`, `:read-pattern` and `:index-ops` stay, as wave 1's
-  own test merges them (wave1_test.clj L158)."
+  own test merges them (wave1_test.clj L158). Since phase 4, promote-client's
+  in place of micro-client's when it resolves: the same handles plus the
+  `promotion-status` query (`:status-q`), as phase 4's own test merges them
+  (promote_test.clj L164)."
   [api ipc]
-  (merge ((api-fn api :exit/connect) ipc) ((api-fn api :micro/connect) ipc)))
+  (merge ((api-fn api :exit/connect) ipc)
+         ((api-fn api (if (contains? (get api :promote/connect) :value) :promote/connect :micro/connect)) ipc)))
 
 (defn answer-of
   "An answer's keyword and reason, from a stream ack, a micro-lookup result,
@@ -808,6 +836,12 @@
        [["the store layer" #(send store ((f :client/make-layer-offer) (f :client/people-layer) {:kind :store}))]])
      (for [p (:persons w)] [(str "person " (name p)) #((f :client/make-person!) store p)])
      (for [[l spec] (:one-owner w)] [(str "layer " (name l)) #(send store ((f :client/make-layer-offer) l spec))])
+     ;; phase 6 (W2-2): the model's grammars as facts in each one-owner layer, before
+     ;; any case act there, when phase 6's facts resolve
+     (when (contains? (get api :grammar/facts) :value)
+       (for [[l _] (:one-owner w)]
+         [(str "grammars in " (name l))
+          #(send store ((f :client/build) {:who :operator :layer l :class :by-layer :facts (f :grammar/facts)}))]))
      (for [pid (:stream-grants w)] [(str "grant " (pr-str pid)) #(send store ((f :client/grant-offer) store pid))])
      (if first?
        [["the base" #((f :micro/make-base!) store (:base w))]]
@@ -931,9 +965,11 @@
 (def rig-only-keys
   "Fact keys only the rig's own acts carry, which a read that finds them
   does not count as a fact the model lacks: making and settings, grants,
-  leases and session closes, persons and their forgets, read entries."
+  leases and session closes, persons and their forgets, read entries (the
+  standing reads' three since phase 5's rest), and the grammars the seed
+  writes (phase 6, W2-2)."
   #{:kind :owner :class :lock-grain :members :permission :lease :session-closed :person :forget-person
-    :read/point :read/pattern})
+    :read/point :read/pattern :read/standing :read/delivery :read/closed :grammar})
 
 (def ^:private status-rank {:practical 0 :approximated 1})
 
@@ -1030,11 +1066,13 @@
 
 (defn- wait-frontier!
   "Wait for the frontier to pass the batch that decided a micro answer, so
-  every task has committed it (R5; P3 L2128-2133)."
-  [env store a]
+  every task has committed it (R5; P3 L2128-2133). The largest batch waited
+  past is kept, so a group read's moment can be checked against it (P3-4)."
+  [env store p a]
   (when-let [b (:batch a)]
     (wait-for (str "the frontier past batch " b)
-              #(let [F ((f env :micro/frontier) store)] (and (int? F) (<= b F))))))
+              #(let [F ((f env :micro/frontier) store)] (and (int? F) (<= b F))))
+    (swap! p update :max-batch (fnil max b) b)))
 
 (defn- rig-facts
   "A model act's facts as the rig's: entity, key, the value verbatim (its
@@ -1069,7 +1107,7 @@
             a (:answer r)
             lease (when-let [l (:lease r)] (assoc (answer-of (:answer l)) :name (:name l)))]
         (when (= :no-answer (:answer a)) (throw (ex-info "no answer within 60 s: a group write" {::timeout (:name d)})))
-        (when (#{:yes :no} (:answer a)) (wait-frontier! env store a))
+        (when (#{:yes :no} (:answer a)) (wait-frontier! env store p a))
         (record-act! p d {:rig (get-in r [:offer :name]) :gate :micro :layer rl :facts facts :offer (:offer r)
                           :answer a :lease lease})))))
 
@@ -1103,7 +1141,7 @@
         o (if micro? ((f env :micro/revoke-offer) store rpid) ((f env :client/revoke-offer) store rpid))
         a (if micro? ((f env :micro/offer!) store o) ((f env :client/offer-until-answered!) store o))]
     (kd! p 9)
-    (when (and micro? (#{:yes :no} (:answer a))) (wait-frontier! env store a))
+    (when (and micro? (#{:yes :no} (:answer a))) (wait-frontier! env store p a))
     (record-act! p d {:rig (:name o) :gate (if micro? :micro :stream) :layer in :facts (:facts o) :offer o :answer a})))
 
 (defn- play-person-forget!
@@ -1125,42 +1163,51 @@
                                   (and (map? e) (nil? (:lock e)) (some? (:erased-at e))))
                                fan-keys))))))
 
-;; ---- promotion: phase 4 is not built; each call's shape is a binding to confirm
+;; ---- promotion: phase 4's door, rig.store.promote-client (merged at 27543fd7; pass 3)
 
 (defn call-lease-landing!
-  "Phase 4's landing lease (KD3; P4 L956: 'lease-landing! (the lease act and
-  the public key)', no argument list given). Assumed: a spec map naming the
-  writer, the target layer, the session, the permission there and the
-  request's name, answered like any act. To confirm at wave 2."
+  "Phase 4's landing lease (KD3): `promote-client/lease-landing! [store
+  {:who :target :class :session :permission :uuid}]`, the lease act into the
+  target under the request's uuid, and its public key read back once its
+  batch is settled. Returns `{:name :offer :lock-id :answer :public :for}`:
+  the answer is under `:answer` (pass 1 assumed the map was the answer),
+  `:public` nil when refused or not read back, `:for` the landing the row
+  opens."
   [env store spec]
-  ((f env :client/lease-landing!) store spec))
-
-(defn call-promote!
-  "Phase 4's request (P4 L956-957: 'promote! (the request; its answer with
-  the crossing's and the statements)'). Assumed: a spec map with the
-  request's name and claimed-when given by the caller, so a resend rebuilds
-  the same map and is answered from the record; the answer the request's,
-  or a map holding it under :request. To confirm at wave 2."
-  [env store spec]
-  (let [a ((f env :client/promote!) store spec)]
-    (if (map? (:request a)) (:request a) a)))
+  ((f env :promote/lease-landing!) store spec))
 
 (defn call-promotion-status
-  "Phase 4's status (P4 L480, `promotion-status [*layer *req *as-of]`).
-  Assumed: the client function `[store layer req as-of]`, nil as-of for
-  now, answering a map with :status (or the keyword). To confirm."
+  "Phase 4's status as of now: `promote-client/status-of [store layer req
+  nil]`, the keyword alone (`:none` `:pending` `:crossed` `:done`
+  `:refused`)."
   [env store layer req]
-  (let [r ((f env :client/promotion-status) store layer req nil)]
-    (if (keyword? r) r (:status r))))
+  ((f env :promote/status-of) store layer req nil))
 
 (defn landing-name-of
-  "The landing's rig name, by the store's own function: phase 4's
-  `landing-name` takes the class (P4's changes to stage 1), phase 1's does
-  not; the 3-arity is tried first."
-  [env req target]
-  (let [ln (f env :env/landing-name)]
-    (try (ln req target :by-entity)
-         (catch clojure.lang.ArityException _ (ln req target)))))
+  "The landing's rig name by the store's own function, with the class the
+  request carries (phase 4's `landing-name [req target class]`)."
+  [env req target class]
+  ((f env :env/landing-name) req target class))
+
+(defn f9-condition
+  "Which of phase 4's F9 conditions a refused landing points to (the plan's
+  F5: a landing the model admits and the rig refuses fails the test, and
+  its line names the condition). Pure."
+  [reason]
+  (case reason
+    :landing-lock-gone "her landing lease row is gone: her forget deleted her lease rows in the target, or closed her session there (F9)"
+    :person-forgotten "a person check on the landing's :who, which the micro gate does not make for a value act (PR13, F9)"
+    :no-such-lock "no lease row bound to the landing (F9)"
+    "none of F9's conditions"))
+
+(defn crossing-ack-says
+  "D2's check, pure: the crossing's answer a request's (or its resend's) ack
+  carries against the crossing's record, by answer and reason. Nil when they
+  agree or the ack carries none; else what differs."
+  [ack rec]
+  (when-let [c (:crossing ack)]
+    (when (not= (select-keys c [:answer :reason]) (select-keys rec [:answer :reason]))
+      (str "the ack carries the crossing " (answer-str c) ", its record " (answer-str rec)))))
 
 (defn- decided-in? [step model-name]
   (boolean (some #(= model-name (:name %)) (concat (:decided step) (:prepared step)))))
@@ -1207,59 +1254,85 @@
 (defn- request-of [p model-req] (some #(when (= model-req (:model %)) %) (:requests @p)))
 
 (defn- play-request!
-  "Alice's promotion request, at its decision: the landing lease in the
-  target, answered (KD3); the hold at :before-read-out armed when the model
-  decides the read-out in a later op, or the landing held when only the
-  landing is later; then `promote!` naming the mapped source and target."
+  "Alice's promotion request, at its decision, as `promote-client/promote!`
+  sends it, in its two steps (P3-3), so a hold or the pause can sit between
+  them as phase 4's own test does (`promote-with!`): the landing lease into
+  the target under the request's uuid, answered with its public key (KD3);
+  the request built by `request-offer` with the source's stamp and entity
+  read as `promote!` reads them; then, by the model's later decisions, the
+  hold at :before-read-out on the request's name or the paused micro
+  topology; then the door's send. With no landing lease the door sends no
+  request (P4-11), so the model's request has no counterpart."
   [env store p step d]
   (let [{:keys [rn w]} @p
         offer (:offer d)
         nm (:name d)
-        {:keys [source target landing-permission]} (:promote offer)
+        {:keys [source target landing-permission replaces]} (:promote offer)
         who (rn (:who offer))
         rl (rn (:layer offer))
         rt (rn target)
         session (get-in w [:sessions who])
-        rsrc (rig-fid p source)]
-    (if-not rsrc
-      (no-counterpart! p d (str "its source " (fm/fid-str source) " has none"))
-      (let [req ((f env :env/make-name) rl :by-layer)
-            spec {:name req :who who :layer rl :session session
-                  :permission (cited-pid w rn (:permission offer))
-                  :source rsrc :target rt
-                  :landing-permission (cited-pid w rn landing-permission)
-                  :claimed-when (System/currentTimeMillis)}
-            ll (call-lease-landing! env store {:who who :layer rt :session session
-                                               :permission (:landing-permission spec) :request req})
-            _ (swap! p #(-> %
-                            (update :rig-only conj {:what :landing-lease :of nm :name (:name ll) :answer (answer-of ll)})
-                            (update :requests conj {:model nm :rig req :layer rl :target rt :spec spec})))
-            _ (kd! p 3)
-            _ (kd! p 9)
-            _ (when-not (yes? ll) (diff! p (str "landing lease for " nm) (str "refused: " (answer-str ll))))
-            cross-later? (decided-later? p step (fm/crossing-name nm))
-            land-later? (decided-later? p step (fm/landing-name nm))]
-        (cond
-          cross-later? (do (hold! env p :before-read-out req)
-                           (approx! p "the hold at :before-read-out and a resend stand for the read-out's own step"))
-          land-later? (hold-landing! env p req))
-        (let [a (call-promote! env store spec)]
-          (record-act! p d {:rig req :gate :stream :layer rl
-                            :facts [{:k :promote-request :v {:source rsrc :target rt}}] :answer a}))))))
+        rsrc (rig-fid p source)
+        rrep (when replaces (rig-fid p replaces))]
+    (cond
+      (nil? rsrc) (no-counterpart! p d (str "its source " (fm/fid-str source) " has none"))
+      (and replaces (nil? rrep)) (no-counterpart! p d (str "the head it replaces, " (fm/fid-str replaces) ", has none"))
+      :else
+      (let [u ((f env :env/uuid7))
+            cls (or (:class ((f env :micro/settings-of) store rt)) :by-layer)
+            lpid (cited-pid w rn landing-permission)
+            ll (call-lease-landing! env store {:who who :target rt :class cls :session session :permission lpid :uuid u})
+            la (answer-of (:answer ll))]
+        (kd! p 9)
+        (swap! p update :rig-only conj {:what :landing-lease :of nm :name (:name ll) :answer la})
+        (if-not (and (yes? la) (some? (:public ll)))
+          (do (diff! p (str "landing lease for " nm)
+                     (if (yes? la)
+                       "answered yes, and its public key was not read back"
+                       (str "refused: " (answer-str la))))
+              (no-counterpart! p d "the door sends no request without a landing lease (P4-11)"))
+          (let [o ((f env :promote/request-offer)
+                   {:who who :layer rl :permission (cited-pid w rn (:permission offer)) :session session
+                    :source rsrc
+                    :source-stamp (:stamp ((f env :client/record) store (first rsrc)))
+                    :source-e (:e ((f env :client/raw-row) store rl rsrc))
+                    :target rt :class cls :public (:public ll) :landing-permission lpid
+                    :replaces rrep :subjects nil :uuid u})
+                req (:name o)
+                lname (landing-name-of env req rt cls)]
+            (if (= lname (:for ll))
+              (kd! p 3)
+              (diff! p (str "landing lease for " nm)
+                     (str "bound to " (pr-str (:for ll)) ", not to " (pr-str lname) ", the landing this request causes")))
+            (swap! p update :requests conj {:model nm :rig req :layer rl :target rt :model-target target
+                                            :class cls :offer o :acks []})
+            (cond
+              (decided-later? p step (fm/crossing-name nm))
+              (do (hold! env p :before-read-out req)
+                  (approx! p "the hold at :before-read-out and a resend stand for the read-out's own step"))
+              (decided-later? p step (fm/landing-name nm)) (hold-landing! env p req))
+            (let [a ((f env :client/offer-until-answered!) store o)]
+              (swap! p update :requests (fn [rs] (mapv #(if (= nm (:model %)) (update % :acks conj a) %) rs)))
+              (record-act! p d {:rig req :gate :stream :layer rl
+                                :facts [{:k :promote-request :v {:source rsrc :target rt}}] :answer a}))))))))
 
 (defn- resend-request!
-  "The door's resend of a held request, answered from the record, which
-  continues the promotion from where the hold stopped it (PR15)."
-  [env store p {:keys [spec model]}]
-  (let [a (call-promote! env store spec)]
+  "The door's resend of a held request with its kept offer
+  (`promote-client/resend!`), answered from the record, which continues the
+  promotion where the hold stopped it (PR15). Its ack is kept for D2's
+  check."
+  [env store p {:keys [offer model]}]
+  (let [a ((f env :promote/resend!) store {:offer offer})]
     (note! p (str "the resend of " model " answered " (answer-str a)))
+    (swap! p update :requests (fn [rs] (mapv #(if (= model (:model %)) (update % :acks conj a) %) rs)))
     a))
 
 (defn- play-crossing!
   "The read-out's decision (KD4): if its request was held at
   :before-read-out, the release and the door's resend (and the landing
   held first when the model decides it later still); then the crossing's
-  answer, by its derived name in the source layer."
+  answer, by its derived name in the source layer; then D2's check, that
+  each ack carrying the crossing's answer carries the record's."
   [env store p step d]
   (let [req-model (get-in d [:offer :read-out :request])
         r (request-of p req-model)]
@@ -1273,13 +1346,18 @@
         (let [cn ((f env :env/crossing-name) rig)
               a (wait-for "the crossing's answer" #((f env :client/record) store cn))]
           (kd! p 4)
+          (doseq [ack (:acks (request-of p req-model))
+                  :let [says (crossing-ack-says ack a)]
+                  :when says]
+            (diff! p (str "answer " (:name d)) says))
           (record-act! p d {:rig cn :gate :stream :layer (:layer r) :facts nil :answer a}))))))
 
 (defn- play-landing!
   "The landing's decision: the held landing let go (the micro topology
   resumed, or the :before-forward hold released and the request resent),
   then its answer by its derived name, and the frontier past its batch
-  (KD13: done is read only once the landing is settled)."
+  (KD13: done is read only once the landing is settled). A landing the
+  model admits and the rig refuses names phase 4's F9 condition (F5)."
   [env store p step d]
   (let [{:keys [rn]} @p
         req-model (:because-of (:offer d))
@@ -1287,7 +1365,7 @@
     (if-not r
       (no-counterpart! p d (str "its request " req-model " has none"))
       (let [rig (:rig r)
-            ln (landing-name-of env rig (:target r))]
+            ln (landing-name-of env rig (:target r) (:class r))]
         (resume! env p)
         (when (contains? (:held @p) [:before-forward rig])
           (release! env p :before-forward rig)
@@ -1297,8 +1375,10 @@
                           #(let [x ((f env :micro/lookup) store ln nil nil)]
                              (when (and (map? x) (#{:yes :no} (:answer x))) x)))
               src (fm/fact-by-id (:after step) (get-in d [:offer :source]))]
-          (wait-frontier! env store a)
+          (wait-frontier! env store p a)
           (kd! p 13)
+          (when (and (= :yes (get-in d [:model :answer])) (not (yes? a)))
+            (note! p (str "the landing refused " (some-> (:reason a) name) ": " (f9-condition (:reason a)))))
           (record-act! p d {:rig ln :gate :micro :layer (:target r)
                             :facts [{:e (:e src) :k (:k src) :v (rig-value rn (:v src))}] :answer a}))))))
 
@@ -1369,21 +1449,38 @@
   [rows known]
   (vec (remove #(or (contains? known (:fid %)) (contains? rig-only-keys (:k %)) (:absent %)) rows)))
 
+(defn moment-says
+  "P3-4's check of an answered group read, pure: asked `{:frontier F}`, its
+  moment must be `{:frontier F'}` with F' at or above every batch the replay
+  waited past (`max-batch`), else the read could miss a decided act. Nil
+  when it holds, or when no frontier was asked; else what differs."
+  [as-of moment max-batch]
+  (when (and (map? as-of) (contains? as-of :frontier))
+    (let [F' (:frontier moment)]
+      (cond
+        (not (int? F')) (str "asked " (pr-str as-of) ", answered the moment " (pr-str moment))
+        (and (int? max-batch) (< F' max-batch))
+        (str "its moment {:frontier " F'"} is before batch " max-batch ", which the replay waited past")))))
+
 (defn- exit-read!
   "One read through the exit, its entry counted (KD6); a refusal judged by
   KD10's rule, with the store's view beside it (a point read below the
-  exit)."
-  [env store p {:keys [reader working wpid layer fids]}]
+  exit, at the same moment). `as-of` is nil for a one-owner layer and
+  `{:frontier F}` for the group (P3-4), whose answered moment is checked."
+  [env store p {:keys [reader working wpid layer fids as-of]}]
   (let [r ((f env :exit/read!) store {:reader reader :for reader :reader-kind :person :working working
-                                      :permission wpid :layer layer :read [:point fids] :as-of nil})]
+                                      :permission wpid :layer layer :read [:point fids] :as-of as-of})]
     (if (contains? r :rows)
       (do (kd! p 6)
           (swap! p update :rig-only conj {:what :entry :of (str "read of " (name layer)) :name (:entry r)
                                           :answer {:answer :yes :stamp (:entry-stamp r)}})
-          {:road :exit :reader reader :rows (into {} (map (juxt :fid identity)) (:rows r))})
+          (when-let [says (moment-says as-of (:moment r) (:max-batch @p))]
+            (diff! p (str "read of " (name layer) " for " (name reader)) says))
+          {:road :exit :reader reader :asked as-of :moment (:moment r)
+           :rows (into {} (map (juxt :fid identity)) (:rows r))})
       (let [j (judge-exit-refusal (:refused r) (get-in @p [:forgotten reader])
                                   (try (entry-lease env store (:entry r)) (catch Throwable _ nil)))
-            view (try (below-exit store :read-point layer reader fids nil) (catch Throwable t {:refused (ex-message t)}))]
+            view (try (below-exit store :read-point layer reader fids as-of) (catch Throwable t {:refused (ex-message t)}))]
         (when (:entry r)
           (kd! p 6)
           (swap! p update :rig-only conj {:what :entry :of (str "read of " (name layer)) :name (:entry r)
@@ -1391,7 +1488,7 @@
         (if (:ok? j)
           (diff! p (str "read of " (name layer) " for " (name reader)) (:says j) 10)
           (diff! p (str "read of " (name layer) " for " (name reader)) (:says j)))
-        {:road :exit :reader reader :refused (:refused r) :judged j
+        {:road :exit :reader reader :asked as-of :refused (:refused r) :judged j
          :store-view (into {} (map (juxt :fid identity)) (:rows view))
          :store-view-refused (:refused view)}))))
 
@@ -1406,17 +1503,30 @@
                  :when (< j (count idxs))]
              [(nth idxs j) row])))
 
+(defn- group-reader
+  "[F4] Who reads the group: a live member; with none left, Alice, whose
+  refusal KD10 explains."
+  [p]
+  (or (live-member p) ((:rn @p) :alice)))
+
 (defn- read-layer!
   "The rig's side of one model read in one layer: the counterparts of the
   model's facts there, read as a live reader through the exit (a one-owner
-  layer by its owner; the group through the exit once phase 5's rest
-  resolves, else phase 3's frontier read), and every fact the rig holds
-  there that the model does not [F2]."
+  layer by its owner; the group through the exit at `{:frontier F}` once
+  phase 5's rest resolves, else phase 3's frontier read), and every fact the
+  rig holds there that the model does not [F2], found by a pattern read
+  below the exit (on the group since pass 3, P3-4)."
   [env store p l facts]
   (let [{:keys [rn w]} @p
         rl (rn l)
         pairs (mapv (fn [x] [x (rig-fid p (:id x))]) facts)
-        known (set (keep second pairs))]
+        known (set (keep second pairs))
+        pattern-extra! (fn [reader as-of]
+                         (let [pattern (try (below-exit store :read-pattern rl reader [:all] as-of 10000)
+                                            (catch Throwable t {:refused (ex-message t)}))]
+                           (when (:refused pattern)
+                             (diff! p (str "pattern read of " (name l)) (str "refused " (pr-str (:refused pattern)))))
+                           (extra-rows (:rows pattern) known)))]
     (if (one-owner-layer? l)
       (let [owner (rn (get-in fm/layers [l :owner]))
             [working wpid] (get-in w [:working owner])
@@ -1424,29 +1534,34 @@
             seen (if (seq fids)
                    (exit-read! env store p {:reader owner :working working :wpid wpid :layer rl :fids fids})
                    {:road :exit :reader owner :rows {}})
-            pattern (try (below-exit store :read-pattern rl owner [:all] nil 10000) (catch Throwable t {:refused (ex-message t)}))
-            extra (extra-rows (:rows pattern) known)]
-        (when (:refused pattern) (diff! p (str "pattern read of " (name l)) (str "refused " (pr-str (:refused pattern)))))
+            extra (pattern-extra! owner nil)]
         (doseq [x extra] (diff! p (str "read of " (name l)) (str "a fact the model does not have: " (pr-str (select-keys x [:fid :k :value :erased-at])))))
         (assoc seen :layer l :pairs pairs :extra extra))
       (let [group-acts (filter #(and (= rl (:layer %)) (yes? (answer-of (:answer %)))) (:acts @p))
             all-fids (vec (distinct (concat known (for [a group-acts [i _] (map-indexed vector (:facts a))] [(:rig a) (long i)]))))
-            seen (if (shared-read? env)
-                   ;; [F4] a live member; with none left, Alice, whose refusal KD10 explains
-                   (let [reader (or (live-member p) (rn :alice))
-                         [working wpid] (get-in w [:working reader])]
-                     (if (and reader (seq all-fids))
-                       (exit-read! env store p {:reader reader :working working :wpid wpid :layer rl :fids all-fids})
-                       {:road :exit :reader reader :rows {}}))
-                   {:road :frontier
-                    :rows (into {} (for [a group-acts [i row] (open-act-rows env store a)] [[(:rig a) i] (assoc row :fid [(:rig a) i])]))})
-            rows (or (:rows seen) (:store-view seen))
-            extra (vec (for [[fid row] rows
-                             :when (and (not (contains? known fid))
-                                        (not (contains? rig-only-keys (get-in (some #(when (= (:rig %) (first fid)) %) group-acts) [:facts (second fid) :k]))))]
-                         (assoc row :fid fid)))]
-        (doseq [x extra] (diff! p (str "read of " (name l)) (str "a fact the model does not have: " (pr-str (select-keys x [:fid :value :erased-at])))))
-        (assoc seen :layer l :pairs pairs :extra extra)))))
+            act-key (fn [[nm i]] (get-in (some #(when (= (:rig %) nm) %) group-acts) [:facts i :k]))]
+        (if (shared-read? env)
+          ;; P3-4: through the exit at {:frontier F}, F the frontier just before the read
+          (let [reader (group-reader p)
+                [working wpid] (get-in w [:working reader])
+                as-of {:frontier ((f env :micro/frontier) store)}
+                seen (if (seq all-fids)
+                       (exit-read! env store p {:reader reader :working working :wpid wpid :layer rl :fids all-fids :as-of as-of})
+                       {:road :exit :reader reader :asked as-of :rows {}})
+                rows (or (:rows seen) (:store-view seen))
+                from-points (for [[fid row] rows
+                                  :when (and (not (contains? known fid)) (not (contains? rig-only-keys (act-key fid))))]
+                              (assoc row :fid fid))
+                extra (vec (vals (into {} (map (juxt :fid identity)) (concat from-points (pattern-extra! reader as-of)))))]
+            (doseq [x extra] (diff! p (str "read of " (name l)) (str "a fact the model does not have: " (pr-str (select-keys x [:fid :k :value :erased-at])))))
+            (assoc seen :layer l :pairs pairs :extra extra))
+          (let [seen {:road :frontier
+                      :rows (into {} (for [a group-acts [i row] (open-act-rows env store a)] [[(:rig a) i] (assoc row :fid [(:rig a) i])]))}
+                extra (vec (for [[fid row] (:rows seen)
+                                 :when (and (not (contains? known fid)) (not (contains? rig-only-keys (act-key fid))))]
+                             (assoc row :fid fid)))]
+            (doseq [x extra] (diff! p (str "read of " (name l)) (str "a fact the model does not have: " (pr-str (select-keys x [:fid :value :erased-at])))))
+            (assoc seen :layer l :pairs pairs :extra extra)))))))
 
 (defn- compare-read!
   "Each model fact of one layer against the rig's row: through the exit's
@@ -1476,8 +1591,10 @@
         facts (model-read-facts st read)
         label (if (= :closing-read (first (:op step))) "closing" (str (inc (count (:reads @p)))))
         ;; the layers the model's facts are in, and every layer the rig wrote into, so a
-        ;; fact the rig holds where the model has none is read too [F2]
-        layers (vec (for [l (distinct (concat (map :layer facts) (keep :model-layer (:acts @p))))
+        ;; fact the rig holds where the model has none is read too [F2]: the replay's acts'
+        ;; layers, and each request's target, where its landing lease went (P3-4)
+        layers (vec (for [l (distinct (concat (map :layer facts) (keep :model-layer (:acts @p))
+                                              (keep :model-target (:requests @p))))
                           :let [obs (read-layer! env store p l (filterv #(= l (:layer %)) facts))]]
                       (assoc obs :compared (compare-read! p l obs))))
         promos (vec (for [{:keys [model rig layer]} (:requests @p)]
@@ -1507,7 +1624,9 @@
   store made), the facts in the ref's layer with its key and the persons
   the replay sent; opened by the store; missing when no admitted act
   carries one. A stream-side layer is also read by pattern below the exit,
-  and a matching fact the replay does not know of is a difference."
+  and a matching fact the replay does not know of is a difference; so is
+  the group since pass 3 (P3-4), read by its live member at `{:frontier F}`
+  once the shared read resolves."
   [env store p expect]
   (let [{:keys [rn]} @p]
     (into (sorted-map-by #(compare (pr-str %1) (pr-str %2)))
@@ -1520,9 +1639,13 @@
                                    :when (and (= k (:k x)) (= rp (get-in x [:v :persons])))]
                                [act i x]))
                   known (set (for [[act i] cands] [(:rig act) (long i)]))]
-              (when (one-owner-layer? layer)
-                (let [owner (rn (get-in fm/layers [layer :owner]))
-                      r (try (below-exit store :read-pattern rl owner [:k k] nil 10000) (catch Throwable t {:refused (ex-message t)}))]
+              (when (or (one-owner-layer? layer) (shared-read? env))
+                (let [[reader as-of] (if (one-owner-layer? layer)
+                                       [(rn (get-in fm/layers [layer :owner])) nil]
+                                       [(group-reader p) {:frontier ((f env :micro/frontier) store)}])
+                      r (try (below-exit store :read-pattern rl reader [:k k] as-of 10000) (catch Throwable t {:refused (ex-message t)}))]
+                  (when (:refused r)
+                    (diff! p (str "values " (pr-str ref)) (str "its pattern read was refused " (pr-str (:refused r)))))
                   (doseq [row (:rows r)
                           :when (and (= rp (get-in row [:value :persons])) (not (contains? known (:fid row))))]
                     (diff! p (str "values " (pr-str ref)) (str "a fact the replay did not make: " (pr-str (select-keys row [:fid :value])))))))
@@ -1630,15 +1753,36 @@
 
 ;; ============================================================== the verdicts
 
+(defn group-mention?
+  "Whether a history writes a `:mention` into the group: the cases step 6b
+  would change once the group's grammar is a fact."
+  [history]
+  (boolean (some (fn [[kind spec]]
+                   (and (= :offer kind) (map? spec) (= :group (:layer spec))
+                        (some #(= :mention (:k %)) (:facts spec))))
+                 history)))
+
+(defn world-refusal
+  "P3-5's guard, or nil. Step 6b built (`:grammar` among the micro gate's
+  control keys) makes the group's grammar a fact, which the seed writes on
+  the stream side only (W2-2), so a case writing a `:mention` into the
+  group would play in another world than the model's. With its stages
+  resolved the refusal fails the test, so 6b cannot change these cases
+  without it showing."
+  [resolved c]
+  (let [ck (get-in resolved [:micro/control-keys :value])]
+    (when (and (set? ck) (contains? ck :grammar) (group-mention? (:history c)))
+      "step 6b is built: the group's grammar is a fact, and the seed writes the model's grammar on the stream side only")))
+
 (defn prepare-case
   "A case before any cluster: the model's lockstep under baseline, its
   `seen`, and whether it is practical (every API it needs resolved, every
-  op covered by a row, every decision's order known). Nothing of a case
-  that is not practical is played."
+  op covered by a row, every decision's order known, the world the model's:
+  P3-5's guard). Nothing of a case that is not practical is played."
   [resolved c]
   (let [ls (lockstep fm/baseline (:history c))
         missing (case-missing resolved (:id c))
-        refusal (or (history-refusal (:history c)) (guard-refusal ls) (effect-refusal ls))]
+        refusal (or (history-refusal (:history c)) (guard-refusal ls) (effect-refusal ls) (world-refusal resolved c))]
     {:id (:id c) :case c :ls ls
      :model-seen (seen-of (:end ls) (:expect c))
      :missing missing :refusal refusal
@@ -1706,6 +1850,8 @@
                          (str (name (:layer lr))
                               (case (:road lr) :frontier " (frontier)" "")
                               (when (:reader lr) (str " as " (name (:reader lr))))
+                              (when-let [F (or (get-in lr [:moment :frontier]) (get-in lr [:asked :frontier]))]
+                                (str " at F=" F))
                               (if (:refused lr)
                                 (str " refused " (name (:refused lr)) "; the store's view "
                                      (str/join " " (for [c (:compared lr)] (str (fm/fid-str (:model-fid c)) " " (obs-str (:row c))))))
@@ -1748,8 +1894,10 @@
                                                :when (not (one-owner-layer? (:layer l)))]
                                            (:road l)))]
                     (cond (contains? group-roads :frontier) "the group read through phase 3's frontier"
-                          (contains? group-roads :exit) "the group read through the exit"
+                          (contains? group-roads :exit) "the group read through the exit at {:frontier F}"
                           :else "no group read"))
+                  (when (seq (:requests play))
+                    "; promotion lease-landing! then request-offer and the door's send (promote!'s two steps)")
                   "; " (:ms play) " ms")]
             (into (for [x (:notes play)] (str pad "note     " x)))
             (into (for [d (:diffs play) :when (:kd d)] (str pad "known    " (:where d) ": " (:says d) " (" (kd-str (:kd d)) ")")))
@@ -2186,6 +2334,12 @@
       (is (not (contains? (get resolved (:id a)) :broken)) (str (:var a) ": its namespace is there and does not load")))
     (doseq [a apis :when (#{"1" "5a"} (:stage a))]
       (is (contains? (get resolved (:id a)) :value) (str (:var a) " is built on this branch")))
+    (testing "pass 3: phase 4's, phase 5's rest's and phase 6's names resolve on the merged tree (27543fd7)"
+      (doseq [a apis :when (#{"4" "5-rest" "6"} (:stage a))]
+        (is (contains? (get resolved (:id a)) :value) (str (:var a) " is built on this branch")))
+      (is (not-any? #{'rig.store.client/lease-landing! 'rig.store.client/promote! 'rig.store.client/promotion-status}
+                    (map :var apis))
+          "the promotion is bound where phase 4 built it, rig.store.promote-client"))
     (is (not-any? #{'rig.store.micro-client/make-person! 'rig.store.micro-client/forget-person! 'rig.claims/hold!}
                   (map :var apis))
         "[F8] never phase 3's placeholder person acts, never the hold that blocks a task")
@@ -2258,7 +2412,10 @@
         rows [{:fid [:a 0] :k :note} {:fid [:b 0] :k :note} {:fid [:c 0] :k :lease} {:fid [:d 0] :k :read/point}
               {:fid [:e 0] :k :permission} {:fid [:f 0] :k :kind} {:fid [:g 0] :absent true} {:fid [:h 0] :k :revoke}]]
     (is (= [[:b 0] [:h 0]] (mapv :fid (#'extra-rows rows known)))
-        "a value, or a control fact with no counterpart; never a counterpart or a rig-only kind")))
+        "a value, or a control fact with no counterpart; never a counterpart or a rig-only kind")
+    (is (empty? (#'extra-rows [{:fid [:i 0] :k :grammar} {:fid [:j 0] :k :read/standing}
+                               {:fid [:k 0] :k :read/delivery} {:fid [:l 0] :k :read/closed}] known))
+        "the seed's grammar facts (W2-2) and the standing reads' entries (phase 5's rest) are rig-only kinds")))
 
 (deftest control-references-for-every-kind
   (let [rn identity
@@ -2286,3 +2443,38 @@
       (is (= "nothing comes" (::timeout (ex-data e))))
       (is (not (::call (ex-data e))) "a wait that times out is that case's difference, and later cases still run"))
     (is (= :there (wait-for "it comes" (constantly :there))))))
+
+;; ================================================ pass 3's judging, pure (no cluster)
+
+(deftest a-refused-landing-names-its-f9-condition
+  (is (re-find #"lease row is gone" (f9-condition :landing-lock-gone)))
+  (is (re-find #"PR13" (f9-condition :person-forgotten)))
+  (is (re-find #"no lease row bound" (f9-condition :no-such-lock)))
+  (is (= "none of F9's conditions" (f9-condition :source-erased))))
+
+(deftest an-ack-carries-the-crossing-its-record-holds
+  (let [no {:answer :no :reason :source-erased :stamp 9}]
+    (is (nil? (crossing-ack-says {:answer :yes} no)) "an ack held before the read-out carries no crossing")
+    (is (nil? (crossing-ack-says {:answer :yes :crossing (assoc no :stamp 9 :name [:x])} no)) "the same answer and reason")
+    (is (nil? (crossing-ack-says {:answer :yes :crossing {:answer :yes :stamp 4}} {:answer :yes :stamp 4})))
+    (is (re-find #"carries the crossing yes, its record no source-erased"
+                 (str (crossing-ack-says {:answer :yes :crossing {:answer :yes}} no))))
+    (is (some? (crossing-ack-says {:answer :yes :crossing {:answer :no :reason :x}} no)) "another reason")))
+
+(deftest a-group-read-covers-every-batch-waited-past
+  (is (nil? (moment-says nil {:stamp 5} 7)) "a one-owner read asks no frontier")
+  (is (nil? (moment-says {:frontier 12} {:frontier 12} 12)))
+  (is (nil? (moment-says {:frontier 12} {:frontier 12} nil)) "nothing waited past yet")
+  (is (re-find #"before batch 13" (str (moment-says {:frontier 12} {:frontier 12} 13))))
+  (is (re-find #"answered the moment" (str (moment-says {:frontier 12} {:stamp 40} 3))) "a stamp moment for a group read"))
+
+(deftest step-6b-cannot-change-the-group-cases-unseen
+  (let [with (fn [ck] (assoc (into {} (for [a apis] [(:id a) {:value :resolved}])) :micro/control-keys {:value ck}))
+        refused (fn [ck] (set (for [c cases :when (world-refusal (with ck) c)] (:id c))))]
+    (is (= #{"A2" "A4" "A5" "A6" "A7"} (set (map :id (filter #(group-mention? (:history %)) cases))))
+        "the cases that write a :mention into the group")
+    (is (empty? (refused #{:members :lease})) "step 6b not built: the micro gate reads the constant")
+    (is (= #{"A2" "A4" "A5" "A6" "A7"} (refused #{:members :grammar})) "step 6b built: those five refused")
+    (let [r (judge-case (prepare-case (with #{:grammar}) (case-by-id "A2")))]
+      (is (= :not-practical (:status r)))
+      (is (seq (:fails r)) "with its stages resolved the refusal fails the test"))))

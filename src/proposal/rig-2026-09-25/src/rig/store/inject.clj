@@ -18,6 +18,7 @@
 (defonce passes (atom []))    ; [point name] for watched names, in order
 (defonce purging (atom false)) ; stage 2: whether the purge seam's calls are recorded
 (defonce purges (atom []))    ; stage 2: {:task :layer :fid :forget-stamp}, in order
+(defonce holds (atom #{}))    ; stage 4: [point name] where a promotion's continuation stops
 
 (defn arm!
   "Throw at `point` the next `times` times the gate reaches it for `nm`."
@@ -31,7 +32,7 @@
 
 (defn reset-all! []
   (reset! armed {}) (reset! fired []) (reset! watched #{}) (reset! passes [])
-  (reset! purging false) (reset! purges []))
+  (reset! purging false) (reset! purges []) (reset! holds #{}))
 
 (defn record-purges!
   "Stage 2: record every call of the forget's purge seam from now on
@@ -72,3 +73,29 @@
         (swap! fired conj k)
         (throw (ex-info "injected crash" {:point point :name nm})))))
   nil)
+
+(defn hold!
+  "Stage 4 (PLAN-promotion.md PR15): stop a promotion's continuation at
+  `point`, `:before-read-out` or `:before-forward`, for the request named
+  `nm`. The record's processing ends there with what it has answered (the
+  request's answer, and at the second point the crossing's); nothing
+  blocks a task thread, unlike rig.claims/hold!. After `release!`, the
+  door's resend of the request, answered from its record, continues the
+  promotion from where it stopped. A test device: in the store the
+  continuation always runs."
+  [point nm]
+  (swap! holds conj [point nm])
+  nil)
+
+(defn release!
+  "Stage 4: let a held promotion's continuation run again at `point` for
+  `nm` (from the door's next resend of the request)."
+  [point nm]
+  (swap! holds disj [point nm])
+  nil)
+
+(defn held?
+  "Whether a promotion's continuation stops at `point` for the request
+  named `nm` (called by the gate)."
+  [point nm]
+  (contains? @holds [point nm]))

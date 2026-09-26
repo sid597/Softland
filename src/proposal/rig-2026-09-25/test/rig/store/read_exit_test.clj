@@ -23,6 +23,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.test :as rtest]
             [rig.store.client :as c]
+            [rig.store.toy-grammars :as tg]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
             [rig.store.module :as m]
@@ -89,7 +90,7 @@
   [st layer f]
   (bytes->vec (into {} (retrying #(foreign-select [(keypath layer f) ALL] (:layers st))))))
 
-(defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-of]] [f (field st layer f)])))
+(defn- fields [st layer] (into {} (for [f [:ix-ek :ix-ke :ix-kv :ix-s :ix-of]] [f (field st layer f)])))
 
 (defn- open-result
   "One fact of `read-as-of` as the open step's result for it."
@@ -129,6 +130,8 @@
 
 (defn- make-layer! [st layer kind owner & grants]
   (is (= :yes (:answer (c/offer-until-answered! st (c/make-layer-offer layer {:kind kind :owner owner})))) (str layer))
+  ;; phase 6: the toy grammars as facts in the layer (D-P4)
+  (is (every? #(= :yes (:answer %)) (tg/write! st [layer])) (str "grammars in " layer))
   (doseq [pid grants]
     (is (= :yes (:answer (c/offer-until-answered! st (c/grant-offer st pid)))) (pr-str pid))))
 
@@ -145,6 +148,8 @@
 
       (testing "seed: the model's one-owner world, Bob's layers, the base, an agent's and a tool's permissions"
         (is (every? #(= :yes (:answer %)) (c/seed! st)))
+        ;; phase 6: the toy grammars as facts in the seeded layers (D-P4)
+        (is (every? #(= :yes (:answer %)) (tg/write! st [:alice :alice-hand :alice-agent])))
         (make-layer! st :bob :personal :bob [:bob :bob :bob])
         (make-layer! st :bob-hand :hand :bob [:bob :bob-hand :bob-hand])
         (make-layer! st :base :base :operator)
@@ -347,9 +352,9 @@
             (is (< 1 (:put-pages r)) "the small pages span the history")
             (is (= snap (fields st :t10))))
           (testing "dropped to empty, then rebuilt: entry for entry the snapshot"
-            (doseq [f [:ix-ek :ix-ke :ix-kv :ix-of]]
+            (doseq [f [:ix-ek :ix-ke :ix-kv :ix-s :ix-of]]
               (loop [] (when (pos? (:dropped (rx/index-op! st {:layer :t10 :op :drop :field f :entries 512}))) (recur))))
-            (is (= {:ix-ek {} :ix-ke {} :ix-kv {} :ix-of {}} (fields st :t10)))
+            (is (= {:ix-ek {} :ix-ke {} :ix-kv {} :ix-s {} :ix-of {}} (fields st :t10)))
             (rx/rebuild! st :t10 :acts 2 :entries 3)
             (is (= snap (fields st :t10))))
           (testing "a stale entry at an address no act implies is deleted by the sweep"
@@ -367,7 +372,7 @@
               (loop [after (:next p1)]
                 (let [p (rx/index-op! st {:layer :t10 :op :rebuild-put :after after :acts 2})]
                   (when-not (:done? p) (recur (:next p)))))
-              (doseq [f [:ix-ek :ix-ke :ix-kv :ix-of]]
+              (doseq [f [:ix-ek :ix-ke :ix-kv :ix-s :ix-of]]
                 (loop [after nil]
                   (let [p (rx/index-op! st {:layer :t10 :op :rebuild-sweep :field f :after after :entries 3})]
                     (when-not (:done? p) (recur (:next p))))))
@@ -491,11 +496,13 @@
           (is (= (mapv #(vector (:name o) %) (range 12)) (fids-of ek)))
           (is (= [[(:name o) 11]] (fids-of lt)) "the model's chain-head: the last of the act")))
 
-      (testing "D7: a layer re-classed by entity is not read here"
+      (testing "D7, stage 5b: a layer re-classed by entity is read through the shared path, as of a frontier"
         (make-layer! st :t21 :personal :alice [:alice :t21 :t21])
         (ok! (act :alice :t21 [{:e :e0 :k :note :v "before the re-class"}]))
         (ok! (act :operator :t21 [{:e :t21 :k :class :v :by-entity}]))
-        (is (= {:refused :re-classed} (rx/read! st (merge alice {:layer :t21 :read [:pattern [:all]]}))))
+        (let [r (rx/read! st (merge alice {:layer :t21 :read [:pattern [:k :note]]}))]
+          (is (= ["before the re-class"] (mapv :value (:rows r))) "its stream era, shown by the shared path")
+          (is (contains? (:moment r) :frontier)))
         (is (= {:refused :not-visible}
                (rx/read! st {:reader :bob :reader-kind :person :working :bob-hand :permission [:bob :bob-hand :bob-hand]
                              :layer :t21 :read [:pattern [:all]]}))
