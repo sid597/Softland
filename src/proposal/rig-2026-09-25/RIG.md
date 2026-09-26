@@ -22,10 +22,6 @@ resolutions, none a choice between branches: W2-1 to W2-3 in
 
 *In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
 branch `rig-<name>`:
-- `review-full-spec`: the rama skill's full-spec review of the whole
-  module, by reading, findings in `REVIEW-full-spec.md`; reports to C's
-  session. Step 6b's path is out of its scope; 6b's diff gets its own
-  review when it lands.
 - `build-grammar-micro`: step 6b, by Sid in Codex, from `STARTER-6b.md`.
   Codex runs the night's one full suite at its end and appends a line to
   the relay log when done; the builder then merges its branch without a
@@ -64,6 +60,22 @@ nothing (F-1's last edge); the review's pending blocks are ordinary
 assertions. One run on the tested tree `30e9cf81`, which already held pass
 3: 9 namespaces, 54 tests, 2,218 assertions, 0 failures
 (`runs/review-fixes-run.txt`). Its "For RIG.md" waits for the next fold.
+
+*Also landed:* **the rama skill's full-spec review, at `72604176`**
+(merge of `rig-review-full-spec` at `34a9f103`; `REVIEW-full-spec.md`, by
+reading, step 6b's path out of scope): 8 findings, 1 high, 2 medium, 5
+low; five bear on a kept record. H-1: once a working layer is re-classed,
+every read entry into it is refused, because the exit builds entries
+`:class :by-layer` for the stream door (`read_exit.clj`, `standing.clj`,
+`recipe.clj`); C checked the builder and the tested refusal
+(`micro_test.clj:414-416`); no test re-classes a working layer and reads.
+M-1: the micro gate can answer a value yes and write it under no lock
+(PV-F6, `micro.clj:1197-1240`). M-2: visibility is compiled code where
+ruling 9 says seeded policy facts. None blocks phase 7's workloads, which
+never re-class or touch the micro gate; H-1 qualifies number 3's verdict,
+whose way out is re-class. *Next for them:* a fix step for H-1 and M-1
+after 6b lands, since both touch the micro side 6b is changing, alongside
+phase 7's runs; M-2 and the lows go to For Sid at the last fold.
 
 *Step 6b is Sid's, in Codex* (Sid, about 08:20: "i will run the phase 6
 in codex"): the micro gate's grammar and then the machinery count's micro
