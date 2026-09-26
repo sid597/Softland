@@ -56,6 +56,27 @@ code differs from the tested code.
   its fix.
 - `build-replays`: phase 8, pass 2, on wave 1, in a fresh session.
 
+*Open after wave 1* (`BUILD_NOTES-wave1.md`, "Open issues, for Sid and
+wave 2"; wave 2 builds on them):
+- The micro leader holds no opened value, so a read entry in a shared
+  working layer would not have its moment counted in its stamp
+  (`gate/stamp-for`'s 4-arity); wave 2's shared reads must carry the
+  moment from the arrival task.
+- The micro gate's lease road still refuses an agent (`persons-to-check`,
+  `mint-rows` under the writer): W1-1 is the stream gate's only.
+- The micro forget exposes no list of the fact ids it erased, which
+  `PLAN-reads-rest.md`'s micro purge takes; `forget-effect` computes it
+  (its `sharing` rows), and wave 2 can emit it.
+- `PLAN-reads-rest.md` changes the person purge (only the value-bearing
+  entries, paged, after the forget, through `dying-with>`) and the rebuild
+  with it; wave 1 keeps today's invariant, tombstones in both, under which
+  purge and rebuild agree.
+- The sweep page was not re-measured under sealing (512 entries, each an
+  open; estimated 0.5 to 0.8 s before sealing).
+- An act larger than the put page's cap makes one page of its size.
+- The two that ask Sid something are For Sid 42 (the person forget at
+  scale) and 37 (a control key's value kept as plaintext).
+
 Wave 2's builders were started by builder B and report to its session. A
 successor cannot message them; it reads their branches, where each commits
 as it goes and writes `BUILD_NOTES-<stage>.md`. Builder A's empty
@@ -412,9 +433,11 @@ synthetic stall. Which reading of the threshold Sid means is For Sid 43.
 ## For Sid
 
 Questions that would touch a record, each with what the build does meanwhile;
-placeholders are marked first-record. In four groups: forms that freeze at
+placeholders are marked first-record. In five groups: forms that freeze at
 the first record; windows where a forget does not reach at once; where the
-rig differs from the model; smaller questions.
+rig differs from the model; smaller questions; and those from the caching
+examination, with later ones after them. A number never changes, so an item
+added later sits in its group under the next free number.
 
 **Forms that freeze at the first record** (placeholders built tonight):
 
@@ -473,14 +496,20 @@ validation:*
     store layer's id `:people` and kind `:store` (L7's, as the build names
     them). Built as listed; the root actor and the operator as one
     principal is For Sid 1.
-35. **The micro store's lease rows** (first-record, as M16 in
-    `PLAN-micro-store.md` already is). Beside M16's `:layer` and `:session`
-    marks they carry the layer's kind and person owner, which blocks 1 and
-    2b need on the arrival task, before the layer task, to wrap under the
-    owner and to place a lock in a row or the record
-    (`BUILD_NOTES-micro-store.md`, "Build-level choices"). Lease rows are
-    consumed at decision; the build calls them "first-record as M16 already
-    is". Built so.
+35. **The micro store's lease rows** (first-record; M16 in
+    `PLAN-micro-store.md`, and phase 3's build). A shared layer's leases
+    are minted by the micro gate from a lease act in that layer; the rows
+    sit beside the lease act's name row, `$$micro-names [lease-name :leases
+    i]`, sealed under the lease act's `:who` person lock; a leased lock's
+    id is `[lease-name i]`, as phase 2's L21; the operator's row is
+    `{:under nil :sealed K}`, K bare. The plan marks the row's shape beyond
+    phase 2's, and the placement, first-record (§A). Beside M16's `:layer`
+    and `:session` marks the build adds the layer's kind and person owner,
+    which blocks 1 and 2b need on the arrival task, before the layer task,
+    to wrap under the owner and to place a lock in a row or the record
+    (`BUILD_NOTES-micro-store.md`, "Build-level choices", R51). Lease rows
+    are consumed at decision; the build calls them "first-record as M16
+    already is". Built so.
 36. **A forget fact's entity is its target's** (first-record; W1-5, R24).
     Phase 2's client already built it so, and the micro gate now relies on
     it to find the target; a kept forget fact carries this convention
@@ -508,6 +537,50 @@ validation:*
     an agent's entry cite its session's permission and name its session in
     the answer record, which a kept record would carry. The rest of phase 5
     does not change this.
+
+*From the micro store's plan, the other forms it marks first-record
+(`PLAN-micro-store.md`, section I; its M16 is in 35):*
+
+44. **The micro store's face entries and decided mark** (first-record; M8
+    revised, and §A). A face refusal, a taken name or a missing lock is
+    recorded under `[name envelope-fp]` in the name entry's `:faces`, never
+    as the name's answer. The envelope fingerprint is P6's keyed HMAC,
+    under the rig's constant secret, over the canonical sealed envelope
+    minus its name, which the door and the gate both hold, and is not the
+    reuse digest, which must not be taken over sealed bytes. A decided act
+    also writes its envelope's fp at `[name :fp]` beside the record, a
+    gate mark outside the answer record (§A). Why, per the plan: the parts
+    digest cannot tell an honest resend from one whose values differ, and
+    a face refusal must not shadow the record an honest resend is owed.
+    Built, with one addition: every envelope the record path answers
+    leaves a keep-first `:recorded` entry under its fingerprint in
+    `:faces`, and `micro-lookup` returns a found record with the
+    fingerprint it was decided for, so an offerer can tell its own
+    envelope's outcome from another's
+    (`IMPLEMENTATION_VALIDATION-micro-store.md`, plan conformance 16).
+45. **A permission id's shape** (first-record; M20, §B). A permission id
+    is P8's triple `[who layer in]`, or `[who layer in parent]` with
+    `parent` a permission id, a narrower permission beneath its parent;
+    chains are at most four deep (root, session, agent, tool), and
+    `env/pid?` refuses deeper ones as malformed. The check walks the chain
+    and a revoke writes one row, as R19 has it.
+46. **The root holders** (first-record; M22, §C). The base's owner and
+    root holder is the root actor, `:operator` in the rig as in phase 2
+    (whether they are one principal is For Sid 1); a group's root holder is
+    its layer id; the root permission, `[:operator :base :base]` for the
+    base, is granted in the making act; `make-group!` re-classes the base
+    before the first group. The plan marks the owner id and the root pid
+    first-record placeholders.
+47. **The frontier id** (first-record; M23, §D). The id of the last
+    microbatch every task has committed, `ops/current-microbatch-id` minus
+    one, written by block 0 on every task; a read entry records `{:layer L
+    :frontier F}` for a shared layer. For Sid 3 carries the read exit's
+    shared moment, `{:frontier id}`.
+48. **A lease's scope** (first-record; M24). A lease is scoped to one
+    session and one layer; all the locks one act cites come from one lease;
+    `:lease` is a control key; n ≤ 256 per lease act. Why, per the plan:
+    one lease home per act, so its lock work is on one task, and a
+    session's acts move to another task with each new lease.
 
 **Windows where a forget does not reach at once.** Is each inside "gone for
 everyone including the past"?
@@ -1070,6 +1143,90 @@ in records nobody keeps, so each can change without touching a record.
 - **R41. Every rig call is bounded at 120 s and every poll at 60 s**
   (P8-10); after a call that does not return no later case is played,
   since a stale call could reach the next module of the same name.
+
+Phase 2's choices, R42 to R48 (`BUILD_NOTES-locks-and-forgetting.md`, "Rig
+choices", in its order, tagged "phase 2, n"): the notes list each as one
+that can change without touching a record.
+
+- **R42. An act carrying a lock control fact carries that fact alone**
+  (phase 2, 1): `:forget`, `:lease`, `:session-closed`, `:person` or
+  `:forget-person`, otherwise `:malformed-control`. Each such act's effect
+  is one thing, and no act mixes a lease or a forget with values.
+- **R43. Person facts are the operator's, and only in a layer of kind
+  `:store`** (phase 2, 2), the store layer `:people`; otherwise
+  `:control-not-allowed`. Every person act is then ordered on one task,
+  which L8's dates rest on.
+- **R44. A making act whose owner's person lock is destroyed is refused
+  `:person-forgotten`** (phase 2, 3); the plan names `:no-such-person` for
+  an owner with no entry. The same reading as for a wrap person.
+- **R45. An opened value's text must be the canonical EDN text of the
+  value it reads as**, else `:malformed-value` (phase 2, 4): one plaintext
+  per value, so the value digest has one input and a resend's check
+  compares like with like.
+- **R46. `:how` of a forget's answer on the record path comes from the
+  ledger** (phase 2, 5): the forget's own erasure when the ledger's date is
+  its stamp, else nil, so a replayed forget answers as the first attempt
+  did.
+- **R47. The door** (phase 2, 6): a value offer with no session is built
+  in `:door/<who>`; it leases 64 locks at a time (up to 256 a lease for a
+  larger act), one thread at a time, and a lease's locks enter its pool
+  once, so no lock is handed out twice and a restarted door takes every
+  unconsumed lock of the session. A refused lease leaves it no lock, so it
+  cites the ids the refused lease would have minted, sealed under locks it
+  throws away, and the gate answers `:no-such-lock` on its face; an offer
+  keeps its locks until answered, a resend after an answer takes new ones,
+  and a grain switch it sends makes it take the grain again.
+- **R48. A value's domain is its canonical text's** (phase 2, 7): the door
+  seals the canonical EDN of the value it is given, so a Java float, an
+  AtomicLong or a HashMap offered at the door is stored as the double,
+  long or map its text reads as, and the gate never sees the Java object;
+  a text outside the domain is `:malformed-value`.
+
+Phase 3's choices, R49 to R57 (`BUILD_NOTES-micro-store.md`, "Build-level
+choices (not in the plan, or adapted), with why", in its order, tagged
+"phase 3, n"): the notes give each its why, and say whether one touches a
+record only for the lease rows, which they mark first-record (R51).
+
+- **R49. The offerer's side is `rig.store.micro-client`, not
+  `rig.store.micro`** (phase 3, 1): `module.clj` requires `rig.store.micro`
+  for `declare!`, and the door needs the module's name and the stream
+  side's client, so a door inside `rig.store.micro` would be a require
+  cycle. The dispatch by tag (M13) and M25's routing live there too, so
+  `client.clj` is not changed.
+- **R50. A `$$persons` placeholder** (phase 3, 2): with only phase 2's pure
+  namespace merged, `rig.store.micro/persons-placeholder?` declared the
+  same PState with phase 2's schema on a placeholder stream topology fed by
+  a test depot, the one seam. Wave 1 removed it (W1-8, R27).
+- **R51. Lease rows carry the layer's kind and person owner** (phase 3, 3),
+  beside M16's `:layer` and `:session` marks, because blocks 1 and 2b need
+  them on the arrival task, before the layer task, to wrap under the owner
+  and to place a lock in a row or the record. Lease rows are consumed at
+  decision; the notes call them "first-record as M16 already is" (For Sid
+  35).
+- **R52. Minting happens in block 2a from the fold's output, not in 2b
+  from the offers** (phase 3, 4): the fold holds who, session, layer, count
+  and the settings in force, and the rows are written on the lease name's
+  task, where `$$persons` is local too. Same rows, same batch, one hop
+  fewer.
+- **R53. The person checks are computed on the arrival task and carried in
+  the skeleton** (phase 3, 5), as `:person-reason`, not as `[[:person p]
+  entry]` rows: an entry read on two tasks during a forget's fan-out can
+  differ, and a merged row would decide one offer on another's read.
+- **R54. The record path's check rows are one per value**, `[[:resend name
+  fp i] check]` (phase 3, 6): `+map-agg`'s combine keeps one value per
+  key, so one row per envelope could drop a `:name-taken`.
+- **R55. `:members` is a map person → batch, not a set** (phase 3, 7): one
+  write shape for every `$$micro` projection, and M7's batch stamp on every
+  row.
+- **R56. A setting fact for a layer whose settings the stream gate keeps is
+  refused on its face `:wrong-gate` at the micro gate** (phase 3, 8; P16,
+  M25: settings stay with the stream gate), rather than written as a micro
+  version that would shadow `$$layers`.
+- **R57. The fold coalesces its writes by location, the last write in fold
+  order winning** (phase 3, 9): two acts in one batch touching one
+  location (a head made then replaced, a permission granted then revoked,
+  two settings versions) would otherwise be two termvals of different
+  values in one batch, in no fixed order.
 
 ## Numbers so far
 
