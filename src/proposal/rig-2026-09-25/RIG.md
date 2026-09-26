@@ -22,9 +22,6 @@ resolutions, none a choice between branches: W2-1 to W2-3 in
 
 *In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
 branch `rig-<name>`, reporting to C's session:
-- `build-spec-fixes`: the fixes for the full-spec review's H-1 and M-1
-  (`PLAN-spec-fixes.md`), built on `dee0320a`; its one run of the touched
-  namespaces is under way.
 - `fold-final`: the last fold of tonight's notes into the rest of RIG.md
   and README.md (everything below this block), in two parts: all that has
   landed now, and the H-1 and M-1 fixes when they land.
@@ -40,6 +37,17 @@ cluster; number 3, rate far above 100 a second but p99 46.1 ms against
 disk, 4.52 times a 40-byte value and 0.90 times a 200-byte one, 34.4 B more
 per extra person. D1 measured the door, which sorts its whole lock pool on
 every offer, so the gate's own ceiling is unmeasured.
+
+*Also landed:* **the full-spec review's H-1 and M-1 fixes, at `5b95e70e`**
+(merge of `rig-build-spec-fixes` at `e5f6eac0`, built on `dee0320a`;
+`BUILD_NOTES-spec-fixes.md`). A re-classed working layer's reads are now
+recorded through its own gate, with four gaps H-1 needed closed; the micro
+gate locks from the reads it decides by, and a yes it cannot lock is
+`:gate-error`. One run of the 15 touched namespaces: 83 tests, 3,404
+assertions, 1 failure, fixed and its one namespace rerun green; the
+replays 14 of 14 as the model says. Phase 7's numbers were measured before
+these fixes; H-1 adds a class read per entry act, and whether that moves
+numbers 1 and 3 is unmeasured.
 
 *Also landed:* **phase 7's harnesses, at `ad49bced`** (merge of
 `rig-build-numbers` at `fe57f4c2`, new files only), by Sid's word, after
