@@ -27,15 +27,19 @@ branch `rig-<name>`:
   the relay log when done; the builder then merges its branch without a
   rerun.
 
-*Built, not landed:* phase 7's harnesses, on `rig-build-numbers` at
-`fe57f4c2` (`BUILD_NOTES-numbers.md`: the binding check B1 to B14 held on
-`42619066`; nine departures from the plan), compiled but never run on a
-cluster. Its builder's merge of `rig-2026-09-25` into that branch was
-refused by the session's permission check; C has not redone it, and asked
-Sid whether to land the branch here instead (it adds new files only). The
-minimum set, `test/rig/bench/phase7-final.sh min`, is the harnesses' first
-run and waits for step 6b (Sid: yes); recheck the binding points against
-6b's notes before it starts. The builder stalled from 07:13 to 07:43 on a
+- `build-spec-fixes`: the fixes for the full-spec review's H-1 and M-1,
+  prep by reading now (`PLAN-spec-fixes.md`); builds after 6b lands, since
+  both touch the micro side; reports to C's session.
+
+*Also landed:* **phase 7's harnesses, at `ad49bced`** (merge of
+`rig-build-numbers` at `fe57f4c2`, new files only), by Sid's word, after
+its builder's own merge of this branch into it was refused by the
+session's permission check: `BUILD_NOTES-numbers.md` (the binding check B1
+to B14 held on `42619066`; nine departures from the plan) and six files
+under `test/rig/bench/`, compiled but never run on a cluster. The minimum
+set, `test/rig/bench/phase7-final.sh min` from the rig folder, is their
+first run and waits for step 6b (Sid: yes); recheck the binding points
+against 6b's notes before it starts. The builder stalled from 07:13 to 07:43 on a
 command that waited for an approval; C stopped the call and resumed it.
 
 *Also landed:* the fold of wave 2's "For RIG.md" notes into the rest of
