@@ -21,15 +21,16 @@ resolutions, none a choice between branches: W2-1 to W2-3 in
 `BUILD_NOTES-wave2.md`.
 
 *In flight*, each in worktree `/mnt/data/projects/Softland-rig-<name>` on
-branch `rig-<name>`:
-- `build-grammar-micro`: step 6b, by Sid in Codex, from `STARTER-6b.md`.
-  Codex runs the night's one full suite at its end and appends a line to
-  the relay log when done; the builder then merges its branch without a
-  rerun.
-
-- `build-spec-fixes`: the fixes for the full-spec review's H-1 and M-1,
-  prep by reading now (`PLAN-spec-fixes.md`); builds after 6b lands, since
-  both touch the micro side; reports to C's session.
+branch `rig-<name>`, reporting to C's session:
+- `run-numbers`: phase 7's minimum set, the harnesses' first run, on the
+  finished store (`dee0320a`), in the background under the cluster lock,
+  about 45 minutes, progress under the rig folder's `runs/`; the results
+  go into `BUILD_NOTES-numbers.md` on that branch.
+- `build-spec-fixes`: the fixes for the full-spec review's H-1 and M-1
+  (`PLAN-spec-fixes.md`), building on `dee0320a`; one run of its touched
+  namespaces, queued behind the numbers.
+- `review-6b`: a review of step 6b's diff by reading (`REVIEW-6b.md`),
+  since the full-spec review left 6b's path out.
 
 *Also landed:* **phase 7's harnesses, at `ad49bced`** (merge of
 `rig-build-numbers` at `fe57f4c2`, new files only), by Sid's word, after
@@ -81,14 +82,19 @@ whose way out is re-class. *Next for them:* a fix step for H-1 and M-1
 after 6b lands, since both touch the micro side 6b is changing, alongside
 phase 7's runs; M-2 and the lows go to For Sid at the last fold.
 
-*Step 6b is Sid's, in Codex* (Sid, about 08:20: "i will run the phase 6
-in codex"): the micro gate's grammar and then the machinery count's micro
-side, outside this relay. C's builder for it was denied at 07:10 by the
-session's auto-mode permission check ("Modify Shared Resources"; For Sid
-65). When its branch lands, the builder merges it; pass 3's guard then
-fails A2 and A4 to A7 until 6b updates them, by design. Whether phase 7's
-minimum set waits for 6b is asked of Sid; C recommends waiting, since the
-brief has phase 7 last, on the finished store.
+*Also landed:* **step 6b, at `dee0320a`**, built by Sid's Codex session
+from `STARTER-6b.md` (merge of `rig-build-grammar-micro` at `1ca407cd`;
+`BUILD_NOTES-grammar-micro.md`). C's own builder for it had been denied at
+07:10 by the session's auto-mode permission check (For Sid 65). Road 1:
+block 1 computes each value's subjects under the pre-batch grammar rows
+and carries them to block 2b, which applies no grammar; `:grammar` is a
+micro control key. Machinery count: micro side 4 (2 promised, 2
+unanticipated, 0 capabilities); total 33 (12, 11, 10). The night's one
+full suite ran on its tree: 163 tests, 8,085 assertions, 0 failures, 0
+errors (`runs/grammar-micro-suite.txt`, which holds the suite's whole log,
+41,829 lines). This branch had added only phase 7's harness files, which
+the suite does not run, and documents, so nothing was rerun. Phase 7's
+minimum set waited for it (Sid: yes).
 
 *Sid's test rule, about 08:20* (in C's chat): "We want to optimize for
 throughput of the system doing testing only when it is needed not after
