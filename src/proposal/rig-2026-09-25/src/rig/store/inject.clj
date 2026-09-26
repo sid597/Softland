@@ -16,6 +16,8 @@
 (defonce fired (atom []))     ; [point name] in the order they fired
 (defonce watched (atom #{}))  ; names whose every point is recorded
 (defonce passes (atom []))    ; [point name] for watched names, in order
+(defonce purging (atom false)) ; stage 2: whether the purge seam's calls are recorded
+(defonce purges (atom []))    ; stage 2: {:task :layer :fid :forget-stamp}, in order
 
 (defn arm!
   "Throw at `point` the next `times` times the gate reaches it for `nm`."
@@ -28,7 +30,24 @@
   (swap! watched into nms))
 
 (defn reset-all! []
-  (reset! armed {}) (reset! fired []) (reset! watched #{}) (reset! passes []))
+  (reset! armed {}) (reset! fired []) (reset! watched #{}) (reset! passes [])
+  (reset! purging false) (reset! purges []))
+
+(defn record-purges!
+  "Stage 2: record every call of the forget's purge seam from now on
+  (rig.store.reads `purge>`, which rig.store.module wires to phase 2's value
+  and person forgets), so a test can see which values a forget handed to the
+  read exit's purge; off by default."
+  []
+  (reset! purges []) (reset! purging true))
+
+(defn purged!
+  "Called by the purge seam before it purges: one entry per erased value
+  when recording is on."
+  [task layer erased forget-stamp]
+  (when @purging
+    (swap! purges into (map (fn [e] {:task task :layer layer :fid (:fid e) :forget-stamp forget-stamp}) erased)))
+  nil)
 
 (defn count-of
   "How many times the gate reached `point` for the watched name `nm`."
@@ -47,9 +66,9 @@
     (swap! passes conj [point nm]))
   (when (seq @armed)
     (let [k [point nm]
-          left (get @armed k 0)]
-      (when (pos? left)
-        (swap! armed update k dec)
+          ;; one atomic countdown: the fan-out's children reach one point on several task threads at once
+          [before _] (swap-vals! armed (fn [m] (if (pos? (get m k 0)) (update m k dec) m)))]
+      (when (pos? (get before k 0))
         (swap! fired conj k)
         (throw (ex-info "injected crash" {:point point :name nm})))))
   nil)
