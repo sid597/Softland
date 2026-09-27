@@ -215,6 +215,7 @@
   [r units fresh]
   (let [ctx (mapv f/layer-id @(:context r))
         rank (zipmap ctx (range))
+        known (into {} (mapcat (comp seq :rows)) (vals units))
         heads-in (fn [layer e]
                    (some (fn [u] (when (and (= layer (:layer u)) (= [:e e] (:pattern u)))
                                    (f/heads (vals (:rows u)))))
@@ -222,7 +223,8 @@
     (into {}
           (concat
            (for [[layer rows] fresh, row rows, :let [old (:replaces row)] :when old]
-             [old {:e (:e row) :k (:k row) :layer layer :now (:fid row) :by layer}])
+             [old {:e (:e row) :k (:k row) :layer layer :now (:fid row) :by layer
+                   :stamp (get-in known [old :stamp])}])
            (for [[layer rows] fresh
                  :let [near (get rank layer)] :when near
                  row rows
@@ -230,16 +232,17 @@
                  farther (subvec ctx (inc near))
                  :let [h (get (heads-in farther (:e row)) (:k row))]
                  :when (and h (:fid h))]
-             [(:fid h) {:e (:e row) :k (:k row) :layer farther :now (:fid row) :by layer}])))))
+             [(:fid h) {:e (:e row) :k (:k row) :layer farther :now (:fid row) :by layer :stamp (:stamp h)}])))))
 
 (defn- mark-rows
   "Marks from a `[:dependents F]` answer: each dependent fact, the layer it
-  is in, what it stood on, when, and what that fact was (`changed`)."
-  [answer layer changed]
-  (into {} (for [row (:rows answer) :when (:fid row)]
-             (let [was (get changed (:on row))]
+  is in, the fact `F` it stood on (a row's `:on` is the set of the facts the
+  dependent act named), and what `F` was and what changed it (`changed`)."
+  [answer layer changed F]
+  (let [was (get changed F)]
+    (into {} (for [row (:rows answer) :when (:fid row)]
                [(:fid row) {:layer layer :fid (:fid row) :e (:e row) :k (:k row) :stamp (:stamp row)
-                            :on (:on row) :on-stamp (:on-stamp row)
+                            :on F :on-stamp (:stamp was)
                             :on-e (:e was) :on-k (:k was) :on-layer (:layer was) :by (:by was)}]))))
 
 (defn flush!
@@ -367,8 +370,8 @@
                     (notify! (get @(:units r) (:key u))))))))
           (when (seq changed)
             (swap! (:looked r) into changed)
-            (swap! (:marks r) merge (apply merge {} (for [[layer _ [_ a]] dependent-reads :when (not (contains? a :refused))]
-                                                      (mark-rows a layer changed-map)))))
+            (swap! (:marks r) merge (apply merge {} (for [[layer F [_ a]] dependent-reads :when (not (contains? a :refused))]
+                                                      (mark-rows a layer changed-map F)))))
           (when (seq facts)
             (when-let [cb @(:on-marks r)] (cb (current-marks r)))))))))
 

@@ -385,8 +385,9 @@
                                       :source (:fid b) :source-stamp (:stamp b) :source-e (f/entity name)
                                       :target to :landing-permission landing-permission
                                       :replaces (get-in dst [:basis k :fid])})))]
+        ;; said at the point of promotion (the ruling): the rig's statement, crossed not being done
         {:status (if (every? #(#{:pending :crossed :done} (:status %)) done) :accepted :rejected)
-         :reason (some :statement done)
+         :reason (some-> (some :statement done) :text)
          :promotion (mapv #(select-keys % [:name :status :statement]) done)}))))
 
 (defn- note!
