@@ -265,3 +265,10 @@ layer, and the server onto the store core.
   in Now, Next, STARTER-round-3.md and the rig's STARTER-next.md, and
   changed one sentence of Now in place so the line ranges the rig's SPEC
   cites did not move.
+- 2026-09-27. Two sessions (softland-de, softland-62) checked Inland's pointer
+  as the first tool on the store, mapped the three codebases onto one system
+  and walked the pointer through the protocol. At Sid's word they converged:
+  the first tool is a citation that stays true (the 13 September reference
+  tool), the pointer second as its hand, its walk folded into the next session
+  so the one page covers both kinds of tool; edition one waits for the
+  pointer's screen run too. Handover: citation-2026-09-27/HANDOFF.md.
