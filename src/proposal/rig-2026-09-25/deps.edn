@@ -5,7 +5,11 @@
  :deps      {org.clojure/clojure  {:mvn/version "1.12.4"}
              com.rpl/rama         {:mvn/version "1.6.0"}
              com.rpl/rama-helpers {:mvn/version "0.10.0"}}
- :aliases   {;; clojure -M:test [ns ...]   runs clojure.test over the named namespaces
+ :aliases   {;; clojure -M:cite [repo main-rev rig-rev]   runs the citation tool over the repository
+             ;; and writes runs/citation-report.md (PLAN-citation.md)
+             :cite {:jvm-opts  ["-Xss16m" "-Xmx8g"]
+                    :main-opts ["-m" "rig.cite.run"]}
+             ;; clojure -M:test [ns ...]   runs clojure.test over the named namespaces
              ;; the formal model rides along so tests can ask it for its answers
              :test {:extra-paths ["test" "../formal-model-2026-09-24/src"]
                     :extra-deps  {org.clojure/test.check {:mvn/version "1.1.0"}}

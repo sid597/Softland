@@ -27,6 +27,7 @@
             [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
+            [rig.store.dependents :as dependents]
             [rig.store.envelope :as env]
             [rig.store.grammar :as grammar]
             [rig.store.inject :as inject]
@@ -341,9 +342,15 @@
   [hints _layer acts]
   (try
     (apply merge-writes no-index-writes
-           (for [{:keys [name stamp rows opens]} acts
-                 [i row] (map-indexed vector rows)]
-             (row-writes hints [name (long i)] stamp row (nth opens i nil))))
+           (concat
+            (for [{:keys [name stamp rows opens]} acts
+                  [i row] (map-indexed vector rows)]
+              (row-writes hints [name (long i)] stamp row (nth opens i nil)))
+            ;; the citation (PLAN-dependents.md section 6): the lookup's entries,
+            ;; from each act's stood-on as the page read it
+            (for [{:keys [name stamp rows stood-on]} acts]
+              {:index-put (or (dependents/index-writes name stamp rows (or stood-on {})) [])
+               :index-of [] :index-del []})))
     (catch Throwable _ no-index-writes)))
 
 (defn implied
@@ -670,6 +677,11 @@
                        (assoc base :kind :kv :pattern [:kv a v] :ix :ix-kv :v v
                               :prefix (kv-prefix a vtext))))
 
+             ;; the citation (PLAN-dependents.md section 5): what stood on a fact, or
+             ;; on any fact of an act
+             (and (= kind :dependents) (= n 2))
+             (if-let [d (dependents/parse-pattern a)] (merge base d) bad)
+
              :else bad))))
      (catch Throwable _ {:refused :bad-pattern}))))
 
@@ -700,6 +712,8 @@
       :all ["" nil]
       (:e :k) [p (prefix-end p)]
       (:ek :kv :latest) [p (str p (hex16 (inc (long m))))]
+      ;; the citation: the lookup from a fact to what stood on it
+      (:dependents :dependents-act) (dependents/bounds pp m)
       ["" ""])))
 
 ;; ----------------------------------------------------- the page loop, pure
@@ -1205,8 +1219,11 @@
                :after (when after [(nth after 0) (some->> (nth after 1) (into []))])}
               {:refuse :bad-op}))
 
+          ;; the citation: :ix-dep may be dropped (a test-only op; its rebuild is put
+          ;; pages only, stale entries skipped at read), never swept (P-D5)
           :drop
-          (if (and (contains? all-fields field) (bounded? (:entries raw) 1 max-sweep-entries))
+          (if (and (or (contains? all-fields field) (= dependents/field field))
+                   (bounded? (:entries raw) 1 max-sweep-entries))
             {:layer layer :op op :field field :entries (long (:entries raw))}
             {:refuse :bad-op})
 
@@ -1233,7 +1250,10 @@
 
 (defn fid-of [nm i] [nm (long i)])
 
-(defn put-act [nm stamp rows opens] {:name nm :stamp stamp :rows rows :opens opens})
+(defn put-act
+  "One yes act of a put page; the citation adds what it stood on."
+  ([nm stamp rows opens] {:name nm :stamp stamp :rows rows :opens opens})
+  ([nm stamp rows opens stood-on] {:name nm :stamp stamp :rows rows :opens opens :stood-on (into {} stood-on)}))
 
 (defn put-out [acts last-nm left] {:acts acts :last last-nm :left (count left)})
 
@@ -1470,6 +1490,8 @@
             (first *pt :> [*pnm *prec])
             (<<if (= :yes (get *prec :answer))
               (local-select> [(keypath *layer :log *pnm) (subselect ALL)] $$layers :> *prows)
+              ;; the citation (PLAN-dependents.md section 6): what the act stood on
+              (local-select> [(keypath *layer :stood-on *pnm) (subselect ALL)] $$layers :> *pso)
               (get *prec :stamp :> *pstamp)
               (loop<- [*ri 0 *ropens [] *rpc *ppc :> *opens *ppc2]
                 (<<if (>= *ri (count *prows))
@@ -1479,8 +1501,8 @@
                   (fid-of *pnm *ri :> *rfid)
                   (open-row-with> *layer *rfid *rrow *pstamp *clock *rpc :> *ro *rpc2)
                   (continue> (inc *ri) (conj *ropens *ro) *rpc2)))
-              (put-act *pnm *pstamp *prows *opens :> *pact)
-              (continue> (rest *pt) (conj *acts *pact) (+ *nrows (count *prows)) *pnm *ppc2)
+              (put-act *pnm *pstamp *prows *opens *pso :> *pact)
+              (continue> (rest *pt) (conj *acts *pact) (+ *nrows (count *prows) (count *pso)) *pnm *ppc2)
              (else>)
               (continue> (rest *pt) *acts *nrows *pnm *ppc))))
         (get *pout :acts :> *pacts)
@@ -1687,6 +1709,13 @@
 
         (case> (some? *kvr))
         (identity {:refused *kvr} :> *answer)
+
+        ;; the citation (PLAN-dependents.md section 5): the lookup from a fact to
+        ;; what stood on it, read by rig.store.dependents-query's query on this task
+        (case> (dependents/kind? *pp))
+        (local-select> STAY $$clock :> *dclock)
+        (moment (get *pp :as-of) *dclock :> *dm)
+        (invoke-query "read-dependents" *layer *for *pp *dm :> *answer)
 
         (default>)
         (local-select> STAY $$clock :> *clock)

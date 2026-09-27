@@ -1,0 +1,44 @@
+start    2026-09-27 22:51:49 IST at 5aef8471 on citation-2026-09-27, 3 paths uncommitted
+exit     1
+end      2026-09-27 23:34:20 IST
+--- per namespace, failures and errors, totals
+Testing rig.smoke-test
+Testing rig.claims-test
+Testing rig.revision-test
+FAIL in (t18-git-failed) (revision_test.clj:629)
+Testing rig.store.clock-test
+Testing rig.store.envelope-test
+Testing rig.store.stream-gate-test
+Testing rig.store.reads-test
+Testing rig.store.read-exit-test
+Testing rig.store.read-model-test
+Testing rig.store.lock-test
+Testing rig.store.forget-test
+Testing rig.store.micro-prepare-test
+Testing rig.store.micro-test
+FAIL in (micro-store) (micro_test.clj:694)
+Testing rig.store.wave1-test
+Testing rig.store.review-wave1-test
+Testing rig.replay-test
+Testing rig.store.promote-unit-test
+Testing rig.store.promote-test
+Testing rig.store.shared-reads-test
+Testing rig.store.reads-rest-test
+Testing rig.store.shape-test
+Testing rig.store.grammar-test
+Testing rig.store.recipe-test
+FAIL in (run) (recipe_test.clj:62)
+FAIL in (run) (recipe_test.clj:63)
+FAIL in (run) (recipe_test.clj:66)
+Testing rig.store.tools-test
+Testing rig.store.review-fixes-test
+Testing rig.store.grammar-micro-test
+Testing rig.store.spec-fixes-test
+Testing rig.material-test
+Testing rig.cite-test
+Testing rig.store.recipe-citation-test
+Testing rig.store.dependents-test
+Testing rig.cite-tools-test
+Ran 190 tests containing 8440 assertions.
+5 failures, 0 errors.
+{:test 190, :pass 8435, :fail 5, :error 0}

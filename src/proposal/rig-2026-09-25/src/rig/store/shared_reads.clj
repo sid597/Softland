@@ -26,6 +26,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.aggs :as aggs]
             [com.rpl.rama.ops :as ops]
+            [rig.store.dependents :as dependents]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
@@ -346,11 +347,15 @@
   taken."
   [pp]
   (try
-    (if (= :kv (:kind pp))
+    (cond
+      ;; the citation (P-D3): the lookup from a fact to what stood on it is the
+      ;; stream store's only; the micro store has no :ix-dep
+      (dependents/kind? pp) {:refused :bad-pattern}
+      (= :kv (:kind pp))
       (if-let [p (kv-prefix (second (:pattern pp)) (:v pp))]
         (assoc pp :prefix p :by :batch)
         {:refused :bad-pattern})
-      (assoc pp :by :batch))
+      :else (assoc pp :by :batch))
     (catch Throwable _ {:refused :bad-pattern})))
 
 (defn merge-key
@@ -1685,6 +1690,11 @@
       (case> (refusal? *pp))
       (:> *pp)
 
+      ;; the citation (P-D4): no standing read of the lookup from a fact to what
+      ;; stood on it; its deltas are not built
+      (case> (dependents/kind? *pp))
+      (:> {:refused :not-standing})
+
       (case> (reads/shared-layer? *ss))
       (local-select> [(keypath :frontier)] $$micro-task :> *Ft)
       (frontier-or *Ft :> *F)
@@ -2138,6 +2148,11 @@
     (<<cond
       (case> (some? (delta-args *layer *for *scan)))
       (delta-args *layer *for *scan :> *answer)
+
+      ;; the citation (P-D4): no standing read of the lookup from a fact to what
+      ;; stood on it, refused before its opening reads anything
+      (case> (dependents/pattern? *pattern))
+      (identity {:refused :not-standing} :> *answer)
 
       (case> (nil? *scan))
       (invoke-query "read-pattern" *layer *for *pattern nil *limit :> *a)

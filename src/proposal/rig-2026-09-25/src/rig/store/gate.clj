@@ -20,6 +20,7 @@
   control facts here, checked for shape and for who may write them (R13
   grown: L10, L20, L28, L7)."
   (:require [rig.store.clock :as hlc]
+            [rig.store.dependents :as dependents]
             [rig.store.envelope :as env]
             [rig.store.grammar :as grammar]
             [rig.store.locks :as locks]
@@ -462,7 +463,12 @@
          ix (if yes?
               (reads/index-writes (reads/hints-of key-rows) (:layer offer) nm log stamp (plain-texts log opened))
               reads/no-index-writes)
-         _ (when (:index-error ix) (throw (ex-info "index writes failed" {:name nm})))]
+         _ (when (:index-error ix) (throw (ex-info "index writes failed" {:name nm})))
+         ;; the citation (PLAN-dependents.md section 4): the lookup from a fact to
+         ;; what stood on it, an entry per fact the act stood on, ids only, in this
+         ;; decision's index writes (a failure is decide's :gate-error road)
+         dep (if yes? (dependents/index-writes nm stamp log (:stood-on offer)) [])
+         _ (when (nil? dep) (throw (ex-info "dependents writes failed" {:name nm})))]
      {:kind :decide
       :stamp stamp
       :record (answer-record offer settings reason stamp digest (:union (:read lx)))
@@ -493,8 +499,9 @@
                      [])
       ;; phase 6: the key rows the act changes, each whole (empty for a no)
       :key-rows (if yes? (grammar/key-row-writes facts (or key-rows {}) nm stamp store-key?) [])
-      ;; stage 5a: the three index write lists (empty for a no)
-      :index-put (:index-put ix)
+      ;; stage 5a: the three index write lists (empty for a no); the citation's
+      ;; lookup entries ride in the put list
+      :index-put (into (:index-put ix) dep)
       :index-of (:index-of ix)
       :index-del (:index-del ix)})))
 

@@ -20,14 +20,26 @@
     :emit                 one output fact {:e :k :v}; :k a literal in :out
     :revision/read-units  rig.revision/read-units over an operator-named
     :revision/read-span   repository (:repo a literal id, V-F13)
+  The citation's (PLAN-citation.md section 3; class c unless marked):
+    :read                 a pattern read through the one exit as the tool
+                          (the runner's read function): {:rows :mark}
+    :emit-all             every fact of a list, {:e :k :v} and an optional
+                          :replaces, each key in :out
+    :stand-on             [[fid stamp] ...] the run's act also stands on
+    :material/reading     rig.material/reading-step (a file at a revision)
+    :cite/find            rig.cite/find-step (a document's citations)
+    :cite/bind            rig.cite/bind-step (a citation bound or not)
+    :cite/check           rig.cite/check-step (the marks of a walk)
   Formulas, in the leaves (class c):
     [:lit x]              the plain value x
     [:in part & path]     a part of the matched fact (:e :k :v :fid
-                          :stamp), and a path into it
+                          :stamp; the citation's :replaces, and :run, the
+                          name the run's act will have), and a path into it
     [:got step & path]    an earlier step's result, and a path into it
     [:count f]            the element count of a collection, else nil
     [:str f ...]          the concatenated string forms
     [:map {k f ...}]      a map from literal keywords to formula values
+    [:vec f ...]          a vector of formula values (the citation's)
     a plain scalar        itself (a string, number, keyword, boolean, nil)
 
   Total: at most 16 steps, each run once; a formula at most 8 deep and 256
@@ -36,7 +48,9 @@
   an error as data; a failed step stops the run and nothing is offered.
 
   Vocabulary: \"key\" is a fact's key; \"lock\" is an encryption key."
-  (:require [rig.revision :as revision]
+  (:require [rig.cite :as cite]
+            [rig.material :as material]
+            [rig.revision :as revision]
             [rig.store.envelope :as env])
   (:import [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]
@@ -49,7 +63,11 @@
 
 (def tool-parts "A tool value's parts, exactly (T-FR4)." #{:matches :signature :permission :recipe})
 
-(def parts-of-a-match "What `[:in part]` may name of the matched fact." #{:e :k :v :fid :stamp})
+(def parts-of-a-match
+  "What `[:in part]` may name of the matched fact: its entity, key, value,
+  id and stamp, and (the citation's) the fact it replaces and the name the
+  run's act will have, which the runner puts in the row."
+  #{:e :k :v :fid :stamp :replaces :run})
 
 (def pattern-kinds
   "The read exit's six pattern forms (PLAN-read-exit.md), by head and
@@ -84,6 +102,7 @@
         :str (when (<= 1 (count args)) (sub args))
         :map (when (and (= 1 (count args)) (map? (first args)) (every? env/readable-keyword? (keys (first args))))
                (sub (vals (first args))))
+        :vec (sub args)
         nil))))
 
 (defn formula-ok?
@@ -111,6 +130,7 @@
       :count (let [x (eval-formula (first args) row results)] (when (coll? x) (count x)))
       :str (apply str (map #(eval-formula % row results) args))
       :map (into {} (map (fn [[k g]] [k (eval-formula g row results)])) (first args))
+      :vec (mapv #(eval-formula % row results) args)
       nil))))
 
 ;; --------------------------------------------------------------- steps
@@ -120,7 +140,21 @@
   literal of the named kind. The machinery count counts each entry."
   {:emit {:e :formula :k :out-key :v :formula}
    :revision/read-units {:repo :repo-id :rev :formula :path :formula :cut :cut}
-   :revision/read-span {:repo :repo-id :rev :formula :path :formula :first :formula :last :formula}})
+   :revision/read-span {:repo :repo-id :rev :formula :path :formula :first :formula :last :formula}
+   ;; the citation's (PLAN-citation.md section 3)
+   :read {:pattern :formula}
+   :emit-all {:facts :formula}
+   :stand-on {:pairs :formula}
+   :material/reading {:repo :repo-id :request :formula :file :formula :prev :formula :run :formula
+                      :same :same-rule}
+   :cite/find {:repo :repo-id :request :formula :doc :formula}
+   :cite/bind {:found :formula :found-fid :formula :cite :formula :readings :formula :target :bind-rule}
+   :cite/check {:reading :formula :dependents :formula :show :show-rule}})
+
+(def same-rules
+  "The rules `:material/reading` knows for the same form across revisions
+  (P-C4): the same name in the same file."
+  #{:name-in-file})
 
 (def ^:private optional-args {:revision/read-units #{:cut}})
 
@@ -130,6 +164,9 @@
     :out-key (contains? out x)
     :repo-id (env/readable-keyword? x)
     :cut (contains? #{:blocks :forms} x)
+    :same-rule (contains? same-rules x)
+    :bind-rule (contains? cite/bind-rules x)
+    :show-rule (contains? cite/show-rules x)
     false))
 
 (defn- step-refusal
@@ -210,35 +247,154 @@
                                                   (if (contains? s :cut) {:cut (:cut s)} {}))
         :revision/read-span (revision/read-span path (ev :rev) (ev :path) (ev :first) (ev :last))))))
 
+(def max-emitted
+  "Facts one run may emit (the citation's `:emit-all`): the door leases at
+  most 256 locks at a time, and a reading of the largest file here has
+  about 130 forms."
+  512)
+
+(defn- has-nil?
+  "Whether a pattern holds nil in one of its own places (P-C13): a fact or
+  an act the pattern would name is missing, as for a first reading's
+  previous act. Only the top level: a name inside may carry a nil class
+  (an act the store places), which is no gap (review finding 8)."
+  [x]
+  (or (nil? x) (and (sequential? x) (boolean (some nil? x)))))
+
+(def max-stand-on
+  "Pairs one run's act may stand on besides its match and its tool: the
+  gate writes a lookup entry and a stood-on entry for each in an event that
+  never yields (review finding 18)."
+  1024)
+
+(defn- read-step
+  "A `:read` step (the citation's): the pattern read through the runner's
+  read function, the one exit as the tool, so the read is recorded. A
+  pattern holding nil reads nothing and returns no rows (P-C13); a refused
+  read, and a partial one, fail the step."
+  [pattern config]
+  (cond
+    (has-nil? pattern) {:rows [] :mark :complete :skipped true}
+    (not (fn? (:read config))) {:error :no-read}
+    :else (let [r ((:read config) pattern)]
+            (cond
+              (not (map? r)) {:error :read-failed}
+              (contains? r :refused) {:error :read-refused :refused (:refused r)}
+              (= :partial (:mark r)) {:error :partial-read}
+              :else (select-keys r [:rows :mark :entry])))))
+
+(defn- emitted-refusal
+  "Why a list of facts from `:emit-all` cannot be offered, or nil: each a
+  map of `:e` (a keyword the envelope takes), `:k` (in the tool's `:out`),
+  `:v` (EDN data, not nil: a tool's output always asserts one) and an
+  optional `:replaces` fact id."
+  [fs out]
+  (cond
+    (not (sequential? fs)) :not-a-list
+    (< max-emitted (count fs)) :too-many-facts
+    :else (some (fn [f]
+                  (cond
+                    (not (map? f)) :not-a-fact
+                    (not (every? #{:e :k :v :replaces} (keys f))) :unknown-part
+                    (not (env/readable-keyword? (:e f))) :bad-entity
+                    (not (contains? out (:k f))) :key-not-in-signature
+                    (nil? (:v f)) :no-value
+                    (not (env/edn-value? (:v f))) :bad-value
+                    (not (or (nil? (:replaces f)) (env/fid? (:replaces f)))) :bad-replaces
+                    :else nil))
+                fs)))
+
+(defn- pairs-refusal
+  "Why a `:stand-on` list is not `[[fid stamp] ...]`, or nil."
+  [ps]
+  (cond
+    (not (sequential? ps)) :not-a-list
+    (< max-stand-on (count ps)) :too-many-pairs
+    (not-every? (fn [p] (and (vector? p) (= 2 (count p)) (env/fid? (first p))
+                             (int? (second p)) (<= 0 (second p) (dec env/max-carried-stamp))))
+                ps)
+    :bad-pair
+    :else nil))
+
+(defn- other-step
+  "A step that is neither an emit nor a stand-on: the revision reader, the
+  store read, and the citation's domain steps, each over its evaluated
+  arguments. A result carrying `:error` fails the run."
+  [s row results config]
+  (let [ev #(eval-formula (get s %) row results)
+        path (get-in config [:repos (:repo s)])
+        no-repo {:error :unknown-repo :repo (:repo s)}]
+    (case (:do s)
+      (:revision/read-units :revision/read-span) (revision-step s row results config)
+      :read (read-step (ev :pattern) config)
+      :material/reading (if path
+                          (material/reading-step path (:repo s) {:request (ev :request) :file (ev :file)
+                                                                 :prev (ev :prev) :run (ev :run) :same (:same s)})
+                          no-repo)
+      :cite/find (if path (cite/find-step path (:repo s) {:request (ev :request) :doc (ev :doc)}) no-repo)
+      :cite/bind (cite/bind-step {:found (ev :found) :found-fid (ev :found-fid) :cite (ev :cite)
+                                  :readings (ev :readings) :target (:target s)})
+      :cite/check (cite/check-step {:reading (ev :reading) :dependents (ev :dependents) :show (:show s)})
+      {:error :unknown-step})))
+
 (defn run
   "Run a parsed `tool`'s recipe once over one matched `row` (as the read
-  exit shows it: `:e :k :value :fid :stamp`), with the runner's operator
-  `config` (`{:repos {id path}}`, empty by default). Each step once, in
-  order; each binds its result to its name. Returns `{:facts [{:e :k :v}
-  ...]}`, the outputs of its `:emit`s in order, or `{:refused :step-failed
-  :step i :error e}` when a step failed (a capability's error, or an
-  `:emit` whose entity is not a keyword the envelope takes or whose value is
-  nil); then nothing is offered. Total."
+  exit shows it: `:e :k :value :fid :stamp`, and `:replaces`; the runner
+  adds `:run`, the name the run's act will have), with the runner's
+  operator `config` (`{:repos {id path} :read f}`: the repositories the
+  git steps may read, and the read function a `:read` step calls; empty by
+  default). Each step once, in order; each binds its result to its name.
+  Returns `{:facts [...]}`, the outputs of its `:emit`s and `:emit-all`s in
+  order, with `:stood-on {fid stamp}` when its `:stand-on`s named pairs,
+  which the runner adds to what the act stands on; or `{:refused
+  :step-failed :step i :error e}` when a step failed (a capability's error,
+  an `:emit` whose entity is not a keyword the envelope takes or whose value
+  is nil, an `:emit-all` or `:stand-on` list that is not well formed); then
+  nothing is offered. Total."
   ([tool row] (run tool row {}))
   ([tool row config]
    (try
-     (loop [i 0 results {} facts []]
+     (loop [i 0 results {} facts [] stood {}]
        (if (= i (count (:recipe tool)))
-         {:facts facts}
-         (let [s (nth (:recipe tool) i)]
-           (if (= :emit (:do s))
+         ;; `:stood-on` only when a step named pairs, so a recipe that names none
+         ;; returns what it always did
+         (cond-> {:facts facts} (seq stood) (assoc :stood-on stood))
+         (let [s (nth (:recipe tool) i)
+               fail (fn [e] {:refused :step-failed :step i :error e})]
+           (case (:do s)
+             :emit
              (let [e (eval-formula (:e s) row results)
                    v (eval-formula (:v s) row results)
                    f {:e e :k (:k s) :v v}]
                (cond
-                 (not (env/readable-keyword? e)) {:refused :step-failed :step i :error :bad-entity}
+                 (not (env/readable-keyword? e)) (fail :bad-entity)
                  ;; a nil value would be a retract; a tool's output always asserts one
-                 (nil? v) {:refused :step-failed :step i :error :no-value}
-                 :else (recur (inc i) (assoc results (:name s) f) (conj facts f))))
-             (let [r (revision-step s row results config)]
+                 (nil? v) (fail :no-value)
+                 :else (recur (inc i) (assoc results (:name s) f) (conj facts f) stood)))
+
+             :emit-all
+             (let [fs (eval-formula (:facts s) row results)]
+               (if-let [why (emitted-refusal fs (:out tool))]
+                 (fail why)
+                 (let [fs (mapv (fn [f] (cond-> (select-keys f [:e :k :v])
+                                          (some? (:replaces f)) (assoc :replaces (:replaces f))))
+                                fs)]
+                   (if (< max-emitted (+ (count facts) (count fs)))
+                     (fail :too-many-facts)
+                     (recur (inc i) (assoc results (:name s) fs) (into facts fs) stood)))))
+
+             :stand-on
+             (let [ps (eval-formula (:pairs s) row results)]
+               (if-let [why (or (pairs-refusal ps)
+                                (when (< max-stand-on (+ (count stood) (count ps))) :too-many-pairs))]
+                 (fail why)
+                 (recur (inc i) (assoc results (:name s) ps) facts
+                        (into stood (map (fn [[f st]] [f (long st)])) ps))))
+
+             (let [r (other-step s row results config)]
                (if (and (map? r) (contains? r :error))
-                 {:refused :step-failed :step i :error r}
-                 (recur (inc i) (assoc results (:name s) r) facts)))))))
+                 (fail r)
+                 (recur (inc i) (assoc results (:name s) r) facts stood)))))))
      (catch Throwable _ {:refused :step-failed :step nil :error :internal}))))
 
 ;; ------------------------------------------------------- the run's name
