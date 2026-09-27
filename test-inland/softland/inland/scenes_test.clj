@@ -77,6 +77,26 @@
             (is (wait-until #(= 8 (:from (value a-sel)))) "the next point chose by the new rule")
             (say "scene one: alice's selection" (value a-sel))))
 
+        (testing "a new tool by writing data alone: a new rule as a record, the pointer pointed at it, no code"
+          (let [rule (pr-str {:label "Select the line and the one after it"
+                              :body {:steps [] :return {:file [:get :subject :file] :from [:get :subject :line]
+                                                        :to [:+ 1 [:get :subject :line]] :kind "lines"
+                                                        :label [:str "lines " [:get :subject :line] "–" [:+ 1 [:get :subject :line]]]}}})
+                made (gesture! "page-a" :create-record {"variation" {:value "two-lines"} "draft" {:value rule}})
+                pointer (store/read-one :rows ["workbench" "base/pointer"])
+                draft (pr-str (-> pointer (dissoc :revision :resolved-layer :basis :erased) (assoc :targeting "two-lines")))
+                pointed (gesture! "page-a" :submit {"inspecting" "pointer" "draft" {:value draft :base (:revision pointer)}})]
+            (is (accepted? made) (str "the rule written through the editor as a record: " (pr-str made)))
+            (is (accepted? pointed) (str "the pointer's :targeting now names it: " (pr-str pointed)))
+            (is (accepted? (point! "page-a" 7)))
+            (is (wait-until #(and (= 7 (:from (value a-sel))) (= 8 (:to (value a-sel)))))
+                (str "the next point chose by the new rule: " (pr-str (value a-sel))))
+            (say "a new tool, as data: alice's selection" (value a-sel))
+            ;; back to the rule the scenes go on with, the same way: data
+            (let [back (pr-str (-> pointer (dissoc :revision :resolved-layer :basis :erased)))
+                  now (store/read-one :rows ["workbench" "alice/pointer"])]
+              (is (accepted? (gesture! "page-a" :submit {"inspecting" "pointer" "draft" {:value back :base (:revision now)}}))))))
+
         (testing "scene two: the pair; the base switches to shared; bob accepted later; alice shares her rule"
           (let [a-base (watch stops "page-a" :rows ["workbench" "base/@base" :class])
                 a-world (watch stops "page-a" :rows ["workbench" "base/world"])]

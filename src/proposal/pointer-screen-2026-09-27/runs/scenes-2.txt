@@ -1,0 +1,11 @@
+WARNING: continue> already refers to: #'com.rpl.rama/continue> in namespace: rig.store.promote-flow, being replaced by: #'rig.store.promote-flow/continue>
+
+Testing softland.inland.scenes-test
+OBSERVED scene one: alice's selection {:file file/none, :from 8, :kind line, :label the next line, :to 8}
+OBSERVED a new tool, as data: alice's selection {:file file/none, :from 7, :kind lines, :label lines 7–8, :to 8}
+OBSERVED scene two: the base's class for alice [:by-layer :by-entity] world values 1 -> 1
+OBSERVED scene two: the promotion [{:name [:alice :by-layer :offer #uuid "01a0e30e-bc26-7df8-8c4d-94295592dae7"], :status :crossed, :statement {:key :crossed, :text Read out at 2026-09-27T13:29:50.379Z. Forgetting the value now does not recall the copy; the read-out is a read that happened. The copy is about whoever pair's grammar and tool name, not you. Crossed does not promise done: the landing can still be refused.}} {:name [:alice :by-layer :offer #uuid "01a0e30e-c27d-7b54-ab97-bde4cb9422e8"], :status :crossed, :statement {:key :crossed, :text Read out at 2026-09-27T13:29:52.804Z. Forgetting the value now does not recall the copy; the read-out is a read that happened. The copy is about whoever pair's grammar and tool name, not you. Crossed does not promise done: the landing can still be refused.}} {:name [:alice :by-layer :offer #uuid "01a0e30e-cbe5-7b53-8ed9-be39ce35da1f"], :status :crossed, :statement {:key :crossed, :text Read out at 2026-09-27T13:29:55.105Z. Forgetting the value now does not recall the copy; the read-out is a read that happened. The copy is about whoever pair's grammar and tool name, not you. Crossed does not promise done: the landing can still be refused.}}]
+OBSERVED scene three: the note on bob's page {:erased-at 2026-09-27}
+
+Ran 1 tests containing 26 assertions.
+0 failures, 0 errors.
