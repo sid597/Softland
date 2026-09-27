@@ -570,6 +570,23 @@
                                (for [pid grants] {:e (gate/perm-entity (nth pid 0)) :k :permission :v {:id pid}}))})]
     {:reclass reclass :made (offer! store o) :offer o}))
 
+(defn add-members!
+  "The pointer screen: a made group accepts new members, by one operator act
+  at this gate naming them in `:members` and granting each their permission
+  beneath the group's root, `[p L L [L L L]]` (the root held by the group,
+  as `make-group!` makes it). Names only people not yet members: the fold
+  writes each named member with this act's batch, and a read as of a moment
+  before it would then see an earlier member as not yet one, so the caller
+  checks `members-of` first (the gate does not read the members; a
+  placeholder, as the operator's word at launch). The answer."
+  [store L people]
+  (let [ps (vec (sort (set people)))
+        root [L L L]]
+    (offer! store
+            (build {:who :operator :layer L
+                    :facts (into [{:e L :k :members :v (set ps)}]
+                                 (for [p ps] {:e (gate/perm-entity p) :k :permission :v {:id [p L L root]}}))}))))
+
 (defn seed-shared!
   "The shared side of the world, before any history (M11 revised): the
   base on the stream gate, then the group here (re-classing the base

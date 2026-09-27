@@ -88,14 +88,18 @@
   2: the lock rows, the lease rows, the erasure ledger, the by-stamp index;
   stage 5a: its four index fields, whose entries carry the row's fields;
   stage 4: the stored forwards; phase 6: a row per key, its grammar and
-  whether the layer uses it)."
+  whether the layer uses it; the pointer screen: the layer's bell, the
+  stamp of its last admitted act, which a standing reader's proxy watches,
+  rig.store.bell)."
   {clojure.lang.Keyword (fixed-keys-schema (merge layer-fields
                                                   (locks/layer-fields)
                                                   (reads/layer-fields row-fields)
                                                   ;; stage 4: the stored forwards
                                                   (promote/layer-fields)
                                                   ;; phase 6: the key rows
-                                                  (grammar/layer-fields)))})
+                                                  (grammar/layer-fields)
+                                                  ;; the pointer screen: the bell
+                                                  {:last-admitted Long}))})
 
 ;; The one event, on the layer's home task, with no partitioner, so every
 ;; read sees this task's state and every write commits in one group (RQ 1):

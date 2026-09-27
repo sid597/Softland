@@ -783,9 +783,12 @@
     (reads/open-row-with> *layer (get *entry :fid) *entry (get *entry :stamp) *m *persons :> *o2 *p3)
     (:> *o2 *p3)))
 
-(deframafn index-read>
+(deframaop index-read>
   "One page of an index, `*n` entries of field `*ix` of `*layer` from
-  `*from`, in the store named: `[[address entry] ...]`."
+  `*from`, in the store named: `[[address entry] ...]`. A ramaop, emitting
+  once: its read may yield (`:allow-yield?`), and a ramafn that yields ends
+  'ramafn must return a value', fatal to the worker (the pointer screen's
+  run on the Mac, 27 September: a task overtime under memory pressure)."
   [*store *layer *ix *from *n]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")
                          $$layers (this-module-pobject-task-global "$$layers")]
@@ -1118,8 +1121,9 @@
     (local-select> [(keypath :layers) (sorted-set-range-from *L (reads/after-opts 1))] $$micro-task :> *nexts)
     (:> (first *nexts))))
 
-(deframafn layer-page>
-  "One page of a layer's field on this task, after an exclusive cursor."
+(deframaop layer-page>
+  "One page of a layer's field on this task, after an exclusive cursor. A
+  ramaop emitting once, since its read may yield (see `index-read>`)."
   [*L *field *a *n]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
     (<<if (nil? *a)
@@ -1791,9 +1795,10 @@
       (reads/open-row> *layer *fid *row (get *entry :stamp) nil :> *o)
       (:> (get *o :value)))))
 
-(deframafn prefix-entries>
+(deframaop prefix-entries>
   "Every `:ix-ke` entry of a layer under a key's prefix, in doubling pages
-  (a maintenance read: ids and stamps are what its callers use)."
+  (a maintenance read: ids and stamps are what its callers use). A ramaop
+  emitting once, since it yields (see `index-read>`)."
   [*layer *prefix]
   (<<with-substitutions [$$layers (this-module-pobject-task-global "$$layers")]
     (reads/prefix-end *prefix :> *end)
@@ -2046,9 +2051,10 @@
       (micro-id-candidates *ents *before :> *cands)
       (:> (micro-id-rows *ents0 *ents *n *after *cands)))))
 
-(deframafn micro-prefix-entries>
+(deframaop micro-prefix-entries>
   "Every `$$micro [W :ix-ke]` entry under a key's prefix, in doubling pages,
-  as `prefix-entries>` reads the stream era's."
+  as `prefix-entries>` reads the stream era's. A ramaop emitting once, since
+  it yields (see `index-read>`)."
   [*layer *prefix]
   (<<with-substitutions [$$micro (this-module-pobject-task-global "$$micro")]
     (reads/prefix-end *prefix :> *end)

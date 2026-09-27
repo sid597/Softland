@@ -6,7 +6,9 @@
   delivered at the caller's rate (the renderer's refresh, the agent's model
   call) through the exit's order: query, append the line, then show.
 
-  One entry per standing read, `:read-<uuid>` from its opening act's name;
+  One entry per standing read, `:read-<uuid>` from its opening act's name
+  (or, when its lines share an act with other entries', from a name made
+  for it alone: the pointer screen's `offer-lines!`, one act per cause);
   every line a fact about it in the reader's working layer, through the
   ordinary offer path, marked `:own-row` (FRR1 to FRR4, first-record): the
   opening `:read/standing`, a `:read/delivery` for each delivery that shows
@@ -75,6 +77,36 @@
   [store {:keys [layer for pattern limit]} scan prev]
   (foreign-invoke-query (:read-delta store) layer for pattern limit scan prev))
 
+;; Each of the three moves below is two halves (the pointer screen): the first
+;; runs the module's query and gives the lines and the handle's next value
+;; without offering anything; the second offers them. `subscribe!`, `deliver!`
+;; and `close-entry!` offer one move's lines in one act, as they always have;
+;; `offer-lines!` offers the lines of many standing reads of one reader in one
+;; act, one record per cause (a gesture, a push).
+
+(defn open-lines
+  "The first half of `subscribe!`: the opening delta for `spec` (the exit's,
+  with `:pattern` and `:limit`) on entry entity `ent`, and the facts the
+  opening act carries: `{:facts [opening line?] :rows [...] :state s}`, `s`
+  the handle's value once an act carrying the facts is answered yes; or
+  `{:refused r}`, nothing opened."
+  [store spec ent]
+  (let [spec (cond-> (merge {:role :shown :limit reads/default-limit} spec)
+               (and (= :person (:reader-kind spec)) (nil? (:for spec))) (assoc :for (:reader spec)))
+        a (delta store spec nil nil)]
+    (if (contains? a :refused)
+      {:refused (:refused a)}
+      (let [opening {:e ent :k :read/standing
+                     ;; R-2: the pattern as recorded, a [:kv] value keyed, never its text
+                     :v (cond-> {:layer (:layer spec) :pattern (:recorded-pattern a) :role (:role spec)
+                                 :limit (:limit spec) :moment (:moment a)}
+                          (contains? a :max-stamp) (assoc :max-stamp (:max-stamp a)))}
+            line (when-not (:nothing-new a) {:e ent :k :read/delivery :v (delivery-value spec a nil)})]
+        {:facts (cond-> [opening] line (conj line))
+         :rows (:rows a)
+         :state {:ent ent :spec spec :scan (:next-scan a) :line (:moment a)
+                 :opening (:moment a) :so-far (:so-far a)}}))))
+
 (defn subscribe!
   "Open a standing read (FRR1): the opening read through the exit's order
   (query; the opening act, with a first delivery line when it matched
@@ -83,28 +115,35 @@
   :layer`) with `:pattern` and `:limit`. `{:handle h :rows [...]}`, or
   `{:refused r}` with nothing shown and nothing opened."
   [store spec]
-  (let [spec (cond-> (merge {:role :shown :limit reads/default-limit} spec)
-               (and (= :person (:reader-kind spec)) (nil? (:for spec))) (assoc :for (:reader spec)))
-        a (delta store spec nil nil)]
-    (if (contains? a :refused)
-      {:refused (:refused a)}
-      (let [nm (fresh-line-name store (:working spec))
-            ent (reads/entry-entity nm)
-            opening {:e ent :k :read/standing
-                     ;; R-2: the pattern as recorded, a [:kv] value keyed, never its text
-                     :v (cond-> {:layer (:layer spec) :pattern (:recorded-pattern a) :role (:role spec)
-                                 :limit (:limit spec) :moment (:moment a)}
-                          (contains? a :max-stamp) (assoc :max-stamp (:max-stamp a)))}
-            line (when-not (:nothing-new a) {:e ent :k :read/delivery :v (delivery-value spec a nil)})
-            r (offer-line! store spec nm (cond-> [opening] line (conj line)))]
+  (let [nm (fresh-line-name store (:working spec))
+        o (open-lines store spec (reads/entry-entity nm))]
+    (if (contains? o :refused)
+      {:refused (:refused o)}
+      (let [r (offer-line! store (:spec (:state o)) nm (:facts o))]
         (if (= :yes (:answer r))
           (do (inject/point! :exit-shown nm)
-              {:handle (atom {:ent ent :spec spec :scan (:next-scan a) :line (:moment a)
-                              :opening (:moment a) :so-far (:so-far a)})
-               :rows (:rows a) :entry nm})
+              {:handle (atom (:state o)) :rows (:rows o) :entry nm})
           {:refused (:reason r) :entry nm})))))
 
 (declare reopen!)
+
+(defn delivery-lines
+  "The first half of `deliver!`, on a handle's value `state`: the delta
+  since its cursor. `{:nothing-new true :state s}`, the cursor moved (F2);
+  `{:facts [line] :rows [...] :state s}`, `s` the handle's value once an act
+  carrying the line is answered yes; `{:reclassed true}` for a handle held
+  across its layer's re-class (F18: close it `:reclass` and open it again);
+  or `{:refused r}`."
+  [store state]
+  (let [{:keys [ent spec scan line so-far]} state
+        a (delta store spec scan so-far)]
+    (cond
+      (= :reclassed (:refused a)) {:reclassed true}
+      (contains? a :refused) {:refused (:refused a)}
+      (:nothing-new a) {:nothing-new true :state (assoc state :scan (:next-scan a))}
+      :else {:facts [{:e ent :k :read/delivery :v (delivery-value spec a line)}]
+             :rows (:rows a)
+             :state (assoc state :scan (:next-scan a) :line (:moment a) :so-far (:so-far a))})))
 
 (defn deliver!
   "One delivery at the caller's rate (FRR2): the delta since the handle's
@@ -117,33 +156,62 @@
   frontier moment, its first read's rows the delivery (F18). `:line-name`
   names the line's act (tests arm hooks on it); else it is made fresh."
   [store h & {:keys [line-name]}]
-  (let [{:keys [ent spec scan line so-far]} @h
-        a (delta store spec scan so-far)]
+  (let [d (delivery-lines store @h)]
     (cond
-      (= :reclassed (:refused a)) (reopen! store h)
-      (contains? a :refused) {:refused (:refused a)}
-      (:nothing-new a) (do (swap! h assoc :scan (:next-scan a)) :nothing-new)
+      (:reclassed d) (reopen! store h)
+      (contains? d :refused) {:refused (:refused d)}
+      (:nothing-new d) (do (reset! h (:state d)) :nothing-new)
       :else
-      (let [nm (or line-name (fresh-line-name store (:working spec)))
-            r (offer-line! store spec nm [{:e ent :k :read/delivery :v (delivery-value spec a line)}])]
+      (let [spec (:spec @h)
+            nm (or line-name (fresh-line-name store (:working spec)))
+            r (offer-line! store spec nm (:facts d))]
         (if (= :yes (:answer r))
-          (do (swap! h assoc :scan (:next-scan a) :line (:moment a) :so-far (:so-far a))
+          (do (reset! h (:state d))
               (inject/point! :exit-shown nm)
-              {:rows (:rows a) :entry nm})
+              {:rows (:rows d) :entry nm})
           {:refused (:reason r) :entry nm})))))
+
+(defn close-lines
+  "The first half of `close-entry!`: the closing line of entry `ent`, its
+  fingerprint, count and mark from the module (`standing-close`, the last
+  admitted line's running value), with how it closed. The facts, one."
+  [store spec ent closed-by]
+  (let [c (foreign-invoke-query (:standing-close store) (:working spec) ent)]
+    [{:e ent :k :read/closed
+      :v (cond-> {:layer (:layer c) :moment (:moment c) :deliveries (:deliveries c)
+                  :fingerprint (:fingerprint c) :fp-secret reads/fp-secret-id
+                  :mark (:mark c) :closed-by closed-by}
+           (nil? (:layer c)) (assoc :layer (:layer spec)))}]))
 
 (defn close-entry!
   "FRR3: an entry's closing act, its fingerprint, count and mark from the
   module (`standing-close`, the last line's running value), with how it
   closed. The act's answer."
   [store spec ent closed-by]
-  (let [c (foreign-invoke-query (:standing-close store) (:working spec) ent)
+  (let [facts (close-lines store spec ent closed-by)
         nm (fresh-line-name store (:working spec))]
-    (offer-line! store spec nm [{:e ent :k :read/closed
-                                 :v (cond-> {:layer (:layer c) :moment (:moment c) :deliveries (:deliveries c)
-                                             :fingerprint (:fingerprint c) :fp-secret reads/fp-secret-id
-                                             :mark (:mark c) :closed-by closed-by}
-                                      (nil? (:layer c)) (assoc :layer (:layer spec)))}])))
+    (offer-line! store spec nm facts)))
+
+(defn fresh-entry
+  "An entry entity for one standing read whose lines share an act with
+  others' (the pointer screen): FR5's entity, fresh per entry, taken from a
+  name made for this entry alone, since the act's own name is shared."
+  [store working]
+  (reads/entry-entity (fresh-line-name store working)))
+
+(defn offer-lines!
+  "The pointer screen: one act carrying the lines of many standing reads of
+  one reader (one record per cause), as each move's own act would carry
+  them: `:who` the reader, its permission and session in the working layer,
+  each fact marked `:own-row`, through the door of the gate that orders the
+  layer. `spec` names the reader (`:reader :working :permission
+  :session`); `facts` are the halves' lines, at most one move per entry (a
+  closing line reads the entry's admitted lines, so an entry's delivery and
+  its close never share an act). The answer, with `:entry` the act's name;
+  nothing a half gave may be shown unless it is yes."
+  [store spec facts]
+  (let [nm (fresh-line-name store (:working spec))]
+    (assoc (offer-line! store spec nm facts) :entry nm)))
 
 (defn unsubscribe!
   "Close a standing read at unsubscribe (FRR3, `:closed-by :unsubscribe`)."

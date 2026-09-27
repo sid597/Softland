@@ -388,7 +388,9 @@
             "a new settings version, keyed by the batch")
         (is (= :control-not-allowed (reason-of ws mine)) "a person's grain switch on a shared layer (no owner, D11)")
         (is (= :unsupported-reclass (reason-of ws reclass)) "O9")
-        (is (= :layer-already-made (reason-of ws members)) "members only in the making act")
+        ;; the pointer screen: a made group accepts new members (a later :members elsewhere
+        ;; is still :layer-already-made, rig.store.screen-test)
+        (is (= :yes (:answer (answer-of ws members))) "a made group accepts a new member by the operator's act")
         (is (= :control-not-allowed (reason-of ws person)) "the :people layer's acts are the stream gate's")))
     (testing "stale and doubled replaces refuse the whole act"
       (let [f0 [(nm) 0]

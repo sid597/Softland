@@ -869,7 +869,10 @@
 (defn micro-extras
   "This gate's control facts, each reason to be placed by `reason-order`
   (M14, R13, phase 2's L20 and L28): a group's `:members` (the operator's,
-  in the making act only); a lease act's shape; a session close's shape and
+  in the making act, or in a later act that adds members to a made group:
+  the pointer screen, whose operator names only people not yet members,
+  since the fold writes each named member with this batch); a lease act's
+  shape; a session close's shape and
   author (the session itself or the operator); a forget's (the operator's
   here); another gate's control keys; and a `:class` fact outside a making
   act (O9: a shared layer's re-class is not ruled)."
@@ -882,7 +885,8 @@
      (for [f facts :when (= :members (:k f))]
        (cond (not (and (= L (:e f)) (set? (:v f)) (every? env/readable-keyword? (:v f)))) :malformed-control
              (not op?) :control-not-allowed
-             made? :layer-already-made))
+             ;; the pointer screen: a made group accepts new members
+             (and made? (not= :group (:kind settings))) :layer-already-made))
      (for [f facts :when (= :lease (:k f))]
        (when-not (lease-ok? o) :malformed-control))
      (for [f facts :when (= :session-closed (:k f))]

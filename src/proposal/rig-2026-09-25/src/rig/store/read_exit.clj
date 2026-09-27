@@ -155,6 +155,50 @@
                          {:entry nm :entry-stamp (:stamp a)}))
                 {:refused (:reason a) :entry nm}))))))))
 
+;; ------------------------------------------ one record per gesture (the pointer screen)
+;; A gesture's rule reads as it runs: what it reads first decides what it reads
+;; next. So the exit's order is kept for the gesture whole: every read is
+;; checked and queried as the rule reaches it, its answer passed through to the
+;; rule and shown to nobody; then one entry act records every read the gesture
+;; made; only on its yes does anything the gesture decided take effect.
+
+(defn checked-query
+  "The exit's steps 1 and 2 for one read of a gesture, recording nothing yet:
+  `spec` merged over the gesture's `common` parts (`:reader :for
+  :reader-kind :rows? :working :permission :session`), checked, and
+  queried. `[spec answer]`, the answer `{:refused r}` when the call or the
+  query refused (a refused read records nothing, as `read!` records none)."
+  [store common spec]
+  (let [m (merge {:role :shown} common spec)
+        m (cond-> m (and (= :person (:reader-kind m)) (nil? (:for m))) (assoc :for (:reader m)))]
+    (if-let [bad (check-call m)]
+      [m {:refused bad}]
+      [m (query store m)])))
+
+(defn record!
+  "The exit's step 3 for a whole gesture: one entry act into the working
+  layer carrying the entry facts (`reads/entry-facts`) of every read in
+  `queried`, `[[spec answer] ...]` from `checked-query`, each read on an
+  entry entity of its own (FR5, fresh per entry, from a name made for it
+  alone, since the act's name is shared), through the door of the gate that
+  orders the working layer, under the reader's permission and session.
+  The act's answer with `:entry` its name, or `{:answer :none}` when no
+  read gave a fact to record. Nothing the reads gave may be shown, and
+  nothing the gesture decided may take effect, unless the answer is yes."
+  [store {:keys [reader working permission session]} queried]
+  (let [class (mc/layer-class store working)
+        facts (into [] (mapcat (fn [[spec answer]]
+                                 (when-not (contains? answer :refused)
+                                   (reads/entry-facts answer (assoc spec :entry-name (env/make-name working class))))))
+                    queried)]
+    (if (empty? facts)
+      {:answer :none}
+      (let [nm (env/make-name working class)]
+        (assoc (mc/offer-into! store (c/build {:name nm :who reader :layer working :class class
+                                               :permission permission :stood-on {} :because-of nil
+                                               :subjects #{} :session session :facts facts}))
+               :entry nm)))))
+
 ;; ------------------------------------------------------------ rebuild
 
 (defn index-op!

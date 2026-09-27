@@ -35,8 +35,9 @@
   "The writes of a decided act (`gate/decide`'s `:kind :decide`), in the
   decision's one atomic group on the layer's home: the answer record; for
   a yes the act's rows, what it stood on, its heads, its index entries
-  (stage 5a), and the settings and permission rows as they stand after
-  it; stage 2's lock writes, yes or no; a value forget's purge of the read
+  (stage 5a), the settings and permission rows as they stand after it,
+  and the layer's bell (the pointer screen); stage 2's lock writes, yes
+  or no; a value forget's purge of the read
   exit's indexes, dated by its stamp; and the task's clock. The crash
   hook's `:before-writes` and `:after-writes` points bracket it. Every
   write is a set of a value computed before any write, so a replay that
@@ -82,7 +83,11 @@
       ;; phase 6: the key rows the act changed, each whole (a grammar, a first use)
       (<<atomic
         (ops/explode (get *d :key-rows) :> [*kk *krow])
-        (local-transform> [(keypath *layer :key-rows *kk) (termval *krow)] $$layers)))
+        (local-transform> [(keypath *layer :key-rows *kk) (termval *krow)] $$layers))
+      ;; the pointer screen: the layer's bell, the stamp of its last admitted
+      ;; act, one set of a value computed before any write (I-G2); a standing
+      ;; reader's proxy on it is pushed each change (rig.store.bell)
+      (local-transform> [(keypath *layer :last-admitted) (termval (get *d :stamp))] $$layers))
     ;; stage 2's lock writes, yes or no, in the same group
     (locks/write-decision> *layer *offer *d)
     ;; a value forget purges the read exit's indexes of every value its lock
