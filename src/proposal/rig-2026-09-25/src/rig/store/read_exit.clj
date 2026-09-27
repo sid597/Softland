@@ -172,11 +172,14 @@
          :else (do (Thread/sleep 250) (recur (inc n))))))))
 
 (defn rebuild!
-  "Rebuild one layer's five index fields from its log (F2, RC8), driven one
+  "Rebuild one layer's index fields from its log (F2, RC8), driven one
   bounded page at a time: put pages from the start of the layer's answers
   until done, then sweep pages over `:ix-ek`, `:ix-ke`, `:ix-kv`, `:ix-s`
-  (stage 5b) and `:ix-of` in turn until each is done. When it returns, the fields hold
-  exactly what the log implies at that point. `:acts` and `:entries` set the
+  (stage 5b) and `:ix-of` in turn until each is done. When it returns, those
+  five hold exactly what the log implies at that point. The citation's
+  `:ix-dep` (PLAN-dependents.md section 6) is put by the same pages and never
+  swept: it holds at least what the log implies, and its reads skip an entry
+  whose act the log does not admit. `:acts` and `:entries` set the
   page sizes (tests use small ones). Returns the pages sent and what the
   sweeps deleted and rewrote."
   [store layer & {:keys [acts entries] :or {acts reads/max-put-acts entries reads/max-sweep-entries}}]

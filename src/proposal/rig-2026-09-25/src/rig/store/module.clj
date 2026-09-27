@@ -17,6 +17,8 @@
             [rig.store.gate :as gate]
             [rig.store.gate-event :as gate-event]
             [rig.store.grammar :as grammar]
+            [rig.store.dependents :as dependents]
+            [rig.store.dependents-query :as dependents-query]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
             [rig.store.micro :as micro]
@@ -88,14 +90,18 @@
   2: the lock rows, the lease rows, the erasure ledger, the by-stamp index;
   stage 5a: its four index fields, whose entries carry the row's fields;
   stage 4: the stored forwards; phase 6: a row per key, its grammar and
-  whether the layer uses it)."
+  whether the layer uses it; the citation: `:ix-dep`, the lookup from a
+  fact to what stood on it, rig.store.dependents)."
   {clojure.lang.Keyword (fixed-keys-schema (merge layer-fields
                                                   (locks/layer-fields)
                                                   (reads/layer-fields row-fields)
                                                   ;; stage 4: the stored forwards
                                                   (promote/layer-fields)
                                                   ;; phase 6: the key rows
-                                                  (grammar/layer-fields)))})
+                                                  (grammar/layer-fields)
+                                                  ;; the citation: the lookup from a fact to what
+                                                  ;; stood on it (PLAN-dependents.md)
+                                                  (dependents/layer-fields)))})
 
 ;; The one event, on the layer's home task, with no partitioner, so every
 ;; read sees this task's state and every write commits in one group (RQ 1):
@@ -155,5 +161,7 @@
   (promote-flow/declare-queries! topologies)
   ;; stage 5b: shared reads, deltas and the maintenance reads (rig.store.shared-reads)
   (shared-reads/declare-queries! topologies)
+  ;; the citation: the read of the lookup from a fact to what stood on it
+  (dependents-query/declare-queries! topologies)
   ;; the micro store (stage 3): its depot, gate and queries, from its own namespace (M1)
   (micro/declare! setup topologies))
