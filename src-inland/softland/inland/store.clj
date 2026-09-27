@@ -186,26 +186,34 @@
 (defn address
   "An Inland read address → the read units it needs (`[layer pattern]`, or
   `[layer pattern revision]` for a pinned version) and `:value`, from their
-  rows (unit → fid → row) to what Inland reads there."
+  rows (unit → fid → row) to what Inland reads there. Total: an address that
+  does not parse (a pinned version's key must read as `[layer name revision]`,
+  the revision an integer) needs no unit, and the read shows as failed rather
+  than throwing into the page's connection."
   [kind path]
-  (let [[_ key & attr] path]
-    (case kind
-      :rows (let [[L name] (split-key key)
-                  u [(f/layer-id L) [:e (f/entity name)]]]
-              {:units [u]
-               :value (fn [rows-of] (let [rec (f/record-in name L (vals (get rows-of u)))]
-                                      (if (seq attr) (attr-value rec (vec attr)) rec)))})
-      :versions (let [[L name rev] (edn/read-string key)
-                      u [(f/layer-id L) [:e (f/entity name)] rev]]
+  (let [none {:units [] :value (constantly nil)}]
+    (try
+      (let [[_ key & attr] path]
+        (case kind
+          :rows (let [[L name] (split-key key)
+                      u [(f/layer-id L) [:e (f/entity name)]]]
                   {:units [u]
                    :value (fn [rows-of] (let [rec (f/record-in name L (vals (get rows-of u)))]
                                           (if (seq attr) (attr-value rec (vec attr)) rec)))})
-      :index (let [[L bucket] (split-key key)
-                   ps (f/bucket-patterns bucket)
-                   us (mapv #(vector (f/layer-id L) %) ps)]
-               {:units us
-                :value (fn [rows-of] (f/bucket-names bucket (into {} (for [[u p] (map vector us ps)] [p (vals (get rows-of u))]))))})
-      {:units [] :value (constantly nil)})))
+          :versions (let [[L name rev] (edn/read-string key)
+                          u [(f/layer-id L) [:e (f/entity name)] rev]]
+                      (if-not (int? rev)
+                        none
+                        {:units [u]
+                         :value (fn [rows-of] (let [rec (f/record-in name L (vals (get rows-of u)))]
+                                                (if (seq attr) (attr-value rec (vec attr)) rec)))}))
+          :index (let [[L bucket] (split-key key)
+                       ps (f/bucket-patterns bucket)
+                       us (mapv #(vector (f/layer-id L) %) ps)]
+                   {:units us
+                    :value (fn [rows-of] (f/bucket-names bucket (into {} (for [[u p] (map vector us ps)] [p (vals (get rows-of u))]))))})
+          none))
+      (catch Throwable _ none))))
 
 (defn- unit-status
   "Every watched unit's state → the tagged value Inland reads."
@@ -575,6 +583,10 @@
                 cell-answer (when (seq stored-writes) (cell-write! sess stored-writes stood g))]
             (when (contains? stored-writes "context")
               (reader/set-context! (:reader sess) (:layers (get stored-writes "context"))))
+            ;; an act of this page now stands on what the gesture read: watch those things
+            ;; live, so a change to them reaches the marks whatever the screen shows
+            (when (or (= :yes (:answer cell-answer)) (some #(= :accepted (:status %)) decisions))
+              (reader/stand-on! (:reader sess) (gesture/stood-on-things g)))
             {:effects local :recorded (:entry rec) :supports (mapv :support results)
              :decisions (cond-> decisions
                           (and cell-answer (not= :yes (:answer cell-answer)))
@@ -596,7 +608,9 @@
             _ (when context (read-for-writes! g sess context [{:effect :admit :request op}]))
             rec (gesture/record! g)]
         (if (and context (#{:yes :none} (:answer rec)))
-          (assoc (admit! sess g context op (gesture/stood-on g)) :request-id (:request-id op) :name (:name op))
+          (let [d (admit! sess g context op (gesture/stood-on g))]
+            (when (= :accepted (:status d)) (reader/stand-on! (:reader sess) (gesture/stood-on-things g)))
+            (assoc d :request-id (:request-id op) :name (:name op)))
           {:request-id (:request-id op) :name (:name op) :status :rejected :reason "The request's reads were not recorded."}))
       {:request-id (:request-id op) :name (:name op) :status :rejected :reason "No session for this page."})
     (catch Throwable _
@@ -621,18 +635,20 @@
   \"context\"), and the marks on records by record name. A mark says the
   thing and key that stood on a changed fact, the layer it is in, the thing,
   key and layer of the fact it stood on, the layer whose new fact changed
-  it, and the day the old fact was written."
+  it, and the day the old fact was written. A mark on another page's cells
+  (the person's pages share one hand layer) is that page's to show."
   [owner marks]
-  (let [S (:S (session-of owner))]
+  (let [{:keys [S hand]} (session-of owner)]
     (reduce (fn [out [_ mk]]
               (let [m {:thing (some-> (:e mk) f/record-name) :key (some-> (:k mk) str (subs 1))
                        :layer (some-> (:layer mk) f/layer-name)
                        :on-thing (some-> (:on-e mk) f/record-name) :on-key (some-> (:on-k mk) str (subs 1))
                        :on-layer (some-> (:on-layer mk) f/layer-name) :by (some-> (:by mk) f/layer-name)
                        :on-date (date-of (:on-stamp mk))}]
-                (if (= S (:e mk))
-                  (assoc-in out [:cells (name (:k mk))] m)
-                  (assoc-in out [:things (:thing m)] m))))
+                (cond
+                  (= S (:e mk)) (assoc-in out [:cells (name (:k mk))] m)
+                  (= hand (:layer mk)) out
+                  :else (assoc-in out [:things (:thing m)] m))))
             {:cells {} :things {}}
             (sort-by (comp str key) marks))))
 

@@ -185,8 +185,10 @@
       (get-in row [:pattern :demand]) (conj (str "demand/" (name (get-in row [:pattern :demand])))))))
 
 (defn version-key
-  "Layer, record name and revision → printed tuple key for immutable versions."
-  [layer name revision] (pr-str [layer name revision]))
+  "Layer, record name and revision → printed tuple key for immutable versions.
+   The revision prints as its digits: on the rig's store it is a stamp past 2^53,
+   which the browser holds as a goog.math.Long, whose pr-str EDN cannot read."
+  [layer name revision] (str "[" (pr-str layer) " " (pr-str name) " " revision "]"))
 (defn row-key
   "Layer and record name → slash-joined current-row key.
    Callers must use names/layers whose combinations do not collide under this encoding;

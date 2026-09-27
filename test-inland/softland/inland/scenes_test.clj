@@ -64,17 +64,15 @@
           b (store/page-open! "page-b" :bob)
           cell (fn [page info k] (watch stops page :rows ["workbench" (str (:hand info) "/" (:thing info)) (keyword "cell" k)]))
           a-sel (cell "page-a" a "selection")
-          b-sel (cell "page-b" b "selection")]
+          b-sel (cell "page-b" b "selection")
+          marks (atom [])
+          _ (swap! stops conj ((m/reduce (fn [_ v] (swap! marks conj v)) nil (store/marks-flow "page-a"))
+                               (fn [_]) (fn [_])))
+          ;; no view here reads a rule: the page holds live what its acts stood on
+          marked (fn [] (store/marks-view "page-a" (or (last @marks) {})))]
       (try
         (testing "scene one, server side: alice changes her pointer's rule while using it; what stood on the old rule is marked"
-          (let [marks (atom [])
-                _ (swap! stops conj ((m/reduce (fn [_ v] (swap! marks conj v)) nil (store/marks-flow "page-a"))
-                                     (fn [_]) (fn [_])))
-                marked (fn [] (store/marks-view "page-a" (or (last @marks) {})))
-                ;; the rule as alice's views hold it: her own layer, then the base
-                _ (watch stops "page-a" :rows ["workbench" "alice/targeting"])
-                a-base-rule (watch stops "page-a" :rows ["workbench" "base/targeting"])]
-            (is (wait-until #(some? (value a-base-rule))) "the base's rule arrives")
+          (do
             (is (accepted? (point! "page-a" 7)))
             (is (wait-until #(= 7 (:from (value a-sel)))) (pr-str (last @a-sel)))
             (is (accepted? (gesture! "page-a" :pin {"inspecting" "targeting"})) "alice pins the rule")
@@ -113,6 +111,18 @@
             (is (wait-until #(and (= 7 (:from (value a-sel))) (= 8 (:to (value a-sel)))))
                 (str "the next point chose by the new rule: " (pr-str (value a-sel))))
             (say "a new tool, as data: alice's selection" (value a-sel))
+            ;; the new rule edited in its own layer: the edit replaces its facts there, and the
+            ;; selection that stood on them is marked
+            (let [two (store/read-one :rows ["workbench" "alice/two-lines"])
+                  three (pr-str {:label "Select the line and the two after it"
+                                 :body {:steps [] :return {:file [:get :subject :file] :from [:get :subject :line]
+                                                           :to [:+ 2 [:get :subject :line]] :kind "lines"
+                                                           :label [:str "lines " [:get :subject :line] "–" [:+ 2 [:get :subject :line]]]}}})
+                  g (gesture! "page-a" :submit {"inspecting" "two-lines" "draft" {:value three :base (:revision two)}})]
+              (is (accepted? g) (pr-str g))
+              (is (wait-until #(= "two-lines" (get-in (marked) [:cells "selection" :on-thing])))
+                  (str "a same-layer edit marks the selection that stood on the facts it replaced: " (pr-str (marked))))
+              (say "a same-layer edit: the selection's mark" (get-in (marked) [:cells "selection"])))
             ;; back to the rule the scenes go on with, the same way: data
             (let [back (pr-str (-> pointer (dissoc :revision :resolved-layer :basis :erased)))
                   now (store/read-one :rows ["workbench" "alice/pointer"])]

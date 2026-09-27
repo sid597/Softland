@@ -147,7 +147,10 @@
                          :when (not= was now)]
                      (cond-> {:e e :k k}
                        (some? now) (assoc :v now)
-                       (and from (= layer (:layer from))) (assoc :replaces (:fid from)))))
+                       ;; a basis names its layer as the record was composed (an Inland
+                       ;; name, or an id): compared as ids, so an edit in the same layer
+                       ;; replaces the fact it was read from
+                       (and from (= (layer-id layer) (layer-id (:layer from)))) (assoc :replaces (:fid from)))))
         stood (into {} (for [k ks
                              :let [from (get basis k)]
                              :when (and from (not= (get a k) (get b k)))]

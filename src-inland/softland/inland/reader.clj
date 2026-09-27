@@ -27,6 +27,9 @@
     A page's own stored cells are left out: only this page's gestures
     write them, and every gesture reads the context cell, so a pin would
     otherwise mark every selection made before it.
+  - What the page stood on is held live (`stand-on!`): once a gesture's act
+    stands on what it read, the reader holds a unit on each thing read, in
+    every context layer, so the change is seen whatever the screen shows.
 
   Vocabulary: \"key\" is a fact's key; \"lock\" is an encryption key."
   (:require [com.rpl.rama :as rama]
@@ -115,6 +118,8 @@
            :marks (atom {})          ; dependent fid -> mark
            :looked (atom #{})        ; fids whose dependents were read
            :context (atom ["base"])  ; the session's context layers, nearest first (Inland names)
+           :held (atom #{})          ; things this page's acts stood on, watched in every context layer
+           :holding (atom {})        ; unit key -> stop, the units held open on them
            :on-marks (atom nil)      ; called with the marks when they change
            :closed? (atom false)
            :on-ring (fn [key] (.execute exec #(rung! @self key)))}]
@@ -179,11 +184,33 @@
                          ^Runnable (fn [] (flush! r))
                          (long (+ close-grace-ms 50)) TimeUnit/MILLISECONDS))))))))
 
+(defn- hold!
+  "Open, in every context layer, a unit on each held thing not yet held.
+  Its watcher does nothing: the unit is held so its rows reach the flush."
+  [r]
+  (doseq [e @(:held r)
+          layer (map f/layer-id @(:context r))
+          :let [key (unit-key layer [:e e])]
+          :when (not (contains? @(:holding r) key))]
+    (swap! (:holding r) assoc key (watch! r key (fn [_])))))
+
+(defn stand-on!
+  "Things an act of this page stood on (each read whole by a gesture): the
+  reader holds a live read on each, in every layer of the session's context,
+  for the session's life. A change to a fact the page stood on then arrives
+  by push whatever the screen shows (the editor may show a pinned version,
+  or nothing), and what stood on it can be marked."
+  [r things]
+  (swap! (:held r) into things)
+  (hold! r))
+
 (defn set-context!
   "The session's context layers (Inland names, nearest first), for deciding
-  which fact a nearer layer now shadows."
+  which fact a nearer layer now shadows. A layer joined later gets its held
+  units."
   [r layers]
-  (reset! (:context r) (vec layers)))
+  (reset! (:context r) (vec layers))
+  (hold! r))
 
 (defn current-marks
   "The marks whose dependent fact still heads its (thing, key) in the unit
@@ -214,13 +241,19 @@
   [row]
   (= "cell" (some-> (:k row) namespace)))
 
+(defn- same-value?
+  "Whether two rows say the same value: a fact replaced or shadowed by an
+  equal one leaves nothing that stood on it stale. An erased row says none."
+  [a b]
+  (and (contains? a :value) (contains? b :value) (= (:value a) (:value b))))
+
 (defn- changed-facts
   "The facts new rows change for this session, each with what it was and
   what changed it: a fact a new row replaces in its own layer (not a page's
   stored cell), and the head in a farther context layer of the (thing, key)
-  a new row now says in a nearer one. `{fid {:e :k :layer :now :by}}`.
-  `units` are the reader's units with the new rows in; `fresh` the new rows
-  by layer."
+  a new row now says in a nearer one; in both, only when the new row's value
+  differs. `{fid {:e :k :layer :now :by}}`. `units` are the reader's units
+  with the new rows in; `fresh` the new rows by layer."
   [r units fresh]
   (let [ctx (mapv f/layer-id @(:context r))
         rank (zipmap ctx (range))
@@ -231,7 +264,8 @@
                          (vals units)))]
     (into {}
           (concat
-           (for [[layer rows] fresh, row rows, :let [old (:replaces row)] :when (and old (not (cell-row? row)))]
+           (for [[layer rows] fresh, row rows, :let [old (:replaces row)]
+                 :when (and old (not (cell-row? row)) (not (same-value? row (get known old))))]
              [old {:e (:e row) :k (:k row) :layer layer :now (:fid row) :by layer
                    :stamp (get-in known [old :stamp])}])
            (for [[layer rows] fresh
@@ -240,7 +274,7 @@
                  :when (and (:k row) (not (f/namespace-of-read? (:k row))))
                  farther (subvec ctx (inc near))
                  :let [h (get (heads-in farther (:e row)) (:k row))]
-                 :when (and h (:fid h))]
+                 :when (and h (:fid h) (not (same-value? row h)))]
              [(:fid h) {:e (:e row) :k (:k row) :layer farther :now (:fid row) :by layer :stamp (:stamp h)}])))))
 
 (defn- mark-rows

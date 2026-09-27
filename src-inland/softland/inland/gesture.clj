@@ -223,6 +223,19 @@
                  :when (and (:fid row) (int? (:stamp row)) (not (f/namespace-of-read? (:k row))))]
              [(:fid row) (:stamp row)])))
 
+(defn stood-on-things
+  "The things the gesture read whole (`[:e thing]`) and found facts of, in
+  any layer: what the page watches live once an act of it stands on them.
+  The session's own thing, whose facts are its stored cells, is left out."
+  [g]
+  (into #{} (for [[spec answer] @(:queried g)
+                  :when (not (contains? answer :refused))
+                  :let [[kind pattern] (:read spec)]
+                  :when (and (= :pattern kind) (vector? pattern) (= :e (first pattern)))
+                  :let [e (second pattern)]
+                  :when (and (keyword? e) (not= e (:S g)) (seq (:rows answer)))]
+              e)))
+
 (defn record!
   "One entry act for every read the gesture made. The act's answer with
   `:entry`, or `{:answer :none}` when it read nothing that records."
