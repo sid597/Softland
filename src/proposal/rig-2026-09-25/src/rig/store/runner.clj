@@ -27,6 +27,12 @@
      claimed at the later stamp's millisecond: every part a function of
      (L, tool fact, matched fact), so a rerun is a retry and each match
      runs once (6.3).
+     The citation (PLAN-citation.md section 3): the names are looked up
+     before any recipe runs, and a recipe runs only for a match with no
+     answer yet, then offers at once; so the matches of one tool run in the
+     read's order (for `[:k k]`, by entity, then stamp), each seeing what
+     the ones before it wrote. A recipe may read the store through the exit
+     as the tool, and name more facts its act stands on.
 
   The door leases for the tool as the tool: in a layer with a person
   owner, a lease by a writer who is no person is sealed under the owner's
@@ -82,19 +88,26 @@
   CONCLUSION R4), because of the matched act (ruling 3: trigger is already
   because-of), naming no subjects, claimed at the millisecond of the later
   stood-on stamp (V-F5), under the run's derived name. Pure: the same
-  (layer, tool fact, matched fact) give the same act."
-  [layer class tool-id tool-fid tool-stamp tool row facts]
-  (c/build {:name (recipe/run-name layer class tool-fid (:fid row))
-            :who tool-id
-            :layer layer
-            :class class
-            :permission (:permission tool)
-            :session (c/default-session tool-id)
-            :stood-on {(:fid row) (:stamp row), tool-fid tool-stamp}
-            :because-of (first (:fid row))
-            :subjects #{}
-            :claimed-when (hlc/ms-of (max (long (:stamp row)) (long tool-stamp)))
-            :facts facts}))
+  (layer, tool fact, matched fact) give the same act.
+
+  The citation (PLAN-citation.md section 3, P-C14): `also`, the pairs the
+  recipe's `:stand-on` steps named, joins what the act stands on, and the
+  claimed millisecond is that of the latest stamp it stood on, so no run
+  claims a time before its own basis (review finding 11)."
+  ([layer class tool-id tool-fid tool-stamp tool row facts]
+   (output-act layer class tool-id tool-fid tool-stamp tool row facts {}))
+  ([layer class tool-id tool-fid tool-stamp tool row facts also]
+   (c/build {:name (recipe/run-name layer class tool-fid (:fid row))
+             :who tool-id
+             :layer layer
+             :class class
+             :permission (:permission tool)
+             :session (c/default-session tool-id)
+             :stood-on (merge also {(:fid row) (:stamp row), tool-fid tool-stamp})
+             :because-of (first (:fid row))
+             :subjects #{}
+             :claimed-when (hlc/ms-of (reduce max (long (:stamp row)) (cons (long tool-stamp) (map long (vals also)))))
+             :facts facts})))
 
 (defn- offer-run
   "Offer one run's act through the door of the gate its name is tagged for
@@ -122,9 +135,28 @@
   [answered nm]
   (or (get answered nm) (get answered (tagged nm :by-layer)) (get answered (tagged nm :by-entity))))
 
+(defn recipe-read
+  "The read function a recipe's `:read` step calls (the citation's,
+  PLAN-citation.md section 3): a pattern read through the one exit as the
+  tool, recorded in the layer like its match read, with the role
+  `:stood-on` (P-C12). Data, never a throw."
+  [store {:keys [layer owner limit]} tool-id tool]
+  (fn [pattern]
+    (try
+      (rx/read! store {:reader tool-id :reader-kind :tool :rows? (:rows? tool) :role :stood-on
+                       :for owner :working layer :permission (:permission tool)
+                       :layer layer :read [:pattern pattern] :limit limit})
+      (catch Throwable t (failed t)))))
+
 (defn- run-tool
-  "Step 3 for one tool: its match read, its runs, their answers."
-  [store {:keys [layer class owner limit config]} [tool-fid row tool]]
+  "Step 3 for one tool: its match read, its runs, their answers.
+
+  The citation (PLAN-citation.md section 3): every match's run is named
+  first and the names answered already are looked up before any recipe
+  runs, so a recipe runs only for a match that has not run, and its reads
+  are recorded only then; each recipe gets the name its act will have
+  (`:run` in its row) and the tool's read function."
+  [store {:keys [layer class owner limit config] :as ctx} [tool-fid row tool]]
   (let [tool-id (:e row)
         tool-stamp (:stamp row)
         read (try
@@ -135,26 +167,28 @@
     (if (contains? read :refused)
       {:tool tool-fid :id tool-id :read read}
       (let [matched (filter shown? (:rows read))
-            runs (mapv (fn [m] [m (recipe/run tool m config)]) matched)
-            acts (into {} (keep (fn [[m r]]
-                                  (when-let [facts (:facts r)]
-                                    [(:fid m) (output-act layer class tool-id tool-fid tool-stamp tool m facts)])))
-                       runs)
-            answered (try (answered-runs store layer class (mapv :name (vals acts)))
-                          (catch Throwable _ {}))]
+            named (mapv (fn [m] [m (recipe/run-name layer class tool-fid (:fid m))]) matched)
+            answered (try (answered-runs store layer class (mapv second named))
+                          (catch Throwable _ {}))
+            config (assoc config :read (recipe-read store ctx tool-id tool))]
         {:tool tool-fid
          :id tool-id
          :entry (:entry read)
          :mark (:mark read)
          :matches (count (:rows read))
-         :runs (mapv (fn [[m r]]
-                       (if-let [act (get acts (:fid m))]
-                         (let [nm (:name act)]
-                           (if-let [rec (run-record answered nm)]
-                             {:match (:fid m) :name nm :recorded (select-keys rec [:answer :reason :stamp])}
-                             (assoc (offer-run store act) :match (:fid m) :name nm)))
-                         (assoc r :match (:fid m))))
-                     runs)}))))
+         :runs (mapv (fn [[m nm]]
+                       (if-let [rec (run-record answered nm)]
+                         {:match (:fid m) :name nm :recorded (select-keys rec [:answer :reason :stamp])}
+                         (let [r (recipe/run tool (assoc m :run nm) config)]
+                           (cond
+                             (seq (:facts r))
+                             (let [act (output-act layer class tool-id tool-fid tool-stamp tool m (:facts r) (:stood-on r))]
+                               (assoc (offer-run store act) :match (:fid m) :name nm))
+                             ;; the citation: an act of no facts is refused on its face and
+                             ;; recorded nowhere, so a run with nothing to say is not offered
+                             (contains? r :facts) {:refused :step-failed :error :no-output :match (:fid m)}
+                             :else (assoc r :match (:fid m))))))
+                     named)}))))
 
 (defn run-pass!
   "One pass of the runner over layer `layer` (6.2). `limit` the rows each
