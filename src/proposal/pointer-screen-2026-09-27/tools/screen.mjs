@@ -14,6 +14,9 @@
 //   click:<person>:<x>:<y>    click the canvas at design coordinates (1440 × 960)
 //   line:<person>:<i>         click the i-th visible line of the material view (0-based)
 //   wait:<ms>                 wait
+//   exec:<command>            run a shell command from the repository root while the
+//                             pages stay open (an operator's act, e.g. python3 bin/inland
+//                             forget carol); prints its lines that carry an :answer
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -49,6 +52,12 @@ async function canvasPoint(page, x, y) {
 for (const step of process.argv.slice(2)) {
   const [kind, who, a, b] = step.split(':');
   if (kind === 'wait') { await new Promise((r) => setTimeout(r, Number(who))); continue; }
+  if (kind === 'exec') {
+    // exec:<shell command>, run from the repository root while the pages stay open
+    const { execSync } = await import('node:child_process');
+    console.log(execSync(step.slice(5), { cwd: root, encoding: 'utf8' }).split('\n').filter((l) => l.includes(':answer')).join('\n'));
+    continue;
+  }
   const page = await pageOf(who);
   if (kind === 'login') {
     await page.goto('http://localhost:8127/');
