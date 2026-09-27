@@ -21,7 +21,10 @@
      :keys #(vec (keys %)) :vals #(vec (vals %)) :nth #(get %1 %2)
      :lookup get :join #(str/join %1 %2) :not= not= :boolean boolean
      :take #(vec (take %1 %2)) :drop #(vec (drop %1 %2))
-     :parse #(edn/read-string %)}))
+     :parse #(edn/read-string %)
+     ;; the pointer screen: the numbers from a up to b, at most 10,000 of them,
+     ;; so a view can repeat over a file's line numbers
+     :range (fn [a b] (vec (range a (min b (+ a 10000)))))}))
 
 (defn expression
   "Formula/data and bindings → recursively evaluated value; may throw.

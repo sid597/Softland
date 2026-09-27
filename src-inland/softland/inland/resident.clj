@@ -1,13 +1,15 @@
 (ns softland.inland.resident
   "Process-owned executor for accepted external activities.
-   Takes pending Rama activity addresses; gives claim and outcome admissions around
-   one bounded Claude CLI attempt. Owns a file lock, polling task and child processes;
-   borrows accepted state from store. Closing a browser never cancels this owner.
-   Startup marks possibly performed running calls unconfirmed, without retrying.
-   The single polling task serializes calls and has no automatic failure supervisor."
-  (:require [softland.inland.store :as store]
-            [softland.inland.total :as total]
-            [clojure.data.json :as json]
+   Takes an accepted activity's intent, handed over by the store when a gesture
+   starts it (nothing polls); gives its running and outcome observations to the
+   writer the store supplies. Owns a file lock and child processes. Closing a
+   browser never cancels this owner.
+
+   Asking the resident spends money, so until Sid says yes the reply is a stand-in:
+   no provider is called, nothing is spent, and the reply says so. Setting
+   INLAND_RESIDENT_LIVE=1 makes one bounded Claude CLI attempt instead, as before.
+   An attempt interrupted mid-call is unconfirmed and never retried."
+  (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import [java.util.concurrent TimeUnit]
@@ -18,6 +20,11 @@
 (defonce fault (atom nil))
 (defonce processes (atom #{}))
 
+(defn live?
+  "Whether the resident is really asked (Sid's yes, as INLAND_RESIDENT_LIVE=1)."
+  []
+  (= "1" (System/getenv "INLAND_RESIDENT_LIVE")))
+
 (defn stop-process!
   "Live process → best-effort destroy of current descendants, then parent.
    Does not wait or guarantee descendants exited; invoke! separately bounds its wait."
@@ -27,20 +34,6 @@
       (.forEach children (reify java.util.function.Consumer
                            (accept [_ child] (.destroy ^java.lang.ProcessHandle child)))))
     (.destroy process)))
-
-(defn row
-  "Workspace and activity name → current base-layer accepted row.
-   Synchronous foreign read; errors propagate."
-  [workspace name]
-  (store/read-one :rows [workspace (total/row-key "base" name)]))
-
-(defn observe!
-  "Activity address, owner token, status and trusted outcome fields → admission.
-   Uses a deterministic request id per token/status; Rama checks execution ownership."
-  [workspace name token status value]
-  (store/submit! (merge {:workspace workspace :name name :layer "base" :actor "executor"
-                         :kind :observe :request-id (str name "/outcome/" token "/" (clojure.core/name status))
-                         :execution-owner token :status status} value)))
 
 (defn decode-result
   "CLI stdout and exit code → complete, failed or unconfirmed observation.
@@ -76,8 +69,7 @@
    Runs Claude with no tools, one turn, bounded output configuration, cost ceiling,
    10–90 second process timeout and retries disabled. Uses the user's existing CLI
    auth without reading credentials. Controlled fault modes make no external call.
-   Timeout is unconfirmed. Stream slurps have no independent byte cap; CLI flags
-   and elapsed time are limits, not proof of a general memory/resource sandbox."
+   Timeout is unconfirmed. Only reached when `live?`."
   [intent]
   (let [controlled @fault]
     (cond
@@ -110,52 +102,36 @@
           (finally (stop-process! process) (swap! processes disj process)
                    (future-cancel output) (future-cancel errors)))))))
 
-(defn execute!
-  "Accepted pending address → claim, one CLI attempt, then owned outcome admission.
-   Only an accepted claim invokes the provider. Exceptions during invocation become
-   unconfirmed; no automatic retry is scheduled. Admission errors still propagate."
-  [workspace name]
-  (let [token (str (random-uuid))
-        claim (store/submit! {:workspace workspace :name name :layer "base" :actor "executor"
-                              :kind :claim :request-id (str name "/claim/" token) :execution-owner token})]
-    (when (= :accepted (:status claim))
-      (let [current (row workspace name)
-            result (try (invoke! (:activity current))
-                        (catch Throwable _ {:status :unconfirmed :reason "The execution owner lost confirmation of the external call. No retry."}))]
-        (observe! workspace name token (:status result) (dissoc result :status))))))
+(defn stand-in
+  "The reply while the resident is not asked: it says so, and nothing is spent."
+  [intent]
+  (let [input (str (:input intent))]
+    {:status :complete
+     :reply (str "Stand-in reply: the resident was not asked, so no provider was called and nothing was spent. "
+                 "Your request was \"" (subs input 0 (min 160 (count input))) (when (< 160 (count input)) "…") "\".")
+     :provider-result {:stand-in true}}))
 
-(defn recover!
-  "Workspace → unconfirmed admissions for activities retained as running.
-   Preserves their owner token and possible-effect uncertainty; never reissues calls."
-  [workspace]
-  (doseq [name (store/read-one :index [workspace "base/activities/running"])
-          :let [current (row workspace name)]
-          :when (= :running (:status current))]
-    (observe! workspace name (:execution-owner current) :unconfirmed
-      {:reason "The previous execution owner stopped during a possible external call. No automatic retry."})))
+(defn execute!
+  "An accepted activity's one attempt, handed over by the store when a gesture
+   starts it: `observe!` is called with `:running` and no fields, then with the
+   outcome's status and fields. Runs on its own thread; an exception during the
+   attempt is unconfirmed, never retried."
+  [intent observe!]
+  (future
+    (observe! :running {})
+    (let [result (try (if (live?) (invoke! intent) (stand-in intent))
+                      (catch Throwable _ {:status :unconfirmed :reason "The execution owner lost confirmation of the external call. No retry."}))]
+      (observe! (:status result) (dissoc result :status)))))
 
 (defn start!
-  "Isolated runtime directory and connected store → process execution owner.
-   Acquires resident.lock, discovers durable workspaces, recovers running records,
-   then polls pending indexes every 250 ms between serial calls. Registers shutdown
-   cleanup for task, processes and lock. Requires one start per server process;
-   an uncaught polling/read error ends the future without automatic restart."
+  "Isolated runtime directory → this process as the one execution owner: takes
+   resident.lock and registers shutdown cleanup of child processes and the lock."
   []
   (let [channel (FileChannel/open (.toPath (io/file ".inland-runtime/resident.lock"))
                   (into-array StandardOpenOption [StandardOpenOption/CREATE StandardOpenOption/WRITE]))
         lock (.tryLock channel)]
     (when-not lock (.close channel) (throw (ex-info "Another execution owner holds the runtime lock." {})))
-    (let [!stop (atom false)
-          thread (future
-                   (swap! store/workspaces into (store/registered-workspaces))
-                   (doseq [workspace @store/workspaces] (recover! workspace))
-                   (while (not @!stop)
-                     (doseq [workspace @store/workspaces
-                             name (store/read-one :index [workspace "base/activities/pending"])
-                             :when (= :pending (:status (row workspace name)))]
-                       (execute! workspace name))
-                     (Thread/sleep 250)))]
-      (reset! running {:channel channel :lock lock :stop !stop :thread thread})
-      (.addShutdownHook (Runtime/getRuntime)
-        (Thread. (fn [] (reset! !stop true) (doseq [process @processes] (stop-process! process))
-                   (future-cancel thread) (.release lock) (.close channel)))))))
+    (reset! running {:channel channel :lock lock})
+    (.addShutdownHook (Runtime/getRuntime)
+      (Thread. (fn [] (doseq [process @processes] (stop-process! process))
+                 (.release lock) (.close channel))))))

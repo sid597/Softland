@@ -1,0 +1,4 @@
+[:inland] Compiling ...
+
+[Electric compiler] Please login with any email to activate automatically (cmd-click):
+   https://hyperfiddle-auth.fly.dev/login?redirect-uri=http%3A%2F%2Flocalhost%3A8081

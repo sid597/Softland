@@ -1,30 +1,47 @@
 (ns softland.inland.seed
-  "Explicit development refresh of accepted genesis material.
-   Takes the packaged seed and default workbench rows; gives revision-checked put
-   admissions only for missing or still-genesis-owned records. Borrows the process
-   store connection; owns no maintained world. This is a launcher-invoked refresh,
-   not a migration of arbitrary workspaces or an overwrite of user-authored rows."
-  (:require [softland.inland.module :as module]
-            [softland.inland.store :as store]
-            [softland.inland.total :as total]
-            [clojure.string :as str]))
-(defn -main
-  "Packaged seed → accepted updates in workbench, then process exit 0.
-   Skips rows whose accepted request is not a known seed/genesis request. Compares
-   content without admission metadata and submits expected revisions; rejection
-   throws. Deleted seed entries are not removed from existing accepted workspaces."
-  [& _]
-  (store/connect!)
-  (store/ensure-workspace! "workbench")
-  (doseq [row (module/seed-rows)
-          :let [current (store/read-one :rows ["workbench" (total/row-key "base" (:name row))])]
-          :when (or (nil? current) (#{"seed-v1" "seed-v2"} (:accepted-request current))
-                    (str/starts-with? (:accepted-request current "") "genesis/"))]
-    (when-not (= row (dissoc current :revision :asserted-by :accepted-request :accepted-at))
-      (let [result (store/submit! {:workspace "workbench" :name (:name row) :layer "base" :actor "sid"
-                                  :kind :put :row row :expected-revision (:revision current 0)
-                                  :request-id (str "genesis/" (:name row) "/" (:revision current 0) "/" (hash row))})]
-        (println (:name row) (:status result))
-        (when-not (= :accepted (:status result))
-          (throw (ex-info "Seed admission failed" (select-keys result [:name :reason :status])))))))
-  (System/exit 0))
+  "The workbench's genesis records, put into the store's base as facts by the
+   operator. Takes the packaged seed (resources/inland/seed.edn); gives the acts
+   that make the base's records say what the seed says. At the store's first
+   launch `store/connect!` puts every record once the base is made; `-main`
+   (`bin/inland seed`) puts again the records whose genesis changed, each change
+   a new fact replacing the head it changes, never a rewrite. It reads the base
+   through the operator's own view (rig.store.client `read-as-of`), which knows
+   the base's one-owner era only: after the first group re-classes the base, a
+   change to genesis is written through the editor like any other."
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [rig.store.client :as c]
+            [rig.store.micro-client :as mc]
+            [softland.inland.facts :as f]))
+
+(defn genesis
+  "The packaged seed's records. Reads the resource; nothing is evaluated."
+  []
+  (edn/read-string (slurp (io/resource "inland/seed.edn"))))
+
+(defn- base-rows
+  "The base's facts as the operator's view holds them now, as read rows."
+  [store]
+  (for [fact (:facts (c/read-as-of store :base (c/clock store :base)))]
+    (cond-> {:fid (:id fact) :e (:e fact) :k (:k fact) :stamp (:stamp fact) :replaces (:replaces fact)}
+      (contains? fact :value) (assoc :value (:value fact))
+      (contains? fact :erased-at) (assoc :erased-at (:erased-at fact)))))
+
+(defn put-genesis!
+  "One operator act per genesis record whose facts in the base differ from
+   the seed's: the changed facts, each replacing its head. The answers."
+  [store]
+  (when (= :by-entity (mc/layer-class store :base))
+    (throw (ex-info "The base is shared now; change its records through the editor." {})))
+  (let [by-e (group-by :e (base-rows store))
+        answers (vec (for [record (genesis)
+                           :let [before (f/record-in (:name record) "base" (by-e (f/entity (:name record))))
+                                 {:keys [facts]} (f/changes :base before record (:basis before))]
+                           :when (seq facts)]
+                       (assoc (mc/offer-into! store (c/build {:who :operator :layer :base :class (mc/layer-class store :base)
+                                                              :facts facts}))
+                              :record (:name record))))
+        refused (remove #(= :yes (:answer %)) answers)]
+    (when (seq refused)
+      (throw (ex-info "Genesis records were refused." {:refused (mapv #(select-keys % [:record :answer :reason]) refused)})))
+    answers))

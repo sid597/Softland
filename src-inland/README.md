@@ -1,7 +1,8 @@
 # Softland in Softland — source entry
 
 This product runs authored instruments, presentation and behavior through actual
-Electric, stores accepted material in isolated Rama, and draws with Softland's
+Electric, stores accepted material in the rig's store (the store's rules on Rama,
+`rig.store.module/Store`, on an isolated local cluster), and draws with Softland's
 existing text, path and Region3D renderers. The implementation lives beneath
 [softland/](softland/README.md). This tree owns product execution and adaptation;
 it borrows renderer capabilities from the [client](../src/app/client/README.md).
@@ -16,11 +17,15 @@ Start with the question you are carrying:
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-inland/README.md) |
 | What was requested, and which native additions were recorded? | [Build brief](../history/docs/build-softland-in-softland/BUILD.md), [model](../docs/builds/inland/intended-design.md), [capability log](../history/docs/build-softland-in-softland/NATIVE-CAPABILITIES.md) |
 
-The accepted data path is gesture → Electric recipe → proposal → Rama admission
-→ owned ProxyState → Electric recomputation → Softland realization. External work
-adds a process-owned claim/call/observation path. The browser keeps local drafts
-and attention; it does not keep an accepted-world mirror. Runtime data and process
-custody belong to `.inland-runtime`; [bin/inland](../bin/inland) manages that lane.
+The accepted data path is a logged-in person's gesture → its rules run once on the
+server, every read through the rig's one read exit and recorded in one act → the
+acts it decides, through the rig's door, standing on what it read → the store's
+push (a bell) → each page's standing reads delivered, the delivery recorded →
+Electric recomputation → Softland realization. External work adds a process-owned
+path, handed each activity when a gesture starts it; its reply is a stand-in until
+Sid says yes. The browser keeps local drafts and attention; it does not keep an
+accepted-world mirror. Runtime data, login files and process custody belong to
+`.inland-runtime`; [bin/inland](../bin/inland) manages that lane.
 
 Follow folder map → namespace docstring → function contract. Read only the branch
 needed for the question, then the corresponding test or receipt. Folder maps
