@@ -191,3 +191,44 @@ agreed with the pointer session.
   `rig.store.dependents-test` and `rig.cite-tools-test` (now three readings
   of the scratch file, so a walk passes through the previous walk's
   marks), 66 of 66, 1 min 15 s.
+- **The tool over this project, at the committed HEAD** (`runs/citation-
+  report.md`; `main` 89c8e1a9, `rig` 5aef8471, this branch after its
+  commits): 29 documents, 342 citations, 105 readings of 50 files in 3
+  rounds, 2 min 20 s, no run refused at the end, no miss of the walk. **131
+  true, 4 moved, 5 stale, 202 not bound yet** (178 citing Markdown, 16 not
+  inside one form, 7 inside an unnamed form, 1 past the file's end).
+  - The 4 moved and 1 of the stale are this session's own commits,
+    caught: HANDOFF.md's `reads.clj:218-229` (`layer-fields`),
+    `gate.clj:252-254` and `gate.clj:138` each one line down (a `require`
+    added above them), `reads.clj:578-590` (`visible?`) seven down, and
+    `recipe.clj:118-123` (`capabilities`) stale because this build added
+    the new steps to that map. Checked against git: `gate.clj` 252-254 at
+    `1e63217e` and 253-255 at `5aef8471` are the same three lines;
+    `visible?` is at 578 then and 585 now, its text identical.
+  - The full suite, once (`runs/citation-suite-cmd.sh`, summary
+    `runs/citation-suite.txt`): the rig's 26 namespaces of step 6b's suite,
+    the spec fixes' tests and the citation's 5, at `5aef8471`, 22:51 to
+    23:34 IST, 42 minutes: 190 tests, 8,440 assertions, **5 failures, 0
+    errors**. The model's 14 fixed histories replay as the model says
+    (`runs/citation-suite-replays.txt`). The five:
+    - 3 in `rig.store.recipe-test` were this build's: `recipe/run` always
+      returned `:stood-on {}`, where that test expects exactly `{:facts
+      [...]}`. Fixed: `:stood-on` only when a recipe names pairs, so a
+      recipe that names none returns what it always did. Rerun:
+      `rig.store.recipe-test` and `rig.store.recipe-citation-test` 82 of
+      82; `rig.store.tools-test` and `rig.cite-tools-test` 182 of 182.
+    - 1 in `rig.revision-test` (t18) is this machine: the test runs `ls`
+      in git's place and expects GNU ls's exit 2 on `--verify`; macOS's BSD
+      ls exits 1 (checked). Neither `rig.revision` nor its test changed on
+      this branch; it passed on the Linux machine.
+    - 1 in `rig.store.micro-test` (M15's "ran for at least 300 batches")
+      is this machine's speed: 252 batches here. The rig at its original
+      tip (`1e63217e`, a plain copy with no citation code), run alone on
+      this Mac, fails the same check with 168 (checked).
+  - The pointer session's merged tree runs the one full suite for both
+    branches (agreed with it; its `rig.store.screen-test` added).
+  - The other 4 stale were already stale before this session: RIG.md's
+    `micro_test.clj:414-416`, `micro.clj:1197-1240` (`fact-rows`, changed
+    and moved to 1365) and `micro_prepare_test.clj:245`, and
+    `gate.clj:186-193` (`stamp-for`) cited in a main document at a rig
+    commit of 26 September.
