@@ -12,23 +12,39 @@ real screen, fixing every item of `src/proposal/citation-2026-09-27/HANDOFF.md`'
 list of what the pointer lacked. Read the brief's six items there; this file
 says how each was built and where it stands.
 
-## Now (27 September, evening)
+## Now (28 September, 01:30)
 
-- The store side is built and committed (`c3e53699`): bells, one record per
-  gesture, later members, and four yielding ramafns made ramaops (the ramaop
-  change not yet run).
-- The adapter runs: the rig's module is deployed into Inland's local cluster
-  through `bin/inland` on the Mac, and the server-side check
-  (`tools/screen_smoke.clj`, `runs/smoke-6.txt`) held every check there. The
-  three scenes pass on the server side on a fresh in-process cluster
-  (`test-inland/softland/inland/scenes_test.clj`, `runs/scenes-1.txt`: 21
-  assertions, 0 failures).
-- The screen is blocked on one thing: Electric's compiler asks for a one-time
-  login on this Mac (the link is in `runs/build-1.txt`); the browser build waits
-  for it. Everything else `bin/inland` needs is here.
-- Waiting on the citation session's commits (`rig.material`, the
-  `[:dependents F]` lookup) to merge; until then the material view says no
-  material is read and marks cannot be found.
+- Everything the brief asked for runs on screen: the Mac's Chrome with
+  WebGPU, the rig's module deployed into Inland's local cluster through
+  `bin/inland`, people logged in at the host (`runs/screens/`):
+  - scene one (`s1-*`): the rule changed while in use;
+  - the marks (`s4-*`): alice points, pins the rule and keeps a second
+    instrument, then changes the rule; her selection, her pin and the kept
+    variation are marked, each found by the store's lookup; letting go of the
+    pin and pointing again clear theirs, the kept variation stays marked;
+  - scene two (`s2-*`) and scene three (`s3-*`);
+  - a new tool by data (`s5-*`): with the kept instrument in hand, alice types
+    a new rule into its editor and applies it; it selects lines 9–11 where the
+    other instrument, on its own rule, selects the ns form;
+  - a same-layer edit (`s6-*`): the kept rule edited again in alice's own layer
+    marks the selection made with it.
+- The citation session's branch is merged (`3c7f7bdc`). The rig's one full
+  suite on the merged tree (`runs/merged-suite.txt`): 191 tests, 8,492
+  assertions, 2 failures, both from this Mac: `revision_test` t18 expects GNU
+  `ls`, and `micro_test` M15's floor of 300 batches got 253 here (the rig's
+  original tip gets 168 here, the citation session found). The four ramaops
+  ran for the first time; no worker fault.
+- The scenes pass on the merged tree on a fresh in-process cluster
+  (`runs/scenes-5.txt`: 35 assertions, 0 failures), marks and a same-layer edit
+  among them, with no view holding the rule open.
+- Found on screen and fixed: a pinned version's read key printed its 57-bit
+  revision as `#object[...]` in the browser, and the parse failure closed the
+  page's connection; marks depended on a view showing the rule live; a
+  same-layer edit never named the fact it replaced (a layer's name compared
+  with its id), so it wrote a second fact beside the first.
+- The stores are kept, none deleted: `.inland-runtime-scenes-1-3` (scenes one
+  to three), `.inland-runtime-marks-1` (the first marks attempt), and the live
+  `.inland-runtime` (the marks and new-tool runs). The stack is down.
 
 ## How it is built
 
@@ -66,6 +82,11 @@ says how each was built and where it stands.
   adapter reads `[:dependents F]` (the citation session's pattern) in the
   person's hand layer and own layer, and marks on screen what stood on F: a
   selection, a pin, a kept variation.
+- A page learns of such a change whatever it shows: once a gesture's act
+  stands on what the gesture read, the reader holds a standing read on each
+  thing read, in every layer of the person's context (`reader/stand-on!`). A
+  fact replaced by an equal value, the act that made the change, and a page's
+  own stored cells are no marks.
 
 ## Placeholders (item 3): where a question froze into stored records
 
@@ -73,8 +94,9 @@ Each is the simplest answer that can change later. None is a ruling. The
 ones marked **first-record** would freeze at a kept record.
 
 Records as facts (`softland.inland.facts`):
-1. A thing's id is the keyword of the record's name (`"targeting"` is
-   `:targeting`). Ingest identity stays open (PROGRESS "Now", 17, 59, 60).
+1. A thing's id is the record's name as a keyword in the `record` namespace
+   (`"targeting"` is `:record/targeting`; a name that already holds a slash is
+   that keyword). Ingest identity stays open (PROGRESS "Now", 17, 59, 60).
    **first-record**
 2. One fact per attribute, the name included (a grain can be coarsened,
    never refined). **first-record**
@@ -120,6 +142,13 @@ Reads (item 1):
 15. Marks: for each fact the screen sees replaced or shadowed, `[:dependents
     F]` is read in the person's hand layer and own layer; a mark shows while
     its dependent still heads its key.
+23. Marks leave out a page's own stored cells as changed facts: only that
+    page's gestures write them, and every gesture reads the context cell, so
+    a pin would otherwise mark every selection made before it.
+24. A page holds, for its life, a standing read on every thing its acts stood
+    on, in every context layer: the simplest way for a page to learn that
+    something it stood on changed. Held reads are never let go; a push from
+    the store to a changed fact's dependents would replace them.
 
 People (item 4):
 16. Login lives at the host: salted PBKDF2 hashes in
@@ -159,8 +188,8 @@ vocabulary, or one existing unit whose behaviour changes; classed (a) steps
 the frame already promised, (b) steps nobody anticipated, (c) capabilities.
 The citation session's units (the material reader, the lookup) are its count,
 not this one. Seed records are data and count zero: the material view, the
-three targeting rules, the pair's controls, the note rule. So far: **35**, 9
-promised, 22 unanticipated, 4 capabilities. Provisional until the build ends.
+three targeting rules, the pair's controls, the note rule. So far: **42**, 9
+promised, 29 unanticipated, 4 capabilities. Provisional until the build ends.
 
 (a) Promised, 9: records as facts (`facts`); the screen's reads as standing
 reads pushed by the store (`reader`); marks from what stood on a changed fact
@@ -171,7 +200,7 @@ cell-write!); a record promoted into a group (`store` promote-record!);
 sessions and their permissions (`people` open-session!, grant-session!); the
 first facts (`people` ensure-world!); genesis as facts (`seed`).
 
-(b) Unanticipated, 22: the layer's bell (`module` schema and `gate-event`
+(b) Unanticipated, 29: the layer's bell (`module` schema and `gate-event`
 write); the bell client (`rig.store.bell`); standing reads in halves with one
 act for many (`standing`); the gesture's record (`read-exit` checked-query,
 record!); a later member at the micro gate (`micro` micro-extras); its door
@@ -182,9 +211,15 @@ host (`people`); the host's login routes, socket guard and boot per person
 (`server`); the operator's command line (`operator`); stored cells in views
 (`execution` Cell); events as server gestures (`app` Events); the page's
 session and stored context (`app` Main, LiveContext); the snapshot a gesture
-sends (`session` snapshot); the launcher's process custody on macOS, the module
-jar with rama-helpers' classes, and the Rama distribution's discovery
-(`bin/inland`, 3).
+sends (`session` snapshot); the page's boot from one namespace on both peers,
+so the server and the browser compile one Electric program (`app`
+electric-boot); the repository's files read into the base by the host
+(`material`, placeholder 21); the page holding live what its acts stood on
+(`reader` stand-on!, `gesture` stood-on-things, 2); a pinned version's read
+key printed with the revision's digits (`total` version-key); the launcher's process custody on macOS, the
+module jar with rama-helpers' classes, the Rama distribution's discovery, the
+operator's commands (seed, forget, check) and the browser packages installed
+when missing (`bin/inland`, 5).
 
 (c) Capabilities, 4: the `:range` leaf (`total`); the `:note`, `:group` and
 `:member` admission kinds (`store`). `:note` could be data (a put whose rule
@@ -194,9 +229,9 @@ Configuration, not counted: the rig's source on Inland's classpath (`deps.edn`).
 
 ## For Sid
 
-1. Electric's compiler needs a one-time login on this Mac before the screen can
-   be built (`runs/build-1.txt` has the link; the build waits for it). Its token
-   is bound to the machine, so the Linux one does not carry over.
+1. Done: Electric's compiler needed a one-time login on this Mac before the
+   screen could be built (`runs/build-1.txt`); you did it. Its token is bound to
+   the machine, so the Linux one does not carry over.
 2. Found on the real cluster: a record's id taken as the keyword of its name
    collides with key ids, because keys are ids and a key's grammar is a fact
    about its id (the rule record "targeting" landed on the `:targeting` key's
@@ -206,17 +241,49 @@ Configuration, not counted: the rig's source on Inland's classpath (`deps.edn`).
 3. Inland's earlier JVM suite (`test-inland/softland/inland/test_runner.clj`)
    targets its retired module through the old adapter; it no longer compiles and
    is not run. Port it, or remove it?
-4. The live store on the Mac holds the first genesis under the old ids: inert
-   now (a thing with no namespace is never a record), but there. A fresh store
-   means deleting `.inland-runtime/data` in this clone; say if you want that.
+4. Two stores are kept beside the live one, not deleted:
+   `.inland-runtime-scenes-1-3` (424 MB, the store scenes one to three ran on,
+   with the first genesis's inert orphans) and `.inland-runtime-marks-1` (330
+   MB, the first marks attempt). Most of each is a copy of the Rama
+   distribution. Delete them when you say.
 5. Browser sessions are never closed in the store yet; their unconsumed lease
    rows stay (placeholder 17).
+6. The rig's full suite cannot pass on this Mac: `revision_test` t18 expects
+   GNU `ls`, and `micro_test` M15's floor of 300 batches is a throughput this
+   machine does not reach (253 merged, 168 on the rig's original tip). Make the
+   two portable, or keep Linux as the suite's record?
+7. A revision is a store stamp, past 2^53, which the browser holds as a
+   `goog.math.Long` object: it prints and round-trips, but a view's arithmetic
+   or a comparison with a plain number would be wrong (placeholder 3). The read
+   key that printed it with `pr-str` closed the page's connection; that is
+   fixed, the representation is not.
 
 ## Scenes
 
 - Scene one: one person points at this repo's code, changes the pointer's
-  rule while using it, and sees what stood on the old rule marked.
+  rule while using it, and sees what stood on the old rule marked. On screen
+  (`s1-*`): alice opens `store.clj` at a commit, points at a line, drafts the
+  rule as "passage or form" in the editor and applies it; pointing again
+  selects the containing form, `ns (lines 1–45)`. The marks on screen
+  (`s4-*`, `s6-*`): after a pin, a keep and a change of the rule, the
+  selection panel says "Stood on an older targeting label (base); alice now
+  says it differently.", the editor says "Your pin stood on an older
+  targeting; follow live to let it go.", the kept instrument and its rule are
+  marked in the definitions list and the pair tab; a same-layer edit of the
+  kept rule marks the selection made with it.
 - Scene two: two people on shared material; a rule promoted into a group
-  layer; the base switching to shared.
+  layer; the base switching to shared. On screen (`s2-*`): alice starts the
+  pair and the status reads "base: shared, micro gate"; she accepts bob after
+  the pair was made and shares her rule into it ("alice · in the pair"); bob,
+  logged in as himself, points at line 9 and the pair's rule chooses the ns
+  form.
 - Scene three: a note naming a person; forget that person; the note shows as
-  erased on its date.
+  erased on its date. On screen (`s3-*`): alice writes "Carol reviewed this
+  function." naming carol, in the pair; bob's page shows it; the operator
+  forgets carol (`bin/inland forget carol`, answered yes) and both pages show
+  "A note, erased on 2026-09-27." without a reload.
+- Seen in the screenshots: the status line showed raw keywords (`:accepted`,
+  `:idle`), fixed in the seed ("Done.", "Ready." in `s4-*`); the note row's
+  first glyph drew as an empty box and its second line was clipped, fixed in
+  the seed and not yet seen on screen since. Still open: with a pin, the
+  editor's heading line wraps the long revision into the line beneath (`s4-02`).

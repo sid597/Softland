@@ -1,0 +1,11 @@
+WARNING: continue> already refers to: #'com.rpl.rama/continue> in namespace: rig.store.promote-flow, being replaced by: #'rig.store.promote-flow/continue>
+reading 8 files at a5564794da4568bd2fe46e9534f7d2c88f871ac2
+{:answer :yes, :reason nil, :path src-inland/softland/inland/store.clj, :file :file/h816f21a2c34345e4d582159115c21f2a}
+{:answer :yes, :reason nil, :path src-inland/softland/inland/reader.clj, :file :file/hdb9ee84fcf6fd238357a64f196468d52}
+{:answer :yes, :reason nil, :path src-inland/softland/inland/gesture.clj, :file :file/h29e7194a7d5556865255417f6d9db3e7}
+{:answer :yes, :reason nil, :path src/proposal/rig-2026-09-25/src/rig/store/bell.clj, :file :file/h3a5a018b6cf8953e45ae53e0a6481f27}
+{:answer :yes, :reason nil, :path src/proposal/rig-2026-09-25/src/rig/store/standing.clj, :file :file/hd588173952649f0bd482a997e4151043}
+{:answer :yes, :reason nil, :path src-inland/softland/inland/README.md, :file :file/h71f3b27ac437b351c838d4ce98080f7e}
+{:answer :yes, :reason nil, :path src/proposal/pointer-screen-2026-09-27/PROGRESS.md, :file :file/hf2bf9aba5b328e834757d6230e025025}
+{:answer :yes, :reason nil, :path resources/inland/README.md, :file :file/ha248fe3f78acd39fcbf6a570ce6d305c}
+{:answer :yes, :reason nil, :record material}

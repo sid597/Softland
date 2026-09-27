@@ -13,10 +13,18 @@
 //   shot:<person>:<name>      screenshot the person's page as screens/<name>.png
 //   click:<person>:<x>:<y>    click the canvas at design coordinates (1440 × 960)
 //   line:<person>:<i>         click the i-th visible line of the material view (0-based)
+//   type:<person>:<x>:<y>:<text>  click the text field at design coordinates (its hidden
+//                             textarea takes focus), select all, and put <text> in its place
+//                             (the rest of the step, colons and spaces included)
 //   wait:<ms>                 wait
 //   exec:<command>            run a shell command from the repository root while the
 //                             pages stay open (an operator's act, e.g. python3 bin/inland
 //                             forget carol); prints its lines that carry an :answer
+//   follow:<path>             wait for the file at <path>, then run the steps it holds
+//                             (one per line, same forms), on the same pages: a
+//                             run can be steered after looking at its screenshots, and
+//                             the sessions (and so the selections) stay the same. A file
+//                             holding `end` closes the browser.
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -49,9 +57,19 @@ async function canvasPoint(page, x, y) {
   return { x: box.x + x * scale, y: box.y + y * scale };
 }
 
-for (const step of process.argv.slice(2)) {
+const steps = process.argv.slice(2);
+while (steps.length) {
+  const step = steps.shift();
   const [kind, who, a, b] = step.split(':');
+  if (kind === 'end') break;
   if (kind === 'wait') { await new Promise((r) => setTimeout(r, Number(who))); continue; }
+  if (kind === 'follow') {
+    const file = step.slice('follow:'.length);
+    console.log(`following: waiting for ${file}`);
+    while (!fs.existsSync(file)) await new Promise((r) => setTimeout(r, 1000));
+    steps.unshift(...fs.readFileSync(file, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean));
+    continue;
+  }
   if (kind === 'exec') {
     // exec:<shell command>, run from the repository root while the pages stay open
     const { execSync } = await import('node:child_process');
@@ -75,6 +93,14 @@ for (const step of process.argv.slice(2)) {
     const p = await canvasPoint(page, Number(a), Number(b));
     await page.mouse.click(p.x, p.y);
     await page.waitForTimeout(2500);
+  } else if (kind === 'type') {
+    const text = step.split(':').slice(4).join(':');
+    const p = await canvasPoint(page, Number(a), Number(b));
+    await page.mouse.click(p.x, p.y);
+    await page.waitForTimeout(400);
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.keyboard.insertText(text);
+    await page.waitForTimeout(1500);
   } else if (kind === 'line') {
     // material-line: baseline y = 175 + i*24; its hit is [40 (y-17) 756 24]
     const p = await canvasPoint(page, 300, 175 + Number(a) * 24 - 6);

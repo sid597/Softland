@@ -1,0 +1,19 @@
+zookeeper listening on 2217
+conductor listening on 1997
+supervisor listening on 35970
+zookeeper already listening on 2217
+conductor already listening on 1997
+supervisor already listening on 35970
+09-28 00:45:44.120 INFO  [main] buted.command.deploy - preparing module {:replication-factor 1, :config-overrides {worker.child.opts -Xmx1024m -Xss16m}, :module-class rig.store.module/Store, :tasks 2, :threads 2, :module-source :jar, :use-internal-hostnames? false, :action :launch, :dynamic-options #rpl.rama.distributed.types.InputDynamicOptions{:module nil, :topology nil, :pstate nil, :depot nil}, :conductor #object[rpl.rama.generated.RamaConductor$Client 0x273c0439 rpl.rama.generated.RamaConductor$Client@273c0439], :jar-path /Users/sid/projects/Softland-pointer-screen/target/inland/store.jar, :workers 1}
+WARNING: continue> already refers to: #'com.rpl.rama/continue> in namespace: rig.store.promote-flow, being replaced by: #'rig.store.promote-flow/continue>
+09-28 00:45:48.438 INFO  [main] buted.command.deploy - Executing module to capture deploy info
+09-28 00:45:53.362 INFO  [rama deploy command instance-zk-client-curator-thread-0] eal-zookeeper-client - Connection state changed {:connection-state :connected, :error-state? false}
+09-28 00:45:53.839 INFO  [main] buted.command.deploy - Building deploy jar {:location /var/folders/g1/jwy6b7jx7gl5_44b5s9dnnxh0000gp/T/rama-deploy-command16977259312210895289/built-module.jar}
+09-28 00:45:54.620 INFO  [main] buted.command.deploy - Uploading jar to conductor {:jar-id rig.store.module_PERCENT_2FStore_af23ecbd_eb9d_4ff4_b37b_1656df079233.jar, :module-name rig.store.module/Store}
+09-28 00:45:55.132 INFO  [main] buted.command.deploy - Submitting deploy plan to conductor
+09-28 00:45:55.616 INFO  [main] buted.command.deploy - Done!
+[:inland] Compiling ...
+[:inland] Compiling ...
+[:inland] Build completed. (215 files, 0 compiled, 0 warnings, 12.79s)
+app listening on 8127
+Open http://localhost:8127
