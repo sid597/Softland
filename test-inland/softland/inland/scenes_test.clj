@@ -2,7 +2,9 @@
   "The pointer's scenes on the server side, against the rig's module on a fresh
    in-process cluster: two pages driven through the adapter as the browser drives
    them (gestures with the page's local cells, and watched reads), with no browser.
-   Scene one: a person changes the pointer's rule while using it. Scene two: two
+   Scene one: a person changes the pointer's rule while using it, and what stood
+   on the old rule (a selection, a pin, a kept variation) is marked, found by the
+   store's lookup from a fact to what stood on it. Scene two: two
    people on shared material, the base switching to shared at the first group, a
    member accepted after the group is made, a rule promoted into the group layer.
    Scene three: a note naming a person, that person forgotten, the note erased on
@@ -64,18 +66,37 @@
           a-sel (cell "page-a" a "selection")
           b-sel (cell "page-b" b "selection")]
       (try
-        (testing "scene one, server side: alice changes her pointer's rule while using it"
-          (is (accepted? (point! "page-a" 7)))
-          (is (wait-until #(= 7 (:from (value a-sel)))) (pr-str (last @a-sel)))
-          (let [base (store/read-one :rows ["workbench" "base/targeting"])
-                draft (pr-str {:label "Select the line after the one I point at"
-                               :body {:steps [] :return {:file [:get :subject :file] :from [:+ 1 [:get :subject :line]]
-                                                         :to [:+ 1 [:get :subject :line]] :kind "line" :label "the next line"}}})
-                g (gesture! "page-a" :submit {"inspecting" "targeting" "draft" {:value draft :base (:revision base)}})]
-            (is (accepted? g) (pr-str g))
+        (testing "scene one, server side: alice changes her pointer's rule while using it; what stood on the old rule is marked"
+          (let [marks (atom [])
+                _ (swap! stops conj ((m/reduce (fn [_ v] (swap! marks conj v)) nil (store/marks-flow "page-a"))
+                                     (fn [_]) (fn [_])))
+                marked (fn [] (store/marks-view "page-a" (or (last @marks) {})))
+                ;; the rule as alice's views hold it: her own layer, then the base
+                _ (watch stops "page-a" :rows ["workbench" "alice/targeting"])
+                a-base-rule (watch stops "page-a" :rows ["workbench" "base/targeting"])]
+            (is (wait-until #(some? (value a-base-rule))) "the base's rule arrives")
             (is (accepted? (point! "page-a" 7)))
-            (is (wait-until #(= 8 (:from (value a-sel)))) "the next point chose by the new rule")
-            (say "scene one: alice's selection" (value a-sel))))
+            (is (wait-until #(= 7 (:from (value a-sel)))) (pr-str (last @a-sel)))
+            (is (accepted? (gesture! "page-a" :pin {"inspecting" "targeting"})) "alice pins the rule")
+            (is (accepted? (gesture! "page-a" :keep {"variation" {:value "my-pointer"}})) "alice keeps a second instrument")
+            (let [base (store/read-one :rows ["workbench" "base/targeting"])
+                  draft (pr-str {:label "Select the line after the one I point at"
+                                 :body {:steps [] :return {:file [:get :subject :file] :from [:+ 1 [:get :subject :line]]
+                                                           :to [:+ 1 [:get :subject :line]] :kind "line" :label "the next line"}}})
+                  g (gesture! "page-a" :submit {"inspecting" "targeting" "draft" {:value draft :base (:revision base)}})]
+              (is (accepted? g) (pr-str g))
+              (is (wait-until #(let [v (marked)]
+                                 (and (get-in v [:cells "selection"]) (get-in v [:cells "context"])
+                                      (get-in v [:things "my-pointer-targeting"]))))
+                  (str "the selection, the pin and the kept variation are marked, found by the store's lookup: " (pr-str (marked))))
+              (say "scene one: marks" (marked))
+              (is (accepted? (gesture! "page-a" :live {})) "alice lets go of the pin")
+              (is (wait-until #(nil? (get-in (marked) [:cells "context"]))) (str "the pin's mark went with the pin: " (pr-str (marked))))
+              (is (accepted? (point! "page-a" 7)))
+              (is (wait-until #(= 8 (:from (value a-sel)))) "the next point chose by the new rule")
+              (is (wait-until #(nil? (get-in (marked) [:cells "selection"]))) (str "a selection made again is not marked: " (pr-str (marked))))
+              (is (get-in (marked) [:things "my-pointer-targeting"]) "the kept variation stays marked: its copy was kept from the old rule")
+              (say "scene one: alice's selection" (value a-sel)))))
 
         (testing "a new tool by writing data alone: a new rule as a record, the pointer pointed at it, no code"
           (let [rule (pr-str {:label "Select the line and the one after it"

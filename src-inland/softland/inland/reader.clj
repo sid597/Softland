@@ -24,6 +24,9 @@
     nearer layer of the session's context, the reader reads what stood on
     the old fact (`[:dependents F]`, the citation session's pattern) in the
     person's hand layer and own layer, and keeps the dependents as marks.
+    A page's own stored cells are left out: only this page's gestures
+    write them, and every gesture reads the context cell, so a pin would
+    otherwise mark every selection made before it.
 
   Vocabulary: \"key\" is a fact's key; \"lock\" is an encryption key."
   (:require [com.rpl.rama :as rama]
@@ -206,12 +209,18 @@
 (defn- spec-of [r unit]
   (merge (:who r) {:layer (:layer unit) :pattern (:pattern unit) :limit unit-limit}))
 
+(defn- cell-row?
+  "A row of a page's stored cell, its key in the `cell` namespace."
+  [row]
+  (= "cell" (some-> (:k row) namespace)))
+
 (defn- changed-facts
   "The facts new rows change for this session, each with what it was and
-  what changed it: a fact a new row replaces in its own layer, and the head
-  in a farther context layer of the (thing, key) a new row now says in a
-  nearer one. `{fid {:e :k :layer :now :by}}`. `units` are the reader's
-  units with the new rows in; `fresh` the new rows by layer."
+  what changed it: a fact a new row replaces in its own layer (not a page's
+  stored cell), and the head in a farther context layer of the (thing, key)
+  a new row now says in a nearer one. `{fid {:e :k :layer :now :by}}`.
+  `units` are the reader's units with the new rows in; `fresh` the new rows
+  by layer."
   [r units fresh]
   (let [ctx (mapv f/layer-id @(:context r))
         rank (zipmap ctx (range))
@@ -222,7 +231,7 @@
                          (vals units)))]
     (into {}
           (concat
-           (for [[layer rows] fresh, row rows, :let [old (:replaces row)] :when old]
+           (for [[layer rows] fresh, row rows, :let [old (:replaces row)] :when (and old (not (cell-row? row)))]
              [old {:e (:e row) :k (:k row) :layer layer :now (:fid row) :by layer
                    :stamp (get-in known [old :stamp])}])
            (for [[layer rows] fresh
@@ -237,10 +246,13 @@
 (defn- mark-rows
   "Marks from a `[:dependents F]` answer: each dependent fact, the layer it
   is in, the fact `F` it stood on (a row's `:on` is the set of the facts the
-  dependent act named), and what `F` was and what changed it (`changed`)."
+  dependent act named), and what `F` was and what changed it (`changed`).
+  The act that made the change is no mark: an edit stands on what it
+  replaces."
   [answer layer changed F]
-  (let [was (get changed F)]
-    (into {} (for [row (:rows answer) :when (:fid row)]
+  (let [was (get changed F)
+        changer (first (:now was))]
+    (into {} (for [row (:rows answer) :when (and (:fid row) (not= changer (first (:fid row))))]
                [(:fid row) {:layer layer :fid (:fid row) :e (:e row) :k (:k row) :stamp (:stamp row)
                             :on F :on-stamp (:stamp was)
                             :on-e (:e was) :on-k (:k was) :on-layer (:layer was) :by (:by was)}]))))
