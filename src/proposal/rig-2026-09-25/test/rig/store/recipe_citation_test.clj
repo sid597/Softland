@@ -29,7 +29,7 @@
 (def row {:e :e1 :k :x :value {:a 1} :fid [nm 0] :stamp 7 :replaces [nm 3] :run nm})
 
 (deftest formulas
-  (is (= {:facts [{:e :e1 :k :y :v [:latest :e1 :material/file]}] :stood-on {}}
+  (is (= {:facts [{:e :e1 :k :y :v [:latest :e1 :material/file]}]}
          (recipe/run (tool [{:name :o :do :emit :e [:in :e] :k :y :v [:vec :latest [:in :e] :material/file]}] #{:y}) row)))
   (is (= [nm 3] (get-in (recipe/run (tool [{:name :o :do :emit :e [:in :e] :k :y :v [:in :replaces]}] #{:y}) row)
                         [:facts 0 :v])))
@@ -58,7 +58,7 @@
 
 (deftest emitting-and-standing
   (let [t (fn [facts] (tool [{:name :a :do :emit-all :facts [:lit facts]}] #{:y :z}))]
-    (is (= {:facts [{:e :e1 :k :y :v 1} {:e :e2 :k :z :v 2 :replaces [nm 0]}] :stood-on {}}
+    (is (= {:facts [{:e :e1 :k :y :v 1} {:e :e2 :k :z :v 2 :replaces [nm 0]}]}
            (recipe/run (t [{:e :e1 :k :y :v 1} {:e :e2 :k :z :v 2 :replaces [nm 0]}]) row)))
     (is (= :key-not-in-signature (:error (recipe/run (t [{:e :e1 :k :w :v 1}]) row))))
     (is (= :no-value (:error (recipe/run (t [{:e :e1 :k :y :v nil}]) row))))

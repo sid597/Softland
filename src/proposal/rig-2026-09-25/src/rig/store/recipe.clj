@@ -344,8 +344,8 @@
   operator `config` (`{:repos {id path} :read f}`: the repositories the
   git steps may read, and the read function a `:read` step calls; empty by
   default). Each step once, in order; each binds its result to its name.
-  Returns `{:facts [...] :stood-on {fid stamp}}`: the outputs of its
-  `:emit`s and `:emit-all`s in order, and the pairs its `:stand-on`s name,
+  Returns `{:facts [...]}`, the outputs of its `:emit`s and `:emit-all`s in
+  order, with `:stood-on {fid stamp}` when its `:stand-on`s named pairs,
   which the runner adds to what the act stands on; or `{:refused
   :step-failed :step i :error e}` when a step failed (a capability's error,
   an `:emit` whose entity is not a keyword the envelope takes or whose value
@@ -356,7 +356,9 @@
    (try
      (loop [i 0 results {} facts [] stood {}]
        (if (= i (count (:recipe tool)))
-         {:facts facts :stood-on stood}
+         ;; `:stood-on` only when a step named pairs, so a recipe that names none
+         ;; returns what it always did
+         (cond-> {:facts facts} (seq stood) (assoc :stood-on stood))
          (let [s (nth (:recipe tool) i)
                fail (fn [e] {:refused :step-failed :step i :error e})]
            (case (:do s)
