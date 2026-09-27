@@ -12,6 +12,7 @@
    Exported for the compiled browser entry; only page-local lifetime is changed."
   []
   (when cancel (cancel))
-  (set! cancel ((e/boot-client {} app/Main)
+  ;; both peers boot the program in app/electric-boot (its person is the server's)
+  (set! cancel ((app/electric-boot nil)
                #(js/console.info "Electric stopped")
                #(js/console.error "Electric failed" %))))

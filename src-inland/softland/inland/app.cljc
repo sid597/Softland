@@ -128,3 +128,12 @@
               (Events s owner workspace context)
               (paint/Items r s owner workspace context "closed" value)
               (some? r))))))))
+
+(defn electric-boot
+  "The Electric program for one page, booted from this one place on both peers
+   (Electric's starter does the same): the program is keyed by the namespace the
+   boot expands in, so both peers must expand it here. The server injects the
+   logged-in person; the client holds a no-value hole of the same arity."
+  [person]
+  #?(:clj  (e/boot-server {} Main (e/server person))
+     :cljs (e/boot-client {} Main (e/server (e/amb)))))

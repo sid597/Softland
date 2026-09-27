@@ -149,7 +149,8 @@
                        (fn [ring-request]
                          (let [person (person-of ring-request)]
                            (try
-                             (e/boot-server {} app/Main person)
+                             ;; both peers boot in app/electric-boot, so they compile one program
+                             (app/electric-boot person)
                              (catch Throwable error
                                (.printStackTrace error)
                                (throw error))))))
