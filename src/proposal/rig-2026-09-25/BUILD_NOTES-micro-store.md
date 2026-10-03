@@ -1,0 +1,154 @@
+# Build notes — micro store (phase 3 build, 26 September)
+
+Running log of the rama skill's build phase for stage 3 (phase-build.md:
+implement, validate the implementation, write tests, validate the tests,
+run to green), from PLAN-micro-store.md (revised 26 September, validated
+minor-fail, [PV-F1] to [PV-F13] in place), with builder A's decisions: R19
+(the permission walk, not the cascade) and the root actor `:operator`.
+Branch `rig-build-micro`, worktree `/mnt/data/projects/Softland-rig-build-micro`.
+Newest entries at the bottom.
+
+## Log
+
+- 02:53 Read the rama skill, phase-build and phases 3 to 7, the plan in full
+  with its validation, SPEC.md, RIG.md's top sections and R19, phase 2's
+  plan (revision, shapes, the door and the lease road, the gate event, L20
+  to L30), the model's micro gate, permissions and scenarios, phase 1's
+  code and its stream gate test's patterns, the micro probe.
+- 02:59 Phase 2's line had already appeared ("Lock primitives committed at
+  1febfa3da1b210a40f9fc53b4d654de4e5528a22"); merged exactly that commit
+  (5afe3c7d): `rig.store.locks` (pure) and `rig.store.grammar`, new files.
+- 03:30 Lock-independent parts and the topology written: `rig.store.permit`
+  (chain, refusal); `env/pid?` four deep and the offer's pid rebuilt
+  deeply; `gate/refusal`'s four permission clauses one `permit/refusal`
+  call, `gate/pids-to-read` the chain; `rig.store.micro` (schemas, intake,
+  the arrival's lock work, the name, layer and entity steps, the record
+  path's check, the fold, blocks 0, 1, 2a, 2b, 2c, four queries);
+  `module.clj` one require and one line. The module launched on an
+  in-process cluster at the first try; the frontier advanced (6 after 2 s).
+
+## Build-level choices (not in the plan, or adapted), with why
+
+- **The offerer's side is `rig.store.micro-client`, not `rig.store.micro`.**
+  `module.clj` requires `rig.store.micro` for `declare!`, and the door needs
+  the module's name and the stream side's client, so a door inside
+  `rig.store.micro` would be a require cycle. The dispatch by tag (M13) and
+  M25's routing live there too, so `client.clj` is not changed.
+- **`$$persons` placeholder.** Only phase 2's pure namespace was merged, so
+  its stream gate (which declares and writes `$$persons`) is not in this
+  branch. `rig.store.micro/persons-placeholder?` declares the same PState
+  with phase 2's schema on a placeholder stream topology fed by a test
+  depot, the one seam; the merge turns it off and phase 2's `gate` owns it.
+- **Lease rows carry the layer's kind and person owner** (beside M16's
+  `:layer` and `:session` marks). Block 1 and 2b need them on the arrival
+  task, before the layer task, to wrap under the owner and to place a lock
+  in a row or the record. Lease rows are consumed at decision; first-record
+  as M16 already is.
+- **Minting happens in block 2a from the fold's output**, not in 2b from
+  the offers: the fold holds who, session, layer, count and the settings in
+  force; the rows are written on the lease name's task, where `$$persons`
+  is local too. Same rows, same batch, one hop fewer.
+- **The person checks are computed on the arrival task and carried in the
+  skeleton** (`:person-reason`), not as `[[:person p] entry]` rows: an
+  entry read on two tasks during a forget's fan-out can differ, and a
+  merged row would decide one offer on another's read.
+- **The record path's check rows are one per value**, `[[:resend name fp
+  i] check]`: `+map-agg`'s combine keeps one value per key, so one row per
+  envelope could drop a `:name-taken`.
+- **`:members` is a map person → batch**, not a set: one write shape for
+  every `$$micro` projection, and M7's batch stamp on every row.
+- **A setting fact for a layer whose settings the stream gate keeps is
+  refused on its face `:wrong-gate`** at this gate (P16, M25: settings stay
+  with the stream gate), rather than written as a micro version that would
+  shadow `$$layers`.
+- **The fold coalesces its writes by location** (last write in fold order
+  wins): two acts in one batch touching one location (a head made then
+  replaced, a permission granted then revoked, two settings versions)
+  would otherwise be two termvals of different values in one batch, in no
+  fixed order.
+
+## Log, continued
+
+- 03:25 to 03:40 Self-validation (phase 3 step 6) and phase 4's adversarial
+  pass: IMPLEMENTATION_VALIDATION-micro-store.md, minor-fail, fixed in
+  place (a bare lock shipped at the name hop on the fresh path; `:landing`
+  at this gate; a yield on micro-act's rows; the walk computed twice; an
+  unguarded row computation; a stream-era forget target). Phase 1's suite
+  on the shared-file changes: 19 tests, 785 assertions, 0 failures.
+- 03:40 Phase 2's notes name later commits (b0f025d5 the sealed parse and
+  the parts digest in `env/digest`; 3ddc6eab `:scheme :aes-gcm-1` on lock
+  records; 33b357a4 more requires and helpers). Not merged (the brief: that
+  one commit); the micro lock-record schema takes an optional `:scheme` so
+  a merged `locks/wrap` fits it. For the merge: phase 2's `env/control-keys`
+  lacks `:members`, so its parse would refuse the group's making act
+  `:not-sealed`.
+- 03:43 to 03:55 Tests written (phase 5), validated (phase 6, minor-fail:
+  one synchronization fault, reading an act through a lagging entity
+  task's own frontier, and fourteen matrix rows), fixes applied.
+- 03:57 First run of the pure namespace: 226 of 227; the error was real,
+  `prepare`'s envelope order indexing a malformed row outside its guard;
+  fixed; 14 tests, 227 assertions, 0 failures.
+- 04:02 First cluster run (2 tasks): 247 assertions, 237 passed, 10 failed.
+  The six group A cases matched the model; the frontier run held (300
+  batches, 12,505 acts, 550,251 pairs through one F, 0 violations; the raw
+  readers caught no half-visible batch on 2 tasks). The failures: pairs
+  whose order the tests took from build order (a UUID7 is random within
+  its millisecond, so builds are now 2 ms apart); faces read before the
+  batch wrote them; and one real gap: the door took a record's answer by
+  parts digest before the gate checked its resend, so other plaintext
+  under a decided name read "yes" (fixed: the `:recorded` trace, the
+  decided fingerprint in micro-lookup, the door's `own-answer?`). The raw
+  readers' count is reported, not asserted: it measures Rama's commit
+  timing, not this module.
+- 04:15 Second cluster run (2 tasks): 249 assertions, 0 failures; the
+  frontier run's bypassing readers, phase 0's per-task measure added,
+  caught 200 of 444,911 pairs older on the later read; through one F, 0
+  violations. An 8-task run: 249, 0 failures; bypassing, 4 acts seen on one
+  entity's task and not the other's; through F, 0.
+- 04:20 Read phase 2's current `gate/decide` (not merged): its 7-arity now
+  decides with an empty lock context, in which a sealed value does not
+  open, so the micro fold's call would refuse every sealed act after the
+  merge. The fold now decides by `gate/refusal` and `gate/stamp-for` and
+  builds its record and projections itself (`micro-decision`,
+  `micro-record`), the adapter [PV-F13] named. Pure suite green on it.
+- 04:11 The suite, last run (runs/phase3-suite.txt; the full log beside
+  it, git-ignored): 34 tests, 1,269 assertions, 0 failures, 0 errors, 4 min
+  35 s wall; the micro cluster on 4 tasks, the stream gate's on 8. The
+  group's six A cases matched the model; the frontier run held (300
+  batches, 14,415 acts, 529,374 pairs through one F, 0 violations; phase
+  0's per-task measure, bypassing F, caught 68 pairs older on the later
+  read).
+
+## For the merge (builder A)
+
+- Merged from rig-build-locks: 1febfa3d only (5afe3c7d). Its later notes:
+  b0f025d5 (the parts digest inside `env/digest`; the sealed parse,
+  `:not-sealed`, control keys), 3ddc6eab (`:scheme :aes-gcm-1` on lock
+  records; this branch's lock-record schema already takes it), 33b357a4
+  (`rig.store.locks` requires `com.rpl.rama` and `rig.store.inject`; new
+  helpers `lock-plan`, `lock-refusal`, `lock-effects`, `value-context`,
+  `fresh-for`, `record-answer`, `row-at`).
+- `rig.store.micro/persons-placeholder?` to false: phase 2's `gate` owns
+  `$$persons`; the door's `make-person!`/`forget-person!` then give way to
+  phase 2's `:people` acts, and the tests that call them follow.
+- phase 2's `env/control-keys` must hold `:members` (the group's making
+  fact), or its parse refuses the making act `:not-sealed`.
+- gate.clj: phase 2 keeps `refusal`'s four permission clauses and
+  `pids-to-read`'s one pid; this branch's walk (`permit/refusal`, the chain)
+  is R19's and must win in both functions. The micro fold calls
+  `gate/refusal`, `gate/stamp-for`, `gate/pids-to-read`, the grant, revoke
+  and setting predicates, not `gate/decide`.
+- envelope.clj: this branch's `pid?` (four deep), `norm-pid`, and the
+  `:landing` line, beside phase 2's sealed parse; `parse-micro` strips
+  sealed parts before `env/parse` and restores them, so it works with
+  either parse.
+
+## Seams and stubs
+
+- The `$$persons` placeholder (above).
+- The effect of a value forget in a shared layer (the record's lock
+  excised, the ledger written): not built; the plan left it to stage 2
+  through the row seam, and stage 2's build is the stream gate's. The
+  forget fact is admitted and its row written; a stream-era target is
+  refused `:no-such-value` here.
+- The cascade of [PV-F8]: not built (R19, the walk).

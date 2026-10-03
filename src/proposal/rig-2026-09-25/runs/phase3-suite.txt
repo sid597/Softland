@@ -1,0 +1,37 @@
+Phase 3 (the micro store) suite, last run: Sat 26 Sep 2026, 04:11 IST finish
+Branch rig-build-micro at 956bf46c; Rama 1.6.0 in-process cluster; one cluster at a time under /mnt/data/projects/rig-relay-2026-09-26/cluster.lock.
+Command, from src/proposal/rig-2026-09-25:
+  flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.smoke-test rig.store.clock-test rig.store.envelope-test rig.store.stream-gate-test rig.store.micro-prepare-test rig.store.micro-test
+Full output: runs/phase3-suite.log (git-ignored, beside this file).
+
+Result:
+Ran 34 tests containing 1269 assertions.
+{:test 34, :pass 1269, :fail 0, :error 0}
+Wall time: 4 min 35 s (315.7 s user), JVM start included.
+Failures and errors: none.
+
+Namespaces run:
+  Testing rig.smoke-test
+  Testing rig.store.clock-test
+  Testing rig.store.envelope-test
+  Testing rig.store.stream-gate-test
+  Testing rig.store.micro-prepare-test
+  Testing rig.store.micro-test
+
+Observed (the tests' OBSERVED lines):
+  hybrid: largest lead over the wall 0 ms; the millisecond unit's, same walls: 22500 ms
+  tasks 8
+  burst: 3200 acts in 2.06 s, 1554 a second; largest lead of a stamp's millisecond over the wall at its ack -2 ms; largest counter 12 ; the millisecond unit over the same decisions would have ended 1154 ms ahead
+  a subvec name through the depot: {:answer :yes, :reason nil}
+  crash before the writes: the append threw | the gate saw the offer 3 times, reached its writes 2 times
+  crash after the writes: the append threw | decision code ran 2 times
+  completed-record replay: attempts 1 | times the completed offer was seen [2] | answered from its record [1]
+  tasks 4 entities on two tasks :e0 :e1 0 2
+  same-name envelopes [[:no :name-taken] [:yes nil] [:no :name-taken] [:no :mis-tagged]]
+  A case 0 A: in the group a mention of Bob alone dies with Bob rig :erased model :erased
+  A case 1 A: in the group a plain note about no one survives both forgets rig :open model :open
+  A case 2 A: in the group a value about Alice and Bob survives Alice alone rig :open model :open
+  A case 3 A: in the group a value about Alice and Bob survives Bob alone rig :open model :open
+  A case 4 A: ... and dies when both are forgotten ('either one alone') rig :erased model :erased
+  A case 5 A: in the group a value about Alice and Bob, marked, dies with Bob rig :erased model :erased
+  frontier run: 300 batches, 14415 acts, 529374 frontier pairs, 0 violations, 0 backward frontiers; 529374 raw pairs, 0 raw inconsistent pairs; 529374 raw frontier pairs, 68 where the later read was older (on 4 tasks)

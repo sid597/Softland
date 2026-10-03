@@ -1,0 +1,288 @@
+Phase 8 replays: the model's fixed histories through the rig (PLAN-replays.md, RP8)
+run      2026-09-26 10:25:17 IST, 149 s
+rig      2443e0b8 on rig-build-spec-fixes, with uncommitted changes in the rig folder
+model    formal-model-2026-09-24 at c1d46d42; the rig is compared under baseline
+cluster  in-process, 4 tasks, 2 threads; road: a fresh cluster and module per case (launch 3089 ms, destroy 190 ms, relaunch 3030 ms)
+stages   stage 1: all 11 resolved; stage 2: all 10 resolved; stage 3: all 13 resolved; stage 4: all 7 resolved; stage 5a: all 2 resolved; stage 5-rest: all 1 resolved; stage 6: all 1 resolved
+summary  14 cases: 14 played (14 as said, 0 differ), 0 not practical; 0 failing
+not tested by the lockstep (F10):
+  1. no rig offer is in flight while another is decided, except under a hold or the pause, so the rig's own order for offers queued together is not exercised (on the micro side that is KD16);
+  2. in the rig a read-out runs in its request's own event (P4 PR7), so B1's and B2's order exists in the rig only on the recovery road after a crash, which the hold and the resend play;
+  3. the door's retry and timeout behaviour, since every rig act is awaited.
+
+Known differences, reported every run (KD1 to KD20; a case line names those that showed):
+  KD1 [refusals] a writer without permission is refused on the lease, and the value act on its face; cases D1 D2 (For Sid 1 and 14; P2 L1968-1973; P3 L225-232)
+  KD2 [acts] a lease act before each value write; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (default 1; P2 L105-107)
+  KD3 [acts] the landing lease before a promotion; cases B1 B2 B3 B4 (P4 L69-71, PR4, PR9)
+  KD4 [acts] the read-out as a continuation of the request's record; cases B1 B2 B3 B4 (P4 PR7, L649-652)
+  KD5 [acts] the re-send from the stored forward; cases B3 B4 (P4 PR8, L660-664, L1023-1026)
+  KD6 [acts] every read through the exit is an act; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (defaults 3 and 4; P5 L259-277)
+  KD7 [acts] persons are data; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (P2 L1904-1906; IMPLICIT_SPEC D3)
+  KD8 [acts] layers, the base and the group are made by acts; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (P10, default 6, P3 L641-644; phase 6's D-P4, wave 2's W2-2)
+  KD9 [refusals] permission ids and chains; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (P3 L442-445, L478-484, M20; F9)
+  KD10 [refusals] after a person is forgotten, the exit cannot read for them, and nobody reads their one-owner layers through it; cases A1 A3 A4 A6 B2 B4 (P2 L742, L1716-1726; F3, F4; For Sid 28)
+  KD11 [form] what a read is and what 'now' means; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (P5 L1293-1316)
+  KD12 [form] stamps; cases A1 A2 A3 A4 A5 A6 A7 A8 B1 B2 B3 B4 D1 D2 (default 2; P3 L693-701)
+  KD13 [form] done means settled; cases B3 B4 (P4 L329-331, L553-555)
+  KD14 [not-exercised] leaders, epochs, fencing, failover and the deposed leader; the model's rulers :tick and :order; not exercised: no fixed history steps [:failover] or [:zombie]; a history that does is refused as not practical (IMPLICIT_SPEC D7)
+  KD15 [not-exercised] Rama replays completed records after a crash; the model only unfinished offers; not exercised: no fixed history crashes (IMPLICIT_SPEC D4)
+  KD16 [not-exercised] batch order: the rig orders one batch by the names' UUID7s, the model by its inbox; not exercised: no fixed history has two offers in one batch (P3 L1144-1146)
+  KD17 [form] a value forget's answer carries :how; cases B1 B3 (P2 L1108-1110)
+  KD18 [not-exercised] per-act lock grain with mixed marks; not exercised: no fixed history switches grain (P2 L1512-1514)
+  KD19 [not-exercised] named in the plans and not exercised: a resend after a forget answered without a content check; a resend inside one micro batch heard as :name-taken; {:unreadable :does-not-open}; :no-such-person and :no-such-value; :landing-lock-gone, except as B4's risk; a landing into the base before its re-class; the group's mark-on-write rule; not exercised: no fixed history reaches them (For Sid 2 and 15; P3 L289-295; P2 L749, L1239-1240, L1706-1707; P4 L121-124, L285-292; P3 O17)
+  KD20 [form] control facts differ in form; cases B1 B2 B3 B4 D1 D2 (F2; traces L125-127, L181-184)
+
+== A: forgetting
+  under baseline
+    as said   A: in Alice's own layer a note and a mention of Bob both die with Alice
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: alice as alice refused no-such-lock; the store's view o0#0 erased o0#1 erased
+              values   alice mention bob erased (model erased), alice note erased (model erased)
+              rig-only entry 1, forget-person 1, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; no group read; 8610 ms
+              known    read of alice for alice: the entry's lease refused :person-forgotten, the entry :no-such-lock on its face (KD10)
+    as said   A: in the group a mention of Bob alone dies with Bob
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: group as alice at F=18 o0#0 erased
+              values   group mention bob erased (model erased)
+              rig-only entry 1, forget-person 1, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 9994 ms
+    as said   A: in the group a plain note about no one survives both forgets
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: group as alice at F=20 refused no-such-lock; the store's view o0#0 v1
+              values   group note open (model open)
+              rig-only entry 1, forget-person 2, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 10581 ms
+              known    read of group for alice: the entry's lease refused :person-forgotten, the entry :no-such-lock on its face (KD10)
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: group as bob at F=20 o0#0 v1
+              values   group mention alice+bob open (model open)
+              rig-only entry 1, forget-person 1, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD11 KD12; predicted, not seen: KD10
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 10750 ms
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: group as alice at F=20 o0#0 v1
+              values   group mention alice+bob open (model open)
+              rig-only entry 1, forget-person 1, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 10561 ms
+    as said   A: ... and dies when both are forgotten ('either one alone')
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: group as alice at F=20 refused no-such-lock; the store's view o0#0 erased
+              values   group mention alice+bob erased (model erased)
+              rig-only entry 1, forget-person 2, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD10 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 10403 ms
+              known    read of group for alice: the entry's lease refused :person-forgotten, the entry :no-such-lock on its face (KD10)
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: group as alice at F=20 o0#0 erased
+              values   group mention alice+bob erased (model erased)
+              rig-only entry 1, forget-person 1, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 10672 ms
+    as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+      rig:    as said
+              answers  1 of 1 as the model's (o0 yes)
+              reads    closing: alice as alice o0#0 v1
+              values   alice mention bob open (model open)
+              rig-only entry 1, forget-person 1, lease 1, seed 25
+              known    KD2 KD6 KD7 KD8 KD9 KD11 KD12
+              roads    permissions direct; stream door stock! then offer!; micro door write!; no group read; 8199 ms
+  under baseline-but-not-owner-required
+    DIFFERS   A: in Alice's own layer a note and a mention of Bob both die with Alice
+              saw: alice note erased, alice mention bob open 
+               p6 objects: {:part :b, :survives ["o0" 1], :own-subjects #{:bob :alice}, :lock-wrap {:required #{}, :any-of #{:bob :alice}}}
+      rig:    as under baseline; differs from this configuration: rig alice mention bob erased, this configuration open; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+    as said   A: in the group a mention of Bob alone dies with Bob
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a plain note about no one survives both forgets
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+      rig:    as under baseline; agrees with this configuration
+    as said   A: ... and dies when both are forgotten ('either one alone')
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+      rig:    as under baseline; agrees with this configuration
+    as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+      rig:    as under baseline; agrees with this configuration
+  under baseline-with-a-read-as-owner-and-an-other
+    as said   A: in Alice's own layer a note and a mention of Bob both die with Alice
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a mention of Bob alone dies with Bob
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a plain note about no one survives both forgets
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+      rig:    as under baseline; agrees with this configuration
+    as said   A: ... and dies when both are forgotten ('either one alone')
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+      rig:    as under baseline; agrees with this configuration
+    DIFFERS   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+              saw: alice mention bob erased 
+               x1 objects: {:erased ["o0" 0], :own-subjects #{:bob :alice}, :lock-wrap {:required #{:alice}, :any-of #{:bob}}}
+      rig:    as under baseline; differs from this configuration: rig alice mention bob open, this configuration erased; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+  under baseline-with-the-third-reading-of-a
+    as said   A: in Alice's own layer a note and a mention of Bob both die with Alice
+      rig:    as under baseline; agrees with this configuration
+    DIFFERS   A: in the group a mention of Bob alone dies with Bob
+              saw: group mention bob open 
+               p6 objects: {:part :b, :survives ["o0" 0], :own-subjects #{:bob}, :lock-wrap {:required #{}, :any-of #{}}}
+      rig:    as under baseline; differs from this configuration: rig group mention bob erased, this configuration open; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+    as said   A: in the group a plain note about no one survives both forgets
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+      rig:    as under baseline; agrees with this configuration
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+      rig:    as under baseline; agrees with this configuration
+    DIFFERS   A: ... and dies when both are forgotten ('either one alone')
+              saw: group mention alice+bob open 
+               p6 objects: {:part :b, :survives ["o0" 0], :own-subjects #{:bob :alice}, :lock-wrap {:required #{}, :any-of #{}}}
+      rig:    as under baseline; differs from this configuration: rig group mention alice+bob erased, this configuration open; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+      rig:    as under baseline; agrees with this configuration
+    as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+      rig:    as under baseline; agrees with this configuration
+
+== B: promotion against a forget
+  under baseline
+    as said   B: a value forget queued before the read-out: pending, then refused
+      rig:    approximated (the hold at :before-read-out and a resend stand for the read-out's own step); as said
+              answers  4 of 4 as the model's (o0 yes, o2 yes, o3 yes, crossing:o2 no source-erased)
+              reads    1: alice as alice o0#0 v1 o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc12-c3d8-7f24-9f70-7bf7ce3ee90f"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEASMd2MM5pIi/sdwl+YhFSnB1OEydzzmUFFR4YLOIbGzE=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc12-c3d3-71ad-8f12-749f2c65a395"] 0], :subjects #{}, :target :group}, group as alice at F=17 , o2 pending | 2: alice as alice o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc12-c3d8-7f24-9f70-7bf7ce3ee90f"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEASMd2MM5pIi/sdwl+YhFSnB1OEydzzmUFFR4YLOIbGzE=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc12-c3d3-71ad-8f12-749f2c65a395"] 0], :subjects #{}, :target :group} o3#0 {:target [[:alice :by-layer :offer #uuid "01a0dc12-c3d3-71ad-8f12-749f2c65a395"] 0]}, group as alice at F=17 , o2 pending | closing: alice as alice o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc12-c3d8-7f24-9f70-7bf7ce3ee90f"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEASMd2MM5pIi/sdwl+YhFSnB1OEydzzmUFFR4YLOIbGzE=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc12-c3d3-71ad-8f12-749f2c65a395"] 0], :subjects #{}, :target :group} o3#0 {:target [[:alice :by-layer :offer #uuid "01a0dc12-c3d3-71ad-8f12-749f2c65a395"] 0]}, group as alice at F=17 , o2 refused
+              values   alice note erased (model erased); shown pending pending refused (model pending pending refused)
+              rig-only entry 3, landing-lease 1, lease 1, seed 25
+              known    KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD11 KD12 KD17 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; promotion lease-landing! then request-offer and the door's send (promote!'s two steps); 9638 ms
+              note     o3 :how row-deleted
+              note     the resend of o2 answered yes
+    as said   B: Alice forgotten before the read-out: pending, then refused
+      rig:    approximated (the hold at :before-read-out and a resend stand for the read-out's own step); as said
+              answers  3 of 3 as the model's (o0 yes, o2 yes, crossing:o2 no source-erased)
+              reads    1: alice as alice o0#0 v1 o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc12-e8da-7498-9332-16f46279cc91"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEA9VYQuNFjzJ5KAmbMnPHa1rxqzXCaWpATBMtQwAbEaGo=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc12-e8d6-703a-ada4-482415fc9469"] 0], :subjects #{}, :target :group}, group as alice at F=17 , o2 pending | closing: alice as alice refused no-such-lock; the store's view o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc12-e8da-7498-9332-16f46279cc91"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEA9VYQuNFjzJ5KAmbMnPHa1rxqzXCaWpATBMtQwAbEaGo=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc12-e8d6-703a-ada4-482415fc9469"] 0], :subjects #{}, :target :group}, group as bob at F=17 , o2 refused
+              values   alice note erased (model erased); shown pending refused (model pending refused)
+              rig-only entry 2, forget-person 1, landing-lease 1, lease 1, seed 25
+              known    KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD10 KD11 KD12 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; promotion lease-landing! then request-offer and the door's send (promote!'s two steps); 9427 ms
+              note     the resend of o2 answered yes
+              known    read of alice for alice: the entry sealed under a lock leased before the forget, :no-such-lock on its face (KD10)
+    as said   B: a value forget after the read-out: crossed, then done; the copy stays
+      rig:    approximated (the paused micro topology stands for the model's queued landing); as said
+              answers  5 of 5 as the model's (o0 yes, o2 yes, crossing:o2 yes, o3 yes, landing:o2 yes)
+              reads    1: alice as alice o0#0 v1 o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEAgxgRyZ0XV0M7K8fcbfGhpHjbvLYKDrq2qRV7EmREvwU=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"], :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]}, group as alice at F=18 , o2 crossed | 2: alice as alice o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEAgxgRyZ0XV0M7K8fcbfGhpHjbvLYKDrq2qRV7EmREvwU=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"], :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]} o3#0 {:target [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]}, group as alice at F=18 , o2 crossed | 3: alice as alice o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEAgxgRyZ0XV0M7K8fcbfGhpHjbvLYKDrq2qRV7EmREvwU=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"], :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]} o3#0 {:target [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]}, group as alice at F=20 landing:o2#0 v1, o2 done | closing: alice as alice o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEAgxgRyZ0XV0M7K8fcbfGhpHjbvLYKDrq2qRV7EmREvwU=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-0e7a-7269-9173-7dde9a38f4f1"], :source [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]} o3#0 {:target [[:alice :by-layer :offer #uuid "01a0dc13-0e75-74a9-a2dc-ef807f1c2fd4"] 0]}, group as alice at F=20 landing:o2#0 v1, o2 done
+              values   alice note erased (model erased), group note open (model open); shown crossed crossed done done (model crossed crossed done done)
+              rig-only entry 6, landing-lease 1, lease 1, seed 25
+              known    KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD11 KD12 KD13 KD17 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; promotion lease-landing! then request-offer and the door's send (promote!'s two steps); 10978 ms
+              note     o3 :how row-deleted
+    as said   B: Alice forgotten after the read-out: crossed, then done; the copy stays
+      rig:    approximated (the paused micro topology stands for the model's queued landing); as said
+              answers  4 of 4 as the model's (o0 yes, o2 yes, crossing:o2 yes, landing:o2 yes)
+              reads    1: alice as alice o0#0 v1 o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-3946-7012-afae-e1f876990b2f"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEADTbmm/Qd/wWzo+kPu9VGS3QsGyYSpuAHPcQ2pgZjvRc=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-3941-7236-abce-e257dc559744"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-3946-7012-afae-e1f876990b2f"], :source [[:alice :by-layer :offer #uuid "01a0dc13-3941-7236-abce-e257dc559744"] 0]}, group as alice at F=18 , o2 crossed | 2: alice as alice refused no-such-lock; the store's view o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-3946-7012-afae-e1f876990b2f"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEADTbmm/Qd/wWzo+kPu9VGS3QsGyYSpuAHPcQ2pgZjvRc=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-3941-7236-abce-e257dc559744"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-3946-7012-afae-e1f876990b2f"], :source [[:alice :by-layer :offer #uuid "01a0dc13-3941-7236-abce-e257dc559744"] 0]}, group as bob at F=20 landing:o2#0 v1, o2 done | closing: alice as alice refused no-such-lock; the store's view o0#0 erased o2#0 {:class :by-entity, :lease [[:group :by-entity :offer #uuid "01a0dc13-3946-7012-afae-e1f876990b2f"] 0], :permission [:alice :group :group [:group :group :group]], :public "MCowBQYDK2VuAyEADTbmm/Qd/wWzo+kPu9VGS3QsGyYSpuAHPcQ2pgZjvRc=", :replaces nil, :source [[:alice :by-layer :offer #uuid "01a0dc13-3941-7236-abce-e257dc559744"] 0], :subjects #{}, :target :group} crossing:o2#0 {:request [:alice :by-layer :offer #uuid "01a0dc13-3946-7012-afae-e1f876990b2f"], :source [[:alice :by-layer :offer #uuid "01a0dc13-3941-7236-abce-e257dc559744"] 0]}, group as bob at F=20 landing:o2#0 v1, o2 done
+              values   alice note erased (model erased), group note open (model open); shown crossed done done (model crossed done done)
+              rig-only entry 5, forget-person 1, landing-lease 1, lease 1, seed 25
+              known    KD2 KD3 KD4 KD6 KD7 KD8 KD9 KD10 KD11 KD12 KD13 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; promotion lease-landing! then request-offer and the door's send (promote!'s two steps); 10819 ms
+              known    read of alice for alice: the entry sealed under a lock leased before the forget, :no-such-lock on its face (KD10)
+              known    read of alice for alice: the entry sealed under a lock leased before the forget, :no-such-lock on its face (KD10)
+  under baseline-but-not-p6-line-at-the-read-out
+    as said   B: a value forget queued before the read-out: pending, then refused
+      rig:    as under baseline; agrees with this configuration
+    as said   B: Alice forgotten before the read-out: pending, then refused
+      rig:    as under baseline; agrees with this configuration
+    as said   B: a value forget after the read-out: crossed, then done; the copy stays
+               p6 objects: {:part :a, :original-erased-at-order 15, :copied-from ["o0" 0], :landed-at-order 16, :returns ["landing:o2" 0], :in :group, :crossed-at-order 13}
+      rig:    as under baseline; agrees with this configuration; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+    as said   B: Alice forgotten after the read-out: crossed, then done; the copy stays
+               p6 objects: {:part :a, :original-erased-at-order 14, :copied-from ["o0" 0], :landed-at-order 15, :returns ["landing:o2" 0], :in :group, :crossed-at-order 13}
+      rig:    as under baseline; agrees with this configuration; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+
+== D: permissions
+  under baseline
+    as said   D: a group write under Alice's session permission; the session revokes it between prepare and commit
+      rig:    approximated (prepare and commit are one batch in the rig; its commit is a check); as said
+              answers  2 of 2 as the model's (o0 no no-such-lock KD1, o2 yes)
+              reads    closing: alice-hand as alice o2#0 {:permission [:alice :group :alice-hand]}, group as alice at F=20 
+              values   group note missing (model missing)
+              rig-only entry 1, lease 1, seed 25
+              known    KD1 KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 10307 ms
+    as said   D: a group write under her group permission, revoked in the group first
+      rig:    as said
+              answers  2 of 2 as the model's (o0 yes, o1 no no-such-lock KD1)
+              reads    closing: group as alice at F=23 o0#0 {:permission [:alice :group :group [:group :group :group]]}
+              values   group note missing (model missing)
+              rig-only entry 1, lease 1, seed 25
+              known    KD1 KD2 KD6 KD7 KD8 KD9 KD11 KD12 KD20
+              roads    permissions direct; stream door stock! then offer!; micro door write!; the group read through the exit at {:frontier F}; 11242 ms
+  under baseline-but-not-permissions-in-their-layer
+    DIFFERS   D: a group write under Alice's session permission; the session revokes it between prepare and commit
+              saw: group note open 
+               rv objects: {:admitted ["o0" 0], :in :group, :at [:micro 0], :permission [:alice :group :session], :revoked-by ["o2" 0], :revocation-at [:stream 1], :ordered-by :nothing}
+      rig:    as under baseline; differs from this configuration: rig group note missing, this configuration open; the objections above are the model's own properties (they use its :order, which the rig has no counterpart of), not the rig's
+    as said   D: a group write under her group permission, revoked in the group first
+      rig:    as under baseline; agrees with this configuration
+
+The APIs, by stage (built: named as the stage's build names it; plan: the plan's name, a binding to confirm):
+  1 rig.store.client/build [built] resolved
+  1 rig.store.client/offer-until-answered! [built] resolved
+  1 rig.store.client/record [built] resolved
+  1 rig.store.client/settings [built] resolved
+  1 rig.store.client/grant-offer [built] resolved
+  1 rig.store.client/make-layer-offer [built] resolved
+  1 rig.store.client/revoke-offer [built] resolved
+  1 rig.store.envelope/uuid7 [built] resolved; plan: the request's uuid, made before its landing lease, as promote-client/promote! makes it
+  1 rig.store.inject/reset-all! [built] resolved
+  2 rig.store.client/people-layer [built] resolved; plan: the :people layer (P2 L1926-1927)
+  2 rig.store.client/make-person! [built] resolved
+  2 rig.store.client/stock! [built] resolved; plan: offer! sealing at the door, leasing when short; lease! (the lease act made visible: stock! leases ahead into the door's pool)
+  2 rig.store.client/forget-person! [built] resolved
+  2 rig.store.client/person-on-task [built] resolved
+  2 rig.store.client/forget-value! [built] resolved
+  2 rig.store.client/opens? [built] resolved
+  2 rig.store.client/depot-records [built] resolved; plan: (KD10's attribution: the entry's cited lease, F3)
+  2 rig.store.client/raw-row [built] resolved; plan: (the request's source entity, as promote-client/promote! reads it)
+  2 rig.store.grammar/grammars [built] resolved
+  3 rig.store.micro-client/connect [built] resolved
+  3 rig.store.micro-client/make-base! [built] resolved
+  3 rig.store.micro-client/make-group! [built] resolved
+  3 rig.store.micro-client/open-session! [built] resolved
+  3 rig.store.micro-client/settings-of [built] resolved
+  3 rig.store.micro-client/offer! [built] resolved; plan: the micro door, *micro-offers through the client's dispatch by tag
+  3 rig.store.micro-client/grant-offer [built] resolved
+  3 rig.store.micro-client/frontier [built] resolved; plan: micro-frontier (F8: built as micro-client/frontier)
+  3 rig.store.micro-client/write! [built] resolved; plan: the micro door with its lease (micro leases)
+  3 rig.store.micro-client/lookup [built] resolved; plan: micro-lookup
+  3 rig.store.micro-client/open-act [built] resolved; plan: micro-act at F and the pure open of a row (open-row)
+  3 rig.store.micro-client/revoke-offer [built] resolved
+  3 rig.store.micro/control-keys [built] resolved; plan: the micro gate's control keys: :grammar there requires shared grammar seed facts, checked by P3-5; optional
+  4 rig.store.promote-client/connect [built] resolved; plan: the merged handle, micro-client's plus the promotion-status query
+  4 rig.store.promote-client/lease-landing! [built] resolved; plan: client/lease-landing!
+  4 rig.store.promote-client/request-offer [built] resolved; plan: client/promote! (promote-client/promote!'s two steps, sent by the replay so a hold or the pause sits between them)
+  4 rig.store.promote-client/resend! [built] resolved; plan: the door's resend of the same request, answered from the record
+  4 rig.store.promote-client/status-of [built] resolved; plan: client/promotion-status (status-of gives the keyword)
+  4 rig.store.inject/hold! [built] resolved; plan: inject/hold! at :before-read-out and :before-forward (never rig.claims/hold!, F8)
+  4 rig.store.inject/release! [built] resolved
+  1 rig.store.envelope/crossing-name [built] resolved; plan: env/crossing-name (the plan lists it under stage 4; phase 1 built it)
+  1 rig.store.envelope/landing-name [built] resolved; plan: env/landing-name (listed under stage 4; phase 4 gave it the class, the one the request carries)
+  5a rig.store.read-exit/connect [built] resolved
+  5a rig.store.read-exit/read! [built] resolved
+  5-rest rig.store.shared-reads/moment [built] resolved; plan: the exit's shared-layer read (PLAN-reads-rest.md: read-exit/read! on a group layer, rig.store.shared-reads); optional
+  6 rig.store.toy-grammars/facts [built] resolved; plan: the model's grammars as facts in each one-owner layer (phase 6's D-P4); optional

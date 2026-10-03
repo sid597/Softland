@@ -1,0 +1,25 @@
+The suite for the one-owner read exit (stage 5a), run by the build session, 26 September 2026 03:38 IST, from the rig folder:
+flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.smoke-test rig.store.clock-test rig.store.envelope-test rig.store.stream-gate-test rig.store.reads-test rig.store.read-exit-test rig.store.read-model-test
+Wall time: 32 s, exit 0. Full output: phase5-read-exit-suite.log beside this file (not in git: runs/*.log). U+0000 shown as |.
+Tasks: rig.store.stream-gate-test draws 2, 4 or 8 (this run: 8); the smoke test and the three read-exit namespaces run on 4.
+
+Testing rig.smoke-test
+Testing rig.store.clock-test
+Testing rig.store.envelope-test
+Testing rig.store.stream-gate-test
+Testing rig.store.reads-test
+Testing rig.store.read-exit-test
+OBSERVED T2 points for the entry: [:exit-after-query :seen :before-writes :after-writes :exit-after-entry :exit-shown]
+OBSERVED purge during a paged read: the row shows the value
+OBSERVED T10 rebuild over an intact layer: {:put-pages 5, :deleted 0, :rewritten 0}
+OBSERVED T18 read layer clock 117335056962748417 | working layers on other tasks: [:t18w0 :t18w2 :t18w3 :t18w4 :t18w5 :t18w6 :t18w7]
+OBSERVED reads that returned rows: 47
+Testing rig.store.read-model-test
+OBSERVED chains : 32 ops, 6 reads compared, 11 offers answered; 0 differences; single-moment observations: [{:where [:chains 4 [:read :now]], :layer :alice, :model-only 3, :rig-only 0} {:where [:chains 29 [:read [:at 7]]], :layer :alice-hand, :model-only 0, :rig-only 3} {:where [:chains 30 [:read [:at 11]]], :layer :alice-hand, :model-only 0, :rig-only 1}]
+OBSERVED random11 : 62 ops, 4 reads compared, 21 offers answered; 0 differences; single-moment observations: [{:where [:random11 61 [:read [:at 4]]], :layer :alice-hand, :model-only 0, :rig-only 3}]
+OBSERVED random23 : 52 ops, 4 reads compared, 21 offers answered; 0 differences; single-moment observations: [{:where [:random23 3 [:read :now]], :layer :alice, :model-only 1, :rig-only 0}]
+OBSERVED random37 : 54 ops, 8 reads compared, 17 offers answered; 0 differences; single-moment observations: []
+OBSERVED stood-on : 9 ops, 3 reads compared, 3 offers answered; 0 differences; single-moment observations: []
+Ran 37 tests containing 1340 assertions.
+0 failures, 0 errors.
+{:test 37, :pass 1340, :fail 0, :error 0}

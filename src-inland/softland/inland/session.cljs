@@ -27,6 +27,13 @@
   [s k]
   (or (get @(:cells s) k)
       (get (swap! (:cells s) #(if (contains? % k) % (assoc % k (atom nil)))) k)))
+(defn snapshot
+  "Session → every local cell's current value, taken once: what a gesture's
+   rules read of the page's drafts and attention on the server. A stored cell's
+   local value is sent too and not read there; the store's is. The marks the
+   server pushed are not sent back."
+  [s]
+  (into {} (for [[k a] @(:cells s) :when (not= k "marks")] [k @a])))
 (defn emit!
   "Event data → install an event with a fresh id in the session's delivery slot.
    This is a single replaceable slot; it does not queue concurrent events."

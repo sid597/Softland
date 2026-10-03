@@ -1,0 +1,63 @@
+WARNING: continue> already refers to: #'com.rpl.rama/continue> in namespace: rig.store.promote-flow, being replaced by: #'rig.store.promote-flow/continue>
+connect: the first facts and the genesis records when not in
+  ok   connected, the bells' task keys found   [:bell-5 :bell-0]
+a page for alice
+  ok   a session in the store, its stored cells' address   {:thing "@alice-s-02e63981", :hand "alice-hand", :stored #{"context" "selection"}, :person "alice"}
+the world record, through a standing read
+  ok   the world arrives as a value   [:value]
+  ok   its session defaults are the seed's 
+the stored context cell
+  ok   the context arrives: alice's own layer, then the base   {:status :value, :value {:layers ["alice" "base"], :pins {}}, :complete? true}
+a gesture: point at the instrument, which opens its rule
+  ok   the gesture's reads were recorded in one act   {:recorded [:alice-hand :by-layer :offer #uuid "01a0e306-7ebb-73a2-a334-06c061eaabfd"]}
+  ok   its effects open the rule in the editor   [{:effect :session, :writes {"draft" {:base 117343175126417408, :value "{:body {:return {:file [:get :subject :file], :from [:+ 1 [:get :subject :line]], :kind \"line\", :label \"the next line\", :to [:+ 1 [:get :subject :line]]}, :steps []}, :label \"Select the line after the one I point at\", :name \"targeting\"}"}, "inspecting" "targeting", "tab" "instrument"}}]
+the targeting rule, watched in alice's layer and the base
+  ok   alice's layer answers (her own rule, or complete absence)   {:status :value, :value {:return {:file [:get :subject :file], :from [:+ 1 [:get :subject :line]], :kind "line", :label "the next line", :to [:+ 1 [:get :subject :line]]}, :steps []}, :complete? true}
+  ok   present in the base   {:status :value, :value {:return {:file [:get :subject :file], :from [:get :subject :line], :kind "line", :label [:str "line " [:get :subject :line]], :to [:get :subject :line]}, :steps []}, :complete? true}
+a gesture: point at a line under the current rule (no material: the subject stands for itself)
+  ok   recorded, no failure   {:recorded [:alice-hand :by-layer :offer #uuid "01a0e306-7ffd-77d8-ae60-3926b9975fd7"], :decisions []}
+  ok   the selection is a stored fact, pushed back   {:status :value, :value {:file "file/none", :from 8, :kind "line", :label "the next line", :to 8}, :complete? true}
+a gesture: change the rule while using it (submit a draft into alice's layer)
+  ok   the edit was admitted   {:effects [], :recorded [:alice-hand :by-layer :offer #uuid "01a0e306-80b1-70aa-8d6a-5831b11cd560"], :supports [["edit-rule" 117343161169739776]], :decisions [{:status :accepted, :revision 117343207385530368, :name "targeting", :layer "alice"}]}
+  ok   the new rule arrives in alice's layer by push   {:status :value, :value {:return {:file [:get :subject :file], :from [:+ 7 [:get :subject :line]], :kind "line", :label "line +7", :to [:+ 7 [:get :subject :line]]}, :steps []}, :complete? true}
+a gesture: point again; the new rule chooses
+  ok   the selection is now line 14   {:status :value, :value {:file "file/none", :from 14, :kind "line", :label "line +7", :to 14}, :complete? true}
+what the store holds in alice's hand layer (the operator's view)
+  ok   read records are in the hand layer   65
+   acts in alice-hand: 99 of which read records: 65  lines: #:read{:delivery 33, :pattern 280, :closed 20, :standing 24}
+flow failed #error {
+ :cause Observe cancelled.
+ :via
+ [{:type missionary.Cancelled
+   :message Observe cancelled.}]
+ :trace
+ []}
+flow failed #error {
+ :cause Observe cancelled.
+ :via
+ [{:type missionary.Cancelled
+   :message Observe cancelled.}]
+ :trace
+ []}
+flow failed #error {
+ :cause Observe cancelled.
+ :via
+ [{:type missionary.Cancelled
+   :message Observe cancelled.}]
+ :trace
+ []}
+flow failed #error {
+ :cause Observe cancelled.
+ :via
+ [{:type missionary.Cancelled
+   :message Observe cancelled.}]
+ :trace
+ []}
+flow failed #error {
+ :cause Observe cancelled.
+ :via
+ [{:type missionary.Cancelled
+   :message Observe cancelled.}]
+ :trace
+ []}
+ALL CHECKS HELD

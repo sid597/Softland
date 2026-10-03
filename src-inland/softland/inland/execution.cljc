@@ -99,6 +99,18 @@
             :else (Field owner workspace (vec (rest layers)) name attr pin)))
     nil)))
 
+(e/defn Cell
+  "Session, context and string key → a session cell's value. A stored cell
+   (the context names the keys the store holds, `[:cells :stored]`) is the
+   fact on the session's thing in its hand layer, read through the store:
+   recorded, and delivered when the store pushes. Any other cell is the
+   browser-local one, a draft or attention."
+  [s owner workspace context key]
+  (let [cells (:cells context)]
+    (if (contains? (:stored cells) key)
+      (Field owner workspace [(:layer cells)] (:thing cells) (keyword "cell" key) nil)
+      (Local s key))))
+
 (e/declare Recipe Call Query)
 
 (e/defn Step
@@ -117,7 +129,7 @@
       :else
       (case (:op step)
         :value args
-        :session (Local s (:key args))
+        :session (Cell s owner workspace context (:key args))
         :read (let [read-context (if (:layer args) {:layers [(:layer args)]} context)]
                 (if (contains? args :attr)
                   (Field owner workspace (:layers read-context ["base"]) (:name args) (:attr args) (get (:pins read-context) (:name args)))
@@ -168,7 +180,7 @@
   [s owner workspace context clauses bindings]
   (if (seq clauses)
     (let [clause (first clauses)
-          value (cond (:session clause) (Local s (:session clause))
+          value (cond (:session clause) (Cell s owner workspace context (:session clause))
                       (:context clause) (get-in context (:context clause))
                       :else (let [name (total/evaluate (:name clause) bindings)]
                               (Field owner workspace (:layers context ["base"]) name (:attr clause) (get (:pins context) name))))

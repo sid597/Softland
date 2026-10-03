@@ -1,0 +1,84 @@
+Phase 7, number 1: index writes a second, an agent session layer writing small acts continuously, on the finished store
+
+Thresholds: thresholds assumed (RIG.md default 7), not Sid's
+Caveat: In-process cluster: every task, the RocksDB stores and the clients run in one JVM on one machine, with replication factor 1 and this machine's disk. The timings mean orders of magnitude only (the rama skill's testing.md, axiom 1; SPEC.md, "Tests and evidence"): a result ten times or more from its threshold decides the question; one within ten times needs a real cluster. Logical bytes are exact for Rama 1.6.0's serializers; bytes on disk depend on the RocksDB options Rama sets here.
+
+Machine (recorded by the harness at every run; 3 complete runs, every run on the same machine):
+  AMD Ryzen 9 9900X 12-Core Processor, 12 cores, 24 hardware threads, 65477336 kB RAM
+  Ubuntu 24.04.4 LTS, kernel 7.0.0-31-generic; OpenJDK 64-Bit Server VM 21.0.12.1+1-1-24.04.4-Ubuntu (Ubuntu)
+  JVM flags -XX:-OmitStackTraceInFastThrow -Xss16m -Xmx16g -Dclojure.basis=.cpcache/2185303280.basis; GC G1 Young Generation, G1 Concurrent GC, G1 Old Generation
+  rama-1.6.0.jar, rama-helpers-0.10.0.jar, Clojure 1.12.4
+  the cluster's files on ext4 on /dev/nvme0n1p6 (WD_BLACK SN850X 1000GB)
+  load at each run's start: 1.76 0.91 0.94; 3.23 2.76 2.07; 2.21 2.34 2.18
+  code: cc011a22
+
+Method: PLAN-numbers.md 4, as built (BUILD_NOTES-numbers.md). The act: one fact under :note (F1: no grammar in the layer, so no value index), a 40-byte value sealed at the door, written by :ada in the session :bench-s1 citing its permission.
+Index writes a second: the sum over act kinds of admitted acts times that kind's writes below, over the window's seconds (2.5).
+
+The writes of the gate's decision event, per admitted act (2.3), named from the code; the harness's claim, which T1 to T4 hold to the store's own growth:
+  1   answer record                                $$layers [L :answers name] set    gate_event.clj write-decided> L49
+  2   the act's rows                               [L :log name]              set    gate_event.clj L52
+  3   the fact's head                              [L :heads [e k fid]]       set    gate_event.clj L62
+  4   id index by entity                           [L :ix-ek address]         set    gate_event.clj L67; reads.clj fact-writes L247
+  5   id index by key                              [L :ix-ke address]         set    gate_event.clj L67; reads.clj fact-writes L247
+  6   stamp index                                  [L :ix-s address]          set    gate_event.clj L67; reads.clj fact-writes L247 (stage 5b)
+  7   value index                                  [L :ix-kv address]         set    gate_event.clj L67; reads.clj fact-writes, a key its grammar indexes by value
+  8   value id to its value addresses              [L :ix-of fid]             set    gate_event.clj L70
+  9   lock row                                     [L :locks lock-id]         set    locks.clj write-decision> L1297 (lock-plan's :row?: personal, hand, or :own-row)
+  10  the cited lease row, consumed                [L :leases s lock-id]      delete locks.clj consume-locks> L1142, from write-decision>
+  11  the lease's rows                             [L :leases s lock-id]      set    locks.clj write-decision> L1297, lease-writes
+  12  stamp to name                                [L :by-stamp stamp]        set    locks.clj lock-effects L897, written by write-decision>
+  13  the task's last stamp                        $$clock                    set    gate_event.clj L93
+  :s  what the act stood on                        [L :stood-on name fid]     set    gate_event.clj L56
+  :k  the key's row, at its first use in the layer [L :key-rows k]            set    gate_event.clj L84-85; grammar.clj key-row-writes
+  per act: agent-value 9 (read indexes 3, deletes 1); agent-value-by-value 11 (read indexes 5, deletes 1); owner-value 10 (read indexes 3, deletes 1); lease 72 (read indexes 3, deletes 0); entry 10 (read indexes 3, deletes 1); agent-value-stood-on 10 (read indexes 3, deletes 1)
+  and once per layer, the first fact under a key that is not a store key: one :key-rows row (F2), in setup or warm-up, never in a window
+
+Variant A: one agent session layer, K writers sharing one door, closed loops (latencies are closed-loop service times, reported, not judged; F5).
+  A K=1    value acts/s 227 (225 to 227)           index writes/s 2,305 (2,283 to 2,305)       read indexes/s 693        p50 3.96    p99 16.17   max 36.56   home thread 26.30%  clock lead -3.00 ms
+      verdict (at least 1,000 value acts a second): near-fails, 4.40 times
+      slice: 299 acts/s, 1196 index writes/s at 4 an act, p99 4.74 ms, thread 20%; final/slice 0.76
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 2/3
+  A K=4    value acts/s 413 (408 to 413)           index writes/s 4,179 (4,135 to 4,179)       read indexes/s 1,257      p50 8.95    p99 25.77   max 43.22   home thread 34.10%  clock lead -3.00 ms
+      verdict (at least 1,000 value acts a second): near-fails, 2.42 times
+      slice: 646 acts/s, 2584 index writes/s at 4 an act, p99 9.79 ms, thread 24%; final/slice 0.64
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 2/3
+  A K=16   value acts/s 907 (898 to 909)           index writes/s 9,186 (9,086 to 9,202)       read indexes/s 2,764      p50 15.98   p99 43.23   max 55.83   home thread 48.20%  clock lead -4.00 ms
+      verdict (at least 1,000 value acts a second): near-fails, 1.10 times
+      slice: 2249 acts/s, 8996 index writes/s at 4 an act, p99 9.94 ms, thread 37%; final/slice 0.40
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  A K=32   value acts/s 1,103 (1,099 to 1,116)     index writes/s 11,166 (11,135 to 11,295)    read indexes/s 3,360      p50 29.17   p99 59.69   max 75.94   home thread 56.10%  clock lead -3.00 ms
+      verdict (at least 1,000 value acts a second): near-passes, 1.10 times
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  A K=64   value acts/s 1,222 (1,209 to 1,240)     index writes/s 12,378 (12,241 to 12,559)    read indexes/s 3,725      p50 49.83   p99 91.56   max 130     home thread 60.80%  clock lead -3.00 ms
+      verdict (at least 1,000 value acts a second): near-passes, 1.22 times
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  A K=128  value acts/s 1,186 (1,164 to 1,203)     index writes/s 12,010 (11,787 to 12,179)    read indexes/s 3,614      p50 98.91   p99 249     max 379     home thread 58.20%  clock lead -4.00 ms
+      verdict (at least 1,000 value acts a second): near-passes, 1.19 times
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+
+Variant A': the same act under a by-value :note grammar (11 writes an act).
+  A-prime K=1    value acts/s 210 (209 to 213)           index writes/s 2,548 (2,536 to 2,587)       read indexes/s 1,059      p50 4.02    p99 19.09   max 53.49   home thread 24.80%  clock lead -3.00 ms
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  A-prime K=4    value acts/s 321 (320 to 350)           index writes/s 3,885 (3,884 to 4,240)       read indexes/s 1,617      p50 10.70   p99 33.62   max 108     home thread 31.30%  clock lead -3.00 ms
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+  A-prime K=16   value acts/s 803 (802 to 807)           index writes/s 9,732 (9,723 to 9,788)       read indexes/s 4,051      p50 17.75   p99 48.32   max 104     home thread 48.70%  clock lead -3.00 ms
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+
+D2: A's act citing the owner's root permission (a chain of 1), beside A at K = 16.
+  D2 K=16   value acts/s 883 (878 to 905)           index writes/s 8,942 (8,890 to 9,163)       read indexes/s 2,691      p50 13.76   p99 50.54   max 111     home thread 47.00%  clock lead -3.00 ms
+      checks: read-back complete 3/3; one task 3/3; lease counts agree 3/3; no error 3/3; no other JVM 3/3
+
+D1: the pool stocked ahead (only when A's rate flattened while the home thread stayed under 60%); valid only if the door leased nothing in the window.
+  run 1: value acts/s 1.10, valid true, stocking {:lease-acts 165, :locks 42240, :pool 42288, :secs 1.969}
+  run 2: value acts/s 1.10, valid true, stocking {:lease-acts 168, :locks 43008, :pool 43040, :secs 1.96}
+  run 3: value acts/s 1.10, valid true, stocking {:lease-acts 171, :locks 43776, :pool 43818, :secs 1.967}
+
+Variant B: S sessions on one task, each at an assumed 100 acts a second, open schedule, latency from the schedule.
+
+Variant C: read (through the exit, recorded) then write standing on what was read; closed loops.
+
+Idle windows (10 s, no offers): the busiest threads, % of one core.
+  run 1: Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0 4.2, Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0 2.4, Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0 2.4, Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0 2.4, Worker bb1ad573 00000000@2005 DTT 3 0-background-0 1.0, Worker bb1ad573 00000000@2005 DTT 2 0-background-0 1.0
+  run 2: Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0 4.3, Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0 2.6, Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0 2.5, Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0 2.5, Worker bb1ad573 00000000@2005 DTT 1 0-background-0 1.1, Worker bb1ad573 00000000@2005 DTT 3 0-background-0 1.1
+  run 3: Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0 4.3, Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0 2.6, Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0 2.5, Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0 2.5, Worker bb1ad573 00000000@2005 DTT 1 0-background-0 1.0, Worker bb1ad573 00000000@2005 DTT 3 0-background-0 1.0

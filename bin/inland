@@ -2,9 +2,13 @@
 """Launch/build/check the isolated Softland-in-Softland product.
 
 Owns .inland-runtime processes, configuration and durable storage, plus target
-build outputs. Uses exact PID/cwd markers before stopping processes. Distribution
-files may be copied from INLAND_RAMA_RELEASE; existing cluster data is never used.
-See ../src-inland/README.md for architecture and ../test-inland/README.md for checks.
+build outputs. Uses exact PID/cwd markers before stopping processes, read from
+/proc on Linux and from ps/lsof on macOS. Distribution files are copied from
+INLAND_RAMA_RELEASE, else the first of /mnt/data/rama and ~/rama/rama-1.6.0 that
+exists; existing cluster data is never used. The deployed module is the rig's
+store (src/proposal/rig-2026-09-25, rig.store.module/Store), whose records are
+thrown away. See ../src-inland/README.md for architecture and
+../test-inland/README.md for checks.
 """
 import json
 import os
@@ -21,7 +25,9 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNTIME = ROOT / '.inland-runtime'
 RELEASE = RUNTIME / 'release'
 PUBLIC = ROOT / 'target/inland/public'
-MODULE = 'softland.inland.module/material'
+RIG = ROOT / 'src/proposal/rig-2026-09-25'
+MODULE = 'rig.store.module/Store'
+RAMA_RELEASES = [Path('/mnt/data/rama'), Path.home() / 'rama/rama-1.6.0']
 
 
 def run(args, cwd=ROOT):
@@ -45,6 +51,18 @@ def await_port(port, timeout=100):
         time.sleep(1)
 
 
+def rama_release():
+    """Return the Rama distribution folder: INLAND_RAMA_RELEASE, else the first
+    of RAMA_RELEASES holding a `rama` launcher. Raises naming what was tried."""
+    if os.environ.get('INLAND_RAMA_RELEASE'):
+        return Path(os.environ['INLAND_RAMA_RELEASE'])
+    for candidate in RAMA_RELEASES:
+        if (candidate / 'rama').exists():
+            return candidate
+    raise RuntimeError('No Rama distribution: set INLAND_RAMA_RELEASE or unpack one at '
+                       + ' or '.join(str(c) for c in RAMA_RELEASES))
+
+
 def setup():
     """Create isolated directories/config; copy distribution binaries if absent.
 
@@ -53,7 +71,7 @@ def setup():
     RUNTIME.mkdir(exist_ok=True)
     (RUNTIME / 'logs').mkdir(exist_ok=True)
     if not (RELEASE / 'rama').exists():
-        source = Path(os.environ.get('INLAND_RAMA_RELEASE', '/mnt/data/rama'))
+        source = rama_release()
         RELEASE.mkdir(exist_ok=True)
         # Distribution files only; no source data, config, tokens or licenses.
         for name in ['rama', 'rama.jar', 'log4j2.properties', 'LICENSE.txt']:
@@ -74,6 +92,27 @@ supervisor.child.opts: "-Xmx256m"
 cluster.metadata: "Softland in Softland — isolated experiment"
 ''')
     (RUNTIME / 'worker.yaml').write_text('worker.child.opts: "-Xmx1024m -Xss16m"\n')
+
+
+def process_info(pid):
+    """Return (cwd, command line) of a live pid, or None when it is gone.
+
+    Linux reads /proc; macOS, which has none, asks ps for the command line and
+    lsof for the working directory. The cwd is None when it cannot be read."""
+    proc = Path(f'/proc/{pid}')
+    if proc.exists():
+        try:
+            return (proc / 'cwd').resolve(), (proc / 'cmdline').read_bytes().decode().replace('\0', ' ')
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            return None
+    if Path('/proc').exists():
+        return None
+    args = subprocess.run(['ps', '-o', 'command=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
+    if not args:
+        return None
+    out = subprocess.run(['lsof', '-a', '-p', str(pid), '-d', 'cwd', '-Fn'], capture_output=True, text=True).stdout
+    cwd = next((line[1:] for line in out.splitlines() if line.startswith('n')), None)
+    return (Path(cwd).resolve() if cwd else None), args
 
 
 def start(name, args, cwd, port):
@@ -110,17 +149,27 @@ def cluster():
 
 
 def module_jar():
-    """Package inland Clojure, shared engine Clojure and seed into a module jar.
+    """Package the rig's store source into a module jar, with the classes of
+    the one library it uses that the cluster does not provide (rama-helpers).
 
-    Returns target path; source-only packaging does not compile or deploy it."""
-    target = ROOT / 'target/inland/instruments.jar'
+    Every .clj/.cljc under the rig's src, at its namespace path; the helpers'
+    classes from the jar the rig's own classpath names. Returns the target
+    path; source-only packaging does not compile or deploy it."""
+    target = ROOT / 'target/inland/store.jar'
     target.parent.mkdir(parents=True, exist_ok=True)
+    source = RIG / 'src'
+    classpath = subprocess.check_output(['clojure', '-Spath'], cwd=RIG, text=True).strip().split(os.pathsep)
+    helpers = [Path(p) for p in classpath if Path(p).name.startswith('rama-helpers-') and p.endswith('.jar')]
+    if not helpers:
+        raise RuntimeError('The rig classpath names no rama-helpers jar')
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as jar:
-        for folder, prefix in [(ROOT / 'src-inland', ''), (ROOT / 'src/app/client/engine', 'app/client/engine/')]:
-            for path in folder.rglob('*'):
-                if path.is_file() and path.suffix in ['.clj', '.cljc']:
-                    jar.write(path, prefix + str(path.relative_to(folder)))
-        jar.write(ROOT / 'resources/inland/seed.edn', 'inland/seed.edn')
+        for path in source.rglob('*'):
+            if path.is_file() and path.suffix in ['.clj', '.cljc']:
+                jar.write(path, str(path.relative_to(source)))
+        with zipfile.ZipFile(helpers[0]) as lib:
+            for entry in lib.namelist():
+                if entry.endswith('.class'):
+                    jar.writestr(entry, lib.read(entry))
     return target
 
 
@@ -154,9 +203,13 @@ def deploy(action='launch'):
 
 
 def build():
-    """Copy product/font assets and compile the Electric browser release.
+    """Install the browser's npm packages if absent, copy product/font assets and
+    compile the Electric browser release.
 
-    Mutates target output only; compiler dependency and activation must exist."""
+    Mutates node_modules and target output only; compiler dependency and
+    activation must exist."""
+    if not (ROOT / 'node_modules/harfbuzzjs').exists():
+        run(['npm', 'install', '--omit=dev', '--no-audit', '--no-fund'])
     PUBLIC.mkdir(parents=True, exist_ok=True)
     shutil.copytree(ROOT / 'resources/inland', PUBLIC, dirs_exist_ok=True)
     (PUBLIC / 'fonts').mkdir(exist_ok=True)
@@ -166,7 +219,7 @@ def build():
                  'ubuntu_sans_variable_slug_band.bin', 'dejavu_sans_mono_slug_meta.json',
                  'dejavu_sans_mono_slug_curve.bin', 'dejavu_sans_mono_slug_band.bin']:
         shutil.copy2(ROOT / 'resources/public/fonts' / name, PUBLIC / 'fonts' / name)
-    run(['clj', '-M:inland', '-m', 'shadow.cljs.devtools.cli', 'release', 'inland'])
+    run(['clojure', '-M:inland', '-m', 'shadow.cljs.devtools.cli', 'release', 'inland'])
 
 
 def serve():
@@ -177,7 +230,7 @@ def serve():
     setup()
     if '--test-controls' in sys.argv:
         os.environ['INLAND_TEST_CONTROLS'] = '1'
-    start('app', ['clj', '-M:inland', '-m', 'softland.inland.server'], ROOT, 8127)
+    start('app', ['clojure', '-M:inland', '-m', 'softland.inland.server'], ROOT, 8127)
     print('Open http://localhost:8127', flush=True)
 
 
@@ -188,14 +241,13 @@ def owned_pid(name):
     pidfile = RUNTIME / f'{name}.pid'
     if pidfile.exists():
         pid = int(pidfile.read_text())
-        process = Path(f'/proc/{pid}')
-        if not process.exists():
+        info = process_info(pid)
+        if info is None:
             return None
-        cwd = (process / 'cwd').resolve()
-        args = (process / 'cmdline').read_bytes().decode().replace('\0', ' ')
+        cwd, args = info
         marker = {'app':'softland.inland.server', 'conductor':'daemon.conductor',
                   'supervisor':'daemon.supervisor', 'zookeeper':'command.dev_zookeeper'}[name]
-        if (cwd != ROOT and RUNTIME not in cwd.parents) or marker not in args:
+        if cwd is None or (cwd != ROOT and RUNTIME not in cwd.parents) or marker not in args:
             raise RuntimeError(f'PID {pid} is no longer owned by this launcher')
         return pid
     return None
@@ -229,15 +281,22 @@ def stop_workers():
     Handles supervisor-created worker groups; never uses a broad name-only kill."""
     # Supervisors may give workers their own process group. Match BOTH exact
     # runtime cwd and main class, never another experiment or the shared cluster.
-    for process in Path('/proc').glob('[0-9]*'):
-        try:
-            if (process / 'cwd').resolve() != RELEASE:
-                continue
-            args = (process / 'cmdline').read_bytes().decode().split('\0')
-            if 'rpl.rama.distributed.daemon.worker' in args:
-                os.kill(int(process.name), signal.SIGTERM)
-        except (FileNotFoundError, PermissionError, ProcessLookupError):
-            pass
+    if Path('/proc').exists():
+        pids = [int(p.name) for p in Path('/proc').glob('[0-9]*')]
+    else:
+        out = subprocess.run(['pgrep', '-f', 'rpl.rama.distributed.daemon.worker'],
+                             capture_output=True, text=True).stdout
+        pids = [int(line) for line in out.split()]
+    for pid in pids:
+        info = process_info(pid)
+        if info is None:
+            continue
+        cwd, args = info
+        if cwd == RELEASE and 'rpl.rama.distributed.daemon.worker' in args.split():
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
 
 
 def main():
@@ -256,7 +315,9 @@ def main():
         if owned_pid('app'): stop('app')
         serve()
     elif command == 'seed':
-        run(['clj', '-M:inland', '-m', 'softland.inland.seed'])
+        run(['clojure', '-J-Xss16m', '-M:inland', '-m', 'softland.inland.operator', 'seed'])
+    elif command == 'forget':
+        run(['clojure', '-J-Xss16m', '-M:inland', '-m', 'softland.inland.operator', 'forget', sys.argv[2]])
     elif command == 'build': build()
     elif command == 'serve': serve()
     elif command == 'stop-app': stop('app')
@@ -266,13 +327,13 @@ def main():
         stop_workers()
         for name in ['conductor', 'zookeeper']: stop(name)
     elif command == 'check':
-        run(['clj', '-M:inland', '-m', 'softland.inland.test-runner'])
+        run(['clojure', '-J-Xss16m', '-M:inland', '-m', 'softland.inland.scenes-test'])
     elif command == 'verify':
         run(['node', 'test-inland/browser.mjs'])
     elif command == 'status':
         print(json.dumps({str(p): listening(p) for p in [2217, 1997, 35970, 8127]}))
     else:
-        print('bin/inland up [--test-controls] | seed | setup | cluster | deploy [launch|update] | build | serve [--test-controls] | stop-app | down | check | verify | status')
+        print('bin/inland up [--test-controls] | seed | forget <person> | setup | cluster | deploy [launch|update] | build | serve [--test-controls] | stop-app | down | check | verify | status')
 
 
 if __name__ == '__main__':

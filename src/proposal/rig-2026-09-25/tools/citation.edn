@@ -1,0 +1,60 @@
+;; The first tool, a citation that stays true (PLAN-citation.md section 4),
+;; as facts: four tool facts over the recipe vocabulary (rig.store.recipe).
+;; Nothing under src/ names these tools; the store learns them only from
+;; these facts. `:the-layer` stands for the layer the tools live in, and
+;; `:softland` for the repository id the runner's configuration names; the
+;; driver (rig.cite.run) fills in the first and writes each fact through the
+;; door as the operator, then grants each tool `[tool layer layer]`.
+;;
+;; The key graph, matched key -> output keys, has no cycle:
+;;   :material/read -> :material/file :material/text :material/form
+;;   :cite/doc      -> :cite/found :cite/scanned
+;;   :cite/found    -> :cite/bound :cite/unbound :cite/mark
+;;   :material/file -> :cite/mark :cite/walk
+[;; A file at a revision into the store: the reading, the text, one fact per
+ ;; named form. Each replaces its thing's previous fact; for a form that
+ ;; replace is this tool's claim that the same name in the same file is the
+ ;; same function (`:same :name-in-file`).
+ {:e :material-reader :k :tool
+  :v {:matches [:k :material/read]
+      :signature {:in :match :out #{:material/file :material/text :material/form} :rows? false}
+      :permission [:material-reader :the-layer :the-layer]
+      :recipe [{:name :prev :do :read :pattern [:vec :latest [:in :e] :material/file]}
+               {:name :reading :do :material/reading :repo :softland :request [:in :v] :file [:in :e]
+                :prev [:got :prev :rows] :run [:in :run] :same :name-in-file}
+               {:name :out :do :emit-all :facts [:got :reading :facts]}]}}
+
+ ;; A document at a revision: every path:line and path:start-end in it, when
+ ;; its line was written, and which file it names.
+ {:e :cite-finder :k :tool
+  :v {:matches [:k :cite/doc]
+      :signature {:in :match :out #{:cite/found :cite/scanned} :rows? false}
+      :permission [:cite-finder :the-layer :the-layer]
+      :recipe [{:name :found :do :cite/find :repo :softland :request [:in :v] :doc [:in :e]}
+               {:name :out :do :emit-all :facts [:got :found :facts]}]}}
+
+ ;; A citation bound to the named form holding its lines at the revision it
+ ;; was written, standing on that form; or not bound yet, with the reason.
+ {:e :cite-binder :k :tool
+  :v {:matches [:k :cite/found]
+      :signature {:in :match :out #{:cite/bound :cite/unbound :cite/mark} :rows? false}
+      :permission [:cite-binder :the-layer :the-layer]
+      :recipe [{:name :readings :do :read :pattern [:vec :ek [:in :v :resolved :file] :material/file]}
+               {:name :bind :do :cite/bind :found [:in :v] :found-fid [:in :fid] :cite [:in :e]
+                :readings [:got :readings :rows] :target :named-form}
+               {:name :on :do :stand-on :pairs [:got :bind :stand-on]}
+               {:name :out :do :emit-all :facts [:got :bind :facts]}]}}
+
+ ;; The walk: a file's next reading; what stood on the previous reading's act
+ ;; (the store's lookup); one mark a citation found, true, moved or stale.
+ {:e :cite-marker :k :tool
+  :v {:matches [:k :material/file]
+      :signature {:in :match :out #{:cite/mark :cite/walk} :rows? false}
+      :permission [:cite-marker :the-layer :the-layer]
+      :recipe [{:name :deps :do :read :pattern [:vec :dependents [:in :replaces 0]]}
+               {:name :check :do :cite/check
+                :reading [:map {:fid [:in :fid] :stamp [:in :stamp] :e [:in :e] :replaces [:in :replaces]
+                                :value [:in :v]}]
+                :dependents [:got :deps :rows] :show :state-and-lines}
+               {:name :on :do :stand-on :pairs [:got :check :stand-on]}
+               {:name :out :do :emit-all :facts [:got :check :facts]}]}}]

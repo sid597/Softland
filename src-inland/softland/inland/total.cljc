@@ -21,7 +21,10 @@
      :keys #(vec (keys %)) :vals #(vec (vals %)) :nth #(get %1 %2)
      :lookup get :join #(str/join %1 %2) :not= not= :boolean boolean
      :take #(vec (take %1 %2)) :drop #(vec (drop %1 %2))
-     :parse #(edn/read-string %)}))
+     :parse #(edn/read-string %)
+     ;; the pointer screen: the numbers from a up to b, at most 10,000 of them,
+     ;; so a view can repeat over a file's line numbers
+     :range (fn [a b] (vec (range a (min b (+ a 10000)))))}))
 
 (defn expression
   "Formula/data and bindings → recursively evaluated value; may throw.
@@ -182,8 +185,10 @@
       (get-in row [:pattern :demand]) (conj (str "demand/" (name (get-in row [:pattern :demand])))))))
 
 (defn version-key
-  "Layer, record name and revision → printed tuple key for immutable versions."
-  [layer name revision] (pr-str [layer name revision]))
+  "Layer, record name and revision → printed tuple key for immutable versions.
+   The revision prints as its digits: on the rig's store it is a stamp past 2^53,
+   which the browser holds as a goog.math.Long, whose pr-str EDN cannot read."
+  [layer name revision] (str "[" (pr-str layer) " " (pr-str name) " " revision "]"))
 (defn row-key
   "Layer and record name → slash-joined current-row key.
    Callers must use names/layers whose combinations do not collide under this encoding;

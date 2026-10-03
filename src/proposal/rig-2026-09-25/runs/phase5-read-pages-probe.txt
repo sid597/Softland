@@ -1,0 +1,11 @@
+
+Testing rig.probe.read-pages-probe
+ALL-COUNT 23 PAGES 6 PAGE-SIZES [4 4 4 4 4 3]
+WALKED-COUNT 23 DISTINCT 23
+WALKED-EQUALS-MAP-ORDER true
+WALKED-SET-EQUALS-NAMES true
+
+Ran 1 tests containing 3 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 3, :fail 0, :error 0}
+EXIT 0

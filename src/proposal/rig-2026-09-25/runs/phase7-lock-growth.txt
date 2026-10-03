@@ -1,0 +1,311 @@
+Phase 7, the second number: lock store growth under hand layers
+================================================================
+
+Sid's phase 7 text (SPEC.md): "lock store growth under hand layers, bytes per
+value and the curve over a hundred thousand values".
+
+Run 25 September 2026, 11:46:38 to 12:03:57 IST (the numbers below); a first
+full run 11:12 to 11:42 gave the same logical and key-value bytes and is
+superseded for the compacted measure (see "Runs"). Machine: AMD Ryzen 9 9900X
+(12 cores, 24 threads), 62 GB RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
+Rama 1.6.0, in-process cluster, 1 task, 1 thread, 1 worker (replication
+factor 1). Bytes only: nothing here is a timing.
+
+What was built
+--------------
+A bench slice, not stage 2: src/rig/bench/lock_slice.clj, module
+rig.bench.LockSlice. It follows PLAN-locks-and-forgetting.md, which is not
+yet validated. Per value, one stream event on the layer's home task:
+- a fresh 32-byte lock K (SecureRandom);
+- the value's canonical EDN sealed under K with AES-256-GCM (12-byte nonce
+  prepended, 16-byte tag), into the value's log row
+  {:e :k :v <sealed> :replaces nil :mark #{} :lock-id [:value [name 0]] :lock nil}
+  at [layer :log name];
+- K wrapped under the person locks of the model's wrap under :owner-required
+  (a hand layer: the owner required; others only when the value is marked
+  :die-with-any), a chain of GCM seals in sorted order, as the lock record
+  {:required [..] :any-of [] :blob <wrapped K> :any-blobs nil}, written as
+  the lock row at [layer :locks [:value [name 0]]].
+Person locks are fixed bench keys standing in for $$persons. The slice writes
+nothing else: no answer record, :by-stamp, :heads, settings or stamps. Two
+PStates of one schema: $$layers keeps ciphertext and wrapped locks as base64
+text in String slots (the plan's L4); $$layers-raw keeps the same bytes raw
+in byte/1 slots (Rama accepts byte/1 as a schema class).
+
+Method
+------
+test/rig/bench/lock_bench.clj, from the rig folder:
+    clojure -M:bench rig.bench.lock-bench run <variant,...|all> [values] [every]
+    clojure -M:bench rig.bench.lock-bench report
+Each variant: a fresh in-process cluster, 100,000 values into the hand layer
+:alice-hand (owner :alice), one value per act, 64 appends in flight with full
+ack, the same seeded values in every variant. Every 10,000 values the appends
+are drained and four measures taken:
+- logical: every lock row read back from [layer :locks] in pages, each sized
+  in Rama 1.6.0's own serializers (key: rpl.rama.api.durable.rocksdb.
+  key-encoding/k-ser; record: rpl.rama.util.nippy-serialization/freeze);
+- raw KV: the key and value bytes of every RocksDB entry of the PState (both
+  column families: Rama keeps top-level entries in "default" and every
+  subindexed element in "subindexed");
+- live dir: the file bytes of the PState's RocksDB directory in the
+  cluster's temp dir, as it stands (WAL, SST, manifest, options; RocksDB's
+  info LOG excluded; apparent length, not the WAL's preallocated blocks);
+- compacted: that directory copied, opened with the options Rama wrote into
+  it, flushed (recorded as "flushed SST"), then compacted with
+  BottommostLevelCompaction kForce, so every point is a full rewrite (the
+  settled size, with sequence numbers zeroed).
+The lock store's own cost is the lock variant minus the no-lock variant (same
+values, same log rows, no lock rows), point by point. Checks per variant: 100
+sampled values read back; the slot is not the plaintext; each opens through
+its lock row and the person locks; none opens without the owner's lock; in
+the two-person variant none opens without Bob's; the no-lock variants have no
+lock row.
+
+Configuration
+-------------
+variant    value (canonical EDN)                    slots   wrap
+small      {:text "..."}, 40 B, key :note           base64 / raw   [:alice] required
+large      {:text "..."}, 200 B, key :note          base64 / raw   [:alice] required
+two        {:persons #{:bob} :text "..."}, 40 B,    base64         [:alice :bob] required
+           key :mention, marked :die-with-any                      (chain of two seals)
+Each with and without lock rows: ten runs.
+
+Numbers (the report's output, rerun of 11:46 to 12:04)
+------------------------------------------------------
+Lock store under the hand layer :alice-hand, 100,000 values; bytes per value at each point.
+
+small-b64: values of 40 bytes (canonical EDN), base64 slots, 1 person(s) in the wrap; checks {:checked 100, :ciphertext-differs 100, :no-lock-row 0, :opened 100, :closed-without-owner 100, :closed-without-bob 0}; errors 0/0
+  values | logical lock rows (B/v) | lock-store raw KV (B/v) | lock-store live dir (B/v) | lock-store flushed SST (B/v) | lock-store compacted SST (B/v) | no-lock compacted SST (B/v)
+   10,000 |   1,890,000 ( 189.0) |   1,920,114 ( 192.0) |   1,980,443 ( 198.0)   |   1,110,974 ( 111.1)      |   1,080,182 ( 108.0)        |   1,564,649 ( 156.5)
+   20,000 |   3,780,000 ( 189.0) |   3,840,114 ( 192.0) |   3,962,421 ( 198.1)   |   2,219,439 ( 111.0)      |   2,158,371 ( 107.9)        |   3,125,622 ( 156.3)
+   30,000 |   5,670,000 ( 189.0) |   5,777,112 ( 192.6) |   5,960,055 ( 198.7)   |   3,329,048 ( 111.0)      |   3,238,568 ( 108.0)        |   4,687,517 ( 156.3)
+   40,000 |   7,560,000 ( 189.0) |   7,701,144 ( 192.5) |   7,945,651 ( 198.6)   |   4,436,764 ( 110.9)      |   4,317,365 ( 107.9)        |   6,250,109 ( 156.3)
+   50,000 |   9,450,000 ( 189.0) |   9,621,144 ( 192.4) |   9,927,082 ( 198.5)   |   5,542,410 ( 110.8)      |   5,394,303 ( 107.9)        |   7,813,970 ( 156.3)
+   60,000 |  11,340,000 ( 189.0) |  11,541,144 ( 192.4) |  11,908,424 ( 198.5)   |   6,652,103 ( 110.9)      |   6,473,692 ( 107.9)        |   9,377,190 ( 156.3)
+   70,000 |  13,230,000 ( 189.0) |  13,461,144 ( 192.3) |  13,890,601 ( 198.4)   |   7,760,892 ( 110.9)      |   7,552,752 ( 107.9)        |  10,939,402 ( 156.3)
+   80,000 |  15,120,000 ( 189.0) |  15,381,144 ( 192.3) |  15,872,693 ( 198.4)   |   8,867,727 ( 110.8)      |   8,629,332 ( 107.9)        |  12,504,340 ( 156.3)
+   90,000 |  17,010,000 ( 189.0) |  17,301,144 ( 192.2) |  17,855,516 ( 198.4)   |   9,976,848 ( 110.9)      |   9,708,584 ( 107.9)        |  14,065,654 ( 156.3)
+  100,000 |  18,900,000 ( 189.0) |  19,221,144 ( 192.2) |  19,837,876 ( 198.4)   |  11,083,275 ( 110.8)      |  10,786,311 ( 107.9)        |  15,628,822 ( 156.3)
+  steps of 10,000: logical min 1,890,000 max 1,890,000; compacted lock-store SST min 1,076,580 max 1,080,197
+  ratio to the value's plaintext (40 B): logical 4.73, raw KV 4.81, compacted disk 2.70
+  ratio to the value rows as stored without lock rows: raw KV 0.65 (294.9 B/v), compacted disk 0.69 (156.3 B/v)
+  ratio to the sealed value slot alone (94 B serialized): logical 2.01
+  entries: lock variant 300,001, no-lock variant 200,001 (difference 100,000); per column family at 100,000: {"default" [1 0], "subindexed" [300000 100000]}
+  live directory, lock variant: 10k wal 5.0M, 20k wal 10.0M, 30k wal 15.1M, 40k wal 20.2M, 50k wal 25.2M, 60k wal 30.3M, 70k wal 35.3M, 80k wal 40.4M, 90k wal 45.5M, 100k wal 50.5M
+  live directory, no-lock variant: 10k wal 3.0M, 20k wal 6.1M, 30k wal 9.1M, 40k wal 12.2M, 50k wal 15.3M, 60k wal 18.4M, 70k wal 21.4M, 80k wal 24.5M, 90k wal 27.6M, 100k wal 30.7M
+  replication log: lock variant 301.5 B/v, no-lock 204.4 B/v, difference 97.1 B/v
+  breakdown {:row-with-lock-in-record 341, :row-v-slot 94, :lock-id-key 59, :name-key 49, :row-without-lock-id 145, :record 130, :record-blob-slot 82, :record-without-any-blobs-and-empty-any-of 109, :lock-id-as-value 58, :record-without-nil-any-blobs 118, :row 212}
+
+small-raw: values of 40 bytes (canonical EDN), raw slots, 1 person(s) in the wrap; checks {:checked 100, :ciphertext-differs 100, :no-lock-row 0, :opened 100, :closed-without-owner 100, :closed-without-bob 0}; errors 0/0
+  values | logical lock rows (B/v) | lock-store raw KV (B/v) | lock-store live dir (B/v) | lock-store flushed SST (B/v) | lock-store compacted SST (B/v) | no-lock compacted SST (B/v)
+   10,000 |   1,690,000 ( 169.0) |   1,720,058 ( 172.0) |   1,771,563 ( 177.2)   |     899,242 (  89.9)      |     868,822 (  86.9)        |   1,304,930 ( 130.5)
+   20,000 |   3,380,000 ( 169.0) |   3,440,058 ( 172.0) |   3,542,437 ( 177.1)   |   1,799,501 (  90.0)      |   1,739,639 (  87.0)        |   2,605,514 ( 130.3)
+   30,000 |   5,070,000 ( 169.0) |   5,177,066 ( 172.6) |   5,331,074 ( 177.7)   |   2,696,835 (  89.9)      |   2,609,171 (  87.0)        |   3,909,846 ( 130.3)
+   40,000 |   6,760,000 ( 169.0) |   6,901,032 ( 172.5) |   7,104,724 ( 177.6)   |   3,594,497 (  89.9)      |   3,477,341 (  86.9)        |   5,215,141 ( 130.4)
+   50,000 |   8,450,000 ( 169.0) |   8,621,032 ( 172.4) |   8,875,902 ( 177.5)   |   4,493,879 (  89.9)      |   4,347,176 (  86.9)        |   6,521,303 ( 130.4)
+   60,000 |  10,140,000 ( 169.0) |  10,341,032 ( 172.4) |  10,648,676 ( 177.5)   |   5,392,463 (  89.9)      |   5,214,959 (  86.9)        |   7,827,480 ( 130.5)
+   70,000 |  11,830,000 ( 169.0) |  12,061,032 ( 172.3) |  12,420,378 ( 177.4)   |   6,291,271 (  89.9)      |   6,084,070 (  86.9)        |   9,133,321 ( 130.5)
+   80,000 |  13,520,000 ( 169.0) |  13,781,032 ( 172.3) |  14,191,639 ( 177.4)   |   7,189,831 (  89.9)      |   6,951,799 (  86.9)        |  10,439,127 ( 130.5)
+   90,000 |  15,210,000 ( 169.0) |  15,501,032 ( 172.2) |  15,962,197 ( 177.4)   |   8,088,773 (  89.9)      |   7,820,541 (  86.9)        |  11,744,340 ( 130.5)
+  100,000 |  16,900,000 ( 169.0) |  17,221,032 ( 172.2) |  17,734,559 ( 177.3)   |   8,989,356 (  89.9)      |   8,690,690 (  86.9)        |  13,049,621 ( 130.5)
+  steps of 10,000: logical min 1,690,000 max 1,690,000; compacted lock-store SST min 867,729 max 870,817
+  ratio to the value's plaintext (40 B): logical 4.23, raw KV 4.31, compacted disk 2.17
+  ratio to the value rows as stored without lock rows: raw KV 0.64 (270.9 B/v), compacted disk 0.67 (130.5 B/v)
+  ratio to the sealed value slot alone (70 B serialized): logical 2.41
+  entries: lock variant 300,001, no-lock variant 200,001 (difference 100,000); per column family at 100,000: {"default" [1 0], "subindexed" [300000 100000]}
+  live directory, lock variant: 10k wal 4.6M, 20k wal 9.1M, 30k wal 13.7M, 40k wal 18.4M, 50k wal 23.0M, 60k wal 27.6M, 70k wal 32.2M, 80k wal 36.8M, 90k wal 41.4M, 100k wal 46.0M
+  live directory, no-lock variant: 10k wal 2.8M, 20k wal 5.6M, 30k wal 8.4M, 40k wal 11.2M, 50k wal 14.1M, 60k wal 16.9M, 70k wal 19.8M, 80k wal 22.6M, 90k wal 25.4M, 100k wal 28.3M
+  replication log: lock variant 256.2 B/v, no-lock 179.7 B/v, difference 76.6 B/v
+  breakdown {:row-with-lock-in-record 297, :row-v-slot 70, :lock-id-key 59, :name-key 49, :row-without-lock-id 121, :record 110, :record-blob-slot 62, :record-without-any-blobs-and-empty-any-of 89, :lock-id-as-value 58, :record-without-nil-any-blobs 98, :row 188}
+
+large-b64: values of 200 bytes (canonical EDN), base64 slots, 1 person(s) in the wrap; checks {:checked 100, :ciphertext-differs 100, :no-lock-row 0, :opened 100, :closed-without-owner 100, :closed-without-bob 0}; errors 0/0
+  values | logical lock rows (B/v) | lock-store raw KV (B/v) | lock-store live dir (B/v) | lock-store flushed SST (B/v) | lock-store compacted SST (B/v) | no-lock compacted SST (B/v)
+   10,000 |   1,890,000 ( 189.0) |   1,920,072 ( 192.0) |   1,981,293 ( 198.1)   |   1,109,182 ( 110.9)      |   1,079,121 ( 107.9)        |   3,920,071 ( 392.0)
+   20,000 |   3,780,000 ( 189.0) |   3,840,072 ( 192.0) |   3,963,432 ( 198.2)   |   2,219,825 ( 111.0)      |   2,158,710 ( 107.9)        |   7,837,527 ( 391.9)
+   30,000 |   5,670,000 ( 189.0) |   5,777,094 ( 192.6) |   5,960,181 ( 198.7)   |   3,318,853 ( 110.6)      |   3,238,631 ( 108.0)        |  11,755,224 ( 391.8)
+   40,000 |   7,560,000 ( 189.0) |   7,701,064 ( 192.5) |   7,945,432 ( 198.6)   |   4,422,920 ( 110.6)      |   4,316,895 ( 107.9)        |  15,673,475 ( 391.8)
+   50,000 |   9,450,000 ( 189.0) |   9,621,064 ( 192.4) |   9,926,322 ( 198.5)   |   5,535,248 ( 110.7)      |   5,396,936 ( 107.9)        |  19,593,315 ( 391.9)
+   60,000 |  11,340,000 ( 189.0) |  11,541,064 ( 192.4) |  11,909,787 ( 198.5)   |   6,650,054 ( 110.8)      |   6,482,779 ( 108.0)        |  23,507,031 ( 391.8)
+   70,000 |  13,230,000 ( 189.0) |  13,461,064 ( 192.3) |  13,890,715 ( 198.4)   |   7,749,872 ( 110.7)      |   7,556,695 ( 108.0)        |  27,429,298 ( 391.8)
+   80,000 |  15,120,000 ( 189.0) |  15,381,064 ( 192.3) |  15,873,547 ( 198.4)   |   8,856,100 ( 110.7)      |   8,629,109 ( 107.9)        |  31,350,579 ( 391.9)
+   90,000 |  17,010,000 ( 189.0) |  17,301,064 ( 192.2) |  60,126,949 ( 668.1)   |   9,373,258 ( 104.1)      |   9,713,233 ( 107.9)        |  35,265,510 ( 391.8)
+  100,000 |  18,900,000 ( 189.0) |  19,221,064 ( 192.2) |  62,109,660 ( 621.1)   |  10,474,016 ( 104.7)      |  10,790,323 ( 107.9)        |  39,191,731 ( 391.9)
+  steps of 10,000: logical min 1,890,000 max 1,890,000; compacted lock-store SST min 1,072,414 max 1,085,843
+  ratio to the value's plaintext (200 B): logical 0.95, raw KV 0.96, compacted disk 0.54
+  ratio to the value rows as stored without lock rows: raw KV 0.38 (507.9 B/v), compacted disk 0.28 (391.9 B/v)
+  ratio to the sealed value slot alone (307 B serialized): logical 0.62
+  entries: lock variant 300,001, no-lock variant 200,001 (difference 100,000); per column family at 100,000: {"default" [1 0], "subindexed" [300000 100000]}
+  live directory, lock variant: 10k wal 7.1M, 20k wal 14.3M, 30k wal 21.5M, 40k wal 28.7M, 50k wal 35.9M, 60k wal 43.1M, 70k wal 50.2M, 80k wal 57.4M, 90k wal 64.6M+sst 42.3M, 100k wal 71.8M+sst 42.3M
+  live directory, no-lock variant: 10k wal 5.2M, 20k wal 10.3M, 30k wal 15.5M, 40k wal 20.7M, 50k wal 25.9M, 60k wal 31.1M, 70k wal 36.4M, 80k wal 41.6M, 90k wal 46.8M, 100k wal 52.0M
+  replication log: lock variant 689.8 B/v, no-lock 590.8 B/v, difference 99.0 B/v
+  breakdown {:row-with-lock-in-record 554, :row-v-slot 307, :lock-id-key 59, :name-key 49, :row-without-lock-id 358, :record 130, :record-blob-slot 82, :record-without-any-blobs-and-empty-any-of 109, :lock-id-as-value 58, :record-without-nil-any-blobs 118, :row 425}
+
+large-raw: values of 200 bytes (canonical EDN), raw slots, 1 person(s) in the wrap; checks {:checked 100, :ciphertext-differs 100, :no-lock-row 0, :opened 100, :closed-without-owner 100, :closed-without-bob 0}; errors 0/0
+  values | logical lock rows (B/v) | lock-store raw KV (B/v) | lock-store live dir (B/v) | lock-store flushed SST (B/v) | lock-store compacted SST (B/v) | no-lock compacted SST (B/v)
+   10,000 |   1,690,000 ( 169.0) |   1,720,020 ( 172.0) |   1,770,510 ( 177.1)   |     900,033 (  90.0)      |     869,764 (  87.0)        |   3,051,222 ( 305.1)
+   20,000 |   3,380,000 ( 169.0) |   3,440,020 ( 172.0) |   3,540,226 ( 177.0)   |   1,801,878 (  90.1)      |   1,741,942 (  87.1)        |   6,098,906 ( 304.9)
+   30,000 |   5,070,000 ( 169.0) |   5,176,944 ( 172.6) |   5,330,116 ( 177.7)   |   2,658,599 (  88.6)      |   2,610,816 (  87.0)        |   9,148,701 ( 305.0)
+   40,000 |   6,760,000 ( 169.0) |   6,900,940 ( 172.5) |   7,105,029 ( 177.6)   |   3,550,567 (  88.8)      |   3,482,813 (  87.1)        |  12,197,158 ( 304.9)
+   50,000 |   8,450,000 ( 169.0) |   8,620,940 ( 172.4) |   8,877,377 ( 177.5)   |   4,446,602 (  88.9)      |   4,349,100 (  87.0)        |  15,250,248 ( 305.0)
+   60,000 |  10,140,000 ( 169.0) |  10,340,940 ( 172.3) |  10,649,725 ( 177.5)   |   5,345,828 (  89.1)      |   5,218,015 (  87.0)        |  18,300,502 ( 305.0)
+   70,000 |  11,830,000 ( 169.0) |  12,060,940 ( 172.3) |  12,423,109 ( 177.5)   |   6,244,331 (  89.2)      |   6,085,506 (  86.9)        |  21,348,716 ( 305.0)
+   80,000 |  13,520,000 ( 169.0) |  13,780,940 ( 172.3) |  14,195,486 ( 177.4)   |   7,140,165 (  89.3)      |   6,952,138 (  86.9)        |  24,402,385 ( 305.0)
+   90,000 |  15,210,000 ( 169.0) |  15,500,940 ( 172.2) |  15,965,639 ( 177.4)   |   8,040,550 (  89.3)      |   7,821,942 (  86.9)        |  27,452,770 ( 305.0)
+  100,000 |  16,900,000 ( 169.0) |  17,220,940 ( 172.2) |  56,048,318 ( 560.5)   |   8,483,450 (  84.8)      |   8,691,899 (  86.9)        |  30,503,056 ( 305.0)
+  steps of 10,000: logical min 1,690,000 max 1,690,000; compacted lock-store SST min 866,287 max 872,178
+  ratio to the value's plaintext (200 B): logical 0.85, raw KV 0.86, compacted disk 0.43
+  ratio to the value rows as stored without lock rows: raw KV 0.40 (431.9 B/v), compacted disk 0.28 (305.0 B/v)
+  ratio to the sealed value slot alone (231 B serialized): logical 0.73
+  entries: lock variant 300,001, no-lock variant 200,001 (difference 100,000); per column family at 100,000: {"default" [1 0], "subindexed" [300000 100000]}
+  live directory, lock variant: 10k wal 6.2M, 20k wal 12.4M, 30k wal 18.6M, 40k wal 24.8M, 50k wal 31.0M, 60k wal 37.2M, 70k wal 43.5M, 80k wal 49.7M, 90k wal 55.9M, 100k wal 62.1M+sst 38.3M
+  live directory, no-lock variant: 10k wal 4.4M, 20k wal 8.8M, 30k wal 13.2M, 40k wal 17.7M, 50k wal 22.1M, 60k wal 26.6M, 70k wal 31.0M, 80k wal 35.5M, 90k wal 39.9M, 100k wal 44.4M
+  replication log: lock variant 591.7 B/v, no-lock 511.2 B/v, difference 80.5 B/v
+  breakdown {:row-with-lock-in-record 458, :row-v-slot 231, :lock-id-key 59, :name-key 49, :row-without-lock-id 282, :record 110, :record-blob-slot 62, :record-without-any-blobs-and-empty-any-of 89, :lock-id-as-value 58, :record-without-nil-any-blobs 98, :row 349}
+
+two-b64: values of 40 bytes (canonical EDN), base64 slots, 2 person(s) in the wrap; checks {:checked 100, :ciphertext-differs 100, :no-lock-row 0, :opened 100, :closed-without-owner 100, :closed-without-bob 100}; errors 0/0
+  values | logical lock rows (B/v) | lock-store raw KV (B/v) | lock-store live dir (B/v) | lock-store flushed SST (B/v) | lock-store compacted SST (B/v) | no-lock compacted SST (B/v)
+   10,000 |   2,330,000 ( 233.0) |   2,359,992 ( 236.0) |   2,420,734 ( 242.1)   |   1,513,819 ( 151.4)      |   1,480,579 ( 148.1)        |   1,579,745 ( 158.0)
+   20,000 |   4,660,000 ( 233.0) |   4,719,992 ( 236.0) |   4,841,562 ( 242.1)   |   3,030,076 ( 151.5)      |   2,962,110 ( 148.1)        |   3,154,505 ( 157.7)
+   30,000 |   6,990,000 ( 233.0) |   7,096,958 ( 236.6) |   7,280,905 ( 242.7)   |   4,540,975 ( 151.4)      |   4,439,672 ( 148.0)        |   4,732,369 ( 157.7)
+   40,000 |   9,320,000 ( 233.0) |   9,460,960 ( 236.5) |   9,705,723 ( 242.6)   |   6,054,047 ( 151.4)      |   5,919,835 ( 148.0)        |   6,310,496 ( 157.8)
+   50,000 |  11,650,000 ( 233.0) |  11,820,960 ( 236.4) |  12,127,166 ( 242.5)   |   7,568,794 ( 151.4)      |   7,400,912 ( 148.0)        |   7,888,007 ( 157.8)
+   60,000 |  13,980,000 ( 233.0) |  14,180,960 ( 236.3) |  14,545,584 ( 242.4)   |   9,085,677 ( 151.4)      |   8,882,502 ( 148.0)        |   9,466,535 ( 157.8)
+   70,000 |  16,310,000 ( 233.0) |  16,540,960 ( 236.3) |  16,967,758 ( 242.4)   |  10,597,902 ( 151.4)      |  10,360,372 ( 148.0)        |  11,045,655 ( 157.8)
+   80,000 |  18,640,000 ( 233.0) |  18,900,960 ( 236.3) |  19,390,912 ( 242.4)   |  12,110,071 ( 151.4)      |  11,838,636 ( 148.0)        |  12,623,288 ( 157.8)
+   90,000 |  20,970,000 ( 233.0) |  21,260,960 ( 236.2) |  21,813,525 ( 242.4)   |  13,622,638 ( 151.4)      |  13,316,058 ( 148.0)        |  14,202,842 ( 157.8)
+  100,000 |  23,300,000 ( 233.0) |  23,620,960 ( 236.2) |  24,236,280 ( 242.4)   |  15,137,758 ( 151.4)      |  14,796,446 ( 148.0)        |  15,778,760 ( 157.8)
+  steps of 10,000: logical min 2,330,000 max 2,330,000; compacted lock-store SST min 1,477,422 max 1,481,590
+  ratio to the value's plaintext (40 B): logical 5.83, raw KV 5.91, compacted disk 3.70
+  ratio to the value rows as stored without lock rows: raw KV 0.75 (312.9 B/v), compacted disk 0.94 (157.8 B/v)
+  ratio to the sealed value slot alone (94 B serialized): logical 2.48
+  entries: lock variant 300,001, no-lock variant 200,001 (difference 100,000); per column family at 100,000: {"default" [1 0], "subindexed" [300000 100000]}
+  live directory, lock variant: 10k wal 5.6M, 20k wal 11.3M, 30k wal 17.0M, 40k wal 22.6M, 50k wal 28.3M, 60k wal 34.0M, 70k wal 39.7M, 80k wal 45.4M, 90k wal 51.0M, 100k wal 56.7M
+  live directory, no-lock variant: 10k wal 3.2M, 20k wal 6.4M, 30k wal 9.7M, 40k wal 12.9M, 50k wal 16.2M, 60k wal 19.4M, 70k wal 22.7M, 80k wal 26.0M, 90k wal 29.2M, 100k wal 32.5M
+  replication log: lock variant 327.7 B/v, no-lock 191.9 B/v, difference 135.8 B/v
+  breakdown {:row-with-lock-in-record 403, :row-v-slot 94, :lock-id-key 59, :name-key 49, :row-without-lock-id 163, :record 174, :record-blob-slot 122, :record-without-any-blobs-and-empty-any-of 153, :lock-id-as-value 58, :record-without-nil-any-blobs 162, :row 230}
+
+What each extra person in a wrap costs (computed with the slice's wrap-lock and Rama's serializer; record bytes, key excluded):
+  base64 chain     1 person 130 B, 2 persons 174 B, 3 persons 218 B: +44 B, then +44 B per person
+  base64 copies    1 person 139 B, 2 persons 230 B, 3 persons 326 B: +91 B, then +96 B per person
+  raw    chain     1 person 110 B, 2 persons 142 B, 3 persons 177 B: +32 B, then +35 B per person
+  raw    copies    1 person 119 B, 2 persons 190 B, 3 persons 266 B: +71 B, then +76 B per person
+  keys: a per-value lock id [:value [name 0]] 59 B; a per-act lock id [:act name] 55 B; the name alone 49 B
+
+Reading the numbers
+-------------------
+Bytes per value of the lock store, at 100,000 values:
+                        logical   raw KV   compacted disk   value rows, compacted
+  40 B, base64 (L4)       189.0    192.2        107.9            156.3
+  40 B, raw bytes         169.0    172.2         86.9            130.5
+  200 B, base64           189.0    192.2        107.9            391.9
+  200 B, raw bytes        169.0    172.2         86.9            305.0
+  40 B, two people        233.0    236.2        148.0            157.8
+
+- The cost per value is a constant: it does not depend on the value's size
+  (189 B logical and 107.9 B on disk for both sizes). A base64 lock row is
+  the lock id as key, 59 B, plus the record, 130 B: the wrapped lock 82 B
+  (60 raw bytes = 12 nonce + 32 lock + 16 tag, as 80 base64 characters), the
+  wrap list and map framing 48 B, of which the nil :any-blobs is 12 B and the
+  empty :any-of 9 B.
+- Raw bytes save 20 B logical (11%) and 21 B on disk (19%); Snappy does not
+  win back base64's inflation on random bytes.
+- Each extra required person (the chain form, a marked value) adds 44 B
+  logical in base64 (32 to 35 raw) and 40 B on disk. In the copy form (any
+  one of the people, shared layers; computed, not run) each person adds 91 to
+  96 B in base64, 71 to 76 raw. An unmarked value about two people in a hand
+  layer is wrapped under the owner alone (the model's :owner-required), so it
+  costs what a one-person value costs (derived from the wrap, not run).
+- Outside the lock store but part of the lock design: each value's own row
+  carries :lock-id, 67 B logical, which repeats the row's own address under
+  per-value grain; it is in both variants, so the differences above exclude it.
+- The replication log of the task (task-threads/.../replog, not in the RocksDB
+  directory) grew by another 77 to 136 B per value for the lock rows and grew
+  linearly throughout; its retention was not observed.
+
+The curve. Logical growth is exactly linear: every step of 10,000 values
+adds the same bytes (1,890,000 in base64), because every row is one RocksDB
+entry of fixed size (size tracking off, one entry more per value, all in the
+subindexed family). Compacted disk growth is linear: the ten steps of each
+variant lie within 0.4% of each other for 40-byte values, 0.7% and 1.3% for
+200-byte values (raw, base64). The live directory grows linearly while it is
+write-ahead log (198 B per value in base64); in the 200-byte lock variants the
+memtable flushed near 85,000 values and the WAL stayed pinned on disk beside
+the new SST (the default column family's single entry keeps it), so the live
+difference jumps to about 620 B per value: flush timing, not lock cost.
+
+Ratio of lock store bytes to value bytes
+----------------------------------------
+Against the value's plaintext (canonical EDN, 40 or 200 B):
+                        logical   compacted disk
+  40 B, base64            4.73         2.70
+  40 B, raw               4.23         2.17
+  200 B, base64           0.95         0.54
+  200 B, raw              0.85         0.43
+  40 B, two people        5.83         3.70
+Against the value rows as the slice stores them without lock rows: 0.38 to
+0.75 logical (raw KV) and 0.28 to 0.94 on compacted disk. Against the sealed
+value slot alone: 2.01 (40 B, base64), 2.41 (40 B, raw), 0.62 and 0.73 (200 B).
+
+Verdict against the thresholds (main session's assumptions: up to 2x fine;
+above 4x, hand layers default to per-act locks or keep locks in the record),
+reading "value bytes" as the value's plaintext:
+- Values of about 200 B: fine on every measure (0.43x to 0.95x).
+- Values of about 40 B: above 4x in logical bytes (4.2x raw, 4.7x base64;
+  5.8x for a value marked to die with a second person), between 2x and 4x on
+  compacted disk (2.2x, 2.7x; 3.7x).
+- Because the cost is a constant per value, the verdict is set by the size
+  of hand-layer values. Logically, 2x or less needs values of at least 95 B
+  (base64) or 85 B (raw), and above 4x means values under 47 B or 42 B. On
+  compacted disk: at least 54 B or 44 B for 2x; under 27 B or 22 B for 4x.
+- The two fallbacks do not bring 40-byte values to 2x. Keeping the lock in
+  the record saves only the key: 129 B per value in base64 (3.2x), 109 raw
+  (2.7x), 89 raw without the nil and empty fields (2.2x), computed from the
+  serializer, not run on disk. Per-act locks divide one row (55 B key plus
+  the record) by the values per act, so they help only when hand acts carry
+  several values. The floor of a per-value GCM-wrapped lock is its 60 raw
+  bytes, 1.5x a 40-byte value, before any key or framing.
+- Read against the value rows the store already writes, the lock store is
+  under 1x everywhere: small values already cost the store about 7x their
+  plaintext before any lock row (295 B logical per 40-byte value).
+
+What is uncertain
+-----------------
+- The size of hand-layer values is unknown, and it decides the verdict.
+- Which bytes and which denominator the thresholds mean: plaintext is the
+  reading used; against stored value rows every variant is under 1x.
+- The slice follows an unvalidated plan. Plan choices set 80 of the 189 B:
+  the lock id as key (59 B), the nil :any-blobs (12 B) and empty :any-of
+  (9 B); base64 sets another 20 B. A validated or revised plan moves the
+  number.
+- Disk numbers use the RocksDB options Rama sets on the in-process cluster
+  (Snappy, 4 KB blocks, 10-bit bloom filter); a production cluster may
+  compress differently. The compacted figure is a floor: a live store adds
+  LSM space amplification and a WAL, which here stayed pinned after the
+  first flush. Replication factor 1; a real cluster multiplies numerator and
+  denominator alike. The replication log's retention was not observed.
+- Logical sizes use Rama's internal serializers; they agree with the RocksDB
+  key-value bytes to within 3 B per row (the subindex key prefix).
+- One value per act; per-act grain and locks-in-the-record were computed, not
+  run.
+
+Runs
+----
+- Smoke runs at 2,000 values (about 10:59 and 11:04:30) found two bench bugs
+  (the scan read one column family; the row check assumed a lock row in the
+  no-lock variant), fixed; not kept.
+- The in-process cluster binds a fixed port, 2002. Two clusters cannot run at
+  once on this machine: a collision fails at start ("Address already in
+  use"), as the first full attempt did at 11:10:33 against the parallel
+  session's stream-bench. The runner then waited for 30 s with no other rig
+  bench or test JVM and the port free before every variant, and logged
+  overlaps (runs/phase7-lock-growth-overlap.log): none during a cluster of
+  theirs; two 6-second report JVMs of theirs during two of my variants.
+- First full run 11:12 to 11:42: the compacted measure used compactRange's
+  default, which moves a lone flushed file instead of rewriting it; after a
+  live flush (200-byte lock variants, about 85,000 values) the per-value
+  compacted cost fell from about 110.7 to 103.7 B. The rerun forces the
+  rewrite; logical bytes repeated exactly, raw KV within 60 B in 19 MB.
+- Every variant of both full runs: 0 append errors, every check as expected.
+- Raw per-point data: runs/phase7-lock-growth.edn (20 lines; the report takes
+  the latest per variant). Console log: runs/phase7-lock-growth.log (ignored
+  by git). Running notes: BENCH_NOTES-locks.md.

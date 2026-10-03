@@ -10,11 +10,19 @@ Rama admission or disposal.
 
 | Immediate child | Responsibility |
 |---|---|
-| [softland/](softland/README.md) | JVM tests against a fresh two-task Rama IPC, plus pure recipe/closure assertions. |
+| [softland/](softland/README.md) | JVM scenes against a fresh two-task in-process cluster with the rig's store: the pointer's three scenes, two pages driven through the adapter. |
 | [browser.mjs](browser.mjs) | Real canvas/native-keyboard demonstrations, accepted-state observations, narrow-work counters, lifetime and app/browser recovery. Writes captures and JSON under `target/inland/receipts`. |
 | [check-docs.py](check-docs.py) | Static hierarchy links, namespace/function coverage and executable equivalence against the pre-documentation revision. Does not boot product code. |
 
-The five focused scenarios and their evidence boundaries are:
+Since the rig's store became the authority (the pointer screen, 27 September),
+`bin/inland check` runs the scenes (`softland/inland/scenes_test.clj`): the rule
+changed while in use; the pair, the base switching to shared, a member accepted
+later, a rule shared; a note, its person forgotten, the note erased on its date.
+The table below describes Inland's earlier suite, whose JVM runner targets the
+retired module and is kept, not run; `browser.mjs` has not been brought to the new
+screen yet, and it makes a real provider request.
+
+The five focused scenarios of the earlier suite and their evidence boundaries were:
 
 | Scenario | JVM coverage | Browser coverage |
 |---|---|---|

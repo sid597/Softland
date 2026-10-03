@@ -1,0 +1,10 @@
+Sat Sep 26 03:41:51 AM IST 2026
+store round 0 : launch 851 ms; one face-refused append 56 ms, ack keys ("gate") ; destroy 238 ms
+store round 1 : launch 377 ms; one face-refused append 112 ms, ack keys ("gate") ; destroy 157 ms
+store round 2 : launch 381 ms; one face-refused append 210 ms, ack keys ("gate") ; destroy 162 ms
+paused: stream |all fan-out acked in 14 ms
+paused, 1.5 s later: {:all-7-seen #{7}, :mb-3 nil} (all-7-seen #{7} = the fan-out reached every task probed; mb-3 nil = micro held)
+resumed: the held record processed in 46 ms; {:all-7-seen #{7}, :mb-3 3}
+relaunched after a destroy while paused: micro processed? :ok in 198 ms
+probe done
+Sat Sep 26 03:42:05 AM IST 2026

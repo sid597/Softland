@@ -1,0 +1,68 @@
+WARNING: abs already refers to: #'clojure.core/abs in namespace: clojure.test.check.generators, being replaced by: #'clojure.test.check.generators/abs
+histories per check: 10  seed: 20260924
+
+== fixed histories
+  under baseline
+    as said   A: in Alice's own layer a note and a mention of Bob both die with Alice
+    as said   A: in the group a mention of Bob alone dies with Bob
+    as said   A: in the group a plain note about no one survives both forgets
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+    as said   A: ... and dies when both are forgotten ('either one alone')
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+    as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+  under baseline-but-not-owner-required
+    DIFFERS   A: in Alice's own layer a note and a mention of Bob both die with Alice
+              saw: alice note erased, alice mention bob open 
+               p6 objects: {:part :b, :survives ["o0" 1], :own-subjects #{:bob :alice}, :lock-wrap {:required #{}, :any-of #{:bob :alice}}}
+    as said   A: in the group a mention of Bob alone dies with Bob
+    as said   A: in the group a plain note about no one survives both forgets
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+    as said   A: ... and dies when both are forgotten ('either one alone')
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+    as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+  under baseline-with-a-read-as-owner-and-an-other
+    as said   A: in Alice's own layer a note and a mention of Bob both die with Alice
+    as said   A: in the group a mention of Bob alone dies with Bob
+    as said   A: in the group a plain note about no one survives both forgets
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+    as said   A: ... and dies when both are forgotten ('either one alone')
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+    DIFFERS   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+              saw: alice mention bob erased 
+               x1 objects: {:erased ["o0" 0], :own-subjects #{:bob :alice}, :lock-wrap {:required #{:alice}, :any-of #{:bob}}}
+  under baseline-with-the-third-reading-of-a
+    as said   A: in Alice's own layer a note and a mention of Bob both die with Alice
+    DIFFERS   A: in the group a mention of Bob alone dies with Bob
+              saw: group mention bob open 
+               p6 objects: {:part :b, :survives ["o0" 0], :own-subjects #{:bob}, :lock-wrap {:required #{}, :any-of #{}}}
+    as said   A: in the group a plain note about no one survives both forgets
+    as said   A: in the group a value about Alice and Bob survives Alice alone
+    as said   A: in the group a value about Alice and Bob survives Bob alone
+    DIFFERS   A: ... and dies when both are forgotten ('either one alone')
+              saw: group mention alice+bob open 
+               p6 objects: {:part :b, :survives ["o0" 0], :own-subjects #{:bob :alice}, :lock-wrap {:required #{}, :any-of #{}}}
+    as said   A: in the group a value about Alice and Bob, marked, dies with Bob
+    as said   A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+  under baseline
+    as said   B: a value forget queued before the read-out: pending, then refused
+    as said   B: Alice forgotten before the read-out: pending, then refused
+    as said   B: a value forget after the read-out: crossed, then done; the copy stays
+    as said   B: Alice forgotten after the read-out: crossed, then done; the copy stays
+  under baseline-but-not-p6-line-at-the-read-out
+    as said   B: a value forget queued before the read-out: pending, then refused
+    as said   B: Alice forgotten before the read-out: pending, then refused
+    as said   B: a value forget after the read-out: crossed, then done; the copy stays
+               p6 objects: {:part :a, :original-erased-at-order 15, :copied-from ["o0" 0], :landed-at-order 16, :returns ["landing:o2" 0], :in :group, :crossed-at-order 13}
+    as said   B: Alice forgotten after the read-out: crossed, then done; the copy stays
+               p6 objects: {:part :a, :original-erased-at-order 14, :copied-from ["o0" 0], :landed-at-order 15, :returns ["landing:o2" 0], :in :group, :crossed-at-order 13}
+  under baseline
+    as said   D: a group write under Alice's session permission; the session revokes it between prepare and commit
+    as said   D: a group write under her group permission, revoked in the group first
+  under baseline-but-not-permissions-in-their-layer
+    DIFFERS   D: a group write under Alice's session permission; the session revokes it between prepare and commit
+              saw: group note open 
+               rv objects: {:admitted ["o0" 0], :in :group, :at [:micro 0], :permission [:alice :group :session], :revoked-by ["o2" 0], :revocation-at [:stream 1], :ordered-by :nothing}
+    as said   D: a group write under her group permission, revoked in the group first

@@ -1,0 +1,11 @@
+WARNING: Use of :paths external to the project has been deprecated, please remove: ../formal-model-2026-09-24/src
+WARNING: continue> already refers to: #'com.rpl.rama/continue> in namespace: rig.store.promote-flow, being replaced by: #'rig.store.promote-flow/continue>
+
+Testing rig.store.screen-test
+OBSERVED bell rings [117342993979932672 117342994002935808 117342994012372992 117342994038849536]
+OBSERVED gesture record [:alice-hand :by-layer :offer #uuid "01a0e2d4-d583-7a16-ac70-521e51358c38"] [[:read-01a0e2d4-d583-7646-88e3-4154b6da5aa6 [:k :note] 3] [:read-01a0e2d4-d583-739a-be69-eb8be12efd0e [:k :title] 0]]
+OBSERVED bob reads the pair {:frontier 17} [in the pair]
+
+Ran 1 tests containing 52 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 52, :fail 0, :error 0}

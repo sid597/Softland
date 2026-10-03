@@ -1,12 +1,17 @@
 (ns softland.inland.app
-  "Electric composition root for the authored workbench.
-   Takes a workspace, accepted genesis record and scoped material indexes; gives
-   rendered views, one-shot event effects and admission results. Holds a browser
-   session and separate visible/reopen render owners; borrows Rama through execution.
-   Events snapshot their accepted basis once. Maintained views keep live dependencies.
-   The bootstrap world address and unanswered-event fallback are compiled choices;
-   this host does not make every part of itself editable as ordinary material."
+  "Electric composition root for the authored workbench, on the rig's store.
+   Takes a logged-in person and a workspace; gives rendered views, one-shot
+   gestures and admission results. Holds a browser session and separate
+   visible/reopen render owners; borrows the store through execution and store.
+   A gesture runs once, on the server (store/gesture!): its rules' reads are
+   recorded in one act before any of its effects run; stored cells and
+   admissions are written there, standing on what it read; the page applies the
+   rest. Maintained views keep live dependencies through the store's standing
+   reads, delivered when the store pushes. The bootstrap world address and
+   unanswered-event fallback are compiled choices; this host does not make every
+   part of itself editable as ordinary material."
   (:require [hyperfiddle.electric3 :as e]
+            [missionary.core :as m]
             [softland.inland.nodes :as n]
             [softland.inland.execution :as x]
             [softland.inland.paint :as paint]
@@ -20,44 +25,35 @@
   "Session request slot → latest durable decision, displayed in that session.
    Each request id owns a server offload; replacing the slot cancels its demand.
    The session supplies one slot, not an admission queue. A cancelled observation
-   is not proof that Rama did not accept the already submitted operation."
-  [s]
+   is not proof that the store did not accept the already submitted operation."
+  [s owner]
   (e/client
     (let [request (e/watch (:request s))]
       (e/for-by :request-id [op (if request [request] [])]
-        (let [decision (e/server (e/Offload #(store/submit-result! op)))]
+        (let [decision (e/server (e/Offload #(store/submit-result! owner op)))]
           (session/received! s decision))))))
 
 (e/defn Events
-  "Event, owner and resolution context → one application of authored effects.
-   Waits for dispatch to finish its relevant reads, snapshots results plus context,
-   then validates effects and attaches definition/revision provenance to admissions.
-   Failures update local admission status; no matching rule stores an unanswered
-   record. Consuming the event prevents completed commands replaying on rule edits."
+  "Event, owner and resolution context → one gesture, run once on the server.
+   The page sends the event and a snapshot of its local cells; the server runs the
+   rules, records their reads in one act, writes the stored cells and admissions,
+   and returns the effects left for the page. Failures update local admission
+   status. Consuming the event prevents completed commands replaying on rule edits."
   [s owner workspace context]
   (e/client
     (let [event (e/watch (:event s))]
       (e/for-by :id [event (if event [event] [])]
-        (let [invocation (e/snapshot
-                        (let [v (x/Dispatch s owner workspace context event)]
-                          (e/When (total/ready? v) {:results v :context context})))
-              results (:results invocation)
-              supports (remove nil? (if (vector? results) results []))
-              failure (or (total/first-failure results)
-                          (some #(when-let [reason (total/effect-error (:value %))]
-                                   {:runtime/status :failed :reason reason}) supports))
-              effects (when-not failure (mapcat (fn [result]
-                                (map (fn [effect]
-                                       (if (= :admit (:effect effect))
-                                         (assoc-in effect [:request :invocation]
-                                           {:definition (:support result) :context (:context invocation) :event (:id event)}) effect))
-                                     (:value result))) supports))]
-          (session/report! s "last-event" {:event event :supports (mapv :support supports) :effects effects})
-          (session/complete-event! s event
-            (cond failure [{:effect :session :writes {"admission" {:status :failed :reason (:reason failure)}}}]
-                  (seq supports) effects
-                  :else [{:effect :admit :request {:kind :put :name (str "unanswered-" (:id event)) :expected-revision 0
-                                                   :row {:name (str "unanswered-" (:id event)) :catalog "unanswered" :event event}}}])))))))
+        (let [cells (session/snapshot s)
+              outcome (e/server (e/Offload #(store/gesture! owner (dissoc event :run) cells)))
+              failure (:failure outcome)
+              decisions (:decisions outcome)
+              effects (if failure
+                        [{:effect :session :writes {"admission" {:status :failed :reason (:reason failure)}}}]
+                        (cond-> (vec (:effects outcome))
+                          (seq decisions) (conj {:effect :session :writes {"admission" (last decisions)}})))]
+          (session/report! s "last-event" {:event event :supports (:supports outcome)
+                                           :recorded (str (:recorded outcome)) :decisions decisions})
+          (session/complete-event! s event effects))))))
 
 (e/defn Views
   "Visible owner and context → keyed authored view occurrences.
@@ -76,45 +72,68 @@
               (e/client (session/report! s name {:revision (:revision row) :value value}))
               (paint/Items r s owner workspace context name value))))))))
 
+(e/defn Marks
+  "The session's marks → the page's `marks` cell: what stood on a fact the
+   screen saw change, as the store's lookup found it, recorded as read."
+  [s owner]
+  (let [marks (e/server (e/input (m/reductions (fn [_ v] v) {:cells {} :things {}}
+                                                (m/eduction (map #(store/marks-view owner %)) (store/marks-flow owner)))))]
+    (e/client (reset! (session/cell s "marks") marks) nil)))
+
 (e/defn LiveContext
   "Retained surface and session → context-dependent events, views and step owners.
-   Session context changes replace affected resolution work without replacing the
-   surface. Repeated work is keyed by request id and cancelled when its owner leaves."
-  [r s owner workspace]
+   The context is the session's stored cell; nothing renders until it is read.
+   Repeated work is keyed by request id and cancelled when its owner leaves."
+  [r s owner workspace cells who]
   (e/client
-    (let [context (merge {:session owner :who "sid"} (or (x/Local s "context") {:layers ["base"]}))
+    (let [stored (x/Cell s owner workspace {:cells cells} "context")
           runs (vals (e/watch (:work s)))]
-      (session/report! s "context" context)
-      (Events s owner workspace context)
-      (Views r s owner workspace context)
-      (e/for-by :id [request runs]
-        (activity/Run s owner workspace context request)))))
+      (Marks s owner)
+      (when (and (map? stored) (vector? (:layers stored)))
+        (let [context (merge stored {:session owner :who who :cells cells})]
+          (session/report! s "context" context)
+          (Events s owner workspace context)
+          (Views r s owner workspace context)
+          (e/for-by :id [request runs]
+            (activity/Run s owner workspace context request)))))))
 
 (e/defn Main
-  "Browser page lifetime → seeded session and visible or reopen surface.
-   Seeds through Rama, snapshots accepted session defaults once, and retains local
-   cells while a closed view displays its reopen control. Each branch directly
-   demands its surface so temporary pending view resolution cannot release the GPU.
-   Full page cancellation ends the Electric owner; accepted material remains durable."
-  []
+  "Browser page lifetime, for the person the host logged in → their session in the
+   store, then the visible or reopen surface. The session opens before any read;
+   it closes when the page goes. Seeds local cells from the accepted world record,
+   and retains them while a closed view displays its reopen control. Each branch
+   directly demands its surface so pending view resolution cannot release the GPU."
+  [person]
   (e/client
     (let [owner (str (random-uuid)) workspace (session/workspace)
-          ready (e/server (e/Offload #(store/ensure-workspace! workspace)))
-          world (x/Read owner :rows [workspace "base/world"])]
-      (when (and (= :accepted (:status ready)) (:session world))
+          info (e/server (let [i (e/Offload #(store/page-open! owner person))]
+                           (e/on-unmount #(store/close-session! owner))
+                           i))
+          cells {:layer (:hand info) :thing (:thing info) :stored (:stored info)}
+          world (when (:thing info) (x/Read owner :rows [workspace "base/world"]))]
+      (when (:session world)
         (let [s (session/create owner (e/snapshot (:session world)))
               visible (e/watch (:visible s))]
           (session/diagnostics! s)
-          (Operations s)
+          (Operations s owner)
           (if visible
             (let [r (n/Await (render/open #(session/deliver! s %)))]
-              (LiveContext r s owner workspace)
+              (LiveContext r s owner workspace cells (:person info))
               ;; The visible owner itself demands the surface, including while
               ;; every authored view is between completed resolution contexts.
               (some? r))
             (let [r (n/Await (render/open #(session/deliver! s %)))
-                  context {:layers ["base"]}
+                  context {:layers ["base"] :cells cells :who (:person info)}
                   value (x/Call s owner workspace context (:closed-view world) {} 0)]
               (Events s owner workspace context)
               (paint/Items r s owner workspace context "closed" value)
               (some? r))))))))
+
+(defn electric-boot
+  "The Electric program for one page, booted from this one place on both peers
+   (Electric's starter does the same): the program is keyed by the namespace the
+   boot expands in, so both peers must expand it here. The server injects the
+   logged-in person; the client holds a no-value hole of the same arity."
+  [person]
+  #?(:clj  (e/boot-server {} Main (e/server person))
+     :cljs (e/boot-client {} Main (e/server (e/amb)))))

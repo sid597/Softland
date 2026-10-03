@@ -1,0 +1,87 @@
+Wave 1 (phases 2 and 3 merged onto the read exit) suite, the one full run at the end: Sat 26 Sep 2026, 05:20:22 to 05:27:47 IST
+Branch rig-wave1: the code and tests as committed at aa33d905, with rig.store.wave1-test as first written (its 'two forgets' block came after the run started); Rama 1.6.0 in-process cluster; one cluster at a time under /mnt/data/projects/rig-relay-2026-09-26/cluster.lock.
+Command, from src/proposal/rig-2026-09-25:
+  flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.smoke-test rig.claims-test rig.revision-test rig.store.clock-test rig.store.envelope-test rig.store.stream-gate-test rig.store.reads-test rig.store.read-exit-test rig.store.read-model-test rig.store.lock-test rig.store.forget-test rig.store.micro-prepare-test rig.store.micro-test rig.store.wave1-test
+Full output: runs/wave1-suite.log (git-ignored, beside this file).
+
+Result:
+Ran 93 tests containing 5538 assertions.
+{:test 93, :pass 5538, :fail 0, :error 0}
+Wall time: 7 min 25 s, JVM start included.
+Failures and errors: none.
+
+After it, by Sid's rule (rerun only what a fix touches), two namespaces, 05:29:39 to 05:30:18 IST (runs/wave1-touched.log, git-ignored):
+  rig.store.wave1-test (its 'two forgets of one value' block, T-W1 and T-W2, added after the full run started) and rig.store.read-exit-test (the put page's cap, 2,048, W1-12):
+  Ran 3 tests containing 459 assertions.
+  {:test 3, :pass 459, :fail 0, :error 0}
+
+Namespaces in the full run:
+  Testing rig.smoke-test
+  Testing rig.claims-test
+  Testing rig.revision-test
+  Testing rig.store.clock-test
+  Testing rig.store.envelope-test
+  Testing rig.store.stream-gate-test
+  Testing rig.store.reads-test
+  Testing rig.store.read-exit-test
+  Testing rig.store.read-model-test
+  Testing rig.store.lock-test
+  Testing rig.store.forget-test
+  Testing rig.store.micro-prepare-test
+  Testing rig.store.micro-test
+  Testing rig.store.wave1-test
+
+Observed (the tests' OBSERVED lines):
+  stream one-task: append threw rpl.rama.distributed.exceptions.CallbackException: Callback failure | recovered after 446 ms | left 1 right 1 | first write ran 2 times
+  stream two-tasks: append threw rpl.rama.distributed.exceptions.CallbackException: Callback failure | left 3 right 1 | first write ran 3 times
+  stream restart: held true | update finished while held: false | update :updated after 8715 ms | append :acked | left 1 right 3 | first write ran 1 times | held 1 times | second write ran 1 times
+  stream replays of the one-task record, which completed before the later crashes: first write ran 3 times, second write 2 | left 2 | right k0 (one-task 1 + restart record's write) 3 | restart record's second write ran 1 times
+  cross-module: source module name rig.claims/StampSource | microbatch read [other-module own-module] = [42 7]
+  micro hold: held true | task-0 write ran 1 times | counts during hold [nil nil nil] | after commit [1 1 1 1]
+  micro fail: task-0 write ran 2 times | counts [2 2 2 2]
+  micro visibility: ran 20096 ms, records 5200 , last microbatch id 347 , final max-seq per task [5198 5198 5198 5198] , read pairs 414024 , pairs where the later read showed an older batch 5958 e.g. [[3 12 0 3] [1 12 0 3] [3 12 0 3]
+  hybrid: largest lead over the wall 0 ms; the millisecond unit's, same walls: 22500 ms
+  tasks 8
+  burst: 3200 acts in 3.86 s, 830 a second; largest lead of a stamp's millisecond over the wall at its ack -3 ms; largest counter 3 ; the millisecond unit over the same decisions would have ended 0 ms ahead
+  a subvec name through the depot: {:answer :yes, :reason nil}
+  crash before the writes: the append threw | the gate saw the offer 3 times, reached its writes 2 times
+  crash after the writes: the append threw | decision code ran 2 times
+  completed-record replay: attempts 1 | times the completed offer was seen [2] | answered from its record [1]
+  T2 points for the entry: [:exit-after-query :seen :before-writes :after-writes :exit-after-entry :exit-shown]
+  purge during a paged read: the row shows the value
+  T10 rebuild over an intact layer: {:put-pages 5, :deleted 0, :rewritten 0}
+  T18 read layer clock 117335462442237953 | working layers on other tasks: [:t18w0 :t18w2 :t18w3 :t18w4 :t18w5 :t18w6 :t18w7]
+  reads that returned rows: 47
+  chains : 32 ops, 6 reads compared, 11 offers answered; 0 differences; single-moment observations: [{:where [:chains 4 [:read :now]], :layer :alice, :model-only 3, :rig-only 0} {:where [:chains 29 [:read [:at 7]]], :layer :alice-han
+  chains : known differences (For Sid 14, 2): ({:kind :offer, :model :no-permission, :rig :no-such-lock})
+  random11 : 62 ops, 4 reads compared, 21 offers answered; 0 differences; single-moment observations: [{:where [:random11 61 [:read [:at 4]]], :layer :alice-hand, :model-only 0, :rig-only 3}]
+  random11 : known differences (For Sid 14, 2): ({:kind :offer, :model :no-permission, :rig :no-such-lock})
+  random23 : 52 ops, 4 reads compared, 21 offers answered; 0 differences; single-moment observations: [{:where [:random23 3 [:read :now]], :layer :alice, :model-only 1, :rig-only 0}]
+  random23 : known differences (For Sid 14, 2): ({:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such-lock})
+  random37 : 54 ops, 8 reads compared, 14 offers answered; 0 differences; single-moment observations: []
+  random37 : known differences (For Sid 14, 2): ({:kind :reuse-of-a-face} {:kind :reuse-of-a-face} {:kind :reuse-of-a-face} {:kind :offer, :model :no-permission, :rig :no-such-lock} {:kind :offer, :model :no-permission, :rig :no-such
+  stood-on : 9 ops, 3 reads compared, 3 offers answered; 0 differences; single-moment observations: []
+  stood-on : known differences (For Sid 14, 2): ()
+  tasks 2
+  a forgotten value resent under new locks : locks the store holds 207 , depot copies of the value 4
+  record path replay: times the resent offer was answered from its record [4]
+  value forget, personal : locks the store holds 204 , depot copies of the value 1
+  value forget, agent : locks the store holds 202 , depot copies of the value 1
+  A1's person forget : locks the store holds 204 , depot copies of the value 1
+  crash at :seen: the append threw
+  crash at :before-writes : the append threw | decisions 2
+  crash at :after-writes : the append threw | decisions 2
+  crash in the fan-out: the append threw
+  crash in a value forget: the append threw
+  tasks 8 entities on two tasks :e0 :e1 4 2
+  same-name envelopes [[:no :name-taken] [:no :name-taken] [:yes nil] [:no :mis-tagged]]
+  A case 0 A: in the group a mention of Bob alone dies with Bob rig :erased model :erased
+  A case 1 A: in the group a plain note about no one survives both forgets rig :open model :open
+  A case 2 A: in the group a value about Alice and Bob survives Alice alone rig :open model :open
+  A case 3 A: in the group a value about Alice and Bob survives Bob alone rig :open model :open
+  A case 4 A: ... and dies when both are forgotten ('either one alone') rig :erased model :erased
+  A case 5 A: in the group a value about Alice and Bob, marked, dies with Bob rig :erased model :erased
+  frontier run: 300 batches, 16417 acts, 615197 frontier pairs, 0 violations, 0 backward frontiers; 615197 raw pairs, 0 raw inconsistent pairs; 615197 raw frontier pairs, 2 where the later read was older (on 8 tasks)
+  homes of the layers (a task each): {:w1p-layer 0, :alice 0, :base 2}
+  person forget purges: [{:task 2, :layer :base} {:task 0, :layer :alice} {:task 0, :layer :w1p-layer}]
+  per-act entities :w1pe0 :w1pe1 on tasks 1 3

@@ -1,0 +1,56 @@
+rig tests the pointer screen's store changes touch, one run, 17:58 to about 18:20 IST, 27 September 2026, on the MacBook Air (8 GB)
+command, from src/proposal/rig-2026-09-25: clojure -M:test rig.store.micro-prepare-test rig.store.stream-gate-test rig.store.micro-test rig.store.read-exit-test rig.store.reads-rest-test rig.store.screen-test
+full log: rig-touched-1.txt, not committed (15,693 lines)
+
+Testing rig.store.micro-prepare-test
+Testing rig.store.stream-gate-test
+OBSERVED tasks 4
+OBSERVED burst: 3200 acts in 18.41 s, 174 a second; largest lead of a stamp's millisecond over the wall at its ack -13 ms; largest counter 1 ; the millisecond unit over the same decisions would have ended 0 ms ahead
+OBSERVED a subvec name through the depot: {:answer :yes, :reason nil}
+OBSERVED crash before the writes: the append threw | the gate saw the offer 3 times, reached its writes 2 times
+OBSERVED crash after the writes: the append threw | decision code ran 2 times
+OBSERVED completed-record replay: attempts 1 | times the completed offer was seen [2] | answered from its record [1]
+Testing rig.store.micro-test
+OBSERVED tasks 2 entities on two tasks :e0 :e4 0 1
+OBSERVED same-name envelopes [[:no :name-taken] [:yes nil] [:no :name-taken] [:no :mis-tagged]]
+OBSERVED A case 0 A: in the group a mention of Bob alone dies with Bob rig :erased model :erased
+OBSERVED A case 1 A: in the group a plain note about no one survives both forgets rig :open model :open
+OBSERVED A case 2 A: in the group a value about Alice and Bob survives Alice alone rig :open model :open
+OBSERVED A case 3 A: in the group a value about Alice and Bob survives Bob alone rig :open model :open
+OBSERVED A case 4 A: ... and dies when both are forgotten ('either one alone') rig :erased model :erased
+OBSERVED A case 5 A: in the group a value about Alice and Bob, marked, dies with Bob rig :erased model :erased
+OBSERVED frontier run: 300 batches, 9756 acts, 270001 frontier pairs, 0 violations, 0 backward frontiers; 270001 raw pairs, 0 raw inconsistent pairs; 270001 raw frontier pairs, 1518 where the later read was older (on 2 tasks)
+Testing rig.store.read-exit-test
+OBSERVED T2 points for the entry: [:exit-after-query :seen :before-writes :after-writes :exit-after-entry :exit-shown]
+OBSERVED purge during a paged read: the row shows the value
+OBSERVED T10 rebuild over an intact layer: {:put-pages 6, :deleted 0, :rewritten 0}
+OBSERVED T18 read layer clock 117344145669292033 | working layers on other tasks: [:t18w0 :t18w2 :t18w3 :t18w4 :t18w5 :t18w6 :t18w7]
+OBSERVED reads that returned rows: 47
+Testing rig.store.reads-rest-test
+OBSERVED race reads 201 violations 0
+OBSERVED F2 ticks before the match 1
+OBSERVED restore replayed 77 forget facts; micro pages {:pages 52, :since 292, :replayed 0}
+Testing rig.store.screen-test
+OBSERVED bell rings [117343078930513920 117343078949715968 117343078952534016 117343078977765376]
+OBSERVED gesture record [:alice-hand :by-layer :offer #uuid "01a0e2e8-9be0-74aa-919f-4ef998857865"] [[:read-01a0e2e8-9be0-7b63-8009-e8315feb13a7 [:k :note] 3] [:read-01a0e2e8-9be0-78f6-ad8f-843321f6dfe8 [:k :title] 0]]
+OBSERVED bob reads the pair {:frontier 16} [in the pair]
+Ran 20 tests containing 1753 assertions.
+0 failures, 0 errors.
+{:test 20, :pass 1753, :fail 0, :error 0}
+
+worker fatals seen in the log (the injected crashes are the tests' own):
+17:59:19.923 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+17:59:42.670 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+17:59:45.465 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+18:05:11.558 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :micro :topology-event]}
+18:05:16.257 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :micro :topology-event]}
+18:05:22.059 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :micro :topology-event]}
+18:05:30.729 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :micro :topology-event]}
+18:09:43.317 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+18:09:50.492 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+18:09:54.483 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+18:11:38.582 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:query :standing-open :fail-ack-event]}
+18:17:02.463 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :micro :topology-event]}
+18:18:10.522 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:query :standing-open :fail-ack-event]}
+
+one fatal was not injected: 18:11:38 RamaIllegalUsageException 'ramafn must return a value' in rig.store.shared-reads/prefix-entries> (the standing-open query), a ramafn whose read yielded under memory pressure; the test recovered and passed. Fixed after this run (four yielding ramafns made ramaops); the fix is not yet run.
