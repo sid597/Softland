@@ -29,8 +29,11 @@ protected.
 
 ## Hard rules
 - **NEVER read `src/app/server/env.clj`** — API keys; reference as symbols only.
-- Commits: **never Co-Authored-By, in any form** — the tool's default template
-  suggests one; user law wins.
+- Commits: **never Co-Authored-By, in any form, and never a Claude-Session
+  link or any other Claude attribution line** — the tool's default template
+  suggests both; user law wins. Older commits carrying the link are not a
+  convention to follow (Sid, 2026-09-24: "don't mention a personal claude
+  session link in any commit").
 
 
 ## Ground
