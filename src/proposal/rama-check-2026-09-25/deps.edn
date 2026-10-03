@@ -1,0 +1,8 @@
+{:paths ["src" "resources"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama {:mvn/version "1.6.0"}
+        org.apache.logging.log4j/log4j-slf4j2-impl {:mvn/version "2.23.1"}}
+ :aliases {:run {:jvm-opts ["-Xss16m" "-Xmx2g"]
+                 :main-opts ["-m" "check.run"]}
+           :probe {:jvm-opts ["-Xss16m" "-Xmx2g"]}}}

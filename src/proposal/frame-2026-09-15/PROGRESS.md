@@ -18,8 +18,8 @@ verbatim is not in this folder; these are chat rulings, not ledger rows, until
 it is pasted. Vocabulary fixed on the 24th: "key" means a fact's key, the
 "in this respect" part; "lock" means an encryption key. Never one word for both.
 The formal model ran two rounds on 24 and 25 September; the readings it
-forced are ruled below, under "Sharpenings". Nothing has yet been checked
-against Rama itself.
+forced are ruled below, under "Sharpenings". Rama was checked on the 25th;
+see the end of Now.
 
 **Sid's frame for a corner** (his, 23 September). Time is the root: the log
 appends and time runs one way, so a fact written later about a moment is a
@@ -185,14 +185,49 @@ runtime's meaning as first facts (3); the stale table's first default (44);
 what stays a person's (83); forget's full reach (77); when a session layer
 closes (82); repair lockout (84); what a new tool owes history (85).
 
-**Next.** The rama skill verifies on a real in-process cluster the two claims
-the model assumes: a stream event atomic on one partition and at least once
-across failover; a microbatch decided at prepare, made visible at commit,
-atomic across partitions. Then the Rama rig that tests the line: add a tool and a grammar from inside, count how many
-new built-in steps were needed; measure index writes per second at the agent
-rate, lock-store growth under hand layers, and one person's layer on one
-thread. Then the decision record, both sessions' lists merged with rulings
-marked, lands here as DECISIONS.md.
+**25 September, evening.** Rama was checked: the two claims the model
+assumes ran on an in-process cluster (rama-check-2026-09-25/RESULTS.md).
+A stream event is atomic on one task and replays at least once; a
+microbatch is decided before it is visible but not visible on every task
+at one instant; an exception in topology code is fatal to the worker, so
+refusals are data. The rig built and tested the stream store (13 tests,
+728 checks) and measured the three numbers on slices, on branch
+rig-2026-09-25. Three sessions then proposed eight defaults, R1 to R8,
+that decide what a kept record carries (store-next-2026-09-25/
+CONCLUSION.md); none is ruled. Sid's decisions of the evening: the rig's
+code is a candidate for the store core, built in the form it should be,
+records not kept, adoption after a read of its code; no ruling before the
+model's third round, which walks the reference tool through the protocol
+and puts each default to Sid at the step where it applies; the count is
+taken on a held-back tool written by a fresh session from the round's
+one-page contract, so it can fail. Still Sid's, due before phase 2 and the
+first kept record: whether forget must reach the operator's copy of a
+value in the depot, which Rama keeps until a trim by entry count that a
+quiet partition never reaches; the stamp's form, proposed as a hybrid of
+wall milliseconds and a counter; what a read entry's fingerprint covers;
+whether two nodes can run here; the three thresholds and the size of
+hand-session values.
+
+**Next.** Two lanes. The model's third round designs the seed against the
+reference tool of 13 September, a reference to a passage or a function at a
+revision that shows the result or shows that it is stale, and walks it
+through the protocol act by act, with Sid ruling each default at the step
+where it applies (formal-model-2026-09-24/STARTER-round-3.md). The rig
+builds the read exit the count needs on the stream store, then the code
+that reads a file at a git revision into passages and functions with no
+store identity (rig STARTER-next.md). Then the blind count: a fresh
+session writes a held-back tool and grammar as facts from round three's
+one-page contract and reports what the contract could not say. Then phase
+6 on the rig: grammars at the gate, a minimal runner, both tools as facts,
+the running count, read in three classes: fixed-side steps the frame
+already promised, fixed-side steps nobody anticipated, and capabilities.
+Then src-inland on this project's own file:line citations, Sid's first
+use, with a scribe for the misses; this needs the merge decision on the
+rig branch. Then the read side whole and the recount, locks under the
+forget road Sid rules, edition one with the decision record as
+DECISIONS.md, a failover run if two nodes exist, the first kept record in
+one-owner layers, the micro store and promotion before the first shared
+layer, and the server onto the store core.
 
 ## Log (append only)
 
@@ -220,3 +255,20 @@ marked, lands here as DECISIONS.md.
 - 2026-09-25. Sid ruled the name tag his, kept 7b for a mention of Bob in
   Alice's own layer, and left the read's moment open. The round was
   committed. The review session added the sharpenings to Now.
+- 2026-09-25, evening. Three sessions (rama-protocol-sealing-design,
+  model-seed-specification, partition-seam-architecture) concluded on what
+  comes next (store-next-2026-09-25/CONCLUSION.md). Five more answered
+  the new-session question; the last of them leads the seed round. Sid
+  went with the plan settled in the session carrying this write-set, with
+  fixes from the others: candidate, no ruling before round three, a
+  held-back tool for the count. That session wrote the state paragraph
+  in Now, Next, STARTER-round-3.md and the rig's STARTER-next.md, and
+  changed one sentence of Now in place so the line ranges the rig's SPEC
+  cites did not move.
+- 2026-09-27. Two sessions (softland-de, softland-62) checked Inland's pointer
+  as the first tool on the store, mapped the three codebases onto one system
+  and walked the pointer through the protocol. At Sid's word they converged:
+  the first tool is a citation that stays true (the 13 September reference
+  tool), the pointer second as its hand, its walk folded into the next session
+  so the one page covers both kinds of tool; edition one waits for the
+  pointer's screen run too. Handover: citation-2026-09-27/HANDOFF.md.

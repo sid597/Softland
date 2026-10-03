@@ -1,0 +1,402 @@
+{:results
+ [{:claim
+   "stream baseline: two-hop event lands on A then B, :ack returns",
+   :status :held,
+   :detail
+   {:append {:ok {}},
+    :a [{:stamp 1, :task 1, :id "s0"}],
+    :a-count 1,
+    :clock-a 1,
+    :b [{:stamp 1, :task 2, :from "a", :id "s0"}]}}
+  {:claim
+   "stream, retry :individual, throw between two writes on A: A's writes discarded together, event retried, A gets exactly one entry",
+   :status :held,
+   :detail
+   {:append {:ok {}},
+    :attempts {:fail {:a-mid 0}, :attempts {:a 2, :b 1}, :block {}},
+    :worker-connection-losses 0,
+    :a-entries-for-s3 [{:stamp 3, :task 1, :id "s3"}],
+    :b-entries-for-s3 [{:stamp 3, :task 2, :from "a", :id "s3"}],
+    :whole-state
+    {:a-ids ["s0" "s0" "s3"],
+     :a-dups {"s0" 2},
+     :a-count 3,
+     :clock-a 3,
+     :b-ids ["s0" "s0" "s3"],
+     :b-dups {"s0" 2}}}}
+  {:claim
+   "stream, retry :individual, throw on B after A committed: event retried whole from the depot, A gets the write TWICE with two stamps",
+   :status :failed,
+   :detail
+   {:append {:ok {}},
+    :attempts {:fail {:b 0}, :attempts {:a 3, :b 2}, :block {}},
+    :worker-connection-losses 0,
+    :a-entries-for-s4
+    [{:stamp 4, :task 1, :id "s4"}
+     {:stamp 5, :task 1, :id "s4"}
+     {:stamp 8, :task 1, :id "s4"}],
+    :b-entries-for-s4 [{:stamp 8, :task 2, :from "a", :id "s4"}],
+    :whole-state
+    {:a-ids ["s0" "s0" "s3" "s4" "s4" "s0" "s3" "s4"],
+     :a-dups {"s0" 3, "s3" 2, "s4" 3},
+     :a-count 8,
+     :clock-a 8,
+     :b-ids ["s0" "s0" "s3" "s0" "s3" "s4"],
+     :b-dups {"s0" 3, "s3" 2}}}}
+  {:claim
+   "stream, retry :individual, throw on B, client appended with :ack: what the ack returns after the retry",
+   :status :held,
+   :detail
+   {:append
+    {:error
+     "rpl.rama.distributed.exceptions.CallbackException: Callback failure"},
+    :attempts {:fail {:b 0}, :attempts {:a 3, :b 2}, :block {}},
+    :worker-connection-losses 0,
+    :a-entries
+    [{:stamp 9, :task 1, :id "s4b"}
+     {:stamp 10, :task 1, :id "s4b"}
+     {:stamp 14, :task 1, :id "s4b"}],
+    :b-entries [{:stamp 14, :task 2, :from "a", :id "s4b"}],
+    :whole-state
+    {:a-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s4"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"],
+     :a-dups {"s0" 4, "s3" 3, "s4" 4, "s4b" 3},
+     :a-count 14,
+     :clock-a 14,
+     :b-ids ["s0" "s0" "s3" "s0" "s3" "s4" "s0" "s3" "s4" "s4b"],
+     :b-dups {"s0" 4, "s3" 3, "s4" 2}}}}
+  {:claim
+   "stream, retry :none, throw between two writes on A: nothing of the event is visible on A, and it is not retried",
+   :status :held,
+   :detail
+   {:append {:ok {}},
+    :attempts {:fail {:a-mid 0}, :attempts {:a 1}, :block {}},
+    :worker-connection-losses 0,
+    :whole-state
+    {:a-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s4"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"],
+     :a-dups {"s0" 5, "s3" 4, "s4" 5, "s4b" 4},
+     :a-count 18,
+     :clock-a 18,
+     :b-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s0"
+      "s3"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"],
+     :b-dups {"s0" 5, "s3" 4, "s4" 3, "s4b" 2}}}}
+  {:claim
+   "stream, retry :none, throw on B after A committed: A shows the write, B never gets it",
+   :status :held,
+   :detail
+   {:append
+    {:error
+     "rpl.rama.distributed.exceptions.CallbackException: Callback failure"},
+    :attempts {:fail {:b 0}, :attempts {:a 1, :b 1}, :block {}},
+    :worker-connection-losses 0,
+    :a-entries [{:stamp 19, :task 1, :id "s2"}],
+    :whole-state
+    {:a-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s4"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s2"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"],
+     :a-dups {"s0" 6, "s3" 5, "s4" 6, "s4b" 5},
+     :a-count 23,
+     :clock-a 23,
+     :b-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s0"
+      "s3"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"],
+     :b-dups {"s0" 6, "s3" 5, "s4" 4, "s4b" 3}}}}
+  {:claim
+   "stream, event held on B: A's write is visible to a client before B's write exists",
+   :status :held,
+   :detail
+   {:append {:ok {}},
+    :a-while-held [{:stamp 24, :task 1, :id "s5"}],
+    :a-count-while-held 24,
+    :b-while-held [],
+    :b-after
+    [{:stamp 25, :task 2, :from "a", :id "s5"}
+     {:stamp 26, :task 2, :from "a", :id "s5"}
+     {:stamp 27, :task 2, :from "a", :id "s5"}
+     {:stamp 28, :task 2, :from "a", :id "s5"}
+     {:stamp 29, :task 2, :from "a", :id "s5"}]}}
+  {:claim "microbatch baseline: two-hop event lands on A then B",
+   :status :held,
+   :detail
+   {:a [{:s-clock 29, :stamp 1, :task 1, :id "m0"}],
+    :clock-a 1,
+    :b
+    [{:s-clock 29,
+      :stood-on 100,
+      :stamp 1,
+      :task 2,
+      :from "a",
+      :id "m0"}]}}
+  {:claim
+   "stamps: a microbatch event reads a PState owned by the stream topology in the SAME module (committed view)",
+   :status :held,
+   :detail {:stream-clock-a-now 29, :seen-by-micro-event 29}}
+  {:claim
+   "stamps: a microbatch event reads a stamp written by a stream topology in ANOTHER module (mirror PState)",
+   :status :held,
+   :detail {:stamp-in-other-module 100, :seen-by-micro-event 100}}
+  {:claim
+   "microbatch, throw on B after A's writes: batch retried whole, A's append and clock tick appear exactly ONCE",
+   :status :held,
+   :detail
+   {:attempts
+    {:fail {:mb-b 0},
+     :attempts {:mb-a 2, :mb-b 2},
+     :notes {:stood-on-read [100 100]},
+     :block {}},
+    :worker-connection-losses 0,
+    :a-entries-for-m1 [{:s-clock 30, :stamp 2, :task 1, :id "m1"}],
+    :a-dups {},
+    :clock-a 2,
+    :b-entries-for-m1
+    [{:s-clock 30,
+      :stood-on 100,
+      :stamp 2,
+      :task 2,
+      :from "a",
+      :id "m1"}],
+    :b-dups {}}}
+  {:claim
+   "microbatch, batch held on B after A's writes: NOTHING of the batch is visible on A until the batch commits",
+   :status :held,
+   :detail
+   {:a-while-held ["m0" "m1"],
+    :clock-a-while-held 2,
+    :a-after ["m0" "m1" "m2"],
+    :b-after ["m0" "m1" "m2"]}}
+  {:claim
+   "stamps across a retry: the mirror read is redone on the retry, so the value stood on can change between attempts",
+   :status :held,
+   :detail
+   {:reads-per-attempt [100 200],
+    :attempts
+    {:block {:mb-b :released},
+     :fail {:mb-b 0},
+     :attempts {:mb-a 2, :mb-b 2},
+     :notes
+     {:stood-on-read [100 200],
+      :block-result [[:mb-b :released] [:mb-b :released]]}},
+    :landed-entry
+    {:s-clock 31,
+     :stood-on 200,
+     :stamp 4,
+     :task 2,
+     :from "a",
+     :id "m3"},
+    :a-entries [{:s-clock 31, :stamp 4, :task 1, :id "m3"}],
+    :clock-a 4}}
+  {:claim
+   "microbatch commit across two tasks: a client can read partition A already on batch N while B still shows N-1 (first read AHEAD of second)",
+   :status :observed,
+   :detail
+   {:reads 5537,
+    :same 5361,
+    :first-read-ahead 85,
+    :second-read-ahead 91,
+    :max-round-gap 34,
+    :sample-first-ahead
+    ([:A-then-B 66 32]
+     [:A-then-B 66 32]
+     [:A-then-B 66 32]
+     [:A-then-B 66 32]
+     [:A-then-B 66 32]),
+    :final-a 400,
+    :final-b 400}}
+  {:claim
+   "failover, stream: update-module! (same module = simulated worker restart) while an event is held mid-flight",
+   :status :ran,
+   :detail
+   {:landed true,
+    :attempts
+    {:block {:b :released},
+     :attempts {:a 3, :b 3},
+     :notes
+     {:block-result [[:b :released] [:b :released] [:b :released]]}},
+    :append {:ok {}},
+    :ms-until-update-returned 14496,
+    :a-entries
+    [{:stamp 32, :task 1, :id "sf1"}
+     {:stamp 33, :task 1, :id "sf1"}
+     {:stamp 34, :task 1, :id "sf1"}],
+    :ms-waited-while-held 10001,
+    :b-entries
+    [{:stamp 33, :task 2, :from "a", :id "sf1"}
+     {:stamp 34, :task 2, :from "a", :id "sf1"}],
+    :update-result-after-release {:ok nil},
+    :reached-b true,
+    :update-result-while-held :check.run/still-running,
+    :whole-state
+    {:a-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s4"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s2"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "sf1"
+      "sf1"
+      "sf1"],
+     :a-dups {"s0" 6, "s3" 5, "s4" 6, "s4b" 5, "s5" 8, "sf1" 3},
+     :a-count 34,
+     :clock-a 34,
+     :b-ids
+     ["s0"
+      "s0"
+      "s3"
+      "s0"
+      "s3"
+      "s4"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s0"
+      "s3"
+      "s4"
+      "s4b"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "s5"
+      "sf1"
+      "sf1"],
+     :b-dups {"s0" 6, "s3" 5, "s4" 4, "s4b" 3, "s5" 7, "sf1" 2}}}}
+  {:claim
+   "failover, microbatch: update-module! while a batch is held mid-flight",
+   :status :ran,
+   :detail
+   {:b-dups {},
+    :attempts
+    {:block {:mb-b :released},
+     :attempts {:mb-a 1, :mb-b 1},
+     :notes {:stood-on-read [200], :block-result [[:mb-b :released]]}},
+    :ms-until-update-returned 14595,
+    :a-entries [{:s-clock 34, :stamp 5, :task 1, :id "mf1"}],
+    :ms-waited-while-held 10000,
+    :b-entries
+    [{:s-clock 34,
+      :stood-on 200,
+      :stamp 5,
+      :task 2,
+      :from "a",
+      :id "mf1"}],
+    :update-result-after-release {:ok nil},
+    :clock-a 5,
+    :reached-b true,
+    :update-result-while-held :check.run/still-running,
+    :a-dups {},
+    :mb-wait true}}],
+ :conn-losses 2}
