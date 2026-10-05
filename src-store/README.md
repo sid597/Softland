@@ -1,9 +1,11 @@
 # The store — source entry
 
 This tree holds the code of the store that is built to stay. The implementation
-lives beneath [softland/](softland/README.md). Its one part is the door: the part
-of the runtime that puts each act in its envelope and appends the act to an acts
-depot.
+lives beneath [softland/](softland/README.md). It has two parts. The act is the
+one form of what a maker gives to the store, and the check of that form. The door
+is the part of the runtime that puts each act in its envelope and appends the act
+to an acts depot. The door does not use this tree's act yet: it takes the act from
+the rig, as the gates do.
 
 The tree owns no durable state. The record is in a Rama module, and that module,
 with its gates, depots and reads, is the rig's (`rig.store.module/Store`, under
@@ -16,6 +18,7 @@ Start with the question you are carrying:
 | Question | Enter here |
 |---|---|
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
+| What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then the docstring of its check |
 | What does one call of the door take and give, and what does it not handle? | The namespace docstring of [door.clj](softland/store/door.clj), then that function's docstring |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
 
