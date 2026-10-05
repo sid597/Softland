@@ -29,7 +29,7 @@ load.
 Follow folder map → namespace docstring → function docstring, and read only the
 branch that the question needs. A folder map explains its immediate children.
 What a function takes, gives and does not handle is in its docstring. The
-[server documentation rules](../src/app/server/CLAUDE.md) apply to this hierarchy
-too: update a function's docstring and the affected parent map in the same change
-as the code. A source description is not a run; what a check observed belongs to
-the verification tree.
+[rules for explanations](CLAUDE.md) of this tree govern this hierarchy: update a
+function's docstring and the affected parent map in the same change as the code.
+A source description is not a run; what a check observed belongs to the
+verification tree.
