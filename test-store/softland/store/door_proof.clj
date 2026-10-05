@@ -11,7 +11,16 @@
 
   It prints each thing that it showed on a line that starts with SHOWN,
   prints those lines again together at the end, and exits with a status
-  that is not zero when a check fails. What it shows, in order:
+  that is not zero when a check fails.
+
+  State. It owns one fresh in-process cluster and its handles for one run.
+  It also changes state outside the door: it pauses the microbatch topology,
+  arms the rig's fault hooks (rig.store.inject, atoms that the whole JVM
+  shares), and rebinds two of the door's bounds for single calls. A pass
+  shows the door on the in-process cluster in one JVM, not on a deployed
+  cluster. See README.md.
+
+  What it shows, in order:
 
     0. the sealed view of an act goes through the microbatch gate's parse
        as the sealed act does (no cluster);
@@ -46,7 +55,10 @@
 
 (defonce ^:private shown-lines (atom []))
 
-(defn- shown [& xs]
+(defn- shown
+  "Print one line of what the proof observed, and keep it for the recap that
+  `-main` prints at the end."
+  [& xs]
   (let [line (apply print-str "SHOWN" xs)]
     (swap! shown-lines conj line)
     (println line)
@@ -77,7 +89,10 @@
   ([depot who layer session]
    (filterv #(= session (:session %)) (lease-acts depot who layer))))
 
-(defn- lease-counts [leases] (mapv #(:count (:v (first (:facts %)))) leases))
+(defn- lease-counts
+  "How many locks each of some lease acts asks for."
+  [leases]
+  (mapv #(:count (:v (first (:facts %)))) leases))
 
 (defn- sealed-bytes
   "The sealed bytes of the first fact of a depot's copy, as a value that can be compared."
