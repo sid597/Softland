@@ -1,0 +1,289 @@
+=== Sheet | The store — the questions the gates need
+
+Choose in this order. Tick a box, and write on the line when a choice asks for words. Each question keeps its number from the papers you hold: a Q is a circle on the ladder sheets; an F is a row of the list of all decisions. 7 October 2026.
+
+## Words on this sheet
+
+- **fact** — one statement: an entity, a key, a value. "Key" on this sheet always means a fact's key.
+- **act** — one or more facts that one maker sends to the store under one name. A gate accepts all of it or refuses all of it.
+- **maker** — whoever makes an act: a converter, the screen, an agent.
+- **the one form** — the fixed set of ten parts that every act has, whoever made it, so that one piece of code can check every act.
+- **the check** — the code that takes anything and says "an act" or "not an act, because …".
+- **session** — the session that an act belongs to. Every act carries its session.
+- **layer** — the one place in the store that an act writes to: the base that all share, a group's, a person's, or a session's.
+- **class** — which of the two gates decides the acts of a layer: streaming or microbatch. It is a fact on the layer. A **streaming layer** has the class streaming; a **microbatch layer** has the class microbatch.
+- **the door** — the code that takes an act from a maker into the store. It makes the name, adds the class from the layer, and seals the values.
+- **depot** — a log in Rama that keeps each act appended to it, in order, until a trim. Any client can append to a depot and read it.
+- **trim** — Rama removes the oldest acts of a depot when it holds more than a set count.
+- **gate** — code inside the store that reads a depot and decides each act: accept or refuse. The **streaming gate** decides one act at a time, on the one task of the act's layer, in milliseconds. The **microbatch gate** decides many acts together, on all tasks, one batch later.
+- **record** — what the gates keep: the accepted facts, and each answer under its act's name.
+- **answer** — a gate's result for an act: accepted, or refused with a reason word.
+- **name** — the id of an act: [layer class id]. The door makes it.
+- **stamp** — the time mark that a gate puts on an act when it accepts it.
+- **seal** — encrypt a value with its **lock**, so that "forget" can later destroy the lock. A lock is an encryption key, never a fact's key.
+- **store key** — one of the fact keys that the store itself acts on: a class, a permission, a forget, and others.
+- **permission** — who may act in a layer: [who layer granted-in].
+- **Rama** — the system under the store. It keeps the depots and the PStates, and it runs the gates.
+- **task** — one of the N divisions of the store inside Rama. Each task has one thread. N is fixed at the start.
+- **PState** — data that a gate keeps inside Rama. One gate writes it. It is kept on disk when it is written; it is not made again from a depot.
+- **attempt** — one run of a gate's work for an act. After a failure Rama makes a new attempt.
+- **ack** — what Rama returns to a sender after the sender appends an act to a depot.
+- **re-class** — a change of the class of a layer.
+- **promotion** — the move of a value from one layer into another layer. It is two acts.
+- **the first kept record** — the first act that the store keeps for good. A choice that is frozen at the first kept record cannot change after it without splitting the store into acts before and acts after.
+- **the rig** — an example build of the store on Rama, 25 September. Its findings are evidence.
+- **the 2 October drawing** — the drawing of the store in `ARCHITECTURE-STE100.md`.
+- **the ladder** — your printed map of the store, from the sources down to the depots.
+- **the rulings file** — `src/proposal/frame-2026-09-15/PROGRESS.md`, "Now".
+
+=== F6 | Two depots, or one
+
+- **partitioner** — the rule by which a depot picks the task for an act.
+
+```
+ two depots   the door reads the class of the layer, then appends to one of two:
+                streaming depot     picks the task by the layer     read by the streaming gate
+                microbatch depot    picks the task by an entity     read by the microbatch gate
+
+ one depot    the door appends to the one depot
+                its partitioner reads the class that the door added, and picks the task
+                both gates read it; each gate drops the acts that are for the other gate
+```
+
+Ruling 1 in the rulings file says "two fact stores, each with its own gate". It gives no number of depots.
+
+**Do the acts go to two depots, one for each gate, or to one depot that both gates read?**
+
+[ ] **A** — two depots, one for each gate.
+If A: the door must know the class of the layer before it appends; each depot has one gate that reads it.
+[ ] **B** — one depot, with a partitioner of the store's own.
+If B: the door picks no depot; each gate reads each act and drops the acts that are not its own. Q7 then asks for one word.
+
+Today: the store's tree has no depot. In Rama a depot is only a log, and Rama lets the store give a depot a partitioner of its own. The ack of an append waits only for the streaming gates that read that depot. Frozen at the first kept record.
+
+=ANSWER A or B.
+
+=== Q7 | What the depots are called
+
+```
+                             for streaming layers      for microbatch layers
+ on the ladder               streaming depot           microbatch depot
+ in the 2 October drawing    stream acts depot         microbatch acts depot
+ in the rig's code           *offers                   *micro-offers
+```
+
+**What does the ladder call the two depots?** If you chose B in F6, write one word for the one depot under c.
+
+[ ] **a** — "streaming depot" and "microbatch depot".
+If a: the word says how the gate reads the depot; it does not say what the depot holds.
+[ ] **b** — "stream acts depot" and "microbatch acts depot".
+If b: the word says what the depot holds, and which gate reads it.
+[ ] **c** — other words. Write them on the line.
+If c: the words that you write go on the ladder and into the code.
+
+Today: the class words in an act's name are :streaming and :microbatch. In the store's tree "act" is the word for what the rig's code calls an "offer". A word on the ladder is free; a word in the code needs an update of the module after the first kept record.
+
+=ANSWER a, b or c.
+
+=== F2 | Where the record is
+
+```
+ in the PStates of the gates     a gate decides an act and writes the record in one step:
+                                 the two happen together, or not at all
+
+ in a depot that a gate writes   a gate decides an act, then appends it to a log of decided acts
+```
+
+**Where do the gates keep the record?**
+
+[ ] **A** — in the PStates of the gates.
+If A: a decision and its record happen together or not at all. Rama lets a gate change what it wrote, so the gate's own code keeps "never rewritten".
+[ ] **B** — in a depot that a gate writes.
+If B: the log can hold an act that the gate never accepted, or one act more than once, and each reader tells them apart. The log is append-only by its nature.
+
+Today: no gate of the store is built. Finding of the runs of 2 October: when a gate's attempt fails, Rama removes what that attempt wrote in a PState, and in most runs keeps what it appended to a depot. Under A and under B, the acts depots keep each act as its maker sent it, until a trim. Frozen at the first kept record.
+
+=ANSWER A or B.
+
+=== F1 | Who sets the class of a layer
+
+- **kind** — what a layer is: the base, a group's, a person's, or a session's.
+
+```
+ 24 September, four ruled lines      the kind of layer sets the class:
+                                     a layer with one owner is a streaming layer
+                                     a shared layer is a microbatch layer
+
+ 2 October, the third switch         the members of the layer set the class,
+ (the 2 October drawing records      by the policy of the layer
+  it as agreed that day)
+```
+
+The four lines are ruling 1, ruling 2, "Layer kinds", and the first of "Two consequences", in the rulings file.
+
+**Does the third switch of 2 October replace the four ruled lines of 24 September?**
+
+[ ] **A** — yes. The class is a fact that the members set, for each kind of layer.
+If A: a group can make its shared layer a streaming layer, with answers in milliseconds; a busy streaming layer slows the others on its task, and each microbatch layer.
+[ ] **B** — no. The kind of layer sets the class. Write on the line what of the third switch stays.
+If B: each shared layer is a microbatch layer, where an act shows one batch later and a person who types sees a lag. This settles F4: C.
+
+Today: no code of the store sets a class. The act's name has a class slot, :streaming or :microbatch, which the door fills from the layer. A layer's class can change later by a re-class; after it, each read of that layer joins the acts before the re-class with the acts after it, for the life of the layer. The rule itself is free.
+
+=ANSWER A or B, and for B what stays.
+
+=== F4 | The class of each layer at the start
+
+The first of "Two consequences" in the rulings file sends a promotion into a group layer or the base to the microbatch gate. If you chose B in F1, this is C.
+
+**Which class does each layer have when it is made?**
+
+[ ] **A** — each layer starts as a streaming layer.
+If A: each layer answers in milliseconds from the first day; a layer that outgrows one task needs a re-class later.
+[ ] **B** — the base starts as a streaming layer, owned by no person, and becomes a microbatch layer when the first group comes.
+If B: the base has one re-class in its life, and each read of it after that joins the acts before and after it; no microbatch layer exists before the first group.
+[ ] **C** — the base starts as a microbatch layer; each other layer starts as a streaming layer.
+If C: the base never needs a re-class; each promotion into the base waits one batch, from the first day.
+
+Today: no code of the store makes a layer or its class. The 2 October drawing starts each layer as a streaming layer. A re-class can change a layer's class later, at a cost that stays.
+
+=ANSWER A, B or C.
+
+=== F5 | Where a streaming gate finds a grammar
+
+- **grammar** — a fact that gives the shape of the values for a key. A gate checks each value against it.
+
+A streaming gate decides one act in one step, on the one task of the act's layer. In that step it can use what is on that task; what is on another task, it must fetch. The same question holds for the rules that say which indexes the store makes.
+
+```
+ on the gate's own task     the layer · its permissions · its current facts
+ the grammar                in this layer too   ─ or ─   in one place, on another task
+```
+
+**Where does a streaming gate find the grammar that it checks a value against?**
+
+[ ] **A** — each layer holds a copy of each grammar that it uses.
+If A: the gate needs no fetch; a change to a grammar is a change in each layer that holds a copy.
+[ ] **B** — a grammar is in one place; the gate fetches it from another task and records that read.
+If B: each grammar is in one place; each act costs one fetch, and the grammar can change between the fetch and the decision.
+
+Today: no gate of the store is built, and the 2 October drawing leaves this open. Frozen at the first kept record: it says what each layer holds.
+
+=ANSWER A or B.
+
+=== Q22 | How a streaming act gets its answer
+
+The rulings file says: "An answer is found by name plus layer."
+
+```
+ on the ack   the door appends the act ─► streaming depot ─► the streaming gate decides
+              the ack comes back to the door with the answer in it
+
+ by name      the door appends the act ─► streaming depot ─► the streaming gate decides and records
+              the door asks the record: "which answer is under this name?"
+```
+
+**Where does the door take a streaming act's answer from?** Choose it together with F7.
+
+[ ] **A** — by name: the door reads the answer from the record; the ack is not the answer.
+If A: the answer always comes from what the gate recorded; each act costs one more read.
+[ ] **B** — on the ack: after an error, the door sends the same bytes again, and the gate gives the answer that it recorded under that name.
+If B: each act costs one trip to the depot and back; the door takes an answer only from a sending that worked.
+
+Today: the store's tree has no door; it comes with the store's own gates. Findings of the runs of 25 September and 2 October: an ack can be an error for an act that the gate accepted, and Rama can run a gate's work for one act more than once, so a gate reads its record by name before it decides. A microbatch act gets no answer on the ack. Free: it is the door's code.
+
+=ANSWER A or B.
+
+=== F7 | A rule for all that leaves a decision
+
+- **signal** — something that tells that a decision happened: an answer on an ack, or the second act of a promotion.
+
+Finding of the runs of 2 October:
+
+```
+ a gate's attempt fails after it decided    Rama removes what that attempt wrote in the record
+                                            Rama keeps what that attempt sent out, in most runs
+ the next act on that task                  can get the same stamp as the failed attempt
+```
+
+**Is this a rule for all the code of the store: "All that leaves a decision is a signal. The truth is in the record. Read it again by name."?**
+
+[ ] **A** — yes, a rule.
+If A: each piece of code that gets a signal reads the record by name before it acts; Q22 is then A, unless the ack gets a stated reason why it is safe.
+[ ] **B** — no rule; each case is decided alone.
+If B: Q22 can take either choice with nothing more said; each later piece of code that reads a signal needs a decision of its own.
+
+Today: the 2 October drawing lists the rule as derived from the runs, not ruled. No code of the store's tree reads a signal yet. Free: it is a rule for code.
+
+=ANSWER A or B.
+
+=== F8 | A setting key on another entity: which code refuses it
+
+- **setting key** — a key on a layer's own entity that sets how the layer works: its kind, its owner, its class, and how its locks are cut.
+
+```
+ the act's layer      :alice
+ one of its facts     entity :bob    key: a setting key    value: …
+ the fault            a setting key on an entity that is not the act's layer
+```
+
+**Which code refuses an act that holds a setting key on an entity that is not the act's layer?**
+
+[ ] **A** — the door, before it sends.
+If A: such an act never reaches a depot; a sender that does not use the door is not checked.
+[ ] **B** — the check: the one form says where a setting key may stand.
+If B: each sender and each gate that runs the check refuses it; the check must list the setting keys, and by decision 3 of 6 October the act holds no store keys.
+[ ] **C** — a gate, as a recorded decision.
+If C: the refusal is recorded with a stamp; the act stays in the depot until a trim.
+
+Today: no code of the store's tree refuses it: no door or gate is built, and the check holds no setting keys. Finding: a depot keeps what it gets, and any client can append to it.
+
+=ANSWER A, B or C.
+
+=== F9 | Three things from your own list
+
+- **node** — one machine of a Rama cluster.
+- **hand session** — a session in which a person works by hand, and not an agent.
+
+The rulings file lists these as "Still Sid's", due before the first kept record.
+
+**(a) Can two nodes run here?** A test of a failed node needs two.
+
+[ ] **1** — yes.
+If 1: a test of a failed node can run here.
+[ ] **2** — no.
+If 2: a failed node is not tested here.
+[ ] **3** — not known.
+If 3: the test of a failed node waits for this.
+
+**(b) Do you accept these three limits?**
+
+```
+ limit                                                         measured on the rig
+ 1  at least 1,000 acts each second on one task,               1,000 acts each second: all accepted;   
+    at the rate of an agent                                    the slowest 1 in 100 took 254 ms
+ 2  at least 100 acts each second for one person,              at 100 acts each second,
+    with the slowest 1 in 100 at 20 ms                         the slowest 1 in 100 took 46 ms
+ 3  the locks take no more than 2 times                        a lock costs 169 bytes for each value
+    the bytes of the values
+```
+
+[ ] **1** — accept the three.
+If 1: the rig's measures meet limit 1 and miss limit 2; limit 3 waits for (c).
+[ ] **2** — other numbers. Write them on the line.
+If 2: a build is measured against the numbers that you write.
+
+**(c) How big is a usual value in a hand session?** With 169 bytes for each lock, limit 3 holds for values of 200 bytes, and not for values of 40 bytes.
+
+Today: the three limits are a proposal of 25 September; none is ruled, and no value size is written down. The rig's measures are from one machine, with 4 tasks and one copy of the data. Free: these are targets, not parts of an act.
+
+=ANSWER (a) 1, 2 or 3 · (b) 1 or 2 · (c) a size in bytes, or "leave it".
+
+=== Listed | Listed, not asked
+
+These wait for a build or a test. They need no choice now.
+
+- **A re-class while acts are on the way.** No test has it. (?9)
+- **A promotion out of a microbatch layer.** It is not built. (?10)
+- **A record that only the gates can read, with a separate place for bells** (marks that tell a reader to read again). It is a design; nobody built it. (?11)
+- **Task 0.** In the rig, each microbatch decision is made on task 0, and some streaming layers are on task 0 too. Nobody examined whether that slows the decisions. (?15)
