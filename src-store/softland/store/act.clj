@@ -146,7 +146,7 @@
 
    ;; [layer class id]. The door makes it; an act refers to names.
    :name
-   [:tuple :id [:enum :by-layer :by-entity] :uuid]
+   [:tuple :id [:enum :streaming :microbatch] :uuid]
 
    ;; [name index]: one fact of one act.
    :fact-id

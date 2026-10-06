@@ -87,8 +87,8 @@
   [layer class n]
   [layer class (uuid n)])
 
-(def ^:private earlier-name "The name of an earlier act in Alice's layer." (a-name :alice :by-layer 2))
-(def ^:private other-name "The name of another earlier act in Alice's layer." (a-name :alice :by-layer 3))
+(def ^:private earlier-name "The name of an earlier act in Alice's layer." (a-name :alice :streaming 2))
+(def ^:private other-name "The name of another earlier act in Alice's layer." (a-name :alice :streaming 3))
 (def ^:private alice-own "Alice's permission in her own layer." [:alice :alice :alice])
 (def ^:private a-fact "One fact with a plain value." {:e :note-1 :k :note :v "a text"})
 
@@ -156,7 +156,7 @@
           [:k :key]
           [:v :value {:optional true}]
           [:replaces :fact-id {:optional true}]]
-   :name [:tuple :id [:enum :by-layer :by-entity] :uuid]
+   :name [:tuple :id [:enum :streaming :microbatch] :uuid]
    :fact-id [:tuple :name [:int {:min 0}]]
    :permission-id [:or [:tuple :id :id :id] [:tuple :id :id :id :permission-id]]
    :carried-stamp [:int {:min 0 :below 4611686018427387904}]})
@@ -279,7 +279,7 @@
   [;; parts that the form does not name
    ["another part" (assoc good :signature "x") :unknown-part]
    ["a name: the door makes it, and it is no part" (assoc good :name earlier-name) :unknown-part]
-   ["a class: the door adds it, and it is no part" (assoc good :class :by-layer) :unknown-part]
+   ["a class: the door adds it, and it is no part" (assoc good :class :streaming) :unknown-part]
    ["a part for expected versions" (assoc good :expected-versions {}) :unknown-part]
    ;; the version
    ["version 2" (assoc good :version 2) :unknown-version]
@@ -307,7 +307,7 @@
    ["a carried stamp that is a double" (assoc good :based-on {[earlier-name 0] 1.5}) :malformed]
    ;; because of, claimed when, subjects
    ["a :because-of that is no name" (assoc good :because-of [:alice 0]) :malformed]
-   ["a :because-of with a scheme word, four slots" (assoc good :because-of [:alice :by-layer :act (uuid 2)]) :malformed]
+   ["a :because-of with a scheme word, four slots" (assoc good :because-of [:alice :streaming :act (uuid 2)]) :malformed]
    ["a :because-of with no class" (assoc good :because-of [:alice nil (uuid 2)]) :malformed]
    ["a :claimed-when that is a double" (assoc good :claimed-when 1.5) :malformed]
    ["a :claimed-when that is a big integer" (assoc good :claimed-when 1N) :malformed]
@@ -466,9 +466,9 @@
            [true "PersistentHashSet"]]]
          ["the shape of a name, as an act refers to one: [layer class id], the layer an id"
           (fn [] (mapv #(act/has-shape? :name %)
-                       [[:alice :by-layer (uuid 1)] [:group :by-entity (uuid 1)] [(uuid 3) :by-layer (uuid 1)]
-                        [:alice :by-layer :act (uuid 1)] [:alice nil (uuid 1)] [:alice :sideways (uuid 1)]
-                        [:alice :by-layer "id"] ["alice" :by-layer (uuid 1)] (list :alice :by-layer (uuid 1))]))
+                       [[:alice :streaming (uuid 1)] [:group :microbatch (uuid 1)] [(uuid 3) :streaming (uuid 1)]
+                        [:alice :streaming :act (uuid 1)] [:alice nil (uuid 1)] [:alice :sideways (uuid 1)]
+                        [:alice :streaming "id"] ["alice" :streaming (uuid 1)] (list :alice :streaming (uuid 1))]))
           [true true true false false false false false false]]
          ["fact ids: a name and an index from 0; not a negative index, not a big one, not a list, not an id in place of a name"
           (fn [] (mapv #(act/has-shape? :fact-id %)

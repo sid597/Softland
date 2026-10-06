@@ -64,10 +64,9 @@ docstring of [act.clj](softland/store/act.clj).
    names, so the shape of a name stays declared. Derived from two of his
    rulings (the door makes the name; a series is named in full before its first
    act is sent), not his tick: names are given on request, ahead of sending.
-   Kept from today's code, not decided: the two class words, `:by-layer` and
-   `:by-entity`, which are the rig's; Sid's own words for the two kinds of
-   depot, on 3 October, are "streaming" and "microbatch". The class words
-   freeze into every name at the first kept record, so they wait for his word.
+   The two class words are `:streaming` and `:microbatch`. Sid decided: they
+   are his words for the two kinds of depot, and the class words freeze into
+   every name at the first kept record.
 6. **A fact is the named slots `{:e :k :v :replaces}`.** Sid decided:
    `:replaces` is optional, a fact id; `:v` is optional; a fact has no mark.
    Picked by a session for a blank box (6b), waiting for Sid's word: a fact has
