@@ -18,7 +18,8 @@ Start with the question you are carrying:
 | Question | Enter here |
 |---|---|
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
-| What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then the docstring of its check |
+| What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
+| How does the act lead to the door, and where do the two not meet yet? | [store/](softland/store/README.md) |
 | What does one call of the door take and give, and what does it not handle? | The namespace docstring of [door.clj](softland/store/door.clj), then that function's docstring |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
 

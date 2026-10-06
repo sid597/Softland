@@ -15,23 +15,74 @@ The act owns nothing.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [act.clj](act.clj) | The one form of an act: its parts, its names, the check of the form, the stand-in sealed form with which a maker examines an act, and the digest. Pure code. | One constant: the secret of the digest, which is a throwaway. No handle and no memory. |
+| [act.clj](act.clj) | The declared shape of an act, the rules that a shape cannot say, the check that reads both, the names, the stand-in sealed form with which a maker examines an act, and the digest. Pure code. | One constant: the secret of the digest, which is a throwaway. No handle and no memory. |
 | [door.clj](door.clj) | The one entry for acts into stream layers and microbatch layers: make an act, send it, find an answer by name. | A door is the map that `connect` gives: seven foreign handles on one module, and one atom of process memory. The memory holds leased locks not yet used, and the sealed form of each act with no answer yet. It is lost with the process. The namespace gives no way to close the handles. |
 
-## The two parts do not meet
+## The act
 
-The door does not use `act.clj`. It takes the act from the rig's envelope, because
-the gates that read what the door sends are the rig's. Only the
-[act's proof](../../../test-store/softland/store/act_proof.clj) requires `act.clj`.
+The form of an act is declared, not implied. [act.clj](act.clj) holds two
+declarations as plain data, and they are the place to start:
 
-The form in `act.clj` is not the form that the rig's gates read. The docstring of
-its check says where the two differ. So the door cannot change to `act.clj` by its
-require line alone, though the names that the door takes from the rig's envelope
-have the same spelling and call shape there.
+- the shape: the parts of an act, what each part holds, which parts must be
+  there, and the reason word when a part is wrong; and the same for a fact, a
+  name, a fact id and a permission id;
+- the rules: what must hold between two places of an act, which a shape cannot
+  say.
 
-`act.clj` requires nothing of the rig, of Rama or of the door. It holds no rule of
-a gate: not the standing of a permission, not a replaced fact against the record,
-and not which gate a name is for.
+The check holds no knowledge of the form. It reads the two declarations: first the
+shape, part by part in the order declared, then the rules in their order. So the
+order of the declarations is the order of the reasons.
+
+Code is in three places only, and each is small: the leaves, which are the few
+shapes that a declaration cannot say in data (an id, a value, bytes); the engine
+that reads a shape; and one function for each rule.
+
+The shape is compiled with the store. It is not a fact in the store, because each
+shape that a tool gives enters the store as a fact inside an act; the act's own
+shape must hold when each fact is wrong.
+
+## How the act leads to the door
+
+What follows is what the two parts are for. The second list says where the code
+is today.
+
+```mermaid
+flowchart LR
+    Maker["a maker: the parts of an act"] --> Named["the act gets its name"]
+    Named --> Examined["the act is examined: sealed view, shape, rules"]
+    Examined -->|"refused: a reason, nothing is sent"| Maker
+    Examined --> Sealed["each value is sealed"]
+    Sealed --> Depot["an acts depot keeps the act as sent"]
+    Depot --> Gate["a gate examines it again: the same shape, the same rules"]
+    Gate -->|"an answer, under the name"| Maker
+```
+
+Intended, step by step:
+
+1. A maker gives the door the parts of an act. The door adds no fact.
+2. The act gives the door a name for it, before any gate reads it.
+3. The door examines the act before anything is leased, sealed or appended. A
+   maker's act holds plain values, and the one form holds sealed ones, so the
+   door examines the sealed view of the act against the declared shape and the
+   rules. An act that fails goes nowhere.
+4. The door seals each value. What it appends has the one form.
+5. A gate reads what the depot kept, and examines it with the same declarations.
+   The door and the gate then cannot differ on what an act is.
+
+Today:
+
+- Steps 2, 3 and 5 do not use `act.clj`. The door and the gates take the act from
+  the rig's envelope, which is another definition of an act, with another form.
+  Only the [act's proof](../../../test-store/softland/store/act_proof.clj)
+  requires `act.clj`.
+- The reason is one thing: the store has no depots and no gates of its own. The
+  door can only be run against the rig's module, and that module reads the rig's
+  form.
+- Two checks of step 3 are the door's own and are not in the act: a setting key
+  about an entity that is not the act's layer, and a value with no session.
+
+So the two parts do not meet yet, and the repository holds two definitions of the
+one form. They become one when the gates that the door sends to read `act.clj`.
 
 ## The door
 

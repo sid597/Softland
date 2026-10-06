@@ -29,8 +29,10 @@
 
   State. The proof owns one atom: the lines that it showed, for the recap.
 
-  What it shows, in order: the parts; acts that pass, each in its one form;
-  one refused act for each fault, with its reason; the order of the checks;
+  What it shows, in order: the declared shape and the rules, and that the
+  check reads them; acts that pass, each in its one form; one refused act
+  for each fault, with its reason; the order of the checks, which is the
+  order of the declarations;
   that nothing throws; the limits at their edges; names; the stand-in sealed
   form; the digest, and what it does not see; ids and values."
   (:require [clojure.string :as str]
@@ -60,10 +62,10 @@
    :make-name act/make-name :name-for act/name-for :name-tag act/name-tag
    :act-tag act/act-tag :valid-name? act/valid-name?
    :crossing-name act/crossing-name :landing-name act/landing-name
-   :fact-id? act/fact-id? :permission-id? act/permission-id?
+   :fact-id? #(act/has-shape? :fact-id %) :permission-id? #(act/has-shape? :permission-id %)
+   :shapes act/shapes :rules act/rules
    :act-parts act/act-parts :fact-parts act/fact-parts :store-keys act/store-keys
-   :placed-keys act/placed-keys :marks act/marks :classes act/classes
-   :schemes act/schemes :reasons act/reasons
+   :placed-keys act/placed-keys :reasons act/reasons
    :limits [act/max-subjects act/max-depth act/max-carried-stamp act/max-permission-depth]})
 
 (defn- comparable
@@ -159,10 +161,59 @@
 
 ;; --------------------------------------------------------------- the parts
 
+(def ^:private pieces
+  "The pieces of each kind of fact, written out a second time."
+  [[:replaces :fact-id {:optional true}]
+   [:mark [:set-of [:enum :die-with-any :own-row]] {:optional true :default #{}}]
+   [:layer :id {:optional true :left-out true}]])
+
+(def ^:private declared
+  "The declared shape, written out here a second time, with each word and
+  each number as a literal. So a change of the form is made in two places on
+  purpose."
+  {:act [:parts
+         [:version [:enum 1] {:reason :unknown-version}]
+         [:name :name {:reason :bad-name}]
+         [:who :id]
+         [:layer :id]
+         [:class [:enum :by-layer :by-entity]]
+         [:permission :permission-id {:absent :no-permission}]
+         [:session :id {:optional true}]
+         [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
+         [:because-of :name {:optional true}]
+         [:claimed-when :int {:optional true}]
+         [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
+         [:facts [:seq-of :fact] {:empty :empty-act}]]
+   :fact [:by-kind :fact-kind {:store-key :store-key-fact :sealed :sealed-fact :retract :retract}]
+   :store-key-fact (into [:parts [:e :id] [:k :id]
+                          [:sealed :never {:reason :not-sealed}]
+                          [:lock-id :never {:reason :not-sealed}]
+                          [:v :value {:optional true}]]
+                         pieces)
+   :sealed-fact (into [:parts [:e :id] [:k :id]
+                       [:v :never {:reason :not-sealed}]
+                       [:sealed :bytes {:reason :not-sealed}]
+                       [:lock-id :fact-id {:reason :not-sealed}]]
+                      pieces)
+   :retract (into [:parts [:e :id] [:k :id]
+                   [:lock-id :never {:reason :not-sealed}]
+                   [:v :nil {:optional true :reason :not-sealed}]]
+                  pieces)
+   :name [:tuple :id [:or [:enum :by-layer :by-entity] :nil] [:enum :act :crossing :landing] :uuid]
+   :fact-id [:tuple :name [:int {:min 0}]]
+   :permission-id [:or [:tuple :id :id :id] [:tuple :id :id :id :permission-id]]
+   :carried-stamp [:int {:below 4611686018427387904}]})
+
 (def ^:private parts-cases
-  "The words that the form allows. Each set is written out here a second
-  time, so a change of the form is made in two places on purpose."
-  [["the twelve parts of an act" :act-parts
+  "The two declarations, and what they say as sets. Each is written out here
+  a second time, so a change of the form is made in two places on purpose."
+  [["the declared shape of an act and of each thing that an act holds" :shapes declared]
+   ["the rules, in their order, each with its reason" :rules
+    [[:who-is-not-the-store :reserved-who]
+     [:scheme-is-a-makers :reserved-scheme]
+     [:facts-are-in-the-acts-layer :fact-outside-the-acts-layer]
+     [:name-was-made-for-this-act :mis-tagged]]]
+   ["the twelve parts of an act" :act-parts
     #{:version :name :who :layer :class :permission :session :based-on
       :because-of :claimed-when :subjects :facts}]
    ["the eight parts of a fact" :fact-parts #{:e :k :v :sealed :lock-id :replaces :mark :layer}]
@@ -170,9 +221,6 @@
     #{:forget :lock-grain :class :promote-request :crossed :permission :revoke :kind :owner
       :person :forget-person :lease :session-closed :members :grammar}]
    ["the six placed keys" :placed-keys #{:class :lock-grain :forget :crossed :person :forget-person}]
-   ["the two marks" :marks #{:die-with-any :own-row}]
-   ["the two classes" :classes #{:by-layer :by-entity}]
-   ["the three scheme words" :schemes #{made :crossing :landing}]
    ["the eleven reason words" :reasons
     #{:malformed :unknown-part :unknown-version :bad-name :reserved-who :no-permission
       :reserved-scheme :empty-act :not-sealed :fact-outside-the-acts-layer :mis-tagged}]
@@ -368,13 +416,16 @@
 ;; ----------------------------------------------------------------- order
 
 (def ^:private order-rows
-  "Acts with two faults. The earlier check gives the reason."
+  "Acts with two faults. The order of the two declarations gives the reason:
+  first the shape, part by part and fact by fact; then the rules."
   [["another part, and version 2" (assoc good :signature "x" :version 2) :unknown-part]
    ["version 2, and a name that is not valid" (assoc good :version 2 :name "alice") :unknown-version]
    ["a name that is not valid, and :who the store" (assoc good :name "alice" :who :store) :bad-name]
-   [":who the store, and no permission" (-> good (assoc :who :store) (dissoc :permission)) :reserved-who]
+   ["no permission, and :who the store: the shape comes before the rules"
+    (-> good (assoc :who :store) (dissoc :permission)) :no-permission]
    ["no permission, and a session that is no id" (-> good (dissoc :permission) (assoc :session "s1")) :no-permission]
-   ["a scheme of the store, and no fact" (-> good (assoc-in [:name 2] :crossing) (assoc :facts [])) :reserved-scheme]
+   ["no fact, and a scheme of the store: the shape comes before the rules"
+    (-> good (assoc-in [:name 2] :crossing) (assoc :facts [])) :empty-act]
    ["no fact, and a name made for another layer" (assoc good :facts [] :layer :alice-hand) :empty-act]
    ["two facts with a fault: the first one's"
     (act-of (assoc (sealed-fact :note-1) :colour :red) {:e :note-2 :k :note :v "y"}) :unknown-part]
@@ -383,7 +434,14 @@
    ["in one fact: a plain value, and another layer"
     (act-of {:e :note-1 :k :note :v "x" :layer :alice-hand}) :not-sealed]
    ["a fact with a fault, and a name made for another class"
-    (assoc (act-of {:e :note-1 :k :note :v "x"}) :class :by-entity) :not-sealed]])
+    (assoc (act-of {:e :note-1 :k :note :v "x"}) :class :by-entity) :not-sealed]
+   ["two rules broken, :who the store and a scheme of the store: the first rule's"
+    (-> good (assoc :who :store) (assoc-in [:name 2] :crossing)) :reserved-who]
+   ["two rules broken, a scheme of the store and a fact in another layer: the earlier rule's"
+    (-> (act-of (assoc (sealed-fact :note-1) :layer :alice-hand)) (assoc-in [:name 2] :landing)) :reserved-scheme]
+   ["two rules broken, a fact in another layer and a name made for another class: the earlier rule's"
+    (assoc (act-of (assoc (sealed-fact :note-1) :layer :alice-hand)) :class :by-entity)
+    :fact-outside-the-acts-layer]])
 
 (def ^:private order-cases "The order rows as cases." (verdicts order-rows))
 
@@ -398,7 +456,7 @@
    ["a list" '(1 2) :malformed]
    ["a record" (->Thing :note-1 :note) :malformed]
    ["a map whose keys are strings" {"version" 1} :unknown-part]
-   ["a sorted map whose keys are strings" (sorted-map "version" 1) :malformed]])
+   ["a sorted map whose keys are strings" (sorted-map "version" 1) :unknown-part]])
 
 (def ^:private total-cases
   "Nothing throws: the check, the sealed view and the test of a name are each
@@ -682,10 +740,33 @@
 
 (deftest the-parts
   (holds parts-cases)
-  (shown "the parts:" (count act/act-parts) "on an act," (count act/fact-parts) "on a fact |"
-         (count act/store-keys) "store keys," (count act/placed-keys) "placed keys |"
-         (count act/reasons) "reason words | the scheme of a made name:" made
-         "| limits:" (pr-str (:limits here))))
+  (shown "the declared shape of an act, part by part, in the order of the checks:")
+  (doseq [[part shape opts] (rest (:act act/shapes))]
+    (shown "  " part (pr-str shape) (if opts (pr-str opts) "")))
+  (shown "the three kinds of fact, by the decider :fact-kind:" (pr-str (nth (:fact act/shapes) 2)))
+  (doseq [kind [:store-key-fact :sealed-fact :retract]]
+    (shown "  " kind (pr-str (vec (rest (get act/shapes kind))))))
+  (shown "a name:" (pr-str (:name act/shapes)) "| a fact id:" (pr-str (:fact-id act/shapes))
+         "| a permission id:" (pr-str (:permission-id act/shapes)))
+  (shown "the rules, in their order:" (pr-str act/rules))
+  (shown "read from the declarations:" (count act/act-parts) "parts on an act," (count act/fact-parts)
+         "on a fact," (count act/reasons) "reason words | beside them:" (count act/store-keys) "store keys,"
+         (count act/placed-keys) "placed keys | limits:" (pr-str (:limits here))))
+
+(deftest the-declaration-drives-the-check
+  ;; These checks read the declaration and then ask the check, so they hold
+  ;; for each part that the declaration names, a part that is added later too.
+  (doseq [[part _ opts] (rest (:act act/shapes))]
+    (let [reason (:reason opts :malformed)
+          without (verdict (act/parse (dissoc told part)))
+          with-no-shape (verdict (act/parse (assoc told part (Object.))))]
+      (is (= (if (:optional opts) :ok (:absent opts reason)) without)
+          (str "an act without " part ": taken when the part is optional, else the declared reason"))
+      (is (= reason with-no-shape)
+          (str "an act with a thing of no shape in " part ": the declared reason"))))
+  (is (= :ok (verdict (act/parse told))) "the act that these are made from is taken")
+  (shown "the check reads the declaration: for each of the" (count act/act-parts)
+         "parts, an act without the part and an act with a thing of no shape in it get the reason that the declaration gives"))
 
 (deftest acts-that-pass
   (let [n (holds passing-cases)
@@ -714,7 +795,7 @@
 
 (deftest the-order-of-the-checks
   (let [n (holds order-cases)]
-    (shown "the earlier check gives the reason," n "acts with two faults:" (words order-rows))))
+    (shown "the order of the declarations gives the reason," n "acts with two faults:" (words order-rows))))
 
 (deftest nothing-throws
   (holds total-cases)
@@ -769,6 +850,7 @@
   "Runs the checks in the order in which the proof tells them."
   []
   (the-parts)
+  (the-declaration-drives-the-check)
   (acts-that-pass)
   (refusals-by-reason)
   (the-order-of-the-checks)
@@ -841,8 +923,9 @@
   Two words are put back for the rig, on the way in and on the way out: the
   part :based-on is the rig's :stood-on, and the scheme word of a made name
   is the rig's own. The rig's parse takes a gate; a case goes to the gate
-  that the class of its name is for. The rig has no definition of its reason
-  words and no named depth of a permission, so those two give nil."
+  that the class of its name is for. The rig has no declared shape, no
+  declared rules, no definition of its reason words and no named depth of a
+  permission, so those give nil."
   []
   (require 'rig.store.envelope)
   (let [r (fn [sym] @(ns-resolve 'rig.store.envelope sym))
@@ -879,9 +962,8 @@
      :fact-parts (r 'fact-parts)
      :store-keys (r 'control-keys)
      :placed-keys (r 'placed-keys)
-     :marks (r 'marks)
-     :classes (r 'classes)
-     :schemes (set (replace {rig-word made} (r 'schemes)))
+     :shapes nil
+     :rules nil
      :reasons nil
      :limits [(r 'max-subjects) (r 'max-depth) (r 'max-carried-stamp) nil]}))
 

@@ -4,7 +4,7 @@
 
 | File | What it checks | State that it owns or changes |
 |---|---|---|
-| [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its form, its names, the check, the stand-in sealed form and the digest. It needs no cluster. | One atom: the lines that it showed. |
+| [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, the check that reads them, its names, the stand-in sealed form and the digest. It needs no cluster. | One atom: the lines that it showed. |
 | [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj), against the rig's gates on one fresh in-process cluster. | One cluster for one run. It also changes state outside the door; the list below says how. |
 
 ## The act's proof
@@ -14,7 +14,10 @@ that function must give. The proof gives each case the act's own functions.
 
 What it checks, group by group:
 
-1. The parts: each set of words that the form allows, written out a second time.
+1. The two declarations, the shape and the rules, each written out a second time;
+   and that the check reads them: for each part that the shape of an act names, an
+   act without the part, and an act with a thing of no shape in it, get the reason
+   that the declaration gives.
 2. Acts that pass, each in its one form: one sealed value by a person into her own
    layer; the same act as said, through its sealed view; an act of store-key facts
    only; a retract; several facts with a mark on one; an act that the store places
@@ -23,8 +26,9 @@ What it checks, group by group:
    longs and parses again to itself; and the least act.
 3. One refused act for each fault, with its reason. Each differs from an act that
    passes in one thing only. Each reason word comes from an act that earns it.
-4. The order of the checks: acts with two faults get the reason of the earlier
-   check.
+4. The order of the checks, which is the order of the declarations: an act with
+   two faults gets the reason of the shape before the reason of a rule, and of the
+   earlier part or rule before the later one.
 5. Nothing throws: the check, the sealed view and the test of a name are each given
    things that are not acts, and each gives back data.
 6. The limits at their edges: the subjects, the collections around a store key's
