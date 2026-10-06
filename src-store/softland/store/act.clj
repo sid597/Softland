@@ -33,8 +33,7 @@
   from the JVM's secure source. Each other function is pure. Nothing here
   reads a clock, appends, reads a record, or opens a sealed value.
 
-  Callers. Only the proof of this namespace requires it. The door does not
-  use it yet; the map of this folder says why.
+  Callers. Only the proof of this namespace requires it.
 
   Approach. The file has these sections, in this order: the words and the
   limits; the declared shape and the rules; the leaves, which are the few

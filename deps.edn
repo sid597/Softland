@@ -28,9 +28,10 @@
                                     thheller/shadow-cljs {:mvn/version "2.28.23"}}}
             ; The store: its own classpath. :replace-paths keeps the root src and
             ; resources off it, so a require of app code from the store fails at load.
-            ; The gates are still the rig's, so the rig's source is on it.
-            ;   clojure -M:store -m softland.store.door-proof
-            :store {:replace-paths ["src-store" "test-store" "src/proposal/rig-2026-09-25/src"]
+            ; :replace-deps keeps the root's dependencies off it: Clojure alone.
+            ;   clojure -M:store -m softland.store.act-proof
+            :store {:replace-paths ["src-store" "test-store"]
+                    :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}}
                     :jvm-opts ["-Xss16m" "-Xmx4g"]}
             :dev   {:extra-paths ["src-dev" "test"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"

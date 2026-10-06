@@ -8,21 +8,10 @@
   prints those lines again together at the end, and exits with a status that
   is not zero when a check fails.
 
-  A second command runs the same cases through the rig's envelope, and prints
-  each case where the two give different things:
-
-    clojure -M:store -m softland.store.act-proof beside-the-rig
-
-  That run asserts nothing and exits with status 0: a difference is a
-  finding, not a failure. It loads `rig.store.envelope` when it runs; the
-  proof itself requires nothing of the rig.
-
   Approach. Each check is a case: what it is about, a function of an
   implementation, and what that function must give. An implementation is a
   map from a role, such as :parse, to a function or a definition. The proof
-  gives each case the act's own functions (`here`). The comparison gives the
-  same cases the rig's functions under the same roles (`rig-roles`). So the
-  two runs use the same cases, and nobody keeps a second list by hand.
+  gives each case the act's own functions (`here`).
 
   The proof seals nothing and opens nothing. Where an act needs sealed bytes,
   any bytes do, because the act's code never reads them.
@@ -862,167 +851,14 @@
   (what-the-digest-does-not-see)
   (ids-and-values))
 
-;; ------------------------------------------------------ beside the rig
-
-(def ^:private groups
-  "Each group of cases with its title, for the comparison."
-  [["the parts" (mapv (fn [[what role expected]] [what (fn [impl] (get impl role)) expected]) parts-cases)]
-   ["acts that pass" passing-cases]
-   ["refusals" refusal-cases]
-   ["the order" order-cases]
-   ["nothing throws" total-cases]
-   ["the limits" limit-cases]
-   ["names" name-cases]
-   ["the sealed view" view-cases]
-   ["the digest" digest-cases]
-   ["what the digest does not see" unseen-cases]
-   ["ids and values" value-cases]])
-
-(defn- name-with
-  "Takes a thing. If it is a vector of four whose scheme word is `from`,
-  gives it with the scheme word `to`; else gives it as it is."
-  [x from to]
-  (if (and (vector? x) (= 4 (count x)) (= from (nth x 2))) (assoc x 2 to) x))
-
-(defn- fact-id-with
-  "Takes a thing. If it is a vector of two, gives it with the scheme word of
-  its name changed as `name-with` does; else gives it as it is."
-  [x from to]
-  (if (and (vector? x) (= 2 (count x))) (update x 0 name-with from to) x))
-
-(defn- act-with
-  "Takes an act, or a thing that is no act. Gives it in other words: the
-  scheme word `from` as `to` in each place where the form holds a name, and
-  the part `from-part` as `to-part`. It reads only those places, so a thing
-  that is no act, a sorted map, and facts that throw when they are read all
-  come through as they are."
-  [x from to from-part to-part]
-  (let [fact (fn [f]
-               (if (and (map? f) (not (record? f)))
-                 (cond-> f
-                   (contains? f :replaces) (update :replaces fact-id-with from to)
-                   (contains? f :lock-id) (update :lock-id fact-id-with from to))
-                 f))]
-    (if (and (map? x) (not (record? x)) (not (sorted? x)))
-      (cond-> x
-        (contains? x :name) (update :name name-with from to)
-        (contains? x :because-of) (update :because-of name-with from to)
-        (contains? x from-part)
-        (-> (assoc to-part (let [b (get x from-part)]
-                             (if (and (map? b) (not (record? b)))
-                               (into {} (map (fn [[k v]] [(fact-id-with k from to) v])) b)
-                               b)))
-            (dissoc from-part))
-        (or (vector? (:facts x)) (list? (:facts x))) (update :facts #(mapv fact %)))
-      x)))
-
-(defn- rig-roles
-  "Loads the rig's envelope and gives its functions and definitions under the
-  roles of the proof, as `here` gives the act's.
-
-  Two words are put back for the rig, on the way in and on the way out: the
-  part :based-on is the rig's :stood-on, and the scheme word of a made name
-  is the rig's own. The rig's parse takes a gate; a case goes to the gate
-  that the class of its name is for. The rig has no declared shape, no
-  declared rules, no definition of its reason words and no named depth of a
-  permission, so those give nil."
-  []
-  (require 'rig.store.envelope)
-  (let [r (fn [sym] @(ns-resolve 'rig.store.envelope sym))
-        rig-word (first (remove (r 'store-schemes) (r 'schemes)))
-        there #(act-with % made rig-word :based-on :stood-on)
-        back #(act-with % rig-word made :stood-on :based-on)
-        name-there #(name-with % made rig-word)
-        name-back #(name-with % rig-word made)]
-    {:rig-word rig-word
-     :there there
-     :parse (fn [x]
-              (let [nm (when (and (map? x) (not (sorted? x))) (:name x))
-                    gate (if (and (vector? nm) (= :by-entity (nth nm 1 nil))) :micro :stream)
-                    got ((r 'parse) (there x) gate)]
-                (cond-> got (contains? got :ok) (update :ok back))))
-     :digest (fn [a] ((r 'digest) (there a)))
-     :sealed-view (fn [x] (back ((r 'sealed-view) (there x))))
-     :value-fact? (r 'value-fact?)
-     :readable-keyword? (r 'readable-keyword?)
-     :value? (r 'edn-value?)
-     :normal-value (r 'normalize-value)
-     :canonical-text (r 'canonical)
-     :make-name (fn ([layer class] (name-back ((r 'make-name) layer class)))
-                  ([layer class scheme id] ((r 'make-name) layer class scheme id)))
-     :name-for (fn [a] (name-back ((r 'name-for) a)))
-     :name-tag (r 'name-tag)
-     :act-tag (r 'tag-of)
-     :valid-name? (fn [x] ((r 'valid-name?) (name-there x)))
-     :crossing-name (fn [nm] ((r 'crossing-name) (name-there nm)))
-     :landing-name (fn [nm & more] (apply (r 'landing-name) (name-there nm) more))
-     :fact-id? (fn [x] ((r 'fid?) (fact-id-with x made rig-word)))
-     :permission-id? (r 'pid?)
-     :act-parts (set (replace {:stood-on :based-on} (r 'act-parts)))
-     :fact-parts (r 'fact-parts)
-     :store-keys (r 'control-keys)
-     :placed-keys (r 'placed-keys)
-     :shapes nil
-     :rules nil
-     :reasons nil
-     :limits [(r 'max-subjects) (r 'max-depth) (r 'max-carried-stamp) nil]}))
-
-(defn- brief
-  "A result as text for one line, cut at 260 characters."
-  [x]
-  (let [s (pr-str x)]
-    (if (< 260 (count s)) (str (subs s 0 260) " ...") s)))
-
-(defn- beside-the-rig
-  "Runs each case of the proof with the rig's envelope in place of the act,
-  and prints each case where the two give different things. It asserts
-  nothing. Effect: it loads `rig.store.envelope`, prints, and for one line
-  puts the rig's secret in the place of this file's for the length of one
-  call.
-
-  The last lines are about the digest of one act. The two files give
-  different text, because the secret, one part's key and the scheme word
-  differ. To show that nothing else differs, the act's own function digests
-  the act in the rig's words under the rig's secret, and the line says if
-  that is the rig's digest."
-  []
-  (let [rig (rig-roles)
-        rows (vec (for [[title cases] groups
-                        [what :as c] cases]
-                    (let [ours (outcome here c) theirs (outcome rig c)]
-                      {:group title :what what :ours ours :theirs theirs :same? (= ours theirs)})))
-        differ (remove :same? rows)]
-    (println "BESIDE THE RIG'S ENVELOPE: the same cases, through rig.store.envelope")
-    (println "PUT BACK for the rig, in and out: the part :based-on as its :stood-on | the scheme word"
-             made "as its" (:rig-word rig))
-    (println "GATE: the rig's parse takes a gate. Each case goes to the gate that the class of its name is for.")
-    (doseq [{:keys [group what ours theirs]} differ]
-      (println "DIFFERS" (str group ":") what "| here:" (brief ours) "| the rig:" (brief theirs)))
-    (println "CASES" (count rows) "| the same:" (- (count rows) (count differ)) "| differ:" (count differ))
-    (let [ok-here (:ok (act/parse told))
-          ok-there ((:there rig) ok-here)
-          rig-digest @(ns-resolve 'rig.store.envelope 'digest)
-          rig-secret @(ns-resolve 'rig.store.envelope 'fingerprint-secret)
-          d-here (act/digest ok-here)
-          d-rig (rig-digest ok-there)
-          d-here-as-rig (with-redefs-fn {#'act/digest-secret rig-secret} #(act/digest ok-there))]
-      (println "DIGEST of one act | here:" d-here "| the rig:" d-rig "| equal:" (= d-here d-rig))
-      (println "DIGEST by this file's function, of the act in the rig's words, under the rig's secret:"
-               d-here-as-rig "| equal to the rig's:" (= d-here-as-rig d-rig)))))
-
 (defn -main
-  "Runs the proof and exits: status 0 when each check holds. With the one
-  argument beside-the-rig it runs the comparison in place of the proof, and
-  exits with status 0."
-  [& args]
-  (if (= "beside-the-rig" (first args))
-    (do (beside-the-rig)
-        (shutdown-agents)
-        (System/exit 0))
-    (let [{:keys [fail error] :as result} (run-tests 'softland.store.act-proof)]
-      (println)
-      (println "THE PROOF, IN ONE PLACE")
-      (run! println @shown-lines)
-      (println (select-keys result [:test :pass :fail :error]))
-      (shutdown-agents)
-      (System/exit (if (zero? (+ fail error)) 0 1)))))
+  "Runs the proof and exits: status 0 when each check holds. It takes no
+  argument."
+  [& _]
+  (let [{:keys [fail error] :as result} (run-tests 'softland.store.act-proof)]
+    (println)
+    (println "THE PROOF, IN ONE PLACE")
+    (run! println @shown-lines)
+    (println (select-keys result [:test :pass :fail :error]))
+    (shutdown-agents)
+    (System/exit (if (zero? (+ fail error)) 0 1))))

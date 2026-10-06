@@ -2,5 +2,5 @@
 
 [Parent: store verification](../README.md).
 
-This namespace root contains [store/](store/README.md), the checks of the act and
-of the door. It owns no state.
+This namespace root contains [store/](store/README.md), the check of the act. It
+owns no state.
