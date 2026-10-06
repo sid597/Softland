@@ -28,6 +28,9 @@ protected.
 
 
 ## Hard rules
+- **The rig, the server and Inland are examples, never a source** — no form, name,
+  call shape or default from their code; an undecided question goes to Sid
+  ([details](feedback-rig-server-inland-are-examples.md); Sid, 27 Sept–6 Oct 2026).
 - **NEVER read `src/app/server/env.clj`** — API keys; reference as symbols only.
 - Commits: **never Co-Authored-By, in any form, and never a Claude-Session
   link or any other Claude attribution line** — the tool's default template

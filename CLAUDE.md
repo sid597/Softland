@@ -55,6 +55,14 @@ and usefulness to its inhabitant distinguishable.
   The former `meta/` workflow is archived as an experiment, not a standing
   procedure or a required read before making a prompt. Reuse observations when
   they help the question without making the entire method compulsory.
+- The rig (`src/proposal/rig-2026-09-25/`), the server (`src/app/server/`) and
+  Inland (`src-inland/`) are examples. Sid: "the instance and server code are
+  just like examples. They should not be the one driving the implementation";
+  the rig "was about testing out the protocol before we build anything on it."
+  A finding of theirs (what Rama forced: refusals as data, the seal before the
+  depot, the stamp) is evidence, cited as a finding. No form, no name, no call
+  shape and no default comes from their code. When a question is undecided, it
+  stays open and goes to Sid; existing code never answers it by default.
 - Before gathering, reviewing, explaining, or changing client or server code,
   read that source root's guidance and map: `src/app/client/CLAUDE.md` and
   `src/app/client/README.md`, or `src/app/server/CLAUDE.md` and
