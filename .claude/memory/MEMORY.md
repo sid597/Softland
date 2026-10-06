@@ -111,6 +111,9 @@ thinking has to start mid-read, runs on one effort and that is fine.
   Claude Code and Codex. Search dimensions and reading depth are the session's
   judgment; the tools expose evidence and coverage. Also links the source-backed
   persona and `/ask-as-sid` for a perspective on how Sid might respond.
+- [Softland memory](reference-softland-memory.md) — the record of Sid's lines and session
+  texts since March: start page by hook, six tools through memtool. His exact words, their
+  order, who wrote what. Recall for meaning and for older history.
 - [Requirements noticing is not Sid's job](project-requirements-noticing-not-sids-job.md) — misses are facts inside the medium, a scribe chair extracts them outside it, the main chair adjudicates at settlement (settled 2026-09-13).
 - [Inland integration fact base](project-inland-integration-2026-09-14.md) — 14 Sept 2026 snapshot: checked facts with file:line, product side, carried questions; next ask was the minimal additions to the current architecture.
 - [Proposals go under src/proposal](feedback-proposals-under-src-proposal.md) — live handoffs and starters in src/proposal/<work>*; history/ only when Sid names it (retiring superseded material, 2026-09-21); big fetched captures go to the depot /mnt/data/projects/research/, never into git.
