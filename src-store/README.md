@@ -35,8 +35,8 @@ verification tree.
 
 Sid made these decisions on 6 October 2026, on a printed sheet. Where an entry
 says "Sid decided", the answer is his tick. Three boxes were blank (6b, 6c and
-11 C/D). A session picked an answer for two of them, and those entries say so
-and wait for his word; the third, 6c, is open only if he strikes the pick for 6b.
+11 C/D). For 6b and 11C a session proposed an answer and Sid agreed in chat the
+same day; those entries say so. 6c is open only if he strikes 6b.
 Some values are kept from today's code and were not decided; those entries say
 so too. In Sid's words, these are high level, and he needs them here at least
 until everything is built out. The words that they use are in the namespace
@@ -69,10 +69,10 @@ docstring of [act.clj](softland/store/act.clj).
    every name at the first kept record.
 6. **A fact is the named slots `{:e :k :v :replaces}`.** Sid decided:
    `:replaces` is optional, a fact id; `:v` is optional; a fact has no mark.
-   Picked by a session for a blank box (6b), waiting for Sid's word: a fact has
-   no layer of its own. Also blank (6c): where a fact that names another layer
-   is refused, on the face of the act or in the gate's decision; moot while the
-   6b pick stands, open if he strikes it. Kept from today's code, not decided:
+   Proposed by a session for a blank box (6b) and agreed by Sid in chat on
+   6 October: a fact has no layer of its own. Also blank (6c): where a fact that
+   names another layer is refused, on the face of the act or in the gate's
+   decision; moot while 6b stands. Kept from today's code, not decided:
    a fact with no value is a retract.
 7. **The rig is an example.** Sid decided. Its findings are evidence. No line of
    the form, no name and no call shape comes from its code.
@@ -88,8 +88,9 @@ docstring of [act.clj](softland/store/act.clj).
 10. **The microbatch hash entity is no part.** Sid decided. The depot derives
     it.
 11. **`:based-on` is a map from a fact id to a carried stamp.** Sid decided.
-    Picked by a session for a blank box (11C), waiting for Sid's word: an
-    outside thing is recorded as a fact first, so its basis is that fact. Kept
+    Proposed by a session for a blank box (11C) and agreed by Sid in chat on
+    6 October: an outside thing is recorded as a fact first, so its basis is
+    that fact. Kept
     from today's code, not decided: the part is optional, and empty when absent.
 12. **A carried stamp is an integer.** Sid decided. Kept from today's code, not
     decided: a carried stamp is below 2^62, an act names 256 subjects at most,

@@ -440,8 +440,9 @@
 (defn parse
   "The check of the form. Takes anything. Gives {:ok act}, with the act in
   its one form, or {:refuse reason}, with one of the `reasons`. It never
-  throws, whatever x is: an exception in the code of a gate stops the
-  worker. So it turns each throw into :malformed.
+  throws, whatever x is, so that no caller has to guard it: a maker's tool,
+  the door, or a gate, where a throw would stop the worker (a finding of the
+  rig on Rama). So it turns each throw into :malformed.
 
   It reads the two declarations and holds no knowledge of the form itself.
   First the shape: the thing must have the declared shape :act (`shapes`).
