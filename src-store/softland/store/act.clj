@@ -1,17 +1,23 @@
 (ns softland.store.act
-  "The act: its declared shape, its names, and the check of the shape. Pure
+  "The act: its one form, declared as data, and the check of that form. Pure
   code. It needs no cluster, and it requires nothing outside Clojure and the
   JVM.
 
-  An act is one fact or more under one name. A gate accepts the whole act or
-  refuses the whole act. Whatever made an act, it has one form.
+  An act is one fact or more that one maker sends under one name; the door
+  makes the name, and it is not a part of the form. A gate accepts the whole
+  act or refuses the whole act. Whatever made an act, it has one form. The
+  form here is the maker's act: what a maker gives, with plain values, before
+  the door touches it. That is Sid's decision of 6 October 2026. The twelve
+  decisions are listed in src-store/README.md, which marks the two that wait
+  for his word.
 
   Read `shapes` and `rules` first. `shapes` declares the form as plain data:
   the parts of an act, what each part holds, which parts must be there, and
-  the reason word when a part is wrong. `rules` declares what must hold
-  between two places of an act, which a shape cannot say. Code checks the
-  form: `parse` reads the two declarations, takes anything, and gives the act
-  in its one form or the reason why it is not an act.
+  the reason word when a part is wrong; and the shape of a fact, a name, a
+  fact id, a permission id and a carried stamp. `rules` declares what must
+  hold between two places of an act, which a shape cannot say. `parse` reads
+  the two declarations, takes anything, and gives the act in its one form or
+  the reason why it is not an act.
 
   Why the shape is in code and not a fact in the store. Each shape that a
   tool gives enters the store as a fact, inside an act. So the shape of the
@@ -21,72 +27,46 @@
 
   Inputs and results, by call:
 
-    parse        anything -> {:ok act} or {:refuse reason}
-    has-shape?   the name of a declared shape, and anything -> true or false
-    make-name    a layer and a class -> a new name
-    name-for     an act as its maker has it -> a new name for it
-    sealed-view  an act with plain values -> the act as `parse` takes it after sealing
-    digest       the :ok of a parse -> hex text for what the act says, its values aside
+    parse         anything -> {:ok act} or {:refuse reason}
+    has-shape?    the name of a declared shape, and anything -> true or false
+    value?        anything -> true for a value that a fact can hold
+    normal-value  a value -> its one normal form
 
-  State and effects. The namespace owns one constant, the secret of the
-  digest. `make-name` with two arguments, and `name-for`, take a random id
-  from the JVM's secure source. Each other function is pure. Nothing here
-  reads a clock, appends, reads a record, or opens a sealed value.
+  State and effects. The namespace owns no state, and each function is pure.
+  Nothing here reads a clock, takes a random id, seals or opens a value,
+  appends, or reads a record.
 
   Callers. Only the proof of this namespace requires it.
 
   Approach. The file has these sections, in this order: the words and the
-  limits; the declared shape and the rules; the leaves, which are the few
-  shapes that code checks; the engine that reads a shape; the name; the
-  check; the stand-in sealed form, with which a maker examines an act before
-  its values are sealed; the digest.
+  limits; the declared shape and the rules; what the declaration says, as
+  sets; the leaves, which are the few shapes that code checks; the engine
+  that reads a shape; the check.
 
-  Not here: a stamp, an answer, locks and sealing, leases, a depot, a read,
-  the class or the settings of a layer, each rule about a session, and each
-  thing that a gate decides: the standing of a permission, a replaced fact
-  against the record, and which gate a name is for.
+  Not here. Names: the door makes them, on request ahead of sending. The
+  class: the door adds it, from the layer. The seal: the door's, and a gate
+  refuses a value that is not sealed. The standing of a permission, and
+  whether an act claims to be the store: a gate decides. Which gate an act
+  is for: the gate's. A replaced fact against the record, the rules of a
+  session and the digest of an act: the gates'. The microbatch hash entity:
+  the depot derives it. Neither the door nor a gate is built. A stamp, an
+  answer, locks, leases, a read and the settings of a layer are not here
+  either.
 
-  Words. \"Key\" is the key of a fact. \"Lock\" is an encryption key. A
-  \"store key\" is a key that the store itself acts on."
-  (:require [clojure.string :as str])
+  Words. A fact is one statement: entity, key, value. An act is one or more
+  facts that one maker sends under one name. A maker is a converter, the
+  screen, an agent. The door is the code that takes an act from a maker into
+  the store. A gate decides each act inside the store. \"Key\" is a fact's
+  key, and \"lock\" is an encryption key: never one word for both."
   (:import [clojure.lang BigInt]
-           [java.math BigDecimal BigInteger]
-           [java.util HexFormat]
-           [javax.crypto Mac]
-           [javax.crypto.spec SecretKeySpec]))
+           [java.math BigDecimal BigInteger]))
 
 ;; ------------------------------------------------- the words and the limits
 
 (def version
-  "The version marker of the form. This code knows this one version only."
+  "The version marker of the form: the edition of the list of parts. This code
+  knows this one version only."
   1)
-
-(def made-scheme
-  "The scheme word in a name that a maker makes. This constant is the one
-  place that holds the word."
-  :act)
-
-(def store-schemes
-  "The scheme words that only the store uses, for the two acts of a
-  promotion."
-  #{:crossing :landing})
-
-(def reserved-who
-  "Who no act that comes from outside the store can claim to be."
-  #{:store})
-
-(def store-keys
-  "The fifteen keys that the store itself acts on. A fact under one of them
-  carries a plain value and no lock. A fact with a value under each other key
-  is a value fact, and its value is sealed."
-  #{:forget :lock-grain :class :promote-request :crossed :permission :revoke
-    :kind :owner :person :forget-person :lease :session-closed :members
-    :grammar})
-
-(def placed-keys
-  "The keys of the acts that the store places itself. A name for an act that
-  has only such keys carries no class."
-  #{:class :lock-grain :forget :crossed :person :forget-person})
 
 (def max-subjects
   "How many subjects an act can name."
@@ -109,32 +89,22 @@
 
 ;; ------------------------------------------------------- the declared shape
 
-(def ^:private fact-pieces
-  "The pieces that each kind of fact can carry beside its entity, its key and
-  its value slot. A fact's own layer is left out of the one form when the
-  fact gave none."
-  [[:replaces :fact-id {:optional true}]
-   [:mark [:set-of [:enum :die-with-any :own-row]] {:optional true :default #{}}]
-   [:layer :id {:optional true :left-out true}]])
-
 (def shapes
   "The declared shape of an act, and of each thing that an act holds. Plain
   data, with no code in it. Each entry is a name and a shape. A shape is one
   of these:
 
-    :id :uuid :int :bytes :value :nil   a leaf, which code checks (`leaves`)
-    another name of this map            that shape
-    [:enum v ...]                       one of these values
-    [:int {:min a :below b}]            a fixed-width integer in that range
-    [:tuple s ...]                      a vector of exactly these, in order
-    [:set-of s {:max n}]                a set of s, of n at most
-    [:map-of ks vs]                     a plain map from ks to vs
-    [:seq-of s]                         a vector or a list of s
-    [:or s ...]                         the first of these that fits
-    [:parts [part s opts] ...]          a plain map with these parts and no
-                                        other, examined in this order
-    [:by-kind decider {kind s}]         the shape for the kind that the
-                                        decider names (`deciders`)
+    :id :key :uuid :int :value   a leaf, which code checks (`leaves`)
+    another name of this map     that shape
+    [:enum v ...]                one of these values
+    [:int {:min a :below b}]     a fixed-width integer in that range
+    [:tuple s ...]               a vector of exactly these, in order
+    [:set-of s {:max n}]         a set of s, of n at most
+    [:map-of ks vs]              a plain map from ks to vs
+    [:seq-of s]                  a vector or a list of s
+    [:or s ...]                  the first of these that fits
+    [:parts [part s opts] ...]   a plain map with these parts and no other,
+                                 examined in this order
 
   The options of a part:
 
@@ -146,77 +116,43 @@
     :absent word     the refusal when a part that must be there is absent
     :empty word      the refusal when the part holds nothing
 
-  In place of a shape, :never says that this kind of thing does not carry the
-  part at all, not even as nil.
+  In place of a shape, :never says that the thing does not carry the part at
+  all, not even as nil. The engine keeps :never and :left-out as part of the
+  language; no shape of this declaration uses them.
 
   The order of the parts is the order of the checks. So when a thing has two
   faults, the part that is declared first gives the reason."
   {:act
    [:parts
     [:version      [:enum version]                    {:reason :unknown-version}]
-    [:name         :name                              {:reason :bad-name}]
     [:who          :id]
     [:layer        :id]
-    [:class        [:enum :by-layer :by-entity]]
     [:permission   :permission-id                     {:absent :no-permission}]
-    [:session      :id                                {:optional true}]
+    [:session      :id                                {:absent :no-session}]
     [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
     [:because-of   :name                              {:optional true}]
     [:claimed-when :int                               {:optional true}]
     [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
 
-   ;; A fact has an entity, a key, a value slot and a few pieces. The slot has
-   ;; three forms. The key of the fact, and sealed bytes, tell which.
+   ;; A fact: what it is about, what it says, and what it replaces.
+   ;; A fact with no value is a retract.
    :fact
-   [:by-kind :fact-kind {:store-key :store-key-fact
-                         :sealed    :sealed-fact
-                         :retract   :retract}]
+   [:parts
+    [:e        :id]
+    [:k        :key]
+    [:v        :value   {:optional true}]
+    [:replaces :fact-id {:optional true}]]
 
-   ;; Under a store key: a plain value, nil too, and no seal.
-   :store-key-fact
-   (into [:parts
-          [:e :id]
-          [:k :id]
-          [:sealed  :never {:reason :not-sealed}]
-          [:lock-id :never {:reason :not-sealed}]
-          [:v :value {:optional true}]]
-         fact-pieces)
-
-   ;; Under another key, with a value: sealed bytes and the id of their lock,
-   ;; and no plain value at all.
-   :sealed-fact
-   (into [:parts
-          [:e :id]
-          [:k :id]
-          [:v       :never   {:reason :not-sealed}]
-          [:sealed  :bytes   {:reason :not-sealed}]
-          [:lock-id :fact-id {:reason :not-sealed}]]
-         fact-pieces)
-
-   ;; Under another key, with no value: a retract. A plain value here is a
-   ;; value that nobody sealed.
-   :retract
-   (into [:parts
-          [:e :id]
-          [:k :id]
-          [:lock-id :never {:reason :not-sealed}]
-          [:v :nil {:optional true :reason :not-sealed}]]
-         fact-pieces)
-
-   ;; [layer class scheme id]. The class is nil when the store places the act
-   ;; itself. A maker makes the id at random.
+   ;; [layer class id]. The door makes it; an act refers to names.
    :name
-   [:tuple :id
-           [:or [:enum :by-layer :by-entity] :nil]
-           [:enum made-scheme :crossing :landing]
-           :uuid]
+   [:tuple :id [:enum :by-layer :by-entity] :uuid]
 
-   ;; [name index]: one fact of one act. A lock id has the same shape.
+   ;; [name index]: one fact of one act.
    :fact-id
    [:tuple :name [:int {:min 0}]]
 
-   ;; [who layer in], or [who layer in parent].
+   ;; [who layer granted-in], or [who layer granted-in parent].
    :permission-id
    [:or [:tuple :id :id :id]
         [:tuple :id :id :id :permission-id]]
@@ -232,12 +168,13 @@
 (def rules
   "What an act that has the shape must also keep, with the reason for each, in
   the order in which they are examined. A shape says what each place holds. A
-  rule bars a word that only the store uses, or relates two places of the
-  act. `rule-checks` holds the code of each rule."
-  [[:who-is-not-the-store          :reserved-who]
-   [:scheme-is-a-makers            :reserved-scheme]
-   [:facts-are-in-the-acts-layer   :fact-outside-the-acts-layer]
-   [:name-was-made-for-this-act    :mis-tagged]])
+  rule relates two places of the act. `rule-checks` holds the code of each
+  rule.
+
+  The one rule: the layer of the act's permission is the act's own layer. A
+  permission cited for another layer cannot cover the act, whatever its
+  standing; whether it stands is a gate's question."
+  [[:permission-is-in-the-acts-layer :permission-not-in-layer]])
 
 ;; ------------------------------------------ what the declaration says, as sets
 
@@ -248,19 +185,18 @@
   (into #{} (map first) (rest (get shapes shape-name))))
 
 (def act-parts
-  "The twelve parts of an act, read from the declared shape. The store owns
-  them, and `parse` refuses a thirteenth. A tool adds facts, never a part."
+  "The parts of an act, read from the declared shape. `parse` refuses a part
+  that is not one of them. A tool adds facts, never a part."
   (parts-of :act))
 
 (def fact-parts
-  "The eight parts of a fact, read from the three kinds of the declared
-  shape."
-  (into #{} (mapcat parts-of) [:store-key-fact :sealed-fact :retract]))
+  "The parts of a fact, read from the declared shape."
+  (parts-of :fact))
 
 (def reasons
-  "The eleven words with which `parse` refuses, read from the two
-  declarations: each word that a part or a rule names, and the two words
-  that no part names, :malformed and :unknown-part."
+  "The words with which `parse` refuses, read from the two declarations: each
+  word that a part or a rule names, and the two words that no part names,
+  :malformed and :unknown-part."
   (into #{:malformed :unknown-part}
         (concat (map second rules)
                 (for [shape (vals shapes)
@@ -277,9 +213,9 @@
   #"[\p{L}*+!_?$%&=<>.\-][\p{L}\p{N}*+!_?$%&=<>.\-'#]*")
 
 (defn readable-keyword?
-  "Takes anything. Gives true for an id: a keyword whose printed form reads
-  back as the same keyword. The canonical text of a thing that holds only
-  such keywords has one reading."
+  "Takes anything. Gives true for a keyword whose printed form reads back as
+  the same keyword. A key is such a keyword, and so is one of the two kinds
+  of id."
   [x]
   (boolean (and (keyword? x)
                 (re-matches token-pattern (name x))
@@ -292,11 +228,11 @@
 
 (defn value?
   "Takes anything. Gives true for a value that the store can hold: nil, a
-  boolean, a string, an id, a UUID, an integer of any width, a finite double,
-  a big integer, a decimal, or a plain map, a vector or a set of values,
-  inside `max-depth` collections at most. A ratio, a Java float, a list and a
-  record are not values. The second argument is the number of collections
-  already around x; a caller gives none."
+  boolean, a string, a readable keyword, a UUID, an integer of any width, a
+  finite double, a big integer, a decimal, or a plain map, a vector or a set
+  of values, inside `max-depth` collections at most. A ratio, a Java float, a
+  list and a record are not values. The second argument is the number of
+  collections already around x; a caller gives none."
   ([x] (value? x 0))
   ([x depth]
    (cond
@@ -322,8 +258,8 @@
   = to the value given: an integer as a long, and big only past the long
   range; -0.0 as 0.0; a decimal with no trailing zeros; each vector a plain
   vector, never a subvector; plain maps and sets. So a value reads back as
-  its maker gave it, and its text does not depend on how the maker built it.
-  Limit: it does not examine x, and it goes as deep as x goes."
+  its maker gave it, however the maker built it. Limit: it does not examine
+  x, and it goes as deep as x goes."
   [x]
   (cond
     (int? x) (long x)
@@ -336,61 +272,22 @@
     (set? x) (into #{} (map normal-value) x)
     :else x))
 
-(defn- canonical*
-  "Takes a normal value. Gives its canonical text. `canonical-text` calls it
-  with the printer's settings fixed."
-  [x]
-  (cond
-    (nil? x) "nil"
-    (map? x) (str "{" (str/join ", " (sort (map (fn [[k v]] (str (canonical* k) " " (canonical* v))) x))) "}")
-    (set? x) (str "#{" (str/join " " (sort (map canonical* x))) "}")
-    (vector? x) (str "[" (str/join " " (map canonical* x)) "]")
-    :else (pr-str x)))
-
-(defn canonical-text
-  "Takes a normal value, or data made of normal values. Gives its canonical
-  text: EDN text in which the entries of a map and the elements of a set are
-  sorted by their own canonical text, at each depth. Two = values give one
-  text, and two different values never give one text."
-  [x]
-  (binding [*print-readably* true *print-length* nil *print-level* nil
-            *print-meta* false *print-dup* false]
-    (canonical* x)))
-
 (def ^:private leaves
   "The shapes that code checks, by name. Each takes a thing and gives [:ok,
   its normal form], or nil when the thing does not fit. These are the only
   places where the check of a shape is code and not data:
 
-    :id     a keyword that reads back as itself
+    :id     an id: a keyword that reads back as itself, or a UUID
+    :key    a key: a keyword that reads back as itself, and nothing else
     :uuid   a UUID of any version
     :int    a fixed-width integer; its normal form is a long
-    :bytes  a byte array, which nobody here reads
     :value  a value that the store can hold; its normal form is its one
-            normal form
-    :nil    nil"
-  {:id    (fn [x] (when (readable-keyword? x) [:ok x]))
+            normal form"
+  {:id    (fn [x] (when (or (readable-keyword? x) (uuid? x)) [:ok x]))
+   :key   (fn [x] (when (readable-keyword? x) [:ok x]))
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
    :int   (fn [x] (when (int? x) [:ok (long x)]))
-   :bytes (fn [x] (when (bytes? x) [:ok x]))
-   :value (fn [x] (when (value? x) [:ok (normal-value x)]))
-   :nil   (fn [x] (when (nil? x) [:ok nil]))})
-
-(defn- fact-kind
-  "Takes a fact as given. Gives the kind of its value slot: :store-key when
-  its key is a store key; :sealed when it carries sealed bytes; else
-  :retract. A thing that is no map counts as a :retract, and the shape of a
-  retract then refuses it."
-  [fact]
-  (cond
-    (not (map? fact)) :retract
-    (contains? store-keys (:k fact)) :store-key
-    (contains? fact :sealed) :sealed
-    :else :retract))
-
-(def ^:private deciders
-  "The functions that name the kind of a thing for a :by-kind shape."
-  {:fact-kind fact-kind})
+   :value (fn [x] (when (value? x) [:ok (normal-value x)]))})
 
 ;; ---------------------------------------------------------------- the engine
 
@@ -508,10 +405,6 @@
         :parts
         (conform-parts args x seen)
 
-        :by-kind
-        (let [[decider kinds] args]
-          (conform (get kinds ((get deciders decider) x)) x seen))
-
         [:no nil]))))
 
 (defn has-shape?
@@ -522,83 +415,14 @@
   (try (= :ok (first (conform shape-name x {})))
        (catch Throwable _ false)))
 
-;; ----------------------------------------------------------------- the name
-
-(defn make-name
-  "Gives a name: the vector [layer class scheme id]. With a layer and a class
-  it makes a new name, with the scheme `made-scheme` and a random UUID that
-  holds no time. With all four slots it gives them back as a name and
-  examines nothing; `valid-name?` examines. A maker makes the name of an act
-  before a gate reads the act, so a maker can name each act of a series
-  before the first one goes. Effect, with two arguments: it takes a random
-  id."
-  ([layer class] (make-name layer class made-scheme (random-uuid)))
-  ([layer class scheme id] [layer class scheme id]))
-
-(defn- placed-facts?
-  "Takes the facts of an act. Gives true when the store places the act
-  itself: there is a fact, and the key of each fact is a placed key. Facts
-  that are no sequence give false."
-  [facts]
-  (boolean (and (sequential? facts) (seq facts)
-                (every? #(contains? placed-keys (:k %)) facts))))
-
-(defn act-tag
-  "Takes an act. Gives its tag: its layer, and its class, or nil in place of
-  the class when the store places the act itself. A name made for the act
-  carries this tag."
-  [act]
-  [(:layer act) (when-not (placed-facts? (:facts act)) (:class act))])
-
-(defn name-for
-  "Takes an act as its maker has it; only its layer, class and facts are
-  read. Gives a new name for it, with the scheme `made-scheme`: its tag and a
-  random id. Effect: it takes a random id."
-  [act]
-  (let [[layer class] (act-tag act)]
-    (make-name layer class)))
-
-(defn name-tag
-  "Takes a valid name. Gives its tag: the layer and the class that the name
-  was made for. Limit: it throws for a thing that has fewer than two slots."
-  [nm]
-  [(nth nm 0) (nth nm 1)])
-
-(defn valid-name?
-  "Takes anything. Gives true for a name: a thing that has the declared shape
-  :name."
-  [x]
-  (has-shape? :name x))
-
-(defn crossing-name
-  "Takes the name of a promotion's request. Gives the name of its crossing:
-  the request's layer and id, no class, and the scheme :crossing."
-  [request-name]
-  [(nth request-name 0) nil :crossing (nth request-name 3)])
-
-(defn landing-name
-  "Takes the name of a promotion's request, the target layer, and the class
-  of the target; :by-entity when no class is given. Gives the name of the
-  landing: the target, that class, the scheme :landing and the request's id."
-  ([request-name target] (landing-name request-name target :by-entity))
-  ([request-name target class] [target class :landing (nth request-name 3)]))
-
 ;; ---------------------------------------------------------------- the check
 
 (def ^:private rule-checks
-  "The code of each rule of `rules`. Each takes an act in its one form and
-  gives true when the act keeps the rule."
-  {:who-is-not-the-store
-   (fn [act] (not (contains? reserved-who (:who act))))
-
-   :scheme-is-a-makers
-   (fn [act] (not (contains? store-schemes (nth (:name act) 2))))
-
-   :facts-are-in-the-acts-layer
-   (fn [act] (every? #(or (nil? (:layer %)) (= (:layer act) (:layer %))) (:facts act)))
-
-   :name-was-made-for-this-act
-   (fn [act] (= (act-tag act) (name-tag (:name act))))})
+  "The code of each rule of `rules`. Each takes an act in its one form, which
+  has the shape, and gives true when the act keeps the rule. A permission id
+  in its one form is a vector whose second slot is its layer."
+  {:permission-is-in-the-acts-layer
+   (fn [act] (= (:layer act) (nth (:permission act) 1)))})
 
 (defn- parse*
   "The body of `parse`, with no guard around it. Takes anything. Gives
@@ -615,8 +439,8 @@
 
 (defn parse
   "The check of the form. Takes anything. Gives {:ok act}, with the act in
-  its one form, or {:refuse reason}, with one of the eleven `reasons`. It
-  never throws, whatever x is: an exception in the code of a gate stops the
+  its one form, or {:refuse reason}, with one of the `reasons`. It never
+  throws, whatever x is: an exception in the code of a gate stops the
   worker. So it turns each throw into :malformed.
 
   It reads the two declarations and holds no knowledge of the form itself.
@@ -626,90 +450,23 @@
   the shape must keep each rule (`rules`), and the first rule that it breaks
   gives the reason.
 
-  The one form. All twelve parts are there. Each vector, map and set is
-  plain, and each fixed-width integer is a long. A part that the act left
-  out holds nil, or the default that the declaration gives: an empty map for
-  `:based-on`, an empty set for `:subjects` and for the mark of a fact. To
-  parse the :ok of a parse gives the same :ok.
+  The one form. Each part of the declaration is there. Each vector, map and
+  set is plain, and each fixed-width integer is a long. A part that the act
+  left out holds nil, or the default that the declaration gives: an empty
+  map for `:based-on`, an empty set for `:subjects`. Each fact holds its
+  four parts; a fact that gave no `:v`, or a nil one, holds `:v nil` and is
+  a retract. To parse the :ok of a parse gives the same :ok.
 
-  It is the check for an act that comes from outside the store. It does not
-  know which gate reads the act.
+  It is the check of the maker's act: what a maker gives, before the door
+  adds a name and a class and seals the values. An act that carries a name
+  or a class, and a fact that carries a seal, a lock id, a layer or a mark,
+  are refused :unknown-part: the form names no such part.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
-  rule about a session. It examines the shape of a permission and not its
-  standing. It does not examine the value of a store key beyond `value?`.
-  It refuses the store's own acts, a landing too: a gate that takes a
-  landing cannot use this check for it. Facts that are a sequence with no
-  end do not come back from it."
+  rule about a session beyond its shape. It examines the shape of a
+  permission and its layer, not its standing. It examines a value with
+  `value?` only. Facts that are a sequence with no end do not come back from
+  it."
   [x]
   (try (parse* x)
        (catch Throwable _ {:refuse :malformed})))
-
-;; ------------------------------------------------- the stand-in sealed form
-
-(defn value-fact?
-  "Takes anything. Gives true for a fact whose value a door must seal: a map,
-  under a key that is not a store key, with a plain value that is not nil. A
-  retract has no value, and a fact that is sealed has no plain value."
-  [fact]
-  (and (map? fact) (not (contains? store-keys (:k fact))) (some? (:v fact))))
-
-(defn sealed-view
-  "Takes an act as its maker has it, with plain values. Gives the act as
-  `parse` will take it after sealing: each value fact loses its `:v` and
-  gets stand-in sealed bytes, which are empty, and a stand-in lock id, [the
-  act's name 0]. Each other fact and each other part is as it was. So a maker
-  can examine an act before a lock is leased or a value is sealed. The digest
-  leaves the bytes and the lock id out, so this view has the digest of the
-  sealed act. A thing that is not a map with a sequence of facts comes back
-  as it is, and so does a thing that throws when it is read."
-  [act]
-  (try
-    (if (and (map? act) (sequential? (:facts act)))
-      (let [stand-in [(:name act) 0]]
-        (assoc act :facts (mapv (fn [fact]
-                                  (if (value-fact? fact)
-                                    (-> fact (dissoc :v) (assoc :sealed (byte-array 0) :lock-id stand-in))
-                                    fact))
-                                (:facts act))))
-      act)
-    (catch Throwable _ act)))
-
-;; --------------------------------------------------------------- the digest
-
-(def ^:private digest-secret
-  "The secret that keys the digest. A throwaway: a store that is kept keeps
-  its secret in the module, not in source."
-  (.getBytes "softland.store.act: the secret of the digest, a throwaway" "UTF-8"))
-
-(defn- keyed-hex
-  "Takes a text. Gives its HMAC-SHA256 under `digest-secret`, as lower-case
-  hex."
-  [^String text]
-  (let [mac (Mac/getInstance "HmacSHA256")]
-    (.init mac (SecretKeySpec. ^bytes digest-secret "HmacSHA256"))
-    (.formatHex (HexFormat/of) (.doFinal mac (.getBytes text "UTF-8")))))
-
-(defn- digest-fact
-  "Takes a fact in its one form. Gives it as the digest sees it: `true` in
-  place of sealed bytes, and no lock id. So one act that is sealed two times,
-  or under other locks, has one digest. A value fact, a retract and a store
-  key's fact under one entity and key still differ."
-  [fact]
-  (cond-> fact
-    (contains? fact :sealed) (-> (dissoc :lock-id) (assoc :sealed true))))
-
-(defn digest
-  "Takes the :ok of a parse. Gives the digest of what the act says, as
-  lower-case hex: the keyed HMAC-SHA256 of the canonical text of the act
-  with no name, with `true` in place of each fact's sealed bytes and with no
-  lock id. The digest is not a part of the act.
-
-  It covers the version, who, layer, class, permission, session, based-on,
-  because-of, claimed-when and subjects; and for each fact the entity, the
-  key, replaces, the mark, the layer when the fact gave one, and the plain
-  value of a store key. It does not see a sealed value: two acts that differ
-  only in a sealed value have one digest. Limit: it examines nothing, so give
-  it only what `parse` gave."
-  [act]
-  (keyed-hex (canonical-text (update (dissoc act :name) :facts #(mapv digest-fact %)))))
