@@ -74,18 +74,17 @@ that it checks, and what it does not reach.
 ## Words
 
 "Act" is the word of this tree, and it is Sid's. The rig's code says "offer" for
-the same thing. A name that this tree makes uses Sid's word. Where a word of the
-rig stays on the wire, the code says so at that place.
+the same thing. A name that this tree makes uses Sid's word.
 
-"Key" is the key of a fact. "Lock" is an encryption key.
+"Key" is the key of a fact. "Lock" is an encryption key. Never one word for both.
 
 ## The rig, Rama, and environment files
 
-This tree uses code of the rig (`src/proposal/rig-2026-09-25/`). The README of a
-folder names each namespace of the rig that the folder needs, and why. A function
-that follows a function of the rig names that function and says how it differs.
-Name the function and not its line: a line number is wrong after the next edit of
-the rig.
+The rig (`src/proposal/rig-2026-09-25/`) is an example build. This tree takes no
+form, no name and no call shape from its code. Where a finding of the rig on Rama
+forced a choice here, such as refusals as data, the seal before the depot, or the
+stamp, cite the finding, never the code. No namespace of this tree requires the
+rig.
 
 Load the repository's Rama skill before you read or explain Rama code. Never read
 `env.clj` or a `.env` file. Refer to an environment symbol by its name only.
