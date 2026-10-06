@@ -158,7 +158,7 @@
         [:tuple :id :id :id :permission-id]]
 
    :carried-stamp
-   [:int {:below max-carried-stamp}]})
+   [:int {:min 0 :below max-carried-stamp}]})
 
 (def ^:private nesting
   "How many times a named shape can be inside itself. A name that is not here

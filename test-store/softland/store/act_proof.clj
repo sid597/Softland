@@ -159,7 +159,7 @@
    :name [:tuple :id [:enum :by-layer :by-entity] :uuid]
    :fact-id [:tuple :name [:int {:min 0}]]
    :permission-id [:or [:tuple :id :id :id] [:tuple :id :id :id :permission-id]]
-   :carried-stamp [:int {:below 4611686018427387904}]})
+   :carried-stamp [:int {:min 0 :below 4611686018427387904}]})
 
 (def ^:private parts-cases
   "The two declarations, and what they say as sets. Each is written out here
@@ -408,7 +408,7 @@
    ["a value inside 33 collections" (act-of (assoc a-fact :v (nested 33))) :malformed]
    ["a carried stamp of 2^62 - 1" (assoc good :based-on {[earlier-name 0] (dec act/max-carried-stamp)}) :ok]
    ["a carried stamp of 2^62" (assoc good :based-on {[earlier-name 0] act/max-carried-stamp}) :malformed]
-   ["a carried stamp below zero" (assoc good :based-on {[earlier-name 0] -5}) :ok]
+   ["a carried stamp below zero" (assoc good :based-on {[earlier-name 0] -5}) :malformed]
    ["a permission four deep" (assoc good :permission (deep-permission 4)) :ok]
    ["a permission five deep" (assoc good :permission (deep-permission 5)) :malformed]])
 
