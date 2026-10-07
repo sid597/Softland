@@ -51,7 +51,9 @@ One text file per group, in `groups/`, in the mini-format that
 part; `- ` a word; `[ ] **A** — ...` a choice; a fenced block is a thing shown
 as code; `=ANSWER ...` is the answer line. The script lays the group out as A4
 portrait pages and writes the PDF to the research depot
-(`/mnt/data/projects/research/softland/`), never into git.
+(`/mnt/data/projects/research/softland/`), never into git. Sid answers on paper:
+print the PDF with `lp -d Canon_G600_Direct -o media=A4 <the pdf>` (the printer is
+queued when off and prints when switched on), and attach the PDF in the chat too.
 
 Before a sheet goes to Sid, a second session reads it against this page and
 against Sid's rulings and words, and reports only what does not hold.

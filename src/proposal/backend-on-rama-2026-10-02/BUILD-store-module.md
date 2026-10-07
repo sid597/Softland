@@ -3,7 +3,9 @@
 Cut by: the session "act implementation analysis" (Fable 5.1, effort max), 7 October 2026.
 For: one build session. Status: Sid's decisions of 6 and 7 October 2026 are the contract.
 The decisions, with Sid's reasons, are in `src-store/README.md`: the act's twelve (6 October) and the
-store's ten (7 October). Two questions are open and are asked before the build (below). Everything else a
+store's ten (7 October). Two questions are open and are asked before the build (below): write them as one
+sheet in the form of `decisions/METHOD.md`, with the data-flow picture on top, build its PDF and print it
+(`lp -d Canon_G600_Direct -o media=A4`), attach it in the chat, and wait for Sid's answers before any code. Everything else a
 builder chooses is engineering, written with its reason in a docstring, never as a decision.
 
 ## What this build is
