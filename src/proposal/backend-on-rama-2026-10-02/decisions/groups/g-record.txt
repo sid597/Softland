@@ -1,0 +1,386 @@
+=== Sheet | The record, and who acts — the questions the gates' record needs
+
+One act's path through the store, from its maker to the record and back. A word in capitals is defined where it first appears; the other shared words are under the picture, and every word is on the last page. **Shaded:** who acts — the person, the permission, the session. **Boxed:** what the record carries. The marks on the right name the questions about a line. An E or an H is a row of the rest of "all decisions"; ?4 is an open item of the 2 October drawing. Choose in the order of the questions: tick a box, or write on the line. 7 October 2026.
+
+```picture 113
+MAKER — a converter, the screen, an agent. Whoever makes an ACT.
+  The notes converter makes one ACT: one or more FACTS under one act-id, accepted or refused whole.
+  {⟪w::who :alice⟫  :layer :alice-notes  ⟪w::permission […]⟫  ⟪w::session :s12⟫  :based-on {…}  :subjects #{:alice}  ⟦┐ WHO ACTS · ?4 · E3·H7 · E1·H8⟧
+   :facts [{:e :note-41 :k :text :v "buy milk"}]}          ← a FACT: entity · key · value  ⟦┘ E2 · E4 · E5⟧
+          │  the act, plain values
+          ▼
+THE DOOR — the code that takes an act from a maker into the store. One piece of code; every maker uses it.
+  1 checks the act against the one form (act.clj)
+  2 reads the layer's CLASS — a fact on the layer: streaming or microbatch   (the word is Sid's to rename)
+  3 makes the ACT-ID: [:alice-notes :streaming #uuid]  — the layer and the class in it route the act and find its answer
+  4 gets LOCKS from the store — one small lock per value, by ruling 7 — and SEALS each value with its lock → bytes
+     (so "forget" can later destroy a lock and that value is gone, even from the log)  ⟦ forget: H1 · H10 · H11 ⟧
+  5 appends {the act · its act-id · the class · sealed values} to the DEPOT of that class
+          │
+          ▼
+DEPOT — Rama's log. Two: the streaming depot and the microbatch depot. Keeps each act as appended, in order, until a TRIM.
+  Picks the TASK — one of N slices of the store, each one thread:
+    streaming depot  → by layer:  all of alice-notes on one task → instant
+    microbatch depot → by entity: spread over all tasks → room for many writers, a batch later
+          │
+          ▼
+GATE — code inside the store; one per depot. It DECIDES: does what the act says become true?
+  streaming gate: one act, one event, on the layer's task, now.   microbatch gate: a batch, on all tasks, a moment later.
+  first reads its own RECORD by act-id: a repeat is answered, not decided twice
+  checks the form; then what only the record knows: ⟪w:does the permission stand?⟫ is each `replaces` current?  ⟦◀ WHO ACTS · E3·H7 · E1·H8 · E2 · E4 · E5 · H10⟧
+  ACCEPT → ⟪r:writes the facts into the RECORD (Rama PSTATEs: durable, on disk — the store's truth):⟫  ⟦┐ THE RECORD — what it carries:⟧
+           ⟪r:current facts, their versions, and the ANSWER under the act-id, with a STAMP (the gate's time mark)⟫  ⟦│ H2 what a stamp holds⟧
+  REFUSE → ⟪r:writes "refused: reason" under the act-id.⟫ A refusal is data, never an exception.  ⟦┘ H11 a value about a forgotten person⟧
+          │ the answer                                    │ what is accepted is now a fact
+          ▼                                               ▼
+THE DOOR reads the answer BY ACT-ID from the record     READS (resolve) read the record → a screen shows it, a prompt gets it
+  (the ACK that came back with the append is only       a BELL rings → the inside inlet notices → converters run again → a new act.
+   a signal that something happened)                    The loop.
+```
+
+## The words that the questions share
+
+- **who** — the one who makes an act: a person or an agent. **person** — someone who signs in. **agent** — a program, often a model, that makes acts for a person or a group. **tool** — a program run by a person or an agent; its acts can carry a permission of its own, beneath theirs. **group** — people who share a layer of their own.
+- **layer** — the one place in the store that an act writes to: the base that all share, a group's, a person's, or a session's.
+- **session** — the sitting of work that an act belongs to; a person's starts at a sign-in. Every act names its session (decision 4 of 6 October).
+- **permission** — a fact in a layer that lets its **holder** write there: [holder · layer · granted-in], with a fourth slot for the permission above it, if there is one. **granted-in** — the layer where it was written. act.clj calls the holder's slot "who". Every act names one (decision 8 of 6 October).
+- **chain** — a permission, the one above it, and so on to the top. **root** — a permission with nothing above it. **the top of a chain** — its root, or a session's permission if nothing stands above it; it is held for a person, a group or the system. **revoke** — a fact that ends a permission. **policy** — the facts of a layer that say who may see it and who may write in it.
+- **subjects** — the people that an act is about.
+- **forget** — the store destroys a lock: what it sealed can never be opened again, and a read of the past shows "erased on" the date.
+- **the system** — the store acting for itself, for no person: its first facts, the base, its own work. **operator** — the person who runs this store.
+- **frozen at the first kept record** — after the first act that the store keeps for good, a choice cannot change without splitting the store into acts before and acts after.
+- **the rulings file** — PROGRESS.md "Now" in src/proposal/frame-2026-09-15: the rulings of 23–25 September, as a session wrote them down. **the 2 October drawing** — ARCHITECTURE-STE100.md.
+
+=== ?4 | Who a person is in the record
+
+Kind: **system sets** — one choice for the whole store.
+
+- **link** — one fact, kept apart from the record, that joins an id to the person it stands for.
+
+```
+ Alice signs in with Google. The 2 October drawing says that Google tells the store who she is, and that
+ at her first sign-in the store makes a person for her, and her own layer. Then her id stands in
+   each act she makes                  :who <her id>
+   each permission she holds           [<her id> :alice-notes :alice-notes]
+   each act about her                  :subjects #{<her id>}
+ two ids for Alice                     A  #uuid "7f3c…"   says nothing; one link joins it to her sign-in
+                                       B  :alice          readable; made from her sign-in
+ The rulings file lists "opaque actor ids with one erasable link to the person" as open.
+```
+
+**Which id stands for a person in the record?**
+
+[ ] **A** — an id that says nothing (a UUID), joined to the person by one link that the store can erase.
+If A: the record names nobody by itself, and a reader needs the link to see that it was Alice; to forget her, the store erases the one link.
+[ ] **B** — a readable id, made from the sign-in.
+If B: the record names Alice wherever she acted; to forget her, her id is taken out of each act and permission, by an update of the store's code.
+
+Today: act.clj: `:who` is an id, and an id is a readable keyword or a UUID (decision 9 of 6 October); the 2 October drawing leaves a person's id open. Frozen at the first kept record.
+
+=ANSWER A or B.
+
+=== E3 · H7 | Is there a root above a session?
+
+Kind: **system sets** — one choice for the whole store.
+
+```
+ Alice signs in; the store starts her session :s12. In it she writes in her own layer :alice-notes.
+ The rulings file, as ruled in chat on 23–24 September: "The session is the root; narrower permissions
+ are ordinary facts under it." And on 24–25 September: "a permission lives in the layer it governs; a gate
+ checks only permissions in layers it orders". The proposal R7 of 25 September reads that first line for
+ each layer, with a root above the session: B.
+
+ A  the session's permission is the top     in :alice-notes, :s12's permission has nothing above it
+                                            chain: session ─ agent ─ tool
+ B  a root above the session                :alice-notes is made with a root; opening :s12 writes
+                                            :s12's permission beneath it, through that layer's gate
+                                            chain: root ─ session ─ agent ─ tool
+```
+
+**In a layer, is a session's permission the top of its chain, or is there a root above it?**
+
+[ ] **A** — the top: nothing stands above a session's permission.
+If A: what a session may write in a layer is set when the session starts, from the layer's policy; to end it, the session's permission is revoked.
+[ ] **B** — a root above it, made with the layer.
+If B: a session's permission is written beneath the layer's root, through that layer's gate; to end it, it is revoked, or one above it.
+
+Today: act.clj: a permission has a slot for the one above it, 4 deep at most (decision 8; the depth is kept from today's code, not decided). Nothing in the store's tree writes a permission yet.
+
+=ANSWER A or B.
+
+=== E1 · H8 | Who can stand at the top of a chain, and the base's
+
+Kind: **system sets** — one choice for the whole store.
+
+```
+ Sid, 6 October: "…either taking the users like some user is taking an action or maybe it would be the
+ system basically software and or the third point would be any group…"
+ The rulings file, under "Layer kinds": a group layer's root permission is "made with the layer naming
+ the group".
+ The base comes to exist by an act. Like every act, that act names a permission (decision 8 of 6 October),
+ and before it no permission exists. Who stands at the top of the base's chain?
+```
+
+**Who can stand at the top of a chain — and who stands at the top of the base's?**
+
+[ ] **A** — a person, a group, or the system; at the top of the base's, the system.
+If A: the base's acts name the system as who: a party that is no person; whoever runs the store acts as it.
+[ ] **B** — a person or a group; at the top of the base's, a person, the operator.
+If B: the base's acts name the operator as who: a person; the top of the base's chain passes on when the operator changes.
+
+Today: act.clj refuses an act that names no permission (decision 8); nothing in the store's tree makes a layer or puts a first permission in place yet. Frozen at the first kept record: the base's first act carries it.
+
+=ANSWER A or B, or write who.
+
+=== E2 | Who may write a permission beneath another
+
+Kind: **group chooses — the default is the question.** Who may write what in a layer is that layer's policy; a group can change it for its layer.
+
+- **narrower** — a permission beneath another lets its holder do no more than the one above it lets.
+
+```
+ Alice, in her session :s12, starts an agent to sort her notes in :alice-notes.
+ The agent's acts need a permission of their own: narrower, beneath :s12's.
+ The rulings file, 23–24 September: "narrower permissions are ordinary facts under it".
+ Who may write that fact?
+```
+
+**By default, who may write a narrower permission beneath one in a layer?**
+
+[ ] **A** — whoever holds the permission above it.
+If A: Alice gives her agent a part of what she may do, and asks no one; a member of a group does the same for her own agents.
+[ ] **B** — only whoever stands at the top of the chain (E1 · H8).
+If B: in her own layer Alice writes it herself; in a group's layer, whoever stands at the top of the group's chain writes it.
+[ ] **C** — only the operator.
+If C: every narrower permission is written by the operator, and no layer can change that; it becomes a rule that the system sets.
+
+Today: nothing in the store's tree writes or checks a permission; act.clj checks only that a permission's layer is the act's layer (decision 8).
+
+=ANSWER A, B or C.
+
+=== E4 | Who acts, who holds the permission, whose session
+
+Kind: **system sets** — one rule for every act.
+
+```
+ Alice, in her session :s12, asks the design group's agent :designer to change the board in the group's
+ layer :design.
+   :who          :designer — or Alice?
+   :permission   [<holder> :design :design] — held by :designer, by the group, or by :s12?
+   :session      :s12, Alice's
+ Sid, 6 October: "…a group can have its own agents that are defined we have their keys etc etc so
+ someone is using that then it means like it is part of the group…"
+```
+
+**Must the holder of an act's permission be the act's who, or its session?**
+
+[ ] **A** — yes: the holder is the act's who, or the act's session.
+If A: the group's agent acts under a permission of its own in :design; the record shows :designer as who, in Alice's session.
+[ ] **B** — no: who, holder and session may be three different parties. Write on the line how the gate tells that a permission covers an act.
+If B: one permission can cover the acts of more than one party; the gate checks the rule that you write.
+
+Today: act.clj: who, permission and session are separate parts of every act (decisions 4 and 8); no code compares them yet.
+
+=ANSWER A, or B and the rule.
+
+=== E5 | After a session closes
+
+Kind: **group chooses — the default is the question.** A layer, or a tool, can change it for its own acts.
+
+- **close** — the end of a session: a person signs out, or an agent's run ends.
+
+```
+ 14:00  Alice's session :s12 starts. She asks an agent for a summary of her notes.
+ 14:20  Alice signs out: :s12 closes.
+ 14:25  The agent's reply comes back, as an act in :s12, under a permission beneath :s12's.
+```
+
+**By default, does a permission still stand after its session closes?**
+
+[ ] **A** — no: when a session closes, the permissions beneath it end.
+If A: the 14:25 reply is refused, and the refusal is recorded; work that must go on after its session needs a layer or a tool that says so.
+[ ] **B** — yes: a permission stands until it is revoked, whether its session is open or closed.
+If B: the 14:25 reply lands after Alice has gone; to end what a session may do takes a revoke of its own.
+
+Today: every act names its session (decision 4); nothing in the store's tree starts or closes a session, and the rulings file lists "when a session layer closes" as open.
+
+=ANSWER A or B.
+
+=== H2 | What a stamp holds
+
+Kind: **system sets** — one choice for the whole store.
+
+- **wall time** — the time of day by a clock, in milliseconds.
+- **counter** — a number that goes up by one.
+
+```
+ A stamp is one integer (decision 12 of 6 October). The rulings file, ruling 4 (24 September): "Never
+ backward within a unit; never earlier than anything the fact stood on."
+
+ the integer holds                what a person can ask of the stamps alone
+ the wall time and a counter      "the notes as they were at 15:00 yesterday"
+ a counter alone                  "which came first?" — not "at what time?"
+```
+
+**Does a stamp hold the wall time?**
+
+[ ] **A** — yes: the wall time and a counter, in one integer.
+If A: a read "as of 15:00 yesterday" is one number in every layer; a stamp stays close to the clock.
+[ ] **B** — no: a counter alone, which only goes up.
+If B: stamps give the order of acts only; the time of an act by a clock is a fact of its own, or the maker's own claim.
+
+Today: no gate of the store's tree makes a stamp yet. Finding: plain milliseconds ran ahead of the wall clock under load. Frozen at the first kept record.
+
+=ANSWER A or B.
+
+=== H1 | Forgetting one value: the depot's copy
+
+Kind: **system sets** — one choice for the whole store.
+
+- **the depot's copy** — the act as the door appended it, values sealed; the depot keeps it until a trim.
+
+```
+ 10:00  In session :s12 Alice writes note-41. The door seals it with a lock and appends it to the
+        streaming depot; the gate accepts it into the record.
+ 10:05  Alice forgets note-41.
+ The rulings file, ruling 7 (24 September): "every value gets its own small lock at write"; a setting on
+ the layer can make it one lock for each act.
+
+ A  a lock for each value, from the door on    10:05: note-41's lock is destroyed; no copy of it can be
+                                               opened, in the record or in the depot
+ B  one lock for each session and layer        10:05: note-41's copy in the depot still opens with :s12's
+                                               lock, until that lock is destroyed or the depot is trimmed
+```
+
+**When one value is forgotten, is the depot's copy of it gone at once?**
+
+[ ] **A** — yes: the door seals each value with its own lock (one for each act, where the layer sets so).
+If A: the door needs a lock for each value that it seals; forgetting one note reaches every copy of it at once.
+[ ] **B** — no: the door seals what a session sends to a layer with one lock.
+If B: the door needs one lock for each session and layer; a forgotten note opens in the depot until that lock goes, and when it goes, so does all else that the session sent there.
+
+Today: no code of the store's tree makes, keeps or destroys a lock yet; decision 3 of 6 October puts the seal in the door. Finding: the log keeps every appended value until a trim. Frozen at the first kept record.
+
+=ANSWER A or B.
+
+=== H10 | Forgetting after a permission is revoked
+
+Kind: **system sets** — one rule for every layer.
+
+- **mark** — a flag that a maker sets on a value when writing it; here, that the value dies with the person it is about.
+
+```
+ Alice is a member of the design group. In its layer :design she wrote notes about herself, marked at
+ write to die with her. (The rulings file: a member can forget one value in a group's layer herself only
+ when the group's rule requires that mark.)
+ The group revokes Alice's permission to write in :design. Then Alice asks to forget those notes.
+ The rulings file, 24–25 September: "A forget names a permission too."
+```
+
+**May a person forget her own values in a layer after her permission to write there is revoked?**
+
+[ ] **A** — yes, always: forgetting what she wrote about herself needs no permission to write there.
+If A: a person can forget her own values in any layer, at any time; the gate checks a forget by a rule of its own.
+[ ] **B** — no: a forget stands on a permission like any act, and a revoked one does not stand.
+If B: once a layer has revoked her, a person cannot forget her values there herself; only someone who can still write there can.
+
+Today: no code of the store's tree forgets yet; act.clj refuses an act that names no permission (decision 8).
+
+=ANSWER A or B.
+
+=== H11 | Writing about a person who is already forgotten
+
+Kind: **system sets** — one rule for every layer.
+
+```
+ 3 October   Bob is forgotten: the store destroys Bob's lock.
+ 7 October   An agent writes a note in the design group's layer, with :subjects #{:bob}.
+ The rulings file, ruling 7 (24 September): every value gets its own small lock at write, "wrapped under
+ the locks of the people it is about". Bob's lock no longer exists.
+```
+
+**What does the gate do with an act whose subjects include a person who is already forgotten?**
+
+[ ] **A** — accept it; the value is sealed for Bob, whose lock is gone, so nobody can ever open it.
+If A: the act is recorded as accepted; the note about Bob can never be read, from the moment that it lands.
+[ ] **B** — refuse it, with a reason.
+If B: the act is recorded as refused; its maker learns that Bob is forgotten, and can send it again without Bob.
+[ ] **C** — something else: write it on the line.
+If C: the gate does what you write.
+
+Today: no code of the store's tree forgets yet; the rulings file lists "writes about someone already forgotten" as open.
+
+=ANSWER A, B, or C and what.
+
+=== Listed | Listed, not asked
+
+These wait for a build, or for the read question. They need no choice now.
+
+- **Forget against a move to another layer.** When a person's forget meets the moment a value is read out to be moved into another layer (a promotion), which comes first. One answer is written down: the moved copy is spared only when the fact of its reading-out exists. It is reasoned, not shown; it waits for promotion to be built. (H9)
+- **Reads.** What the record of a read carries about the moment it read (H3); whether all reads go through one gateway on the server (H5); reads that stay open and deliver as things change (H6). They wait for the read question. Sid, 6 October: "I think I will come to the read question when we have built the other system because only then we will be able to answer it and the answer might emerge at that point."
+
+=== Answered | Answered, see the ledger
+
+- The permission's form, and that every act names one — decision 8 of 6 October.
+- The seal is in the door, before a depot keeps a value — decision 3 of 6 October.
+- A stamp, as an act carries it, is one integer — decision 12 of 6 October.
+- The base is a microbatch layer; every other layer starts streaming — F4 of 7 October (the class part of H8).
+- The record is in the gates' PStates; an answer is read from it by act-id — F2, Q22 and F7 of 7 October.
+- What based-on holds: a map from a fact id to the stamp that the maker saw — decision 11 of 6 October. H4 is about the same part: "Based-on is the act's stood-on entries: fact ids together with their stamps" (proposal R4, 25 September).
+
+[ ] decision 11 answers H4.
+[ ] It does not: what is left is on the line.
+
+=ANSWER for H4: a tick, or what is left.
+
+=== Words | Words on this sheet
+
+- **ACK** — what Rama sends back to the door when it appends an act: a signal that something happened, not the answer.
+- **act** — one or more facts that one maker sends under one act-id; a gate accepts all of it or refuses all of it.
+- **act-id** — the id of an act: [layer · class · a random UUID]. The door makes it.
+- **agent** — a program, often a model, that makes acts for a person or a group.
+- **answer** — a gate's result for an act: accepted, or refused with a reason; recorded under the act-id.
+- **bell** — a mark that something changed, so that a reader reads again.
+- **chain** — a permission, the one above it, and so on to the top.
+- **class** — streaming or microbatch: which gate decides a layer's acts; a fact on the layer. The word is Sid's to give.
+- **close** — the end of a session: a person signs out, or an agent's run ends.
+- **counter** — a number that goes up by one.
+- **decision N of 6 October** — answer N on the act's sheet; **F2, F4, F7, Q22 of 7 October** — answers on the store's sheet. Both are in src-store/README.md.
+- **depot** — Rama's log. The streaming depot and the microbatch depot keep each act as appended, in order, until a trim.
+- **the depot's copy** — the act as the door appended it, values sealed; the depot keeps it until a trim.
+- **the door** — the code that takes an act from a maker into the store; every maker uses it.
+- **fact** — one statement: entity · key · value. "Key" is always a fact's key.
+- **forget** — the store destroys a lock: what it sealed can never be opened again, and a read of the past shows "erased on" the date.
+- **frozen at the first kept record** — after the first act that the store keeps for good, a choice cannot change without splitting the store into acts before and acts after.
+- **gate** — code inside the store, one for each depot, that decides each act: accept or refuse.
+- **granted-in** — the layer where a permission was written.
+- **group** — people who share a layer of their own.
+- **holder** — the one that a permission lets write; act.clj calls this slot "who".
+- **layer** — the one place in the store that an act writes to: the base that all share, a group's, a person's, or a session's.
+- **link** — one fact, kept apart from the record, that joins an id to the person it stands for.
+- **lock** — an encryption key; never a fact's key.
+- **maker** — whoever makes an act: a converter, the screen, an agent.
+- **mark** — a flag that a maker sets on a value when writing it; here, that the value dies with the person it is about.
+- **narrower** — a permission beneath another lets its holder do no more than the one above it lets.
+- **operator** — the person who runs this store.
+- **permission** — a fact in a layer that lets its holder write there: [holder · layer · granted-in], with a fourth slot for the permission above it.
+- **person** — someone who signs in.
+- **policy** — the facts of a layer that say who may see it and who may write in it.
+- **PState** — Rama's durable store on disk for what a gate writes; the record is in the gates' PStates.
+- **reads** — what reads the record for a screen, a prompt or a converter.
+- **record** — what the gates keep: the facts that are now true, their versions, and each answer under its act-id, with a stamp.
+- **revoke** — a fact that ends a permission.
+- **root** — a permission with nothing above it.
+- **the rulings file** — PROGRESS.md "Now" in src/proposal/frame-2026-09-15: the rulings of 23–25 September, as a session wrote them down.
+- **seal** — encrypt a value with its lock, so that a forget can later destroy the lock.
+- **session** — the sitting of work that an act belongs to; a person's starts at a sign-in.
+- **stamp** — the gate's time mark on an act that it accepts; one integer.
+- **subjects** — the people that an act is about.
+- **the system** — the store acting for itself, for no person: its first facts, the base, its own work.
+- **task** — one of the N slices of the store inside Rama; each runs one thread.
+- **tool** — a program run by a person or an agent; its acts can carry a permission of its own, beneath theirs.
+- **the top of a chain** — its root, or a session's permission if nothing stands above it; it is held for a person, a group or the system.
+- **trim** — Rama removes the oldest acts of a depot when it holds more than a set count.
+- **wall time** — the time of day by a clock, in milliseconds.
+- **who** — the one who makes an act: a person or an agent.
+- **the 2 October drawing** — the drawing of the store in ARCHITECTURE-STE100.md.

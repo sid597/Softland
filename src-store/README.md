@@ -155,9 +155,9 @@ Open before the module is built, to ask Sid first in the form of
 `decisions/METHOD.md`:
 
 - **The store's keys for this build**: the fact keys the store itself reads
-  and acts on. Each of `:class`, `:owner`, `:permission` and `:lease` follows
-  from a decision above; the list itself is his.
-- **The bootstrap**: who makes the base layer and grants the first permission
-  before any permission exists — the operator under a seeded permission, the
-  store itself, or a test fixture in the proof until the "who acts" sheet
-  answers.
+  and acts on. Each of `:class`, `:permission` and `:lease` follows from a
+  decision above; the list itself is his. Not `:owner`: the rulings file says
+  an owner is derivable at read time from author, layer and permission.
+- **The bootstrap** — who stands at the top of a permission chain, and the
+  base's — and **what a stamp holds** are asked on the sheet "The record, and
+  who acts" (E1·H8, H2).

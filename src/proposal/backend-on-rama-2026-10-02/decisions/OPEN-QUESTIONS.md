@@ -28,10 +28,10 @@ A session writes its name under "taken by" on a group before it writes that grou
 | 2 | the door | `groups/g-store.txt` (one sheet for groups 2, 3 and 4) | act implementation analysis (Fable), 7 Oct | C1, C2, Q20, Q22, F7, F8.1, F8.2, Q23 |
 | 3 | the depots | `groups/g-store.txt` | act implementation analysis (Fable), 7 Oct | F3, F6, Q7 |
 | 4 | the gates and the record | `groups/g-store.txt` | act implementation analysis (Fable), 7 Oct | F2, F1, F4, F5, Q25, F9a, F9b, F9c, ?9, ?10, ?11, ?15 |
-| 5 | who an act acts for | sheet not yet written | act implementation analysis (Fable), 7 Oct | E1, E2, E3, E4, E5, E6, E7, Q16, Q19, ?4 |
+| 5 | who an act acts for | `groups/g-record.txt`, printed 7 Oct (E1·H8, E2, E3·H7, E4, E5, ?4 on it; E6, E7, Q16, Q19 not: decided above the door, or the ladder only) | act implementation analysis (Fable), 7 Oct | E1, E2, E3, E4, E5, E6, E7, Q16, Q19, ?4 |
 | 6 | reads | sheet not yet written | | Q11, ?6, ?12, S3, ?14, ?16 |
 | 7 | above the act | sheet not yet written | | Q1, Q2, Q3, Q4, Q5, Q6, Q12, Q13, Q14, Q17, Q18, ?2, ?8, G1, G2, G3 |
-| 8 | what a kept record carries | sheet not yet written | act implementation analysis (Fable), 7 Oct | H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11 |
+| 8 | what a kept record carries | `groups/g-record.txt`, printed 7 Oct (H1, H2, H10, H11 asked; H7, H8 merged into E3, E1; H4 shown as answered with a box; H3, H5, H6, H9 listed, not asked) | act implementation analysis (Fable), 7 Oct | H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11 |
 | 9 | the sheet itself | sheet not yet written | | Q9, Q10, Q15, Q21, Q26, Q27, Q7-sheets, Q8, Q24 |
 | — | outside the nine groups: where answers are kept | not a group of the booklet | | 0.2, 0.3, I3 |
 

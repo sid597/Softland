@@ -3,9 +3,12 @@
 Cut by: the session "act implementation analysis" (Fable 5.1, effort max), 7 October 2026.
 For: one build session. Status: Sid's decisions of 6 and 7 October 2026 are the contract.
 The decisions, with Sid's reasons, are in `src-store/README.md`: the act's twelve (6 October) and the
-store's ten (7 October). Two questions are open and are asked before the build (below): write them as one
-sheet in the form of `decisions/METHOD.md`, with the data-flow picture on top, build its PDF and print it
-(`lp -d Canon_G600_Direct -o media=A4`), attach it in the chat, and wait for Sid's answers before any code. Everything else a
+store's ten (7 October). One question is open and is asked before the build: the store's keys for this build (item 2 below). Write
+it as one short sheet in the form of `decisions/METHOD.md`, with the data-flow picture on top, build its
+PDF and print it (`lp -d Canon_G600_Direct -o media=A4`), attach it in the chat, and wait for Sid's answer
+before any code. Two more answers the build needs come from Sid's sheet "The record, and who acts"
+(E1·H8 the top of a permission chain and the base's; H2 what a stamp holds): read them in
+`src-store/README.md` once he has answered; do not ask them again. Everything else a
 builder chooses is engineering, written with its reason in a docstring, never as a decision.
 
 ## What this build is
@@ -70,8 +73,9 @@ and docstring, and a README per folder as the tree's rules say:
    (reuse its engine by requiring `softland.store.act`): what arrives on a depot is the maker's act plus
    `:act-id`, `:class`, and each value fact's `:v` replaced by `:sealed` bytes and a `:lock-id`. Facts under
    a **store key** keep a plain value. The store keys are the module's, declared in one place with the
-   reason for each; begin with only what this build needs: `:class`, `:owner`, `:permission`, `:lease`,
-   and any others the build must have — list each, and no more. **Open — ask Sid before building:** the exact
+   reason for each; begin with only what this build needs: `:class`, `:permission`, `:lease`, and any others
+   the build must have — list each, and no more. Not `:owner`: the rulings file says "Owner is derivable at
+   read time from author, layer and permission" (R:59). **Open — ask Sid before building:** the exact
    set; each of the four follows from a decision, the list itself is his.
 3. **The streaming gate** — a stream topology: one event per act, on the layer's task. Order of its checks,
    each a recorded refusal word, never an exception: (a) the record already holds an answer under this
@@ -86,19 +90,23 @@ and docstring, and a README per folder as the tree's rules say:
    fact-id that wrote it, the stamp}`); answers by act-id (`act-id → {:accepted | :refused reason, stamp}`);
    the layer's settings as facts on its own entity (class, owner); permissions as facts; leased locks.
    Design the PState shapes with the Rama skill's guidance; keep each PState's reason in its docstring.
-6. **The stamp** — an integer the gate assigns, strictly increasing on its task. *Engineering choice, the builder's,
-   from a finding; reason in the docstring:* milliseconds × 2^16 + a counter, so that it never runs ahead of a later
-   stamp under load. Below 2^62.
-7. **Locks and the seal** — the module leases one lock per (session, layer) on request (a store act under
-   `:lease`, or a query — *engineering choice; say which and why in the docstring*) and keeps it in the record so a later
-   forget can destroy it. The proof's hand seals values with it. *Engineering choice:*
+6. **The stamp** — an integer the gate assigns, strictly increasing on its task, below 2^62. What it holds
+   (milliseconds and a counter, or another composition) is Sid's question H2 on the sheet "The record, and
+   who acts"; build to his answer. The finding that plain milliseconds ran ahead under load is why it is asked.
+7. **Locks and the seal** — by ruling 7 of the rulings file (R:91–100): every value gets its own small lock
+   at write (the default grain; a layer may switch to one lock per act), lock rows co-located with their
+   values in the record, so a later forget destroys a lock and that value is gone. The module hands out
+   locks on request (a store act under `:lease`, or a query — *engineering choice; say which and why in the
+   docstring*) and keeps them in the record. The proof's hand seals each value with its own lock. Not in
+   this build, room left: wrapping a lock under the locks of the people the value is about, and the
+   per-act grain switch. *Engineering choice:*
    AES-GCM. The gate refuses a plain value under a non-store key: `:not-sealed`.
 8. **The answer by act-id** — a query topology: act-id → the recorded answer, or nothing yet.
 9. **The first layer** — how the base and a person's layer come to exist: an act whose facts set the
-   layer's class and owner on the layer's own entity, made by the operator for the base (class microbatch)
+   layer's class on the layer's own entity (not its owner: that is derivable, R:59), made by the operator for the base (class microbatch)
    and by a person for their own (class streaming, F4 C). The permission that lets the operator act is the
-   bootstrap; **Open — ask Sid before building:** the operator under a permission seeded at start, the store itself
-   seeding the base, or a test fixture in the proof — plainly marked as one — until the "who acts" sheet answers.
+   bootstrap; **Asked of Sid on the sheet "The record, and who acts" (E1·H8: who can stand at the top of a permission
+   chain, and the base's); build to his answer.** Do not ask it again.
 
 **The proof** `softland.store.module-proof`, on Rama's in-process cluster, run as
 `clojure -M:store -m softland.store.module-proof`. It plays the door by hand — makes the act-id, reads the
@@ -127,8 +135,8 @@ Each namespace and each function has a docstring; each folder a README with a pa
 lists in READMEs; no history of corrections; a part that is not built stays out of the maps. The module's
 README gets a section **"Decisions this module stands on"** that lists the ten store decisions by their
 ledger row and the act's twelve by pointer, and a section **"Engineering choices"** that lists
-each choice the builder made (the partition entity, the stamp's packing, the lease mechanism, the cipher)
-with its reason. The two open questions are asked before the build; their answers go into
+each choice the builder made (the partition entity, the lease mechanism, the cipher)
+with its reason. The open question is asked before the build; their answers go into
 `src-store/README.md`'s decisions section as Sid's, never into this file.
 
 ## Commits and the receipt
