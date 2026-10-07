@@ -100,7 +100,10 @@ and docstring, and a README per folder as the tree's rules say:
    a **store key** keep a plain value. The store keys are three (K1 A), declared in one place with the
    reason for each: `:class`, `:permission`, `:lock-request`. Not an owner. `:class` is a setting: its fact
    sits on the layer's own entity (F8). `:lock-request` is a session's plain word, Sid's to change.
-3. **The streaming gate** — a stream topology: one event per act, on the layer's task. Order of its checks,
+3. **The streaming gate** — a stream topology: one event per act, on the layer's task. The depot's own
+   partitioner puts a thing on its layer's task; the gate makes no hop (the build session's ruling on the
+   check of the plan: a thing that a topology of another module appends to another partition is decided
+   against that task's record and touches no row of the true layer). Order of its checks,
    each a recorded refusal word, never an exception: (a) the record already holds an answer under this
    act-id → return it, decide nothing (F7; builder's rule 1); (b) the door's declaration (which contains
    `act.clj`'s check); (c) the layer's class is this gate's; (d) the act's permission stands: the record
@@ -235,7 +238,9 @@ Rules 10 to 21 are the build session's rulings of 8 October on the twelve open p
     new, because a stamp holds the gate's clock time at the decision (H2 A); and rule 9's answer. What F2 A
     reaches — the decisions and the current facts — goes to Sid in the receipt.
 20. The door's declaration gives limits, and a gate refuses a thing over one: 256 facts in one act, 1,024
-    entries of `:based-on`, 65,536 bytes in one sealed value, 256 locks in one request.
+    entries of `:based-on`, 65,536 bytes in one sealed value, 256 locks in one request, and 256 characters
+    in the printed text of an id or of a fact's key (the check of the plan found that a readable keyword
+    has no length limit, so a row's key had none).
 21. The three limits of F9, as the store's sheet put them to Sid, are targets, and the rig's measures are
     the starting point: at least 1,000 acts each second on one task, at the rate of an agent (measured: all
     accepted, the slowest 1 in 100 at 254 ms); at least 100 acts each second for one person, with the

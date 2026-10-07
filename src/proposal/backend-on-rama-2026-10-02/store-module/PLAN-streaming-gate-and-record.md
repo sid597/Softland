@@ -7,9 +7,21 @@ Part: `streaming-gate-and-record`, the first of the two parts of the store's mod
 It holds no topology code.
 Written by: a fresh session (Opus 5.5, effort max), 8 October 2026, for the build session "softland-11".
 Revised the same day, by the same session, for two rulings of the build session on this plan. (1) The
-engine of `act.clj` may take the map of shapes and the nesting limits, so the door's declaration is
-data that the same engine reads. (2) How a value was sealed is said by a word in its lock's row, not by
-a mark in the value. Each is marked "ruled by the build session" where it applies.
+engine of `act.clj` may take the map of shapes, so the door's declaration is data that the same engine
+reads. (2) How a value was sealed is said in its lock's row, not by a mark in the value. Each is marked
+"ruled by the build session" where it applies.
+Changed the same day by the check of this plan (Phase 2, a fresh session, Opus 5.5, effort max). One
+change applies a third ruling of the build session: in a lock's row the way of sealing is a small
+integer, and the word for the way lives in code beside the number. The others repair what the check
+found: what a right making act is not held to; the order of the reasons when `:sealed` is set aside; a
+read that told nothing; ties in the one text; the engine's one new argument; what a caller tests before
+a query; and four findings said more exactly. Each change is listed, with its reason, in
+`PLAN_VALIDATION-streaming-gate-and-record.md`, "What this check changed in the plan".
+Changed once more the same day, for two rulings of the build session on that check. (A) The check had
+written a hash partitioner into the gate; it is taken out again. The gate makes no hop and rests on the
+depot's partitioner, and what follows for a thing that a topology appends to another partition is said
+under "Depots". (B) A fifth limit: the printed text of an id or of a fact's key is 256 characters at
+most. Both are in the same paper, under "Rulings after the check".
 
 ## How to read this paper
 
@@ -49,7 +61,7 @@ it gets and what is left to it.
 | Kind | Name | What it is | Where it lives |
 |---|---|---|---|
 | Depot | `*streaming-depot` | Every thing sent for a streaming layer, as it was sent. Never trimmed. | Partitioned by the hash of the thing's `:layer` |
-| Topology | `streaming-gate` (stream) | One event for each thing, with no hop to another task. It decides the act and writes the record. | Runs on the depot partition's task, which is the layer's task |
+| Topology | `streaming-gate` (stream) | One event for each thing, with no hop to another task. It decides the act and writes the record. | Runs on the depot partition's task, which is the layer's task for every thing that a client appended |
 | PState | `$$streaming-answers` | The answer under each act-id, with the digest of its act | A flat map, key `"<layer> <act uuid>"`, on the layer's task |
 | PState | `$$streaming-facts` | The current fact of each place: values, retracts, the class, permissions, requests for locks | A flat map, key `"<layer> <entity> <key>"`, on the layer's task |
 | PState | `$$streaming-locks` | Each lock: its bytes, and the fact that it seals | A flat map, key `"<layer> <request uuid> <index>"`, on the layer's task |
@@ -78,7 +90,7 @@ The skill's default paths do not apply. The papers of the stages stay in
 
 | Namespace | Role | Needs Rama |
 |---|---|---|
-| `softland.store.act` | The one form. Built and proven. One small change, ruled by the build session on 8 October: its engine takes the map of shapes and the nesting limits. Said exactly below the table. | no |
+| `softland.store.act` | The one form. Built and proven. One small change, ruled by the build session on 8 October: its engine takes the map of shapes. Said exactly below the table. | no |
 | `softland.store.text` | The one text of a thing: one function from anything to a string, the same in every process | no |
 | `softland.store.digest` | The digest of a thing: SHA-256 over its one text. One function that the door and both gates share (C rule 11) | no |
 | `softland.store.declaration` | The door's declaration: what arrives on a depot, its limits, the store keys, the test for a stray, and the check | no |
@@ -96,20 +108,22 @@ The skill's default paths do not apply. The papers of the stages stay in
 change):
 
 - The engine, which is `conform` and its two helpers `conform-all` and `conform-parts`, takes the map
-  of shapes and the nesting limits as an argument. Today it reads only the namespace's own `shapes`
-  and `nesting`.
-- One new public function gives that engine to another namespace. It takes a map of shapes, the
-  nesting limits, the name of a shape and a thing. It gives what the engine gives: the thing in its
-  one form, or the reason of the first part that is wrong. Its docstring says what it takes and gives.
-- `parse` and `has-shape?` call the engine with `act.clj`'s own `shapes` and `nesting`. Their
-  behaviour and their results stay exactly as they are.
+  of shapes as an argument. Today it reads only the namespace's own `shapes`. The nesting limits stay
+  `act.clj`'s own `nesting`, which the engine reads by the name of a shape, whatever map of shapes it
+  was given. The contract lets the engine "take the map of shapes as an argument", "for that, and for
+  nothing else" (C item 2), and nothing here needs more: no shape of the door's is inside itself.
+- One new public function gives that engine to another namespace. It takes a map of shapes, the name
+  of a shape and a thing. It gives what the engine gives: the thing in its one form, or the reason of
+  the first part that is wrong. Its docstring says what it takes and gives.
+- `parse` and `has-shape?` call the engine with `act.clj`'s own `shapes`. Their behaviour and their
+  results stay exactly as they are.
 - Nothing else changes: not the shapes, the rules, the reasons, the limits or the leaves, and not what
   a docstring claims, beyond the engine's own docstrings saying what they now take.
 - The check of the change: `clojure -M:store -m softland.store.act-proof` still passes its 150 checks,
   with no check changed. This stage ran it on the tree as it stands: 150 passes, none failed.
 
-The leaves stay `act.clj`'s own: the ruling gives the engine the shapes and the nesting limits, not
-the five shapes that code checks. That matters for one part of what arrives, `:sealed`; see "The
+The leaves stay `act.clj`'s own, and so do the nesting limits: the ruling gives the engine the map of
+shapes, not the five shapes that code checks. That matters for one part of what arrives, `:sealed`; see "The
 door's declaration".
 
 One thing here is the build session's to say, and the plan does not decide it. `act.clj`'s namespace
@@ -122,7 +136,11 @@ The folder's `README.md` is the module's README (C "Explanations"). It gets a ro
 the three sections that the contract names: "Decisions this module stands on", "Engineering choices"
 (each of the plan's choices listed near the end of this paper, with its reason), and "Words a session
 made, Sid's to change". It also says what rule 14 asks it to say: until sign-in is built, any sender
-can make any layer that is not made, for any holder. A part that is not built stays out of it. The
+can make any layer that is not made, for any holder. And it says what follows from the gate making no
+hop (C item 3; "Depots"): a thing that a topology appends to another partition is decided against that
+task's record. It can be refused as an act into a layer that is not made, or it can leave rows and an
+answer on that task that no read finds. The rows of the true layer, on its own task, are not touched.
+A part that is not built stays out of it. The
 map of `test-store/` gets the proof: how to run it, what a pass shows, and what it does not reach. The
 namespaces marked "no" load under the alias `:store`.
 
@@ -417,19 +435,22 @@ each lock follows from the request's act-id (see `$$streaming-locks`).
 ```
 { String                                  "<layer> <request uuid> <index, three digits>"
   -> fixed-keys { :bytes       bytes      32 bytes; written once when the request is accepted
-                  :way         Keyword    the word of the way of sealing that the lock is for
+                  :way         Long       the number of the way of sealing that the lock is for
                   :seals-act   UUID       absent until the lock seals an accepted value; then the fact
                   :seals-index Long } }   that it seals is [[layer :streaming seals-act] seals-index]
 ```
 
 **The way of sealing is said by the lock, not by a mark in each value** (ruled by the build session,
-8 October). A sealed value carries no version byte. The lock's row holds one word, `:way`, for the way
-of sealing that the lock is for, written with the bytes when the lock is made. This build knows one
-way and makes every lock for it: `:aes-256-gcm`, which is AES-256-GCM with a random part of 12 bytes
-and the place as associated data ("Locks and the seal"). The seal and the gate read the word from the
-row. So the way can change later without touching a stored value: a new way is new locks with a new
-word, and each value that is already sealed keeps its lock and its lock's word. What the word costs is
-bytes in every lock row; the figure is under "Resource usage analysis".
+8 October). A sealed value carries no version byte. The lock's row holds one small integer, `:way`, the
+number of the way of sealing that the lock is for, written with the bytes when the lock is made. The
+word for a way lives in code, beside its number, in `softland.store.seal`, and never in a row: a word
+would cost about 18 bytes in every lock, against F9's third limit (the same ruling). This build knows
+one way and makes every lock for it: way 1, whose word in code is `:aes-256-gcm`, which is AES-256-GCM
+with a random part of 12 bytes and the place as associated data ("Locks and the seal"). The seal and
+the gate read the number from the row. So the way can change later without touching a stored value: a
+new way is new locks with a new number, and each value that is already sealed keeps its lock and its
+lock's number. What the number costs is about 7 bytes in every lock row, with its field name; the
+figure is under "Resource usage analysis".
 
 **A lock's id is `[request's act-id, index]`.** The door finds the locks of its request from the
 request's act-id alone (IS O6, from R 7-Oct 7): it needs no read to know their ids, and a retry of the
@@ -505,7 +526,7 @@ write a bounded amount. Three ways were built on paper:
 **The plan's choice: 3.** What it means in plain words: the sign is the set of the different stray
 things seen, by reason; the count of rule 10 is the size of the set (size tracking stays on, so the
 size is one read). The same stray thing sent twice counts once. If an exact tally of arrivals is
-wanted, way 2 gives it at the cost named. The outer map is not subindexed: its keys are the four
+wanted, way 2 gives it at the cost named. The outer map is not subindexed: its keys are the five
 reason words of a stray, a closed set declared in `softland.store.declaration`. Each inner set is
 subindexed: it grows with the strays.
 
@@ -537,9 +558,29 @@ Q7 a); the streaming depot partitions by the act's `:layer` (C item 1). This par
   process it but succeeds when the topology retries it, the client append call will get an exception"
   (docs 14:214). That is Q22 A's reason; the door then reads by act-id.
 
-Not guarded: a thing that sits on a partition other than the one its `:layer` hashes to. Rama's client
-computes the partition from the thing with the declared partitioner, and this stage found no call that
-lets an appender pick the partition of such a depot (*not verified*).
+A thing can sit on a partition other than the one its `:layer` hashes to. A depot client cannot put it
+there: "depot client appends choose a partition to append to based on the data being appended" (docs
+14:254). A topology can: an append from a topology "always appends to the partition represented by the
+current task" (docs 14:254), whatever the depot's partitioner, "whether in the same module or a
+different module" (docs 14:252); a module that mirrors this depot appends to it in that way (skill
+mirrors.md, "Mirror depot appends"). No topology of this build appends to the depot: the build has one
+module, and its one client appends through the depot's partitioner.
+
+**Not guarded, by the build session's ruling on the check of this plan.** The gate makes no hop: "the
+depot's own partitioner puts a thing on its layer's task; the gate makes no hop" (C item 3). A
+partitioner in the gate would make two events of each act, and one event for each act on the layer's
+task is what a streaming layer is for. What follows is said here and in the module's README. A thing
+that a topology appends to another partition is decided against that task's record. It can be refused
+as an act into a layer that is not made; the answer of that refusal is then on that task, where no
+read by its act-id looks. Or, when it is a making act, or comes after one that was appended in the
+same way, it can be accepted there, and leave rows and an answer on that task that no read finds. The
+rows of the true layer, on its own task, are not touched. The gate cannot tell such a thing by a test of its
+own: it would have to know, without going there, which task the depot's partitioner gives the layer,
+and Rama's docs say only that `hash-by` uses "the hash of the value extracted by the provided function"
+(docs 14:38). They name no function that gives that hash, and the skill's references name none. A
+depot partitioner of the module's own writing could be called again by the gate, but the leading
+partitioner of each query must be a built-in one (skill query-topologies.md, "Leading partitioner"),
+so the three reads would no longer find the layer's task by the layer.
 
 There is no internal depot.
 
@@ -574,7 +615,11 @@ gates' PStates" (F2 A).
 and ends there. So all its PState writes are one atomic group: "all writes to PStates from all events
 during one of these batches are made visible at the same time" (docs 11:140), and when a batch fails
 "all PState writes during that batch of execution will be discarded" (docs 11:170). That one fact
-carries IS C3 (whole or nothing, visible together) and makes every retry safe.
+carries IS C3 (whole or nothing, visible together) and makes every retry safe. "Which is the layer's
+task" holds for every thing that a client appended, because the depot's partitioner placed it (docs
+14:90: "the stream topology does not need to use any partitioners after reading data off the depot").
+What follows for a thing that a topology appended to another partition is under "Depots"; the build
+session ruled that the gate makes no hop for it (C item 3).
 
 **The event does not yield.** While one act is being decided, no other event of the task may run
 between its reads and its writes; a yield would let one in, and reads on the two sides of a yield "are
@@ -595,12 +640,16 @@ bound that work; the figures are under "Resource usage analysis".
    carries in `:based-on` are held to the 10-second rule (C rule 17).
 4. *Standing: checks (c), (d), and the first act of a layer (C item 9).* Read the place
    `"<layer> <who> :permission"` in `$$streaming-facts`. If it holds the act's permission, both checks
-   pass and nothing more is read. If not, read `"<layer> <layer> :class"`: there, the layer is made
-   and (d) refuses; not there, the layer is not made by this gate, and the act is accepted only if it
-   is a right making act.
+   pass and nothing more is read. If it holds another permission, the layer is made here, because the
+   gate's record holds rows only for layers that it made; (d) refuses, and nothing more is read. If it
+   is empty, read `"<layer> <layer> :class"`: there, the layer is made and (d) refuses; not there, the
+   layer is not made by this gate, and the act goes on only if it is a right making act.
 5. *Places: checks (e), (f), (g), and what a store key does not take in this build.* Read, in one
    select, the row of each place that a fact names in `:replaces`, and of each place of a fact under
-   `:permission`. Then the checks, in order.
+   `:permission`. Then the checks, in order. A right making act is held to (e) and (f) as any act is.
+   It is not held to (g) or to the store-key step, and no place is read for its two facts: they are
+   the class and the first permission that item 9 has it write, the permission is its own and not one
+   beneath its own, and the record holds nothing of a layer that is not made.
 6. *The seal.* For each request whose locks the act names, one range read of `$$streaming-locks`. Then,
    for each sealed fact in the act's order: the lock is there, it seals nothing, and it opens the
    bytes at this fact's place (C item 7; C rule 16).
@@ -611,9 +660,9 @@ bound that work; the figures are under "Resource usage analysis".
    stamp.
 
 The stages are in the contract's order, and a later stage's rows are read only when the earlier checks
-passed. So an act whose permission does not stand costs 4 reads whatever it carries (the answer, the
-permission, the class, the last stamp for its refusal), and cannot make the gate read 256 places or
-open 16 MB.
+passed. So an act whose permission does not stand costs 4 reads at most whatever it carries (the
+answer, the permission, the class when the permission's place is empty, the last stamp for its
+refusal), and cannot make the gate read 256 places or open 16 MB.
 
 **The processing concerns, and whether each needs a stream topology.**
 - *The decision of an act and the writing of its facts and answer.* Yes: reasons (a) and (b) above.
@@ -664,7 +713,7 @@ who follows that rule. Adding one later is one line of the gate.
 
 - `$$streaming-answers`: `{String -> fixed-keys{:refused Keyword, :stamp Long, :digest bytes}}`
 - `$$streaming-facts`: `{String -> fixed-keys{:value bytes, :lock-act UUID, :lock-index Long, :by-act UUID, :by-index Long, :stamp Long}}`
-- `$$streaming-locks`: `{String -> fixed-keys{:bytes bytes, :way Keyword, :seals-act UUID, :seals-index Long}}`
+- `$$streaming-locks`: `{String -> fixed-keys{:bytes bytes, :way Long, :seals-act UUID, :seals-index Long}}`
 - `$$streaming-task`: `fixed-keys{:last-stamp Long, :strays {Keyword -> set of String, subindexed}}`
 
 "bytes" is the JVM's byte array class. A byte array as the class of a schema position is *not
@@ -688,15 +737,20 @@ the query straight to the right task (skill query-topologies.md, "Leading partit
 act-id as the only argument, the layer would have to be taken out of it first, and the query would
 start on a random task and hop. The plan's choice: one hop less on a read that follows every act. The
 caller still needs the act-id and nothing else; the door's hand passes its first slot. Each query
-checks that the layer it was given is the layer slot of the id, and gives nothing when it is not. None
-of them aggregates: each gives one value.
+checks that the layer it was given is the layer slot of the id, and gives nothing when it is not. It
+also holds each id that it is given to the limit of 256 characters before it builds a key from it; an
+id over the limit gets nothing, with no read (C rule 20). Those tests run on the task, after the
+client has hashed the first argument. What Rama's client does with a first argument that is nil is not
+in its docs. So the hand tests the shape of what it passes, and the limit, before it calls, and gives
+nil itself; the query's own tests are for a caller that does not. None of them aggregates: each gives
+one value.
 
 - **`answer-by-act-id`** `[layer act-id] → answer or nil`
   - Example 1: `:alice`, `[:alice :streaming u1]`, an act that was decided → 1 read, 1 meaningful.
   - Example 2: the same shape, an act that is not decided or never arrived → 1 read. Its result is the
     output: without the read, "nothing yet" cannot be told from an answer. 1 meaningful.
-  - Example 3: a thing that is not an act-id, or a layer that is not the id's layer slot → 0 reads,
-    nil (IS X110).
+  - Example 3: a thing that is not an act-id, a layer that is not the id's layer slot, or a layer
+    over 256 characters → 0 reads, nil (IS X110).
   - Example 4, in this part: an act-id of the class `:microbatch` → 0 reads, nil. The next part gives
     this branch its read.
   - Fixed: 1 read for each act-id of this gate. The inputs that cost 0 are stopped by a test before
@@ -707,8 +761,8 @@ of them aggregates: each gives one value.
   - Example 2: the same request, range 10 to 10 → 1 read and 1 iteration.
   - Example 3: an act-id that made no lock (a refused request, an act that is no request) → 1 read,
     0 iterations; the empty map is the output.
-  - Example 4: arguments of the wrong shape, or the class `:microbatch` in this part → 0 reads, an
-    empty map.
+  - Example 4: arguments of the wrong shape, a layer over 256 characters, or the class `:microbatch`
+    in this part → 0 reads, an empty map.
   - Variable in the number of rows, fixed in the number of seeks. The variable part is one range
     navigator over neighbouring keys, not a read for each index. The range is cut to 0–255 (C rule
     20), so one call iterates 256 rows at most, about 1.3 ms, and needs no yield.
@@ -716,7 +770,7 @@ of them aggregates: each gives one value.
 - **`class-of-layer`** `[layer] → class or nil`
   - Example 1: a layer that the streaming gate made → 1 read, 1 meaningful.
   - Example 2: a layer that is not made → 1 read; nil is the output (IS X116).
-  - Example 3: a thing that is not an id → 0 reads, nil (IS X119).
+  - Example 3: a thing that is not an id, or an id over 256 characters → 0 reads, nil (IS X119).
   - Fixed: 1 read. In this part a layer of the other class reads as "not made here"; the next part
     adds its record's branch.
 
@@ -796,7 +850,7 @@ table is in "The checks of one act"). No read of this part fans out.
 - No row holds a collection. Each field of a row is one value: a keyword, an integer, a UUID or a run
   of bytes. The longest is a sealed value, at most 65,536 bytes (C rule 20).
 - `$$streaming-task` `:strays`: the outer map, reason word → set, is not subindexed. Its size is
-  enforced by code: its keys are the four words that `declaration/stray-reason` can give, and nothing
+  enforced by code: its keys are the five words that `declaration/stray-reason` can give, and nothing
   else writes to it. Each inner set is subindexed, with size tracking on: it grows by one for each
   different stray, and its size is the count that rule 10 asks for.
 
@@ -811,7 +865,7 @@ task: the hash of the layer id. The gate's event never leaves that task, and no 
 `:class`, with each value fact's `:v` replaced by `:sealed` bytes and a `:lock-id`; facts under a store
 key keep a plain value; the door's additions are "the door's own small declaration, which contains the
 maker's" (R 6-Oct 2). *Ruled by the build session, 8 October*: the engine of `act.clj` takes the map of
-shapes and the nesting limits. So the declaration is data in the language of `act.clj`'s `shapes`, and
+shapes. So the declaration is data in the language of `act.clj`'s `shapes`, and
 the same engine reads it. The next part's gate checks what arrives against this same declaration.
 
 The namespace is made as `act.clj` is made, of the same three things in the same order: the shapes, as
@@ -831,8 +885,9 @@ how the door's declaration contains the maker's.
 | `:lock-id` | `[:tuple :act-id [:int {:min 0 :below 256}]]` | The id of a lock: the act-id of its request, and its index |
 | `:lock-count` | `[:int {:min 1}]` | How many locks a request asks for |
 
-The nesting limits that the declaration gives the engine are the maker's one: a permission id inside
-itself, at most `act/max-permission-depth` times. No shape of the door's is inside itself.
+The nesting limits are `act.clj`'s own, which the engine applies by the name of a shape: a permission
+id inside itself, at most `act/max-permission-depth` times. No shape of the door's is inside itself, so
+the declaration gives the engine none.
 
 *Which reason each part gives*, when the engine reads a thing as `:arrived-act`. A part that the
 declaration does not name gives `:unknown-part`. `:class`, when it is absent or no class word, gives
@@ -842,8 +897,8 @@ declares none. A fact's `:lock-id` gives `:lock-id-malformed`; each other part o
 `:malformed`. `:act-id` always fits: a thing whose act-id does not is a stray and never reaches the
 check.
 
-**The one part that the engine does not read: `:sealed`.** The engine as ruled takes the shapes and
-the nesting limits. The leaves, the five shapes that code checks, stay `act.clj`'s own. None of them
+**The one part that the engine does not read: `:sealed`.** The engine as ruled takes the map of
+shapes. The leaves, the five shapes that code checks, stay `act.clj`'s own. None of them
 fits a run of bytes, and no other shape of the language does. So `:sealed` cannot be given a shape.
 The check sets each fact's `:sealed` aside before the engine reads the thing, and puts it back on the
 one form that the engine gives; two rules, in code, then hold it. This is the one thing kept in code
@@ -861,12 +916,25 @@ that its value must have, the entity that its fact sits on, and whether it is a 
 | `:permission` | The gate must read whether an act's permission stands (R 6-Oct 8; E4 A) | `:permission-id`, the maker's | the holder that the permission names (the plan's choice) | no |
 | `:lock-request` | In Rama a query cannot write, so the door asks for locks by an act (C item 7) | `:lock-count`, and at most 256 | the uuid of its own act (the plan's choice) | no |
 
-**The limits** (C rule 20; "kept, not decided"), four numbers declared beside the shapes: 256 facts
-in one act, 1,024 entries of `:based-on`, 65,536 bytes in one sealed value, 256 locks in one request.
-The shape language can say one of them in part, and does: the index of a lock is below 256. It cannot
-say the rest: `:seq-of` and `:map-of` take no greatest count, and no shape is a run of bytes. So four
-rules hold them. A thing over a limit is read by the engine before its rule refuses it; that is one
-more pass over the thing, which the digest has walked once already.
+**The limits** (C rule 20; "kept, not decided"), five numbers declared beside the shapes: 256 facts
+in one act, 1,024 entries of `:based-on`, 65,536 bytes in one sealed value, 256 locks in one request,
+and 256 characters in the printed text of an id or of a fact's key. The shape language can say one of
+them in part, and does: the index of a lock is below 256. It cannot say the rest: `:seq-of` and
+`:map-of` take no greatest count, no shape is a run of bytes, and the leaves `:id` and `:key` take no
+greatest length. So five rules hold them. A thing over a limit is read by the engine before its rule
+refuses it; that is one more pass over the thing, which the digest has walked once already.
+
+**The fifth limit, on the text of an id** (the build session's ruling on the check of this plan; a
+number of the build, kept and not decided). A readable keyword has no greatest length in the form
+(`act.clj`), and a row's key is made of two or three ids, so a key had none. With the limit an
+answer's key is 293 characters at most, a lock's 297 and a fact's 770. The printed text is the one
+that a key is made of: a keyword with its colon and its namespace; a UUID prints to 36 characters and
+so always keeps the limit. It is tested before any row key is built from the id, in two places. The
+layer slot of the act-id is tested in the test for a stray, before check (a) builds the answer's key
+from it. Every other id of the act and each fact's key are held by rule 20 of the declaration, in
+check (b), before a place's key is built from `:who`, an entity or a key. A thing over the limit
+there is refused `:id-too-long`, and its answer is recorded under its act-id, whose layer has passed.
+Each query tests the ids that it is given in the same way, at its head ("Query Topologies").
 
 **The rules.** As `act.clj`'s `rules`: a list of pairs, the name of a rule and its reason word, in
 the order in which they are examined, and one map that holds the code of each. A rule relates two
@@ -895,13 +963,16 @@ rule about a fact is kept when each fact of the act keeps it.
 | 17 | `:place-named-once` | no two facts are on one entity and key (C rule 12) | `:place-named-twice` |
 | 18 | `:no-fact-replaces-a-fact-of-its-act` | no fact names a fact of its own act in `:replaces` (C rule 12) | `:replaces-own-fact` |
 | 19 | `:lock-named-once` | no two facts are under one lock (IS X70) | `:lock-named-twice` |
+| 20 | `:ids-within-the-limit` | each id that the act holds, and each fact's key, prints to 256 characters at most (C rule 20) | `:id-too-long` |
 
-Rules 6, 7 and 9 test a value with the engine, against the shape that the store key's entry names.
+Rule 20 holds every id of the act, wherever it sits: `:who`, `:layer`, `:session`, each subject, each
+fact's `:e`, and each id inside an act-id, a fact id, a permission id or a lock id; and each fact's
+`:k`. Rules 6, 7 and 9 test a value with the engine, against the shape that the store key's entry names.
 A fact under a store key that has no value keeps them; the gate refuses it by its own step. A fact
 under a plain key with no value and no seal is a retract (IS X11).
 
 **What the engine is asked for.** The declaration calls the new public function of `act.clj` (see
-"Where the code lives") with its own map of shapes, its nesting limits, the name of a shape, and a
+"Where the code lives") with its own map of shapes, the name of a shape, and a
 thing. It uses no other way into the engine: not `act/parse`, which reads the maker's act and would
 refuse the door's parts, and not `act/has-shape?`. Every refusal of a maker's part still comes out
 with `act.clj`'s own word (IS X6), because the maker's parts in `:arrived-act` are `act.clj`'s own
@@ -909,17 +980,24 @@ entries, and the maker's rule is `act.clj`'s own.
 
 **The test for a stray** (C rule 10), `stray-reason`, given the gate's class and a thing. It runs
 before check (a). In order: the thing is no plain map, or holds no `:act-id` → `:no-act-id`; its
-`:act-id` does not have the shape `:act-id`, `[layer class uuid]` → `:act-id-malformed`; the class
-slot is not the gate's class → `:act-id-of-the-other-gate`; the layer slot is not the thing's `:layer`
-→ `:act-id-of-another-layer`. The last one covers a thing with no `:layer` at all: such a thing is on
-the partition that the hash of nil gives, where no reader by its act-id would look. A thing that
-passes is on the task of its act-id's layer, which is where `answer-by-act-id` looks.
+`:act-id` does not have the shape `:act-id`, `[layer class uuid]` → `:act-id-malformed`; the layer
+slot of the act-id prints to more than 256 characters → `:id-too-long` (C rule 20; "The fifth limit",
+above: an answer's key holds that layer, so such a thing can have no answer, and the word is kept as a
+stray's); the class slot is not the gate's class → `:act-id-of-the-other-gate`; the layer slot is not
+the thing's `:layer` → `:act-id-of-another-layer`. The last one covers a thing with no `:layer` at
+all: such a thing is on the partition that the hash of nil gives, where no reader by its act-id would
+look. A thing that passes names one layer in its act-id and in its `:layer`, of 256 characters at
+most. When a client appended it, it is on the task of that layer, which is where `answer-by-act-id`
+looks; "Depots" says what follows when a topology appended it elsewhere. The test never throws: a
+thing that throws while it is tested gives `:no-act-id`.
 
 **The check**, `check`, given a thing that is no stray. It gives the act in its one form on arrival,
 or one reason word. It never throws: as in `act/parse`, each throw becomes `:malformed`. In order,
 which is `act.clj`'s order, first the shape and then the rules:
 
-1. Each fact's `:sealed` is set aside.
+1. Each fact's `:sealed` is set aside: only when `:facts` is a sequence, and only from a fact that
+   is a plain map. Anything else goes to the engine as it arrived, so that the engine gives the
+   reason, in the declared order, and this step gives none of its own.
 2. The shape. The engine reads the thing as `:arrived-act`. The first part that is wrong, in the
    declared order, gives its reason.
 3. Each `:sealed` is put back on its fact, in the one form that the engine gave.
@@ -956,7 +1034,7 @@ in the form below. For a value that a fact can hold (`act/value?`) the text is E
 | a vector (what `vector?` takes) | `[` its parts `]` |
 | any other sequence | `(` its parts `)` |
 | a set | `#{` the texts of its parts, sorted `}` |
-| a plain map | `{` its entries, sorted by the text of the key `}` |
+| a plain map | `{` its entries, sorted by the text of the key, and by the text of the value where two keys have one text `}` |
 | any other keyword | `#keyword` and its namespace and name as two strings |
 | anything else: a record, a symbol, a ratio, a float, a Java collection, any object | `#other` and the name of its class |
 | a part inside more than 64 collections | `#too-deep` |
@@ -1040,15 +1118,16 @@ call.
 with its lock, and keeps nothing of the plain value; the seal binds a value to its place; the door
 takes a fresh random part for each seal (C item 7; C rules 15 and 16).
 
-- **The way of sealing is a word in the lock's row** (ruled by the build session, 8 October), and
-  the functions of this namespace take a lock as its row gives it: its bytes and its way. They know
-  one way, `:aes-256-gcm`, and the next three points say what that way is. A sealed value carries no
-  mark of its way. A lock whose way the code does not know seals nothing and opens nothing; the gate
-  then refuses the act with `:lock-way-not-known`. Every lock of this build is made for the one way,
-  so no act of this build can meet that word. It is there so that a later way is new locks with a new
-  word, and no stored value is touched.
+- **The way of sealing is a small integer in the lock's row** (ruled by the build session,
+  8 October), and the functions of this namespace take a lock as its row gives it: its bytes and the
+  number of its way. The namespace declares the ways in one place, each number beside its word. They
+  know one way, 1, whose word is `:aes-256-gcm`, and the next three points say what that way is. A
+  sealed value carries no mark of its way. A lock whose way the code does not know seals nothing and
+  opens nothing; the gate then refuses the act with `:lock-way-not-known`. Every lock of this build
+  is made for the one way, so no act of this build can meet that word. It is there so that a later
+  way is new locks with a new number, and no stored value is touched.
 - **A lock** of this way is 32 random bytes, a key for AES-256, from the JVM's `SecureRandom`, made in
-  the gate's event when a request is accepted, and written with the way's word. The plan's choice of
+  the gate's event when a request is accepted, and written with the way's number. The plan's choice of
   size: the sealed bytes stay in the depot for ever (C rule 4), and the only forget is the destruction
   of the lock; a key for that should be the longer one. It costs 16 bytes more for each value than
   AES-128, and counts against F9's third limit.
@@ -1088,7 +1167,9 @@ function that the gate's opening undoes.
      with}` and `{:e holder :k :permission :v the act's own permission}`.
 
 The form says nothing about `:replaces`; a making act that names something to replace is stale at
-check (e), as IS X49 reasons. The gate checks nothing more about who the holder is (C rule 14): any
+check (e), as IS X49 reasons. A right making act is not held to (g) or to the store-key step: the
+permission that it writes is its own, not one beneath its own, and its class fact is the layer's
+first (IS O3; "The walk of one event", step 5). The gate checks nothing more about who the holder is (C rule 14): any
 sender can make any layer that is not made, for any holder, until sign-in is built. The module's
 README says so.
 
@@ -1110,21 +1191,22 @@ needs the lock's bytes.
 
 | Step | The check | Words, in the order tested | Source |
 |---|---|---|---|
-| before (a) | a stray gets no answer | `:no-act-id`, `:act-id-malformed`, `:act-id-of-the-other-gate`, `:act-id-of-another-layer` (kept in `:strays`, never in an answer) | C rule 10 |
+| before (a) | a stray gets no answer | `:no-act-id`, `:act-id-malformed`, `:id-too-long` (the layer slot of the act-id), `:act-id-of-the-other-gate`, `:act-id-of-another-layer` (kept in `:strays`; a stray has no answer) | C rules 10, 20 |
 | (a) | the act-id has an answer: end | none; nothing is written | F7 A; C rules 1, 11 |
 | (b), the shape | the thing has the shape `:arrived-act`, part by part in the declared order | `:unknown-part`; `:class-not-the-act-ids-class` (a `:class` that is absent or no class word); then `act.clj`'s words for the maker's parts: `:unknown-version`, `:no-permission`, `:no-session`, `:empty-act`, and `:malformed` where a part names no word; `:lock-id-malformed` for a fact's lock id | C item 2; IS X5 to X7, X12 |
 | (b), the rules: the act as a whole | rules 1 to 4 of the declaration | `:permission-not-in-layer`; `:class-not-the-act-ids-class`; `:too-many-facts`, `:too-many-based-on` | C item 2; IS X5; C rule 20 |
 | (b), the rules: a fact under a store key | rules 5 to 11 | `:store-key-sealed`; `:class-fact-not-a-class-word`; `:permission-fact-not-a-permission`, `:permission-fact-not-on-its-holder`; `:lock-request-not-a-count`, `:too-many-locks-requested`, `:lock-request-not-on-its-act` | C item 2; IS X10, X58, X80, X90; C rules 13, 20 |
 | (b), the rules: a fact under a plain key | rules 12 to 16 | `:not-sealed`; `:sealed-with-a-plain-value`; `:seal-incomplete`; `:sealed-not-bytes`; `:sealed-value-too-large` | C item 7; IS X8, X9; C rule 20 |
 | (b), the rules: between facts | rules 17 to 19 | `:place-named-twice`, `:replaces-own-fact`, `:lock-named-twice` | C rule 12; IS X70 |
+| (b), the rules: the text of an id | rule 20 | `:id-too-long` (any other id of the act, or a fact's key) | C rule 20 |
 | after (b) | the 10-second rule | `:carried-stamp-too-far-ahead` | C rule 17 |
 | (c) | the layer's class is this gate's | `:layer-belongs-to-the-other-gate` | C item 3(c); C rule 7 |
 | item 9 | the layer is not made: a right making act, or refused | `:layer-not-made` | C item 9 |
 | (d) | the act's permission stands, for this `:who` | `:who-not-the-permissions-holder` (the holder slot of the act's permission is not `:who`), then `:permission-does-not-stand` | C item 3(d); E4 A |
 | (e) | each `:replaces` is the current fact of its place | `:replaced-fact-not-current` | C item 3(e); C rules 2, 3 |
 | (f) | no setting key on an entity other than the layer | `:setting-not-on-the-layer` | F8 C |
-| (g) | a permission fact writes a permission beneath the act's own, in the act's layer | `:permission-fact-for-another-layer`, `:permission-fact-granted-in-another-layer`, `:permission-fact-not-beneath-the-acts-own` | C item 3(g); E2 A; C rule 14 |
-| after (g) | what a store key does not take in this build | `:ending-a-permission-not-decided`; `:store-key-retract-not-built`; `:changing-a-class-not-decided`; `:store-key-takes-one-write` | C item 3, last sentence; C rule 13 |
+| (g) | a permission fact writes a permission beneath the act's own, in the act's layer; not held for the two facts of a right making act | `:permission-fact-for-another-layer`, `:permission-fact-granted-in-another-layer`, `:permission-fact-not-beneath-the-acts-own` | C item 3(g); E2 A; C rule 14; C item 9 |
+| after (g) | what a store key does not take in this build; not held for the two facts of a right making act | `:ending-a-permission-not-decided`; `:store-key-retract-not-built`; `:changing-a-class-not-decided`; `:store-key-takes-one-write` | C item 3, last sentence; C rule 13 |
 | last | the seal | `:lock-not-made-for-this-layer`, `:lock-already-seals-a-value`, `:lock-way-not-known`, `:lock-does-not-open-the-value` | C item 7; C rule 16; the ruling on the way |
 
 How each record check is made:
@@ -1133,8 +1215,9 @@ How each record check is made:
   for layers of its class: a row is written only by an accept; an accept happens in a layer that is
   made here, or makes it; a making act is right only for the gate of the class that the layer starts
   with; and no act of this build changes a class. So when the act's permission is found in this
-  gate's record, the layer is this gate's. When it is not found, the gate reads the class fact at
-  `"<layer> <layer> :class"`. There: the layer is made here, and (d) refuses. Not there: the gate asks
+  gate's record, the layer is this gate's. When the place holds another permission, the layer is
+  this gate's too, and (d) refuses with no further read. When the place is empty, the gate reads the
+  class fact at `"<layer> <layer> :class"`. There: the layer is made here, and (d) refuses. Not there: the gate asks
   whether the other gate's record holds the layer. In this part nothing can make that true, and the
   step is one function that gives "no"; the next part gives it its read, and then the word is
   `:layer-belongs-to-the-other-gate` (IS X31, which this part leaves open). Otherwise the layer is
@@ -1161,7 +1244,8 @@ How each record check is made:
   a write that needs no read. A retract is written as the row of its place, with no value, so a later
   fact can replace it (C rule 3).
 - **(g) and the store-key step read the place of each `:permission` fact**: 1 read each, shared with
-  (e) when that fact also names something to replace. A place that holds a row is
+  (e) when that fact also names something to replace. A right making act is the exception: neither
+  is held for its two facts, and no place is read for them. A place that holds a row is
   `:store-key-takes-one-write`, whether it holds this same permission ("is not given again") or
   another (C rule 13). A `:class` fact in a layer that is made needs no read: the layer's class place
   holds a row because the layer is made; the class word that is the layer's own is
@@ -1191,8 +1275,13 @@ Every piece of state is a PState. There is no TaskGlobal and no state in the mem
   holds nothing of the record, and losing it loses nothing.
 - External: none.
 
-Every write of an event is bounded by the limits of rule 20, which the declaration holds before any
-row is written. A stray writes one set element at most, about 70 bytes.
+The number of rows that an event writes is bounded by the limits of rule 20, which the declaration
+holds before any row is written: at most 256 fact rows, 256 lock rows written again, 256 new lock rows,
+one answer and one stamp. The bytes of a row's value are bounded too: 65,536 for a sealed value. The
+bytes of a row's key are bounded by the fifth limit. An id has no greatest length in the form
+(`act.clj`), so the declaration gives one: 256 characters for the printed text of an id or of a
+fact's key. A key holds two or three of them, so 770 characters at most. A stray writes one set
+element at most, about 70 bytes.
 
 ## Resource usage analysis
 
@@ -1210,22 +1299,23 @@ names and type marks are counted at about 10 bytes a field.
 | `*streaming-depot` | the thing as sent: about 450 bytes of act around its facts, plus the sealed bytes (plain + 28) | one for each thing sent, for ever (C rule 4) | about 580 bytes × 8.64 million a day ≈ 5 GB a day |
 | `$$streaming-answers` | key about 43; row about 70 accepted (32 digest, 8 stamp, the rest names), about 100 refused | one for each decided act, for ever | about 115 bytes × 8.64 million ≈ 1 GB a day |
 | `$$streaming-facts` | key 25 to 110; row about 112 plus the value's bytes | one for each place that is new; a fact that replaces another writes over its row | half the acts on new places: about 280 bytes × 4.32 million ≈ 1.2 GB a day |
-| `$$streaming-locks` | key about 47; row about 61 before it seals a fact, about 104 after (32 of lock, about 18 for the word of its way with its field name, 17 of the fact's uuid, the rest names and marks) | one for each lock asked for, for ever in this build | about 113 to 151 bytes × 8.64 million ≈ 1.0 to 1.3 GB a day |
+| `$$streaming-locks` | key about 47; row about 50 before it seals a fact, about 93 after (32 of lock, about 7 for the number of its way with its field name, 17 of the fact's uuid, the rest names and marks) | one for each lock asked for, for ever in this build | about 102 to 140 bytes × 8.64 million ≈ 0.9 to 1.2 GB a day |
 | `$$streaming-task` | 8 bytes of stamp; about 70 for each different stray | strays only | nothing to speak of |
 
 The depot is the largest by far, and it is never trimmed by decision. The answers and the locks grow
 with the acts and are never deleted in this build (IS C2; IS O6).
 
 **The third limit of F9** (C rule 21): "the locks take no more than 2 times the bytes of the values
-(measured: 169 bytes of lock for each value)". This design: one lock row for each value, about 151
-bytes as written (47 of key, 104 of row), about 113 where RocksDB pays the shared front of
-neighbouring keys once in a block (*not verified*). Of those, about 18 are the word of the lock's way
-of sealing and its field name, which the build session's ruling of 8 October put in each lock's row;
-before it the figures were 133 and 95, and the aim was 100. **The plan aims at 120 bytes of lock or
-fewer for each value on disk.** Against "2 times": that holds when the sealed values average 60 bytes
-or more. For shorter values it does not hold with a lock for each value at 32 bytes of lock; what
-moves it then is the grain, which is the open row H1 (one lock for an act, or for a session and
-layer, divides the lock's bytes among the values under it), not the row.
+(measured: 169 bytes of lock for each value)". This design: one lock row for each value, about 140
+bytes as written (47 of key, 93 of row), about 102 where RocksDB pays the shared front of
+neighbouring keys once in a block (*not verified*). Of those, about 7 are the number of the lock's way
+of sealing and its field name. The build session's rulings of 8 October put the way in each lock's
+row, and then put it there as a small integer: as a word it cost about 18, and the figures were 151
+and 113. With no way in the row the figures were 133 and 95, and the aim was 100. **The plan aims at
+110 bytes of lock or fewer for each value on disk.** Against "2 times": that holds when the sealed
+values average 55 bytes or more. For shorter values it does not hold with a lock for each value at 32
+bytes of lock; what moves it then is the grain, which is the open row H1 (one lock for an act, or for
+a session and layer, divides the lock's bytes among the values under it), not the row.
 
 ### Memory usage (TaskGlobals)
 
@@ -1257,11 +1347,11 @@ before the next value is opened (C rule 16, "keeps nothing of the plain value").
 - **Locks.** The row could be one run of bytes (the lock, then the fact it seals), about 33 bytes less
   for each lock. Not taken: a row of named fields is what Rama's schema can check, and the skill asks
   for a fixed-keys schema for a record-like row. If the build's measure of lock bytes misses the aim,
-  this is the next step, with AES-128 after it (16 bytes). The word of the way is the same in every
-  row of this build, about 18 bytes each. A row with no word, read as the first way, would save
-  them; the ruling asks for a word in each row, so it is written. A block compressor would remove a
-  word that repeats in every row; whether Rama's RocksDB compresses its blocks was not found in its
-  docs.
+  this is the next step, with AES-128 after it (16 bytes). The number of the way is the same in
+  every row of this build, about 7 bytes each with its field name. A row with no way, read as the
+  first way, would save them; rule 16 asks that a lock's row say its way, so it is written. A block
+  compressor would remove a field that repeats in every row; whether Rama's RocksDB compresses its
+  blocks was not found in its docs.
 - **No data is held twice**, with one exception that is a link, not a copy: a fact's row names its
   lock, and the lock's row names its fact. Both directions are read: the first by a forget (not
   built) and by whoever opens a value; the second by the seal check, and by a rebuild that must see
@@ -1280,12 +1370,12 @@ the thing itself, or rows that an earlier check already read.
 | (a) the record holds an answer under this act-id | `$$streaming-answers`, the key of the act-id | 1 |
 | (b) the door's declaration, with `act.clj`'s check | nothing | 0 |
 | the 10-second rule (C rule 17) | nothing: the wall clock | 0 |
-| (c) the layer's class is this gate's | when (d)'s row is the act's permission: nothing more. When it is not: `$$streaming-facts`, the layer's class place. In the next part, when that is empty too: the other gate's record | 0, or 1 (the next part: or 2) |
+| (c) the layer's class is this gate's | when (d)'s place holds a permission, the act's or another: nothing more. When it is empty: `$$streaming-facts`, the layer's class place. In the next part, when that is empty too: the other gate's record | 0, or 1 (the next part: or 2) |
 | (d) the act's permission stands | `$$streaming-facts`, the place of `:who`'s permission | 1 |
 | The first act of a layer (C item 9) | the two rows of (d) and (c), both empty. The form of the act is tested on the act alone | 0 more (2 with (c) and (d)) |
 | (e) each `:replaces` is the current fact of its place | `$$streaming-facts`, the place of each fact that names something to replace | 1 for each such fact; 0 for a fact that names nothing |
 | (f) no setting key on an entity other than the layer | nothing | 0 |
-| (g) a permission fact writes a permission beneath the act's own | the check itself: nothing. With it, rule 13's "a place that holds one": `$$streaming-facts`, the place of each fact under `:permission` | 1 for each fact under `:permission` |
+| (g) a permission fact writes a permission beneath the act's own | the check itself: nothing. With it, rule 13's "a place that holds one": `$$streaming-facts`, the place of each fact under `:permission` | 1 for each fact under `:permission`; 0 for the two facts of a right making act |
 | What a store key does not take (C item 3, end; C rule 13) | rows already read | 0 |
 | The seal (C item 7; C rule 16) | `$$streaming-locks`, one range for each request whose locks the act names | 1 for each request, and one iteration for each index in the range |
 | The stamp (C item 6) | `$$streaming-task`, `:last-stamp` | 1, for each first decision, accepted or refused |
@@ -1307,7 +1397,8 @@ Other acts, for the same accounting: a repeat, or a different act under a used a
 write. A request for n locks: 3 reads (answer, permission, last stamp) and n + 3 writes. A making act:
 4 reads (answer, permission, class, last stamp) and 4 writes. A give: 4 reads (answer, the giver's
 permission, the place of the new one, last stamp) and 3 writes. An act refused by the declaration: 2
-reads (answer, last stamp) and 2 writes. An act whose permission does not stand: 4 reads and 2 writes.
+reads (answer, last stamp) and 2 writes. An act whose permission does not stand: 3 reads when its
+`:who` holds another permission in the layer, 4 when that place is empty; 2 writes.
 
 **Set against the second limit of F9** (C rule 21): "at least 100 acts each second for one person,
 with the slowest 1 in 100 at 20 ms (measured: 46 ms)". The plan takes the 20 ms from the door's append
@@ -1337,7 +1428,7 @@ nodes, which this stage cannot say and the in-process cluster cannot show.
    the declaration, the layer, the permission (IS O6). The ids of the locks that it asks for are
    known before it is sent: `[act-id 0]` to `[act-id n-1]`.
 2. **Made.** When the gate accepts the request, the same event writes n rows to `$$streaming-locks`,
-   `"<layer> <u> 000"` onward, each with 32 fresh random bytes, the word of its way of sealing, and
+   `"<layer> <u> 000"` onward, each with 32 fresh random bytes, the number of its way of sealing, and
    no fact; the request's own fact as the row of its place; the answer; the last stamp. All of them
    become visible together (IS C3). A refused request writes its answer and no lock (IS X90 to X92).
 3. **Read.** The door reads the request's answer by act-id, then its locks, the bytes and the way of
@@ -1419,7 +1510,8 @@ line says what this part leaves for it.
    found out".
 10. `stray-reason` runs before check (a). A stray gets no answer; its digest is added to the set of its
     reason word in `$$streaming-task`, on the task where it arrived: one set element, once. The gate
-    writes an answer only under an act-id of its class whose layer is the thing's layer.
+    writes an answer only under an act-id of its class whose layer is the thing's layer. It makes no
+    hop: what follows for a thing that a topology appended to another partition is under "Depots".
 11. The answer row keeps the digest and `answer-by-act-id` gives it. `softland.store.digest` is the one
     function, called by the gate and by the door's hand. The gate writes nothing at check (a).
 12. Two rules of the declaration, each a name and a reason word as data and its test in code, since
@@ -1447,8 +1539,12 @@ line says what this part leaves for it.
     greatest count for a sequence or a map, no shape for a run of bytes), so four rules hold them,
     with the words `:too-many-facts`, `:too-many-based-on`, `:sealed-value-too-large` and
     `:too-many-locks-requested`.
+    The fifth limit, 256 characters in the printed text of an id or of a fact's key, is held with the
+    word `:id-too-long`: by the test for a stray for the layer slot of the act-id, by rule 20 of the
+    declaration for every other id and for a fact's key, each before a row key is built from the id;
+    and at the head of each query.
 21. The three aims are under "What the plan found out": 1,000 acts a second on one task; 20 ms from
-    append to answer; 120 bytes of lock or fewer for each value.
+    append to answer; 110 bytes of lock or fewer for each value.
 
 ## What the plan found out
 
@@ -1501,9 +1597,17 @@ guarantee, and what they do not:
   decided first. Its retry is answered at check (a) and changes nothing.
 
 **So the sentence of IS X29 holds as long as no streaming batch fails, and can fail to hold in the
-window between a failed batch and its retry.** The plan cannot close the window: the gate would have
-to know each record's position in its partition, and the skill's references name no operation that
-gives it to a stream topology.
+window between a failed batch and its retry.** The gate cannot close the window by a check of its own:
+it would have to know each record's position in its partition, and the skill's references name no
+operation that gives it to a stream topology. Rama has one setting that would close it, and the plan
+does not take it: `topology.stream.max.executing.per.task`, "the max number of depot records that can
+be pending for a stream topology for each task" (docs 11:317), a dynamic option of the topology. At 1,
+a task has one record pending at a time, so no later record can be processed while a failed one waits
+for its retry (*derived from the words of the docs, not verified*). The price is one act in each
+streaming batch of a task: each act waits for the replication of the act before it, so the first
+target of F9, 1,000 acts a second on one task, would need a whole batch with its replication in under
+a millisecond. The plan keeps Rama's default and reports the choice. It is between F2 A's reason and
+F9's first target, and both are Sid's.
 
 How wide the window is, *derived from the docs and not verified*. This gate's event has no hop, so
 two kinds of failure differ. (1) A batch's replication does not finish. A task's changes are applied
@@ -1538,9 +1642,26 @@ Nothing is built or tested for a rebuild. Found for this gate:
   act's `:based-on` then names stamps that the rebuilt record does not hold. No check of this build
   reads `:based-on` against the record, and old stamps are in the past, so the 10-second rule refuses
   none of them.
+- *An act that rule 17 refused.* That follows from the line above, and it is a decision that a rebuild
+  does not give again: the rule holds a carried stamp against the gate's clock at the decision, and
+  at a later clock the same act is no longer ahead. So an act that was refused
+  `:carried-stamp-too-far-ahead` comes out of a rebuild decided by the checks after it, and can come
+  out accepted.
 - *The order.* IS X29, above: the depot's order is the order of the first decisions except across a
-  failed batch.
+  failed batch. A thing that a topology appended to another partition ("Depots") is decided on the
+  task where it sits, against that task's record, and a rebuild that replays each partition in its
+  place decides it there again. No topology of this build appends such a thing.
 - *Strays.* The same set comes out again: it is a set of digests.
+- *The number of tasks, which is where a rebuild is first asked for.* Rama cannot change it for a
+  module: "Currently Rama does not support changing the number of tasks for a module" (docs 19:483).
+  Its docs give two ways to get more. The first is the rebuild of this section: a new module "that
+  recomputes all PStates from scratch" from the depots, which "only works if your processing is
+  deterministic" (docs 19:487, 19:489). This gate's is not: a lock's bytes are random, and a stamp
+  holds the clock. The second moves the rows as they are: "a special topology in the new module to
+  iterate through the original PStates and repartition them" (docs 19:489). This record fits the
+  second: every key names its layer, so a row's new task follows from the row. A task's last stamp
+  and its strays name no layer; the last stamps of the old tasks would be joined by taking the
+  greatest.
 - Rule 9's own question, two microbatch acts on different entities, is the next part's.
 
 ### C rule 21: the three limits of F9, and what the plan aims at
@@ -1563,7 +1684,7 @@ how each was measured.
    *Aim: 20 ms from the door's append to the answer in the door's hand.* The count and the path are
    under "The checks of one act".
 3. **The locks take no more than 2 times the bytes of the values** (measured: 169 bytes of lock for
-   each value). *Aim: 120 bytes of lock or fewer for each value.* The working, and the size of value
+   each value). *Aim: 110 bytes of lock or fewer for each value.* The working, and the size of value
    below which "2 times" cannot hold with a lock for each value, are under "Resource usage analysis".
 
 ## Where the contract and the README differ
@@ -1642,19 +1763,20 @@ the word that he gives.
 | `:lock-act`, `:lock-index` | In a fact row: the lock that seals `:value`, as the uuid of the act that asked for it and its index |
 | `:by-act`, `:by-index` | In a fact row: the fact that wrote the row, as the uuid of its act and its index |
 | `:bytes` | In a lock row: the lock's 32 bytes |
-| `:way` | In a lock row, and in a lock as `locks-of-request` gives it: the word of the way of sealing that the lock is for |
-| `:aes-256-gcm` | The one way of sealing that this build knows, as the value of `:way`: AES-256-GCM, a random part of 12 bytes in front, a tag of 16 bytes, the place as associated data |
+| `:way` | In a lock row, and in a lock as `locks-of-request` gives it: the number of the way of sealing that the lock is for. A small integer; 1 in this build |
+| `:aes-256-gcm` | In code only, beside the number 1 in `softland.store.seal`, and never in a row: the word for the one way of sealing that this build knows. AES-256-GCM, a random part of 12 bytes in front, a tag of 16 bytes, the place as associated data |
 | `:seals-act`, `:seals-index` | In a lock row: the fact that the lock seals, once it seals one |
 | `:last-stamp` | In the task's value: the last stamp that the gate gave on this task |
 | `:strays` | In the task's value: by reason word, the digests of the strays seen |
 | `:verdict`, `:reason` | In an answer as `answer-by-act-id` gives it: `:accepted` or `:refused`, and the reason word |
 
-**The words of a stray** (kept in `:strays`, never in an answer).
+**The words of a stray** (kept in `:strays`; a stray has no answer).
 
 | Word | What it is |
 |---|---|
 | `:no-act-id` | The thing is no plain map, or holds no `:act-id` |
 | `:act-id-malformed` | Its `:act-id` is not `[layer class uuid]` |
+| `:id-too-long` | The layer slot of its act-id prints to more than 256 characters. The same word is a reason word of the declaration, below, for every other id |
 | `:act-id-of-the-other-gate` | The class slot of its act-id is not the class of the gate where it arrived |
 | `:act-id-of-another-layer` | The layer slot of its act-id is not its own `:layer` |
 
@@ -1680,6 +1802,7 @@ the word that he gives.
 | `:place-named-twice` | Two facts of the act are on one entity and key |
 | `:replaces-own-fact` | A fact names a fact of its own act in `:replaces` |
 | `:lock-named-twice` | Two facts of the act are under one lock |
+| `:id-too-long` | An id that the act holds, or a fact's key, prints to more than 256 characters. For the layer slot of the act-id the word is a stray's, above |
 
 **The names in the declaration**: its shapes, and its rules. Each rule's reason word is in the table
 above; the rules and what each holds are in the table under "The door's declaration".
@@ -1700,6 +1823,7 @@ above; the rules and what each holds are in the table under "The door's declarat
 | `:plain-value-is-sealed`, `:sealed-fact-has-no-plain-value`, `:seal-is-whole` | The rules: a value under a plain key comes sealed, with no plain value beside it, and with its lock id |
 | `:sealed-is-bytes`, `:sealed-within-the-limit` | The rules: `:sealed` is a run of bytes, and within its limit |
 | `:place-named-once`, `:no-fact-replaces-a-fact-of-its-act`, `:lock-named-once` | The rules between the facts of one act |
+| `:ids-within-the-limit` | The rule: each id that the act holds, and each fact's key, prints to 256 characters at most |
 
 **The reason words of the gate.**
 
@@ -1867,8 +1991,9 @@ say nothing about them; IS X31.
 7. No value in the ack.
 8. The source: retry mode "all after"; start from the beginning.
 9. The cipher's parts: AES-256, a random part of 12 bytes, the place as associated data. By the build
-   session's ruling of 8 October a value carries no version byte, and the way of sealing is one word
-   in the lock's row. The word itself, `:aes-256-gcm`, and the field's name, `:way`, are the plan's.
+   session's rulings of 8 October a value carries no version byte, and the way of sealing is one small
+   integer in the lock's row, with its word in code. The number, 1, the word, `:aes-256-gcm`, and the
+   field's name, `:way`, are the plan's.
 10. The stamp's packing: milliseconds × 65,536 + counter.
 11. SHA-256 over the one text, kept whole; the one text's table.
 12. The last stamp is read from the record at each decision, not kept in memory (the project's caching
@@ -1880,7 +2005,7 @@ say nothing about them; IS X31.
     word".
 16. Each query takes the layer as its first argument.
 17. The second alias `:store-module`; `rama-helpers` left out.
-18. The words: 40 reason and stray words, the names of the declaration's shapes and rules, the word of
+18. The words: 41 reason and stray words, the names of the declaration's shapes and rules, the word of
     the way of sealing, the names in Rama, the fields, the namespaces.
 19. The proof's hand makes a random UUID for an act-id, as the README says, and not the version 7 UUID
     that the Rama skill asks for ("The proof's hand", step 2).
@@ -1890,21 +2015,31 @@ say nothing about them; IS X31.
 21. `:sealed` is set aside from the engine's pass and held by two rules in code, because no leaf of
     `act.clj` fits a run of bytes and the engine as ruled takes no leaf from a caller. The other
     answer is one more argument of `act.clj`'s new function, and it is the build session's to rule.
+22. The gate makes no hop, and rests on the depot's partitioner for where a thing sits. Ruled by the
+    build session on the check of this plan, which had written a hash partitioner into the gate; it
+    is C item 3 as it now stands. What follows is under "Depots" and in the module's README: a thing
+    that a topology appends to another partition is decided against that task's record; it can be
+    refused as an act into a layer that is not made, or leave rows and an answer on that task that no
+    read finds; the rows of the true layer, on its own task, are not touched. The reason that this is
+    said at all: an append from a topology goes to the partition of the task that it is on, whatever
+    the depot's partitioner (docs 14:252–254). No documented way was found for the gate to test,
+    without a hop, which task the depot's partitioner gives a layer.
 
 **What could not be met as written, and why.**
 
 1. *"Reuse its engine by requiring `softland.store.act`"* (C item 2). **Met, by the build session's
    ruling of 8 October.** The first version of this plan could not meet it with `act.clj` unchanged.
-   Now the engine takes the map of shapes and the nesting limits, the declaration is data in the
+   Now the engine takes the map of shapes, the declaration is data in the
    language of `act.clj`'s `shapes`, and the same engine reads it; nothing leans on `has-shape?`. One
    part of what arrives stays outside the engine: `:sealed`, which no leaf fits ("The door's
    declaration").
 2. *IS X29*: "an act of a layer that is not yet decided is not decided after a later act of that
    layer". Rama's stream topology does not guarantee it across a failed batch. The design narrows the
-   window and cannot close it.
+   window. The one setting of Rama that would close it is paid for against F9's first target; the
+   choice goes to Sid with the receipt ("What the plan found out", IS X29).
 3. *F9's first limit*, by the skill's cold cost for a read: 480 to 770 acts a second on one task, not
    1,000. It is a target; the argument that the reads are served from memory is not a measure.
-4. *F9's third limit* for values that average under 60 bytes: not met with a lock of 32 bytes for
+4. *F9's third limit* for values that average under 55 bytes: not met with a lock of 32 bytes for
    each value. The grain (H1) is what moves it.
 5. *"Each permission above it in its chain stands"* (C item 3(d)) is not read from the record; it is
    held by how a permission row can come to be. The gate's answer is the same for every record that
@@ -1915,12 +2050,12 @@ say nothing about them; IS X31.
 8. *IS X31* stays open in this part, as `DECOMPOSITION.json` says.
 
 **For the build to check first.** Before anything else, once the engine of `act.clj` takes its
-arguments: `clojure -M:store -m softland.store.act-proof` still passes its 150 checks, with no check
+argument: `clojure -M:store -m softland.store.act-proof` still passes its 150 checks, with no check
 changed (this stage ran it on the tree as it stands: 150 passes, none failed). Then what this stage
-did not verify: a byte array as the class of a schema position; that a record read back from the
-depot's log has been through serialisation; that no call of Rama's client lets an appender pick the
-partition of a `hash-by` depot; RocksDB's sharing of key fronts, which the lock's byte count leans
-on.
+did not verify: a byte array as the class of a schema position (if Rama refuses it, the nearest form
+is one of a declared class, never `Object`); that a record read back from the depot's log has been
+through serialisation; the largest record that the depot takes, since a thing over a limit is read
+before it is refused; RocksDB's sharing of key fronts, which the lock's byte count leans on.
 
 ## Design difficulty log
 <!-- An honest, first-person record of where this design was hard to settle. -->
