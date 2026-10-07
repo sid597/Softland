@@ -16,8 +16,8 @@ The form of an act is declared, not implied. [act.clj](act.clj) holds two
 declarations as plain data, and they are the place to start:
 
 - the shape: the parts of an act, what each part holds, which parts must be
-  there, and the reason word when a part is wrong; and the same for a fact, a
-  name, a fact id, a permission id and a carried stamp;
+  there, and the reason word when a part is wrong; and the same for a fact, an
+  act-id, a fact id, a permission id and a carried stamp;
 - the rules: what must hold between two places of an act, which a shape cannot
   say, such as that the permission's layer is the act's layer.
 

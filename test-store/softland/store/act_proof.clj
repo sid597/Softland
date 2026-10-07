@@ -10,7 +10,7 @@
 
   The form that it checks is the maker's act, with plain values, as the
   decisions of 6 October 2026 give it (src-store/README.md). The proof seals
-  nothing, makes no name and opens nothing.
+  nothing, makes no act-id and opens nothing.
 
   Approach. Each check is a case: what it is about, a function of no
   argument that calls the act's code, and what that function must give.
@@ -78,17 +78,17 @@
 ;; ---------------------------------------------------------------- fixtures
 
 (defn- uuid
-  "A fixed UUID, so that a name of the proof is the same in each run."
+  "A fixed UUID, so that an act-id of the proof is the same in each run."
   [n]
   (UUID. 0 n))
 
-(defn- a-name
-  "A name for a layer and a class, with a fixed id."
+(defn- an-act-id
+  "An act-id for a layer and a class, with a fixed UUID."
   [layer class n]
   [layer class (uuid n)])
 
-(def ^:private earlier-name "The name of an earlier act in Alice's layer." (a-name :alice :streaming 2))
-(def ^:private other-name "The name of another earlier act in Alice's layer." (a-name :alice :streaming 3))
+(def ^:private earlier-act-id "The act-id of an earlier act in Alice's layer." (an-act-id :alice :streaming 2))
+(def ^:private other-act-id "The act-id of another earlier act in Alice's layer." (an-act-id :alice :streaming 3))
 (def ^:private alice-own "Alice's permission in her own layer." [:alice :alice :alice])
 (def ^:private a-fact "One fact with a plain value." {:e :note-1 :k :note :v "a text"})
 
@@ -147,7 +147,7 @@
          [:permission :permission-id {:absent :no-permission}]
          [:session :id {:absent :no-session}]
          [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
-         [:because-of :name {:optional true}]
+         [:because-of :act-id {:optional true}]
          [:claimed-when :int {:optional true}]
          [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
          [:facts [:seq-of :fact] {:empty :empty-act}]]
@@ -156,8 +156,8 @@
           [:k :key]
           [:v :value {:optional true}]
           [:replaces :fact-id {:optional true}]]
-   :name [:tuple :id [:enum :streaming :microbatch] :uuid]
-   :fact-id [:tuple :name [:int {:min 0}]]
+   :act-id [:tuple :id [:enum :streaming :microbatch] :uuid]
+   :fact-id [:tuple :act-id [:int {:min 0}]]
    :permission-id [:or [:tuple :id :id :id] [:tuple :id :id :id :permission-id]]
    :carried-stamp [:int {:min 0 :below 4611686018427387904}]})
 
@@ -173,10 +173,10 @@
     #{:version :who :layer :permission :session :based-on :because-of :claimed-when :subjects :facts}]
    ["the four parts of a fact"
     (fn [] act/fact-parts) #{:e :k :v :replaces}]
-   ["the door's additions and the seal are no parts: no name or class on an act; no seal, lock id, layer or mark on a fact"
+   ["the door's additions and the seal are no parts: no act-id or class on an act; no seal, lock id, layer or mark on a fact"
     (fn [] (mapv #(contains? %1 %2)
                  [act/act-parts act/act-parts act/fact-parts act/fact-parts act/fact-parts act/fact-parts]
-                 [:name :class :sealed :lock-id :layer :mark]))
+                 [:act-id :class :sealed :lock-id :layer :mark]))
     [false false false false false false]]
    ["the seven reason words, read from the two declarations"
     (fn [] act/reasons)
@@ -194,12 +194,12 @@
    :who :alice :layer :alice
    :permission (subvec [:x :alice :alice :alice [:operator :alice :alice]] 1)
    :session :alice-s1
-   :based-on {[(subvec (into [:x] earlier-name) 1) (int 0)] (int 41)}
-   :because-of (subvec (into [:x] earlier-name) 1)
+   :based-on {[(subvec (into [:x] earlier-act-id) 1) (int 0)] (int 41)}
+   :because-of (subvec (into [:x] earlier-act-id) 1)
    :claimed-when (int 1700000)
    :subjects #{:alice :bob}
    :facts (list {:e :note-1 :k :note :v {:count (int 2) :path (subvec [0 1 2] 1)}
-                 :replaces [earlier-name (short 0)]}
+                 :replaces [earlier-act-id (short 0)]}
                 {:e :note-2 :k :note})})
 
 (def ^:private whole-form
@@ -207,11 +207,11 @@
   {:version 1 :who :alice :layer :alice
    :permission [:alice :alice :alice [:operator :alice :alice]]
    :session :alice-s1
-   :based-on {[earlier-name 0] 41}
-   :because-of earlier-name
+   :based-on {[earlier-act-id 0] 41}
+   :because-of earlier-act-id
    :claimed-when 1700000
    :subjects #{:alice :bob}
-   :facts [{:e :note-1 :k :note :v {:count 2 :path [1 2]} :replaces [earlier-name 0]}
+   :facts [{:e :note-1 :k :note :v {:count 2 :path [1 2]} :replaces [earlier-act-id 0]}
            {:e :note-2 :k :note :v nil :replaces nil}]})
 
 ;; ---------------------------------------------------------- acts that pass
@@ -224,8 +224,8 @@
       good
       (one-form {:e :note-1 :k :note :v "a text" :replaces nil})]
      ["a retract: a fact with no :v"
-      (act-of {:e :note-1 :k :note :replaces [earlier-name 0]})
-      (one-form {:e :note-1 :k :note :v nil :replaces [earlier-name 0]})]
+      (act-of {:e :note-1 :k :note :replaces [earlier-act-id 0]})
+      (one-form {:e :note-1 :k :note :v nil :replaces [earlier-act-id 0]})]
      ["three facts, each with a plain value under any key: a text, a map, a UUID"
       (act-of a-fact {:e :alice-s1 :k :lease :v {:count 1}} {:e :note-2 :k :link :v (uuid 5)})
       (one-form {:e :note-1 :k :note :v "a text" :replaces nil}
@@ -241,10 +241,10 @@
       (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
              :who :bob :permission [:bob :alice :alice alice-own])]
      ["an act that replaces a fact, says what it was based on and what it came from"
-      (assoc (act-of (assoc a-fact :replaces [earlier-name 0]))
-             :based-on {[earlier-name 0] 41 [other-name 1] 7} :because-of other-name)
-      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces [earlier-name 0]})
-             :based-on {[earlier-name 0] 41 [other-name 1] 7} :because-of other-name)]
+      (assoc (act-of (assoc a-fact :replaces [earlier-act-id 0]))
+             :based-on {[earlier-act-id 0] 41 [other-act-id 1] 7} :because-of other-act-id)
+      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces [earlier-act-id 0]})
+             :based-on {[earlier-act-id 0] 41 [other-act-id 1] 7} :because-of other-act-id)]
      ["an act with each optional part, given with subvectors, narrow integers and a list of facts"
       whole
       whole-form]]))
@@ -278,7 +278,7 @@
   thing only."
   [;; parts that the form does not name
    ["another part" (assoc good :signature "x") :unknown-part]
-   ["a name: the door makes it, and it is no part" (assoc good :name earlier-name) :unknown-part]
+   ["an act-id: the door makes it, and it is no part" (assoc good :act-id earlier-act-id) :unknown-part]
    ["a class: the door adds it, and it is no part" (assoc good :class :streaming) :unknown-part]
    ["a part for expected versions" (assoc good :expected-versions {}) :unknown-part]
    ;; the version
@@ -302,11 +302,11 @@
    ["no session" (dissoc good :session) :no-session]
    ["a session that is a string" (assoc good :session "s1") :malformed]
    ;; based on
-   [":based-on that is no map" (assoc good :based-on [[earlier-name 0] 1]) :malformed]
+   [":based-on that is no map" (assoc good :based-on [[earlier-act-id 0] 1]) :malformed]
    ["a key of :based-on that is no fact id" (assoc good :based-on {[:alice 0] 1}) :malformed]
-   ["a carried stamp that is a double" (assoc good :based-on {[earlier-name 0] 1.5}) :malformed]
+   ["a carried stamp that is a double" (assoc good :based-on {[earlier-act-id 0] 1.5}) :malformed]
    ;; because of, claimed when, subjects
-   ["a :because-of that is no name" (assoc good :because-of [:alice 0]) :malformed]
+   ["a :because-of that is no act-id" (assoc good :because-of [:alice 0]) :malformed]
    ["a :because-of with a scheme word, four slots" (assoc good :because-of [:alice :streaming :act (uuid 2)]) :malformed]
    ["a :because-of with no class" (assoc good :because-of [:alice nil (uuid 2)]) :malformed]
    ["a :claimed-when that is a double" (assoc good :claimed-when 1.5) :malformed]
@@ -323,7 +323,7 @@
    ["a fact that is a record" (act-of (->Thing :note-1 :note)) :malformed]
    ["another part on a fact" (act-of (assoc a-fact :colour :red)) :unknown-part]
    ["sealed bytes on a fact: the act holds plain values" (act-of (assoc a-fact :sealed (byte-array [1 2 3]))) :unknown-part]
-   ["a lock id on a fact" (act-of (assoc a-fact :lock-id [earlier-name 0])) :unknown-part]
+   ["a lock id on a fact" (act-of (assoc a-fact :lock-id [earlier-act-id 0])) :unknown-part]
    ["a layer on a fact" (act-of (assoc a-fact :layer :alice)) :unknown-part]
    ["a mark on a fact" (act-of (assoc a-fact :mark #{:own-row})) :unknown-part]
    ["a fact with no entity" (act-of (dissoc a-fact :e)) :malformed]
@@ -406,9 +406,9 @@
    ["257 subjects" (assoc good :subjects (subjects 257)) :malformed]
    ["a value inside 32 collections" (act-of (assoc a-fact :v (nested 32))) :ok]
    ["a value inside 33 collections" (act-of (assoc a-fact :v (nested 33))) :malformed]
-   ["a carried stamp of 2^62 - 1" (assoc good :based-on {[earlier-name 0] (dec act/max-carried-stamp)}) :ok]
-   ["a carried stamp of 2^62" (assoc good :based-on {[earlier-name 0] act/max-carried-stamp}) :malformed]
-   ["a carried stamp below zero" (assoc good :based-on {[earlier-name 0] -5}) :malformed]
+   ["a carried stamp of 2^62 - 1" (assoc good :based-on {[earlier-act-id 0] (dec act/max-carried-stamp)}) :ok]
+   ["a carried stamp of 2^62" (assoc good :based-on {[earlier-act-id 0] act/max-carried-stamp}) :malformed]
+   ["a carried stamp below zero" (assoc good :based-on {[earlier-act-id 0] -5}) :malformed]
    ["a permission four deep" (assoc good :permission (deep-permission 4)) :ok]
    ["a permission five deep" (assoc good :permission (deep-permission 5)) :malformed]])
 
@@ -440,7 +440,7 @@
 
 (def ^:private value-cases
   "Ids, keys, values, the one normal form, and the shapes that an act refers
-  to: a name, a fact id and a permission id."
+  to: an act-id, a fact id and a permission id."
   (into (verdicts id-rows)
         [["a retract is a fact with no :v, and a fact with a nil :v is the same retract"
           (fn [] [(-> (act/parse (act-of {:e :note-1 :k :note})) :ok :facts first)
@@ -464,16 +464,16 @@
           [[true "Long"] [true "Long"] [true "Long"] [true "Long"] [true "Long"] [true "BigInt"] [true "Double"]
            [true "BigDecimal"] [true "BigDecimal"] [true "PersistentVector"] [true "PersistentArrayMap"]
            [true "PersistentHashSet"]]]
-         ["the shape of a name, as an act refers to one: [layer class id], the layer an id"
-          (fn [] (mapv #(act/has-shape? :name %)
+         ["the shape of an act-id, as an act refers to one: [layer class uuid], the layer an id"
+          (fn [] (mapv #(act/has-shape? :act-id %)
                        [[:alice :streaming (uuid 1)] [:group :microbatch (uuid 1)] [(uuid 3) :streaming (uuid 1)]
                         [:alice :streaming :act (uuid 1)] [:alice nil (uuid 1)] [:alice :sideways (uuid 1)]
                         [:alice :streaming "id"] ["alice" :streaming (uuid 1)] (list :alice :streaming (uuid 1))]))
           [true true true false false false false false false]]
-         ["fact ids: a name and an index from 0; not a negative index, not a big one, not a list, not an id in place of a name"
+         ["fact ids: an act-id and an index from 0; not a negative index, not a big one, not a list, not an id in place of an act-id"
           (fn [] (mapv #(act/has-shape? :fact-id %)
-                       [[earlier-name 0] [earlier-name (int 3)] [earlier-name -1] [earlier-name 1N]
-                        (list earlier-name 0) [:alice 0]]))
+                       [[earlier-act-id 0] [earlier-act-id (int 3)] [earlier-act-id -1] [earlier-act-id 1N]
+                        (list earlier-act-id 0) [:alice 0]]))
           [true true false false false false]]
          ["permission ids: three ids, UUIDs too; with a parent; four deep; not two items, not a list, not five deep"
           (fn [] (mapv #(act/has-shape? :permission-id %)
@@ -489,7 +489,7 @@
   (doseq [[part shape opts] (rest (:act act/shapes))]
     (shown "  " part (pr-str shape) (if opts (pr-str opts) "")))
   (shown "a fact:" (pr-str (vec (rest (:fact act/shapes)))))
-  (shown "a name:" (pr-str (:name act/shapes)) "| a fact id:" (pr-str (:fact-id act/shapes))
+  (shown "an act-id:" (pr-str (:act-id act/shapes)) "| a fact id:" (pr-str (:fact-id act/shapes))
          "| a permission id:" (pr-str (:permission-id act/shapes))
          "| a carried stamp:" (pr-str (:carried-stamp act/shapes)))
   (shown "the rule:" (pr-str act/rules))

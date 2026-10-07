@@ -3,18 +3,18 @@
   code. It needs no cluster, and it requires nothing outside Clojure and the
   JVM.
 
-  An act is one fact or more that one maker sends under one name; the door
-  makes the name, and it is not a part of the form. A gate accepts the whole
-  act or refuses the whole act. Whatever made an act, it has one form. The
-  form here is the maker's act: what a maker gives, with plain values, before
-  the door touches it. That is Sid's decision of 6 October 2026. The twelve
-  decisions are listed in src-store/README.md, which marks the two that wait
-  for his word.
+  An act is one fact or more that one maker sends under one act-id; the
+  door makes the act-id, and it is not a part of the form. A gate accepts
+  the whole act or refuses the whole act. Whatever made an act, it has one
+  form. The form here is the maker's act: what a maker gives, with plain
+  values, before the door touches it. That is Sid's decision of 6 October
+  2026. The twelve decisions are listed in src-store/README.md, which marks
+  the two that wait for his word.
 
   Read `shapes` and `rules` first. `shapes` declares the form as plain data:
   the parts of an act, what each part holds, which parts must be there, and
-  the reason word when a part is wrong; and the shape of a fact, a name, a
-  fact id, a permission id and a carried stamp. `rules` declares what must
+  the reason word when a part is wrong; and the shape of a fact, an act-id,
+  a fact id, a permission id and a carried stamp. `rules` declares what must
   hold between two places of an act, which a shape cannot say. `parse` reads
   the two declarations, takes anything, and gives the act in its one form or
   the reason why it is not an act.
@@ -43,7 +43,7 @@
   sets; the leaves, which are the few shapes that code checks; the engine
   that reads a shape; the check.
 
-  Not here. Names: the door makes them, on request ahead of sending. The
+  Not here. Act-ids: the door makes them, on request ahead of sending. The
   class: the door adds it, from the layer. The seal: the door's, and a gate
   refuses a value that is not sealed. The standing of a permission, and
   whether an act claims to be the store: a gate decides. Which gate an act
@@ -54,10 +54,14 @@
   either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more
-  facts that one maker sends under one name. A maker is a converter, the
-  screen, an agent. The door is the code that takes an act from a maker into
-  the store. A gate decides each act inside the store. \"Key\" is a fact's
-  key, and \"lock\" is an encryption key: never one word for both."
+  facts that one maker sends under one act-id. An act-id is
+  `[layer class uuid]`: the layer, the layer's class, a random UUID; the
+  layer and the class are there so a depot can route the act and the door
+  can find its answer in the right record. Sid's word, 7 October 2026; the
+  ruling of 24 September said \"name\". A maker is a converter, the screen,
+  an agent. The door is the code that takes an act from a maker into the
+  store. A gate decides each act inside the store. \"Key\" is a fact's key,
+  and \"lock\" is an encryption key: never one word for both."
   (:import [clojure.lang BigInt]
            [java.math BigDecimal BigInteger]))
 
@@ -130,7 +134,7 @@
     [:permission   :permission-id                     {:absent :no-permission}]
     [:session      :id                                {:absent :no-session}]
     [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
-    [:because-of   :name                              {:optional true}]
+    [:because-of   :act-id                            {:optional true}]
     [:claimed-when :int                               {:optional true}]
     [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
@@ -144,13 +148,13 @@
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
-   ;; [layer class id]. The door makes it; an act refers to names.
-   :name
+   ;; [layer class uuid]. The door makes it; an act refers to act-ids.
+   :act-id
    [:tuple :id [:enum :streaming :microbatch] :uuid]
 
-   ;; [name index]: one fact of one act.
+   ;; [act-id index]: one fact of one act.
    :fact-id
-   [:tuple :name [:int {:min 0}]]
+   [:tuple :act-id [:int {:min 0}]]
 
    ;; [who layer granted-in], or [who layer granted-in parent].
    :permission-id
@@ -459,9 +463,9 @@
   a retract. To parse the :ok of a parse gives the same :ok.
 
   It is the check of the maker's act: what a maker gives, before the door
-  adds a name and a class and seals the values. An act that carries a name
-  or a class, and a fact that carries a seal, a lock id, a layer or a mark,
-  are refused :unknown-part: the form names no such part.
+  adds an act-id and a class and seals the values. An act that carries an
+  act-id or a class, and a fact that carries a seal, a lock id, a layer or a
+  mark, are refused :unknown-part: the form names no such part.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
   rule about a session beyond its shape. It examines the shape of a

@@ -21,10 +21,11 @@ What it checks, group by group:
 
 1. The parts. The two declarations, the shape and the rules, each written out a
    second time as literals; the parts of an act and of a fact, and the reason
-   words, read from them; that a name, a class, a seal, a lock id, a layer and a
-   mark are no parts; the version and the limits. And that the check reads the
-   declarations: for each part of an act and of a fact, a thing without the part,
-   and a thing with a thing of no shape in it, get what the declaration gives.
+   words, read from them; that an act-id, a class, a seal, a lock id, a layer
+   and a mark are no parts; the version and the limits. And that the check reads
+   the declarations: for each part of an act and of a fact, a thing without the
+   part, and a thing with a thing of no shape in it, get what the declaration
+   gives.
 2. Acts that pass, each shown in its one form: from the least act (version, who,
    layer, permission, session and one fact), through a retract, plain values
    under any key, ids that are UUIDs, a permission that a parent granted, and an
@@ -43,8 +44,9 @@ What it checks, group by group:
 6. The limits at their edges: the subjects, the collections around a value, a
    carried stamp, and the depth of a permission.
 7. Ids and values: an id that is a UUID passes, and one that is a string fails;
-   a key that is a UUID fails; a retract is a fact with no `:v`; what is a value,
-   and its one normal form; the shapes of a name, a fact id and a permission id.
+   a key that is a UUID fails; a retract is a fact with no `:v`; what is a
+   value, and its one normal form; the shapes of an act-id, a fact id and a
+   permission id.
 
 ### What the act's proof does not reach
 
