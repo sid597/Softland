@@ -55,3 +55,29 @@ portrait pages and writes the PDF to the research depot
 
 Before a sheet goes to Sid, a second session reads it against this page and
 against Sid's rulings and words, and reports only what does not hold.
+
+## What the first two sheets taught (Sid, 6–7 October 2026)
+
+- **The picture first.** Sid could not answer a question about "the record" or "the
+  gate" without the whole flow in front of him: "I need a system architecture and
+  data flow to make sense of the different parts." Page 1 of every sheet is the
+  data-flow of one act — maker → door → depot → gate → record → answer and reads —
+  with each word defined where it first appears, and the part the sheet asks about
+  marked on it. The words list goes to the back.
+- **Say its kind.** Each question's first line says which of Sid's two categories
+  it is: *system sets* (one choice, ours) · *group chooses — the default is the
+  question* · *target*. His words: "softland provides a spectrum of choices that
+  the entities make; so two categories: something that has only one choice that
+  the system has to set, or a spectrum, and what are the defaults."
+- **Say what it is to a person**, not only what Rama does: "work I engage with
+  directly must be interactive; data I am subscribed to may come a little later."
+  A Today line is still a fact; the "if" lines may say what a person would feel.
+- **No word that hides the thing.** "name" hid that an act's id carries its layer
+  and class; it is now *act-id*. "class" is a borrowed word Sid has not accepted;
+  it stays only until he gives one. Never a word from the rig's code.
+- **No premise a session cannot source.** A drawing or a booklet that says Sid
+  agreed is "the drawing says", never "you agreed". His words only with their date.
+- **Half a page, and no bookkeeping.** Questions about the sheets themselves go
+  to group 9, never onto a sheet about the store.
+- **Already answered is not asked.** It is listed at the end as "answered, see
+  the ledger".
