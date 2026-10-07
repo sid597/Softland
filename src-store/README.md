@@ -151,13 +151,51 @@ never live there.
     "class"** (streaming or microbatch) is borrowed and not accepted; it stays
     until Sid gives one.
 
-Open before the module is built, to ask Sid first in the form of
-`decisions/METHOD.md`:
+## Decisions of 8 October 2026 — who acts, and what the store reads
 
-- **The store's keys for this build**: the fact keys the store itself reads
-  and acts on. Each of `:class`, `:permission` and `:lease` follows from a
-  decision above; the list itself is his. Not `:owner`: the rulings file says
-  an owner is derivable at read time from author, layer and permission.
-- **The bootstrap** — who stands at the top of a permission chain, and the
-  base's — and **what a stamp holds** are asked on the sheet "The record, and
-  who acts" (E1·H8, H2).
+Sid answered these in chat on 8 October 2026, against a list of eight that the
+build session put to him: the two questions of its own sheet (K1, K2) and six
+rows of the sheet "The record, and who acts". Words in quotation marks are his,
+of that day unless a date is given. Where a session read his answer onto a
+row, the entry says so; he let those readings stand the same day. They shape
+the gates' check of a permission, the making of a layer, the stamp and the
+seal.
+
+1. **The system stands at the top of the base's chain.** Sid decided (E1·H8
+   A): "system". His line of 6 October names the three that act: a user, a
+   group, or "the system basically software"; "if it is a system level thing
+   like we as the architect of it are trying to do then it comes under that
+   part".
+2. **A signed-in user has a personal layer and a permission in it, without
+   asking.** Sid decided (K2): "the user already is logged in as a user so
+   they automatically have their personal layer and permissions". A user who
+   is not signed in is "just roaming around on what is open by the system or
+   world group". He agreed to this form of it: the system makes the layer and
+   the permission at the first sign-in, and the person who creates a group
+   makes the group's layer. The builder's part, not his: each layer is made by
+   one act, its first, so that the making of a layer is in the acts depot
+   (decision 2 of 7 October). Sign-in is not built.
+3. **Permission is a hierarchy that ties back to one person.** Sid decided: a
+   permission "ties back to a single individual", however deep the groups and
+   agents go; to walk back along it comes down to who created the group,
+   "invited who, who gave the permission to do xyz in their group". An act in
+   a personal layer comes under the person's own permission. A session read
+   three rows from this, and he let the reading stand: each actor acts under
+   its own permission (E4 A); whoever holds a permission can give one beneath
+   it (E2 A; Sid: "I answered this in 4 imo"); the top of a chain is a person,
+   or the system for the base, and never a session (E3·H7 B).
+4. **A stamp holds the clock time and a counter.** Sid decided (H2 A):
+   "clock-time+counter".
+5. **The store's keys in this build are three: the class, a permission, and
+   the door's request for locks.** A session proposed the list (K1 A). Sid:
+   "idk what else is missing or could be missing, so lets go". No layer names
+   an owner as a fact. The words are his to change: "class" is borrowed
+   (decision 10 of 7 October), and the request for locks is written
+   `:lock-request`, a session's plain word, because "lease" is the rig's.
+
+Open, and built to a working answer until Sid decides:
+
+- **A lock for each value, or one for each session and layer (H1).** Sid:
+  "do we need to answer now???" The module makes a lock for each value, as
+  ruling 7 of the rulings file says. This build keeps no record, so his answer
+  can still change it.

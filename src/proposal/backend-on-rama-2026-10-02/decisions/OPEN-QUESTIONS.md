@@ -81,18 +81,18 @@ A session writes its name under "taken by" on a group before it writes that grou
 | ?10 (F10) | 4 | A promotion out of a microbatch layer | open | A:1211; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
 | ?11 (F10) | 4 | A record only the gates can read; bells apart | open | A:1212; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
 | ?15 (F10) | 4 | Task 0: all microbatch decisions, and some streaming layers | open | A:1216; BK g4-gates.txt:267 | listed, not asked: waits for an examination | act implementation analysis (Fable), 7 Oct |
-| K1 | 4 | The store's keys for this build: which fact keys the store itself acts on | open | BUILD-store-module.md, item 2; SR, "Open before the module is built" | — on the sheet `groups/g-keys.txt` | softland-11 (Opus 5.5), 7 Oct |
-| E1 | 5 | The roots of a permission: a person, a group, or the system | open | RS:33 | — | |
-| E2 | 5 | Who may grant a narrower permission | open | RS:36 | — | |
-| E3 | 5 | The top of the chain: the session, or a root above it | open | RS:39 | — | |
-| E4 | 5 | One act, three names: who acts, who holds the permission, whose session | open | RS:42 | — | |
+| K1 | 4 | The store's keys for this build: which fact keys the store itself acts on | answered | BUILD-store-module.md, item 2; SR, "Open before the module is built" | see src-store/README.md, "Decisions of 8 October 2026" (entry 5) | softland-11 (Opus 5.5), 7 Oct |
+| E1 | 5 | The roots of a permission: a person, a group, or the system | answered | RS:33 | see src-store/README.md, "Decisions of 8 October 2026" (entry 1; asked as E1·H8) | |
+| E2 | 5 | Who may grant a narrower permission | answered | RS:36 | see src-store/README.md, "Decisions of 8 October 2026" (entry 3) | |
+| E3 | 5 | The top of the chain: the session, or a root above it | answered | RS:39 | see src-store/README.md, "Decisions of 8 October 2026" (entry 3; asked as E3·H7) | |
+| E4 | 5 | One act, three names: who acts, who holds the permission, whose session | answered | RS:42 | see src-store/README.md, "Decisions of 8 October 2026" (entry 3) | |
 | E5 | 5 | Acting after the session closes | open | RS:45 | — | |
 | E6 | 5 | An ingestor's session | open | RS:48 | — | |
 | E7 | 5 | An agent's credentials: the word, and whether they say whose act it is | open | RS:51 | — | |
 | Q16 | 5 | Sign-in: where it is on the map (its act side is act 9) | open | LP:30 | — | |
 | Q19 | 5 | The session, permissions, policy: where drawn (its act side is act 8) | open | LP:59 | — | |
 | ?4 | 5 | What identifies a person in the store | open? | A:1205 | act 9 says what an id is; whether that covers ?4 a session cannot tell | |
-| K2 | 5 | What lets the first act into a layer | open | BUILD-store-module.md, item 9; `groups/g-record.txt`, the examples of E1·H8 and ?4 | — on the sheet `groups/g-keys.txt`; E3·H7 and E1·H8 ask what is at the top of a layer's chain and who, not this | softland-11 (Opus 5.5), 7 Oct |
+| K2 | 5 | What lets the first act into a layer | answered | BUILD-store-module.md, item 9; `groups/g-record.txt`, the examples of E1·H8 and ?4 | see src-store/README.md, "Decisions of 8 October 2026" (entry 2) | softland-11 (Opus 5.5), 7 Oct |
 | Q11 | 6 | Where reads sit, and the read entry | open | LP:128 | deferred by Sid, 6 Oct 2026: "I will come to the read question when we have built the other system" (RS page 1) | |
 | ?6 (G5) | 6 | Does one read line up the moments of the layers that it read | open | A:1207; RS:97 | — | |
 | ?12 (G7) | 6 | The cost of a read entry for each read; does a reader ring itself | open | A:1213; RS:103 | waits with Q11 (RS G7) | |
@@ -115,14 +115,14 @@ A session writes its name under "taken by" on a group before it writes that grou
 | G1 | 7 | Does an inside thing ever pass through an adapter | open | RS:88 | — | |
 | G2 | 7 | Is the one body language grown from Inland's | open | RS:90 | — | |
 | G3 | 7 | Are adapters and converters data | open | RS:92 | — | |
-| H1 | 8 | R1, forget: "Forget is immediate" | open | RS:110 | — | |
-| H2 (S2) | 8 | R2, the stamp's form: a hybrid of wall milliseconds and a counter | open? | RS:112; R:206–207 | act 12 says a carried stamp is an integer; whether that settles the stamp's form a session cannot tell | |
+| H1 | 8 | R1, forget: "Forget is immediate" | open | RS:110 | asked in chat on 8 Oct; Sid: "do we need to answer now???" — still open; the build makes a lock for each value until he decides (see src-store/README.md) | |
+| H2 (S2) | 8 | R2, the stamp's form: a hybrid of wall milliseconds and a counter | answered | RS:112; R:206–207 | see src-store/README.md, "Decisions of 8 October 2026" (entry 4) | |
 | H3 | 8 | R3, read entries carry a frontier | open | RS:114 | — | |
 | H4 | 8 | R4, based-on is fact ids with their stamps | open? | RS:116 | act 11 says the same of the act's form; whether it closes R4 a session cannot tell | |
 | H5 | 8 | R5, reads go through a read gateway on the server | open | RS:118 | — | |
 | H6 | 8 | R6, standing reads | open | RS:120 | — | |
-| H7 | 8 | R7, how permissions reach a layer | open | RS:122 | — | |
-| H8 | 8 | R8, the base starts as a one-owner layer owned by the root actor | open | RS:124 | — (goes with F4) | |
+| H7 | 8 | R7, how permissions reach a layer | answered | RS:122 | see src-store/README.md, "Decisions of 8 October 2026" (entry 3; merged into E3 on the sheet) | |
+| H8 | 8 | R8, the base starts as a one-owner layer owned by the root actor | answered | RS:124 | see src-store/README.md, "Decisions of 8 October 2026" (entry 1; merged into E1 on the sheet; its class part is F4) | |
 | H9 | 8 | Forget against a read-out: which comes first | open | RS:126 | — | |
 | H10 | 8 | Forget after a revoke | open | RS:129 | — | |
 | H11 | 8 | Writes about someone already forgotten | open | RS:132 | — | |
