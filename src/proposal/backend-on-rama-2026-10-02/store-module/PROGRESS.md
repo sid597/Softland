@@ -25,8 +25,9 @@ The Rama skill's stages, each design stage in a fresh session (the Agent tool, m
 | split into two parts | done | `0d43c31a` |
 | part 1 `streaming-gate-and-record`: plan | done | `90ef0ab0` |
 | part 1: check of the plan (minor-fail, fixed; two rulings) | done | `4241b95e` |
-| part 1: build (code under `src-store/`, proof under `test-store/`, alias `:store-module`) | running | — |
-| part 2 `microbatch-gate`: plan, check of the plan, build | to do | — |
+| part 1: build (code under `src-store/`, proof under `test-store/`, alias `:store-module`) | done; proofs run here: act 150, pure 343, module 117 passes, no failure | `ee138e28`, `66f22ca3` |
+| part 2 `microbatch-gate`: plan | running | — |
+| part 2: check of the plan, build | to do | — |
 | one fresh review of the whole against the contract (`phase-full-spec-review.md`) | to do | — |
 | the receipt to Sid | to do | — |
 
@@ -68,3 +69,10 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
 10. The words that the build made are listed in the module's README for him to strike.
 11. The printed sheet of 7 October (job 35) left the print queue; four jobs of 1 October are still in it,
     untouched.
+12. Found by part 1's build: a query topology of the module does read a private PState. So a record that
+    only the module's gates and queries can read is possible (open item ?11). The record's PStates are
+    left readable in this build; the proof looks into them to show the facts.
+13. Not reached by any proof of part 1: a retry of an event by Rama, a failed batch (the order window of
+    item 5), and F9's three targets. No speed is measured yet.
+14. The contract asked for three commits by concern for the module; part 1 is one commit beside the one
+    for `act.clj`, because the folder's map changes with its files.
