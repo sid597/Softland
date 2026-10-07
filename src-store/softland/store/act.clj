@@ -29,6 +29,8 @@
 
     parse         anything -> {:ok act} or {:refuse reason}
     has-shape?    the name of a declared shape, and anything -> true or false
+    as-shape      a map of shapes, the name of a shape in it, and anything
+                  -> [:ok the thing in its one form] or [:no reason]
     value?        anything -> true for a value that a fact can hold
     normal-value  a value -> its one normal form
 
@@ -36,7 +38,12 @@
   Nothing here reads a clock, takes a random id, seals or opens a value,
   appends, or reads a record.
 
-  Callers. Only the proof of this namespace requires it.
+  Callers. The proof of this namespace. `softland.store.declaration`: the
+  door's declaration is a map of shapes in the language of `shapes`, with
+  the entries of `shapes` in it, and `as-shape` gives it the engine that
+  reads one; it reads `rules` too. `softland.store.text` asks
+  `readable-keyword?`. The proof's hand, which plays the door, asks
+  `normal-value`.
 
   Approach. The file has these sections, in this order: the words and the
   limits; the declared shape and the rules; what the declaration says, as
@@ -49,9 +56,9 @@
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
   session and the digest of an act: the gates'. The microbatch hash entity:
-  the depot derives it. Neither the door nor a gate is built. A stamp, an
-  answer, locks, leases, a read and the settings of a layer are not here
-  either.
+  the depot derives it. The door is not built; the gate is in its own
+  namespaces beside this one. A stamp, an answer, locks, leases, a read and
+  the settings of a layer are not here either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more
   facts that one maker sends under one act-id. An act-id is
@@ -299,23 +306,25 @@
 (declare conform)
 
 (defn- conform-all
-  "Takes pairs of a shape and a thing. Gives [:ok, the normal forms in
-  order, as a plain vector], or the first refusal."
-  [pairs seen]
+  "Takes the map of shapes that the names are read from, and pairs of a
+  shape and a thing. Gives [:ok, the normal forms in order, as a plain
+  vector], or the first refusal."
+  [declared pairs seen]
   (reduce (fn [[_ out] [shape x]]
-            (let [[verdict normal :as got] (conform shape x seen)]
+            (let [[verdict normal :as got] (conform declared shape x seen)]
               (if (= :ok verdict) [:ok (conj out normal)] (reduced got))))
           [:ok []]
           pairs))
 
 (defn- conform-parts
-  "Takes the entries of a :parts shape, and a thing. Gives [:ok, the thing as
+  "Takes the map of shapes that the names are read from, the entries of a
+  :parts shape, and a thing. Gives [:ok, the thing as
   a plain map in its one form], or [:no reason]. A thing that is no plain map
   is :malformed. A part that the entries do not name is :unknown-part. Then
   the parts are examined in the order of the entries, and the first part
   that is wrong gives its reason; the options of a part say which reason
   (`shapes`)."
-  [entries x seen]
+  [declared entries x seen]
   (cond
     (not (and (map? x) (not (record? x)))) [:no :malformed]
     (not-every? (into #{} (map first) entries) (keys x)) [:no :unknown-part]
@@ -335,7 +344,7 @@
              :else [:ok (assoc out part (:default opts))])
 
            :else
-           (let [[verdict normal] (conform shape given seen)]
+           (let [[verdict normal] (conform declared shape given seen)]
              (cond
                (= :no verdict) (reduced [:no (or normal reason)])
                (and (:empty opts) (empty? normal)) (reduced [:no (:empty opts)])
@@ -344,22 +353,25 @@
      entries)))
 
 (defn- conform
-  "The engine. Takes a shape, a thing, and the count of each named shape that
-  is around this place. Gives [:ok, the thing in its normal form], or
-  [:no reason]. The reason is nil when the shape names none; the part that
-  holds the place then gives its own. Each vector, map and set of a normal
-  form is built new and plain. A shape that the engine does not know fits
-  nothing.
+  "The engine. Takes a map of shapes, a shape, a thing, and the count of
+  each named shape that is around this place. A shape that is a name is
+  read from the map given: `shapes` for the maker's act, a larger map for a
+  caller of `as-shape`. The leaves and the nesting limits are this
+  namespace's own, whatever map is given. Gives [:ok, the thing in its
+  normal form], or [:no reason]. The reason is nil when the shape names
+  none; the part that holds the place then gives its own. Each vector, map
+  and set of a normal form is built new and plain. A shape that the engine
+  does not know fits nothing.
 
   It can throw, for example for a thing that throws when it is read. `parse`
   and `has-shape?` turn each throw into a refusal."
-  [shape x seen]
+  [declared shape x seen]
   (if (keyword? shape)
     (if-let [leaf (get leaves shape)]
       (or (leaf x) [:no nil])
       (let [times (inc (get seen shape 0))]
-        (if (and (contains? shapes shape) (<= times (get nesting shape 1)))
-          (conform (get shapes shape) x (assoc seen shape times))
+        (if (and (contains? declared shape) (<= times (get nesting shape 1)))
+          (conform declared (get declared shape) x (assoc seen shape times))
           [:no nil])))
     (let [[form & args] shape]
       (case form
@@ -377,38 +389,38 @@
 
         :tuple
         (if (and (vector? x) (= (count args) (count x)))
-          (conform-all (map vector args x) seen)
+          (conform-all declared (map vector args x) seen)
           [:no nil])
 
         :seq-of
         (if (sequential? x)
-          (conform-all (map (fn [v] [(first args) v]) x) seen)
+          (conform-all declared (map (fn [v] [(first args) v]) x) seen)
           [:no nil])
 
         :set-of
         (let [[of opts] args
               most (:max opts)]
           (if (and (set? x) (or (nil? most) (<= (count x) most)))
-            (let [[verdict normal :as got] (conform-all (map (fn [v] [of v]) x) seen)]
+            (let [[verdict normal :as got] (conform-all declared (map (fn [v] [of v]) x) seen)]
               (if (= :ok verdict) [:ok (into #{} normal)] got))
             [:no nil]))
 
         :map-of
         (let [[ks vs] args]
           (if (and (map? x) (not (record? x)))
-            (let [[verdict normal :as got] (conform-all (mapcat (fn [[k v]] [[ks k] [vs v]]) x) seen)]
+            (let [[verdict normal :as got] (conform-all declared (mapcat (fn [[k v]] [[ks k] [vs v]]) x) seen)]
               (if (= :ok verdict) [:ok (into {} (map vec) (partition 2 normal))] got))
             [:no nil]))
 
         :or
         (or (some (fn [alternative]
-                    (let [got (conform alternative x seen)]
+                    (let [got (conform declared alternative x seen)]
                       (when (= :ok (first got)) got)))
                   args)
             [:no nil])
 
         :parts
-        (conform-parts args x seen)
+        (conform-parts declared args x seen)
 
         [:no nil]))))
 
@@ -417,8 +429,24 @@
   thing fits the shape. It never throws. Limit: for :act it examines the
   shape only, not the rules; `parse` examines both."
   [shape-name x]
-  (try (= :ok (first (conform shape-name x {})))
+  (try (= :ok (first (conform shapes shape-name x {})))
        (catch Throwable _ false)))
+
+(defn as-shape
+  "Gives the engine to another namespace. Takes a map of shapes in the
+  language of `shapes`, the name of a shape in that map, and anything.
+  Gives what the engine gives: [:ok, the thing in its one form], or
+  [:no reason], where the reason is the word of the first part that is
+  wrong, or nil when that part names none. The map may hold the entries of
+  `shapes` and add its own; the door's declaration does so.
+
+  Limits. The five leaves and the nesting limits stay this namespace's: a
+  caller gives the map of shapes and nothing else, so a named shape of the
+  caller's can be inside itself no times. It can throw, as the engine can,
+  for a thing that throws when it is read; the caller turns a throw into a
+  refusal, as `parse` does."
+  [declared shape-name x]
+  (conform declared shape-name x {}))
 
 ;; ---------------------------------------------------------------- the check
 
@@ -435,7 +463,7 @@
   rules in their order. It can throw; `parse` turns each throw into a
   refusal."
   [x]
-  (let [[verdict got] (conform :act x {})]
+  (let [[verdict got] (conform shapes :act x {})]
     (if (= :no verdict)
       {:refuse (or got :malformed)}
       (if-let [reason (some (fn [[rule reason]] (when-not ((get rule-checks rule) got) reason)) rules)]
