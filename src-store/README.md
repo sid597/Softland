@@ -174,7 +174,10 @@ seal.
    the permission at the first sign-in, and the person who creates a group
    makes the group's layer. The builder's part, not his: each layer is made by
    one act, its first, so that the making of a layer is in the acts depot
-   (decision 2 of 7 October). Sign-in is not built.
+   (decision 2 of 7 October). When the system makes a personal layer, that
+   act's who is the system and the permission that it names is the person's;
+   his decision does not say under which permission the system acts there.
+   Sign-in is not built.
 3. **Permission is a hierarchy that ties back to one person.** Sid decided: a
    permission "ties back to a single individual", however deep the groups and
    agents go; to walk back along it comes down to who created the group,

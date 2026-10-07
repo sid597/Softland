@@ -7,8 +7,10 @@ For: one build, run by the Rama skill's stages (see "How the build runs"). Statu
 and 8 October 2026 are the contract.
 The decisions, with Sid's reasons, are in `src-store/README.md`: the act's twelve (6 October), the store's
 ten (7 October), and who acts and what the store reads (8 October). Nothing is left to ask before the
-build. One row is open and is built to a working answer: H1, a lock for each value (item 7). Everything else
-a builder chooses is engineering, written with its reason in a docstring, never as a decision. The rules that
+build. One row that shapes this build is open and is built to a working answer: H1, a lock for each value
+(item 7). Two things of the act's form also wait for Sid and change nothing here: a carried stamp not below
+zero, and 6c. Everything else a builder chooses is engineering, written with its reason in a docstring, never
+as a decision. The rules that
 the build session holds the build to are under "The builder's rules".
 
 ## What this build is
@@ -42,8 +44,10 @@ MAKER ─act─► [the proof's hand: act-id · class · lock · seal · append]
 
 From the act (6 Oct): the act is the maker's form, ten parts, plain values (`act.clj`). The door adds the
 act-id, the class and the seal; those are the door's declaration, which the gate checks on arrival. The
-rig is an example. An id is a keyword or a UUID. A permission is `[who layer granted-in]`, ≤4 deep.
-A fact is `{:e :k :v :replaces}`; no value = a retract. A stamp an act carries is an integer ≥ 0, < 2^62.
+rig is an example. An id is a keyword or a UUID. A permission is `[who layer granted-in]`. A fact is
+`{:e :k :v :replaces}`. A stamp an act carries is an integer. Kept from today's code and not decided: a
+permission is 4 deep at most; a fact with no value is a retract; a carried stamp is below 2^62 and, closed by
+a session and waiting for Sid's word, not below zero.
 
 From the store (7 Oct):
 - **F6 A** — two depots, one per gate.  **Q7 a** — called the *streaming depot* and the *microbatch depot*.
@@ -51,18 +55,18 @@ From the store (7 Oct):
   recomputable from them.
 - **F1 A** — the members of a layer set its class, as a fact on the layer.
 - **F4 C** — the base is a microbatch layer; every other layer starts streaming.
-- **F5 A** — each layer holds a copy of each grammar it uses. (Grammar checks are not in this build; the
-  record must leave room for them: a layer holds facts under its own entity.)
+- **F5 A** — each layer holds a copy of each grammar it uses; a gate reads on its own task. (Grammar checks
+  are not in this build; the record must leave room for them: a layer holds facts under its own entity.)
 - **Q22 A** — the door reads a streaming act's answer from the record by act-id; the ack is a signal.
 - **F7 A** — a rule for all code: a signal (an ack, a bell, a promotion's second act) is not the truth; the
   record is; read it by act-id before acting on a signal. A gate reads its own record by act-id before it
   decides, so a repeat is answered, not decided twice.
-- **F8 C** — the gate refuses a setting key on an entity that is not the act's layer, as a recorded refusal.
+- **F8 C** — the gate refuses a setting key on an entity that is not the act's layer, as a recorded decision.
 - **F9** — the three limits are targets; the rig's measures are the starting point. Two nodes: later.
 
 From who acts, and what the store reads (8 Oct):
 - **E1·H8 A** — the system stands at the top of the base's chain. In code the system is `:system` and the
-  base is `:base`; both words are Sid's ("system", "the base").
+  base is `:base`: the words are Sid's ("system", "the base"), the keywords a session's.
 - **K2** — a signed-in user has a personal layer and a permission in it without asking: the system makes
   both at the first sign-in. The person who creates a group makes the group's layer. Each layer is made by
   one act, its first (the builder's part).
@@ -74,7 +78,8 @@ From who acts, and what the store reads (8 Oct):
   No layer names an owner as a fact.
 - **H1** — open. Working answer: a lock for each value.
 
-Words (Sid's): **act-id** `[layer class uuid]` — not "name". **class** — streaming or microbatch; the word
+Words: **act-id** `[layer class uuid]` — not "name"; a session wrote it from Sid's "act-uuid", and the word
+is his to change. **class** — streaming or microbatch; the word
 itself is still Sid's to give; use `class` in code until he does, and nowhere else invent a word for it.
 "Key" is a fact's key; "lock" is an encryption key. A word that the build has to make says in plain words
 what the thing is, and is listed for Sid (builder's rule 8).
@@ -125,7 +130,8 @@ and docstring, and a README per folder as the tree's rules say:
    proof's hand seals each value with its own lock. The gate refuses a plain value under a non-store key
    (`:not-sealed`), a sealed value whose lock the store did not make for this layer, and a second value
    under a lock that already seals one. Not in this build, room left: wrapping a lock under the locks of
-   the people the value is about, and the per-act grain switch. *Engineering choice:* AES-GCM.
+   the people the value is about, and the two other grains, one lock per act and one for each session and
+   layer (H1's other answer). *Engineering choice:* AES-GCM.
 8. **The answer by act-id** — a query topology: act-id → the recorded answer, or nothing yet.
 9. **The first act of a layer** — a layer is made by its first act (K2; the form is the builder's). A gate
    accepts an act into a layer for which the record holds nothing when it is a making act: it writes the
@@ -134,8 +140,10 @@ and docstring, and a README per folder as the tree's rules say:
    system's, `[:system :base :base]`; the act's `:who` is `:system` (E1·H8 A). Any other layer: class
    streaming (F4 C); the act's `:who` is the holder of the first permission (a group's layer, made by the
    person who creates the group) or `:system` (a personal layer, made for its person at the first
-   sign-in). Sign-in is not built: the proof sends these acts by hand. Any other act into a layer that is
-   not made is refused.
+   sign-in). That second case is the one place where the holder of the permission that an act names is not
+   the act's `:who`; it is the builder's reading, because Sid's decision says that the system makes the
+   layer and the permission, and does not say under which permission the system then acts. Sign-in is not
+   built: the proof sends these acts by hand. Any other act into a layer that is not made is refused.
 
 **The proof** `softland.store.module-proof`, on Rama's in-process cluster, run as
 `clojure -M:store -m softland.store.module-proof` (or under the alias that the builder makes, see
@@ -183,6 +191,50 @@ These are the build session's, not Sid's. Each has its source. The plan decides 
 9. To find out, and to say in the plan: whether a rebuild from the acts depots picks the same winner when
    two microbatch acts on different entities collide. F2 A's reason holds for a layer on one task; this
    case is not yet shown.
+
+Rules 10 to 21 are the build session's rulings of 8 October on the twelve open points of
+`store-module/IMPLICIT_SPEC.md`, in its order. Each number of the build in them is kept, not decided.
+
+10. A gate answers under an act-id only when the act-id's class is the gate's and its layer is the act's
+    layer. Anything else that arrives — a thing with no act-id, an act-id of the wrong shape, an act-id of
+    the other gate or of another layer — is a stray: the gate counts it by a reason word, on its task, and
+    gives it no answer. So one act-id never gets two answers, and a stray writes a bounded amount.
+11. The answer under an act-id keeps the digest of its act, and the read by act-id gives the digest with
+    the answer. The sender compares it with the digest of what it sent. The gate writes nothing for a
+    second, different act. The digest is one function that the door and the gates share.
+12. An act names a place — an entity and a key — once. The declaration refuses an act with two facts on one
+    place, and a fact that names a fact of its own act in `:replaces`. To loosen this later refuses nothing
+    that was accepted.
+13. In this build a store key takes one write for a place. A permission that already stands is not given
+    again; a fact under `:permission` on a place that holds one is refused; each retract under a store key
+    is refused; a `:class` fact after the making act is refused; a request for locks holds a count. Each is
+    refused with the word that says it is not built. Which entity a permission fact sits on is the plan's.
+14. `granted-in` is the act's layer, for a first permission and for one given beneath; the gate refuses
+    another value, so that the slot stays true. The gate checks nothing more about who holds the top of a
+    layer: it cannot tell a person from a session or an agent, and it cannot check `:who`. Until sign-in is
+    built, any sender can make any layer that is not made, for any holder. The module's README says so.
+15. A lock that a refused act named is free: a refusal writes the answer and nothing else. "A lock seals
+    one value" counts accepted values. The door takes a fresh random part for each seal.
+16. A gate opens each sealed value once, with its lock, to check that the lock opens it, and keeps nothing
+    of the plain value. A fact in the record can then always be opened, and the grammar check has its place.
+    The seal binds a value to its place: sealed bytes copied to another entity, key or layer do not open.
+    Any caller of the module can read a lock's bytes in this build; the door proper is the guard, later.
+    The seal is for a forget of the depot's and the disk's copy; it does not hide a value from a client of
+    the cluster.
+17. A gate refuses an act that carries a stamp more than 10 seconds ahead of the gate's wall clock. So a
+    forged stamp cannot push a task's stamps to the end of their range.
+18. A microbatch act has one stamp, later than the last stamp of each task on which it writes.
+19. A rebuild of the record from the depots is not built and not tested here. For the day that one is asked
+    for, the plan says what it found: locks are kept through a rebuild and never made again; stamps would be
+    new, because a stamp holds the gate's clock time at the decision (H2 A); and rule 9's answer. What F2 A
+    reaches — the decisions and the current facts — goes to Sid in the receipt.
+20. The door's declaration gives limits, and a gate refuses a thing over one: 256 facts in one act, 1,024
+    entries of `:based-on`, 65,536 bytes in one sealed value, 256 locks in one request.
+21. The three limits of F9, as the store's sheet put them to Sid, are targets, and the rig's measures are
+    the starting point: at least 1,000 acts each second on one task, at the rate of an agent (measured: all
+    accepted, the slowest 1 in 100 at 254 ms); at least 100 acts each second for one person, with the
+    slowest 1 in 100 at 20 ms (measured: 46 ms); the locks take no more than 2 times the bytes of the
+    values (measured: 169 bytes of lock for each value). The plan says what it aims at for each.
 
 ## Not in this build, by decision
 
