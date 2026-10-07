@@ -93,7 +93,9 @@ and docstring, and a README per folder as the tree's rules say:
    by one entity derived from the act's facts (decision 10A: derived by the depot). *Engineering choice, the
    builder's, reason in the docstring:* the entity of the first fact.
 2. **The door's declaration** — a small shape, declared as data in the same style as `act.clj`'s `shapes`
-   (reuse its engine by requiring `softland.store.act`): what arrives on a depot is the maker's act plus
+   (reuse its engine by requiring `softland.store.act`; for that, and for nothing else, `act.clj`'s engine
+   may take the map of shapes as an argument, with `parse`, `has-shape?` and the act's proof unchanged):
+   what arrives on a depot is the maker's act plus
    `:act-id`, `:class`, and each value fact's `:v` replaced by `:sealed` bytes and a `:lock-id`. Facts under
    a **store key** keep a plain value. The store keys are three (K1 A), declared in one place with the
    reason for each: `:class`, `:permission`, `:lock-request`. Not an owner. `:class` is a setting: its fact
@@ -197,8 +199,10 @@ Rules 10 to 21 are the build session's rulings of 8 October on the twelve open p
 
 10. A gate answers under an act-id only when the act-id's class is the gate's and its layer is the act's
     layer. Anything else that arrives — a thing with no act-id, an act-id of the wrong shape, an act-id of
-    the other gate or of another layer — is a stray: the gate counts it by a reason word, on its task, and
-    gives it no answer. So one act-id never gets two answers, and a stray writes a bounded amount.
+    the other gate or of another layer — is a stray: the gate keeps its digest under a reason word, on its
+    task, once however often it comes, and gives it no answer. The count of strays is the number of
+    different ones. So one act-id never gets two answers, a retry adds nothing, and a stray writes a
+    bounded amount.
 11. The answer under an act-id keeps the digest of its act, and the read by act-id gives the digest with
     the answer. The sender compares it with the digest of what it sent. The gate writes nothing for a
     second, different act. The digest is one function that the door and the gates share.
@@ -218,6 +222,8 @@ Rules 10 to 21 are the build session's rulings of 8 October on the twelve open p
 16. A gate opens each sealed value once, with its lock, to check that the lock opens it, and keeps nothing
     of the plain value. A fact in the record can then always be opened, and the grammar check has its place.
     The seal binds a value to its place: sealed bytes copied to another entity, key or layer do not open.
+    A lock's row says which way of sealing the lock is for, so that the way can change later without a
+    mark in each value.
     Any caller of the module can read a lock's bytes in this build; the door proper is the guard, later.
     The seal is for a forget of the depot's and the disk's copy; it does not hide a value from a client of
     the cluster.
