@@ -33,6 +33,15 @@
             :store {:replace-paths ["src-store" "test-store"]
                     :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}}
                     :jvm-opts ["-Xss16m" "-Xmx4g"]}
+            ; The store's Rama module: the store's paths, Clojure and Rama, and
+            ; nothing else of the root. A whole alias, not an addition to :store,
+            ; so that :store still proves the pure code with Clojure alone.
+            ; -Xss16m is for Rama's module compilation, as for :test below.
+            ;   clojure -M:store-module -m softland.store.module-proof
+            :store-module {:replace-paths ["src-store" "test-store"]
+                           :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
+                                          com.rpl/rama {:mvn/version "1.6.0"}}
+                           :jvm-opts ["-Xss16m" "-Xmx4g"]}
             :dev   {:extra-paths ["src-dev" "test"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.

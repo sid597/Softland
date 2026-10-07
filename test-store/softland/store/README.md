@@ -5,6 +5,8 @@
 | File | What it checks | State that it owns or changes |
 |---|---|---|
 | [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, and the check that reads them. It needs no cluster. | One atom: the lines that it showed. |
+| [pure_proof.clj](pure_proof.clj) | The gate's pure namespaces, beside the act: the one text and the digest, the door's declaration, the stamp, the seal, the first act of a layer, the record's rows, the checks of the decision. It needs no cluster. | One atom: the lines that it showed. It takes random bytes from the JVM. |
+| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the streaming gate, its record and the three reads. It plays the door by hand. | It starts one cluster in its own JVM and closes it. Five atoms: the lines shown, the things sent, the first answers, the locks in hand, the one act that later checks come back to. |
 
 ## The act's proof
 
@@ -54,4 +56,135 @@ What it checks, group by group:
   of this process;
 - facts that are a sequence with no end, for which the check does not come back;
 - an act of many facts, and how long the check takes;
-- the use of the act by a door or a gate: none is built.
+- the use of the act by a gate: the two proofs below show it.
+
+## The pure proof
+
+Run it from the repository root:
+
+```sh
+clojure -M:store -m softland.store.pure-proof
+```
+
+Each check is a case, as in the act's proof. A run of bytes is compared by its
+content. What it checks, group by group:
+
+1. The one text and the digest. One thing of each kind with its text. Pairs that
+   no check can tell apart, and that a serialiser may change, have one text and
+   one digest: an Integer and a Long, minus zero and zero, a subvector and a
+   vector, a map built in two orders. Pairs that a check tells apart have two.
+   The text of a value reads back as the value. The digest is the SHA-256 of the
+   one text, with bytes fed as they are; a thing that throws when it is read has
+   the digest of `#unreadable`.
+2. The declaration. The door's five shapes and twenty rules, each written out a
+   second time as literals; `act.clj`'s shapes inside the door's map as `act.clj`
+   declares them; the limits, the store keys, the words of a stray. The test for a
+   stray, one thing for each word. The one form on arrival.
+3. One refused thing for each fault, with its word; a long id in each place where
+   an act holds an id; each limit at its edge. The proof reads the reason words
+   from the declarations, and each word must come from a thing that earns it.
+4. The maker's check inside the door's: for each fault of the maker's form, the
+   door's check gives the word that `act.clj`'s own parse gives.
+5. The order of the reasons: a thing with two faults gets the word of the part
+   that is declared first, of the shape before a rule, of the earlier rule.
+6. Nothing throws: things that are no acts, facts that throw when they are read.
+7. The stamp: the packing; the next stamp when the clock is ahead, stands still,
+   goes back, and when one tick has more decisions than the counter holds; a
+   carried stamp; the 10-second rule at its edge; the year in which the packing
+   reaches 2^62.
+8. The seal: a lock; sealed bytes open at their place only; another lock, a
+   changed bit, another entity, key or layer do not open; a way that is not known;
+   nothing throws.
+9. The first act: the class that a layer starts with; acts that have the form of
+   a making act, and one act for each way of not having it.
+10. The record's rows: the three keys and their order; each field of each row of
+    its declared class; a retract's row; a plain value's row; what each row says;
+    the heads of the three reads.
+11. The decision: the standing of an act in each state of its layer; each word of
+    the checks of the places and of the seal, each on rows built as the gate
+    writes them; the stamp of a decision; the rows that a refusal, an accept, a
+    request for locks and a making act write.
+
+### What the pure proof does not reach
+
+- a PState, a depot or a query: each row is a value of this process, and the
+  walk of one event, which reads rows between the checks, is the gate's;
+- a thing after Rama serialised it;
+- a clock: each case gives the time as a number;
+- how long a check takes.
+
+## The module's proof
+
+Run it from the repository root:
+
+```sh
+clojure -M:store-module -m softland.store.module-proof
+```
+
+Most of its time is the start of the cluster. The checks run in one order on one
+cluster, and later checks build on the layers, the facts
+and the permissions that earlier ones made. The hand reads each answer back
+through the module's own queries, after an append that waited for the gate.
+
+What it checks, group by group:
+
+1. What Rama carries. A thing that holds each kind of value is appended; the gate
+   records the same digest that the hand took before the append; the record read
+   back from the depot's log is another object, with the same digest.
+2. Layers are made. An act into a layer that is not made is refused. A person's
+   layer is made by the system for that person, with the class streaming. A
+   group's layer is made by the person who creates it. A making act for a layer
+   that is made is refused, and so is a second act of the system in a personal
+   layer.
+3. An act lands. A request for locks, read with one query. One act with a sealed
+   value, read back by act-id with the digest of what was sent. Its row, and its
+   lock's row beside it, naming each other.
+4. Refusals and repeats. A refusal recorded with its reason. A repeat answered
+   from the record with the first stamp, and the task's last stamp unchanged. A
+   second, different act under a used act-id, which reads an answer that is not of
+   its digest. An unsealed value. A stale `replaces`, and the current fact named.
+   A fact that names nothing is never stale. A retract is a row, and a later fact
+   replaces it. A place named twice.
+5. Settings and permissions. A setting key on another layer. A permission for
+   another layer. A permission that does not stand. A permission given beneath
+   another by its holder, and an act under it. A give by one who does not hold the
+   one above. A chain four deep, and a fifth refused. `granted-in`. One write for
+   a store key's place; the ending of a permission; a class after the making.
+   Whole or nothing: a give with a stale fact gives nothing.
+6. The path of a lock. A second value under a used lock. The lock of a refused act
+   still free. Sealed bytes copied to another place. A lock of another layer. A
+   refused request makes no lock. A request sent twice gives the same bytes. A
+   read of a part of a request's locks.
+7. Strays and limits. One stray for each word, kept once however often it comes,
+   with no answer. A thing at and over each limit. A carried stamp too far ahead,
+   and one 5 seconds ahead.
+8. The reads take anything: what is no id, no act-id, another layer's act-id or
+   the other class gets nothing.
+9. After the module is started again. Rama's module update is run with the
+   unchanged module: the memory of the old instance is gone, and the depot and
+   the PStates stay. The answer, the class, the strays and the locks are as they
+   were; a repeat is still answered from the record; the next stamp is later than
+   the last. During this step Rama prints some lines of its own log that are
+   marked ERROR, while the new instance opens the depot's log and the client finds
+   the new instance. They are not failed checks.
+10. The stamps and the depot. The stamps of the answers increase strictly on each
+    task, in the order sent. The depot holds each thing sent. The layers are on
+    more than one task. No lock's bytes are on the depot.
+
+Each line that the contract asks for, and that needs neither the base nor the
+microbatch gate, is on a `SHOWN` line in the contract's words.
+
+### What the module's proof does not reach
+
+- an event that Rama runs twice, a batch that fails, and a later act of a layer
+  decided before an earlier one that failed;
+- a worker that stops in the middle of an event, a move of a task's leader, more
+  than one machine, replication;
+- an append whose ack fails for an act that the gate accepted;
+- a thing that a topology appends to another partition;
+- an act into a layer of the other class, the base, and the microbatch gate: none
+  can be made;
+- the three targets of speed and size: the in-process cluster's timings say
+  nothing about them;
+- a lock whose way of sealing the code does not know: no act can make one. The
+  pure proof shows the check on a row built by hand.

@@ -2,7 +2,10 @@
 
 This tree holds the code of the store that is built to stay. The implementation
 lives beneath [softland/](softland/README.md). It holds the act: the one form of
-what a maker gives to the store, and the check of that form. It owns no state.
+what a maker gives to the store, and the check of that form. And it holds the
+store's Rama module: the streaming depot, the streaming gate, the record that the
+gate keeps, and the reads by act-id. The pure code owns no state. The module's
+state, the depot and the record, is durable in the cluster that runs it.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
@@ -13,15 +16,25 @@ Start with the question you are carrying:
 |---|---|
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
 | What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
+| What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/streaming_gate.clj) |
+| What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
 
 "Act" is the word in this tree. The rig's code says "offer" for the same thing.
 
-This tree has its own classpath. The alias `:store` in the root `deps.edn` holds
-`src-store` and `test-store` as `:replace-paths`, and Clojure alone as
-`:replace-deps`. So the root `src` and `resources`, the rig and the root's
-dependencies are not on it, and a require of any of them from here fails at load.
+This tree has its own classpath, in two aliases of the root `deps.edn`. Both hold
+`src-store` and `test-store` as `:replace-paths`. So the root `src` and
+`resources`, the rig and the root's other dependencies are on neither, and a
+require of any of them from here fails at load.
+
+- `:store` holds Clojure alone as `:replace-deps`. The pure code and its two
+  proofs run on it. It is the guard that the pure code needs nothing else: a pure
+  namespace that came to require Rama would fail to load here.
+- `:store-module` holds Clojure and Rama (`com.rpl/rama` 1.6.0), and the same JVM
+  options. The module and its proof run on it. It is a whole alias and not an
+  addition to `:store`: with Rama in `:store`, the guard above would be gone.
+  Rama's helper library is left out; the module uses none of it.
 
 Follow folder map → namespace docstring → function docstring, and read only the
 branch that the question needs. A folder map explains its immediate children.
