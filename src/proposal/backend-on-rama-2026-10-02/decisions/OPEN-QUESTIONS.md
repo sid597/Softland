@@ -33,6 +33,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 | 7 | above the act | sheet not yet written | | Q1, Q2, Q3, Q4, Q5, Q6, Q12, Q13, Q14, Q17, Q18, ?2, ?8, G1, G2, G3 |
 | 8 | what a kept record carries | `groups/g-record.txt`, printed 7 Oct (H1, H2, H10, H11 asked; H7, H8 merged into E3, E1; H4 shown as answered with a box; H3, H5, H6, H9 listed, not asked) | act implementation analysis (Fable), 7 Oct | H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11 |
 | 9 | the sheet itself | sheet not yet written | | Q9, Q10, Q15, Q21, Q26, Q27, Q7-sheets, Q8, Q24 |
+| 4 · 5 | found by the build session: the store's keys, and a layer's first act | `groups/g-keys.txt`, printed 7 Oct | softland-11 (Opus 5.5), 7 Oct | K1, K2 |
 | — | outside the nine groups: where answers are kept | not a group of the booklet | | 0.2, 0.3, I3 |
 
 ## The questions
@@ -80,6 +81,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 | ?10 (F10) | 4 | A promotion out of a microbatch layer | open | A:1211; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
 | ?11 (F10) | 4 | A record only the gates can read; bells apart | open | A:1212; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
 | ?15 (F10) | 4 | Task 0: all microbatch decisions, and some streaming layers | open | A:1216; BK g4-gates.txt:267 | listed, not asked: waits for an examination | act implementation analysis (Fable), 7 Oct |
+| K1 | 4 | The store's keys for this build: which fact keys the store itself acts on | open | BUILD-store-module.md, item 2; SR, "Open before the module is built" | — on the sheet `groups/g-keys.txt` | softland-11 (Opus 5.5), 7 Oct |
 | E1 | 5 | The roots of a permission: a person, a group, or the system | open | RS:33 | — | |
 | E2 | 5 | Who may grant a narrower permission | open | RS:36 | — | |
 | E3 | 5 | The top of the chain: the session, or a root above it | open | RS:39 | — | |
@@ -90,6 +92,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 | Q16 | 5 | Sign-in: where it is on the map (its act side is act 9) | open | LP:30 | — | |
 | Q19 | 5 | The session, permissions, policy: where drawn (its act side is act 8) | open | LP:59 | — | |
 | ?4 | 5 | What identifies a person in the store | open? | A:1205 | act 9 says what an id is; whether that covers ?4 a session cannot tell | |
+| K2 | 5 | What lets the first act into a layer | open | BUILD-store-module.md, item 9; `groups/g-record.txt`, the examples of E1·H8 and ?4 | — on the sheet `groups/g-keys.txt`; E3·H7 and E1·H8 ask what is at the top of a layer's chain and who, not this | softland-11 (Opus 5.5), 7 Oct |
 | Q11 | 6 | Where reads sit, and the read entry | open | LP:128 | deferred by Sid, 6 Oct 2026: "I will come to the read question when we have built the other system" (RS page 1) | |
 | ?6 (G5) | 6 | Does one read line up the moments of the layers that it read | open | A:1207; RS:97 | — | |
 | ?12 (G7) | 6 | The cost of a read entry for each read; does a reader ring itself | open | A:1213; RS:103 | waits with Q11 (RS G7) | |

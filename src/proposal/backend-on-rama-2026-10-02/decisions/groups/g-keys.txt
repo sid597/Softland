@@ -1,0 +1,150 @@
+=== Sheet | The store's keys, and a layer's first act — two questions before the build
+
+One act's path through the store, from its maker to the record. A word in capitals is defined at that place; the words that the two questions share are under the picture. **Boxed:** what K1 asks about. **Shaded:** what K2 asks about. Neither question is asked on another sheet. Your other sheet, "The record, and who acts", asks what is at the top of a layer's permission chain, and who (E3·H7, E1·H8); its examples touch K2, and K2 says where. Tick a box, or write on the line. 7 October 2026.
+
+```picture 118
+MAKER — a converter, the screen, an agent. It makes an ACT: one or more FACTS (a fact is entity · key · value) that it sends together.
+  A gate accepts all of an act or refuses all of it.     A LAYER is the one place in the store that an act writes to.
+  {:version 1  :who :alice  :layer :alice-notes  ⟪w::permission [:alice :alice-notes :alice-notes]⟫  :session :s12  ⟦┐ every act names a PERMISSION: a fact in a⟧
+   :facts [{:e :note-41 :k :text :v "buy milk"}]}  ⟦┘ layer that lets its holder act there⟧
+          │  the act, plain values
+          ▼
+THE DOOR — the code that takes an act from a maker into the store. In this build its proof, the program that shows it works, plays the door by hand.
+  1 checks the act against the one form: the fixed parts that every act has (act.clj)
+  2 reads the layer's ⟪r:CLASS — a fact on the layer: streaming or microbatch⟫  ⟦◀ K1 · a STORE KEY: a fact key that the store itself acts on⟧
+  3 makes the ACT-ID, the act's id: [:alice-notes :streaming #uuid]
+  4 ⟪r:gets LOCKS (encryption keys) from the store⟫, and SEALS (encrypts) each value with one → bytes  ⟦◀ K1 · the request for locks is an act⟧
+     FORGET = the store destroys a lock: what it sealed can never be opened again
+  5 appends {the act · its act-id · the class · sealed values} to one of two DEPOTS: Rama's logs, which keep every act as appended, in order
+          │
+          ▼
+The streaming depot and the microbatch depot. Each picks a TASK — one of N slices of the store, each one thread:
+  the streaming depot by the act's layer, the microbatch depot by an entity of the act.
+          │
+          ▼
+GATE — code inside the store, one for each depot. It DECIDES each act, accept or refuse, from its RECORD: what the gates keep, in Rama PSTATEs
+  (durable, on disk): the current facts, and each ANSWER — accepted, or refused with a reason — under its act-id.
+  a  is an answer already in the record under this act-id?  → give it again; decide nothing
+  b  is it an act, and is each value sealed?  ⟪r:A value under a store key is never sealed.⟫  ⟦◀ K1 · which keys are store keys⟧
+  c  is the layer's class this gate's?
+  d  ⟪w:does the act's permission stand in the record?⟫  ⟦◀ K2 · for a new layer the record holds no permission yet⟧
+  e  is each `replaces` the current fact?
+  f  is each SETTING — a store key about the layer itself — on the layer's own entity?  (F8 of 7 October)
+  accept → writes the facts and the answer "accepted", with a STAMP (the gate's time mark)
+  refuse → writes the answer "refused: reason". A refusal is data, never an exception.
+          │ the answer
+          ▼
+The door reads the answer by act-id from the record.          Reads, bells and the screen come after this build.
+```
+
+## The words that the questions share
+
+- **store key** — a fact key that the store itself acts on. Its value is never sealed.
+- **seal** — encrypt a value with its **lock**, so that a forget can later destroy the lock. A lock is an encryption key, never a fact's key.
+- **permission** — a fact in a layer that lets its **holder** act there: [holder · layer · granted-in], with a fourth slot for the permission above it, if there is one. **granted-in** — the layer where it was written. Every act names one (decision 8 of 6 October).
+- **stand** — a permission stands when the record holds it and nothing has ended it. Whether a permission stands is the gate's to say (decision 8).
+- **the base** — the one layer "which everyone subscribes to" (decision 4 of 7 October).
+- **first act** — the first act that a gate sees for a layer.
+- **decision N of 6 October**, **F1, F8 and decision N of 7 October** — what you decided on the act's sheet and the store's sheet; both are in src-store/README.md.
+- **the contract** — BUILD-store-module.md: what the build is told to build. An AI session wrote it. **the rulings file** — PROGRESS.md "Now" in src/proposal/frame-2026-09-15: the rulings of 23–25 September, as an AI session wrote them down.
+- **your other sheet** — "The record, and who acts", of 7 October: ten questions: E and H rows, and ?4.
+
+=== K1 | The store's keys for this build
+
+Kind: **system sets** — one list, in the store's code, the same for every layer.
+
+- **owner** — one person or group that a layer names as the one it belongs to.
+
+```
+ The door seals a value under any other key before a depot keeps it. A value under a store key is not
+ sealed: it stays in the depot as it was written, and a forget cannot reach it. The rule goes by the key
+ alone: a fact under a store key's word is kept plain in every layer, whoever wrote it.
+
+ The contract's three, as each would sit in the record. The exact shape of each fact is the builder's.
+
+ the class              {:e :alice-notes  :k :class  :v :streaming}
+     used by: the door, to pick the depot; a gate, in check c.
+     from: F1 of 7 October — the members of a layer set its class, "as a fact on the layer".
+ a permission           {:e :alice  :k :permission  :v [:alice :alice-notes :alice-notes]}
+     used by: a gate, in check d.
+     from: decision 8 of 6 October — every act names one; whether it stands is the gate's.
+ a request for locks    {:e …  :k :lock-request  :v …}
+     used by: a gate, which makes the locks and keeps them, so that a forget can destroy one.
+     from: decision 3 of 6 October — the door seals, so it needs a lock before it appends.
+     The contract: "a store act under `:lease`, or a query". In Rama a query cannot write the record;
+     it can only append to a depot, and both depots are for acts (decision 1 of 7 October). So the
+     request is an act, and its key is a store key.
+
+ The words are not asked here; each is yours to change. "class" is borrowed (decision 10 of 7 October).
+ The contract's ":lease" is the rig's word. This sheet writes :lock-request, a plain word that an AI
+ session chose.
+ Not on the contract's list: an owner. Its reason is the rulings file: "Owner is derivable at read time
+ from author, layer and permission."
+```
+
+**Which fact keys are the store's keys in this build?**
+
+[ ] **A** — three: the class, a permission, a request for locks.
+If A: the store acts on these three; the door seals every other value. No layer names an owner as a fact.
+[ ] **B** — four: those three and an owner.
+If B: the store acts on these four. Each layer names one owner as a fact; no check of this build uses it.
+[ ] **C** — another list: write it on the line.
+If C: the store acts on the keys that you write; the door seals every other value.
+
+Today: no gate exists, and act.clj knows no store key (decision 3 of 6 October). The contract lists `:class`, `:permission` and `:lease`, and says "Not `:owner`".
+
+=ANSWER A, B, or C and the list.
+
+=== K2 | A layer's first act
+
+Kind: **system sets** — one rule, for every layer.
+
+```
+ The store has just started. Alice writes her first note in her own layer:
+   {:version 1  :who :alice  :layer :alice-notes  :permission [:alice :alice-notes :alice-notes]
+    :session :s12  :facts [{:e :note-41  :k :text  :v "buy milk"}]}
+ check d   does [:alice :alice-notes :alice-notes] stand?
+           As the gate is drawn, the record holds no permission for :alice-notes yet. The act is
+           refused, and so is each act after it, for the same reason. The door's request for locks,
+           sent before the note, is an act too: it is refused in the same way.
+ The base meets the same wall. Your other sheet, E1·H8: "before it no permission exists".
+
+ What the papers say today about how a layer comes to be. None of it is among your decisions in
+ src-store/README.md:
+   the contract           an act makes the base and a person's layer: "by the operator for the
+                          base", "by a person for their own"
+   E1·H8, its example     "The base comes to exist by an act."
+   ?4, its example        the 2 October drawing says that "at her first sign-in the store makes a
+                          person for her, and her own layer"
+   the rulings file       a group layer's root permission is "made with the layer";
+                          "a permission lives in the layer it governs"
+
+ E3·H7 and E1·H8 ask what is at the top of a layer's chain, and who. This question asks what lets a
+ layer's first permission in, whatever it is and whoever holds it.
+```
+
+**What lets the first act into a layer?**
+
+[ ] **A** — its own first act. A gate accepts a layer's first act, though its permission cannot stand yet, when that act writes the layer's class and its first permission (whose: E3·H7, E1·H8). The base too.
+If A: whoever first acts under an unused layer id makes that layer, and asks nobody. The making of each layer is an act in a depot.
+[ ] **B** — an act in the layer that it is part of. A layer's first permission is written as a fact in the layer above it: a group's, or the base (this touches E3·H7). Only the base is made as in A.
+If B: a new layer needs the leave of the layer above it. Its first permission lives in another layer than the one it governs, so its gate reads that layer's record.
+[ ] **C** — no act. The store's own code puts a layer's first permission in place: for the base when the store starts, and for another layer when the store adds it (who holds it: E3·H7, E1·H8).
+If C: no maker can make a layer; the store's code does. The first permission of a layer is in no depot.
+[ ] **D** — not in this build. The proof puts each first permission in place by hand, marked as a stand-in, and this question stays open.
+If D: the proof's lines about the base and a person's layer show the stand-in. The gate's rule for a first act is built later.
+
+Today: nothing in the store's tree makes a layer or writes a permission, and no decision in src-store/README.md says how a layer is made.
+
+=ANSWER A, B, C or D.
+
+=== Listed | On your other sheet, not asked here
+
+The build's code turns on six rows of "The record, and who acts". They are asked there, and not again here. The contract names two of them (E1·H8 and H2) as rows that the build needs you to decide. The AI session that builds counts six, and waits for all six. For each: the row's question, then where the code meets it.
+
+- **E3 · H7** — "In a layer, is a session's permission the top of its chain, or is there a root above it?" Check d reads the one or the other.
+- **E1 · H8** — "Who can stand at the top of a chain — and who stands at the top of the base's?" The base's first permission names that holder.
+- **E4** — "Must the holder of an act's permission be the act's who, or its session?" Check d has to say when a permission covers an act.
+- **E2** — "By default, who may write a narrower permission beneath one in a layer?" A gate has to accept or refuse a later fact under `:permission`.
+- **H2** — "Does a stamp hold the wall time?" A gate stamps each act that it accepts.
+- **H1** — "When one value is forgotten, is the depot's copy of it gone at once?" Its choices are a lock for each value, or one for each session and layer; the door seals with the one or the other.
