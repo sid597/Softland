@@ -16,6 +16,10 @@ A session writes its name under "taken by" on a group before it writes that grou
 - An id in brackets is the same question under another paper's number. **S1–S6** are the six items that R lists as "Still Sid's" (R:203–209).
 - The placement of the ladder questions, the A §9 items and the "Still Sid's" items into groups is a session's (7 Oct), not Sid's. Rows of RS were grouped on that print (E, F, G, H, I); their places here follow it.
 
+## Words Sid changed
+
+- 7 Oct 2026: the act's id is called **act-id**, not "name" (Sid: "why call it name when it can be act-uuid; everyone will understand"). It is `[layer class id]`: the layer, the layer's class, a random UUID — more than the UUID alone, because the layer and the class route the act and find its answer. The word for "class" (streaming / microbatch) is still Sid's to give.
+
 ## The groups
 
 | group | name | sheet | taken by | question ids |
@@ -56,22 +60,22 @@ A session writes its name under "taken by" on a group before it writes that grou
 | C1 (MS C1) | 2 | What is built next | answered | BK g2-door.txt:1; MS row C1 | A: the store's own depots and gates next, built on act.clj; the door returns after. Sid accepted, 6 Oct 2026. Its smaller choice: the door set aside (removed in commit a2d691df) | act implementation analysis (Fable), 7 Oct |
 | C2 (MS C2) | 2 | The comparison with the rig | answered | BK g2-door.txt:205; MS row C2 | removed: follows Sid's decision 7, 6 Oct 2026; removed in commit a2d691df | act implementation analysis (Fable), 7 Oct |
 | Q20 | 2 | Which back arrow comes into the door | answered | LP:83 | the answer arrow comes back into the door; Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| Q22 | 2 | How a streaming act gets its answer | open | BK g2-door.txt:57; LP:88 | — | act implementation analysis (Fable), 7 Oct |
-| F7 (?7's new condition) | 2 | A rule for all that leaves a decision | open | BK g2-door.txt:108; RS:75; A:946–947, A:1208 | — | act implementation analysis (Fable), 7 Oct |
-| F8.1 | 2 | A setting key on an entity that is not the act's layer: whose check | open | BK g2-door.txt:157; RS:78 | — | act implementation analysis (Fable), 7 Oct |
+| Q22 | 2 | How a streaming act gets its answer | answered | BK g2-door.txt:57; LP:88 | A — by name: the door reads the answer from the record; the ack is only a signal, because it can fail to carry the answer (an error for an act the gate accepted; a microbatch act never has one). Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
+| F7 (?7's new condition) | 2 | A rule for all that leaves a decision | answered | BK g2-door.txt:108; RS:75; A:946–947, A:1208 | A — a rule for all code: what leaves a decision (an ack, a bell, the second act of a promotion) is a signal; the truth is the record; read it by name. Sid, 7 Oct 2026, in chat, with Q22 | act implementation analysis (Fable), 7 Oct |
+| F8.1 | 2 | A setting key on an entity that is not the act's layer: whose check | answered | BK g2-door.txt:157; RS:78 | C — the gate refuses a setting key on an entity that is not the act's layer, as a recorded decision; the door may warn early, the gate is the authority. Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
 | F8.2 | 2 | A fact with a value and no session on the act: whose check | moot | BK g2-door.txt:157 | moot: the session is a required part (SR decision 4); Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
 | Q23 | 2 | Where the ladder shows the layer and its class | answered | BK g2-door.txt:275; LP:70 | by decision 5: the class is read in the door and carried in the name, not a part the maker gives; Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
 | F3 (?3, S1) | 3 | Must a value be sealed before a depot keeps it | answered | BK g3-depots.txt:1; A:1204; R:203–206 | yes: the door seals (decision 3); Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F6 | 3 | Two depots, or one | open | BK g3-depots.txt:50; RS:72 | — | act implementation analysis (Fable), 7 Oct |
-| Q7 | 3 | What the depots are called (the ladder's words for them) | open | BK g3-depots.txt:103; LP:91 | — | act implementation analysis (Fable), 7 Oct |
-| F2 (D2) | 4 | Where the record is | open | BK g4-gates.txt:1; A:1194–1197; RS:60 | — | act implementation analysis (Fable), 7 Oct |
-| F1 (D1) | 4 | Who sets the class of a layer | open | BK g4-gates.txt:50; A:1179–1192; RS:57 | — | act implementation analysis (Fable), 7 Oct |
-| F4 (?5) | 4 | The class of each layer at the start | open | BK g4-gates.txt:101; A:1206, A:1232–1239; RS:66 | — (goes with H8) | act implementation analysis (Fable), 7 Oct |
-| F5 (?13) | 4 | Where a streaming gate finds a grammar | open | BK g4-gates.txt:143; A:1214; RS:69 | — | act implementation analysis (Fable), 7 Oct |
+| F6 | 3 | Two depots, or one | answered | BK g3-depots.txt:50; RS:72 | A — two depots, one for each gate. Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
+| Q7 | 3 | What the depots are called (the ladder's words for them) | answered | BK g3-depots.txt:103; LP:91 | a — "streaming depot" and "microbatch depot". Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
+| F2 (D2) | 4 | Where the record is | answered | BK g4-gates.txt:1; A:1194–1197; RS:60 | A — in the PStates of the gates. Sid, 7 Oct 2026, in chat; his note: the record is recomputable from the acts depot — an act proposed at a version is refused the same way every time, so a second depot of decisions adds nothing | act implementation analysis (Fable), 7 Oct |
+| F1 (D1) | 4 | Who sets the class of a layer | answered | BK g4-gates.txt:50; A:1179–1192; RS:57 | A — the members of the layer set it, as a fact on the layer. Sid, 7 Oct 2026, in chat. His 2 Oct lines never agreed to the "third switch" as the drawing says; the sheet's premise was wrong | act implementation analysis (Fable), 7 Oct |
+| F4 (?5) | 4 | The class of each layer at the start | answered | BK g4-gates.txt:101; A:1206, A:1232–1239; RS:66 | C — the base is a microbatch layer; every other layer starts streaming; its members can change it (F1). Sid, 7 Oct 2026, in chat. His heuristic: work a person engages with directly (editor, canvas, 3D, live collaboration) must be interactive; data subscribed to from another layer may arrive a little later | act implementation analysis (Fable), 7 Oct |
+| F5 (?13) | 4 | Where a streaming gate finds a grammar | answered | BK g4-gates.txt:143; A:1214; RS:69 | A — each layer holds a copy of each grammar it uses; the gate reads on its own task. Sid, 7 Oct 2026, in chat, agreeing with the cost argument (a copy is bytes and a rare write; a fetch is a cross-task hop on every act) | act implementation analysis (Fable), 7 Oct |
 | Q25 | 4 | Locks, and the seal in the door | answered | BK g4-gates.txt:192; LP:75 | by decision 3: the seal is in the door, below the act's form; Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F9a (S4) | 4 | Can two nodes run here | open | BK g4-gates.txt:228; R:208 | — | act implementation analysis (Fable), 7 Oct |
-| F9b (S5) | 4 | The three limits | open | BK g4-gates.txt:228; R:208–209 | — | act implementation analysis (Fable), 7 Oct |
-| F9c (S6) | 4 | The size of a usual value in a hand session | open | BK g4-gates.txt:228; R:209 | — | act implementation analysis (Fable), 7 Oct |
+| F9a (S4) | 4 | Can two nodes run here | answered | BK g4-gates.txt:228; R:208 | later — a test-environment question (two Rama workers to test a node failure); punted to production. Sid, 7 Oct 2026 | act implementation analysis (Fable), 7 Oct |
+| F9b (S5) | 4 | The three limits | answered | BK g4-gates.txt:228; R:208–209 | the three limits are targets to optimise toward; the rig's measurements are the starting point, not a ceiling. Sid, 7 Oct 2026 | act implementation analysis (Fable), 7 Oct |
+| F9c (S6) | 4 | The size of a usual value in a hand session | answered | BK g4-gates.txt:228; R:209 | go by what was measured; revisit when the module runs. Sid, 7 Oct 2026 | act implementation analysis (Fable), 7 Oct |
 | ?9 (F10) | 4 | A re-class with acts in flight | open | A:1210; BK g4-gates.txt:267 | listed, not asked: waits for a test | act implementation analysis (Fable), 7 Oct |
 | ?10 (F10) | 4 | A promotion out of a microbatch layer | open | A:1211; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
 | ?11 (F10) | 4 | A record only the gates can read; bells apart | open | A:1212; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
