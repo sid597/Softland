@@ -57,8 +57,9 @@
   facts that one maker sends under one act-id. An act-id is
   `[layer class uuid]`: the layer, the layer's class, a random UUID; the
   layer and the class are there so a depot can route the act and the door
-  can find its answer in the right record. Sid's word, 7 October 2026; the
-  ruling of 24 September said \"name\". A maker is a converter, the screen,
+  can find its answer in the right record. From Sid's \"act-uuid\" of 7 October
+  2026: the session wrote act-id, since the id holds more than the UUID, and
+  the word is his to change. The ruling of 24 September said \"name\". A maker is a converter, the screen,
   an agent. The door is the code that takes an act from a maker into the
   store. A gate decides each act inside the store. \"Key\" is a fact's key,
   and \"lock\" is an encryption key: never one word for both."

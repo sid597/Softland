@@ -61,7 +61,9 @@ docstring of [act.clj](softland/store/act.clj).
    door reads the layer and adds the class; an act that the store places
    itself always carries the class. The door makes act-ids. An act-id is
    `[layer class uuid]`: three slots, no scheme word, the last a random UUID.
-   Sid renamed it on 7 October: act-id, not name. The act still refers to
+   Sid asked on 7 October why it was called a name when "act-uuid" would be
+   understood; it holds more than the UUID, so a session wrote act-id — his to
+   change. The act still refers to
    act-ids, so the shape of an act-id stays declared. Derived from two of his
    rulings (the door makes the act-id; a series gets all its act-ids before its
    first act is sent), not his tick: act-ids are given on request, ahead of
@@ -98,3 +100,64 @@ docstring of [act.clj](softland/store/act.clj).
     and a value is inside 32 collections at most. Closed by a session on
     6 October, waiting for his word: a carried stamp is not below zero, because
     no gate gives one.
+
+## Decisions of 7 October 2026 — the store's module
+
+Sid answered these in chat on 7 October 2026, one by one, on the sheet "The
+store — the questions the gates need". They shape the module built next: the
+depots, the gates and the record. As each part is built, its folder's README
+carries the decision that shapes it and this section points there. What is not
+yet decided is queued in
+`src/proposal/backend-on-rama-2026-10-02/decisions/OPEN-QUESTIONS.md`; answers
+never live there.
+
+1. **Two depots, one for each gate: the streaming depot and the microbatch
+   depot.** Sid decided (F6 A, Q7 a).
+2. **The record is in the gates' PStates.** Sid decided (F2 A). His reason:
+   the record is recomputable from the acts depot — an act proposed at a
+   version is refused the same way every time — so a second depot of
+   decisions adds nothing. The acts depots are the replay log.
+3. **The members of a layer set its class, as a fact on the layer.** Sid
+   decided (F1 A). The "third switch" of the 2 October drawing was never his
+   agreement; this is.
+4. **The base is a microbatch layer; every other layer starts streaming.** Sid
+   decided (F4 C). His heuristic: work a person engages with directly — an
+   editor, a canvas, 3D, live collaboration — must be interactive, so
+   streaming; data subscribed to from another layer may arrive a batch later,
+   so microbatch. The base, which everyone subscribes to, is the extreme of
+   the second kind.
+5. **Each layer holds a copy of each grammar it uses; a gate reads on its own
+   task.** Sid decided (F5 A), agreeing with the cost: a copy is bytes and a
+   rare write; a fetch is a cross-task hop on every act.
+6. **The door reads a streaming act's answer from the record by act-id; the
+   ack is a signal.** Sid decided (Q22 A): an ack can fail to carry the answer
+   — an error for an act the gate accepted — and a microbatch act never has
+   one.
+7. **A rule for all code: what leaves a decision — an ack, a bell, a
+   promotion's second act — is a signal; the truth is the record; read it by
+   act-id.** Sid decided (F7 A). A gate reads its own record by act-id before
+   it decides, so a repeat is answered, not decided twice.
+8. **The gate refuses a setting key on an entity that is not the act's layer,
+   as a recorded decision.** Sid decided (F8 C). The door may warn early; the
+   gate is the authority, because anything can append to a depot without the
+   door, and the one form knows no store keys (decision 3 of 6 October).
+9. **The three limits are targets to optimise toward; the rig's measurements
+   are the starting point, not a ceiling.** Sid decided (F9 b, c). Two nodes
+   on one machine is a question for production (F9 a).
+10. **The act's id is called act-id.** Sid asked why it was called a name when
+    "act-uuid" would be understood; it holds more than the UUID —
+    `[layer class uuid]`, the layer and the class route the act and find its
+    answer — so a session wrote act-id; the word is his to change. **The word
+    "class"** (streaming or microbatch) is borrowed and not accepted; it stays
+    until Sid gives one.
+
+Open before the module is built, to ask Sid first in the form of
+`decisions/METHOD.md`:
+
+- **The store's keys for this build**: the fact keys the store itself reads
+  and acts on. Each of `:class`, `:owner`, `:permission` and `:lease` follows
+  from a decision above; the list itself is his.
+- **The bootstrap**: who makes the base layer and grants the first permission
+  before any permission exists — the operator under a seeded permission, the
+  store itself, or a test fixture in the proof until the "who acts" sheet
+  answers.

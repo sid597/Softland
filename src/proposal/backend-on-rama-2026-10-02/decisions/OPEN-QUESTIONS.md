@@ -1,6 +1,6 @@
-# Decisions: every question, once
+# Open questions: the queue
 
-Every question put to Sid, once: its id, group, title, state, source lines, and, when answered, the answer, by whom and the date. Form and rules are in [METHOD.md](METHOD.md).
+What is not yet decided, once each, by group, with where its source lines are and which session is writing its sheet. **Answers never live here.** An answer, with Sid's reason, goes to the README of the code it shapes — today `src-store/README.md` ("Decisions of 6 October 2026" for the act, "Decisions of 7 October 2026 — the store's module" for the store). A row marked answered only points there. Form and rules of a sheet: [METHOD.md](METHOD.md).
 A session writes its name under "taken by" on a group before it writes that group's sheet, so two sessions never write one group.
 
 ## Keys
@@ -16,7 +16,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 - An id in brackets is the same question under another paper's number. **S1–S6** are the six items that R lists as "Still Sid's" (R:203–209).
 - The placement of the ladder questions, the A §9 items and the "Still Sid's" items into groups is a session's (7 Oct), not Sid's. Rows of RS were grouped on that print (E, F, G, H, I); their places here follow it.
 
-## Words Sid changed
+## Words Sid changed (recorded in src-store/README.md; kept here for the sheets)
 
 - 7 Oct 2026: the act's id is called **act-id**, not "name" (Sid: "why call it name when it can be act-uuid; everyone will understand"). It is `[layer class id]`: the layer, the layer's class, a random UUID — more than the UUID alone, because the layer and the class route the act and find its answer. The word for "class" (streaming / microbatch) is still Sid's to give.
 
@@ -28,10 +28,10 @@ A session writes its name under "taken by" on a group before it writes that grou
 | 2 | the door | `groups/g-store.txt` (one sheet for groups 2, 3 and 4) | act implementation analysis (Fable), 7 Oct | C1, C2, Q20, Q22, F7, F8.1, F8.2, Q23 |
 | 3 | the depots | `groups/g-store.txt` | act implementation analysis (Fable), 7 Oct | F3, F6, Q7 |
 | 4 | the gates and the record | `groups/g-store.txt` | act implementation analysis (Fable), 7 Oct | F2, F1, F4, F5, Q25, F9a, F9b, F9c, ?9, ?10, ?11, ?15 |
-| 5 | who an act acts for | sheet not yet written | | E1, E2, E3, E4, E5, E6, E7, Q16, Q19, ?4 |
+| 5 | who an act acts for | sheet not yet written | act implementation analysis (Fable), 7 Oct | E1, E2, E3, E4, E5, E6, E7, Q16, Q19, ?4 |
 | 6 | reads | sheet not yet written | | Q11, ?6, ?12, S3, ?14, ?16 |
 | 7 | above the act | sheet not yet written | | Q1, Q2, Q3, Q4, Q5, Q6, Q12, Q13, Q14, Q17, Q18, ?2, ?8, G1, G2, G3 |
-| 8 | what a kept record carries | sheet not yet written | | H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11 |
+| 8 | what a kept record carries | sheet not yet written | act implementation analysis (Fable), 7 Oct | H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11 |
 | 9 | the sheet itself | sheet not yet written | | Q9, Q10, Q15, Q21, Q26, Q27, Q7-sheets, Q8, Q24 |
 | — | outside the nine groups: where answers are kept | not a group of the booklet | | 0.2, 0.3, I3 |
 
@@ -39,43 +39,43 @@ A session writes its name under "taken by" on a group before it writes that grou
 
 | id | group | title | state | source | answer, by whom, date | taken by |
 |---|---|---|---|---|---|---|
-| act 1 (MS A1, BK A1) | 1 | The scope: the form and its check | answered | SR:45–46; BK part-2-A.txt:1 | SR decision 1; Sid, 6 Oct 2026 | — |
-| act 2 (MS A2, BK A2) | 1 | Whose act is the one form | answered | SR:47–50; BK part-2-A.txt:70 | SR decision 2; Sid, 6 Oct 2026 | — |
-| act 3 (MS A3, BK A3) | 1 | The seal and the act's form | answered | SR:51–54; BK part-2-A.txt:151 | SR decision 3; Sid, 6 Oct 2026 | — |
-| act 4 (MS A4, BK A4) | 1 | Where the five parts sit | answered | SR:55–59; BK part-2-A.txt:220 | SR decision 4; Sid, 6 Oct 2026 | — |
-| act 5 (MS A5, BK A5) | 1 | The class, and the name | answered | SR:60–69; BK part-2-A.txt:282 | SR decision 5; Sid, 6 Oct 2026 (names on request derived from two rulings, as SR says) | — |
-| act 6 (MS A6, BK A6) | 1 | The form of a fact | answered | SR:70–76; BK part-2-A.txt:366 | SR decision 6; Sid, 6 Oct 2026 (6b proposed by a session, agreed by Sid in chat) | — |
+| act 1 (MS A1, BK A1) | 1 | The scope: the form and its check | answered | SR:45–46; BK part-2-A.txt:1 | see src-store/README.md | — |
+| act 2 (MS A2, BK A2) | 1 | Whose act is the one form | answered | SR:47–50; BK part-2-A.txt:70 | see src-store/README.md | — |
+| act 3 (MS A3, BK A3) | 1 | The seal and the act's form | answered | SR:51–54; BK part-2-A.txt:151 | see src-store/README.md | — |
+| act 4 (MS A4, BK A4) | 1 | Where the five parts sit | answered | SR:55–59; BK part-2-A.txt:220 | see src-store/README.md | — |
+| act 5 (MS A5, BK A5) | 1 | The class, and the name | answered | SR:60–69; BK part-2-A.txt:282 | see src-store/README.md | — |
+| act 6 (MS A6, BK A6) | 1 | The form of a fact | answered | SR:70–76; BK part-2-A.txt:366 | see src-store/README.md | — |
 | act 6c | 1 | Where a fact that names another layer is refused | moot | SR:73–75 | moot while 6b stands (SR) | — |
-| act 7 (MS 0.1, BK 0.1) | 1 | The rig's standing | answered | SR:77–78; BK part-1-zero.txt:1 | SR decision 7; Sid, 6 Oct 2026 | — |
-| act 8 (MS B1) | 1 | The permission's form | answered | SR:79–84 | SR decision 8; Sid, 6 Oct 2026 | — |
-| act 9 (MS B2) | 1 | What an id is | answered | SR:85–87 | SR decision 9; Sid, 6 Oct 2026 | — |
-| act 10 (MS B3) | 1 | The microbatch hash entity | answered | SR:88–89 | SR decision 10; Sid, 6 Oct 2026 | — |
-| act 11 (MS B4) | 1 | What based-on holds; the basis of an outside thing | answered | SR:90–94 | SR decision 11; Sid, 6 Oct 2026 (11C proposed by a session, agreed by Sid in chat) | — |
-| act 12 (MS B5) | 1 | The stamp, as an act carries it | answered | SR:95–96 | SR decision 12; Sid, 6 Oct 2026 | — |
+| act 7 (MS 0.1, BK 0.1) | 1 | The rig's standing | answered | SR:77–78; BK part-1-zero.txt:1 | see src-store/README.md | — |
+| act 8 (MS B1) | 1 | The permission's form | answered | SR:79–84 | see src-store/README.md | — |
+| act 9 (MS B2) | 1 | What an id is | answered | SR:85–87 | see src-store/README.md | — |
+| act 10 (MS B3) | 1 | The microbatch hash entity | answered | SR:88–89 | see src-store/README.md | — |
+| act 11 (MS B4) | 1 | What based-on holds; the basis of an outside thing | answered | SR:90–94 | see src-store/README.md | — |
+| act 12 (MS B5) | 1 | The stamp, as an act carries it | answered | SR:95–96 | see src-store/README.md | — |
 | act 12z | 1 | A carried stamp is not below zero | open | SR:97–99 | closed by a session, waiting for Sid's word (SR) | — |
 | act-kept | 1 | Values kept from today's code, "not decided": a fact with no value is a retract; a permission is 4 levels deep at most; based-on optional, empty when absent; a carried stamp below 2^62; 256 subjects; 32 collections | open? | SR:75–76, 84, 93–94, 96–97 | SR marks each "kept from today's code, not decided" | — |
 | A7 (MS A7, BK A7) | 1 | The language that declares the act's shape | open? | BK part-2-A.txt:428; MS row A7 | none of the twelve decisions names it | — |
 | B6 (MS B6) | 1 | The order of the reasons (shape before rules), and the four limits | open? | MS row B6 | the limits: see act-kept; the order: none of the twelve decisions names it | — |
 | ?7 | 1 | The open parts of the act | open? | A:1208 | its parts are answered by decisions 4, 5, 10, 12; the stamp's form is H2, the fingerprint S3, its "new condition" F7 | — |
-| C1 (MS C1) | 2 | What is built next | answered | BK g2-door.txt:1; MS row C1 | A: the store's own depots and gates next, built on act.clj; the door returns after. Sid accepted, 6 Oct 2026. Its smaller choice: the door set aside (removed in commit a2d691df) | act implementation analysis (Fable), 7 Oct |
-| C2 (MS C2) | 2 | The comparison with the rig | answered | BK g2-door.txt:205; MS row C2 | removed: follows Sid's decision 7, 6 Oct 2026; removed in commit a2d691df | act implementation analysis (Fable), 7 Oct |
-| Q20 | 2 | Which back arrow comes into the door | answered | LP:83 | the answer arrow comes back into the door; Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| Q22 | 2 | How a streaming act gets its answer | answered | BK g2-door.txt:57; LP:88 | A — by name: the door reads the answer from the record; the ack is only a signal, because it can fail to carry the answer (an error for an act the gate accepted; a microbatch act never has one). Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
-| F7 (?7's new condition) | 2 | A rule for all that leaves a decision | answered | BK g2-door.txt:108; RS:75; A:946–947, A:1208 | A — a rule for all code: what leaves a decision (an ack, a bell, the second act of a promotion) is a signal; the truth is the record; read it by name. Sid, 7 Oct 2026, in chat, with Q22 | act implementation analysis (Fable), 7 Oct |
-| F8.1 | 2 | A setting key on an entity that is not the act's layer: whose check | answered | BK g2-door.txt:157; RS:78 | C — the gate refuses a setting key on an entity that is not the act's layer, as a recorded decision; the door may warn early, the gate is the authority. Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
+| C1 (MS C1) | 2 | What is built next | answered | BK g2-door.txt:1; MS row C1 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| C2 (MS C2) | 2 | The comparison with the rig | answered | BK g2-door.txt:205; MS row C2 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| Q20 | 2 | Which back arrow comes into the door | answered | LP:83 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| Q22 | 2 | How a streaming act gets its answer | answered | BK g2-door.txt:57; LP:88 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F7 (?7's new condition) | 2 | A rule for all that leaves a decision | answered | BK g2-door.txt:108; RS:75; A:946–947, A:1208 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F8.1 | 2 | A setting key on an entity that is not the act's layer: whose check | answered | BK g2-door.txt:157; RS:78 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
 | F8.2 | 2 | A fact with a value and no session on the act: whose check | moot | BK g2-door.txt:157 | moot: the session is a required part (SR decision 4); Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| Q23 | 2 | Where the ladder shows the layer and its class | answered | BK g2-door.txt:275; LP:70 | by decision 5: the class is read in the door and carried in the name, not a part the maker gives; Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F3 (?3, S1) | 3 | Must a value be sealed before a depot keeps it | answered | BK g3-depots.txt:1; A:1204; R:203–206 | yes: the door seals (decision 3); Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F6 | 3 | Two depots, or one | answered | BK g3-depots.txt:50; RS:72 | A — two depots, one for each gate. Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
-| Q7 | 3 | What the depots are called (the ladder's words for them) | answered | BK g3-depots.txt:103; LP:91 | a — "streaming depot" and "microbatch depot". Sid, 7 Oct 2026, in chat | act implementation analysis (Fable), 7 Oct |
-| F2 (D2) | 4 | Where the record is | answered | BK g4-gates.txt:1; A:1194–1197; RS:60 | A — in the PStates of the gates. Sid, 7 Oct 2026, in chat; his note: the record is recomputable from the acts depot — an act proposed at a version is refused the same way every time, so a second depot of decisions adds nothing | act implementation analysis (Fable), 7 Oct |
-| F1 (D1) | 4 | Who sets the class of a layer | answered | BK g4-gates.txt:50; A:1179–1192; RS:57 | A — the members of the layer set it, as a fact on the layer. Sid, 7 Oct 2026, in chat. His 2 Oct lines never agreed to the "third switch" as the drawing says; the sheet's premise was wrong | act implementation analysis (Fable), 7 Oct |
-| F4 (?5) | 4 | The class of each layer at the start | answered | BK g4-gates.txt:101; A:1206, A:1232–1239; RS:66 | C — the base is a microbatch layer; every other layer starts streaming; its members can change it (F1). Sid, 7 Oct 2026, in chat. His heuristic: work a person engages with directly (editor, canvas, 3D, live collaboration) must be interactive; data subscribed to from another layer may arrive a little later | act implementation analysis (Fable), 7 Oct |
-| F5 (?13) | 4 | Where a streaming gate finds a grammar | answered | BK g4-gates.txt:143; A:1214; RS:69 | A — each layer holds a copy of each grammar it uses; the gate reads on its own task. Sid, 7 Oct 2026, in chat, agreeing with the cost argument (a copy is bytes and a rare write; a fetch is a cross-task hop on every act) | act implementation analysis (Fable), 7 Oct |
-| Q25 | 4 | Locks, and the seal in the door | answered | BK g4-gates.txt:192; LP:75 | by decision 3: the seal is in the door, below the act's form; Sid, 6 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F9a (S4) | 4 | Can two nodes run here | answered | BK g4-gates.txt:228; R:208 | later — a test-environment question (two Rama workers to test a node failure); punted to production. Sid, 7 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F9b (S5) | 4 | The three limits | answered | BK g4-gates.txt:228; R:208–209 | the three limits are targets to optimise toward; the rig's measurements are the starting point, not a ceiling. Sid, 7 Oct 2026 | act implementation analysis (Fable), 7 Oct |
-| F9c (S6) | 4 | The size of a usual value in a hand session | answered | BK g4-gates.txt:228; R:209 | go by what was measured; revisit when the module runs. Sid, 7 Oct 2026 | act implementation analysis (Fable), 7 Oct |
+| Q23 | 2 | Where the ladder shows the layer and its class | answered | BK g2-door.txt:275; LP:70 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F3 (?3, S1) | 3 | Must a value be sealed before a depot keeps it | answered | BK g3-depots.txt:1; A:1204; R:203–206 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F6 | 3 | Two depots, or one | answered | BK g3-depots.txt:50; RS:72 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| Q7 | 3 | What the depots are called (the ladder's words for them) | answered | BK g3-depots.txt:103; LP:91 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F2 (D2) | 4 | Where the record is | answered | BK g4-gates.txt:1; A:1194–1197; RS:60 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F1 (D1) | 4 | Who sets the class of a layer | answered | BK g4-gates.txt:50; A:1179–1192; RS:57 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F4 (?5) | 4 | The class of each layer at the start | answered | BK g4-gates.txt:101; A:1206, A:1232–1239; RS:66 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F5 (?13) | 4 | Where a streaming gate finds a grammar | answered | BK g4-gates.txt:143; A:1214; RS:69 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| Q25 | 4 | Locks, and the seal in the door | answered | BK g4-gates.txt:192; LP:75 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F9a (S4) | 4 | Can two nodes run here | answered | BK g4-gates.txt:228; R:208 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F9b (S5) | 4 | The three limits | answered | BK g4-gates.txt:228; R:208–209 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
+| F9c (S6) | 4 | The size of a usual value in a hand session | answered | BK g4-gates.txt:228; R:209 | see src-store/README.md | act implementation analysis (Fable), 7 Oct |
 | ?9 (F10) | 4 | A re-class with acts in flight | open | A:1210; BK g4-gates.txt:267 | listed, not asked: waits for a test | act implementation analysis (Fable), 7 Oct |
 | ?10 (F10) | 4 | A promotion out of a microbatch layer | open | A:1211; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |
 | ?11 (F10) | 4 | A record only the gates can read; bells apart | open | A:1212; BK g4-gates.txt:267 | listed, not asked: waits for a build | act implementation analysis (Fable), 7 Oct |

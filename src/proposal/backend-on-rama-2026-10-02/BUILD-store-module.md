@@ -2,8 +2,9 @@
 
 Cut by: the session "act implementation analysis" (Fable 5.1, effort max), 7 October 2026.
 For: one build session. Status: Sid's decisions of 6 and 7 October 2026 are the contract.
-Nothing here is a session's choice unless the line says so. The decisions are recorded in
-`decisions/DECISIONS.md` (the store's ten) and `src-store/README.md` (the act's twelve).
+The decisions, with Sid's reasons, are in `src-store/README.md`: the act's twelve (6 October) and the
+store's ten (7 October). Two questions are open and are asked before the build (below). Everything else a
+builder chooses is engineering, written with its reason in a docstring, never as a decision.
 
 ## What this build is
 
@@ -21,7 +22,8 @@ MAKER ─act─► [the proof's hand: act-id · class · lock · seal · append]
 1. `src-store/CLAUDE.md` — the explanation rules; they bind every file of this build.
 2. `src-store/README.md` — the tree, and the act's twelve decisions.
 3. `src-store/softland/store/act.clj` — the one form. The only form. Read it whole.
-4. `decisions/DECISIONS.md` — the ledger; the store's ten answers are rows F6, Q7, F2, F1, F4, F5, Q22, F7, F8.1, F9a–c.
+4. `src-store/README.md`, "Decisions of 7 October 2026 — the store's module" — the store's ten, with reasons.
+   `decisions/OPEN-QUESTIONS.md` is the queue of what is not decided; answers never live there.
 5. The Rama skill (`/rama`), before any Rama code is read or written.
 6. Last, and only as findings: the rig's notes under `src/proposal/rig-2026-09-25/` on what Rama forced —
    refusals as data (an exception in a topology kills the worker); a microbatch is visible only when the
@@ -60,14 +62,15 @@ itself is still Sid's to give; use `class` in code until he does, and nowhere el
 and docstring, and a README per folder as the tree's rules say:
 
 1. **Two depots.** The streaming depot partitions by the act's `:layer`. The microbatch depot partitions
-   by one entity derived from the act's facts (decision 10A: derived by the depot). *Session's choice,
-   provisional, say so in the README:* the entity of the first fact.
+   by one entity derived from the act's facts (decision 10A: derived by the depot). *Engineering choice, the
+   builder's, reason in the docstring:* the entity of the first fact.
 2. **The door's declaration** — a small shape, declared as data in the same style as `act.clj`'s `shapes`
    (reuse its engine by requiring `softland.store.act`): what arrives on a depot is the maker's act plus
    `:act-id`, `:class`, and each value fact's `:v` replaced by `:sealed` bytes and a `:lock-id`. Facts under
    a **store key** keep a plain value. The store keys are the module's, declared in one place with the
    reason for each; begin with only what this build needs: `:class`, `:owner`, `:permission`, `:lease`,
-   and any others the build must have — list each, and no more. *Session's choice:* the exact set.
+   and any others the build must have — list each, and no more. **Open — ask Sid before building:** the exact
+   set; each of the four follows from a decision, the list itself is his.
 3. **The streaming gate** — a stream topology: one event per act, on the layer's task. Order of its checks,
    each a recorded refusal word, never an exception: (a) the record already holds an answer under this
    act-id → return it, decide nothing (F7); (b) the door's declaration (which contains `act.clj`'s check);
@@ -81,18 +84,19 @@ and docstring, and a README per folder as the tree's rules say:
    fact-id that wrote it, the stamp}`); answers by act-id (`act-id → {:accepted | :refused reason, stamp}`);
    the layer's settings as facts on its own entity (class, owner); permissions as facts; leased locks.
    Design the PState shapes with the Rama skill's guidance; keep each PState's reason in its docstring.
-6. **The stamp** — an integer the gate assigns, strictly increasing on its task. *Session's choice,
-   provisional, from a finding:* milliseconds × 2^16 + a counter, so that it never runs ahead of a later
+6. **The stamp** — an integer the gate assigns, strictly increasing on its task. *Engineering choice, the builder's,
+   from a finding; reason in the docstring:* milliseconds × 2^16 + a counter, so that it never runs ahead of a later
    stamp under load. Below 2^62.
 7. **Locks and the seal** — the module leases one lock per (session, layer) on request (a store act under
-   `:lease`, or a query — *session's choice, say which and why*) and keeps it in the record so a later
-   forget can destroy it. The proof's hand seals values with it. *Session's choice, provisional:*
+   `:lease`, or a query — *engineering choice; say which and why in the docstring*) and keeps it in the record so a later
+   forget can destroy it. The proof's hand seals values with it. *Engineering choice:*
    AES-GCM. The gate refuses a plain value under a non-store key: `:not-sealed`.
 8. **The answer by act-id** — a query topology: act-id → the recorded answer, or nothing yet.
 9. **The first layer** — how the base and a person's layer come to exist: an act whose facts set the
    layer's class and owner on the layer's own entity, made by the operator for the base (class microbatch)
    and by a person for their own (class streaming, F4 C). The permission that lets the operator act is the
-   bootstrap; *state how it is seeded, as a session's provisional choice, in the README.*
+   bootstrap; **Open — ask Sid before building:** the operator under a permission seeded at start, the store itself
+   seeding the base, or a test fixture in the proof — plainly marked as one — until the "who acts" sheet answers.
 
 **The proof** `softland.store.module-proof`, on Rama's in-process cluster, run as
 `clojure -M:store -m softland.store.module-proof`. It plays the door by hand — makes the act-id, reads the
@@ -120,8 +124,10 @@ leave room for one of them, say so in the docstring and leave the room.
 Each namespace and each function has a docstring; each folder a README with a parent link; no function
 lists in READMEs; no history of corrections; a part that is not built stays out of the maps. The module's
 README gets a section **"Decisions this module stands on"** that lists the ten store decisions by their
-ledger row and the act's twelve by pointer, and a section **"Provisional, waiting for Sid"** that lists
-every line marked *session's choice* above, with its reason. Nothing provisional is written as his.
+ledger row and the act's twelve by pointer, and a section **"Engineering choices"** that lists
+each choice the builder made (the partition entity, the stamp's packing, the lease mechanism, the cipher)
+with its reason. The two open questions are asked before the build; their answers go into
+`src-store/README.md`'s decisions section as Sid's, never into this file.
 
 ## Commits and the receipt
 

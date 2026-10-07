@@ -34,15 +34,15 @@ page. No history on a sheet ("was", "used to be", "the night of"); history is
 in the commits. A session may add "a session suggests: X" only when Sid has
 asked for suggestions, and then marked as a session's.
 
-## The questions file
+## The queue of open questions
 
-`DECISIONS.md` beside this page holds every question once: its id, its group,
-its title, its state (open · answered · superseded · moot), where its source
-lines are, and, when answered, the answer, by whom, and the date. A session
-writes its name on a group there before it writes the group's sheet, so two
-sessions never write one group. An answer is written there the day Sid gives
-it. The act's twelve answers of 6 October live in `src-store/README.md`; the
-file points to them and does not copy them.
+`OPEN-QUESTIONS.md` beside this page holds what is not yet decided, once each:
+its id, its group, its title, where its source lines are, and which session has
+taken the group. A session writes its name on a group there before it writes the
+group's sheet, so two sessions never write one group. **Answers never live in
+the queue.** An answer, with Sid's reason, goes to the README of the code it
+shapes — today `src-store/README.md` — on the day he gives it; the queue's row
+then only points there.
 
 ## The sheet files and the build
 
@@ -81,3 +81,11 @@ against Sid's rulings and words, and reports only what does not hold.
   to group 9, never onto a sheet about the store.
 - **Already answered is not asked.** It is listed at the end as "answered, see
   the ledger".
+- **Contract first, then the questions it cannot answer.** The store's sheet was
+  written before the build contract; two questions (the store's keys, the
+  bootstrap) surfaced only when the contract made "what the gates need"
+  concrete. Write the build's contract first; the sheet asks what it cannot
+  settle.
+- **Answers never live in the queue.** `OPEN-QUESTIONS.md` holds only what is
+  not decided and who is writing which sheet. An answer, with its reason, goes
+  to the README of the code it shapes — `src-store/README.md` today.
