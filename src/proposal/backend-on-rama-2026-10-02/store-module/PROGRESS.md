@@ -64,14 +64,20 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
 4. Done: the receipt to Sid, given in chat on 8 October: the commits, the proofs' count lines, the list
    below, and every place where the contract could not be met as written. It asks him three things: the
    folders, and the two questions of item 23 below.
-5. Next work, as told to Sid on 8 October: the door is the next build (decision C1 of 6 October); reads
-   are the next big deciding (group 6 of the queue). He asked for the reading and the questions, and on
+5. Next work. This page said "the door is the next build (decision C1 of 6 October)", and Sid was told so
+   on 8 October. That was a session's sentence, not his: no line of his says that the door is next. He
+   asked the same day "but why the door??" (his lines of 5 and 6 October ask the same), and the session
+   that had told him took it back: reads come first, because nothing that a gate accepts can be seen
+   until it is read back, and reads can still change the shape of the record, which the door cannot. What
+   is built next is his to say. Reads are the next big deciding (group 6 of the queue). He asked for the reading and the questions, and on
    8 October, "which one should i be printing???". Both are now on sheets, each with what its writer
    suggests, as he asked ("what is your recommendation and why?").
    - The door: `../decisions/groups/g-door.txt`, "The door — four questions before it is built", by
      "gate-implementation"; read by a second session, corrected, and printed on 8 October (job 36). It
      asks ?4 and H1 again, and K3 and K4, which the review found. His answers go to `src-store/README.md`.
-     The door's contract is written after them.
+     It was written and printed before its writer knew of his "but why the door??". Its questions stand
+     without the door: ?4 and H1 freeze at the first kept record, and K3 and K4 are the review's. Only
+     ?4 waits for sign-in; the other three touch reads.
    - Reads: `../decisions/groups/g-reads.txt`, "Reading back out", by another session of 8 October (id
      83590914). It is that session's to hand to him.
 

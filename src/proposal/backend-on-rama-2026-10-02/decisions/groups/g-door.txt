@@ -1,6 +1,6 @@
 === Sheet | The door — four questions before it is built
 
-Alice signs in and writes her first note: the path of that one act, from her screen to the record and back. A word in capitals is defined at that place. **Shaded:** who acts. **Boxed:** the two things that the door takes from the store, its keys and its locks. The marks on the right name the four questions. The gates and the record are built; the door is next. Each question says why it is asked now, and ends with what the AI that wrote this sheet suggests: you asked for that on 8 October ("what is your recommendation and why?"). Tick a box, or write on the line. 8 October 2026.
+Alice signs in and writes her first note: the path of that one act, from her screen to the record and back. A word in capitals is defined at that place. **Underlined:** who acts. **Boxed:** the two things that the door takes from the store, its keys and its locks. The marks on the right name the four questions. The gates and the record are built; the door is not, and when it is built is yours to say. Each question says why it is asked now, and ends with what the AI that wrote this sheet suggests: you asked for that on 8 October ("what is your recommendation and why?"). Tick a box, or write on the line. 8 October 2026.
 
 ```picture 113
 ALICE opens Softland and signs in with Google.   (your words, 2 October: "for login we will use google login")
@@ -16,7 +16,7 @@ MAKER — her screen; later a converter, an agent. It makes an ACT: one or more 
    :facts [{:e :note-41 :k :text :v "buy milk"}]}        ← a FACT: entity · KEY · value
           │  the act, plain values
           ▼
-THE DOOR — the code that takes an act from a maker into the store. One piece of code; every maker uses it.  ⟦◀ NEXT TO BUILD⟧
+THE DOOR — the code that takes an act from a maker into the store. One piece of code; every maker uses it.  ⟦◀ NOT BUILT⟧
   1 reads the layer's CLASS — streaming or microbatch — a fact under one of ⟪r:the store's own keys⟫  ⟦◀ 4 · the store's own keys⟧
   2 makes the ACT-ID, the act's id: [<her layer> :streaming #uuid]
   3 ⟪r:gets LOCKS from the store and SEALS each value with one⟫ → bytes. A LOCK is an encryption key.  ⟦◀ 2 · one lock for how much?⟧
