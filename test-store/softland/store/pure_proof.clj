@@ -23,7 +23,7 @@
   gathered on the task of its route, in many orders of arrival drawn with a
   fixed seed. It compares the record after each run with the record of
   deciding the same things one at a time in the order of their turns, with
-  the first part's checks in the first part's order.
+  the checks of `softland.store.decision` in their order.
 
   State. The proof owns one atom: the lines that it showed, for the recap.
   It takes random bytes from the JVM for locks and seals, and reads the
@@ -419,6 +419,7 @@
    ["a map whose act-id is nil" (assoc good :act-id nil) :no-act-id]
    ["a map that throws when its act-id is tested" (assoc good :act-id (throwing)) :act-id-malformed]
    ["an act-id of two slots" (assoc good :act-id [:alice :streaming]) :act-id-malformed]
+   ["an act-id of four slots" (assoc good :act-id [:alice :streaming (uuid 1) 0]) :act-id-malformed]
    ["an act-id with a class word that is none" (assoc good :act-id [:alice :stream (uuid 1)]) :act-id-malformed]
    ["an act-id whose last slot is no UUID" (assoc good :act-id [:alice :streaming "u"]) :act-id-malformed]
    ["an act-id whose layer is a string" (assoc good :act-id ["alice" :streaming (uuid 1)]) :act-id-malformed]
@@ -535,6 +536,7 @@
    ["a class that is not the class slot of the act-id" (assoc good :class :microbatch) :class-not-the-act-ids-class]
    ["a lock id that is no lock id" (arrived 1 (assoc (sealed-fact :note-1 :text) :lock-id [(act-id 50)])) :lock-id-malformed]
    ["a lock index of 256" (arrived 1 (sealed-fact :note-1 :text 256)) :lock-id-malformed]
+   ["a lock index below zero" (arrived 1 (sealed-fact :note-1 :text -1)) :lock-id-malformed]
    ["a fact under a store key that arrives sealed" (arrived 1 (sealed-fact :alice :class)) :store-key-sealed]
    ["a class fact whose value is no class word" (arrived 1 {:e :alice :k :class :v :fast}) :class-fact-not-a-class-word]
    ["a permission fact whose value is no permission" (arrived 1 {:e :bob :k :permission :v [:bob :alice]}) :permission-fact-not-a-permission]
@@ -543,7 +545,9 @@
     :permission-fact-not-a-permission]
    ["a permission fact that does not sit on its holder" (arrived 1 {:e :carol :k :permission :v bobs}) :permission-fact-not-on-its-holder]
    ["a request for no locks" (arrived 1 {:e (uuid 1) :k :lock-request :v 0}) :lock-request-not-a-count]
+   ["a request for a count below zero" (arrived 1 {:e (uuid 1) :k :lock-request :v -1}) :lock-request-not-a-count]
    ["a request whose count is a string" (arrived 1 {:e (uuid 1) :k :lock-request :v "4"}) :lock-request-not-a-count]
+   ["a request whose count is no whole number" (arrived 1 {:e (uuid 1) :k :lock-request :v 2.5}) :lock-request-not-a-count]
    ["a request for 257 locks" (arrived 1 {:e (uuid 1) :k :lock-request :v 257}) :too-many-locks-requested]
    ["a request that does not sit on the uuid of its act" (arrived 1 {:e (uuid 2) :k :lock-request :v 4}) :lock-request-not-on-its-act]
    ["a plain value under a plain key" (arrived 1 {:e :note-1 :k :text :v "a text"}) :not-sealed]
@@ -1606,7 +1610,7 @@
       (fn [] [(record/routing-id [:alice :streaming u]) (record/routing-id [:base :microbatch u]) (record/routing-id [:base :microbatch])
               (record/routing-id 5) (record/routing-id nil) (record/routing-id (list :base :microbatch u))])
       [:alice u nil nil nil nil]]
-     ["the head of the read by act-id, with the routing id: what the first part's head gives for the act-id's own layer; nothing for another routing id"
+     ["the head of the read by act-id, with the routing id: what `answer-read` gives for the act-id's own layer; nothing for another routing id"
       (fn [] [(record/answer-read-by-routing-id :alice [:alice :streaming u])
               (record/answer-read-by-routing-id u [:base :microbatch u])
               (record/answer-read-by-routing-id :base [:base :microbatch u])
@@ -1760,8 +1764,8 @@
 
 (defn- one-at-a-time
   "Decides the things of a batch one at a time in the order of their turns,
-  against one flat record, with the first part's checks in the first part's
-  order and the class :microbatch: what the decisions of a batch must be.
+  against one flat record, with the checks of `softland.store.decision` in
+  their order and the class :microbatch: what the decisions of a batch must be.
   Takes the flat record, {:answers :facts :locks}, each a map from key to
   row; the other gate's facts; the things in the depot's order; the clock;
   and the batch's base. Gives the flat record after."

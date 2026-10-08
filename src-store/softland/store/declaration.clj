@@ -44,9 +44,9 @@
   `check` never throw: a throw in a gate would stop its partition (a finding
   of the rig on Rama).
 
-  Callers. `softland.store.decision`, `softland.store.record` and the gate
-  (`softland.store.streaming-gate`). The door seals and sends; it is the
-  gate that checks.
+  Callers. `softland.store.decision`, `softland.store.record` and the two
+  gates (`softland.store.streaming-gate`, `softland.store.microbatch-gate`).
+  The door seals and sends; it is the gate that checks.
 
   Not here. Whether a thing's permission stands, whether a fact that it
   replaces is current, whether a lock opens a sealed value: those need the

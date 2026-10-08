@@ -37,15 +37,19 @@
   `$$microbatch-locks`, `$$microbatch-facts`, and `:closed-through` of
   `$$microbatch-task`. A query sees only committed state.
 
-  What a read of a microbatch layer gives. Only a row of a closed batch: one
-  whose stamp is not later than the `:closed-through` of its task
-  (`softland.store.record/closed?`). Rama can run a batch again after one
-  task has shown its part, with another clock and other lock bytes; a closed
-  batch cannot run again. So an answer, a class or a lock's bytes that a
-  read gave never changes. A lock's row holds no stamp: the read of locks
-  holds the stamp of the request's answer, which is on the same task, and
-  gives locks only for an accepted request. The second read, of
-  `:closed-through`, is made only when the first found a row.
+  What a read of a microbatch layer gives. An answer's row or a fact's row
+  only when it is of a closed batch: its stamp is not later than the
+  `:closed-through` of its task (`softland.store.record/closed?`). Rama can
+  run a batch again after one task has shown its part, with another clock
+  and other lock bytes; a closed batch cannot run again. So an answer, a
+  class or a lock's bytes that a read gave never changes. A lock's row holds
+  no stamp: the read of locks holds the stamp of the request's answer, which
+  is on the same task, and gives locks only for an accepted request. So it
+  is held to the closing of the request's batch, and not of a later batch in
+  which an act uses one of the locks: from the moment when that batch is
+  visible on this task, the read gives the lock without its bytes, one run
+  before that batch is closed. The second read, of `:closed-through`, is
+  made only when the first found a row.
 
   Routing. Each begins with the hash partitioner on its first argument.
   Rama's client evaluates a leading partitioner on a query's own arguments,

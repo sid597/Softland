@@ -343,16 +343,31 @@
                     results)]
     (when (seq group) (swap! base-answers conj group))))
 
+(defn- closed-through
+  "The `:closed-through` of the microbatch gate on the task of a route."
+  [route]
+  (rama/foreign-select-one (path/keypath :closed-through) (:mb-task-ps *hand*) {:pkey route}))
+
 (defn- base-result
   "A result as `decide!` gives one, for a thing that was sent to the
   microbatch depot and processed: the thing, the ack, the answer read in a
   loop, whether the answer's digest is the digest of what was sent, and one
-  word. A stray has no answer to wait for, so its act-id is read once."
+  word. A stray has no answer to wait for, so its act-id is read once.
+
+  When the read gave an answer under a microbatch act-id, the hand selects
+  the `:closed-through` of the answer's task right after the read and keeps
+  the pair in `kept`, under :base-reads. `:closed-through` never goes back,
+  so an answer whose stamp is above it then was read from a batch that was
+  not closed."
   [x ack]
   (let [act-id (when (map? x) (get x :act-id))
-        answer (if (declaration/stray-reason :microbatch x)
+        stray? (declaration/stray-reason :microbatch x)
+        answer (if stray?
                  (answer-of act-id)
                  (await-answer act-id))]
+    (when (and answer (not stray?))
+      (swap! kept update :base-reads (fnil conj [])
+             {:act-id act-id :stamp (:stamp answer) :closed-through-after (closed-through (nth act-id 2))}))
     {:thing x :ack ack :answer answer :mine? (digest/is-digest-of? (:digest answer) x)
      :word (cond (nil? answer) :nothing-yet
                  (= :accepted (:verdict answer)) :accepted
@@ -427,11 +442,6 @@
   that is on one task."
   [pstate k]
   (first (keys (rows-by-task pstate k))))
-
-(defn- closed-through
-  "The `:closed-through` of the microbatch gate on the task of a route."
-  [route]
-  (rama/foreign-select-one (path/keypath :closed-through) (:mb-task-ps *hand*) {:pkey route}))
 
 (defn- gates-last-stamp
   "The last stamp that the microbatch gate gave: one for the gate, on the
@@ -1274,7 +1284,15 @@
         places-after (place-rows)
         locks-after (lock-rows)
         beside (mapv (fn [rows [e _]] (get rows (task-of-entity e))) locks-after places)
-        at-home (mapv (fn [rows] (get rows home-task)) locks-after)]
+        at-home (mapv (fn [rows] (get rows home-task)) locks-after)
+        last-stamp-after (gates-last-stamp)
+        [arrives-on other-entity] entities
+        planted (decide-in-base! (system-act [{:e other-entity :k :crossed}]))
+        crossing (decide-in-base! (system-act [{:e arrives-on :k :crossing}
+                                               {:e other-entity :k :crossed :replaces [(:act-id (:thing planted)) 0]}]))
+        crossed-row (base-fact other-entity :crossed)
+        crossing-again (decide-in-base! (system-act [{:e arrives-on :k :crossing-again}
+                                                     {:e other-entity :k :crossed :replaces [(:act-id (:thing planted)) 0]}]))]
     (swap! kept assoc :base-values {:places places :locks locks :sent sent-facts :act-uuid act-uuid})
     (check "the three entities of the act are on more than one task" true (< 1 (count (set (map task-of-entity entities)))))
     (check "the request for its three locks is accepted" [:accepted 3] [(:word asked) (count door-locks)])
@@ -1305,16 +1323,25 @@
     (check "the one stamp of builder's rule 18: later than the stamp of each row written before on those tasks, and than the refusal's"
            [true true] [(every? #(< % stamp) earlier-stamps) (< (:stamp (:answer refused)) stamp)])
     (check "the gate has one last stamp: it was below the act's stamp before the batch, and is not below it after"
-           [true true] [(< last-stamp-before stamp) (<= stamp (gates-last-stamp))])
+           [true true] [(< last-stamp-before stamp) (<= stamp last-stamp-after)])
+    (check "an act alone in its batch replaces the current fact of a place on another task than the one where it arrived: accepted, and the place holds its fact"
+           [true :accepted :accepted (nth (:act-id (:thing crossing)) 2) 1 (:stamp (:answer crossing))]
+           [(not= (task-of-entity arrives-on) (task-of-entity other-entity)) (:word planted) (:word crossing)
+            (:by-act crossed-row) (:by-index crossed-row) (:stamp crossed-row)])
+    (check "the same replaces sent again under a new act-id is stale, and nothing of that act is written on either task"
+           [:replaced-fact-not-current nil (:stamp (:answer crossing))]
+           [(:word crossing-again) (base-fact arrives-on :crossing-again) (:stamp (base-fact other-entity :crossed))])
     (shown "an act that touches several tasks accepted whole:" (told accepted) "| its facts on tasks" (pr-str (mapv #(vec (keys %)) places-after))
            "| each lock's bytes beside its value, rows under each lock's key by task with bytes?"
            (pr-str (mapv (fn [rows] (into (sorted-map) (map (fn [[task row]] [task (contains? row :bytes)])) rows)) locks-after))
            "| the locks' home is task" home-task)
     (shown "one refused whole with no row of it on any task:" (told refused) "| rows at its three places:" (pr-str places-after-refusal)
            "| its three locks still free at their home")
+    (shown "an act that arrived on task" (task-of-entity arrives-on) "replaces the current fact of a place on task" (task-of-entity other-entity)
+           "and is accepted:" (told crossing) "| the same replaces again:" (told crossing-again))
     (shown "the one stamp of builder's rule 18: the act's answer and its three facts, on" (count (set (map task-of-entity entities)))
            "tasks, hold the stamp" stamp "| later than each of" (count earlier-stamps) "rows written before on those tasks"
-           "| the gate's last stamp before" last-stamp-before "after" (gates-last-stamp))))
+           "| the gate's last stamp before" last-stamp-before "after" last-stamp-after)))
 
 (deftest each-gate-tells-the-other-gates-layers
   (let [base-on-streaming (decide! (thing :base :system system-own [{:e :wrong-depot :k :note}]
@@ -1387,6 +1414,7 @@
         [requested forged] (decide-in-one-batch!
                             [(assoc new-request :facts [{:e (nth (:act-id new-request) 2) :k :lock-request :v 1}])
                              (system-act [(seal-with forged-lock :base :lock-doc :forged "sealed with bytes that the store did not make")])])
+        by-stranger (ask-for-base-locks! :mallory alice-in-base 2)
         kept-request (ask-for-base-locks! :system system-own 2)]
     (swap! kept assoc :base-kept-request (:request kept-request) :base-before (base-snapshot (:request kept-request)))
     (check "a second value under a lock that already seals one is refused, although the lock's row at its home holds no bytes"
@@ -1406,6 +1434,11 @@
     (check "a request for locks and a use of its lock in one batch: the request is accepted, and the use is refused"
            [:accepted true]
            [(:word requested) (contains? #{:lock-does-not-open-the-value :lock-not-made-for-this-layer} (:word forged))])
+    (check "a refused request for locks in the base makes no lock: the read of locks gives an empty map, and no task holds a row of a lock of it"
+           [:who-not-the-permissions-holder {} {}]
+           [(:word by-stranger) (:locks by-stranger)
+            (rows-by-task :mb-locks-ps (record/lock-key :base (nth (:request by-stranger) 2) 0))])
+    (shown "a refused request for locks in the base makes no lock:" (:word by-stranger) (pr-str (:locks by-stranger)))
     (shown "the path of a lock in the base: asked for and read, used, its bytes beside its value and no longer at its home, and then a second value under it refused:"
            (told second-value))
     (shown "one copy of a lock's bytes when the lock's home is its value's task: rows under the lock's key" (count rows)
@@ -1498,6 +1531,10 @@
         answers (vec (apply concat groups))
         depot-text (apply str (map (fn [[_ r]] (text/text r)) records))
         lock-texts @lock-bytes-read
+        reads (:base-reads @kept)
+        not-closed-at-the-read (remove (fn [{:keys [stamp closed-through-after]}]
+                                         (and closed-through-after (<= stamp closed-through-after)))
+                                       reads)
         not-closed (remove (fn [{:keys [act-id stamp]}] (<= stamp (or (closed-through (nth act-id 2)) -1))) answers)]
     (check "the stamps of the microbatch gate's answers go up in the order decided: each batch's stamps are later than those of the batch before"
            true (every? (fn [[earlier later]] (< (reduce max (map :stamp earlier)) (reduce min (map :stamp later)))) (partition 2 1 groups)))
@@ -1506,21 +1543,23 @@
            true (every? #(and (< (:stamp %) act/max-carried-stamp)
                               (< (- (System/currentTimeMillis) 3600000) (stamp/time-of (:stamp %)) (+ (System/currentTimeMillis) 60000)))
                         answers))
-    (check "each answer that a read gave is of a closed batch: its stamp is not above closed-through on its task" [] (vec not-closed))
+    (check "each answer that a read gave was of a closed batch at the read: its stamp is not above the closed-through that the hand selected on its task right after the read"
+           [true []] [(<= (count answers) (count reads)) (vec not-closed-at-the-read)])
+    (check "and at the end of the run no answer is left in a batch that is not closed" [] (vec not-closed))
     (check "the microbatch depot holds each thing that was sent to it: accepted, refused, repeated and stray"
            (count @base-things-sent) (count records))
     (check "the things of the base are on more than one partition of the depot" true (< 1 (count (set (map first records)))))
     (check "no lock's bytes are on the microbatch depot: the hex of each lock that the door read is in no stored record"
            [true false] [(< 30 (count lock-texts)) (boolean (some #(str/includes? depot-text %) lock-texts))])
     (shown "the stamps of" (count answers) "answers of the microbatch gate, in" (count groups) "batches, go up in the order decided;"
-           "each answer read is of a closed batch")
+           "each of" (count reads) "reads that gave an answer gave one of a batch that was closed at the read")
     (shown "the microbatch depot holds all" (count records) "things sent, on" (count (set (map first records)))
            "partitions | none of" (count lock-texts) "locks' bytes that the door read is on it")))
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them. Later checks
   build on what earlier ones made. The checks of the streaming gate come
-  first, as they were; the base is made after them."
+  first; the base is made after them."
   []
   (what-rama-carries)
   (layers-are-made)

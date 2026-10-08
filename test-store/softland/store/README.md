@@ -117,7 +117,7 @@ content. What it checks, group by group:
     each message gathered on the task of its route. It runs each batch in 200
     orders of arrival, drawn with a fixed seed, and compares the record after
     each with the record of deciding the same things one at a time in the order
-    of their turns, by the first part's checks in the first part's order. One
+    of their turns, by the checks of `softland.store.decision` in their order. One
     batch is into a base that is made: two acts that replace one fact from two
     tasks, two that write one place, a give and an act under it in both orders,
     two acts under one lock, a request and a use of its lock, a repeat, one
@@ -153,7 +153,7 @@ with a time limit, as a door would, and an answer is there about a second after
 the append. To put several things into one batch of the microbatch gate it pauses
 that topology with Rama's test tool, appends, and lets it go on.
 
-The checks of the streaming gate come first, as they were. The base is made after
+The checks of the streaming gate come first. The base is made after
 them, because one of them sends the base's making act to the streaming gate and
 holds the word of a layer that is not made.
 
@@ -233,19 +233,24 @@ group 20 after it:
 18. An act on several tasks. Refused whole: no row of it on any task, its three
     locks free. Accepted whole: each fact on its entity's task, each lock's bytes
     beside its value, one stamp on all of it, later than each row written before
-    on those tasks; the gate's one last stamp.
+    on those tasks; the gate's one last stamp. And an act that is decided where
+    it arrived replaces the current fact of a place on another task: the row
+    comes to it in a reply. Accepted; the same `replaces` again is stale.
 19. Each gate tells the other gate's layers: an act for the base on the streaming
     depot, an act for a streaming layer on the microbatch depot, and one for a
     layer that is not made. One act-id on both depots has one answer. Strays of
     the microbatch gate. Then the path of a lock in the base: a second value
     under a used lock; a request sent twice; a value whose lock's home is its own
     task, with one row that holds the bytes; a use of a lock in the batch that
-    asks for it.
+    asks for it; a refused request, which makes no lock.
 20. The base after the module is started again: the answer, the class, the
     gate's last stamp, the strays, a permission's rows and the locks are as they
     were; and, last of all, the stamps of the microbatch gate's answers go up in
-    the order decided, each answer that a read gave is of a closed batch, the
-    microbatch depot holds each thing sent, and no lock's bytes are on it.
+    the order decided, each answer that a read gave was of a closed batch at the
+    read, the microbatch depot holds each thing sent, and no lock's bytes are on
+    it. For the third, the hand selects `:closed-through` on the answer's task
+    right after each read that gave an answer; `:closed-through` never goes back,
+    so a stamp above it then is a row that was read before its batch was closed.
 
 Each line that the contract asks for is on a `SHOWN` line in the contract's
 words.
@@ -267,6 +272,11 @@ batch is closed, but for group 13, which uses it to look before.
   bytes stay unread;
 - a layer's class and a refusal's word read between a batch and its closing: the
   proof catches an answer and a lock there, and the class read has the same test;
+- a read that gave a row of a batch that closed in the moment between that read
+  and the hand's select of `:closed-through`: the last check of the base takes
+  it for a row of a closed batch;
+- that the read of locks gives a lock without its bytes before the batch of the
+  act that uses it is closed: read in the code, not shown;
 - a pass long enough to be known to give the task back: 400 acts in one batch is
   the longest;
 - a rebuild of a record from its depot;

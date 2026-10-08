@@ -247,7 +247,9 @@
   `:closed-through` of the row's task, or nil. Gives true when the row is of
   a closed batch of the microbatch gate: its stamp is not later than
   `:closed-through`. False for no row, and before any batch is closed. A
-  read gives a row of a microbatch layer only when this is true."
+  read gives such a row of a microbatch layer only when this is true. A
+  lock's row holds no stamp; the read of locks holds its request's answer
+  to this test."
   [row closed-through]
   (boolean (and row closed-through (<= (long (:stamp row)) (long closed-through)))))
 
