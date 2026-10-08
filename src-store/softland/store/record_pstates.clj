@@ -1,9 +1,11 @@
 (ns softland.store.record-pstates
-  "The record as PStates: the four schemas, written once. It requires Rama,
-  and it declares nothing: a gate declares four PStates with these schemas
-  under its own names, because in Rama only the topology that owns a PState
-  can write it. So \"the same record shape\" for each gate is these four
-  functions.
+  "The record as PStates: the schemas, written once. It requires Rama, and
+  it declares nothing: a gate declares four PStates with these schemas under
+  its own names, because in Rama only the topology that owns a PState can
+  write it. So \"the same record shape\" for each gate is these functions:
+  the answers, the facts and the locks are one schema for both gates, and
+  what a gate keeps for a task is `task` for the streaming gate and
+  `microbatch-task` for the microbatch gate.
 
   What each schema holds, field by field, is in the namespace docstring of
   `softland.store.record`, which makes and reads the rows. Here is why each
@@ -23,16 +25,33 @@
              gave on the task, and the strays seen on it. Two things that
              belong to a task and to no layer, in one PState so that they
              cost one partition and not two.
+    microbatch-task
+             the same for the microbatch gate, with two fields more and one
+             changed. `:closed-through`: each row on the task with a stamp
+             not later than this is of a closed batch, and a read gives no
+             other. `:turns`: the text of the microbatch id that the count
+             belongs to, and how many things of that batch the task has
+             given a turn. It is durable, and not a count in memory, because
+             Rama sets a PState back when an attempt of a batch fails, so a
+             second attempt counts from the same number. The text is beside
+             the count so that the count starts again with each batch.
+             `:last-stamp` is one for the whole gate, on the gate's task
+             only.
 
   Why three flat maps and not one PState keyed by the layer. An answer is
   found by an act's uuid, a fact by its place, a lock by its id: they share
   no key. With the layer as the top-level key and three subindexed maps
   under it, each row would cost two seeks to read and one more to write;
   the decision of one common act would cost 6 to 8 seeks, against 4 here.
-  The rows of one layer are on one task all the same: a row is placed by the
-  task on which its gate writes it, which is the layer's task, not by a hash
-  of its whole key. So nothing may route by a whole key: each read routes by
-  the layer.
+  A row is placed by the task on which its gate writes it, not by a hash of
+  its whole key. So nothing may route by a whole key. The streaming gate
+  writes each row of a layer on the layer's task, and each read of a
+  streaming layer routes by the layer. The microbatch gate writes a row on
+  the task that the second part of its key gives: the uuid of an answer,
+  the entity of a fact, the request's uuid of a lock; a row under `:class`
+  or `:permission` on every task; and the whole row of a lock that seals a
+  value on the task of that value's entity. A read of a microbatch layer
+  routes by that part. `softland.store.record` says it row by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
@@ -48,8 +67,9 @@
   count a stray again at each retry.
 
   The last stamp is durable state because a stamp must increase through a
-  restart and through a move of the task's leader. It is read from the
-  PState at each decision and is not kept in the memory of a process.
+  restart and through a move of the task's leader. The streaming gate reads
+  it from the PState at each decision, the microbatch gate once for each
+  batch; neither keeps it in the memory of a process.
 
   State and effects. None: each function gives a schema, a value. The
   PStates that a gate declares with them are durable state of the cluster."
@@ -94,3 +114,15 @@
   []
   (fixed-keys-schema {:last-stamp Long
                       :strays     (map-schema Keyword (set-schema String {:subindex? true}))}))
+
+(defn microbatch-task
+  "Gives the schema of what the microbatch gate keeps for a task as a whole:
+  the strays seen on it, as in `task`; the stamp through which its rows are
+  of closed batches; its count of turns, with the text of the microbatch id
+  that the count belongs to; and, on the gate's task only, the last stamp
+  that the gate gave."
+  []
+  (fixed-keys-schema {:strays         (map-schema Keyword (set-schema String {:subindex? true}))
+                      :closed-through Long
+                      :turns          (fixed-keys-schema {:batch String :given Long})
+                      :last-stamp     Long}))

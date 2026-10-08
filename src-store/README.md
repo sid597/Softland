@@ -3,9 +3,10 @@
 This tree holds the code of the store that is built to stay. The implementation
 lives beneath [softland/](softland/README.md). It holds the act: the one form of
 what a maker gives to the store, and the check of that form. And it holds the
-store's Rama module: the streaming depot, the streaming gate, the record that the
-gate keeps, and the reads by act-id. The pure code owns no state. The module's
-state, the depot and the record, is durable in the cluster that runs it.
+store's Rama module: the two depots, the streaming gate and the microbatch gate,
+the record that each gate keeps, and the reads by act-id. The pure code owns no
+state. The module's state, the depots and the records, is durable in the cluster
+that runs it.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
@@ -17,6 +18,7 @@ Start with the question you are carrying:
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
 | What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
 | What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/streaming_gate.clj) |
+| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/microbatch_gate.clj) and [batch.clj](softland/store/batch.clj) |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |

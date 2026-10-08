@@ -7,7 +7,7 @@ behavior.
 
 | Immediate child | Responsibility |
 |---|---|
-| [softland/](softland/README.md) | The JVM checks: the act and the gate's pure namespaces, with no cluster; and the store's module, on Rama's in-process cluster. |
+| [softland/](softland/README.md) | The JVM checks: the act and the gates' pure namespaces, with no cluster; and the store's module, on Rama's in-process cluster. |
 
 Run the checks from the repository root:
 
@@ -31,9 +31,9 @@ again together at the end, and exits with a status that is not zero when a check
 fails.
 
 A pass of the first two shows the pure code on values of one process. A pass of
-the third shows the module in one process: acts that went through the streaming
-depot and the streaming gate, and were read back by act-id. It does not show a
-cluster of several machines, a failure in the middle of an event, or how fast the
+the third shows the module in one process: acts that went through each depot and
+its gate, and were read back by act-id. It does not show a cluster of several
+machines, a failure in the middle of an event or of a batch, or how fast the
 module is. No door is built; the third proof plays it by hand.
 
 The [proofs' own map](softland/store/README.md) says what each check covers and

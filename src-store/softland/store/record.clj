@@ -33,6 +33,21 @@
   its one text, so the field has one class, and \"is this the permission that
   the act names\" is a comparison of bytes.
 
+  Where a row lives. The rows are the same for both gates; the task is not.
+  A row of a streaming layer is on the layer's task. A row of a microbatch
+  layer is on the task that the second part of its key gives: an answer on
+  the task of the act's uuid, a fact on the task of its entity, a lock on
+  the task of its request's uuid. A fact under `:class` or `:permission` of
+  a microbatch layer is on every task. No row names a task.
+
+  One copy of a lock's bytes. In a streaming layer a lock has one row, and
+  the row keeps its bytes when it comes to seal a fact. In a microbatch
+  layer a lock that seals a fact has two rows under its one key: on the
+  task of the value's entity the whole row, with the bytes; and on the task
+  of its request's uuid the home's row, which holds the way and the fact
+  and no `:bytes` (`lock-row-without-bytes`). When the two tasks are one,
+  the one row is the whole row.
+
   Why the keys are strings. A key is a pair or a triple of ids, and an id is
   a keyword or a UUID: two classes. A string made of the parts' printed
   texts is one class, equal keys are equal strings, and Rama gives the order
@@ -49,17 +64,23 @@
   Inputs and results, by group:
 
     answer-key, place-key, lock-key   ids -> the text of a key
-    answer-row, fact-row, lock-row, lock-row-sealing   -> a row to write
+    answer-row, fact-row, lock-row, lock-row-sealing,
+    lock-row-without-bytes                             -> a row to write
     answer-of, written-by?, holds-plain-value?, plain-value-of,
-    seals-a-fact?, lock-of, locks-by-index             a row -> what it says
-    answer-read, lock-range-read, class-read   what a caller gave a read
-                                               -> the keys to read, or nil
+    seals-a-fact?, lock-of, locks-by-index,
+    locks-by-index-used-without-bytes, closed?         a row -> what it says
+    routing-id                        an act-id -> the first argument of a
+                                      read by that act-id
+    answer-read, lock-range-read, class-read,
+    answer-read-by-routing-id, lock-range-read-by-routing-id
+                                      what a caller gave a read
+                                      -> the keys to read, or nil
 
   State and effects. None. Each function is pure.
 
-  Callers. `softland.store.decision`, the gate, and
-  `softland.store.door-reads`. The proof's hand calls the three `-read`
-  functions to test what it passes before it calls a query."
+  Callers. `softland.store.decision`, `softland.store.batch`, the two gates,
+  and `softland.store.door-reads`. The proof's hand calls `routing-id` and
+  the `-read` functions to test what it passes before it calls a query."
   (:require [clojure.edn :as edn]
             [softland.store.declaration :as declaration]
             [softland.store.text :as text])
@@ -190,6 +211,15 @@
   [row act-uuid index]
   {:bytes (:bytes row) :way (:way row) :seals-act act-uuid :seals-index (long index)})
 
+(defn lock-row-without-bytes
+  "Takes the row of a lock that now seals a fact, as `lock-row-sealing` gives
+  it. Gives the home's row of that lock in a microbatch layer: the way and
+  the fact, and no `:bytes`. The bytes are then in one row only, the whole
+  row beside the value. `seals-a-fact?` is true of it, so a second value
+  under the lock is refused before any bytes are asked of it."
+  [row]
+  {:way (:way row) :seals-act (:seals-act row) :seals-index (:seals-index row)})
+
 (defn seals-a-fact?
   "Takes a lock's row. Gives true when the lock seals an accepted value."
   [row]
@@ -211,6 +241,28 @@
         (map (fn [[k row]]
                [(Long/parseLong (subs k (- (count k) 3))) (lock-of row)]))
         rows))
+
+(defn closed?
+  "Takes a row that holds a stamp, an answer's or a fact's, or nil; and the
+  `:closed-through` of the row's task, or nil. Gives true when the row is of
+  a closed batch of the microbatch gate: its stamp is not later than
+  `:closed-through`. False for no row, and before any batch is closed. A
+  read gives a row of a microbatch layer only when this is true."
+  [row closed-through]
+  (boolean (and row closed-through (<= (long (:stamp row)) (long closed-through)))))
+
+(defn locks-by-index-used-without-bytes
+  "Takes rows of locks of one request in a microbatch layer, as a map or a
+  sequence of pairs from a lock's key to its row. Gives what
+  `locks-by-index` gives, with one difference: a lock that seals a value is
+  given with its way and with nil for its bytes. On most tasks the home's
+  row of such a lock holds no bytes; where the lock's home is also the task
+  of its value, the one row holds them. The read leaves them out in both
+  cases, so that it gives the same on every cluster: the bytes of a lock
+  that seals a value are read beside the value."
+  [rows]
+  (locks-by-index
+   (map (fn [[k row]] [k (if (seals-a-fact? row) (lock-row-without-bytes row) row)]) rows)))
 
 ;; ------------------------------------------- what a caller gave a read
 
@@ -252,3 +304,37 @@
   [layer]
   (when (declaration/usable-id? layer)
     (place-key layer layer :class)))
+
+(defn routing-id
+  "Takes an act-id. Gives its routing id, the first argument of the read by
+  act-id and of the read of a request's locks: the layer of a streaming
+  act-id, the uuid of a microbatch act-id. Rama's client hashes it, so the
+  read goes straight to the task where the answer is. Gives nil for a thing
+  that is no act-id. It never throws."
+  [act-id]
+  (when (and (vector? act-id)
+             (declaration/act-id-in-layer? (nth act-id 0 nil) act-id))
+    (if (= :microbatch (nth act-id 1)) (nth act-id 2) (nth act-id 0))))
+
+(defn answer-read-by-routing-id
+  "The test at the head of the query by act-id. Takes what a caller gave: a
+  routing id and an act-id. Gives what `answer-read` gives for the act-id
+  and its own layer slot, [class key]; or nil when no read is to be made:
+  the thing is no act-id, the routing id is not the one of the act-id's
+  class, or the layer is over the limit. It never throws."
+  [given act-id]
+  (let [own (routing-id act-id)]
+    (when (and (some? own) (= own given))
+      (answer-read (nth act-id 0) act-id))))
+
+(defn lock-range-read-by-routing-id
+  "The test at the head of the query of a request's locks. Takes what a
+  caller gave: a routing id, the act-id of a request, and the first and the
+  last index wanted. Gives what `lock-range-read` gives for the act-id and
+  its own layer slot, [class from-key to-key]; or nil when no read is to be
+  made, as in `answer-read-by-routing-id` and `lock-range-read`. It never
+  throws."
+  [given request-act-id from to]
+  (let [own (routing-id request-act-id)]
+    (when (and (some? own) (= own given))
+      (lock-range-read (nth request-act-id 0) request-act-id from to))))

@@ -3,14 +3,16 @@
 [Parent: namespace root](../README.md) · [Store source entry](../../README.md).
 
 This folder holds two things. The act: the one form of what a maker gives to the
-store, and the check of that form. And the store's Rama module, `Store`: the
-streaming depot, the streaming gate that decides each thing on it, the record
-that the gate keeps, and the three reads by which the door reads the module. An
-act that the gate accepts becomes facts in the record, and its answer is read
-back by act-id.
+store, and the check of that form. And the store's Rama module, `Store`: two
+depots, the gate of each, the record that each gate keeps, and the three reads by
+which the door reads the module. An act that a gate accepts becomes facts in the
+record, and its answer is read back by act-id.
 
-The module works with layers of the class streaming. The base is a microbatch
-layer; nothing in this folder can make it yet.
+A layer has a class, streaming or microbatch. The class says which depot takes
+its acts and which gate decides them. The streaming gate decides each thing in
+one event, on the layer's task. The microbatch gate decides the things of a
+batch, across tasks. The base is the one layer that starts as a microbatch
+layer; every other layer starts streaming.
 
 The door is not built. The [module's proof](../../../test-store/softland/store/README.md)
 plays it by hand.
@@ -26,20 +28,29 @@ plays it by hand.
 | [stamp.clj](stamp.clj) | The stamp: clock time and a counter in one integer, the next stamp, the 10-second rule. | None. It reads no clock. |
 | [seal.clj](seal.clj) | Locks and the seal: a lock's bytes, sealing a value to its place, opening it. | One random source for each process. |
 | [first_act.clj](first_act.clj) | The class that a layer starts with, and the form of a making act. | None. |
-| [record.clj](record.clj) | The record's rows: the text of each key, the making and the reading of each row, and the test of what a caller gave a read. | None. It holds no record. |
+| [record.clj](record.clj) | The record's rows: the text of each key, the making and the reading of each row, the routing id of an act-id, and the test of what a caller gave a read. | None. It holds no record. |
 | [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data. | None. It reads no PState. |
-| [record_pstates.clj](record_pstates.clj) | The record as PStates: the four schemas, written once. | None. It declares nothing. |
-| [streaming_gate.clj](streaming_gate.clj) | The stream topology `streaming-gate` and the dataflow of one event. | It owns the four PStates of the streaming record, durable in the cluster. Nothing in the memory of a process. |
-| [door_reads.clj](door_reads.clj) | The three query topologies: the answer by act-id, the locks of a request, the class of a layer. | None. It borrows the gate's PStates to read. |
-| [module.clj](module.clj) | The module `Store`: the streaming depot, and the calls that add the gate and the reads. | It owns the streaming depot, durable in the cluster and never trimmed. |
+| [batch.clj](batch.clj) | The pure code of one batch of the microbatch gate: what the depot derives from a thing, the turn of a thing, what an act asks of other tasks and what they reply, which acts meet, the decision of an act with its rows in hand, the home of each row. | None. It reads no PState. |
+| [record_pstates.clj](record_pstates.clj) | The record as PStates: the schemas, written once, and what each gate keeps for a task. | None. It declares nothing. |
+| [streaming_gate.clj](streaming_gate.clj) | The stream topology `streaming-gate` and the dataflow of one event. | It owns the four PStates of the streaming record, durable in the cluster. It borrows two PStates of the microbatch gate to read. Nothing in the memory of a process. |
+| [microbatch_gate.clj](microbatch_gate.clj) | The microbatch topology `microbatch-gate` and the dataflow of one batch, in four steps. | It owns the four PStates of the microbatch record, durable in the cluster. It borrows one PState of the streaming gate to read. Three temporary PStates of Rama live for one attempt of one batch. Nothing in the memory of a process. |
+| [door_reads.clj](door_reads.clj) | The three query topologies, for layers of both classes: the answer by act-id, the locks of a request, the class of a layer. | None. It borrows the two gates' PStates to read. |
+| [module.clj](module.clj) | The module `Store`: the two depots, and the calls that add the two gates and the reads. | It owns the two depots, durable in the cluster and never trimmed. |
 
-The first nine are pure code and load with Clojure alone. The last four require
+The first ten are pure code and load with Clojure alone. The last five require
 Rama.
 
 ## How the parts relate
 
-A thing is appended to the streaming depot, which puts it on the task of its
-`:layer`. The gate takes it there, in one event:
+The two gates share the pure code. [declaration.clj](declaration.clj),
+[digest.clj](digest.clj), [decision.clj](decision.clj),
+[first_act.clj](first_act.clj), [stamp.clj](stamp.clj), [seal.clj](seal.clj) and
+[record.clj](record.clj) take the class of the gate that calls them. No check is
+written twice, and the two records have one shape of row.
+
+**A thing for a streaming layer** is appended to the streaming depot, which puts
+it on the task of its `:layer`. Every row of a streaming layer is on that task.
+The streaming gate takes the thing there, in one event:
 
 1. [declaration.clj](declaration.clj) tests it for a stray. A stray gets no
    answer; the gate keeps its digest.
@@ -55,12 +66,48 @@ A thing is appended to the streaming depot, which puts it on the task of its
    rows to write, each made by [record.clj](record.clj), and the gate writes them
    to the PStates whose schemas [record_pstates.clj](record_pstates.clj) gives.
 
-The door reads through [door_reads.clj](door_reads.clj). Each read goes straight
-to the layer's task.
+**A thing for a microbatch layer** is appended to the microbatch depot, which
+puts it on the task of the entity of its first fact
+([batch.clj](batch.clj) derives it). The rows of a microbatch layer are on
+several tasks: a fact on the task of its entity, an answer on the task of its
+act-id's uuid, a lock on the task of its request's uuid, and the class and each
+permission on every task. So no one task holds all that an act needs, and the
+depot holds no order between two partitions. The microbatch gate decides the
+things of a batch in four steps. Each step is done on every task before the next
+starts:
 
-The gate's dataflow only reads rows, calls the pure functions and writes rows. A
-pure function gives the same answer when Rama runs an event again, never throws
-on what arrived, and is proven without a cluster.
+1. Arrive and question. On the task where it arrived, each thing gets its turn,
+   its number in the batch. [declaration.clj](declaration.clj) tests it for a
+   stray and checks it. The gate reads the permission of its `:who` from the
+   task's own copy. The act sends a question to the home task of each row that
+   it needs.
+2. Reply. One task reads the clock once and gives the batch its first stamp.
+   Each home task reads each row that was asked for, once, and replies. The
+   reply about an answer is check (a): the earliest turn under an act-id has it.
+3. Decide. Each task takes its acts in the order of their turns. An act that
+   needs no row that an act of another task needs is decided there, by
+   [decision.clj](decision.clj)'s checks in their order. Acts that meet over a
+   row are sent to one task, their layer's.
+4. Write and meet. Each task writes the rows that it was sent. The layer's task
+   decides the acts that meet, one at a time in the order of their turns.
+
+[batch.clj](batch.clj) holds each pure part of those steps;
+[microbatch_gate.clj](microbatch_gate.clj) walks them.
+
+**Each gate asks the other's record one thing**: whether it holds a layer of
+which its own record holds nothing. The streaming gate reads the base's class
+row in the microbatch record. The microbatch gate reads a streaming layer's
+class row in the streaming record. So an act sent to the wrong depot is refused
+as an act into a layer of the other gate.
+
+**The door reads** through [door_reads.clj](door_reads.clj). Each read goes
+straight to one task: the layer's task for a streaming act-id and for a class,
+the task of the uuid for a microbatch act-id. A read of a microbatch layer gives
+a row only when its batch is closed; "Engineering choices" says why.
+
+Each gate's dataflow only reads rows, calls the pure functions and writes rows.
+A pure function gives the same answer when Rama runs an event or a batch again,
+never throws on what arrived, and is proven without a cluster.
 
 ## The act
 
@@ -91,18 +138,20 @@ shape must hold when each fact is wrong.
   that is not made, for any holder. The gate cannot tell a person from a session
   or an agent, and it cannot check `:who`: `:who` is a claim. It holds `:who` only
   against the holder of the act's permission and against the form of a making act.
-- **Where a thing sits.** The depot's partitioner puts a thing on its layer's
-  task, and the gate makes no hop. Every client's append goes through that
-  partitioner. A topology can append to the partition of the task that it is on,
+- **Where a thing sits, on the streaming depot.** The depot's partitioner puts a
+  thing on its layer's task, and the streaming gate makes no hop. Every client's
+  append goes through that partitioner. A topology can append to the partition of the task that it is on,
   whatever the partitioner; no topology of this build does. A thing that a
   topology appends to another partition is decided against that task's record. It
   can be refused as an act into a layer that is not made, and the answer of that
   refusal is then on that task, where no read by its act-id looks. Or, when it is
   a making act, it can be accepted there and leave rows and an answer on that task
   that no read finds. The rows of the true layer, on its own task, are not
-  touched.
-- **The order after a failure.** Without a failure the acts of a layer are decided
-  in the depot's order. When something throws while a batch of events runs, that
+  touched. The microbatch gate reaches every row by a partitioner, so a thing on
+  another partition of its depot is decided against the true rows; only its turn
+  takes the partition where it sits.
+- **The order after a failure, in the streaming gate.** Without a failure the acts
+  of a layer are decided in the depot's order. When something throws while a batch of events runs, that
   batch is discarded, and a later act of the layer can be decided before the
   failed one is retried. The gate's own code does not throw on what arrives, so
   this needs a fault of the machine, of Rama, or of this module. Rama's setting
@@ -117,6 +166,29 @@ shape must hold when each fact is wrong.
 - **What a lock opens.** The gate checks that the lock opens the sealed bytes and
   keeps nothing of the plain bytes. It does not check that they are a value of the
   form.
+- **A direct read of the tables.** The three reads give a row of a microbatch
+  layer only when its batch is closed. A select that goes straight to a PState of
+  the microbatch gate is not held to that: it sees a batch that is not closed,
+  which Rama can still run again with another clock and other lock bytes. The
+  PStates are not declared private. The proof looks at rows that way.
+- **One instant for two tasks.** Rama makes a batch visible task by task. The
+  reads give nothing of a batch before every task has made it visible; then each
+  task opens when it commits the next run of the gate. So for a few milliseconds
+  one read can give an answer while a read on another task still gives nothing.
+  The one pair of the door's reads on two tasks is the answer of the base's
+  making act and the class of the base.
+- **The same word on every attempt of a batch.** The order of a batch is the same
+  on every attempt, and with it each check that reads the batch and the record.
+  Two words can differ on a second attempt: the 10-second rule reads the clock,
+  for an act that carries a stamp at the edge of the 10 seconds; and the word for
+  a layer of the other gate follows what that gate had made by then. No read gives
+  a row of an attempt that Rama ran again. To make both the same would take state
+  outside the microbatch gate. Not built.
+- **What an act with no permission costs the microbatch gate.** An act in a made
+  layer whose `:who` holds no permission there could still come to stand by a give
+  of the same batch. So it asks for each of its rows and goes to the layer's task:
+  up to 256 reads of places and 256 ranges of locks, where the streaming gate
+  reads 4 rows at most. The door proper is the guard, later.
 
 ## Decisions this module stands on
 
@@ -133,13 +205,13 @@ The store's module (7 October):
 
 | Row | Decision | Where it shows |
 |---|---|---|
-| F6 A, Q7 a | Two depots, one for each gate: the streaming depot and the microbatch depot | [module.clj](module.clj) declares `*streaming-depot` |
-| F2 A | The record is in the gates' PStates; the acts depots are the replay log | [streaming_gate.clj](streaming_gate.clj) owns the record; the depot is never trimmed |
+| F6 A, Q7 a | Two depots, one for each gate: the streaming depot and the microbatch depot | [module.clj](module.clj) declares `*streaming-depot` and `*microbatch-depot` |
+| F2 A | The record is in the gates' PStates; the acts depots are the replay log | Each gate owns the PStates of its record; neither depot is ever trimmed. What a rebuild from the microbatch depot reaches is under rules 9 and 19 |
 | F1 A | The class of a layer is a fact on the layer | The row at the layer's own entity under `:class` ([record.clj](record.clj)) |
 | F4 C | The base is a microbatch layer; every other layer starts streaming | `class-at-making` in [first_act.clj](first_act.clj) |
-| F5 A | A gate reads on its own task | The gate's event has no hop; a layer holds facts under its own entity |
-| Q22 A | The door reads an answer from the record by act-id; the ack is a signal | `answer-by-act-id` in [door_reads.clj](door_reads.clj); the gate gives nothing back in the ack |
-| F7 A | A signal is not the truth; the record is; a gate reads its own record by act-id before it decides | Check (a), the first read of each event |
+| F5 A | A gate reads on its own task | The streaming gate's event has no hop. In a microbatch layer the class and each permission are on every task, so an act finds its permission where it arrives. A layer holds facts under its own entity |
+| Q22 A | The door reads an answer from the record by act-id; the ack is a signal | `answer-by-act-id` in [door_reads.clj](door_reads.clj); the streaming gate gives nothing back in the ack, and an ack of the microbatch depot says only that the depot holds the thing |
+| F7 A | A signal is not the truth; the record is; a gate reads its own record by act-id before it decides | Check (a): the first read of each event of the streaming gate, and the reply about the answer in step 2 of the microbatch gate |
 | F8 C | The gate refuses a setting key on an entity that is not the act's layer | Check (f) in [decision.clj](decision.clj); `setting-keys` in [declaration.clj](declaration.clj) |
 | F9 | The three limits are targets | See "Engineering choices", rule 21 |
 
@@ -174,11 +246,12 @@ layer as the top-level key and three maps under it, one common act would cost 6
 to 8 seeks, against 4. A key is a string made of the printed texts of its ids,
 with a space between: one class, and Rama gives the order of string keys, on
 which the range read of a request's locks rests. A row is placed by the task on
-which the gate writes it, the layer's task, so each read routes by the layer and
-none by a whole key.
+which its gate writes it, and none by a hash of its whole key. In a streaming
+layer that is the layer's task for every row.
 
-**One accepted act with one sealed value costs 4 reads and 4 row writes**, in one
-event, on one task: the answer, the permission, the lock, the task's last stamp.
+**In the streaming gate, one accepted act with one sealed value costs 4 reads
+and 4 row writes**, in one event, on one task: the answer, the permission, the
+lock, the task's last stamp.
 
 **A permission fact sits on its holder.** The gate then finds the permission of
 an act's `:who` with one read. It follows that a holder has one permission in a
@@ -197,9 +270,9 @@ place or at the class's place says that the layer is this gate's.
 **How locks are asked for and read.** A request is an act with one fact under
 `:lock-request`, on the uuid of its own act, holding a count of 1 to 256. The id
 of a lock is `[the request's act-id, index]`, so the door knows the ids before it
-sends, and a retry cannot make locks under other ids. The gate makes the bytes in
-its event, at the write. The door reads all the locks of a request with one call
-of `locks-of-request`.
+sends, and a retry cannot make locks under other ids. A gate makes the bytes at
+the write. The door reads all the locks of a request with one call of
+`locks-of-request`.
 
 **The cipher.** AES-256-GCM, a random part of 12 bytes for each seal, a tag of 16
 bytes, the place `[layer entity key]` as associated data. A sealed value carries
@@ -209,9 +282,10 @@ change later without a stored value being touched.
 
 **The stamp's packing.** Milliseconds since 1970 × 65,536 + a counter. One
 millisecond holds 65,536 stamps for a task; the packing reaches 2^62 in the year
-4199. The task's last stamp is read from the record at each decision and is not
-kept in memory: that would be a cache, and the project's rule sends a cache to
-its own examination first.
+4199. A gate's last stamp is read from the record, by the streaming gate at each
+decision and by the microbatch gate once for a batch, and is not kept in memory:
+that would be a cache, and the project's rule sends a cache to its own
+examination first.
 
 **The one text and the digest.** One function from anything to a string, blind to
 what a serialiser may change and no check can see. The digest is SHA-256 over it,
@@ -220,11 +294,86 @@ kept whole.
 **The form of a making act.** Exactly two facts, in either order: the class on
 the layer, and the act's own permission on its holder.
 
-**The source of the gate.** It starts from the beginning of the depot, with the
-retry mode "all after". Nothing is given back in the ack.
+**The source of each gate.** It starts from the beginning of its depot. The
+streaming gate's has the retry mode "all after", and nothing is given back in the
+ack.
 
-**Each query takes the layer as its first argument**, so that Rama's client sends
-the query straight to the layer's task.
+**The first argument of a query routes it.** Rama's client hashes the first
+argument and sends the query straight to one task. For `class-of-layer` it is
+the layer. For `answer-by-act-id` and `locks-of-request` it is the routing id of
+the act-id: the layer of a streaming act-id, the uuid of a microbatch one. The
+caller still needs the act-id alone.
+
+**Where each row of a microbatch layer lives.** The contract gives the depot:
+it places an act by the entity of its first fact. The rest is the builder's.
+
+- A fact is on the task of its entity. An act on one entity then finds each place
+  that it reads and writes where it arrives.
+- An answer is on the task of its act-id's uuid. A reader has the act-id and
+  nothing else, so this is the one placement where the read is one seek with no
+  hop and nothing passes through one task.
+- A lock is on the task of its request's uuid, with the request's answer. That is
+  the one task that can be found from the lock's id.
+- A layer's class and each permission are on every task. Every act needs the
+  permission of its `:who` where it is decided. A copy is bytes and a rare write;
+  a fetch would be a hop between tasks on every act. That is Sid's reason for
+  F5 A, read onto the permissions. A give writes one row on each task.
+
+**Where an act of a batch is decided.** On the task of the entity of its first
+fact, where it arrived, when no other act of the batch needs a row that it needs
+from another task. Two acts meet when both need one row and cannot be put in
+order on one task; they are decided on the task of their layer id, in turn. An
+act goes there when it writes a row that every task holds, when the place of its
+permission is empty and a give of the batch could fill it, when a home task says
+that a row is shared, or when an earlier act of its task that goes there names
+one of its own places. In ordinary work nearly every act stays. Sending every act
+to the layer's task would be simpler and is what rule 6 says not to do.
+
+**The order of one batch: the turn.** A thing's turn is its position in its depot
+partition's part of the batch, times the number of tasks, plus the partition's
+number. The decisions of a batch are those of deciding its acts one at a time in
+the order of their turns. On one partition that is the depot's order. Between two
+partitions it is a fixed rule with no other meaning. The count of positions is in
+the gate's PState, not in memory: Rama sets a PState back when an attempt of a
+batch fails, so the second attempt gives the same turns.
+
+**The stamp of a batch.** The gate reads the clock once for a batch. The batch's
+base is later than the gate's last stamp and than each stamp that an act of the
+batch carries, the last held to 10 seconds ahead. An act's stamp is the base plus
+its turn. The gate keeps one last stamp, on the task of the class word
+`:microbatch`, so each stamp is later than every stamp that the gate gave before
+on any task.
+
+**Closing.** Rama makes a batch visible task by task, and it can run a batch
+again after one task has shown its part; the second attempt reads the clock again
+and makes other lock bytes. So a reader could see a stamp or a lock's bytes that
+later change. Each task therefore holds `:closed-through`, and a read gives a row
+of a microbatch layer only when the row's stamp is not later than it. Each run of
+the gate writes `:closed-through` with the gate's last stamp as it was before the
+run. That run began only after every task had committed the batch before, so a
+closed batch is visible everywhere and cannot run again. The run after a batch
+with things starts at once, so an answer is readable one short run after its
+batch. The cost: one more read for an answer that is there, and one small write
+on each task for each batch.
+
+**One copy of a lock's bytes.** A lock is asked for before its value is known, so
+its home cannot be the task of its value. When a lock comes to seal a value, its
+whole row, with the bytes, is written beside the value, on the task of the
+value's entity; and the row at its home is written again with the fact that it
+seals and no bytes. The bytes are in one row. A later forget destroys one row.
+"A second value under a lock that already seals one" is still decided at the
+home, where the row names the fact. When the home is also the value's task, the
+two rows have one key and the whole row is the one that stays: a task writes
+each home's row before any row with bytes. **Sid should know two things.**
+`locks-of-request` gives a lock of a microbatch layer with its bytes only while
+it seals nothing; the bytes of a lock that seals a value are read beside the
+value. And the home's row still costs about 105 bytes for each used lock.
+
+**One accepted act with one sealed value on one entity costs the microbatch gate
+3 reads and 4 row writes**: the permission where it arrived, the answer on the
+uuid's task, the lock at its home; then the fact, the lock's whole row beside it,
+the home's row, the answer. It also costs 6 messages between tasks. Each batch
+adds a few reads that do not grow with its acts.
 
 **The placing of the checks that the contract does not place.** The 10-second
 rule comes after the declaration, before any row is read. What a store key does
@@ -241,19 +390,34 @@ check that examines facts takes them in the act's order.
 3. A retract is written as the row of its place, with no value. A later fact that
    names it passes check (e).
 4. The module sets no trimming option on the depot.
-5. A lock's bytes are made in the gate's event and written only to the locks
-   PState. A request holds a count. Each write of a decision is behind check (a),
-   so a second run of an event makes no lock again for a value that is sealed.
-6. For the microbatch gate; not built.
-7. A streaming layer's class is a fact at a place found from the layer id. A
-   streaming act's answer is found from its act-id alone. The gate has the step
-   that asks whether the other gate's record holds a layer; it gives "no" in this
-   build.
+5. A lock's bytes are made by a gate at the write and written only to its locks
+   PState. A request holds a count, and no code appends to a depot. Each write of
+   a decision is behind check (a), so a second run of an event makes no lock
+   again for a value that is sealed. The microbatch gate makes the bytes in step
+   4, on the lock's home task. A second attempt of a batch makes other bytes; no
+   read gave the first ones, because that batch was not closed.
+6. The turn gives two acts that replace one fact the same winner on every
+   attempt. An act is decided once, on one task, with each row that it needs in
+   hand; the rows of an accept go to several tasks inside one attempt, which Rama
+   keeps or drops whole. Only the acts that meet pass one task.
+7. A layer's class is a fact at a place found from the layer id; in a microbatch
+   layer every task holds it. An act's answer is found from its act-id alone, by
+   its routing id. Each gate reads the other gate's record for a layer that its
+   own record does not hold and that starts with the other class; no act of this
+   build changes a class, so no other layer can be there.
 8. Each word is under "Words a session made", below.
-9. For the microbatch gate; not built.
+9. Found: no, not when the two acts are on two depot partitions. Inside one
+   partition the depot holds the order. Between two it holds none: the order in
+   which the gate decided two such acts is the batch of each and then the turn,
+   and which batch a thing fell into is a fact of timing. A rebuild that reads
+   the depot from its start cuts other batches, so the other act can have the
+   earlier turn. It matters only for acts that meet from two partitions. What
+   would make it the same is a record of each batch's cut and clock, a second log
+   beside the depot. Nothing is built for it; whether it is wanted is Sid's.
 10. The test for a stray runs before check (a). A stray gets no answer; its digest
     is added to the set of its word, on the task where it arrived, once however
-    often it comes. The count is the size of the set.
+    often it comes. The count is the size of the set. In the microbatch gate that
+    is the task where the depot put the thing.
 11. The answer's row keeps the digest and `answer-by-act-id` gives it.
     [digest.clj](digest.clj) is the one function. The gate writes nothing for a
     second, different act.
@@ -265,19 +429,29 @@ check that examines facts takes them in the act's order.
 14. `granted-in` must be the act's layer, in a first permission and in one given.
     The gate checks nothing more about a holder; see "What the gate does not
     check".
-15. A refusal writes the answer and the task's last stamp, and no lock row. The
-    sealing function takes a fresh random part at each call.
+15. A refusal writes the answer and no lock row; in the streaming gate also the
+    task's last stamp. The sealing function takes a fresh random part at each
+    call.
 16. The gate opens each sealed value once with its lock's bytes, in the way that
     the lock's row names, and drops the plain bytes. The place is the cipher's
     associated data.
 17. An act that carries a stamp more than 10 seconds ahead of the gate's clock is
-    refused, before any stamp is made.
-18. For the microbatch gate; not built. The next stamp takes the last stamp as a
-    number.
+    refused, before any stamp is made. The microbatch gate holds each act of a
+    batch to the one clock reading of the batch.
+18. A microbatch act has one stamp, the batch's base plus its turn, on its answer
+    and on each of its facts. The gate has one last stamp for all tasks, so the
+    stamp is later than each stamp that the gate gave on each task where the act
+    writes. "The last stamp of each task" is read as the last stamp that this
+    gate gave there; the streaming gate's last stamp of the same task is of
+    another record.
 19. Nothing is built for a rebuild of the record from the depot. What a rebuild
     would not give again: a lock's bytes, which are in no depot; a stamp, which
     holds the gate's clock at the decision; a refusal by rule 17; and the order
-    across a failed batch.
+    across a failed batch. For the microbatch record also: rule 9's answer; the
+    two words for a layer of the other gate, which rest on an order between the
+    two depots that no depot holds; and the whole row of a lock that seals a
+    value, which is placed from the fact's row that names it, and for a value
+    that is no longer current from the act that the row names.
 20. Five numbers in [declaration.clj](declaration.clj), each held by a rule or by
     the test for a stray, before a row key is built from an id.
 21. The aims: 1,000 acts a second on one task; 20 ms from the door's append to the
@@ -285,7 +459,13 @@ check that examines facts takes them in the act's order.
     measured. By the cost of a cold read, 4 reads give 480 to 770 acts a second on
     one task; the first aim is met only when the rows are read from memory. With
     a lock of 32 bytes for each value, the third does not hold for values that
-    average under 55 bytes.
+    average under 55 bytes. For the microbatch gate: 1,000 acts a second arriving
+    on one depot partition, which needs a run of the gate inside a second; an
+    answer readable within two runs of the gate after the append, its own batch
+    and the short one that closes it, not 20 ms, because a microbatch layer is not
+    for what a person does directly; and the third limit is not met for values
+    under about 90 to 123 bytes, because a used lock has a row at its home beside
+    the row with its bytes. None is measured.
 
 ## Words a session made, Sid's to change
 
@@ -308,15 +488,22 @@ holds one of them follows his word.
 | `$$streaming-facts` | The current fact of each place of each streaming layer |
 | `$$streaming-locks` | Each lock of each streaming layer, and the fact that it seals |
 | `$$streaming-task` | What the streaming gate keeps for one task: its last stamp, its strays |
+| `*microbatch-depot` | The microbatch depot: every thing sent for a microbatch layer |
+| `microbatch-gate` | The microbatch topology that decides the things of the microbatch depot |
+| `$$microbatch-answers` | The answer under each act-id of a microbatch layer |
+| `$$microbatch-facts` | The current fact of each place of each microbatch layer |
+| `$$microbatch-locks` | Each lock of each microbatch layer, and the fact that it seals |
+| `$$microbatch-task` | What the microbatch gate keeps for one task |
+| `$$questions`, `$$replies`, `$$parcels` | The three temporary PStates of one attempt of a batch: what step 1 gathered, what step 2 replied, what step 3 sent |
 | `answer-by-act-id` | The query: act-id → the recorded answer, or nothing |
 | `locks-of-request` | The query: a request's act-id and a range of indexes → those locks |
 | `class-of-layer` | The query: layer → its class, or nothing |
 
 **Namespaces**, each `softland.store.` and the word: `text`, `digest`,
-`declaration`, `stamp`, `seal`, `first-act`, `decision`, `record`,
-`record-pstates`, `streaming-gate`, `door-reads`, `module`. The table of files
-says what each is. In `act.clj`, the one new name is `as-shape`. The two proofs
-are `pure-proof` and `module-proof`.
+`declaration`, `stamp`, `seal`, `first-act`, `decision`, `record`, `batch`,
+`record-pstates`, `streaming-gate`, `microbatch-gate`, `door-reads`, `module`.
+The table of files says what each is. In `act.clj`, the one new name is
+`as-shape`. The two proofs are `pure-proof` and `module-proof`.
 
 **Fields of a row, and of an answer as a caller gets it.**
 
@@ -332,8 +519,10 @@ are `pure-proof` and `module-proof`.
 | `:way` | In a lock's row, and in a lock as a caller gets it: the number of the way of sealing that the lock is for. 1 in this build |
 | `:aes-256-gcm` | In code only, beside the number 1: the word for the one way of sealing that this build knows |
 | `:seals-act`, `:seals-index` | In a lock's row: the fact that the lock seals, once it seals one |
-| `:last-stamp` | In the task's value: the last stamp that the gate gave on the task |
+| `:last-stamp` | In the task's value: the last stamp that the gate gave on the task. The microbatch gate has one, for the whole gate, on the gate's task |
 | `:strays` | In the task's value: by reason word, the digests of the strays seen |
+| `:closed-through` | In the microbatch gate's task value: the stamp through which this task's rows are of closed batches. A read gives a row only when its stamp is not later |
+| `:turns`, with `:batch` and `:given` | In the microbatch gate's task value: the batch that the count belongs to, as the text of its microbatch id, and how many things of it this task has given a turn |
 | `:verdict`, `:reason` | In an answer as `answer-by-act-id` gives it: `:accepted` or `:refused`, and the reason word |
 
 **The words of a stray.** A stray has no answer; its digest is kept under its
@@ -410,6 +599,39 @@ Its rules, each named for what must hold: `:class-is-the-act-ids-class`,
 
 **Words between the decision and the gate**, for the rows of one decision:
 `:fact`, `:lock`, `:new-lock`, `:answer`, `:last-stamp`.
+
+**The words of a batch**, in the explanations and in the data between
+[batch.clj](batch.clj) and the microbatch gate. No reason word and no word of a
+stray is new: each refusal of the microbatch gate is recorded with a word of the
+lists above. "Batch" and "attempt" are Rama's words.
+
+| Word | What it is |
+|---|---|
+| turn | The number of a thing in its batch. The acts of a batch are decided in the order of their turns |
+| base | The first stamp of a batch. An act's stamp is the base plus its turn |
+| deciding task | The task that the hash of the entity of an act's first fact gives. An act that meets no other is decided there |
+| home task | The task on which a row lives |
+| the gate's task | The task that the hash of the class word `:microbatch` gives. The gate's last stamp is there |
+| to meet; meeting task | Two acts of a batch meet when both need one row and cannot be put in order on one task. The meeting task of a layer is the task of the layer id; acts that meet are decided there, in turn |
+| pass | The walk of a meeting task over the acts that were sent to it |
+| route | An id whose hash gives a task: the uuid of an answer, the entity of a fact, the request's uuid of a lock, the layer of an act that meets |
+| entry, `:entry` | What step 1 keeps of a thing for step 3: its turn, the thing, the act in its one form, what was found of its standing |
+| `:standing`, with `:stands`, `:final`, `:open` | In an entry: what step 1 found. The permission is there; the act is refused for good; or the permission's place is empty and a give of the batch could fill it |
+| question, with `:answer`, `:place`, `:locks`, `:new-locks` | What an act sends to the home task of a row that it needs; the four kinds |
+| `:wanted?`, `:own?` | In a question about a place: the fact names something to replace, so the row is needed; the place is on the act's own deciding task |
+| reply, with `:yours`, `:used`, `:taken-in-this-batch`, `:shared?` | What a home task sends back. For an answer: the act-id is the asker's to use, is used in the record, or goes to an earlier turn of this batch. For a place or a lock: another act of the batch needs it too |
+| `:numbers`, with `:carried` and `:position` | What each task sends the gate's task for the base: the greatest stamp that its things carry, and its greatest position |
+| parcel, with `:rows` and `:meet` | Rows that one task sends to another to write, or an act sent to the meeting task |
+| `:lock-home` | Beside `:fact`, `:lock`, `:new-lock` and `:answer`, for a row on its way to its home: the home's row of a lock, with no bytes |
+| `:home`, `:every-task?` | In a row on its way: the route of its home; and that every task holds it |
+| closed | A batch is closed when every task has made it visible and the next run of the gate has begun. Rama cannot run it again |
+| routing id | The first argument of `answer-by-act-id` and `locks-of-request`: the layer of a streaming act-id, the uuid of a microbatch act-id |
+| the home's row of a lock | The row of a lock on the task of its request's uuid. Once the lock seals a value it holds the way and the fact, and no bytes |
+
+**Functions added to `record.clj` for the microbatch gate**, each named for what
+it gives: `routing-id`, `answer-read-by-routing-id`,
+`lock-range-read-by-routing-id`, `closed?`, `lock-row-without-bytes`,
+`locks-by-index-used-without-bytes`.
 
 **Marks in the one text**: `#bytes`, `#double`, `#keyword`, `#other`,
 `#too-deep`, `#unreadable`. [text.clj](text.clj) says what each marks.

@@ -5,8 +5,8 @@
 | File | What it checks | State that it owns or changes |
 |---|---|---|
 | [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, and the check that reads them. It needs no cluster. | One atom: the lines that it showed. |
-| [pure_proof.clj](pure_proof.clj) | The gate's pure namespaces, beside the act: the one text and the digest, the door's declaration, the stamp, the seal, the first act of a layer, the record's rows, the checks of the decision. It needs no cluster. | One atom: the lines that it showed. It takes random bytes from the JVM. |
-| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the streaming gate, its record and the three reads. It plays the door by hand. | It starts one cluster in its own JVM and closes it. Five atoms: the lines shown, the things sent, the first answers, the locks in hand, the one act that later checks come back to. |
+| [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the stamp, the seal, the first act of a layer, the record's rows, the checks of the decision, and the pure code of a batch of the microbatch gate. It needs no cluster. | One atom: the lines that it showed. It takes random bytes from the JVM, and orders of arrival from a random source with a fixed seed. |
+| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the three reads. It plays the door by hand. | It starts one cluster in its own JVM and closes it. Eight atoms: the lines shown, the things sent to each depot, the first answers of each gate, the locks in hand, the bytes of each lock read, and what later checks come back to. |
 
 ## The act's proof
 
@@ -104,11 +104,35 @@ content. What it checks, group by group:
     the checks of the places and of the seal, each on rows built as the gate
     writes them; the stamp of a decision; the rows that a refusal, an accept, a
     request for locks and a making act write.
+12. The batch, function by function. What the microbatch depot derives from a
+    thing, never throwing. The turn, the base and the stamp of a turn. The
+    standing that step 1 can tell, and the questions of an act. The replies of a
+    home task about an answer, a place and the locks of a request. Who goes to
+    the meeting task: one case for each of the four rules, and the acts that
+    stay. The home of each row of a decision: a used lock as two rows, the bytes
+    in one. What a task writes at once and what it sends. The routing id, the
+    heads of the two reads by routing id, and a row of a closed batch.
+13. A batch is decided in one order. The proof runs whole batches in memory: the
+    gate's four steps over the pure functions, each task's rows in its own map,
+    each message gathered on the task of its route. It runs each batch in 200
+    orders of arrival, drawn with a fixed seed, and compares the record after
+    each with the record of deciding the same things one at a time in the order
+    of their turns, by the first part's checks in the first part's order. One
+    batch is into a base that is made: two acts that replace one fact from two
+    tasks, two that write one place, a give and an act under it in both orders,
+    two acts under one lock, a request and a use of its lock, a repeat, one
+    act-id under two things, acts for a layer of the other gate, strays, acts
+    with no standing, an act on three tasks accepted and one refused whole, and a
+    value whose lock's home is its own task. The other is into a base that is not
+    made, with two making acts.
 
 ### What the pure proof does not reach
 
 - a PState, a depot or a query: each row is a value of this process, and the
   walk of one event, which reads rows between the checks, is the gate's;
+- Rama in the run of a batch in memory: the proof gathers and delivers the
+  messages itself. That the microbatch gate's dataflow calls the pure functions
+  in that way is the module's proof's to show;
 - a thing after Rama serialised it;
 - a clock: each case gives the time as a number;
 - how long a check takes.
@@ -121,10 +145,17 @@ Run it from the repository root:
 clojure -M:store-module -m softland.store.module-proof
 ```
 
-Most of its time is the start of the cluster. The checks run in one order on one
-cluster, and later checks build on the layers, the facts
-and the permissions that earlier ones made. The hand reads each answer back
-through the module's own queries, after an append that waited for the gate.
+The checks run in one order on one cluster, and later checks build on the layers,
+the facts and the permissions that earlier ones made. The hand reads each answer
+back through the module's own queries. For a streaming layer it reads after an
+append that waited for the gate. For the base no append waits: it reads in a loop
+with a time limit, as a door would, and an answer is there about a second after
+the append. To put several things into one batch of the microbatch gate it pauses
+that topology with Rama's test tool, appends, and lets it go on.
+
+The checks of the streaming gate come first, as they were. The base is made after
+them, because one of them sends the base's making act to the streaming gate and
+holds the word of a layer that is not made.
 
 What it checks, group by group:
 
@@ -171,19 +202,78 @@ What it checks, group by group:
     task, in the order sent. The depot holds each thing sent. The layers are on
     more than one task. No lock's bytes are on the depot.
 
-Each line that the contract asks for, and that needs neither the base nor the
-microbatch gate, is on a `SHOWN` line in the contract's words.
+Then the base and the microbatch gate. Groups 11 to 19 run before group 9, and
+group 20 after it:
+
+11. The base is made. An act into the base before it is made is refused, and so
+    is one sent to the streaming depot. Two making acts in one batch, their facts
+    in the two orders: one is accepted. The class is microbatch; the class row
+    and the system's permission row are on every task.
+12. An act lands in the base. Eight acts of one batch on eight entities, whose
+    rows are on more than one task. A request for locks, on one task with its
+    answer and its locks. One act with a sealed value, read back by act-id. One
+    copy of its lock's bytes: the whole row beside the value, the home's row
+    without bytes, and the bytes open the value.
+13. Closing. The proof watches the answers table itself for the row of a request
+    for a lock. At the first sight of the row, the read by act-id gives nothing
+    and the read of locks gives no lock; after the next run of the gate both
+    give, with the stamp and the bytes of the rows that were in the table.
+14. Refusals and repeats in the base. A refusal with its reason. A stale
+    `replaces`. A repeat answered from the record. A different thing under a used
+    act-id. One act-id under two things in one batch, on two tasks: one answer.
+15. One batch, one order. Two acts of one batch that replace the same fact,
+    arriving on two tasks: one winner, with the earlier stamp, and the loser
+    refused whole. Two that write one place. A give and an act under it, in both
+    orders. Two acts under one lock.
+16. A person acts in the base under a permission that the system gave, whose row
+    is on every task. Acts with no standing. One write for a store key's place. A
+    carried stamp too far ahead, also under a permission that does not stand.
+17. A long batch: 400 acts on 20 entities in one batch, each accepted, and on
+    each entity the stamps go up in the order sent.
+18. An act on several tasks. Refused whole: no row of it on any task, its three
+    locks free. Accepted whole: each fact on its entity's task, each lock's bytes
+    beside its value, one stamp on all of it, later than each row written before
+    on those tasks; the gate's one last stamp.
+19. Each gate tells the other gate's layers: an act for the base on the streaming
+    depot, an act for a streaming layer on the microbatch depot, and one for a
+    layer that is not made. One act-id on both depots has one answer. Strays of
+    the microbatch gate. Then the path of a lock in the base: a second value
+    under a used lock; a request sent twice; a value whose lock's home is its own
+    task, with one row that holds the bytes; a use of a lock in the batch that
+    asks for it.
+20. The base after the module is started again: the answer, the class, the
+    gate's last stamp, the strays, a permission's rows and the locks are as they
+    were; and, last of all, the stamps of the microbatch gate's answers go up in
+    the order decided, each answer that a read gave is of a closed batch, the
+    microbatch depot holds each thing sent, and no lock's bytes are on it.
+
+Each line that the contract asks for is on a `SHOWN` line in the contract's
+words.
+
+Where the proof shows a row of the base, it selects it from the gate's PState
+with the row's own route, or once on each task to see which tasks hold it. Such
+a select goes round the three reads and is not held to `:closed-through`; the
+proof makes it after the read by act-id gave the answer, which is after the
+batch is closed, but for group 13, which uses it to look before.
 
 ### What the module's proof does not reach
 
-- an event that Rama runs twice, a batch that fails, and a later act of a layer
-  decided before an earlier one that failed;
+- an event that Rama runs twice, a batch of streaming events that fails, and a
+  later act of a layer decided before an earlier one that failed;
+- a second attempt of a batch of the microbatch gate; a commit that fails after
+  one task showed its part; the moment between two tasks' commits. So closing is
+  shown for a batch that ran once: that a read gives nothing of it before the
+  next run of the gate, and not that a second attempt's other stamp or other lock
+  bytes stay unread;
+- a layer's class and a refusal's word read between a batch and its closing: the
+  proof catches an answer and a lock there, and the class read has the same test;
+- a pass long enough to be known to give the task back: 400 acts in one batch is
+  the longest;
+- a rebuild of a record from its depot;
 - a worker that stops in the middle of an event, a move of a task's leader, more
   than one machine, replication;
 - an append whose ack fails for an act that the gate accepted;
 - a thing that a topology appends to another partition;
-- an act into a layer of the other class, the base, and the microbatch gate: none
-  can be made;
 - the three targets of speed and size: the in-process cluster's timings say
   nothing about them;
 - a lock whose way of sealing the code does not know: no act can make one. The

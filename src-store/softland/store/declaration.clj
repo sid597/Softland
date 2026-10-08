@@ -415,8 +415,11 @@
                                This covers a thing with no `:layer`
 
   A thing that passes names one layer in its act-id and in its `:layer`, of
-  `max-id-text` characters at most. When a client appended it, it is on the
-  task of that layer, which is where a read by its act-id looks.
+  `max-id-text` characters at most. On the streaming depot, when a client
+  appended it, it is on the task of that layer, which is where a read by
+  its act-id looks. On the microbatch depot it is on the task of the entity
+  of its first fact, and its answer is written on the task of its act-id's
+  uuid, which is where that read looks.
 
   It never throws: a thing that throws while it is tested gives :no-act-id."
   [gate-class thing]

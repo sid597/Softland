@@ -16,6 +16,11 @@
   and their rows `softland.store.record`'s. They are durable state of the
   cluster. The gate keeps nothing in the memory of a process.
 
+  What it borrows. Two PStates of the microbatch gate, to read on its own
+  task: `$$microbatch-facts` and `$$microbatch-task`. It reads them only for
+  an act into a layer of which its own record holds nothing and that starts
+  with the other gate's class, which is the base.
+
   Approach. The dataflow only reads rows, calls pure functions and writes
   rows. The test for a stray and the check of what arrived are
   `softland.store.declaration`'s, the checks against the record are
@@ -39,8 +44,10 @@
     3. the clock, read once; the 10-second rule on a carried stamp.
     4. standing   Read the place of `:who`'s permission; only when it is
                   empty, the place of the layer's class; only when that is
-                  empty too, whether the other gate's record holds the
-                  layer.
+                  empty too, and the layer starts with the other gate's
+                  class, whether the other gate's record holds the layer:
+                  the layer's class place in `$$microbatch-facts`, which
+                  every task holds, and this task's `:closed-through`.
     5. places     Read the place of each fact that names something to
                   replace and of each fact under `:permission`; then checks
                   (e), (f), (g) and what a store key does not take.
@@ -54,8 +61,8 @@
 
   A later stage's rows are read only when the earlier checks passed. So an
   act whose permission does not stand costs 4 reads at most, whatever it
-  carries. One accepted act with one sealed value costs 4 reads and 4 row
-  writes.
+  carries, and an act into the base on this depot 6 at most. One accepted
+  act with one sealed value costs 4 reads and 4 row writes.
 
   The event has no partitioner and does not yield. It starts and ends on the
   task of the depot's partition, so all its writes are one group: they
@@ -96,19 +103,24 @@
             [softland.store.decision :as decision]
             [softland.store.declaration :as declaration]
             [softland.store.digest :as digest]
+            [softland.store.first-act :as first-act]
             [softland.store.record :as record]
             [softland.store.record-pstates :as record-pstates]
             [softland.store.seal :as seal]))
 
 (defn other-gates-record-holds-layer?
-  "Takes a layer id. Gives whether the other gate's record holds the layer.
-  In this build there is no other gate, so nothing can make it true, and it
-  gives false. The gate asks it only when its own record holds nothing for
-  the layer. When the microbatch gate is built this step becomes one read on
-  the layer's task, and an act into a layer of the other class is then
-  refused :layer-belongs-to-the-other-gate and not :layer-not-made."
-  [_layer]
-  false)
+  "Takes the row at a layer's class place in the microbatch gate's record,
+  as this task holds it, or nil; and this task's `:closed-through` of that
+  gate, or nil. Gives whether the other gate's record holds the layer: true
+  for a row that is there and is of a closed batch
+  (`softland.store.record/closed?`). A row of a batch that is not closed
+  does not count: Rama can run that batch again, and it could then refuse
+  the making. The gate asks only when its own record holds nothing for the
+  layer and the layer starts with the other gate's class. An act into such
+  a layer is refused :layer-belongs-to-the-other-gate once the layer is
+  made, and :layer-not-made before."
+  [other-class-row closed-through]
+  (record/closed? other-class-row closed-through))
 
 (defn new-lock-row
   "Gives the row of a new lock: fresh random bytes and the number of the way
@@ -129,7 +141,8 @@
   "Adds the streaming gate to a module. Takes the module's `topologies`.
   Declares the stream topology `streaming-gate` and its four PStates, and
   the dataflow of one event, as the namespace docstring walks it. What must
-  hold: the module declares the depot `*streaming-depot`."
+  hold: the module declares the depot `*streaming-depot`, and has the
+  microbatch gate, which declares the two PStates that step 4 borrows."
   [topologies]
   (let [gate (stream-topology topologies "streaming-gate")]
     (declare-pstate gate $$streaming-answers (record-pstates/answers))
@@ -173,8 +186,13 @@
               (local-select> (keypath *class-key) $$streaming-facts :> *class-row)
              (else>)
               (identity nil :> *class-row))
-            (<<if (and> (nil? *permission-row) (nil? *class-row))
-              (other-gates-record-holds-layer? *layer :> *other-holds)
+            (<<if (and> (nil? *permission-row)
+                        (nil? *class-row)
+                        (not= :streaming (first-act/class-at-making *layer)))
+              (decision/class-place *act :> *other-class-key)
+              (local-select> (keypath *other-class-key) $$microbatch-facts :> *other-class-row)
+              (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
+              (other-gates-record-holds-layer? *other-class-row *closed-through :> *other-holds)
              (else>)
               (identity false :> *other-holds))
             (decision/standing :streaming *act *permission-row *class-row *other-holds
