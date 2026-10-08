@@ -21,7 +21,7 @@ The mini-format (METHOD.md, "The sheet files and the build"):
   ``` ... ```        a thing shown as code
   ```picture N       in the "Sheet" block: the sheet's picture, the data-flow of one act. Its page is A4
                      landscape, and the block's parts after the picture sit in columns under it. Inside it,
-                     ⟪w:text⟫ shades text (who acts), ⟪r:text⟫ boxes text (what the record carries), and a
+                     ⟪w:text⟫ sets text bold and underlined (who acts), ⟪r:text⟫ boxes text (what the record carries), and a
                      line that ends in ⟦text⟧ shows that text as a mark at column N, beside the line.
   =ANSWER text       the answer line: what to write, and room to write it
   **text**           bold; `text` code; {{text}} grey source text
@@ -31,51 +31,53 @@ import html, io, os, re, subprocess, sys
 
 CSS = """
 @page { size: A4 portrait; margin: 12mm 15mm 13mm 15mm;
-  @bottom-right { content: counter(page) " / " counter(pages); font: 7.5pt "Noto Sans", Arial, sans-serif; color: #555; }
-  @bottom-left { content: "%(footer)s"; font: 7.5pt "Noto Sans", Arial, sans-serif; color: #555; } }
-html, body { margin: 0; padding: 0; background: #fff; color: #111; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 7.5pt "Noto Sans", Arial, sans-serif; color: #000; }
+  @bottom-left { content: "%(footer)s"; font: 7.5pt "Noto Sans", Arial, sans-serif; color: #000; } }
+html, body { margin: 0; padding: 0; background: #fff; color: #000; }
 body { font-family: "Noto Sans", "Open Sans", "Segoe UI", Arial, sans-serif; font-size: 9.2pt; line-height: 1.3; }
 h1.sheet { font-size: 16pt; margin: 0 0 1.5mm 0; }
-.lead { font-size: 8.8pt; color: #333; margin: 0 0 2.5mm 0; border-bottom: 1.2pt solid #111; padding-bottom: 2mm; }
+.lead { font-size: 8.8pt; color: #000; margin: 0 0 2.5mm 0; border-bottom: 1.2pt solid #000; padding-bottom: 2mm; }
 section.front h2 { font-size: 10.5pt; margin: 3mm 0 1.2mm 0; }
 section.front ul.words li { margin-bottom: .7mm; }
-section.q { break-inside: avoid; page-break-inside: avoid; border-top: 1pt solid #111; padding-top: 1.6mm; margin: 0 0 5mm 0; }
+section.q { break-inside: avoid; page-break-inside: avoid; border-top: 1pt solid #000; padding-top: 1.6mm; margin: 0 0 5mm 0; }
 section.q h1 { font-size: 11pt; margin: 0 0 1.4mm 0; }
-section.q h1 .n { display: inline-block; background: #111; color: #fff; padding: 0 1.8mm; margin-right: 2mm; font-size: 10pt; }
+section.q h1 .n { display: inline-block; background: #000; color: #fff; padding: 0 1.8mm; margin-right: 2mm; font-size: 10pt; }
 section.q h2 { font-size: 9.2pt; margin: 2mm 0 .8mm 0; }
 p { margin: 0 0 1.2mm 0; }
 ul.words { margin: 0 0 1.4mm 0; padding-left: 4.4mm; font-size: 8.8pt; }
 ul.words li { margin: 0 0 .3mm 0; }
-section.q ul.words { color: #222; }
-pre { font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace; font-size: 7.5pt; line-height: 1.28; border: .6pt solid #111;
+section.q ul.words { color: #000; }
+pre { font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace; font-size: 7.5pt; line-height: 1.28; border: .6pt solid #000;
       padding: 1.3mm 2mm; margin: .8mm 0 1.6mm 0; white-space: pre; overflow: hidden; }
 code { font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace; font-size: 8.4pt; }
-.src { color: #666; font-size: 7.8pt; }
+.src { color: #000; font-size: 7.8pt; font-style: italic; }
 .ask { margin: 1.6mm 0 1.2mm 0; }
 .tick { margin: 1mm 0 .2mm 0; padding-left: 6.4mm; text-indent: -6.4mm; }
-.box { display: inline-block; width: 3.3mm; height: 3.3mm; border: .9pt solid #111; margin-right: 2.2mm; vertical-align: -0.6mm; text-indent: 0; }
-.if { margin: 0 0 .6mm 6.4mm; padding-left: 2.2mm; border-left: .6pt solid #999; font-size: 8.6pt; color: #222; }
+.box { display: inline-block; width: 3.3mm; height: 3.3mm; border: .9pt solid #000; margin-right: 2.2mm; vertical-align: -0.6mm; text-indent: 0; }
+.if { margin: 0 0 .6mm 6.4mm; padding-left: 2.2mm; border-left: .9pt solid #000; font-size: 8.6pt; color: #000; }
 .today { margin: 1.8mm 0 1mm 0; font-size: 8.6pt; }
 .today b.l { text-transform: uppercase; letter-spacing: .05em; font-size: 7.8pt; margin-right: 1.4mm; }
-.ans { border: 1pt solid #111; padding: 1.2mm 2.4mm 0 2.4mm; margin-top: 1.6mm; break-inside: avoid; }
+.ans { border: 1pt solid #000; padding: 1.2mm 2.4mm 0 2.4mm; margin-top: 1.6mm; break-inside: avoid; }
 .ans b.l { text-transform: uppercase; letter-spacing: .05em; font-size: 7.8pt; margin-right: 1.6mm; }
 .ans .hint { font-size: 8.4pt; }
-.ans .line { height: 7.5mm; border-bottom: .5pt dotted #777; margin: 0 0 1.2mm 0; }
+.ans .line { height: 7.5mm; border-bottom: .5pt dotted #000; margin: 0 0 1.2mm 0; }
 table.m { border-collapse: collapse; width: 100%%; margin: 1mm 0 2mm 0; font-size: 8.6pt; }
-table.m td, table.m th { border: .5pt solid #777; padding: .8mm 1.6mm; vertical-align: top; text-align: left; }
-table.m th { background: #eee; font-size: 8pt; }
+table.m td, table.m th { border: .5pt solid #000; padding: .8mm 1.6mm; vertical-align: top; text-align: left; }
+table.m th { background: #fff; font-weight: 700; font-size: 8pt; }
 @page picture { size: A4 landscape; margin: 8mm 10mm 10mm 10mm; }
 section.front.pic { page: picture; }
 section.front.pic h1.sheet { font-size: 14pt; margin: 0 0 1mm 0; }
 section.front.pic .lead { font-size: 8.2pt; margin: 0 0 1.6mm 0; padding-bottom: 1.4mm; }
 pre.picture { font-size: 7pt; line-height: 1.36; border: none; padding: 0; margin: 0 0 1.6mm 0; }
-pre.picture .who { background: #d9d9d9; }
-pre.picture .rec { outline: .7pt solid #111; outline-offset: 0; }
+pre.picture .who { font-weight: 700; text-decoration: underline; text-decoration-thickness: .7pt; text-underline-offset: 1.3pt; }
+pre.picture .rec { outline: .7pt solid #000; outline-offset: 0; }
 pre.picture .lab { font-weight: 700; }
-section.front.pic .band { columns: 3; column-gap: 6mm; border-top: .8pt solid #111; padding-top: 1mm; }
+section.front.pic .band { columns: 3; column-gap: 6mm; border-top: .8pt solid #000; padding-top: 1mm; }
 section.front.pic .band h2 { font-size: 8.4pt; margin: 0 0 .6mm 0; column-span: all; }
 section.front.pic .band ul.words { font-size: 7.6pt; line-height: 1.22; margin: 0; }
 section.front.pic .band ul.words li { margin: 0 0 .5mm 0; break-inside: avoid; }
+.if::before { content: "→ "; font-weight: 700; }
+pre, code { -webkit-text-stroke: .14pt #000; }
 """
 
 IF_LINE = re.compile(r"^If [A-Za-z0-9]{1,3}:")

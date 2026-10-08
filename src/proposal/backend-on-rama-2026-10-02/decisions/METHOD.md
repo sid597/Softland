@@ -52,8 +52,14 @@ part; `- ` a word; `[ ] **A** — ...` a choice; a fenced block is a thing shown
 as code; `=ANSWER ...` is the answer line. The script lays the group out as A4
 portrait pages and writes the PDF to the research depot
 (`/mnt/data/projects/research/softland/`), never into git. Sid answers on paper:
-print the PDF with `lp -d Canon_G600_Direct -o media=A4 <the pdf>` (the printer is
-queued when off and prints when switched on), and attach the PDF in the chat too.
+print the PDF with
+`lp -d Canon_G600_Direct -o media=A4 -o print-quality=5 -o cupsPrintQuality=High <the pdf>`
+(the queue's own default is Normal; the printer is queued when off and prints when
+switched on), and attach the PDF in the chat too.
+
+A sheet is pure black on white. Sid's printer has a grey ink beside its black, so
+grey text and grey rules print pale. `make_sheet.py` uses no other colour. A thing
+is set apart by weight, an underline, a box or an arrow, never by a shade.
 
 Before a sheet goes to Sid, a second session reads it against this page and
 against Sid's rulings and words, and reports only what does not hold.
@@ -91,3 +97,21 @@ against Sid's rulings and words, and reports only what does not hold.
 - **Answers never live in the queue.** `OPEN-QUESTIONS.md` holds only what is
   not decided and who is writing which sheet. An answer, with its reason, goes
   to the README of the code it shapes — `src-store/README.md` today.
+
+## What the sheets of 8 October taught
+
+The first is Sid's. The other three are what the second reader found in the first
+draft of the reads sheet; they are a session's, not his.
+
+- **Black only, at the highest quality.** Sid, 8 October: "use more darker color
+  not grey ... use icons or smth else to do typography not color because my
+  printer makes them less black and harder to read".
+- **Each sheet defines the words of the way in itself.** Maker, act, fact, layer,
+  door, depot, gate, seal, lock and stamp were named on the draft and defined only
+  on another sheet. A reader holds one sheet.
+- **A new sheet takes a letter that no paper uses.** The draft's R1 to R7 met the
+  rulings R1 to R8 on his printed sheet and R1 to R5 of the build's review. Search
+  the folder for the letter first.
+- **The rulings file is a session's writing.** Where a sheet cites it, say "the
+  rulings file lists it as ruled, in a session's words", and give Sid's own line
+  of that day when the record has one. His line is often a lean, not a ruling.
