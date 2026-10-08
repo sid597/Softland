@@ -65,9 +65,15 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
    below, and every place where the contract could not be met as written. It asks him three things: the
    folders, and the two questions of item 23 below.
 5. Next work, as told to Sid on 8 October: the door is the next build (decision C1 of 6 October); reads
-   are the next big deciding (group 6 of the queue; no sheet yet). He asked for the reading and the
-   questions. Ask in the simple form that worked on 8 October: one small story, one stop for each
-   decision, each with a pick and the reason. He answers in chat.
+   are the next big deciding (group 6 of the queue). He asked for the reading and the questions, and on
+   8 October, "which one should i be printing???". Both are now on sheets, each with what its writer
+   suggests, as he asked ("what is your recommendation and why?").
+   - The door: `../decisions/groups/g-door.txt`, "The door — four questions before it is built", by
+     "gate-implementation"; read by a second session, corrected, and printed on 8 October (job 36). It
+     asks ?4 and H1 again, and K3 and K4, which the review found. His answers go to `src-store/README.md`.
+     The door's contract is written after them.
+   - Reads: `../decisions/groups/g-reads.txt`, "Reading back out", by another session of 8 October (id
+     83590914). It is that session's to hand to him.
 
 Sid's printed sheet "The record, and who acts", row by row, as of 8 October: answered — E1·H8, E3·H7 (a
 session's reading of his answer to E4, which he let stand), E4, E2, H2; put off — H1 ("do we need to answer
@@ -76,9 +82,12 @@ for the door, H10 and H11 for forget.
 
 ## For the receipt: what Sid should know, as found so far
 
-1. H1 is open; the module makes a lock for each value. Found: with a lock of about 110 bytes for each
-   value, F9's third limit (locks at most 2 times the bytes of the values) is missed for values under
-   about 50 bytes. The grain is what moves it.
+1. H1 is open; the module makes a lock for each value. By the plan's arithmetic, and not by a measure:
+   in a streaming layer a lock's row is about 140 bytes for each value as written, and about 102 if
+   RocksDB shares the fronts of neighbouring keys (not verified); the plan aims at 110. At 110, F9's
+   third limit (locks at most 2 times the bytes of the values) is missed for values under 55 bytes. The
+   like figures for the base are in item 16: about 245 as written, about 180 with shared fronts. The
+   grain is what moves it.
 2. When the system makes a personal layer, the making act's who is `:system` and the permission that it
    names is the person's. His decision does not say under which permission the system acts there; this
    is the builder's reading.

@@ -1,0 +1,194 @@
+=== Sheet | The door — four questions before it is built
+
+Alice signs in and writes her first note: the path of that one act, from her screen to the record and back. A word in capitals is defined at that place. **Shaded:** who acts. **Boxed:** the two things that the door takes from the store, its keys and its locks. The marks on the right name the four questions. The gates and the record are built; the door is next. Each question says why it is asked now, and ends with what the AI that wrote this sheet suggests: you asked for that on 8 October ("what is your recommendation and why?"). Tick a box, or write on the line. 8 October 2026.
+
+```picture 113
+ALICE opens Softland and signs in with Google.   (your words, 2 October: "for login we will use google login")
+  At her first sign-in ⟪w:a PERSON is made for her: an id that stands for her in the record⟫  ⟦◀ 1 · which id?⟧
+  — in each act she makes, each permission she holds, each act about her.   (the 2 October drawing)
+  THE SYSTEM — the store acting for itself, for no person — makes her own LAYER and her PERMISSION in it  ⟦◀ 3 · the system's own layers⟧
+  (decision 2 of 8 October). A LAYER is the one place that an act writes to; a PERMISSION is a fact that lets
+  its holder act there. Each sign-in starts a SESSION: the sitting of work that her acts belong to.
+          │
+          ▼
+MAKER — her screen; later a converter, an agent. It makes an ACT: one or more FACTS that go in together.
+  {:version 1  ⟪w::who <her id>⟫  :layer <her layer>  ⟪w::permission [<her id> <her layer> <her layer>]⟫  :session <this sitting>
+   :facts [{:e :note-41 :k :text :v "buy milk"}]}        ← a FACT: entity · KEY · value
+          │  the act, plain values
+          ▼
+THE DOOR — the code that takes an act from a maker into the store. One piece of code; every maker uses it.  ⟦◀ NEXT TO BUILD⟧
+  1 reads the layer's CLASS — streaming or microbatch — a fact under one of ⟪r:the store's own keys⟫  ⟦◀ 4 · the store's own keys⟧
+  2 makes the ACT-ID, the act's id: [<her layer> :streaming #uuid]
+  3 ⟪r:gets LOCKS from the store and SEALS each value with one⟫ → bytes. A LOCK is an encryption key.  ⟦◀ 2 · one lock for how much?⟧
+     FORGET = the store destroys a lock: what it sealed can never be opened again, in the record or in the log
+  4 appends {the act · its act-id · the class · sealed values} to a DEPOT: Rama's log, which keeps each act as appended
+          │
+          ▼
+GATE — code inside the store, one for each depot. It checks each act's form and decides it from its RECORD.  ⟦◀ BUILT, with the record⟧
+  the streaming gate: one act at once, for work that a person touches.   the microbatch gate: a batch, a moment later, for the base.
+  accept → the facts become current in the record, and the ANSWER "accepted" is kept under the act-id, with a STAMP (the gate's time mark)
+  refuse → the answer "refused: reason" is kept under the act-id. A refusal is data, never an exception.
+          │ the answer
+          ▼
+THE DOOR reads the answer by act-id and gives it to the maker.        Reading a fact back out, for a screen, is not decided: the next sheet.
+```
+
+## The words that the questions share
+
+- **key** — the middle part of a fact: entity · key · value. Never an encryption key; that is a **lock**.
+- **the base** — the one layer "which everyone subscribes to" (decision 4 of 7 October).
+- **the log** — a depot. It keeps each act as it was appended. The builders never trim it: your decision 2 of 7 October rests on that ("the record is recomputable from the acts depot").
+- **frozen at the first kept record** — after the first act that the store keeps for good, a choice cannot change without splitting the store into acts before and acts after.
+- **the rulings file** — PROGRESS.md "Now" in src/proposal/frame-2026-09-15: the rulings of 23–25 September, as an AI wrote them down. **the 2 October drawing** — ARCHITECTURE-STE100.md.
+- **the writer suggests** — what the AI that wrote this sheet would pick, with its reason. It is not a default: a box that you leave blank stays open.
+
+=== 1 · ?4 | Who a person is in the record
+
+Kind: **system sets** — one choice for the whole store.
+
+Asked now: the first sign-in makes the person, and from then on her id is in every act that the door lets in. Frozen at the first kept record.
+
+```
+ Alice's id is written plain, never sealed, in
+   each act she makes                  :who <her id>
+   each permission she holds           [<her id> <her layer> <her layer>]
+   each act about her                  :subjects #{<her id>}
+ and the log keeps each act as it was appended.
+ two ids for Alice      A  #uuid "7f3c…"     says nothing; one LINK joins it to her Google account:
+                                             one small fact, kept apart from the record
+                        B  :alice            readable; made from her sign-in
+```
+
+**Which id stands for a person in the record?**
+
+[ ] **A** — an id that says nothing (a UUID), joined to the person by one link that the store can erase.
+If A: the record and the log name nobody by themselves. To show "Alice wrote this", a reader looks through the link. For the store to stop naming her, it erases the one link.
+[ ] **B** — a readable id, made from the sign-in.
+If B: the record and the log name Alice wherever she acted, and are read without a lookup. For the store to stop naming her, an update of its code writes the log again without her id.
+
+Today: act.clj takes both: an id is a readable keyword or a UUID (decision 9 of 6 October). The proofs use readable ids. No code makes a person yet. The rulings file lists "opaque actor ids with one erasable link to the person" as open.
+
+The writer suggests: **A**. Its reason: `:who` is in every act, it is never sealed, and the log keeps each act. Under B the store stops naming a person only by writing the whole log again; under A, by erasing one small fact.
+
+=ANSWER A or B.
+
+=== 2 · H1 | One lock for how much
+
+Kind: **group chooses — the default is the question.** Your ruling of 24 September, as the rulings file has it: "Lock grain: per value by default; a setting on the layer … switches that layer to per act".
+
+Asked now: it is the door that gets the locks and seals. On 8 October you asked "do we need to answer now???", and the gates were built on that ruling. For the door, each answer is another piece of code.
+
+```
+ 10:00  Alice writes three notes in one act. The door seals them and appends the act.
+ 10:05  Alice forgets the second note.
+ one lock for         at 10:05                                         the door, before it can seal
+ A  each value        the second note is gone everywhere at once;      needs a lock for each value,
+                      the other two stay                               asked for ahead of the writing
+ B  each act          the three notes go together, or none goes        needs one lock for each act,
+                                                                       asked for ahead in the same way
+ C  each session      the note leaves the record; its copy in the log  needs one lock when a session
+    and layer         still opens until the session's lock goes, with  first writes in a layer
+                      all that the session wrote in that layer
+
+ Found by the build for A, by arithmetic and not by a measure: a lock's rows are about 140 bytes for each
+ value in a streaming layer and about 245 in the base, as written: more than a short note itself. A request
+ for locks is an act. In the base an act's answer was readable 0.9 s after it was sent, in one run.
+```
+
+**By default, how much does one lock seal?**
+
+[ ] **A** — one value. A layer can switch to B, for what it writes after the switch.
+If A: forgetting is exact, everywhere. The door keeps a stock of locks for each layer that it writes in, and asks for more before the stock runs out.
+[ ] **B** — one act. A layer can switch to A, for what it writes after the switch.
+If B: what is written together is forgotten together. The door keeps a stock too, and uses one lock for each act.
+[ ] **C** — all that one session writes in one layer.
+If C: the door asks for a lock once for a session and a layer. One value is wholly forgotten only when that lock goes, with all that it sealed.
+
+Today: the gates make a lock for each value, and refuse a second value under a lock that seals one. A value keeps the lock that it was sealed with for good.
+
+The writer suggests: **A**, your ruling as it stands. Its reason: a value that is sealed alone can still be forgotten together with others later; a value that is sealed together with others can never be forgotten alone. The cost of A is bytes and a stock of locks; neither is measured yet.
+
+=ANSWER A, B or C.
+
+=== 3 · K3 | The system's own layers
+
+Kind: **system sets** — one rule for the whole store.
+
+Asked now: the review of the gates found it. A gate lets it through today, and what is written down of your decision can be read both ways.
+
+```
+ Decision 3 of 8 October, as an AI wrote it down and you let it stand: "the top of a chain is a
+ person, or the system for the base, and never a session".
+ Your line of the same day: a user who is not signed in is "just roaming around on what is open by the
+ system or world group".
+
+ Today a gate accepts this first act of a layer that is not the base:
+   {:who :system  :layer :tools  :permission [:system :tools :tools]  …}
+ After it, :tools is a layer with the system at its top.
+```
+
+**Can the system stand at the top of a layer that is not the base?**
+
+[ ] **A** — yes: the system can make layers of its own beside the base.
+If A: what the store itself gives to everyone can live in layers of the system's, apart from the base.
+[ ] **B** — no: the base is the system's one layer.
+If B: each other layer has a person at its top. A gate refuses a first act that names the system as the holder of a new layer.
+
+Today: a gate accepts it. Until sign-in is built a gate cannot tell who sends an act, under A or under B.
+
+The writer suggests: **A**. Its reason: your own line speaks of what is "open by the system", and A closes nothing off.
+
+=ANSWER A or B.
+
+=== 4 · K4 | The store's own keys: bare words, or marked
+
+Kind: **system sets** — one choice for the whole store.
+
+Asked now: the door has to know the store's keys, because a value under one of them is not sealed. The keys are in the acts that the log keeps. Frozen at the first kept record.
+
+- **bare word** — a key with no namespace, such as `:class`. **namespace** — the part before the slash in a key such as `:tool/class`.
+
+```
+ The store itself acts on three keys (decision 5 of 8 October):   :class   :permission   :lock-request
+ A gate knows them by the word alone, in every layer, whoever wrote the fact.
+
+ A tool that styles a page sends     {:e :heading-1  :k :class  :v "title"}
+ Today a gate reads :class as the store's key and refuses the act: "title" is no class of a layer.
+ The same holds for a tool's own :permission and :lock-request.
+```
+
+**Are the store's keys bare words?**
+
+[ ] **A** — yes: `:class`, `:permission` and `:lock-request` are the store's in every layer.
+If A: no tool can use these three words as keys of its own. A store key looks like any other key.
+[ ] **B** — no: each carries a namespace, for example `:store/class`. The word before the slash is yours to give.
+If B: each bare word is free for the tools. A store key shows what it is by its namespace.
+
+Today: bare words. "class" is a borrowed word that you have not accepted (decision 10 of 7 October); `:lock-request` is a plain word that an AI chose. Until the first kept record, a new word for any of them is a change of code only.
+
+The writer suggests: **B**. Its reason: "class" is a word that tools will want for themselves, and the change is a rename today and frozen later.
+
+=ANSWER A, or B and the word before the slash. Your word for "class", if you have one:
+
+=== Listed | Not asked here, and why
+
+- **How the store knows who you are.** Your words of 2 October: "for login we will use google login". Not asked.
+- **E5, after a session closes** — "By default, does a permission still stand after its session closes?" It is on your sheet "The record, and who acts". Not asked again here. The writer's reading: the door can be built before it is answered, because nothing in the store ends a permission yet.
+- **H10 and H11**, on the same sheet — forgetting after a permission is revoked, and writing about a person who is already forgotten. They come back when a lock can be destroyed.
+- **Reading a fact back out** — the next sheet, "Reads".
+- **The folders of the store's code** — asked in the chat, not on a sheet.
+
+=== Words | Words on this sheet
+
+- **act** — one or more facts that a maker sends together; a gate accepts all of it or refuses all of it. **fact** — entity · key · value. **key** — the middle part of a fact; never an encryption key.
+- **act-id** — the id that the door gives an act: [layer · class · a random UUID].
+- **class** — streaming or microbatch: which depot takes a layer's acts and which gate decides them. A borrowed word.
+- **depot**, **the log** — Rama's log of acts; two, one for each gate. It keeps each act as it was appended; the builders never trim it.
+- **door** — the code that takes an act from a maker into the store. **maker** — a screen, a converter, an agent: whatever makes an act.
+- **gate** — the code inside the store that decides each act. **record** — what the gates keep: the current facts, and the answer under each act-id.
+- **layer** — the one place in the store that an act writes to. **the base** — the one layer "which everyone subscribes to".
+- **lock** — an encryption key. **seal** — encrypt a value with a lock. **forget** — the store destroys a lock.
+- **permission** — a fact in a layer that lets its **holder** act there. **chain** — a permission, the one above it, and so on to the **top**.
+- **person** — someone who signs in. **session** — the sitting of work that an act belongs to. **the system** — the store acting for itself, for no person.
+- **store key** — a key that the store itself acts on; its value is never sealed.
+- **frozen at the first kept record** — after the first act that the store keeps for good, the choice cannot change without splitting the store into acts before and acts after.

@@ -34,6 +34,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 | 8 | what a kept record carries | `groups/g-record.txt`, printed 7 Oct (H1, H2, H10, H11 asked; H7, H8 merged into E3, E1; H4 shown as answered with a box; H3, H5, H6, H9 listed, not asked) | act implementation analysis (Fable), 7 Oct | H1, H2, H3, H4, H5, H6, H7, H8, H9, H10, H11 |
 | 9 | the sheet itself | sheet not yet written | | Q9, Q10, Q15, Q21, Q26, Q27, Q7-sheets, Q8, Q24 |
 | 4 · 5 | found by the build session: the store's keys, and a layer's first act | `groups/g-keys.txt`, printed 7 Oct | softland-11 (Opus 5.5), 7 Oct | K1, K2 |
+| 4 · 5 · 8 | the door: two open rows that its build needs (?4, H1, asked again), and two that the review of the gates found | `groups/g-door.txt`, "The door", printed 8 Oct | gate-implementation (Opus 5.5), 8 Oct | ?4, H1, K3, K4 |
 | — | outside the nine groups: where answers are kept | not a group of the booklet | | 0.2, 0.3, I3 |
 
 ## The questions
@@ -91,8 +92,10 @@ A session writes its name under "taken by" on a group before it writes that grou
 | E7 | 5 | An agent's credentials: the word, and whether they say whose act it is | open | RS:51 | — | |
 | Q16 | 5 | Sign-in: where it is on the map (its act side is act 9) | open | LP:30 | — | |
 | Q19 | 5 | The session, permissions, policy: where drawn (its act side is act 8) | open | LP:59 | — | |
-| ?4 | 5 | What identifies a person in the store | open? | A:1205 | act 9 says what an id is; whether that covers ?4 a session cannot tell | |
+| ?4 | 5 | What identifies a person in the store | open? | A:1205 | act 9 says what an id is; whether that covers ?4 a session cannot tell; asked again on `groups/g-door.txt`, 8 Oct | gate-implementation (Opus 5.5), 8 Oct |
 | K2 | 5 | What lets the first act into a layer | answered | BUILD-store-module.md, item 9; `groups/g-record.txt`, the examples of E1·H8 and ?4 | see src-store/README.md, "Decisions of 8 October 2026" (entry 2) | softland-11 (Opus 5.5), 7 Oct |
+| K3 | 5 | Can the system stand at the top of a layer that is not the base | open | `store-module/FULL_SPEC_REVIEW.md`, item R3 of that review; SR, "Decisions of 8 October 2026" (entry 3) | — as built, a gate accepts it | gate-implementation (Opus 5.5), 8 Oct |
+| K4 | 4 | The store's own keys: bare words, or a namespace; and the word for "class" | open | `store-module/FULL_SPEC_REVIEW.md`, item R4 of that review; SR, "Decisions of 8 October 2026" (entry 5) | — as built, bare words | gate-implementation (Opus 5.5), 8 Oct |
 | Q11 | 6 | Where reads sit, and the read entry | open | LP:128 | deferred by Sid, 6 Oct 2026: "I will come to the read question when we have built the other system" (RS page 1) | |
 | ?6 (G5) | 6 | Does one read line up the moments of the layers that it read | open | A:1207; RS:97 | — | |
 | ?12 (G7) | 6 | The cost of a read entry for each read; does a reader ring itself | open | A:1213; RS:103 | waits with Q11 (RS G7) | |
@@ -115,7 +118,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 | G1 | 7 | Does an inside thing ever pass through an adapter | open | RS:88 | — | |
 | G2 | 7 | Is the one body language grown from Inland's | open | RS:90 | — | |
 | G3 | 7 | Are adapters and converters data | open | RS:92 | — | |
-| H1 | 8 | R1, forget: "Forget is immediate" | open | RS:110 | asked in chat on 8 Oct; Sid: "do we need to answer now???" — still open; the build makes a lock for each value until he decides (see src-store/README.md) | |
+| H1 | 8 | R1, forget: "Forget is immediate" | open | RS:110 | asked in chat on 8 Oct; Sid: "do we need to answer now???" — still open; the build makes a lock for each value until he decides (see src-store/README.md); asked again on `groups/g-door.txt`, 8 Oct, with what the build found | gate-implementation (Opus 5.5), 8 Oct |
 | H2 (S2) | 8 | R2, the stamp's form: a hybrid of wall milliseconds and a counter | answered | RS:112; R:206–207 | see src-store/README.md, "Decisions of 8 October 2026" (entry 4) | |
 | H3 | 8 | R3, read entries carry a frontier | open | RS:114 | — | |
 | H4 | 8 | R4, based-on is fact ids with their stamps | open? | RS:116 | act 11 says the same of the act's form; whether it closes R4 a session cannot tell | |
