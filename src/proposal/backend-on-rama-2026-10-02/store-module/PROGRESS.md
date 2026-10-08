@@ -26,7 +26,7 @@ The Rama skill's stages, each design stage in a fresh session (the Agent tool, m
 | part 1 `streaming-gate-and-record`: plan | done | `90ef0ab0` |
 | part 1: check of the plan (minor-fail, fixed; two rulings) | done | `4241b95e` |
 | part 1: build (code under `src-store/`, proof under `test-store/`, alias `:store-module`) | done; proofs run here: act 150, pure 343, module 117 passes, no failure | `ee138e28`, `66f22ca3` |
-| part 2 `microbatch-gate`: plan | running | — |
+| part 2 `microbatch-gate`: plan | cut off at 05:36 on 8 October by a scheduled power-off of the machine, 55 minutes in, with no file written; resumed from its transcript at 08:30 | — |
 | part 2: check of the plan, build | to do | — |
 | one fresh review of the whole against the contract (`phase-full-spec-review.md`) | to do | — |
 | the receipt to Sid | to do | — |
