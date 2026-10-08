@@ -28,7 +28,7 @@ The Rama skill's stages, each design stage in a fresh session (the Agent tool, m
 | part 1: build (code under `src-store/`, proof under `test-store/`, alias `:store-module`) | done; proofs run here: act 150, pure 343, module 117 passes, no failure | `ee138e28`, `66f22ca3` |
 | part 2 `microbatch-gate`: plan (cut off at 05:36 on 8 October by a scheduled power-off; resumed 08:30) | done | `825cf4cf` |
 | part 2: check of the plan (minor-fail, fixed; ruling: one copy of a lock's bytes) | done | `e9647a45` |
-| part 2: build (the microbatch gate; small changes to part 1's files; the proofs extended) | running since 09:35 on 8 October, as a subagent of softland-11; it reports there and does not commit | — |
+| part 2: build (the microbatch gate; small changes to part 1's files; the proofs extended) | done; proofs run by softland-11: act 150, pure 429, module 218 passes, no failure | `3420abcf` |
 | one fresh review of the whole against the contract (`phase-full-spec-review.md`) | to do | — |
 | regroup `src-store/softland/store/` into folders (see below) | to do, only on Sid's "go" | — |
 | the receipt to Sid | to do | — |
@@ -43,10 +43,9 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
 
 ## What is left, for the session that takes over
 
-1. When part 2's build has reported: run the three proofs once
-   (`clojure -M:store -m softland.store.act-proof`, `clojure -M:store -m softland.store.pure-proof`,
-   `clojure -M:store-module -m softland.store.module-proof`), read the build's two papers, and commit
-   part 2 as one commit with a message that says what and why.
+1. Done by softland-11 on 8 October: part 2 is built, proven here and committed (`3420abcf`). The three
+   proofs are `clojure -M:store -m softland.store.act-proof`, `clojure -M:store -m softland.store.pure-proof`
+   and `clojure -M:store-module -m softland.store.module-proof`; they showed 150, 429 and 218 passes.
 2. Run the skill's last stage, `phase-full-spec-review.md`, in one fresh session against the contract.
    Fix what it finds, prove again, commit.
 3. The folders. Sid asked why the store's files are flat (8 October). Proposed to him, waiting for his
@@ -114,3 +113,8 @@ for the door, H10 and H11 for forget.
     value.
 17. The night's run stopped at 05:36 on 8 October because the machine powered off on a shutdown that was
     scheduled at 01:36 for four hours later. Nothing was lost.
+18. From part 2's build. In the proof an answer of a microbatch act was readable 873 ms after its append,
+    with nothing sent after it. Nine behaviours of Rama that the plan leaned on were checked on a probe
+    module with four tasks and none was false. No proof reaches: a second attempt of a real batch, a
+    commit that fails after one task has shown its part, a rebuild, or a measure of speed or size
+    against F9's targets. No linter ran.
