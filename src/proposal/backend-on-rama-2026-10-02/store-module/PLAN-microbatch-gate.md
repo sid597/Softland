@@ -51,7 +51,7 @@ in a document and not run; this stage ran no cluster and no code).
 | Topology | `microbatch-gate` (microbatch) | Decides the things of a batch in four steps, each a batch block, and writes the record. | Each act is decided on its deciding task; acts that meet are decided on their layer's meeting task |
 | PState | `$$microbatch-answers` | The answer under each act-id of a microbatch layer | Schema of the first part. A row lives on the task of the act-id's uuid |
 | PState | `$$microbatch-facts` | The current fact of each place of each microbatch layer | Schema of the first part. A row lives on the task of its entity; a row under `:class` or `:permission` lives on every task |
-| PState | `$$microbatch-locks` | Each lock of each microbatch layer, and the fact that it seals | Schema of the first part. A row lives on the task of its request's uuid; a lock that seals a value has the same row a second time, on the task of that value's entity |
+| PState | `$$microbatch-locks` | Each lock of each microbatch layer, and the fact that it seals | Schema of the first part. A row lives on the task of its request's uuid. When a lock comes to seal a value, its bytes go to a row on the task of that value's entity, and the row at its home keeps the fact that it seals and no bytes: one copy of a lock's bytes |
 | PState | `$$microbatch-task` | What the gate keeps for one task: its strays, the stamp through which its rows are closed, its count of turns. On the gate's task also the gate's last stamp | One value for each task |
 | Query topology | `answer-by-act-id` (first part's, completed) | act-id → the recorded answer, or nothing | Streaming: the layer's task, 1 read. Microbatch: the uuid's task, 1 read while there is nothing, 2 when the answer is there |
 | Query topology | `locks-of-request` (first part's, completed) | a request's act-id and a range → those locks | Streaming: as built. Microbatch: the request uuid's task, 3 reads and one iteration for each lock |
@@ -79,9 +79,11 @@ is done on every task (docs 09:432, 09:456).
 
 **One accepted act with one sealed value on one entity costs 3 disk reads and 4 row writes**: the
 permission on its deciding task, the answer on the uuid's task, the lock on the request's task; then the
-fact, the lock beside its value, the lock at its home, the answer. 6 messages between tasks, 3 hops on
-the longest path. An act with three values on three entities on three tasks costs the same 3 reads, 10
-row writes, 12 messages, and the same 3 hops. The working is in "The checks of one act".
+fact, the lock's row with its bytes beside the value, the home's row of the lock without the bytes, the
+answer. 6 messages between tasks, 3 hops on the longest path. An act with three values on three entities
+on three tasks costs the same 3 reads, 10 row writes, 12 messages, and the same 3 hops. Beside these,
+each thing costs one small write of its task's count of turns, and each batch a few reads that do not
+grow with its acts. The working is in "The checks of one act".
 
 **Three things that this stage found in Rama's docs shape the design.** Each is under "What Rama gives a
 microbatch".
@@ -162,8 +164,11 @@ a streaming act-id no caller changes.
   `$$microbatch-locks` from `"<layer> <uuid> <from>"` to `"<layer> <uuid> <to>"`.
 - Partition: the task that the hash of the request's uuid gives. A request's answer and its locks are
   on that one task, whatever the request's facts, so they become visible at the same instant.
-- It gives the locks when the request's answer is accepted and closed; else an empty map. The bytes of
-  a lock are given in each state of the lock (IS O9, E4).
+- It gives the locks when the request's answer is accepted and closed; else an empty map. A lock that
+  seals nothing yet is given with its bytes, which is what the door needs. A lock that seals a value is
+  given with its way and no bytes: its bytes are beside the value, on the value's task, for the read
+  side, which is not built (the ruling "one copy of a lock's bytes"; it narrows IS O9 and E4 for the
+  class microbatch, see "What could not be met as written").
 
 **R3. The class of a layer (IS O10; C rule 7).**
 - Access method: the query topology `class-of-layer`, `[layer]`. Unchanged for a caller.
@@ -288,28 +293,59 @@ value's home is its entity's task; the lock's home is its request's. Three ways:
 1. *It stays at its home; the value's row names it.* 1 lock row for a value. A forget is one delete on
    the lock's task. The lock is not on the value's task: "co-located with their values" (C item 7) is
    not met.
-2. *When the act is accepted, the lock's row is written a second time, on the value's task* (chosen).
-   The row is the first part's `lock-row-sealing`: the bytes, the way, the fact that it seals; the same
-   row under the same key on both tasks. The home row stays whole: it decides for the lock, and
-   `locks-of-request` gives its bytes in each state (IS O9, E4) with no hop. 2 lock rows for a value
-   (one, when the two tasks are the same task). A forget deletes both; the value's row names the
-   lock, so both keys are known from it.
-3. *The lock moves: the bytes are written on the value's task and taken out of the home row.* 1 copy
-   of the bytes. But `locks-of-request` must then hop to the value's task for a lock that is used, and
-   the home row needs one more field to say where. About the same bytes as way 2.
+2. *When the act is accepted, the lock's row is written a second time, on the value's task.* The same
+   row, with the bytes, under the same key on both tasks. 2 copies of the bytes; a forget has two
+   places to destroy, on two tasks.
+3. *The bytes move: on accept they are written on the value's task, and the home's row keeps the fact
+   that the lock seals and no bytes* (chosen; the build session's ruling "one copy of a lock's
+   bytes", applied by the check of this plan). 1 copy of the bytes. A forget has one place to destroy,
+   the row beside the value. `locks-of-request` gives a used lock without its bytes and makes no hop.
 
-| | Lock rows for a value | Row writes at accept | `locks-of-request`, used lock | A forget (not built) | Row shape |
-|---|---|---|---|---|---|
-| 1 | 1 | 1 | 1 seek | 1 delete, on another task than the value | the first part's |
-| 2 | 2 | 2 | 1 seek | 2 deletes, on two tasks, in one batch | the first part's |
-| 3 | 2, one without bytes | 2 | 1 seek and 1 hop for each used lock | 1 delete, on the value's task | one more field |
+| | Lock rows for a value | Copies of the bytes | Row writes at accept | `locks-of-request`, used lock | A forget (not built) | Row shape |
+|---|---|---|---|---|---|---|
+| 1 | 1 | 1 | 1 | 1 seek, with the bytes | 1 delete, on another task than the value | the first part's |
+| 2 | 2 | 2 | 2 | 1 seek, with the bytes | 2 deletes, on two tasks, in one batch | the first part's |
+| 3 | 2, one without bytes | 1 | 2 | 1 seek, without the bytes | 1 delete, on the value's task | the first part's; `:bytes` absent in the home's row |
 
-**The plan's choice: way 2.** It is the only one that meets "co-located" and "same record shape" and
-keeps the read of a lock as built. What it costs: one more row write for each accepted value, and
-about twice the lock bytes for each value of a microbatch layer; F9's third limit is then missed there
-for values under about 110 bytes (see "Resource usage analysis"). **Sid should know.** If he wants one
-row, way 1 is the change: the accept leaves out one row; nothing else moves. H1 is open, and this row
-follows whatever grain he gives.
+**Way 3, by the build session's ruling.** How it holds with the rest of the design:
+
+- *The row beside the value* is the first part's `lock-row-sealing`: the bytes and the way as read,
+  and the fact that it seals. It is written on the task of the value's entity, under the lock's key,
+  in the same attempt as the fact's row, which names the lock. The read side, not built, opens a value
+  with two reads on one task.
+- *The home's row* is written again on accept as a whole row with the way and the fact that the lock
+  seals, and no `:bytes`. `softland.store.record` gains the one function that makes it,
+  `lock-row-without-bytes`; a field that a row does not have is absent, as in every row of the first
+  part's schemas.
+- *"A second value under a lock that already seals one"* is decided at the home, as before: the home's
+  row names a fact, and `decision/seals` tests that before it uses any bytes
+  (`record/seals-a-fact?`, then `seal/opens?`), so the word is the first part's and the unchanged
+  function serves.
+- *Rule 16's opening before the accept.* A lock that is not yet used has its bytes at its home. They
+  come to the deciding task in the reply of step 2, the value is opened there, and on accept the
+  deciding task sends the row with the bytes to the value's task and the row without them to the
+  home.
+- *A repeat of a request* is told `:used` and reads no lock row. A repeat of the act that used a lock
+  is told `:used` too (IS C5).
+- *What a failed attempt leaves.* Rama sets both tasks back together (docs 12:116), so there is no
+  kept state in which the home has given up the bytes and the value's task does not hold them.
+- *One task for both.* When the value's entity and the request's uuid give one task, the two rows have
+  one key on one task, and the row with the bytes must be the one that stays. Always so on a cluster
+  of one task; one value in N on N tasks. The rule is under step 3 and step 4 of "The walk of one
+  batch": no lock row of an accept is written in step 3; step 4 writes each home's row of a lock
+  before any row with bytes; the meeting task sends them in that order.
+- *What a reader of `locks-of-request` can see.* The bytes of a lock never change. Whether a lock is
+  given with its bytes can change inside a batch that is not closed: a home that has shown an accept
+  of a first attempt gives the lock without bytes, and gives it with bytes again if the second attempt
+  refuses that act (rule 17 at its edge). A door holds the bytes of a lock before it seals with them,
+  so no door waits on this.
+
+What it costs against way 2: nothing in writes or messages; the home's row is about 35 bytes smaller.
+What it changes for a caller: IS O9 and E4 say that the read of a lock gives its bytes "in each state
+of the lock"; for a microbatch layer the read gives the bytes of a lock that is not used, and the
+bytes of a used lock are read beside its value. F9's third limit is still missed for small values,
+because the home's row stays (see "Resource usage analysis"). **Sid should know** both. H1 is open,
+and these rows follow whatever grain he gives.
 
 ### What a task keeps, and what the gate keeps
 
@@ -344,7 +380,7 @@ fixed-keys { :strays         { Keyword -> set of String, subindexed }   as the f
 |---|---|---|
 | Answers | schema, key text, the row's fields, `record/answer-row`, `answer-of` | The home task: the uuid's, not the layer's (C rule 7) |
 | Facts | schema, key text, `record/fact-row`, `written-by?`, `holds-plain-value?` | The home task: the entity's (C item 1). A row under `:class` or `:permission` is on every task (R 7-Oct 5) |
-| Locks | schema, key text, `lock-row`, `lock-row-sealing`, `lock-of`, `locks-by-index` | The home task: the request uuid's. A lock that seals a value has its row on the value's task too (C item 7) |
+| Locks | schema, key text, `lock-row`, `lock-row-sealing`, `lock-of`, `locks-by-index` | The home task: the request uuid's. A lock that seals a value has its row with the bytes on the value's task (C item 7), and at its home a row without bytes (`lock-row-without-bytes`, one function added) |
 | Task | `:strays`, `:last-stamp` as fields | `:last-stamp` is one for the gate, on one task (C rule 18). Two fields more: `:closed-through`, `:turns` (new schema function `record-pstates/microbatch-task`) |
 | Class in a key or row | none, as in the first part: the PState says the class | none |
 
@@ -468,7 +504,9 @@ Everything of points 5 to 7 goes through one hash partitioner and is gathered by
 
 - *On the gate's task:* read `:last-stamp`; read the clock, once for the batch; take the batch's
   numbers. `base` is `stamp/next-stamp` of the clock, the last stamp, and the greatest carried stamp,
-  held to the greatest stamp that rule 17 lets pass. Write the new `:last-stamp`. Then go to every
+  held to the greatest stamp that rule 17 lets pass. Write the new `:last-stamp`. An iteration with no
+  numbers, one that took no thing or only strays, gives no stamp: it makes no base and does not write
+  `:last-stamp`, so that `:closed-through` does not move in a quiet time. Then go to every
   task with the clock, the base, and the old last stamp.
 - *On every task:* write `:closed-through` with the old last stamp (see "Closing"). The gate's task
   holds its own `:closed-through` and compares first, so the tasks write only when the value has
@@ -483,7 +521,9 @@ Everything of points 5 to 7 goes through one hash partitioner and is gathered by
   - *locks:* one range read for each asker and request. A lock is `:shared` when more than one act
     names it, or when a request of this batch will make it; that request is then told `:shared` too.
   The replies go to each asker's deciding task and are gathered there by turn into `$$replies`. The
-  reply about the answer carries the clock and the base.
+  reply about the answer carries the clock and the base. The walk over a task's keys gives the task
+  back between two keys, as steps 3 and 4 do between two acts (IS X40): no row that it reads is
+  written in this step.
 
 *Step 3. Decide* (on every task that holds entries).
 
@@ -494,21 +534,32 @@ between two acts:
 - told `:used` or `:taken-in-this-batch`: nothing. No row is written; a repeat is answered from the
   record, and a different thing under a used act-id gets no answer of its own (C rules 1, 11).
 - refused by the declaration or by a final word of step 1, point 4: its answer's row, as a parcel.
-- an act that meets: a parcel to the meeting task with the act, its digest and the rows it has: the
-  standing rows of step 4, the rows of the replies, and its own places read now.
+  For an act with a final word of step 1, `decision/refused-early` is called first, with the batch's
+  clock, and its word is the one recorded when it gives one: rule 17 comes before the standing in the
+  first part's order, and step 1 did not have the clock (IS C4).
+- an act that meets: a parcel to the meeting task with the act, its digest, the batch's clock and
+  base, and the rows it has: the standing rows of step 1, point 4, the rows of the replies, and its
+  own places read now.
 - any other act is decided here: the digest; `decision/refused-early` with the batch's clock; the
   rows of `decision/places-needed`, its own places read from `$$microbatch-facts` now, so that it sees
   what an earlier act of this pass wrote, the others from the replies; `decision/places`;
   `decision/seals` with the lock rows of the replies; the stamp, `base + turn`; `decision/writes`.
-  `batch/routed` gives each row its home. The rows of this task are written at once. The others are
-  parcels.
+  `batch/routed` gives each row its home. For a lock that the act uses it gives two rows: the row
+  with the bytes, whose home is the task of the value's entity, and the home's row without bytes,
+  whose home is the task of the request's uuid. The fact rows of this task's own places are written at
+  once, so that a later act of the pass reads them. Every other row is a parcel, and so is each of the
+  two rows of a lock, also for a value on an own place: a lock row is read in step 2 only, so no act
+  of this pass needs it, and a parcel from a task to itself is no message to another task.
 
 The parcels go through one hash partitioner and are gathered into `$$parcels`.
 
 *Step 4. Write and meet* (on every task).
 
 - Write each row of a parcel: a whole row at a fixed key, no read. A new lock's bytes are made here, at
-  the write, on the lock's home task (C rule 5).
+  the write, on the lock's home task (C rule 5). A task writes every home's row of a lock before any
+  row with a lock's bytes. So on a task that is both the home of a lock and the task of its value,
+  where the two rows have one key, the row with the bytes is written last and stays. The two rows of
+  one lock come from one task, because one act of a batch uses a lock; so no other order is needed.
 - *On a meeting task:* the acts sent here, sorted by turn. `batch/decide-next` decides one act with the
   first part's functions and gives the rows it writes; the pass keeps those rows and lays them over
   the carried rows of each later act. For a fact under a store key that every task holds, the row is
@@ -516,7 +567,10 @@ The parcels go through one hash partitioner and are gathered into `$$parcels`.
   record nor the pass holds anything, and whose layer starts with the other gate's class, the layer's
   class place is read in `$$streaming-facts` on this task: that is X41. The pass gives the task back
   between two acts. Then the rows are sent: a row under `:class` or `:permission` to every task, each
-  other row to its home; and written.
+  other row to its home; and written. The meeting task sends the home's row of each lock before any
+  row with a lock's bytes. Rama keeps the order of one task's events to another task (skill
+  formal-model.md, "Partition ordering"), so on a task that is both, the row with the bytes is
+  written last.
 
 **Who goes to the meeting task.** An act of a batch is decided on its layer's meeting task when:
 
@@ -692,10 +746,16 @@ No new query topology. The first part's three get the branch for the class micro
 empty (P1 "For the second part", 6). Each still begins with a hash partitioner on its first argument,
 which the client evaluates, so the query goes straight to one task and never hops (skill
 query-topologies.md, "Leading partitioner"). For the first two that argument is now the routing id:
-the layer for a streaming act-id, the uuid for a microbatch act-id. `softland.store.batch/routing-id`
-gives it from an act-id; the hand calls it. The head of each query tests what it was given before any
-key is built, as in the first part: a thing that is no act-id, a routing id that is not the one of the
-act-id's class, or an id over the limit costs no read. None aggregates. Where the number of reads
+the layer for a streaming act-id, the uuid for a microbatch act-id. `softland.store.record/routing-id`
+gives it from an act-id; the hand calls it. (It is in `record`, beside the other functions of "what a
+caller gave a read", and not in `batch`, which requires `record`.) The head of each query tests what
+it was given before any key is built, as in the first part: a thing that is no act-id, a routing id
+that is not the one of the act-id's class, or an id over the limit costs no read. The first part's two
+head functions, `answer-read` and `lock-range-read`, are not changed: its pure proof gives them a
+microbatch act-id with its layer and holds the class and the key that come back
+(`pure_proof.clj`, 877–895). Two functions are added beside them, `answer-read-by-routing-id` and
+`lock-range-read-by-routing-id`: each holds the routing id to the act-id, then calls the first part's
+function with the act-id's own layer slot. The queries call the new two. None aggregates. Where the number of reads
 differs between inputs, the later read is behind a test of the earlier one, so no read is issued that
 cannot change the result.
 
@@ -743,7 +803,7 @@ a second way to a row, and it is not held to `:closed-through`.
 | An answer | the task of the act-id's uuid | the hash partitioner on the uuid | Found from the act-id alone, 1 seek, no hop; spread evenly |
 | A fact under a plain key or `:lock-request` | the task of its entity | the hash partitioner on the entity | C item 1; the keys of one entity stay together |
 | A fact under `:class` or `:permission` | every task | `|all` | Small, written rarely, read by every act on its own task (R 7-Oct 5) |
-| A lock | the task of its request's uuid; and, once it seals a value, the task of that value's entity too | the hash partitioner on each | Found from the lock id alone; beside its value (C item 7) |
+| A lock | the task of its request's uuid; once it seals a value, the row with its bytes on the task of that value's entity, and the row without bytes at its home | the hash partitioner on each | Found from the lock id alone; its bytes beside its value, once (C item 7) |
 | The gate's last stamp; a batch's numbers | the gate's task | the hash partitioner on `:microbatch` | One value for the gate; read and written once for a batch |
 | `:closed-through` | every task | `|all` | 8 bytes, once for a batch |
 | An act that meets | its layer's meeting task | the hash partitioner on the layer | The acts of one layer that must be put in one order |
@@ -807,6 +867,17 @@ Flat from 1 task to 128. Each read of the gate goes to the one task that its key
 read goes to every task. The same holds for the door's reads: R1 is 1 or 2 seeks on one task, R2 up to
 3 on one task, R3 1 or 2 on one task, at any number of tasks.
 
+**What the tables leave out, and its bound.** The rows count the reads that one act causes. A batch
+adds reads that are not of an act: 2 on the gate's task (`:last-stamp`, and its own `:closed-through`
+to compare), and 1 of `:turns` on each task whose depot partition gave the batch a thing. That is at
+most 2 for a batch and 1 for a thing, whatever the number of tasks: a batch of one act costs that act
+3 reads more; a batch of 1,000 acts on 128 partitions costs each act 0.13 more. It does not grow with
+the number of tasks beyond one read for each thing. A category that has no row of its own costs what
+a row of the table costs, on single tasks: an act that meets, the reads of its kind; an act refused
+for its standing, 2 or 3; a thing for a streaming layer on this depot (X41), 4 (the two empty places,
+its answer, the other record's class place); a different thing under a used act-id, the reads of its
+kind.
+
 **What does grow with the number of tasks, said plainly.** Three writes go to every task: a give (N
 rows), the making of a layer (2N rows, once), and `:closed-through` (N writes of 8 bytes for each batch
 that has things). And each iteration sends three `|all` events. They are writes and events, not reads,
@@ -832,16 +903,19 @@ The depot's partitioner and the home of a fact are one hash, of an entity. So fo
 entity the depot partition, the entry, every place and the lock beside its value are one task. The
 request for locks is colocated with its locks and its answer by the form that the first part gave it.
 Whether Rama's `hash-by` and its hash partitioner give one task for one value is not said in one
-sentence of the docs; the first part rests on it for the layer and its proof runs. If they differed
-here, nothing would be decided wrongly: an entry, a question and a row each go by the hash
-partitioner. An entry would move one task, at the cost of one message with the act's bytes.
+sentence of the docs; the first part rests on it for the layer, and its proof runs on four tasks with
+layers that are keywords and a layer that is a UUID. If they differed for an entity, no act would be
+decided wrongly: an entry, a question and a row each go by the hash partitioner, and an entry would
+move one task, at the cost of one message with the act's bytes. One read of this part does rest on
+their being the same, as the first part's three reads do: X41's read of `$$streaming-facts` on the
+meeting task, which must be the task where the streaming depot put that layer.
 
 ### The pure namespace `softland.store.batch`
 
 Everything of this gate that is not Rama, as in the first part: the dataflow only reads rows, calls
 pure functions and writes rows. By role:
 
-- what the depot derives from a thing; the routing id of an act-id;
+- what the depot derives from a thing;
 - the turn of a thing, and the stamp of a turn in a batch; the base of a batch;
 - the questions of an act; the replies of a home task to the questions about one key;
 - which acts of a task meet;
@@ -863,10 +937,17 @@ batch.
 
 **The order of the reasons (IS C4)** is the first part's, because the functions are called in the same
 order on one act with all its rows: the declaration, rule 17, standing, the places, the store-key
-step, the seal. One difference is in cost and not in the word: the rows of the places and of the locks
+step, the seal. Rule 17 needs the batch's clock, which is not there in step 1; so an act that step 1
+found without standing is held to rule 17 first in step 3, and gets that word when both faults are
+there. One difference is in cost and not in the word: the rows of the places and of the locks
 are asked for together in step 1, so an act that is then refused for a place has paid for its lock
-rows. An act with no standing is refused before it asks (step 1, point 4), so it cannot make the gate
-read 256 places.
+rows. An act whose refusal for its standing is final in step 1 is refused before it asks, so it
+cannot make the gate read 256 places. That does not hold for an act in a made layer whose `:who`
+holds no permission there: it could still come to stand by a give of the same batch (IS X37), so it
+asks for every row and goes to the meeting task. Such an act costs up to 256 reads of places and 256
+ranges of locks, the limits of rule 20, where the streaming gate reads 4 rows at most for it; and
+every such act of a layer passes its meeting task. The gate cannot do less and still decide the batch
+as one order: the rows must be asked for before the gives of the batch are decided.
 
 ### The forms of Rama that the steps use
 
@@ -892,8 +973,9 @@ Each is in the skill's references or the docs; none was run by this stage.
   Durable, never deleted (IS C2).
 - `$$microbatch-facts` (PState): the current facts, the class, the permissions. For one accepted act:
   at most 256 rows; a row under `:class` or `:permission` N times. Durable.
-- `$$microbatch-locks` (PState): the only home of a lock's bytes. For one act: at most 256 new rows,
-  or 256 rows written again, each of those twice. Durable.
+- `$$microbatch-locks` (PState): the only home of a lock's bytes, which are in one row at any time:
+  at the lock's home until it seals a value, beside the value after. For one act: at most 256 new
+  rows, or 256 locks written again, each as two rows, one with the bytes and one without. Durable.
 - `$$microbatch-task` (PState): the strays; `:closed-through`, written on each task once for a batch;
   `:turns`, written for each thing and read from the batch's own buffer after the first; the gate's
   last stamp on one task. Durable: a stamp must increase through a restart, and a turn must be the
@@ -923,15 +1005,17 @@ Estimates from the sizes of the parts, as in the first part. Nothing was measure
 | `*microbatch-depot` | the thing as sent, as the first part's: about 450 bytes around its facts, plus the sealed bytes | one for each thing sent, for ever |
 | `$$microbatch-answers` | key about 43, row about 70 accepted, about 100 refused | one for each decided thing, for ever |
 | `$$microbatch-facts` | key 25 to 110, row about 112 plus the value's bytes; a row under `:class` or `:permission`, about 150, on each of N tasks | one for each new place; N for each permission |
-| `$$microbatch-locks` | key about 47, row about 50 before it seals, about 93 after; a second row of about 93 on the value's task | one for each lock asked for, and one more for each lock that seals a value |
+| `$$microbatch-locks` | key about 47, row about 50 before it seals; after, about 93 for the row with the bytes on the value's task, and about 58 for the home's row without them | one for each lock asked for, and one more for each lock that seals a value |
 | `$$microbatch-task` | about 60 bytes for a task; about 70 for each different stray | strays only |
 
 **The third limit of F9** (C rule 21): "the locks take no more than 2 times the bytes of the values".
-In a microbatch layer a lock that seals a value has two rows: about 280 bytes as written, about 204
-where RocksDB shares the front of neighbouring keys (*not verified*, as in the first part). "2 times"
-then holds when the sealed values average about 102 to 140 bytes or more, against 55 for a streaming
-layer. The lever is the second row (way 1 under "Where a lock lives" takes it away) and, under it, the
-grain H1.
+In a microbatch layer a lock that seals a value has two rows, and its bytes are in one of them: about
+245 bytes as written (two keys of about 47, a row of about 93 and one of about 58), about 180 where
+RocksDB shares the front of neighbouring keys (*not verified*, as in the first part). "2 times" then
+holds when the sealed values average about 90 to 123 bytes or more, against 55 for a streaming layer.
+One copy of the bytes takes about 35 bytes off the 280 of two whole rows; most of what a lock takes is
+its key and the fact that it names, not its 32 bytes. The lever is the home's row of a used lock (way
+1 under "Where a lock lives" has none, and is not beside the value) and, under it, the grain H1.
 
 ### Memory usage
 
@@ -956,11 +1040,14 @@ with the size of the acts that the base takes. The plan sets nothing; the receip
 
 ### Minimization
 
-- The second row of a lock that seals a value: the price of "co-located"; way 1 is the smaller form.
+- The home's row of a lock that seals a value, about 105 bytes with its key: the price of deciding "a
+  second value under a lock" at one place that is found from the lock's id. The bytes themselves are
+  kept once.
 - The copies of permissions on every task: the price of a read on the act's own task.
 - `:closed-through` on every task for each batch: see "Partitioning efficiency".
 - A lock's bytes cross from the lock's task to the task that opens the value, inside a reply, and for
-  a value on another entity from the deciding task to that entity's task, inside a parcel. They are
+  a value on another entity from the deciding task to that entity's task, inside a parcel. The row
+  that goes back to the lock's home holds no bytes. They are
   in Rama's messages between tasks of the module and in no depot (C rule 5). The other way, sending
   the sealed value to the lock, moves up to 65,536 bytes where this moves 32, and makes a second place
   where a part of an act is judged.
@@ -995,13 +1082,15 @@ with three sealed values on three entities on three tasks, the locks of one requ
 |---|---|---|---|---|
 | 1 | E | the permission of `:who`: 1 | — | a question to U, a question to R |
 | 2 | U, R | the answer's key: 1 (not there). The lock: 1, and 1 iteration | — | a reply from each to E |
-| 3 | E | 0 | the fact; the lock's row beside it | the answer's row to U; the lock's row to R |
-| 4 | U, R | 0 | the answer; the lock's row at its home | — |
+| 3 | E | 0 | the fact | the answer's row to U; the home's row of the lock, without bytes, to R. (The lock's row with its bytes is a parcel from E to itself: no message) |
+| 4 | E, U, R | 0 | on E the lock's row with its bytes, beside the fact; on U the answer; on R the home's row of the lock | — |
 
 **3 disk reads, 4 row writes, 6 messages, 3 hops on the longest path** (E to U, U to E, E to U). If
 the value replaces a fact: 4 reads. The streaming gate's count for the same act is 4 reads, 4 writes
 and no message: this gate reads no last stamp for an act, writes one lock row more, and pays the
-messages because the answer and the lock are not where the fact is.
+messages because the answer and the lock are not where the fact is. Not in the 4: the write of the
+task's count of turns, once for each thing, over one key (step 1, point 1), where the streaming gate
+writes its last stamp.
 
 **One accepted act with three sealed values on three entities on three tasks.**
 
@@ -1009,8 +1098,8 @@ messages because the answer and the lock are not where the fact is.
 |---|---|---|---|---|
 | 1 | E | the permission: 1 | — | questions to U, to R, and to the tasks of the second and the third entity: 4 |
 | 2 | U, R, the two tasks | the answer's key: 1. The locks: 1, and 3 iterations. The two places: 0, when nothing is replaced | — | 4 replies to E |
-| 3 | E | 0 | the first fact and its lock's row | each other fact with its lock's row, to its entity's task: 2. The three lock rows to R: 1. The answer to U: 1 |
-| 4 | the two tasks, R, U | 0 | 2 and 2; 3; 1 | — |
+| 3 | E | 0 | the first fact | each other fact with its lock's row, which holds the bytes, to its entity's task: 2. The three home rows of the locks, without bytes, to R: 1. The answer to U: 1 |
+| 4 | E, the two tasks, R, U | 0 | 1 (the first fact's lock, with its bytes); 2 and 2; 3; 1 | — |
 
 **3 disk reads and 3 iterations, 10 row writes, 12 messages, 3 hops on the longest path.** With each
 fact replacing one: 6 reads. If the act meets another: one message more, the act to L, and the rows go
@@ -1031,7 +1120,7 @@ A thing that the declaration refuses: 1 read, 1 write. An act refused for its st
 |---|---|---|---|
 | The class | A row on every task | 1 read on its own task, and only when the permission's place is empty | `class-of-layer`, on the layer's task, which holds a copy like every task |
 | The permissions | A row for each, on every task | 1 read on its own task, for every act | no read of this build |
-| The locks | On the task of the request's uuid; a lock that seals a value also on the value's task | A question in step 1 and a reply in step 2, which brings the rows with the bytes. 2 hops, 1 read and one iteration for each lock | `locks-of-request`, routed by the request's uuid |
+| The locks | On the task of the request's uuid; the bytes of a lock that seals a value on the value's task, and no longer at its home | A question in step 1 and a reply in step 2, which brings the rows, with the bytes of each lock that is not used. 2 hops, 1 read and one iteration for each lock | `locks-of-request`, routed by the request's uuid; it gives a used lock without its bytes |
 | The answers | On the task of the act-id's uuid | A question in step 1 and a reply in step 2. 2 hops, 1 read | `answer-by-act-id`, routed by the uuid |
 
 "A gate reads on its own task" (R 7-Oct 5) holds for the class and the permissions, which are what
@@ -1057,11 +1146,14 @@ value is known (C item 7); a fact's on another entity, because a fact lives with
 5. **Checked.** The act's question to the task of `u` asks for the range of its locks. The reply
    brings the rows. The task that decides the act opens each sealed value once with
    `decision/seals` and keeps nothing of the plain bytes (C rule 16). The words are the first part's.
-6. **Sitting beside its value.** On accept the lock's row, now saying which fact it seals, is written
-   on the task of `u` and on the task of the value's entity, beside the fact's row, which names the
-   lock.
+6. **Sitting beside its value.** On accept the lock's row, with its bytes and now saying which fact it
+   seals, is written on the task of the value's entity, beside the fact's row, which names the lock.
+   The row on the task of `u` is written again without the bytes: it keeps the way and the fact. From
+   here on the bytes are in one row. When the two tasks are one, the one row holds the bytes and the
+   fact (step 4's order of writes).
 7. **Later.** A fact that replaces the value writes over the value's row; both rows of the lock stay
-   (IS E4). A forget, not built, deletes both.
+   (IS E4). A forget, not built, destroys one row, the one beside the value; the home's row holds
+   nothing secret and can stay, so that the lock stays used.
 
 **Two acts of one batch under one lock.** The lock's home says `:shared`; both acts go to the meeting
 task; the earlier turn seals it and the later is refused `:lock-already-seals-a-value`. If the earlier
@@ -1112,14 +1204,22 @@ microbatch act-id on the uuid's task, where a reader with that act-id looks (IS 
 | `streaming_gate.clj` | 177 | One call becomes three lines: the read of the class place in `$$microbatch-facts`, the read of `:closed-through`, the call |
 | `streaming_gate.clj` | 4–92 | The namespace docstring says which two PStates the gate borrows to read |
 | `door_reads.clj` | 59–71, 73–88, 90–98 | Each query: the first argument's name and test; the branch for the class microbatch with its reads; for the class, the record chosen by the starting class. The docstring, 4–49 |
-| `record.clj` | 217–245 | `answer-read` and `lock-range-read` take the routing id and hold it to the act-id by its class. One function added, `closed?`. The docstring's list |
-| `record_pstates.clj` | none changed | One function added, `microbatch-task`, and its paragraph in the docstring |
+| `record.clj` | no function changed | `answer-read` and `lock-range-read` (217–245) stay as built; the first part's pure proof holds what they give for a microbatch act-id (`pure_proof.clj`, 877–895). Added: `routing-id`, `answer-read-by-routing-id`, `lock-range-read-by-routing-id`, `closed?`, `lock-row-without-bytes`. The namespace docstring, 1–62: where a row of a microbatch layer lives, `:bytes` absent in the home's row of a used lock, the list of functions |
+| `record_pstates.clj` | no function changed | One function added, `microbatch-task`, and its paragraph in the docstring. The docstring's paragraph "The rows of one layer are on one task all the same … each read routes by the layer" (32–35) is true of a streaming layer only and is written again for both |
+| `declaration.clj` | no code changed | The docstring of `stray-reason` (417–419) says that a thing a client appended "is on the task of that layer, which is where a read by its act-id looks". True of the streaming depot only; one sentence is written again |
 | `module.clj` | 46–53 | The second depot and the call that adds the microbatch gate. The docstring, 4–45 |
 
-Not changed: `act.clj`, `text.clj`, `digest.clj`, `declaration.clj`, `stamp.clj`, `seal.clj`,
-`first_act.clj`, `decision.clj`. In the streaming gate nothing changes but the four places above: its
-PStates, its source, its rows, its words and the walk of one event are as built. The folder's README
-and the two proofs are extended.
+Not changed: `act.clj`, `text.clj`, `digest.clj`, `stamp.clj`, `seal.clj`, `first_act.clj`,
+`decision.clj`, and the code of `declaration.clj`. In the streaming gate nothing changes but the four
+places above: its PStates, its source, its rows, its words and the walk of one event are as built. The
+folder's README and the two proofs are extended.
+
+**The first part's checks.** Each of its 117 checks of the module and its 343 pure checks passes with
+no change of what it holds. Two rest on the order of the proof and not only on the code: "a making act
+of the base at the streaming gate is refused" holds `:layer-not-made`, which is X31's word *before*
+the base is made, so the proof makes the base after that check has run; and "an act-id of the class
+microbatch has no answer in this build" still gets nil, now because `:alice` is not the routing id of
+a microbatch act-id, and its label is written again.
 
 ## The builder's rules, one line each
 
@@ -1191,9 +1291,15 @@ decision 10 of 6 October and rule 6. Nothing is built for either.
 
 ### C rule 19: what else a rebuild of this gate's record would meet
 
-- *Locks:* kept as they are, both rows of a lock that seals a value; never made again. The second row
-  cannot be placed from the row alone (it does not hold the entity); it is placed from the fact's
-  row, which names the lock.
+- *Locks:* kept as they are, both rows of a lock that seals a value; never made again. The row with
+  the bytes is beside its value and cannot be placed from the row alone: its key holds the request's
+  uuid, and no field holds the value's entity. It is placed from the fact's row, which names the lock.
+  For a value that is no longer current no fact's row names it; then the entity is found from the act
+  that the row names (`:seals-act`, `:seals-index`), in the acts depot. A rebuild or a move of rows
+  that loses this row loses the value, because the home's row holds no bytes.
+- *The two words of rule 7:* `:layer-not-made` or `:layer-belongs-to-the-other-gate`, in either gate,
+  follows from what the other gate had made visible at that moment. No depot holds an order between
+  the two depots, so a rebuild can give the other word. Both are refusals.
 - *Stamps:* new, unless the cuts and the clocks are kept (above).
 - *Rule 17:* as the first part found, a refusal for a stamp too far ahead can come out otherwise at a
   later clock.
@@ -1215,7 +1321,8 @@ decision 10 of 6 October and rule 6. Nothing is built for either.
    in streaming layers. **The plan aims at an answer that is readable within two iterations of the
    append**: its own batch and the short one that closes it. *Not measured.*
 3. *The locks take no more than 2 times the bytes of the values.* Not met in a microbatch layer for
-   values under about 110 bytes, because of the lock's second row. Under "Resource usage analysis".
+   values under about 90 to 123 bytes, because a used lock has a row at its home beside the row with
+   its bytes. Under "Resource usage analysis".
 
 ### IS O8: how many reads one microbatch act costs the door
 
@@ -1304,6 +1411,10 @@ of the first part.
 | parcel | Rows that one task sends to another to write, or an act sent to the meeting task |
 | closed | A batch is closed when every task has made it visible and the next batch has begun |
 | routing id | The first argument of `answer-by-act-id` and `locks-of-request`: the layer of a streaming act-id, the uuid of a microbatch act-id |
+| the home's row of a lock | The row of a lock on the task of its request's uuid. Once the lock seals a value it holds the way and the fact, and no bytes |
+
+**Functions added to `softland.store.record`**, each named for what it gives: `routing-id`,
+`answer-read-by-routing-id`, `lock-range-read-by-routing-id`, `closed?`, `lock-row-without-bytes`.
 
 ## What the proof adds for this part
 
@@ -1332,10 +1443,14 @@ go on (skill testing.md). The design does not rest on that tool.
   other refused `:replaced-fact-not-current`; the place holds the winner's fact; the winner's stamp is
   the lower. The same two, given to the pure functions in both orders of arrival: the same winner.
 - *An act that touches several tasks, accepted whole:* three sealed values on three entities whose
-  rows are on more than one task; each fact's row is there, each lock's row is beside its value and
-  at its home, and all hold the answer's stamp. *One refused whole:* the same shape with the third
-  fact stale; the answer is the refusal, none of the three places changed, and the three locks are
-  still free.
+  rows are on more than one task; each fact's row is there with the answer's stamp, each lock's row
+  with its bytes is beside its value, and each lock's row at its home names the fact and holds no
+  bytes. *One refused whole:* the same shape with the third fact stale; the answer is the refusal,
+  none of the three places changed, and the three locks are still free, each with its bytes at its
+  home.
+- *One copy of a lock's bytes, also when the two tasks are one:* a value on the entity that is its
+  lock's request's uuid, so that the value's task is the lock's home. After the accept the one row
+  under the lock's key holds the bytes and the fact, and the bytes open the value.
 - *A person acting in the base under a permission that the system gave:* the system gives
   `[person :base :base [:system :base :base]]`; the person's act under it is accepted; the
   permission's row is on more than one task.
@@ -1349,8 +1464,12 @@ stamp; a different thing under a used act-id (the digests differ); one act-id tw
 two tasks (one answer); a stray on the microbatch depot, kept once and given no answer; an act into
 the base before it is made; two making acts of the base in one batch (one accepted); a give and an act
 under it in one batch, in both orders on one entity; the path of a lock in the base: asked for, read
-with one call, used, its two rows, a second value under it refused, two acts of one batch under one
-lock; an answer that is given is of a closed batch (its stamp is not above `:closed-through` on its
+with one call, used, its row with the bytes beside the value and its home's row without them,
+`locks-of-request` then giving it with no bytes, a second value under it refused, two acts of one
+batch under one lock; an act that carries a stamp too far ahead under a permission that does not
+stand, refused with rule 17's word as in the streaming gate; the answer of an act that is alone in
+its batch, with nothing sent after it, readable within the hand's time limit (the closing of a batch
+by the iteration after it); an answer that is given is of a closed batch (its stamp is not above `:closed-through` on its
 task); after the module is started again, the base's answers, class, permissions and locks are as they
 were. In `pure_proof.clj`: each function of `softland.store.batch`, with one case for each rule of
 "who goes to the meeting task", and the decisions of a small batch compared with deciding its acts one
@@ -1367,9 +1486,10 @@ back; the three targets of speed and size.
 1. An answer lives on the task of its act-id's uuid.
 2. The class and the permissions of a microbatch layer are on every task (the README's reason for F5 A,
    read onto them).
-3. A lock lives on the task of its request's uuid, and a lock that seals a value has the same row a
-   second time beside the value. **Sid should know**: two rows for a lock in a microbatch layer. The
-   other answer leaves one row out of the accept.
+3. A lock lives on the task of its request's uuid. The build session's ruling, not the plan's choice:
+   when a lock comes to seal a value its bytes go to a row beside the value, and the row at its home
+   keeps the fact and no bytes. **Sid should know**: a used lock of a microbatch layer has two rows
+   and one copy of its bytes, and `locks-of-request` gives a used lock without its bytes.
 4. The one order: the position in the depot partition's part of the batch, then the partition's
    number. Between two partitions it is a fixed rule with no other meaning.
 5. An act is decided on the task of its first entity. Acts that meet are decided on their layer's
@@ -1412,9 +1532,17 @@ back; the three targets of speed and size.
    a batch, and what the streaming gate said of a layer, kept for the batch by the streaming gate,
    since Rama sets this gate's own PStates back. That is one internal depot, a second source and one
    PState in the streaming gate. Not built; the build session's to rule.
-4. *F9's third limit* in a microbatch layer, for values under about 110 bytes: the lock's second row.
+4. *F9's third limit* in a microbatch layer, for values under about 90 to 123 bytes: a used lock has
+   a row at its home beside the row with its bytes.
 5. *"A repeat costs less than a decision"* (IS O7): in writes and computing, yes; its reads are those
    of its first run.
+5a. *"It gives the bytes in each state of the lock"* (IS O9, derived; IS E4, "lock: the same bytes").
+   For a microbatch layer `locks-of-request` gives the bytes of a lock that seals nothing yet. The
+   bytes of a lock that seals a value are in the record, the same bytes, in the row beside the value;
+   this read does not give them, by the ruling "one copy of a lock's bytes". The implied spec says who
+   needs them: "the read side, not built". For a streaming layer the read is as built.
+5b. *An act whose `:who` holds no permission in a made layer* costs this gate up to 512 reads, where
+   the streaming gate reads 4 rows at most (under "The order of the reasons").
 6. *C rule 9:* found, and the answer is no. Nothing is built for it.
 7. *"Either gate can tell which gate a layer belongs to"* (C rule 7) is met by a read that is made
    only for a layer that starts with the other gate's class. That is all of them while no act changes
@@ -1428,16 +1556,37 @@ back; the three targets of speed and size.
    batch with things starts without Rama's sleep. The closing of the last batch before a quiet time
    rests on both. If either does not hold: the gate appends one mark for each batch with things to an
    internal depot that it reads itself, so that the next iteration has a record.
+   What the check of this plan found: the skill says that a batch block which reads nothing of the
+   depot "runs every microbatch cycle", and without a tick depot "when new events arrive … or the sleep
+   interval for microbatching has passed (one minute by default)" (skill microbatch.md, "Running code
+   disconnected from microbatch data"). So an empty iteration does run step 2, and the worst case, if
+   the next iteration does not start at once, is an answer that is readable one sleep later, one
+   minute by default, and not an answer that is never readable. The docs' sentence for "at once" is
+   12:159, "If a microbatch does not process any records, the runner will sleep"; the skill's own
+   sentence, "when a microbatch topology's subscribed depots have no new data, the next microbatch is
+   delayed", can be read the other way. The proof's line "the answer of an act that is alone in its
+   batch, with nothing sent after it" settles it: the base's making is such an act.
 2. The things that a task emits from a batch run one after the other, each as far as the first
    partitioner, in the depot's order. The turn rests on it.
 3. A PState read and write in the first part of a batch block that ends in an aggregation; an
    aggregation with a combiner of this design's own into a temporary PState; a read of that PState by
    key.
 4. `hash-by` on the depot and the hash partitioner in a topology give one task for one keyword and
-   for one UUID. If not, entries move one task; nothing is decided wrongly.
+   for one UUID. The first part's proof shows it for a layer. If it did not hold for an entity, entries
+   would move one task and no act would be decided wrongly; X41's read of the other record rests on it
+   for a layer.
 5. The microbatch id has the same text on each attempt of one batch.
-6. The streaming gate reads a PState that the microbatch gate owns, on its own task.
+6. The streaming gate reads a PState that the microbatch gate owns, on its own task, and the
+   microbatch gate reads one that the streaming gate owns. Each gate's code then names a PState of the
+   other, so one of the two is named before the module has declared it, whichever gate is added
+   first. If Rama refuses that, both gates' PStates are declared before either gate's dataflow.
 7. Rama's default for the things of one partition in one batch, which this paper takes as 1,000.
+8. A row of a fixed-keys schema is written whole without one of its fields, here a lock's row without
+   `:bytes`, and reads back with that field absent. The first part's rows do this for `:refused` and
+   `:value`.
+9. Two rows that one task sends to another, each through a partitioner, are written there in the
+   order sent (skill formal-model.md, "Partition ordering"). Step 4's rule for a task that is both a
+   lock's home and its value's task rests on it for the rows of the meeting task.
 
 ## Design difficulty log
 <!-- An honest, first-person record of where this design was hard to settle. -->
@@ -1467,7 +1616,9 @@ back; the three targets of speed and size.
 4. **The lock beside its value.** Three ways, none clean. One row and not beside the value; two rows;
    or a row that moves and a read that follows it. I chose two rows because the contract says
    "co-located" and the read of a lock stays as built. It doubles the lock bytes in the base, against
-   a named target. I do not know which Sid would take.
+   a named target. I do not know which Sid would take. (After this log was written the build session
+   ruled the third: one copy of the bytes, beside the value. The check of the plan applied it; "Where
+   a lock lives" is as ruled.)
 5. **The stamp.** One stamp for an act that writes on three tasks, later than everything on each of
    them, with no gathering of last stamps. One last stamp for the whole gate did it. The carried
    stamps were harder: the base must be later than every carried stamp of the batch, and a forged
