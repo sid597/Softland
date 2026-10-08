@@ -1,7 +1,7 @@
 ;; Before changing this file, read the plan of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
 
-(ns softland.store.microbatch-gate
+(ns softland.store.module.microbatch-gate
   "The microbatch gate: the microbatch topology that decides the things of
   the microbatch depot, and the four PStates of its record. It requires
   Rama.
@@ -15,8 +15,8 @@
   What it changes. It owns four PStates, the record of the microbatch
   layers, and it alone writes them: `$$microbatch-answers`,
   `$$microbatch-facts`, `$$microbatch-locks` and `$$microbatch-task`. Their
-  schemas are `softland.store.record-pstates`'s and their rows
-  `softland.store.record`'s. They are durable state of the cluster. It
+  schemas are `softland.store.record.tables`'s and their rows
+  `softland.store.record.rows`'s. They are durable state of the cluster. It
   borrows one PState of the streaming gate to read, `$$streaming-facts`, on
   the meeting task of a layer that starts streaming. The gate keeps nothing
   in the memory of a process: what one step hands to the next is in three
@@ -31,8 +31,8 @@
   `:who` with one read on the task where it arrives.
 
   Approach. The dataflow only reads rows, calls pure functions and writes
-  rows. The pure code of a batch is `softland.store.batch`'s; the checks are
-  `softland.store.declaration`'s and `softland.store.decision`'s, the same
+  rows. The pure code of a batch is `softland.store.gate.batch`'s; the checks are
+  `softland.store.door.declaration`'s and `softland.store.gate.decision`'s, the same
   functions that the streaming gate calls. None of them throws, so no thing
   can stop the gate: a refusal is data.
 
@@ -85,7 +85,7 @@
   and it can run a batch again after one task has shown its part; a second
   attempt reads the clock again and makes other lock bytes. So each task
   holds `:closed-through`, and a read gives a row only when the row's stamp
-  is not later than it (`softland.store.record/closed?`). Step 2 of each run
+  is not later than it (`softland.store.record.rows/closed?`). Step 2 of each run
   writes `:closed-through` with the gate's last stamp as it was before the
   run. That run began only after every task had committed the batch before,
   so a closed batch is visible on every task and cannot run again. The run
@@ -118,18 +118,18 @@
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :refer :all]
-            [softland.store.batch :as batch]
-            [softland.store.decision :as decision]
-            [softland.store.declaration :as declaration]
-            [softland.store.digest :as digest]
-            [softland.store.record :as record]
-            [softland.store.record-pstates :as record-pstates]
-            [softland.store.seal :as seal])
+            [softland.store.gate.batch :as batch]
+            [softland.store.gate.decision :as decision]
+            [softland.store.door.declaration :as declaration]
+            [softland.store.door.digest :as digest]
+            [softland.store.record.rows :as record]
+            [softland.store.record.tables :as record-pstates]
+            [softland.store.door.seal :as seal])
   (:import [com.rpl.rama ModuleInstanceInfo]))
 
 (def +gathered
   "The aggregator of the gate's three temporary PStates: Rama's combiner
-  over `softland.store.batch/gather`. A combiner, so that each task puts its
+  over `softland.store.gate.batch/gather`. A combiner, so that each task puts its
   own values together before it sends them."
   (combiner batch/gather :init-fn (fn [] nil)))
 
@@ -199,7 +199,7 @@
 (deframafn write-row
   "Writes one row of a decision on this task: a whole row at a fixed key, no
   read. Takes the answers, the facts and the locks PState of the gate, and
-  [which key row] as `softland.store.batch` gives it. For :new-lock it makes
+  [which key row] as `softland.store.gate.batch` gives it. For :new-lock it makes
   the lock here, at the write."
   [$$answers $$facts $$locks *which *key *row]
   (<<cond

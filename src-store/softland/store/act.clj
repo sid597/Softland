@@ -38,10 +38,10 @@
   Nothing here reads a clock, takes a random id, seals or opens a value,
   appends, or reads a record.
 
-  Callers. The proof of this namespace. `softland.store.declaration`: the
+  Callers. The proof of this namespace. `softland.store.door.declaration`: the
   door's declaration is a map of shapes in the language of `shapes`, with
   the entries of `shapes` in it, and `as-shape` gives it the engine that
-  reads one; it reads `rules` too. `softland.store.text` asks
+  reads one; it reads `rules` too. `softland.store.door.text` asks
   `readable-keyword?`. The proof's hand, which plays the door, asks
   `normal-value`.
 

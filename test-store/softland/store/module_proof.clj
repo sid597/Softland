@@ -57,14 +57,14 @@
             [com.rpl.rama.path :as path]
             [com.rpl.rama.test :as rtest]
             [softland.store.act :as act]
-            [softland.store.declaration :as declaration]
-            [softland.store.digest :as digest]
-            [softland.store.first-act :as first-act]
+            [softland.store.door.declaration :as declaration]
+            [softland.store.door.digest :as digest]
+            [softland.store.gate.first-act :as first-act]
             [softland.store.module :as module]
-            [softland.store.record :as record]
-            [softland.store.seal :as seal]
-            [softland.store.stamp :as stamp]
-            [softland.store.text :as text])
+            [softland.store.record.rows :as record]
+            [softland.store.door.seal :as seal]
+            [softland.store.gate.stamp :as stamp]
+            [softland.store.door.text :as text])
   (:import [java.util UUID]))
 
 (defonce ^:private shown-lines (atom []))

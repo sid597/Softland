@@ -117,7 +117,7 @@ content. What it checks, group by group:
     each message gathered on the task of its route. It runs each batch in 200
     orders of arrival, drawn with a fixed seed, and compares the record after
     each with the record of deciding the same things one at a time in the order
-    of their turns, by the checks of `softland.store.decision` in their order. One
+    of their turns, by the checks of `softland.store.gate.decision` in their order. One
     batch is into a base that is made: two acts that replace one fact from two
     tasks, two that write one place, a give and an act under it in both orders,
     two acts under one lock, a request and a use of its lock, a repeat, one

@@ -17,13 +17,13 @@
   it does so on purpose: a change of the declaration is then made in two
   places. A run of bytes is compared by its content.
 
-  The batch. Beside the cases of each function of `softland.store.batch`,
+  The batch. Beside the cases of each function of `softland.store.gate.batch`,
   the proof runs whole batches in memory: the gate's four steps over the
   pure functions, with each task's rows in its own map and each message
   gathered on the task of its route, in many orders of arrival drawn with a
   fixed seed. It compares the record after each run with the record of
   deciding the same things one at a time in the order of their turns, with
-  the checks of `softland.store.decision` in their order.
+  the checks of `softland.store.gate.decision` in their order.
 
   State. The proof owns one atom: the lines that it showed, for the recap.
   It takes random bytes from the JVM for locks and seals, and reads the
@@ -36,15 +36,15 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
             [softland.store.act :as act]
-            [softland.store.batch :as batch]
-            [softland.store.decision :as decision]
-            [softland.store.declaration :as declaration]
-            [softland.store.digest :as digest]
-            [softland.store.first-act :as first-act]
-            [softland.store.record :as record]
-            [softland.store.seal :as seal]
-            [softland.store.stamp :as stamp]
-            [softland.store.text :as text])
+            [softland.store.gate.batch :as batch]
+            [softland.store.gate.decision :as decision]
+            [softland.store.door.declaration :as declaration]
+            [softland.store.door.digest :as digest]
+            [softland.store.gate.first-act :as first-act]
+            [softland.store.record.rows :as record]
+            [softland.store.door.seal :as seal]
+            [softland.store.gate.stamp :as stamp]
+            [softland.store.door.text :as text])
   (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest]
            [java.util UUID]))
@@ -1693,7 +1693,7 @@
 
 (defn- run-batch
   "Runs one batch as the microbatch gate does, in memory, with the pure
-  functions of `softland.store.batch` and none of Rama: the four steps, each
+  functions of `softland.store.gate.batch` and none of Rama: the four steps, each
   task's rows in its own map, each message gathered on the task of its
   route. `shuffled` puts in another order what Rama delivers in no order:
   the messages of a step, and the tasks. Takes the record, {:answers :facts
@@ -1764,7 +1764,7 @@
 
 (defn- one-at-a-time
   "Decides the things of a batch one at a time in the order of their turns,
-  against one flat record, with the checks of `softland.store.decision` in
+  against one flat record, with the checks of `softland.store.gate.decision` in
   their order and the class :microbatch: what the decisions of a batch must be.
   Takes the flat record, {:answers :facts :locks}, each a map from key to
   row; the other gate's facts; the things in the depot's order; the clock;

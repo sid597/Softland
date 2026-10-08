@@ -1,4 +1,4 @@
-(ns softland.store.seal
+(ns softland.store.door.seal
   "Locks and the seal: making a lock's bytes, sealing a value to its place,
   and opening it. Pure code beside the JVM's random source and its cipher.
   It needs no cluster.
@@ -53,7 +53,7 @@
   what a lock opens. Wrapping a lock under the locks of the people a value
   is about, and the grains of one lock for an act or for a session and
   layer, are not built."
-  (:require [softland.store.text :as text])
+  (:require [softland.store.door.text :as text])
   (:import [java.security SecureRandom]
            [javax.crypto Cipher]
            [javax.crypto.spec GCMParameterSpec SecretKeySpec]))

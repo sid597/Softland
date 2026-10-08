@@ -1,4 +1,4 @@
-(ns softland.store.record-pstates
+(ns softland.store.record.tables
   "The record as PStates: the schemas, written once. It requires Rama, and
   it declares nothing: a gate declares four PStates with these schemas under
   its own names, because in Rama only the topology that owns a PState can
@@ -8,7 +8,7 @@
   `microbatch-task` for the microbatch gate.
 
   What each schema holds, field by field, is in the namespace docstring of
-  `softland.store.record`, which makes and reads the rows. Here is why each
+  `softland.store.record.rows`, which makes and reads the rows. Here is why each
   PState has its shape.
 
     answers  {String -> a row}. A point lookup by the key of an act-id, once
@@ -51,15 +51,15 @@
   the entity of a fact, the request's uuid of a lock; a row under `:class`
   or `:permission` on every task; and the whole row of a lock that seals a
   value on the task of that value's entity. A read of a microbatch layer
-  routes by that part. `softland.store.record` says it row by row.
+  routes by that part. `softland.store.record.rows` says it row by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
   does not have is absent. A row of another class throws at the write, so
-  the rows are made only by `softland.store.record`.
+  the rows are made only by `softland.store.record.rows`.
 
   The strays. The outer map, a reason word to a set, is not subindexed: its
-  keys are the words of `softland.store.declaration/stray-reasons`, a closed
+  keys are the words of `softland.store.door.declaration/stray-reasons`, a closed
   set, and nothing else writes it. Each inner set is subindexed, with size
   tracking on: it grows by one for each different stray, and its size is the
   count of the strays under that word. A set, not a counter: adding to a set

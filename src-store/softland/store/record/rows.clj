@@ -1,8 +1,8 @@
-(ns softland.store.record
+(ns softland.store.record.rows
   "The record's rows: the text of each key, the making of each row, and the
   reading of each row. Pure code. It needs no cluster, and it holds no
   record: the record is in a gate's PStates
-  (`softland.store.record-pstates`), and a gate reads and writes it.
+  (`softland.store.record.tables`), and a gate reads and writes it.
 
   The record has three kinds of row, each under a string key that begins
   with its layer, and one value for each task.
@@ -78,12 +78,12 @@
 
   State and effects. None. Each function is pure.
 
-  Callers. `softland.store.decision`, `softland.store.batch`, the two gates,
-  and `softland.store.door-reads`. The proof's hand calls `routing-id` and
+  Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the two gates,
+  and `softland.store.module.door-reads`. The proof's hand calls `routing-id` and
   the `-read` functions to test what it passes before it calls a query."
   (:require [clojure.edn :as edn]
-            [softland.store.declaration :as declaration]
-            [softland.store.text :as text])
+            [softland.store.door.declaration :as declaration]
+            [softland.store.door.text :as text])
   (:import [java.nio.charset StandardCharsets]
            [java.util Arrays]))
 
@@ -226,7 +226,7 @@
   (some? (:seals-act row)))
 
 (defn lock-of
-  "Takes a lock's row. Gives the lock as `softland.store.seal` takes one, and
+  "Takes a lock's row. Gives the lock as `softland.store.door.seal` takes one, and
   as a caller of the read of locks gets one: {:bytes :way}."
   [row]
   {:bytes (:bytes row) :way (:way row)})

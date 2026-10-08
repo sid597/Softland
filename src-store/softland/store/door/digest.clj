@@ -1,4 +1,4 @@
-(ns softland.store.digest
+(ns softland.store.door.digest
   "The digest of a thing: SHA-256 over its one text. Pure code. It needs no
   cluster.
 
@@ -16,7 +16,7 @@
     is-digest-of?  a digest as hex text, and anything -> true or false
 
   What the digest is taken of. The thing as it arrived, with its sealed
-  bytes. The one text of the thing (`softland.store.text`) is fed to the
+  bytes. The one text of the thing (`softland.store.door.text`) is fed to the
   hash piece by piece as the thing is walked, so no whole text of a large
   thing is built. One difference from the text as a string, for speed: a
   run of bytes is fed as `#bytes`, its count, and the bytes themselves, not
@@ -28,7 +28,7 @@
   width of a standard hash needs no argument about what short enough means.
 
   State and effects. None. Each function is pure, and none throws."
-  (:require [softland.store.text :as text])
+  (:require [softland.store.door.text :as text])
   (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest]))
 
@@ -40,7 +40,7 @@
 (defn digest
   "Takes anything. Gives its digest: 32 bytes, the same in every process for
   the same thing. It never throws: a thing that throws while it is read has
-  the digest of the text #unreadable, as `softland.store.text/text` gives
+  the digest of the text #unreadable, as `softland.store.door.text/text` gives
   that thing. Cost: one walk of the thing."
   [x]
   (let [md (sha-256)]

@@ -1,4 +1,4 @@
-(ns softland.store.decision
+(ns softland.store.gate.decision
   "The checks of the decision of one act, after the door's declaration, as
   functions of an act and of rows; and the rows that a decision writes, as
   data. Pure code. It needs no cluster. None of these functions reads a
@@ -8,8 +8,8 @@
   proven without a cluster.
 
   An act here is an act in its one form on arrival
-  (`softland.store.declaration/check`). A row is a row of the record
-  (`softland.store.record`), or nil for a key that holds none. Each check
+  (`softland.store.door.declaration/check`). A row is a row of the record
+  (`softland.store.record.rows`), or nil for a key that holds none. Each check
   takes the class of the gate that owns the record, :streaming or
   :microbatch.
 
@@ -63,17 +63,17 @@
   stray: the gate makes them before any of these. Whether the other gate's
   record holds a layer: the gate reads it and gives the answer to
   `standing`."
-  (:require [softland.store.declaration :as declaration]
-            [softland.store.first-act :as first-act]
-            [softland.store.record :as record]
-            [softland.store.seal :as seal]
-            [softland.store.stamp :as stamp]))
+  (:require [softland.store.door.declaration :as declaration]
+            [softland.store.gate.first-act :as first-act]
+            [softland.store.record.rows :as record]
+            [softland.store.door.seal :as seal]
+            [softland.store.gate.stamp :as stamp]))
 
 ;; -------------------------------------------------------------------- early
 
 (defn refused-early
   "The checks that read nothing of the record. Takes the gate's clock now, in
-  milliseconds; and what `softland.store.declaration/check` gave for the
+  milliseconds; and what `softland.store.door.declaration/check` gave for the
   thing, as its two parts: the act, or nil, and the declaration's reason
   word, or nil. Gives the declaration's word when there is one; or
   :carried-stamp-too-far-ahead when a stamp that the act carries is more

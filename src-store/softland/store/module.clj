@@ -25,9 +25,9 @@
   The name of the module, for a client, is `(get-module-name Store)`.
 
   State. The module owns the two depots. Each gate owns the PStates of its
-  record: the streaming gate (`softland.store.streaming-gate`) those of the
-  streaming layers, the microbatch gate (`softland.store.microbatch-gate`)
-  those of the microbatch layers. The queries (`softland.store.door-reads`)
+  record: the streaming gate (`softland.store.module.streaming-gate`) those of the
+  streaming layers, the microbatch gate (`softland.store.module.microbatch-gate`)
+  those of the microbatch layers. The queries (`softland.store.module.door-reads`)
   own nothing.
 
   Each depot holds every thing sent for a layer of its class, as it was
@@ -46,7 +46,7 @@
   does not throw.
 
   The microbatch depot partitions by the hash of the entity of the thing's
-  first fact (`softland.store.batch/first-entity`). A microbatch layer's
+  first fact (`softland.store.gate.batch/first-entity`). A microbatch layer's
   facts are on the tasks of their entities, so an act on one entity arrives
   on the task where its places are, and a request for locks arrives where
   its locks and its answer will be. The acts with one first entity are one
@@ -64,10 +64,10 @@
   depot says that the depot holds the thing and nothing about the decision:
   the sender reads the answer by act-id until one is there."
   (:require [com.rpl.rama :refer :all]
-            [softland.store.batch :as batch]
-            [softland.store.door-reads :as door-reads]
-            [softland.store.microbatch-gate :as microbatch-gate]
-            [softland.store.streaming-gate :as streaming-gate]))
+            [softland.store.gate.batch :as batch]
+            [softland.store.module.door-reads :as door-reads]
+            [softland.store.module.microbatch-gate :as microbatch-gate]
+            [softland.store.module.streaming-gate :as streaming-gate]))
 
 (defmodule Store [setup topologies]
   (declare-depot setup *streaming-depot (hash-by :layer))

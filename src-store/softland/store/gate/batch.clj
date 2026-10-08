@@ -1,13 +1,13 @@
-(ns softland.store.batch
+(ns softland.store.gate.batch
   "The pure code of one batch of the microbatch gate: the turn of a thing,
   what an act asks of other tasks, what a task replies, which acts meet, the
   decision of an act, and the home of each row that a decision writes. Pure
   code. It needs no cluster and loads with Clojure alone.
 
-  The gate (`softland.store.microbatch-gate`) only reads rows, calls these
+  The gate (`softland.store.module.microbatch-gate`) only reads rows, calls these
   functions and writes rows. None of them reads a PState, a clock or a
   random source, and none throws on what arrived. They add no check: each
-  check is `softland.store.decision`'s, called with the class :microbatch
+  check is `softland.store.gate.decision`'s, called with the class :microbatch
   on one act with all its rows. So the same checks serve both gates, and
   given the things of a batch in any order of arrival these functions give
   the same decisions.
@@ -62,13 +62,13 @@
 
   State and effects. None.
 
-  Callers. `softland.store.microbatch-gate`, and `softland.store.module`
+  Callers. `softland.store.module.microbatch-gate`, and `softland.store.module`
   for `first-entity`, by which the microbatch depot partitions."
-  (:require [softland.store.decision :as decision]
-            [softland.store.digest :as digest]
-            [softland.store.first-act :as first-act]
-            [softland.store.record :as record]
-            [softland.store.stamp :as stamp]))
+  (:require [softland.store.gate.decision :as decision]
+            [softland.store.door.digest :as digest]
+            [softland.store.gate.first-act :as first-act]
+            [softland.store.record.rows :as record]
+            [softland.store.gate.stamp :as stamp]))
 
 (def gates-class
   "The class of the gate that this code serves. It is also the route of the
@@ -227,7 +227,7 @@
                 act's own deciding task and is read there at its turn
     :locks      to the task of a request's uuid, once for each request whose
                 locks the act names: the range of keys that
-                `softland.store.decision/lock-ranges` gives, and the indexes
+                `softland.store.gate.decision/lock-ranges` gives, and the indexes
                 named
     :new-locks  to the task of the act's own uuid, for a request of its own:
                 how many locks it will make
@@ -271,7 +271,7 @@
 
 (defn arrive
   "Step 1 for one thing that is no stray. Takes the thing; what
-  `softland.store.declaration/check` gave for it, as the act or nil and the
+  `softland.store.door.declaration/check` gave for it, as the act or nil and the
   reason word or nil; the thing's turn and its position; and, for an act,
   the two rows of `standing-on-arrival`. Gives the messages that the gate
   sends, each [route kind key payload]:
@@ -559,7 +559,7 @@
 (defn routed
   "The home of each row that a decision writes. Takes the act-id; the act,
   or nil for a thing that the declaration refused; and what
-  `softland.store.decision/writes` gave. Gives a vector of rows, each
+  `softland.store.gate.decision/writes` gave. Gives a vector of rows, each
   {:which :key :row :home :every-task?}:
 
     :fact       home: the fact's entity. :every-task? is true for a fact
@@ -607,7 +607,7 @@
   the place of `:who`'s permission and the row at the layer's class place,
   each as it is at the act's turn; whether the other gate's record holds the
   layer; the rows of its places; and its lock rows. It calls the checks of
-  `softland.store.decision` in their order: the 10-second rule, the
+  `softland.store.gate.decision` in their order: the 10-second rule, the
   standing, the places, the seals. Gives the routed rows that the decision
   writes: the answer alone for a refusal."
   [{:keys [act-id act digest clock base turn]} permission-row class-row other-holds? place-rows lock-rows]

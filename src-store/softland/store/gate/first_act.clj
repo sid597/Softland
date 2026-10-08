@@ -1,4 +1,4 @@
-(ns softland.store.first-act
+(ns softland.store.gate.first-act
   "The first act of a layer: the class that a layer starts with, and the form
   of a making act. Pure code. It needs no cluster.
 
@@ -31,7 +31,7 @@
   which permission the system then acts is the builder's reading.
 
   State and effects. None. Whether the record holds the layer is the
-  caller's question (`softland.store.decision/standing`).")
+  caller's question (`softland.store.gate.decision/standing`).")
 
 (def system
   "The id of the system: software that acts for the architects of the

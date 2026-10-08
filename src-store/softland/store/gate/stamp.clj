@@ -1,4 +1,4 @@
-(ns softland.store.stamp
+(ns softland.store.gate.stamp
   "The stamp: one integer that holds the clock time and a counter. Pure code.
   It needs no cluster, and it reads no clock: the gate reads the clock once
   for a decision and gives the number.

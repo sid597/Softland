@@ -2,7 +2,7 @@
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
 
-(ns softland.store.door-reads
+(ns softland.store.module.door-reads
   "The three query topologies by which the door reads the module, for layers
   of both classes. It requires Rama. A query writes nothing.
 
@@ -11,7 +11,7 @@
          :stamp the stamp, :digest the digest of the decided thing as hex}.
         nil is \"nothing yet\": no decision is readable under the act-id. It
         does not mean refused. The sender compares the digest with the
-        digest of what it sent (`softland.store.digest/is-digest-of?`), and
+        digest of what it sent (`softland.store.door.digest/is-digest-of?`), and
         so does not take another act's answer as its own.
     locks-of-request  [routing-id request-act-id from to] -> {index lock}
         the locks that the request made, of the indexes from `from` to `to`,
@@ -23,11 +23,11 @@
         bytes: they are in one row, beside the value, on the value's task.
         That holds also where the lock's home is the value's task and the
         one row there holds the bytes: the read leaves them out
-        (`softland.store.record/locks-by-index-used-without-bytes`).
+        (`softland.store.record.rows/locks-by-index-used-without-bytes`).
     class-of-layer    [layer] -> the layer's class, or nil
         nil for a layer that is not made.
 
-  The routing id is `softland.store.record/routing-id` of the act-id: the
+  The routing id is `softland.store.record.rows/routing-id` of the act-id: the
   layer of a streaming act-id, the uuid of a microbatch act-id. The caller
   still needs the act-id alone.
 
@@ -39,7 +39,7 @@
 
   What a read of a microbatch layer gives. An answer's row or a fact's row
   only when it is of a closed batch: its stamp is not later than the
-  `:closed-through` of its task (`softland.store.record/closed?`). Rama can
+  `:closed-through` of its task (`softland.store.record.rows/closed?`). Rama can
   run a batch again after one task has shown its part, with another clock
   and other lock bytes; a closed batch cannot run again. So an answer, a
   class or a lock's bytes that a read gave never changes. A lock's row holds
@@ -58,10 +58,10 @@
   microbatch act-id. A request's answer and its locks are on that one task.
   The class row of a microbatch layer is on every task, so on the layer's.
   Which record holds a layer's class is told by the class that the layer
-  starts with (`softland.store.first-act/class-at-making`): no act of this
+  starts with (`softland.store.gate.first-act/class-at-making`): no act of this
   build changes a class, so the other record cannot hold it.
 
-  The head of each query. `softland.store.record`'s
+  The head of each query. `softland.store.record.rows`'s
   `answer-read-by-routing-id`, `lock-range-read-by-routing-id` and
   `class-read` test what the caller gave, before any key is built from it:
   an id over the limit, a thing that is no act-id, or a routing id that is
@@ -76,8 +76,8 @@
   held to `:closed-through`."
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
-            [softland.store.first-act :as first-act]
-            [softland.store.record :as record]))
+            [softland.store.gate.first-act :as first-act]
+            [softland.store.record.rows :as record]))
 
 (defn add-to
   "Adds the three queries to a module. Takes the module's `topologies`. What

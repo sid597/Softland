@@ -1,7 +1,7 @@
 ;; Before changing this file, read the plan of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 
-(ns softland.store.streaming-gate
+(ns softland.store.module.streaming-gate
   "The streaming gate: the stream topology that decides each thing of the
   streaming depot, and the four PStates of its record. It requires Rama.
 
@@ -12,8 +12,8 @@
   What it changes. It owns four PStates, the record of the streaming layers,
   and it alone writes them (in Rama only the owning topology writes a
   PState): `$$streaming-answers`, `$$streaming-facts`, `$$streaming-locks`
-  and `$$streaming-task`. Their schemas are `softland.store.record-pstates`'s
-  and their rows `softland.store.record`'s. They are durable state of the
+  and `$$streaming-task`. Their schemas are `softland.store.record.tables`'s
+  and their rows `softland.store.record.rows`'s. They are durable state of the
   cluster. The gate keeps nothing in the memory of a process.
 
   What it borrows. Two PStates of the microbatch gate, to read on its own
@@ -23,9 +23,9 @@
 
   Approach. The dataflow only reads rows, calls pure functions and writes
   rows. The test for a stray and the check of what arrived are
-  `softland.store.declaration`'s, the checks against the record are
-  `softland.store.decision`'s, and each row comes from
-  `softland.store.record`. None of them throws, so no thing can stop a
+  `softland.store.door.declaration`'s, the checks against the record are
+  `softland.store.gate.decision`'s, and each row comes from
+  `softland.store.record.rows`. None of them throws, so no thing can stop a
   partition: a refusal is data, an answer with a reason word.
 
   The walk of one event, for one thing:
@@ -86,12 +86,12 @@
   decided in the depot's order. When something throws while a batch runs,
   that batch is discarded, and a later record can be decided before the
   failed one is retried. One setting of Rama would close that window, at a
-  cost in throughput; the folder's README names it.
+  cost in throughput; the store's map, one folder up, names it.
 
   What the gate rests on and does not test. The depot's partitioner puts a
   thing on its layer's task, and the gate makes no hop. A thing that a
   topology appends to another partition is decided against that task's
-  record; the folder's README says what follows.
+  record; the store's map, one folder up, says what follows.
 
   The source starts from the beginning of the depot, so no thing that is in
   the depot is skipped whenever the topology first runs on a partition.
@@ -100,20 +100,20 @@
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :refer :all]
-            [softland.store.decision :as decision]
-            [softland.store.declaration :as declaration]
-            [softland.store.digest :as digest]
-            [softland.store.first-act :as first-act]
-            [softland.store.record :as record]
-            [softland.store.record-pstates :as record-pstates]
-            [softland.store.seal :as seal]))
+            [softland.store.gate.decision :as decision]
+            [softland.store.door.declaration :as declaration]
+            [softland.store.door.digest :as digest]
+            [softland.store.gate.first-act :as first-act]
+            [softland.store.record.rows :as record]
+            [softland.store.record.tables :as record-pstates]
+            [softland.store.door.seal :as seal]))
 
 (defn other-gates-record-holds-layer?
   "Takes the row at a layer's class place in the microbatch gate's record,
   as this task holds it, or nil; and this task's `:closed-through` of that
   gate, or nil. Gives whether the other gate's record holds the layer: true
   for a row that is there and is of a closed batch
-  (`softland.store.record/closed?`). A row of a batch that is not closed
+  (`softland.store.record.rows/closed?`). A row of a batch that is not closed
   does not count: Rama can run that batch again, and it could then refuse
   the making. The gate asks only when its own record holds nothing for the
   layer and the layer starts with the other gate's class. An act into such

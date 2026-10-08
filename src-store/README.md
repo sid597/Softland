@@ -17,8 +17,8 @@ Start with the question you are carrying:
 |---|---|
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
 | What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
-| What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/streaming_gate.clj) |
-| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/microbatch_gate.clj) and [batch.clj](softland/store/batch.clj) |
+| What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
+| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and [batch.clj](softland/store/gate/batch.clj) |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |

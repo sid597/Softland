@@ -1,12 +1,12 @@
-(ns softland.store.text
+(ns softland.store.door.text
   "The one text of a thing: one function from anything to a string, the same
   in every process. Pure code. It needs no cluster.
 
   Why it is here. The digest of a thing is taken over this text
-  (`softland.store.digest`), so that the door and a gate get one digest for
+  (`softland.store.door.digest`), so that the door and a gate get one digest for
   one thing. A plain value under a store key is kept in the record as the
-  bytes of this text (`softland.store.record`). The place that a seal is
-  bound to is the bytes of this text (`softland.store.seal`).
+  bytes of this text (`softland.store.record.rows`). The place that a seal is
+  bound to is the bytes of this text (`softland.store.door.seal`).
 
   Inputs and results, by call:
 
@@ -211,7 +211,7 @@
   apart. Gives nil.
 
   It can throw, for a thing that throws when it is read. `text` and
-  `softland.store.digest/digest` turn a throw into #unreadable."
+  `softland.store.door.digest/digest` turn a throw into #unreadable."
   [x take-text take-bytes]
   (feed* x 0 take-text take-bytes)
   nil)

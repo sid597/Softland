@@ -1,4 +1,4 @@
-(ns softland.store.declaration
+(ns softland.store.door.declaration
   "The door's declaration: what arrives on a depot, declared as data, and the
   check of it. Pure code. It needs no cluster.
 
@@ -44,13 +44,13 @@
   `check` never throw: a throw in a gate would stop its partition (a finding
   of the rig on Rama).
 
-  Callers. `softland.store.decision`, `softland.store.record` and the two
-  gates (`softland.store.streaming-gate`, `softland.store.microbatch-gate`).
+  Callers. `softland.store.gate.decision`, `softland.store.record.rows` and the two
+  gates (`softland.store.module.streaming-gate`, `softland.store.module.microbatch-gate`).
   The door seals and sends; it is the gate that checks.
 
   Not here. Whether a thing's permission stands, whether a fact that it
   replaces is current, whether a lock opens a sealed value: those need the
-  record, and are `softland.store.decision`'s. A grammar check is not built."
+  record, and are `softland.store.gate.decision`'s. A grammar check is not built."
   (:require [softland.store.act :as act]))
 
 ;; ------------------------------------------------------------- the limits
