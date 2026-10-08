@@ -3,7 +3,9 @@
 For a session that takes this build over, and for the receipt to Sid. Kept by the build session
 "softland-11" (Opus 5.5, effort max). Sid, 8 October 2026: "you decide ... pay more now is better than
 future"; no test loop after every step; carry on without check-ins; a parallel session
-"gate-implementation" may take over if this one's context gets heavy.
+"gate-implementation" may take over if this one's context gets heavy. It did, on 8 October, after both
+parts were built: the session "gate-implementation" (Opus 5.5, effort max) ran the review of the whole,
+ruled on it, and gave the receipt. The folders wait for Sid's "go" there.
 
 ## What to read, in this order
 
@@ -29,9 +31,9 @@ The Rama skill's stages, each design stage in a fresh session (the Agent tool, m
 | part 2 `microbatch-gate`: plan (cut off at 05:36 on 8 October by a scheduled power-off; resumed 08:30) | done | `825cf4cf` |
 | part 2: check of the plan (minor-fail, fixed; ruling: one copy of a lock's bytes) | done | `e9647a45` |
 | part 2: build (the microbatch gate; small changes to part 1's files; the proofs extended) | done; proofs run by softland-11: act 150, pure 429, module 218 passes, no failure | `3420abcf` |
-| one fresh review of the whole against the contract (`phase-full-spec-review.md`) | to do | — |
+| one fresh review of the whole against the contract (`phase-full-spec-review.md`) | done: no fault in the module's code; twelve repairs to maps and proofs; five rulings by "gate-implementation"; proofs run there: act 150, pure 433, module 222 passes, no failure | `b6646187` |
 | regroup `src-store/softland/store/` into folders (see below) | to do, only on Sid's "go" | — |
-| the receipt to Sid | to do | — |
+| the receipt to Sid | given in chat by "gate-implementation", 8 October | — |
 
 How a stage is run: a fresh agent reads the skill's doc for its stage and the papers above, writes one
 paper (or the code), and does not commit. This session reads its report and the parts of its paper that
@@ -46,14 +48,22 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
 1. Done by softland-11 on 8 October: part 2 is built, proven here and committed (`3420abcf`). The three
    proofs are `clojure -M:store -m softland.store.act-proof`, `clojure -M:store -m softland.store.pure-proof`
    and `clojure -M:store-module -m softland.store.module-proof`; they showed 150, 429 and 218 passes.
-2. Run the skill's last stage, `phase-full-spec-review.md`, in one fresh session against the contract.
-   Fix what it finds, prove again, commit.
+2. Done by "gate-implementation" on 8 October: the skill's last stage, `phase-full-spec-review.md`, in
+   one fresh session against the contract, with the rulings on it (`b6646187`). Its paper is
+   `FULL_SPEC_REVIEW.md`; "Rulings after the review" in it is the build session's. The three proofs
+   showed 150, 433 and 222 passes.
 3. The folders. Sid asked why the store's files are flat (8 October). Proposed to him, waiting for his
-   "go": `door/` (declaration, seal, text, digest), `gate/` (decision, first_act, stamp), `record/`
-   (rows, tables), `module/` (module, streaming_gate, microbatch_gate, door_reads), with `act.clj` at
-   the top; the proofs follow the same folders. One mechanical commit, proofs passing before and after.
-4. The receipt to Sid: the commits, the proofs' count lines, the list below, and every place where the
-   contract could not be met as written.
+   "go": `door/` (declaration, seal, text, digest), `gate/` (decision, first_act, stamp, batch),
+   `record/` (rows, tables), `module/` (module, streaming_gate, microbatch_gate, door_reads), with
+   `act.clj` at the top; the proofs follow the same folders. One mechanical commit, proofs passing before
+   and after. "gate-implementation" put two changes of it to him, and waits for his word on them too:
+   `module.clj` stays at the top beside `act.clj`, so that the module keeps its namespace and its name
+   in the cluster, and `module/` holds the two gates and the reads; and the source moves first with the
+   content of the proofs unchanged, so that the count lines are the same before and after. A split of the
+   pure proof by folder would be a second commit.
+4. Done: the receipt to Sid, given in chat on 8 October: the commits, the proofs' count lines, the list
+   below, and every place where the contract could not be met as written. It asks him three things: the
+   folders, and the two questions of item 23 below.
 5. Next work, as told to Sid on 8 October: the door is the next build (decision C1 of 6 October); reads
    are the next big deciding (group 6 of the queue; no sheet yet). He asked for the reading and the
    questions. Ask in the simple form that worked on 8 October: one small story, one stop for each
@@ -78,10 +88,12 @@ for the door, H10 and H11 for forget.
 5. What F2 A ("the record is recomputable from the acts depot") reaches as built: the decisions and the
    current facts of a layer on one task. Not the locks (kept, never made again). Not the stamps (a stamp
    holds the gate's clock time, so a rebuild gives new ones). A refusal for a stamp too far ahead can
-   flip at a rebuild. After a failure Rama can decide an act of a layer after a later act of that layer;
-   the setting `topology.stream.max.executing.per.task` at 1 closes that window at a cost in throughput
-   and stays at its default: his to choose. Rule 9 (the winner between two microbatch acts on different
-   entities) waits for part 2.
+   flip at a rebuild. Which of two refusal words an act on the wrong depot gets rests on the timing of
+   the other gate, so a rebuild can give the other word. After a failure Rama can decide an act of a
+   layer after a later act of that layer; the setting `topology.stream.max.executing.per.task` at 1
+   closes that window at a cost in throughput and stays at its default: his to choose. The review could
+   not check that setting. Rule 9 (the winner between two microbatch acts on different entities) is
+   answered in item 15.
 6. F9's first limit: by the skill's cost of a cold read the plan gives 480 to 770 acts a second on one
    task against the aim of 1,000. A measure will tell; none is taken yet.
 7. `act.clj` has one change: its engine takes the map of shapes, so that the door's declaration is data
@@ -92,8 +104,9 @@ for the door, H10 and H11 for forget.
    facts, 1,024 entries of `:based-on`, 65,536 sealed bytes, 256 locks in a request, 256 characters in an
    id's text.
 10. The words that the build made are listed in the module's README for him to strike.
-11. The printed sheet of 7 October (job 35) left the print queue; four jobs of 1 October are still in it,
-    untouched.
+11. The printed sheet of 7 October (job 35) left the print queue. As `lpstat -o` showed the queue on
+    8 October, nine older jobs are in it, none of this build: two of 30 April, six of 1 October, one of
+    6 October. Untouched.
 12. Found by part 1's build: a query topology of the module does read a private PState. So a record that
     only the module's gates and queries can read is possible (open item ?11). The record's PStates are
     left readable in this build; the proof looks into them to show the facts.
@@ -110,11 +123,63 @@ for the door, H10 and H11 for forget.
     partitions; keeping each batch's cut and clock would make it so (rule 9; not built).
 16. One copy of a lock's bytes in a microbatch layer, beside the value. A lock still costs about 245
     bytes for each sealed value there, so F9's third limit is missed below about 90 to 120 bytes for a
-    value.
+    value. The read of locks gives no bytes for a lock of a microbatch layer that seals a value, and no
+    read of this build gives them: they are beside the value, for the reads that are not built.
 17. The night's run stopped at 05:36 on 8 October because the machine powered off on a shutdown that was
     scheduled at 01:36 for four hours later. Nothing was lost.
 18. From part 2's build. In the proof an answer of a microbatch act was readable 873 ms after its append,
     with nothing sent after it. Nine behaviours of Rama that the plan leaned on were checked on a probe
     module with four tasks and none was false. No proof reaches: a second attempt of a real batch, a
     commit that fails after one task has shown its part, a rebuild, or a measure of speed or size
-    against F9's targets. No linter ran.
+    against F9's targets. No linter ran. In the review's runs the same answer was readable after 885 and
+    893 ms.
+19. From the review of the whole (`FULL_SPEC_REVIEW.md`, `b6646187`). No fault was found in the module's
+    code. Twelve repairs, all in explanations and proofs. One check of the module's proof could not fail:
+    it tested at the end of the run that each answer read was of a closed batch, when every batch is
+    closed. It now looks right after each read, and it fails against a copy of the read that ignores
+    closing. 21,000 random batches through the pure proof's own run of the microbatch gate gave the
+    decisions of deciding one at a time.
+20. Places where the contract is not met as written, beside those above. Each is in the module's README.
+    - Item 4, "decisions of one batch are visible together": nothing of a batch is readable before every
+      task holds it, but then two tasks open some milliseconds apart.
+    - Item 3 (d), "each permission above it in its chain stands": not read. It holds because a permission
+      is written only beneath one that stood, and nothing ends a permission. The day that one can end,
+      the gate must read the chain: up to 3 reads more for each act.
+    - Item 3 (c), "the layer's class is this gate's": no read for a layer that is made here.
+    - Item 8, "act-id → the recorded answer": the read takes two arguments, the slot of the act-id that
+      routes it and the act-id.
+    - Item 6, "strictly increasing on its task": the microbatch gate has one sequence of stamps for the
+      whole gate, not one for a task.
+    - Rule 15, "a refusal writes the answer and nothing else": also the gate's own counts. The task's
+      last stamp (streaming); the count of turns and the gate's last stamp (microbatch).
+    - Rule 20, "a gate refuses a thing over one": a thing whose act-id names a layer of more than 256
+      characters gets no answer. It is kept as a stray, because the answer's key would hold that layer.
+    - Rule 13, "the word that says it is not built": `:store-key-takes-one-write` does not say it.
+      Ruled: the word stands, because "not built" is untrue of two of the three cases that earn it. The
+      word is his to change, with the others.
+21. An act with no permission in a made microbatch layer costs up to 256 reads of places and 256 ranges
+    of locks, where the streaming gate reads 4 rows at most.
+22. One act can hold a task of the streaming gate for all its reads, because that gate's event does not
+    give the task back: up to 256 places, 256 sealed values of 65,536 bytes each, and 32,768 lock rows
+    for an act that names the two ends of 128 requests. It needs standing in the layer. Ruled: no change
+    of the code; reading each lock by its key halves that worst case and no more, and nothing is
+    measured. It goes with F9's measure.
+23. Two questions for Sid from the review.
+    - May the system hold the top of a layer that is not the base? As built it can. "The system for the
+      base" (E3·H7 B) is a session's reading that he let stand; his line of 8 October speaks of "what is
+      open by the system". The build session's pick: yes.
+    - Do the three store keys stay bare words? As built `:class`, `:permission` and `:lock-request` are
+      taken from every tool in every layer: a tool cannot have a key of its own with one of the three
+      words. The build session's pick: a namespace on the three, at the rename that follows his word for
+      "class", before the first kept record.
+24. Found by the session that judged the review. Read in the code, not run.
+    - The read of locks shows that a lock is used one run before the batch that uses it is closed. The
+      bytes that a read gave never change.
+    - For the reads, which are next: a place holds one row. After a batch replaces a fact of a microbatch
+      layer, its place holds no row of a closed batch until that batch is closed, about one run. A place
+      that is replaced in every batch never holds one. So a read of facts cannot be held to closing as
+      the three reads are, without more: the row before, kept beside the new one; or attempts of a batch
+      made the same, by keeping each batch's clock (rule 9).
+25. What the 10 seconds of item 9 let through. A decision's stamp is later than each stamp that its act
+    carries, a refusal's too. So any sender whose thing passes the declaration can hold a gate's stamps
+    up to 10 seconds ahead of the clock. No order is broken. Read in the code, not run.
