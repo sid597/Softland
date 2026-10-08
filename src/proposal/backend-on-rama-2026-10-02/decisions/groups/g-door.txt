@@ -74,9 +74,9 @@ The writer suggests: **A**. Its reason: `:who` is in every act, it is never seal
 
 === 2 · H1 | One lock for how much
 
-Kind: **group chooses — the default is the question.** Your ruling of 24 September, as the rulings file has it: "Lock grain: per value by default; a setting on the layer … switches that layer to per act".
+Kind: **group chooses — the default is the question.** Your words of 24 September: "we can maybe update the per act on the layer itself and the user can decide what to do at that layer but finer is better maybe". An AI wrote that down as ruling 7 of the rulings file: "Lock grain: per value by default; a setting on the layer … switches that layer to per act".
 
-Asked now: it is the door that gets the locks and seals. On 8 October you asked "do we need to answer now???", and the gates were built on that ruling. For the door, each answer is another piece of code.
+Asked now: it is the door that gets the locks and seals. On 8 October you asked "do we need to answer now???", and the gates were built on ruling 7. For the door, each answer is another piece of code.
 
 ```
  10:00  Alice writes three notes in one act. The door seals them and appends the act.
@@ -106,7 +106,7 @@ If C: the door asks for a lock once for a session and a layer. One value is whol
 
 Today: the gates make a lock for each value, and refuse a second value under a lock that seals one. A value keeps the lock that it was sealed with for good.
 
-The writer suggests: **A**, your ruling as it stands. Its reason: a value that is sealed alone can still be forgotten together with others later; a value that is sealed together with others can never be forgotten alone. The cost of A is bytes and a stock of locks; neither is measured yet.
+The writer suggests: **A**, which is what the gates do today. Its reason: a value that is sealed alone can still be forgotten together with others later; a value that is sealed together with others can never be forgotten alone. The cost of A is bytes and a stock of locks; neither is measured yet.
 
 =ANSWER A, B or C.
 
