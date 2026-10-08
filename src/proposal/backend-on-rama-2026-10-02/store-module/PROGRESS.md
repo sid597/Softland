@@ -32,7 +32,7 @@ The Rama skill's stages, each design stage in a fresh session (the Agent tool, m
 | part 2: check of the plan (minor-fail, fixed; ruling: one copy of a lock's bytes) | done | `e9647a45` |
 | part 2: build (the microbatch gate; small changes to part 1's files; the proofs extended) | done; proofs run by softland-11: act 150, pure 429, module 218 passes, no failure | `3420abcf` |
 | one fresh review of the whole against the contract (`phase-full-spec-review.md`) | done: no fault in the module's code; twelve repairs to maps and proofs; five rulings by "gate-implementation"; proofs run there: act 150, pure 433, module 222 passes, no failure | `b6646187` |
-| regroup `src-store/softland/store/` into folders (see below) | to do, only on Sid's "go" | — |
+| regroup `src-store/softland/store/` into folders (see below) | done on Sid's word of 8 October, "make em folders"; proofs run by "gate-implementation" before and after: act 150, pure 433, module 222, the same | `085bca4a` |
 | the receipt to Sid | given in chat by "gate-implementation", 8 October | — |
 
 How a stage is run: a fresh agent reads the skill's doc for its stage and the papers above, writes one
@@ -52,15 +52,16 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
    one fresh session against the contract, with the rulings on it (`b6646187`). Its paper is
    `FULL_SPEC_REVIEW.md`; "Rulings after the review" in it is the build session's. The three proofs
    showed 150, 433 and 222 passes.
-3. The folders. Sid asked why the store's files are flat (8 October). Proposed to him, waiting for his
-   "go": `door/` (declaration, seal, text, digest), `gate/` (decision, first_act, stamp, batch),
-   `record/` (rows, tables), `module/` (module, streaming_gate, microbatch_gate, door_reads), with
-   `act.clj` at the top; the proofs follow the same folders. One mechanical commit, proofs passing before
-   and after. "gate-implementation" put two changes of it to him, and waits for his word on them too:
-   `module.clj` stays at the top beside `act.clj`, so that the module keeps its namespace and its name
-   in the cluster, and `module/` holds the two gates and the reads; and the source moves first with the
-   content of the proofs unchanged, so that the count lines are the same before and after. A split of the
-   pure proof by folder would be a second commit.
+3. Done by "gate-implementation" on 8 October, on Sid's word "make em folders" (`085bca4a`): the folders.
+   `door/` (declaration, seal, text, digest), `gate/` (decision, first_act, stamp, batch), `record/`
+   (rows, tables: `record.clj` and `record_pstates.clj` before), `module/` (streaming_gate,
+   microbatch_gate, door_reads), with `act.clj` and `module.clj` at the top. Each namespace took its
+   folder into its name, as in `softland.store.gate.decision`. His word was taken as the proposal with the
+   two changes that had been put to him: `module.clj` stays at the top, so the module keeps its namespace
+   and its name in the cluster, `softland.store.module/Store`; and the three proofs stay where they are,
+   changed only in the names of the namespaces that they require. The count lines are the same before
+   and after. Each folder has its own map. Not done, and his to ask for: a split of the pure proof by
+   folder. The papers of the build in this folder name the files as they were before the move.
 4. Done: the receipt to Sid, given in chat on 8 October: the commits, the proofs' count lines, the list
    below, and every place where the contract could not be met as written. It asks him three things: the
    folders, and the two questions of item 23 below.
