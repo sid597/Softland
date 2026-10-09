@@ -48,10 +48,11 @@
   writes each row of a layer on the layer's task, and each read of a
   streaming layer routes by the layer. The microbatch gate writes a row on
   the task that the second part of its key gives: the uuid of an answer,
-  the entity of a fact, the request's uuid of a lock; a row under `:class`
-  or `:permission` on every task; and the whole row of a lock that seals a
-  value on the task of that value's entity. A read of a microbatch layer
-  routes by that part. `softland.store.record.rows` says it row by row.
+  the entity of a fact, the request's uuid of a lock; a row under
+  `:softland.store/depot` or `:softland.store/permission` on every task; and
+  the whole row of a lock that seals a value on the task of that value's
+  entity. A read of a microbatch layer routes by that part.
+  `softland.store.record.rows` says it row by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row

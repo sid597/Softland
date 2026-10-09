@@ -3,11 +3,11 @@
   check of it. Pure code. It needs no cluster.
 
   What arrives on a depot is the maker's act (`softland.store.act`) plus what
-  the door adds: an act-id, a class, and for each value fact its `:v`
-  replaced by `:sealed` bytes and a `:lock-id`. A fact under a store key
-  keeps a plain value. Anything can append to a depot without the door, so a
-  gate checks each thing that arrives against this declaration, and the gate
-  is the authority.
+  the door adds: an act-id, the layer's depot, and for each value fact its
+  `:v` replaced by `:sealed` bytes and a `:lock-id`. A fact under a store
+  key keeps a plain value. Anything can append to a depot without the door,
+  so a gate checks each thing that arrives against this declaration, and the
+  gate is the authority.
 
   It is made as `act.clj` is made, of the same three things in the same
   order. Read `shapes` and `rules` first. `shapes` is `act.clj`'s own map of
@@ -23,7 +23,7 @@
 
   Inputs and results, by call:
 
-    stray-reason  a gate's class, and anything -> nil, or the word of a stray
+    stray-reason  a gate's depot, and anything -> nil, or the word of a stray
     check         a thing that is no stray -> {:ok act} or {:refuse reason}
     store-key?    a fact's key -> true for one of the three store keys
     id-text       an id or a fact's key -> its printed text
@@ -31,8 +31,11 @@
     usable-id?    anything -> true for an id within the limit
     act-id-in-layer?  a layer id, and anything -> true for an act-id of it
 
-  The store keys, the limits and the words of a stray are declared here too,
-  each in one place.
+  The store's namespace, the store keys, the limits and the words of a stray
+  are declared here too, each in one place. The store's keys are in the
+  namespace `softland.store`, and the store owns the whole of it: a fact
+  whose key is in that namespace and is no store key is refused. Any other
+  key is a plain key, a tool's own.
 
   The one part that the engine does not read is a fact's `:sealed`. The
   engine takes the map of shapes; the leaves, the few shapes that code
@@ -84,6 +87,15 @@
 
 ;; --------------------------------------------------------- the store keys
 
+(def store-namespace
+  "The namespace of the store's own keys: `softland.store`. The word is
+  Sid's, of 9 October 2026 (src-store/README.md, K4 B). The store owns the
+  whole of it: a fact whose key has this namespace is under one of
+  `store-keys`, or a gate refuses it (the rule `:store-key-is-known`). A key
+  with another namespace, and a key with none, is a plain key and a tool's
+  own."
+  "softland.store")
+
 (def store-keys
   "The keys that the store itself reads, three in this build, each with: why
   it is a store key; the shape that its value must have, as a name of
@@ -91,10 +103,13 @@
   fact under one of them keeps a plain value on arrival. A setting is a key
   whose fact a gate takes only on the layer's own entity.
 
-  Sid decided on 9 October 2026 that the store's keys carry a namespace
+  Each is in the namespace `softland.store` (`store-namespace`). Sid decided
+  on 9 October 2026 that the store's keys carry a namespace
   (src-store/README.md, K4 B), and gave the words: `softland.store` before
-  the slash, and \"depot\" for \"class\". The rename is not made yet, so
-  the three are bare words here.
+  the slash, and \"depot\" for the kind of a layer, streaming or microbatch.
+  So a bare word is no store key. A fact of a tool under `:depot`,
+  `:permission` or `:lock-request` is a fact under a plain key, and the
+  store reads nothing from it.
 
   `:sits-on` is a word for the reader of this table; the rules
   `:permission-fact-sits-on-its-holder` and `:lock-request-sits-on-its-act`
@@ -104,28 +119,40 @@
   an act's `:who` with one read, and a holder has one permission in a layer.
   A request for locks sits on the uuid of its own act, so its place is new
   by its form and no read is needed to hold one write for a place."
-  {:class        {:why     "a gate must read which gate a layer belongs to"
-                  :value   :class-word
-                  :sits-on :the-layer
-                  :setting true}
-   :permission   {:why     "a gate must read whether an act's permission stands"
-                  :value   :permission-id
-                  :sits-on :the-holder-that-the-permission-names
-                  :setting false}
-   :lock-request {:why     "in Rama a query cannot write, so the door asks for locks by an act"
-                  :value   :lock-count
-                  :sits-on :the-uuid-of-its-own-act
-                  :setting false}})
+  {:softland.store/depot
+   {:why     "a gate must read which gate a layer belongs to"
+    :value   :depot-word
+    :sits-on :the-layer
+    :setting true}
+   :softland.store/permission
+   {:why     "a gate must read whether an act's permission stands"
+    :value   :permission-id
+    :sits-on :the-holder-that-the-permission-names
+    :setting false}
+   :softland.store/lock-request
+   {:why     "in Rama a query cannot write, so the door asks for locks by an act"
+    :value   :lock-count
+    :sits-on :the-uuid-of-its-own-act
+    :setting false}})
 
 (def setting-keys
   "The store keys that are settings, read from `store-keys`."
   (into #{} (keep (fn [[k entry]] (when (:setting entry) k))) store-keys))
 
 (defn store-key?
-  "Takes a fact's key. Gives true for one of the store keys. Any other key is
-  a plain key, and a value under it must arrive sealed."
+  "Takes a fact's key. Gives true for one of the store keys. A key that is
+  none, and is not in the store's namespace, is a plain key, and a value
+  under it must arrive sealed."
   [k]
   (contains? store-keys k))
+
+(defn- in-store-namespace?
+  "Takes a fact's key, a keyword. Gives true when its namespace is
+  `store-namespace`. The namespace is taken exactly: a key with no
+  namespace is not in it, and `softland.store.x` is another namespace.
+  Whether the store owns such longer namespaces too is not decided."
+  [k]
+  (= store-namespace (namespace k)))
 
 ;; ------------------------------------------------------- the declared shape
 
@@ -133,21 +160,23 @@
   "The door's map of shapes: each entry of `softland.store.act/shapes`, as
   `act.clj` declares it, and five more, in the same language.
 
-    :arrived-act   an act as it arrives on a depot: the act-id, the class,
-                   then the ten parts of the maker's `:act`, read from
-                   `act.clj`'s map in its order and with its options, with
-                   one changed: `:facts` holds arrived facts
+    :arrived-act   an act as it arrives on a depot: the act-id, the layer's
+                   depot under `:depot`, then the ten parts of the maker's
+                   `:act`, read from `act.clj`'s map in its order and with
+                   its options, with one changed: `:facts` holds arrived
+                   facts
     :arrived-fact  a fact as it arrives: the four parts of the maker's
                    `:fact`, read from `act.clj`'s map, and a lock id. Its
                    `:sealed` is not in the shape; `check` sets it aside
-    :class-word    one of the two class words
+    :depot-word    one of the two depot words, `:streaming` and
+                   `:microbatch`
     :lock-id       the id of a lock: the act-id of its request, and its
                    index, 0 to 255
     :lock-count    how many locks a request asks for: 1 or more
 
   The order of the parts is the order of the checks, as in `act.clj`. A
-  `:class` that is absent or no class word gives
-  `:class-not-the-act-ids-class`; a lock id that does not fit gives
+  `:depot` that is absent or no depot word gives
+  `:depot-not-the-act-ids-depot`; a lock id that does not fit gives
   `:lock-id-malformed`; each of the maker's parts gives the word that
   `act.clj` declares for it. `:act-id` names no word: a thing whose act-id
   does not fit is a stray and never reaches `check`."
@@ -158,11 +187,11 @@
     (assoc act/shapes
            :arrived-act  (into [:parts
                                 [:act-id :act-id]
-                                [:class :class-word {:reason :class-not-the-act-ids-class}]]
+                                [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]]
                                arrived-parts)
            :arrived-fact (conj (get act/shapes :fact)
                                [:lock-id :lock-id {:optional true :reason :lock-id-malformed}])
-           :class-word   [:enum :streaming :microbatch]
+           :depot-word   [:enum :streaming :microbatch]
            :lock-id      [:tuple :act-id [:int {:min 0 :below max-locks-in-request}]]
            :lock-count   [:int {:min 1}])))
 
@@ -171,15 +200,25 @@
   reason for each, in the order in which they are examined. A rule relates
   two places of what arrived, or holds a limit that no shape can say. The
   first is the maker's own, read from `softland.store.act/rules`. Then: the
-  act as a whole; a fact under a store key; a fact under a plain key; what
-  holds between the facts; the text of an id. `rule-checks` holds the code
-  of each. A rule about a fact is kept when each fact of the act keeps it."
+  act as a whole; a key in the store's namespace; a fact under a store key;
+  a fact under a plain key; what holds between the facts; the text of an
+  id. `rule-checks` holds the code of each. A rule about a fact is kept when
+  each fact of the act keeps it.
+
+  `:store-key-is-known` holds the store's namespace. A fact whose key is in
+  `softland.store` and is not one of `store-keys` is refused
+  `:store-key-not-known`, whether its value is sealed, plain or absent. Sid
+  decided on 9 October 2026 that a gate refuses such a key
+  (src-store/README.md). The rule comes before the rules of a store key and
+  of a plain key, so such a fact gets this word and none of theirs. The
+  word is a session's."
   (into (vec act/rules)
-        [[:class-is-the-act-ids-class          :class-not-the-act-ids-class]
+        [[:depot-is-the-act-ids-depot          :depot-not-the-act-ids-depot]
          [:facts-within-the-limit              :too-many-facts]
          [:based-on-within-the-limit           :too-many-based-on]
+         [:store-key-is-known                  :store-key-not-known]
          [:store-key-fact-has-no-seal          :store-key-sealed]
-         [:class-fact-holds-a-class-word       :class-fact-not-a-class-word]
+         [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
          [:permission-fact-holds-a-permission  :permission-fact-not-a-permission]
          [:permission-fact-sits-on-its-holder  :permission-fact-not-on-its-holder]
          [:lock-request-holds-a-count          :lock-request-not-a-count]
@@ -244,7 +283,7 @@
 
 (defn act-id-in-layer?
   "Takes a layer id and anything. Gives true when the thing has the shape of
-  an act-id, [layer class uuid], and its layer slot is the layer given. A
+  an act-id, [layer depot uuid], and its layer slot is the layer given. A
   read tests what a caller gave it with this. It never throws."
   [layer x]
   (try (and (= :ok (first (act/as-shape shapes :act-id x)))
@@ -303,7 +342,8 @@
                       (concat [(:e fact) (:k fact)]
                               (layer-of (first (:replaces fact)))
                               (layer-of (first (:lock-id fact)))
-                              (when (= :permission (:k fact)) (permission-ids (:v fact)))))
+                              (when (= :softland.store/permission (:k fact))
+                                (permission-ids (:v fact)))))
                     (:facts act)))))
 
 (def ^:private rule-checks
@@ -318,8 +358,8 @@
   {:permission-is-in-the-acts-layer
    (fn [act] (= (:layer act) (nth (:permission act) 1)))
 
-   :class-is-the-act-ids-class
-   (fn [act] (= (:class act) (nth (:act-id act) 1)))
+   :depot-is-the-act-ids-depot
+   (fn [act] (= (:depot act) (nth (:act-id act) 1)))
 
    :facts-within-the-limit
    (fn [act] (<= (count (:facts act)) max-facts))
@@ -327,37 +367,44 @@
    :based-on-within-the-limit
    (fn [act] (<= (count (:based-on act)) max-based-on))
 
+   ;; The store owns its whole namespace: a key in it that is no store key is
+   ;; refused, whatever the fact holds.
+   :store-key-is-known
+   (fn [act] (each-fact? (fn [fact] (or (not (in-store-namespace? (:k fact)))
+                                        (store-key? (:k fact))))
+                         act))
+
    :store-key-fact-has-no-seal
    (fn [act] (each-fact? (fn [fact] (or (not (store-key? (:k fact)))
                                         (and (nil? (:sealed fact)) (nil? (:lock-id fact)))))
                          act))
 
-   :class-fact-holds-a-class-word
-   (fn [act] (value-fits-its-key? :class act))
+   :depot-fact-holds-a-depot-word
+   (fn [act] (value-fits-its-key? :softland.store/depot act))
 
    :permission-fact-holds-a-permission
-   (fn [act] (value-fits-its-key? :permission act))
+   (fn [act] (value-fits-its-key? :softland.store/permission act))
 
    ;; A permission fact with no value names no holder; a gate refuses it.
    :permission-fact-sits-on-its-holder
-   (fn [act] (each-fact? (fn [fact] (or (not= :permission (:k fact))
+   (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/permission (:k fact))
                                         (nil? (:v fact))
                                         (= (:e fact) (nth (:v fact) 0))))
                          act))
 
    :lock-request-holds-a-count
-   (fn [act] (value-fits-its-key? :lock-request act))
+   (fn [act] (value-fits-its-key? :softland.store/lock-request act))
 
    :lock-request-within-the-limit
-   (fn [act] (each-fact? (fn [fact] (or (not= :lock-request (:k fact))
+   (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/lock-request (:k fact))
                                         (nil? (:v fact))
                                         (<= (:v fact) max-locks-in-request)))
                          act))
 
    ;; Held for a fact with no value too, so that the place of each fact under
-   ;; :lock-request is new by its form.
+   ;; :softland.store/lock-request is new by its form.
    :lock-request-sits-on-its-act
-   (fn [act] (each-fact? (fn [fact] (or (not= :lock-request (:k fact))
+   (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/lock-request (:k fact))
                                         (= (:e fact) (nth (:act-id act) 2))))
                          act))
 
@@ -404,18 +451,18 @@
 ;; -------------------------------------------------------- the test for a stray
 
 (defn stray-reason
-  "The test for a stray. Takes the class of the gate where a thing arrived,
+  "The test for a stray. Takes the depot of the gate where a thing arrived,
   :streaming or :microbatch, and the thing, which can be anything. Gives nil
   for a thing that the gate can answer under its act-id, or the word of a
   stray, one of `stray-reasons`. In order:
 
     :no-act-id                 the thing is no plain map, or holds no act-id
-    :act-id-malformed          its act-id is not [layer class uuid]
+    :act-id-malformed          its act-id is not [layer depot uuid]
     :id-too-long               the layer slot of its act-id prints to more
                                than `max-id-text` characters. An answer's
                                key holds that layer, so such a thing can
                                have no answer
-    :act-id-of-the-other-gate  the class slot is not the gate's class
+    :act-id-of-the-other-gate  the depot slot is not the gate's depot
     :act-id-of-another-layer   the layer slot is not the thing's `:layer`.
                                This covers a thing with no `:layer`
 
@@ -427,14 +474,14 @@
   uuid, which is where that read looks.
 
   It never throws: a thing that throws while it is tested gives :no-act-id."
-  [gate-class thing]
+  [gate-depot thing]
   (try
     (let [act-id (when (plain-map? thing) (get thing :act-id))]
       (cond
         (nil? act-id) :no-act-id
         (not= :ok (first (act/as-shape shapes :act-id act-id))) :act-id-malformed
         (not (id-within-the-limit? (nth act-id 0))) :id-too-long
-        (not= gate-class (nth act-id 1)) :act-id-of-the-other-gate
+        (not= gate-depot (nth act-id 1)) :act-id-of-the-other-gate
         (not= (nth act-id 0) (get thing :layer)) :act-id-of-another-layer
         :else nil))
     (catch Throwable _ :no-act-id)))

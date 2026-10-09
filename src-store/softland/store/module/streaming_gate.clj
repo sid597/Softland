@@ -19,7 +19,7 @@
   What it borrows. Two PStates of the microbatch gate, to read on its own
   task: `$$microbatch-facts` and `$$microbatch-task`. It reads them only for
   an act into a layer of which its own record holds nothing and that starts
-  with the other gate's class, which is the base.
+  with the other gate's depot, which is the base.
 
   Approach. The dataflow only reads rows, calls pure functions and writes
   rows. The test for a stray and the check of what arrived are
@@ -43,14 +43,15 @@
                   declaration.
     3. the clock, read once; the 10-second rule on a carried stamp.
     4. standing   Read the place of `:who`'s permission; only when it is
-                  empty, the place of the layer's class; only when that is
+                  empty, the place of the layer's depot; only when that is
                   empty too, and the layer starts with the other gate's
-                  class, whether the other gate's record holds the layer:
-                  the layer's class place in `$$microbatch-facts`, which
+                  depot, whether the other gate's record holds the layer:
+                  the layer's depot place in `$$microbatch-facts`, which
                   every task holds, and this task's `:closed-through`.
     5. places     Read the place of each fact that names something to
-                  replace and of each fact under `:permission`; then checks
-                  (e), (f), (g) and what a store key does not take.
+                  replace and of each fact under
+                  `:softland.store/permission`; then checks (e), (f), (g)
+                  and what a store key does not take.
     6. the seal   Read one range of locks for each request whose locks the
                   act names; then each sealed value is opened once.
     7. the stamp  Read the task's last stamp. A refusal writes the answer
@@ -109,18 +110,18 @@
             [softland.store.door.seal :as seal]))
 
 (defn other-gates-record-holds-layer?
-  "Takes the row at a layer's class place in the microbatch gate's record,
+  "Takes the row at a layer's depot place in the microbatch gate's record,
   as this task holds it, or nil; and this task's `:closed-through` of that
   gate, or nil. Gives whether the other gate's record holds the layer: true
   for a row that is there and is of a closed batch
   (`softland.store.record.rows/closed?`). A row of a batch that is not closed
   does not count: Rama can run that batch again, and it could then refuse
   the making. The gate asks only when its own record holds nothing for the
-  layer and the layer starts with the other gate's class. An act into such
+  layer and the layer starts with the other gate's depot. An act into such
   a layer is refused :layer-belongs-to-the-other-gate once the layer is
   made, and :layer-not-made before."
-  [other-class-row closed-through]
-  (record/closed? other-class-row closed-through))
+  [other-depot-row closed-through]
+  (record/closed? other-depot-row closed-through))
 
 (defn new-lock-row
   "Gives the row of a new lock: fresh random bytes and the number of the way
@@ -182,22 +183,22 @@
             (decision/permission-place *act :> *permission-key)
             (local-select> (keypath *permission-key) $$streaming-facts :> *permission-row)
             (<<if (nil? *permission-row)
-              (decision/class-place *act :> *class-key)
-              (local-select> (keypath *class-key) $$streaming-facts :> *class-row)
+              (decision/depot-place *act :> *depot-key)
+              (local-select> (keypath *depot-key) $$streaming-facts :> *depot-row)
              (else>)
-              (identity nil :> *class-row))
+              (identity nil :> *depot-row))
             (<<if (and> (nil? *permission-row)
-                        (nil? *class-row)
-                        (not= :streaming (first-act/class-at-making *layer)))
-              (decision/class-place *act :> *other-class-key)
-              (local-select> (keypath *other-class-key) $$microbatch-facts :> *other-class-row)
+                        (nil? *depot-row)
+                        (not= :streaming (first-act/depot-at-making *layer)))
+              (decision/depot-place *act :> *other-depot-key)
+              (local-select> (keypath *other-depot-key) $$microbatch-facts :> *other-depot-row)
               (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
-              (other-gates-record-holds-layer? *other-class-row *closed-through :> *other-holds)
+              (other-gates-record-holds-layer? *other-depot-row *closed-through :> *other-holds)
              (else>)
               (identity false :> *other-holds))
-            (decision/standing :streaming *act *permission-row *class-row *other-holds
+            (decision/standing :streaming *act *permission-row *depot-row *other-holds
                                :> *refused-standing)
-            (decision/makes-the-layer? :streaming *act *permission-row *class-row *other-holds
+            (decision/makes-the-layer? :streaming *act *permission-row *depot-row *other-holds
                                        :> *makes-the-layer))
 
           ;; 5. Places: checks (e), (f), (g), and what a store key does not take.

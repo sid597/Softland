@@ -10,7 +10,7 @@
   An act here is an act in its one form on arrival
   (`softland.store.door.declaration/check`). A row is a row of the record
   (`softland.store.record.rows`), or nil for a key that holds none. Each check
-  takes the class of the gate that owns the record, :streaming or
+  takes the depot of the gate that owns the record, :streaming or
   :microbatch.
 
   The checks, in the order in which a gate makes them. The order of the
@@ -21,7 +21,7 @@
 
     early      `refused-early`: the declaration's own word, or the 10-second
                rule on a carried stamp. Nothing of the record is read.
-    standing   `standing`: the layer's class is this gate's (c); the layer
+    standing   `standing`: the layer's depot is this gate's (c); the layer
                is made, or the act is a right making act; the act's
                permission stands for its `:who` (d).
     places     `places`: each replaced fact is the current fact of its
@@ -41,11 +41,11 @@
   than their words name.
 
   (c) costs no read for a layer that is made here. A gate's record holds
-  rows only for layers of its class: a row is written only by an accept; an
+  rows only for layers of its depot: a row is written only by an accept; an
   accept happens in a layer that is made here, or makes it; a making act is
-  right only for the gate of the class that the layer starts with; and no
-  act of this build changes a class. So a row at the permission's place, or
-  at the layer's class place, says that the layer is this gate's.
+  right only for the gate of the depot that the layer starts with; and no
+  act of this build changes a depot. So a row at the permission's place, or
+  at the layer's depot place, says that the layer is this gate's.
 
   (d) is one read. A permission fact sits on its holder, so the place of
   `:who`'s permission holds the act's permission or the act's permission
@@ -91,32 +91,32 @@
   `:who` sits in the act's layer. The first row that a gate reads for the
   standing of an act."
   [act]
-  (record/place-key (:layer act) (:who act) :permission))
+  (record/place-key (:layer act) (:who act) :softland.store/permission))
 
-(defn class-place
-  "Takes an act. Gives the key of the place of its layer's class: the layer
-  as entity, under `:class`. A gate reads it only when the place of the
-  permission is empty."
+(defn depot-place
+  "Takes an act. Gives the key of the place of its layer's depot: the layer
+  as entity, under `:softland.store/depot`. A gate reads it only when the
+  place of the permission is empty."
   [act]
-  (record/place-key (:layer act) (:layer act) :class))
+  (record/place-key (:layer act) (:layer act) :softland.store/depot))
 
 (defn makes-the-layer?
-  "Takes the gate's class, an act, the row at the place of `:who`'s
-  permission, the row at the place of the layer's class, and whether the
+  "Takes the gate's depot, an act, the row at the place of `:who`'s
+  permission, the row at the place of the layer's depot, and whether the
   other gate's record holds the layer. Gives true when the act is the first
   act of its layer: both rows are nil, the other gate's record does not hold
   the layer, and the act has the form of a making act for this gate. What
-  must hold: when the permission's row is nil, the class's row was read."
-  [gate-class act permission-row class-row other-gate-holds-layer?]
+  must hold: when the permission's row is nil, the depot's row was read."
+  [gate-depot act permission-row depot-row other-gate-holds-layer?]
   (boolean (and (nil? permission-row)
-                (nil? class-row)
+                (nil? depot-row)
                 (not other-gate-holds-layer?)
-                (first-act/making-act? gate-class act))))
+                (first-act/making-act? gate-depot act))))
 
 (defn standing
   "The standing of an act: checks (c) and (d), and the first act of a layer.
-  Takes the gate's class; an act; the row at the place of `:who`'s
-  permission; the row at the place of the layer's class, which is read only
+  Takes the gate's depot; an act; the row at the place of `:who`'s
+  permission; the row at the place of the layer's depot, which is read only
   when the first is nil; and whether the other gate's record holds the
   layer, which is asked only when both are nil. Gives nil when the act's
   permission stands, or when the act is a right making act for a layer that
@@ -132,13 +132,13 @@
     :permission-does-not-stand        the layer is made here, and the record
                                       does not hold the act's permission for
                                       its holder"
-  [gate-class act permission-row class-row other-gate-holds-layer?]
+  [gate-depot act permission-row depot-row other-gate-holds-layer?]
   (let [permission (:permission act)]
     (cond
       (record/holds-plain-value? permission-row permission)
       nil
 
-      (or permission-row class-row)
+      (or permission-row depot-row)
       (if (= (:who act) (nth permission 0))
         :permission-does-not-stand
         :who-not-the-permissions-holder)
@@ -146,7 +146,7 @@
       other-gate-holds-layer?
       :layer-belongs-to-the-other-gate
 
-      (first-act/making-act? gate-class act)
+      (first-act/making-act? gate-depot act)
       nil
 
       :else
@@ -162,16 +162,16 @@
 (defn places-needed
   "Takes an act, and whether it makes its layer. Gives the keys of the places
   whose rows `places` needs, each once: the place of each fact that names
-  something to replace, and of each fact under `:permission`. None for an
-  act that makes its layer: the record holds nothing of a layer that is not
-  made, and the two facts of a making act are not held to the checks that
-  read a place. A fact that names nothing to replace needs no row, and so
-  can never be stale."
+  something to replace, and of each fact under `:softland.store/permission`.
+  None for an act that makes its layer: the record holds nothing of a layer
+  that is not made, and the two facts of a making act are not held to the
+  checks that read a place. A fact that names nothing to replace needs no
+  row, and so can never be stale."
   [act makes-the-layer?]
   (if makes-the-layer?
     []
     (into []
-          (comp (filter (fn [fact] (or (:replaces fact) (= :permission (:k fact)))))
+          (comp (filter (fn [fact] (or (:replaces fact) (= :softland.store/permission (:k fact)))))
                 (map (fn [fact] (place-of act fact))))
           (:facts act))))
 
@@ -179,10 +179,10 @@
   "Check (e) for one fact. Gives the word when the fact names something to
   replace and that is not the current fact of its place: the place is empty,
   another fact wrote its row, or the fact named is of another layer or
-  class."
-  [gate-class act rows fact]
+  depot."
+  [gate-depot act rows fact]
   (when-let [replaces (:replaces fact)]
-    (when-not (record/written-by? gate-class (:layer act) (get rows (place-of act fact)) replaces)
+    (when-not (record/written-by? gate-depot (:layer act) (get rows (place-of act fact)) replaces)
       :replaced-fact-not-current)))
 
 (defn- setting-fault
@@ -194,15 +194,15 @@
     :setting-not-on-the-layer))
 
 (defn- permission-fact-fault
-  "Check (g) for one fact. Gives a word when the fact is under `:permission`,
-  has a value, and that permission is not one straight beneath the act's
-  own, in the act's layer: its layer slot is not the act's layer; its
-  granted-in slot is not the act's layer; or the permission above it is not
-  exactly the one that the act acts under. A permission with nothing above
-  it earns the third word."
+  "Check (g) for one fact. Gives a word when the fact is under
+  `:softland.store/permission`, has a value, and that permission is not one
+  straight beneath the act's own, in the act's layer: its layer slot is not
+  the act's layer; its granted-in slot is not the act's layer; or the
+  permission above it is not exactly the one that the act acts under. A
+  permission with nothing above it earns the third word."
   [act fact]
   (let [given (:v fact)]
-    (when (and (= :permission (:k fact)) (some? given))
+    (when (and (= :softland.store/permission (:k fact)) (some? given))
       (cond
         (not= (:layer act) (nth given 1)) :permission-fact-for-another-layer
         (not= (:layer act) (nth given 2)) :permission-fact-granted-in-another-layer
@@ -211,27 +211,30 @@
 
 (defn- store-key-fault
   "What a store key does not take in this build, for one fact. In this build
-  a store key takes one write for a place. Gives a word for: a `:permission`
-  fact with no value, since who may end a permission is not decided; a
-  `:class` or `:lock-request` fact with no value; a `:class` fact in a layer
-  that is made, with the other class (a change of class is not decided) or
-  with the layer's own (its place holds one); a `:permission` fact on a
-  place that holds a row, the same permission or another. A `:lock-request`
-  fact with a value earns none: its place is new by its form. What must
-  hold: the layer is made by this gate, so its class is the gate's."
-  [gate-class act rows fact]
+  a store key takes one write for a place. A permission fact, a depot fact
+  and a request fact are here the facts under the three store keys:
+  `:softland.store/permission`, `:softland.store/depot` and
+  `:softland.store/lock-request`. Gives a word for: a permission fact with
+  no value, since who may end a permission is not decided; a depot fact or a
+  request fact with no value; a depot fact in a layer that is made, with the
+  other depot (a change of depot is not decided) or with the layer's own
+  (its place holds one); a permission fact on a place that holds a row, the
+  same permission or another. A request fact with a value earns none: its
+  place is new by its form. A fact under any other key earns none. What
+  must hold: the layer is made by this gate, so its depot is the gate's."
+  [gate-depot act rows fact]
   (let [k (:k fact)
         retract? (nil? (:v fact))]
     (cond
-      (and (= :permission k) retract?) :ending-a-permission-not-decided
+      (and (= :softland.store/permission k) retract?) :ending-a-permission-not-decided
       (and (declaration/store-key? k) retract?) :store-key-retract-not-built
-      (and (= :class k) (not= gate-class (:v fact))) :changing-a-class-not-decided
-      (= :class k) :store-key-takes-one-write
-      (and (= :permission k) (get rows (place-of act fact))) :store-key-takes-one-write
+      (and (= :softland.store/depot k) (not= gate-depot (:v fact))) :changing-a-depot-not-decided
+      (= :softland.store/depot k) :store-key-takes-one-write
+      (and (= :softland.store/permission k) (get rows (place-of act fact))) :store-key-takes-one-write
       :else nil)))
 
 (defn places
-  "The checks of the places. Takes the gate's class; an act; whether it makes
+  "The checks of the places. Takes the gate's depot; an act; whether it makes
   its layer; and the rows of the places that `places-needed` named, as a map
   from key to row, nil or absent for an empty place. Gives nil, or the word
   of the first check that fails, in this order:
@@ -242,44 +245,44 @@
          :permission-fact-granted-in-another-layer,
          :permission-fact-not-beneath-the-acts-own
     then :ending-a-permission-not-decided, :store-key-retract-not-built,
-         :changing-a-class-not-decided, :store-key-takes-one-write
+         :changing-a-depot-not-decided, :store-key-takes-one-write
 
   An act that makes its layer is held to (e) and (f) as any act is, with no
   rows: nothing is current in a layer that is not made. It is not held to
   (g) or to the last step: the permission that it writes is its own and not
-  one beneath its own, and its class fact is the layer's first.
+  one beneath its own, and its depot fact is the layer's first.
 
   What must hold: `standing` gave nil for the act."
-  [gate-class act makes-the-layer? rows]
+  [gate-depot act makes-the-layer? rows]
   (let [facts (:facts act)]
-    (or (some #(replaced-fact-fault gate-class act rows %) facts)
+    (or (some #(replaced-fact-fault gate-depot act rows %) facts)
         (some #(setting-fault act %) facts)
         (when-not makes-the-layer?
           (or (some #(permission-fact-fault act %) facts)
-              (some #(store-key-fault gate-class act rows %) facts))))))
+              (some #(store-key-fault gate-depot act rows %) facts))))))
 
 ;; -------------------------------------------------------------------- seals
 
 (defn- lock-in-this-record?
-  "Takes the gate's class, an act and a lock id. Gives true when the lock id
-  names this layer and this class. Only such a lock can have a row in this
+  "Takes the gate's depot, an act and a lock id. Gives true when the lock id
+  names this layer and this depot. Only such a lock can have a row in this
   gate's record of this layer, so only then is a row read."
-  [gate-class act lock-id]
-  (let [[lock-layer lock-class _] (first lock-id)]
-    (and (= (:layer act) lock-layer) (= gate-class lock-class))))
+  [gate-depot act lock-id]
+  (let [[lock-layer lock-depot _] (first lock-id)]
+    (and (= (:layer act) lock-layer) (= gate-depot lock-depot))))
 
 (defn lock-ranges
-  "Takes the gate's class and an act. Gives the ranges of lock rows that
+  "Takes the gate's depot and an act. Gives the ranges of lock rows that
   `seals` needs, each as [first key, last key], both in the range: one range
   for each request whose locks the act names, from the least to the greatest
-  index that the act uses. A lock id of another layer or of the other class
+  index that the act uses. A lock id of another layer or of the other depot
   gives no range, and so costs no read. Empty for an act with no sealed
   value."
-  [gate-class act]
+  [gate-depot act]
   (let [layer (:layer act)]
     (->> (:facts act)
          (keep :lock-id)
-         (filter #(lock-in-this-record? gate-class act %))
+         (filter #(lock-in-this-record? gate-depot act %))
          (group-by (fn [[[_ _ request-uuid] _]] request-uuid))
          (mapv (fn [[request-uuid lock-ids]]
                  (let [indexes (map second lock-ids)]
@@ -292,11 +295,11 @@
   already seals an accepted value; the lock's way is not one that the code
   knows; or the lock does not open the sealed bytes at this fact's place.
   The plain bytes that the lock opens are dropped at once."
-  [gate-class act lock-rows fact]
+  [gate-depot act lock-rows fact]
   (when-let [lock-id (:lock-id fact)]
     (let [layer (:layer act)
           [[_ _ request-uuid] index] lock-id
-          row (when (lock-in-this-record? gate-class act lock-id)
+          row (when (lock-in-this-record? gate-depot act lock-id)
                 (get lock-rows (record/lock-key layer request-uuid index)))]
       (cond
         (nil? row) :lock-not-made-for-this-layer
@@ -307,12 +310,12 @@
 
 (defn seals
   "The check of the seals, the last and the most costly. Takes the gate's
-  class; an act; and the lock rows that `lock-ranges` named, as a map from a
+  depot; an act; and the lock rows that `lock-ranges` named, as a map from a
   lock's key to its row. Gives nil, or for the first sealed fact that fails,
   in the act's order, its word:
 
     :lock-not-made-for-this-layer  the lock id names another layer or the
-                                   other class, or the record holds no such
+                                   other depot, or the record holds no such
                                    lock
     :lock-already-seals-a-value    the lock's row names a fact
     :lock-way-not-known            the row's way is not one that the code
@@ -323,8 +326,8 @@
   It opens each sealed value once and keeps nothing of the plain value. It
   does not check that what a lock opens is a value of the form. What must
   hold: the act passed the declaration, so no two facts are under one lock."
-  [gate-class act lock-rows]
-  (some #(seal-fault gate-class act lock-rows %) (:facts act)))
+  [gate-depot act lock-rows]
+  (some #(seal-fault gate-depot act lock-rows %) (:facts act)))
 
 ;; ------------------------------------------------------ the stamp, the writes
 
@@ -360,7 +363,7 @@
                  (when (:lock-id fact)
                    (let [lock-key (record/lock-key layer request-uuid lock-index)]
                      [[:lock lock-key (record/lock-row-sealing (get lock-rows lock-key) act-uuid index)]]))
-                 (when (and (= :lock-request (:k fact)) (some? (:v fact)))
+                 (when (and (= :softland.store/lock-request (:k fact)) (some? (:v fact)))
                    (map (fn [i] [:new-lock (record/lock-key layer act-uuid i) nil])
                         (range (:v fact))))))))
            cat)

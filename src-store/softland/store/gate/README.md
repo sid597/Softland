@@ -17,7 +17,7 @@ The two gates themselves, the topologies that read and write the record, are in
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data. | None. It reads no PState. |
-| [first_act.clj](first_act.clj) | The class that a layer starts with, and the form of a making act. | None. |
+| [first_act.clj](first_act.clj) | The depot that a layer starts with, and the form of a making act. | None. |
 | [stamp.clj](stamp.clj) | The stamp: clock time and a counter in one integer, the next stamp, the 10-second rule. | None. It reads no clock. |
 | [batch.clj](batch.clj) | The pure code of one batch of the microbatch gate: what the depot derives from a thing, the turn of a thing, what an act asks of other tasks and what they reply, which acts meet, the decision of an act with its rows in hand, the home of each row. | None. It reads no PState. |
 

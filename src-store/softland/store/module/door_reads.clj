@@ -4,7 +4,7 @@
 
 (ns softland.store.module.door-reads
   "The three query topologies by which the door reads the module, for layers
-  of both classes. It requires Rama. A query writes nothing.
+  of both depots. It requires Rama. A query writes nothing.
 
     answer-by-act-id  [routing-id act-id] -> the recorded answer, or nil
         {:verdict :accepted or :refused, :reason the word or nil,
@@ -24,7 +24,7 @@
         That holds also where the lock's home is the value's task and the
         one row there holds the bytes: the read leaves them out
         (`softland.store.record.rows/locks-by-index-used-without-bytes`).
-    class-of-layer    [layer] -> the layer's class, or nil
+    depot-of-layer    [layer] -> the layer's depot, or nil
         nil for a layer that is not made.
 
   The routing id is `softland.store.record.rows/routing-id` of the act-id: the
@@ -42,30 +42,30 @@
   `:closed-through` of its task (`softland.store.record.rows/closed?`). Rama can
   run a batch again after one task has shown its part, with another clock
   and other lock bytes; a closed batch cannot run again. So an answer, a
-  class or a lock's bytes that a read gave never changes. A lock's row holds
-  no stamp: the read of locks holds the stamp of the request's answer, which
-  is on the same task, and gives locks only for an accepted request. So it
-  is held to the closing of the request's batch, and not of a later batch in
-  which an act uses one of the locks: from the moment when that batch is
-  visible on this task, the read gives the lock without its bytes, one run
-  before that batch is closed. The second read, of `:closed-through`, is
-  made only when the first found a row.
+  layer's depot or a lock's bytes that a read gave never changes. A lock's
+  row holds no stamp: the read of locks holds the stamp of the request's
+  answer, which is on the same task, and gives locks only for an accepted
+  request. So it is held to the closing of the request's batch, and not of
+  a later batch in which an act uses one of the locks: from the moment when
+  that batch is visible on this task, the read gives the lock without its
+  bytes, one run before that batch is closed. The second read, of
+  `:closed-through`, is made only when the first found a row.
 
   Routing. Each begins with the hash partitioner on its first argument.
   Rama's client evaluates a leading partitioner on a query's own arguments,
   so the query goes straight to one task and never hops: the layer's task
-  for a streaming act-id and for a class, the task of the uuid for a
+  for a streaming act-id and for a layer's depot, the task of the uuid for a
   microbatch act-id. A request's answer and its locks are on that one task.
-  The class row of a microbatch layer is on every task, so on the layer's.
-  Which record holds a layer's class is told by the class that the layer
-  starts with (`softland.store.gate.first-act/class-at-making`): no act of this
-  build changes a class, so the other record cannot hold it.
+  The depot row of a microbatch layer is on every task, so on the layer's.
+  Which record holds a layer's depot is told by the depot that the layer
+  starts with (`softland.store.gate.first-act/depot-at-making`): no act of this
+  build changes a depot, so the other record cannot hold it.
 
   The head of each query. `softland.store.record.rows`'s
   `answer-read-by-routing-id`, `lock-range-read-by-routing-id` and
-  `class-read` test what the caller gave, before any key is built from it:
+  `depot-read` test what the caller gave, before any key is built from it:
   an id over the limit, a thing that is no act-id, or a routing id that is
-  not the one of the act-id's class costs no read and gets nil or an empty
+  not the one of the act-id's depot costs no read and gets nil or an empty
   map. Those tests run on the task, after the client has hashed the first
   argument; a caller that may hold a thing that is no id tests it with the
   same functions before it calls.
@@ -87,14 +87,14 @@
   (<<query-topology topologies "answer-by-act-id" [*routing-id *act-id :> *answer]
     (|hash *routing-id)
     (record/answer-read-by-routing-id *routing-id *act-id :> *read)
-    (first *read :> *class)
+    (first *read :> *depot)
     (<<cond
-      (case> (= :streaming *class))
+      (case> (= :streaming *depot))
       (second *read :> *key)
       (local-select> (keypath *key) $$streaming-answers :> *row)
       (record/answer-of *row :> *answer)
 
-      (case> (= :microbatch *class))
+      (case> (= :microbatch *depot))
       (second *read :> *key)
       (local-select> (keypath *key) $$microbatch-answers :> *row)
       (<<if *row
@@ -113,9 +113,9 @@
   (<<query-topology topologies "locks-of-request" [*routing-id *request-act-id *from *to :> *locks]
     (|hash *routing-id)
     (record/lock-range-read-by-routing-id *routing-id *request-act-id *from *to :> *read)
-    (first *read :> *class)
+    (first *read :> *depot)
     (<<cond
-      (case> (= :streaming *class))
+      (case> (= :streaming *depot))
       (nth *read 1 :> *first-key)
       (nth *read 2 :> *last-key)
       (local-select> [(sorted-map-range *first-key *last-key {:inclusive-end? true})
@@ -123,7 +123,7 @@
                      $$streaming-locks
                      :> *locks)
 
-      (case> (= :microbatch *class))
+      (case> (= :microbatch *depot))
       (nth *read 1 :> *first-key)
       (nth *read 2 :> *last-key)
       (record/answer-key (nth *request-act-id 0) (nth *request-act-id 2) :> *answer-key)
@@ -146,25 +146,25 @@
       (identity {} :> *locks))
     (|origin))
 
-  (<<query-topology topologies "class-of-layer" [*layer :> *class]
+  (<<query-topology topologies "depot-of-layer" [*layer :> *depot]
     (|hash *layer)
-    (record/class-read *layer :> *key)
+    (record/depot-read *layer :> *key)
     (<<cond
       (case> (nil? *key))
-      (identity nil :> *class)
+      (identity nil :> *depot)
 
-      (case> (= :microbatch (first-act/class-at-making *layer)))
+      (case> (= :microbatch (first-act/depot-at-making *layer)))
       (local-select> (keypath *key) $$microbatch-facts :> *row)
       (<<if *row
         (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
         (<<if (record/closed? *row *closed-through)
-          (record/plain-value-of *row :> *class)
+          (record/plain-value-of *row :> *depot)
          (else>)
-          (identity nil :> *class))
+          (identity nil :> *depot))
        (else>)
-        (identity nil :> *class))
+        (identity nil :> *depot))
 
       (default>)
       (local-select> (keypath *key) $$streaming-facts :> *row)
-      (record/plain-value-of *row :> *class))
+      (record/plain-value-of *row :> *depot))
     (|origin)))

@@ -51,7 +51,7 @@
   that reads a shape; the check.
 
   Not here. Act-ids: the door makes them, on request ahead of sending. The
-  class: the door adds it, from the layer. The seal: the door's, and a gate
+  depot: the door adds it, from the layer. The seal: the door's, and a gate
   refuses a value that is not sealed. The standing of a permission, and
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
@@ -62,9 +62,12 @@
 
   Words. A fact is one statement: entity, key, value. An act is one or more
   facts that one maker sends under one act-id. An act-id is
-  `[layer class uuid]`: the layer, the layer's class, a random UUID; the
-  layer and the class are there so a depot can route the act and the door
-  can find its answer in the right record. From Sid's \"act-uuid\" of 7 October
+  `[layer depot uuid]`: the layer, the layer's depot, a random UUID. A
+  layer's depot is `:streaming` or `:microbatch`: the depot that takes its
+  acts. The layer and the depot are there so that the act can be routed and
+  the door can find its answer in the right record. \"Depot\" is Sid's word,
+  of 9 October 2026; his decisions before that day say \"class\" for it.
+  From Sid's \"act-uuid\" of 7 October
   2026: the session wrote act-id, since the id holds more than the UUID, and
   the word is his to change. The ruling of 24 September said \"name\". A maker is a converter, the screen,
   an agent. The door is the code that takes an act from a maker into the
@@ -156,7 +159,7 @@
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
-   ;; [layer class uuid]. The door makes it; an act refers to act-ids.
+   ;; [layer depot uuid]. The door makes it; an act refers to act-ids.
    :act-id
    [:tuple :id [:enum :streaming :microbatch] :uuid]
 
@@ -492,8 +495,8 @@
   a retract. To parse the :ok of a parse gives the same :ok.
 
   It is the check of the maker's act: what a maker gives, before the door
-  adds an act-id and a class and seals the values. An act that carries an
-  act-id or a class, and a fact that carries a seal, a lock id, a layer or a
+  adds an act-id and a depot and seals the values. An act that carries an
+  act-id or a depot, and a fact that carries a seal, a lock id, a layer or a
   mark, are refused :unknown-part: the form names no such part.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no

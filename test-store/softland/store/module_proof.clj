@@ -10,7 +10,7 @@
   is not zero when a check fails.
 
   The door is not built. The proof plays it by hand, with a few functions of
-  this namespace, in the order of one act: it reads the class of the layer;
+  this namespace, in the order of one act: it reads the depot of the layer;
   makes the act-id, with a random UUID; asks for locks by an act and reads
   them with one query; seals each value, the UTF-8 of the one text of the
   value, to its place under a lock that it has not used; appends the thing;
@@ -107,10 +107,10 @@
   [ipc]
   (let [m (rama/get-module-name module/Store)]
     {:ipc        ipc
-     :depot      (rama/foreign-depot ipc m "*streaming-depot")
+     :streaming-depot (rama/foreign-depot ipc m "*streaming-depot")
      :answer     (rama/foreign-query ipc m "answer-by-act-id")
      :locks      (rama/foreign-query ipc m "locks-of-request")
-     :class      (rama/foreign-query ipc m "class-of-layer")
+     :depot-of-layer (rama/foreign-query ipc m "depot-of-layer")
      :answers-ps (rama/foreign-pstate ipc m "$$streaming-answers")
      :facts-ps   (rama/foreign-pstate ipc m "$$streaming-facts")
      :locks-ps   (rama/foreign-pstate ipc m "$$streaming-locks")
@@ -122,13 +122,13 @@
      :mb-locks-ps   (rama/foreign-pstate ipc m "$$microbatch-locks")
      :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")}))
 
-(defn- class-of-layer
-  "Reads the class of a layer, or nil for a layer that is not made. The hand
+(defn- depot-of-layer
+  "Reads the depot of a layer, or nil for a layer that is not made. The hand
   tests what it passes before it calls, and gives nil itself for a thing
   that is no id."
   [layer]
-  (when (record/class-read layer)
-    (rama/foreign-invoke-query (:class *hand*) layer)))
+  (when (record/depot-read layer)
+    (rama/foreign-invoke-query (:depot-of-layer *hand*) layer)))
 
 (defn- answer-of
   "Reads the answer under an act-id, or nil for nothing yet. The hand passes
@@ -153,19 +153,19 @@
     locks))
 
 (defn- new-act-id
-  "Makes an act-id for a layer: the layer, its class as the module gives it,
-  or the class that the layer starts with when it is not made, and a random
+  "Makes an act-id for a layer: the layer, its depot as the module gives it,
+  or the depot that the layer starts with when it is not made, and a random
   UUID."
   [layer]
-  [layer (or (class-of-layer layer) (first-act/class-at-making layer)) (UUID/randomUUID)])
+  [layer (or (depot-of-layer layer) (first-act/depot-at-making layer)) (UUID/randomUUID)])
 
 (defn- thing
   "An act as the door sends it: the maker's parts, and the door's act-id and
-  class. `more` is merged in last, for the optional parts and for faults."
+  depot. `more` is merged in last, for the optional parts and for faults."
   ([layer who permission facts] (thing layer who permission facts {}))
   ([layer who permission facts more]
    (let [act-id (new-act-id layer)]
-     (merge {:act-id act-id :class (nth act-id 1)
+     (merge {:act-id act-id :depot (nth act-id 1)
              :version 1 :who who :layer layer :permission permission :session :proof-session
              :facts (vec facts)}
             more))))
@@ -175,7 +175,7 @@
   it. Gives :acked, or what the append threw, which is not an answer."
   [x]
   (swap! things-sent conj x)
-  (try (rama/foreign-append! (:depot *hand*) x :ack)
+  (try (rama/foreign-append! (:streaming-depot *hand*) x :ack)
        :acked
        (catch Throwable t [:append-failed (.getSimpleName (class t))])))
 
@@ -198,14 +198,14 @@
 
 (defn- ask-for-locks!
   "Asks for n locks by an act of `who` under `permission`: one fact under
-  :lock-request on the uuid of that act's own act-id. Reads the answer, then
-  the locks with one query. Gives the result of the act with :locks, a map
-  from index to lock, and :request, the request's act-id. The locks are put
-  in the hand for the layer."
+  :softland.store/lock-request on the uuid of that act's own act-id. Reads
+  the answer, then the locks with one query. Gives the result of the act
+  with :locks, a map from index to lock, and :request, the request's act-id.
+  The locks are put in the hand for the layer."
   [layer who permission n]
   (let [base (thing layer who permission [])
         request (:act-id base)
-        result (decide! (assoc base :facts [{:e (nth request 2) :k :lock-request :v n}]))
+        result (decide! (assoc base :facts [{:e (nth request 2) :k :softland.store/lock-request :v n}]))
         locks (locks-of request 0 255)]
     (swap! locks-in-hand update layer (fnil into [])
            (map (fn [[index lock]] {:lock-id [request index] :lock lock}) (sort-by key locks)))
@@ -278,7 +278,7 @@
 (defn- stored
   "Each record of the streaming depot's log, read back: [partition record]."
   []
-  (let [depot (:depot *hand*)]
+  (let [depot (:streaming-depot *hand*)]
     (for [p (range (:num-partitions (rama/foreign-object-info depot)))
           :let [{:keys [start-offset end-offset]} (rama/foreign-depot-partition-info depot p)]
           r (rama/foreign-depot-read depot p start-offset end-offset)]
@@ -403,7 +403,7 @@
   [who permission n]
   (let [request-thing (thing :base who permission [])
         request (:act-id request-thing)
-        result (decide-in-base! (assoc request-thing :facts [{:e (nth request 2) :k :lock-request :v n}]))
+        result (decide-in-base! (assoc request-thing :facts [{:e (nth request 2) :k :softland.store/lock-request :v n}]))
         locks (locks-of request 0 255)]
     (swap! locks-in-hand update :base (fnil into [])
            (map (fn [[index lock]] {:lock-id [request index] :lock lock}) (sort-by key locks)))
@@ -445,7 +445,7 @@
 
 (defn- gates-last-stamp
   "The last stamp that the microbatch gate gave: one for the gate, on the
-  gate's task, the task of the class word."
+  gate's task, the task of the depot word."
   []
   (rama/foreign-select-one (path/keypath :last-stamp) (:mb-task-ps *hand*) {:pkey :microbatch}))
 
@@ -485,11 +485,11 @@
 
 (defn- making
   "The making act of a layer: by `who`, naming the first permission of
-  `holder`, with the class that the layer starts with."
+  `holder`, with the depot that the layer starts with."
   [layer who holder]
   (thing layer who [holder layer layer]
-         [{:e layer :k :class :v (first-act/class-at-making layer)}
-          {:e holder :k :permission :v [holder layer layer]}]))
+         [{:e layer :k :softland.store/depot :v (first-act/depot-at-making layer)}
+          {:e holder :k :softland.store/permission :v [holder layer layer]}]))
 
 (defn- alice
   "Alice's act into her personal layer, with these facts."
@@ -537,14 +537,14 @@
     (shown "the gate took the same digest of the thing as it arrived, and recorded it with its refusal:" (told result))))
 
 (deftest layers-are-made
-  (let [before (class-of-layer :alice)
+  (let [before (depot-of-layer :alice)
         not-made (decide! (alice [{:e :note-1 :k :text}]))
         request-early (ask-for-locks! :alice :alice alice-own 4)
         by-stranger (decide! (assoc (making :alice :system :alice) :who :mallory))
         base-here (decide! (thing :base :system [:system :base :base]
-                                  [{:e :base :k :class :v :microbatch}
-                                   {:e :system :k :permission :v [:system :base :base]}]
-                                  {:act-id [:base :streaming (UUID/randomUUID)] :class :streaming}))
+                                  [{:e :base :k :softland.store/depot :v :microbatch}
+                                   {:e :system :k :softland.store/permission :v [:system :base :base]}]
+                                  {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
         personal (decide! (making :alice :system :alice))
         group (decide! (making :team :alice :alice))
         own-uuid (UUID/randomUUID)
@@ -553,24 +553,24 @@
         again-by-system (decide! (making :alice :system :alice))
         again-by-holder (decide! (making :team :alice :alice))
         system-again (decide! (thing :alice :system alice-own [{:e :note-1 :k :text}]))]
-    (check "before its making, the class of a layer is nothing" nil before)
+    (check "before its making, the depot of a layer is nothing" nil before)
     (check "an act into a layer that is not made is refused" :layer-not-made (:word not-made))
     (check "a request for locks into a layer that is not made is refused, and makes no lock"
            [:layer-not-made {}] [(:word request-early) (:locks request-early)])
     (check "a making act by a who that is neither the holder nor the system is refused" :layer-not-made (:word by-stranger))
     (check "a making act of the base at the streaming gate is refused" :layer-not-made (:word base-here))
-    (check "a person's layer made by the system for that person: accepted, and its class is streaming"
-           [:accepted true :streaming] [(:word personal) (:mine? personal) (class-of-layer :alice)])
-    (check "the record holds the class as a fact on the layer's own entity, and the person's permission on its holder"
+    (check "a person's layer made by the system for that person: accepted, and its depot is streaming"
+           [:accepted true :streaming] [(:word personal) (:mine? personal) (depot-of-layer :alice)])
+    (check "the record holds the depot as a fact on the layer's own entity, and the person's permission on its holder"
            [:streaming alice-own]
-           [(record/plain-value-of (fact-row :alice :alice :class)) (record/plain-value-of (fact-row :alice :alice :permission))])
-    (check "the class, the permission and the answer hold one stamp"
+           [(record/plain-value-of (fact-row :alice :alice :softland.store/depot)) (record/plain-value-of (fact-row :alice :alice :softland.store/permission))])
+    (check "the depot, the permission and the answer hold one stamp"
            [(:stamp (:answer personal)) (:stamp (:answer personal))]
-           [(:stamp (fact-row :alice :alice :class)) (:stamp (fact-row :alice :alice :permission))])
-    (check "a group's layer made by the person who creates it: accepted, and its class is streaming"
-           [:accepted :streaming] [(:word group) (class-of-layer :team)])
+           [(:stamp (fact-row :alice :alice :softland.store/depot)) (:stamp (fact-row :alice :alice :softland.store/permission))])
+    (check "a group's layer made by the person who creates it: accepted, and its depot is streaming"
+           [:accepted :streaming] [(:word group) (depot-of-layer :team)])
     (check "a layer whose id is a UUID, made by a person whose id is a UUID" [:accepted :streaming]
-           [(:word by-uuid) (class-of-layer own-layer)])
+           [(:word by-uuid) (depot-of-layer own-layer)])
     (check "a making act for a layer that is made, by the system under the person's permission, is refused"
            :who-not-the-permissions-holder (:word again-by-system))
     (check "a making act for a layer that is made, by its holder, is refused: its permission is not beneath its own"
@@ -578,11 +578,11 @@
     (check "the system holds no permission in the personal layer that it made: its second act there is refused"
            :who-not-the-permissions-holder (:word system-again))
     (check "the first permission of the group's layer is the one that the first making act wrote"
-           alice-in-team (record/plain-value-of (fact-row :team :alice :permission)))
+           alice-in-team (record/plain-value-of (fact-row :team :alice :softland.store/permission)))
     (shown "an act into a layer that is not made refused:" (told not-made))
-    (shown "a person's layer made by the system for that person, with the class streaming:" (told personal)
-           "| class-of-layer :alice =" (class-of-layer :alice))
-    (shown "a group's layer made by the person who creates it:" (told group) "| class-of-layer :team =" (class-of-layer :team))
+    (shown "a person's layer made by the system for that person, with the depot streaming:" (told personal)
+           "| depot-of-layer :alice =" (depot-of-layer :alice))
+    (shown "a group's layer made by the person who creates it:" (told group) "| depot-of-layer :team =" (depot-of-layer :team))
     (shown "a making act for a layer that is made is refused: by the system" (:word again-by-system)
            "| by its holder" (:word again-by-holder) "| a second act of the system in a personal layer" (:word system-again))))
 
@@ -604,7 +604,7 @@
            [(count (:locks request)) (set (map #(alength ^bytes (:bytes %)) (vals (:locks request))))
             (set (map :way (vals (:locks request)))) (count (set (map #(vec (:bytes %)) (vals (:locks request)))))])
     (check "the request's own fact is a row: its count, as a plain value on the uuid of its act"
-           16 (record/plain-value-of (fact-row :alice (nth (:request request) 2) :lock-request)))
+           16 (record/plain-value-of (fact-row :alice (nth (:request request) 2) :softland.store/lock-request)))
     (check "one act lands through the streaming gate and is read back by act-id: accepted, with the digest of what was sent"
            [:acked :accepted nil true] [(:ack landed) (:verdict (:answer landed)) (:reason (:answer landed)) (:mine? landed)])
     (check "the place holds the sealed bytes as sent, the fact that wrote it, its lock, and the stamp of the answer"
@@ -712,40 +712,45 @@
            "| a later fact replaces the retract:" (told over-retract) "(second fact id" (short-id (first second-fact-id)) ")")))
 
 (deftest settings-and-permissions
-  (let [setting (decide! (alice [{:e :team :k :class :v :streaming}]))
+  (let [setting (decide! (alice [{:e :team :k :softland.store/depot :v :streaming}]))
         other-layer (decide! (thing :alice :alice alice-in-team [{:e :note-5 :k :text}]))
         not-yet (decide! (thing :alice :bob bobs [{:e :note-5 :k :text}]))
-        give (decide! (alice [{:e :bob :k :permission :v bobs}]))
+        give (decide! (alice [{:e :bob :k :softland.store/permission :v bobs}]))
         not-yet-again (do (send! (:thing not-yet)) (answer-of (:act-id (:thing not-yet))))
         bob-asks (ask-for-locks! :alice :bob bobs 2)
         bob-writes (decide! (thing :alice :bob bobs [(sealed :alice :bobs-note :text "bob's text")]))
-        beside (decide! (thing :alice :bob bobs [{:e :carol :k :permission :v [:carol :alice :alice alice-own]}]))
-        by-no-holder (decide! (thing :alice :carol bobs [{:e :dave :k :permission :v [:dave :alice :alice bobs]}]))
+        beside (decide! (thing :alice :bob bobs [{:e :carol :k :softland.store/permission :v [:carol :alice :alice alice-own]}]))
+        by-no-holder (decide! (thing :alice :carol bobs [{:e :dave :k :softland.store/permission :v [:dave :alice :alice bobs]}]))
         carol-not-given (decide! (thing :alice :carol [:carol :alice :alice alice-own] [{:e :note-5 :k :text}]))
-        give-carol (decide! (thing :alice :bob bobs [{:e :carol :k :permission :v carols}]))
-        give-dave (decide! (thing :alice :carol carols [{:e :dave :k :permission :v daves}]))
+        give-carol (decide! (thing :alice :bob bobs [{:e :carol :k :softland.store/permission :v carols}]))
+        give-dave (decide! (thing :alice :carol carols [{:e :dave :k :softland.store/permission :v daves}]))
         dave-acts (decide! (thing :alice :dave daves [{:e :daves-note :k :text}]))
-        five-deep (decide! (thing :alice :dave daves [{:e :erin :k :permission :v [:erin :alice :alice daves]}]))
-        granted-elsewhere (decide! (alice [{:e :erin :k :permission :v [:erin :alice :team alice-own]}]))
-        for-elsewhere (decide! (alice [{:e :erin :k :permission :v [:erin :team :alice alice-own]}]))
-        at-the-top (decide! (alice [{:e :erin :k :permission :v [:erin :alice :alice]}]))
-        give-again (decide! (alice [{:e :bob :k :permission :v bobs}]))
-        end-it (decide! (alice [{:e :bob :k :permission}]))
-        class-again (decide! (alice [{:e :alice :k :class :v :streaming}]))
-        class-other (decide! (alice [{:e :alice :k :class :v :microbatch}]))
-        class-retract (decide! (alice [{:e :alice :k :class}]))
+        five-deep (decide! (thing :alice :dave daves [{:e :erin :k :softland.store/permission :v [:erin :alice :alice daves]}]))
+        granted-elsewhere (decide! (alice [{:e :erin :k :softland.store/permission :v [:erin :alice :team alice-own]}]))
+        for-elsewhere (decide! (alice [{:e :erin :k :softland.store/permission :v [:erin :team :alice alice-own]}]))
+        at-the-top (decide! (alice [{:e :erin :k :softland.store/permission :v [:erin :alice :alice]}]))
+        give-again (decide! (alice [{:e :bob :k :softland.store/permission :v bobs}]))
+        end-it (decide! (alice [{:e :bob :k :softland.store/permission}]))
+        depot-again (decide! (alice [{:e :alice :k :softland.store/depot :v :streaming}]))
+        depot-other (decide! (alice [{:e :alice :k :softland.store/depot :v :microbatch}]))
+        depot-retract (decide! (alice [{:e :alice :k :softland.store/depot}]))
         bob-still (decide! (thing :alice :bob bobs [{:e :bobs-note-2 :k :text}]))
         own-give (decide! (thing :alice :frank [:frank :alice :alice alice-own]
-                                 [{:e :frank :k :permission :v [:frank :alice :alice alice-own]}]))
-        with-stale (decide! (alice [{:e :erin :k :permission :v [:erin :alice :alice alice-own]}
+                                 [{:e :frank :k :softland.store/permission :v [:frank :alice :alice alice-own]}]))
+        with-stale (decide! (alice [{:e :erin :k :softland.store/permission :v [:erin :alice :alice alice-own]}
                                     (assoc (sealed :alice :note-1 :text "stale") :replaces [(new-act-id :alice) 0])]))
-        erin-acts (decide! (thing :alice :erin [:erin :alice :alice alice-own] [{:e :note-5 :k :text}]))]
-    (check "a setting key on another layer is refused, and that layer's class is as it was"
-           [:setting-not-on-the-layer :streaming] [(:word setting) (class-of-layer :team)])
+        erin-acts (decide! (thing :alice :erin [:erin :alice :alice alice-own] [{:e :note-5 :k :text}]))
+        tool-locks (ask-for-locks! :alice :alice alice-own 2)
+        tools-own (decide! (alice [(sealed :alice :alice :class "a tool's own class")
+                                   (sealed :alice :bob :permission "a tool's own permission")]))
+        bob-after (decide! (thing :alice :bob bobs [{:e :bobs-note-5 :k :text}]))
+        unknown-key (decide! (alice [{:e :alice :k :softland.store/owner :v :alice}]))]
+    (check "a setting key on another layer is refused, and that layer's depot is as it was"
+           [:setting-not-on-the-layer :streaming] [(:word setting) (depot-of-layer :team)])
     (check "an act with a permission for another layer is refused by the form" :permission-not-in-layer (:word other-layer))
     (check "an act under a permission that does not stand is refused" :permission-does-not-stand (:word not-yet))
     (check "a permission given beneath another by its holder is accepted, and sits on its holder as a fact"
-           [:accepted bobs] [(:word give) (record/plain-value-of (fact-row :alice :bob :permission))])
+           [:accepted bobs] [(:word give) (record/plain-value-of (fact-row :alice :bob :softland.store/permission))])
     (check "a repeat of the refused act reads its recorded refusal, although the act would now pass"
            (:answer not-yet) not-yet-again)
     (check "an act under it is accepted: a request for locks, and a value sealed under one of them"
@@ -763,16 +768,25 @@
     (check "a permission with nothing above it, in a layer that is made, is refused" :permission-fact-not-beneath-the-acts-own (:word at-the-top))
     (check "a permission that stands is not given again: a store key takes one write for a place" :store-key-takes-one-write (:word give-again))
     (check "a retract of a permission is refused with the word that says it is not decided" :ending-a-permission-not-decided (:word end-it))
-    (check "a class fact after the making: the same class, the other class, a retract"
-           [:store-key-takes-one-write :changing-a-class-not-decided :store-key-retract-not-built]
-           [(:word class-again) (:word class-other) (:word class-retract)])
-    (check "after each of those refusals the permission stands and the class is as it was"
-           [:accepted :streaming] [(:word bob-still) (class-of-layer :alice)])
+    (check "a depot fact after the making: the same depot, the other depot, a retract"
+           [:store-key-takes-one-write :changing-a-depot-not-decided :store-key-retract-not-built]
+           [(:word depot-again) (:word depot-other) (:word depot-retract)])
+    (check "after each of those refusals the permission stands and the depot is as it was"
+           [:accepted :streaming] [(:word bob-still) (depot-of-layer :alice)])
     (check "an act that gives a permission and names that permission as its own is refused: it does not stand before the act"
            :permission-does-not-stand (:word own-give))
     (check "whole or nothing: an act that gives a permission and carries a stale fact is refused, and the permission is not given"
            [:replaced-fact-not-current :permission-does-not-stand nil]
-           [(:word with-stale) (:word erin-acts) (fact-row :alice :erin :permission)])
+           [(:word with-stale) (:word erin-acts) (fact-row :alice :erin :softland.store/permission)])
+    (check "a tool's own facts under the bare words :class and :permission, sealed, on the layer's entity and on a holder's, are accepted as facts under plain keys"
+           [:accepted :accepted true] [(:word tool-locks) (:word tools-own) (:mine? tools-own)])
+    (check "each sits at its own place, sealed, and the store's facts are as they were: the layer's depot, Bob's permission, and Bob still acts"
+           [true true :streaming bobs :accepted]
+           [(some? (:lock-act (fact-row :alice :alice :class))) (some? (:lock-act (fact-row :alice :bob :permission)))
+            (depot-of-layer :alice) (record/plain-value-of (fact-row :alice :bob :softland.store/permission)) (:word bob-after)])
+    (check "a fact under a key in the store's namespace that the store does not know is refused, the refusal is recorded, and nothing is written"
+           [:store-key-not-known true nil]
+           [(:word unknown-key) (:mine? unknown-key) (fact-row :alice :alice :softland.store/owner)])
     (shown "a setting key on another layer refused:" (told setting))
     (shown "an act with a permission for another layer refused:" (told other-layer))
     (shown "an act under a permission that does not stand refused:" (told not-yet))
@@ -781,8 +795,11 @@
            "| by a who that is not the holder of the permission it names:" (told by-no-holder))
     (shown "a chain four deep stands, and a fifth is refused:" (:word give-carol) (:word give-dave) (:word dave-acts) (:word five-deep))
     (shown "granted-in must be the act's layer:" (:word granted-elsewhere) "| a store key takes one write:" (:word give-again)
-           "| ending a permission:" (:word end-it) "| a class after the making:" (:word class-again) (:word class-other) (:word class-retract))
-    (shown "whole or nothing: a give with a stale fact" (:word with-stale) "| an act under the permission that was not given" (:word erin-acts))))
+           "| ending a permission:" (:word end-it) "| a depot after the making:" (:word depot-again) (:word depot-other) (:word depot-retract))
+    (shown "whole or nothing: a give with a stale fact" (:word with-stale) "| an act under the permission that was not given" (:word erin-acts))
+    (shown "a tool's own facts under the bare words :class and :permission, sealed, accepted as facts under plain keys:" (told tools-own)
+           "| depot-of-layer :alice =" (depot-of-layer :alice) "| an act under Bob's permission after:" (:word bob-after)
+           "| a key in softland.store that the store does not know refused:" (told unknown-key))))
 
 (deftest the-path-of-a-lock
   (let [used-lock (:landed-lock @kept)
@@ -810,7 +827,7 @@
         bobs-lock (take-lock! :alice)
         by-another-who (decide! (thing :alice :bob bobs [(seal-with bobs-lock :alice :bobs-note-3 :text "sealed under a lock that Alice asked for")]))
         both-base (alice [])
-        both (decide! (assoc both-base :facts [{:e (nth (:act-id both-base) 2) :k :lock-request :v 2}
+        both (decide! (assoc both-base :facts [{:e (nth (:act-id both-base) 2) :k :softland.store/lock-request :v 2}
                                                (sealed :alice :note-25 :text "with a request")]))]
     (check "a second value under a lock that already seals one is refused" :lock-already-seals-a-value (:word second-value))
     (check "a lock that a refused act named is free: its row names no fact"
@@ -850,7 +867,7 @@
         long (keyword (apply str (repeat 300 "a")))
         no-act-id 5
         malformed {:act-id [:alice :streaming] :layer :alice :marker (UUID/randomUUID)}
-        other-gate (assoc (alice [{:e :note-30 :k :text}]) :act-id [:alice :microbatch (UUID/randomUUID)] :class :microbatch)
+        other-gate (assoc (alice [{:e :note-30 :k :text}]) :act-id [:alice :microbatch (UUID/randomUUID)] :depot :microbatch)
         other-layer (assoc (alice [{:e :note-30 :k :text}]) :layer :team)
         too-long {:act-id [long :streaming (UUID/randomUUID)] :layer long}
         acks (mapv send! [no-act-id malformed other-gate other-layer too-long other-gate other-gate])
@@ -914,40 +931,40 @@
         ask (fn [query & args] (apply rama/foreign-invoke-query (get *hand* query) args))]
     (check "the hand gives nothing itself for what is no id or no act-id, and calls no query"
            [nil nil nil nil {} {}]
-           [(class-of-layer nil) (class-of-layer "alice") (answer-of nil) (answer-of [:alice :streaming]) (locks-of nil 0 1)
+           [(depot-of-layer nil) (depot-of-layer "alice") (answer-of nil) (answer-of [:alice :streaming]) (locks-of nil 0 1)
             (locks-of accepted "0" 1)])
     (check "the read by act-id, called with what is no act-id of the layer given, gives nothing"
            [nil nil nil nil nil true]
            [(ask :answer :alice [:team :streaming u]) (ask :answer :alice 5) (ask :answer :alice [:alice :streaming])
             (ask :answer "alice" ["alice" :streaming u]) (ask :answer long [long :streaming u])
             (some? (ask :answer :alice accepted))])
-    (check "an act-id of the class microbatch, asked for with its layer and not with its uuid as the routing id, gets nothing" nil (ask :answer :alice [:alice :microbatch (nth accepted 2)]))
-    (check "the read of a class, called with what is no id, or with a layer that is not made, gives nothing"
-           [nil nil nil] [(ask :class "alice") (ask :class long) (ask :class :nobody)])
-    (check "the read of locks, called with an act-id that made no lock, indexes that are no integers, or the other class, gives an empty map"
+    (check "an act-id of the depot microbatch, asked for with its layer and not with its uuid as the routing id, gets nothing" nil (ask :answer :alice [:alice :microbatch (nth accepted 2)]))
+    (check "the read of a depot, called with what is no id, or with a layer that is not made, gives nothing"
+           [nil nil nil] [(ask :depot-of-layer "alice") (ask :depot-of-layer long) (ask :depot-of-layer :nobody)])
+    (check "the read of locks, called with an act-id that made no lock, indexes that are no integers, or the other depot, gives an empty map"
            [{} {} {} {}]
            [(ask :locks :alice accepted 0 255) (ask :locks :alice accepted "0" 3) (ask :locks :alice [:alice :microbatch u] 0 3)
             (ask :locks :alice [:team :streaming u] 0 3)])
     (check "the same uuid in two layers is two answers: an answer is found by its layer and its uuid"
            [nil nil] [(ask :answer :team [:team :streaming (nth accepted 2)]) (answer-of [:team :streaming (nth accepted 2)])])
-    (shown "the three reads give nothing for what is no id, no act-id, another layer's act-id or the other class, and do not fail")))
+    (shown "the three reads give nothing for what is no id, no act-id, another layer's act-id or the other depot, and do not fail")))
 
 ;; ----------------------------------------------- the checks of the base's gate
 
 (deftest the-base-is-made
-  (let [before (class-of-layer :base)
+  (let [before (depot-of-layer :base)
         on-the-other-depot (decide! (thing :base :system system-own [{:e :early :k :note}]
-                                           {:act-id [:base :streaming (UUID/randomUUID)] :class :streaming}))
+                                           {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
         sent-at (System/currentTimeMillis)
         early (decide-in-base! (system-act [{:e :early :k :note}]))
         waited (- (System/currentTimeMillis) sent-at)
         [made-a made-b] (decide-in-one-batch! [(making :base :system :system)
                                                (update (making :base :system :system) :facts (comp vec reverse))])
         [winner loser] (if (= :accepted (:word made-a)) [made-a made-b] [made-b made-a])
-        class-rows (rows-by-task :mb-facts-ps (record/place-key :base :base :class))
-        permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :system :permission))
+        depot-rows (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/depot))
+        permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :system :softland.store/permission))
         after (decide-in-base! (system-act [{:e :early :k :note}]))]
-    (check "before its making, the class of the base is nothing" nil before)
+    (check "before its making, the depot of the base is nothing" nil before)
     (check "an act for the base on the streaming depot, before the base is made, is refused as an act into a layer that is not made"
            :layer-not-made (:word on-the-other-depot))
     (check "an act into the base before it is made is refused, and its answer is found from its act-id alone"
@@ -957,18 +974,18 @@
     (check "two making acts of the base in one batch, their facts in the two orders: one is accepted, the other refused"
            [:accepted true :permission-fact-not-beneath-the-acts-own] [(:word winner) (:mine? winner) (:word loser)])
     (check "the one that is accepted holds the earlier stamp" true (< (:stamp (:answer winner)) (:stamp (:answer loser))))
-    (check "the base made by the system: its class is microbatch" :microbatch (class-of-layer :base))
-    (check "the class row and the system's permission row are on every task, each with the stamp of the making act's answer"
+    (check "the base made by the system: its depot is microbatch" :microbatch (depot-of-layer :base))
+    (check "the depot row and the system's permission row are on every task, each with the stamp of the making act's answer"
            [tasks tasks #{(:stamp (:answer winner))}]
-           [(count class-rows) (count permission-rows) (set (map :stamp (concat (vals class-rows) (vals permission-rows))))])
-    (check "the rows hold the class as a fact on the layer's own entity, and the system's permission on its holder"
+           [(count depot-rows) (count permission-rows) (set (map :stamp (concat (vals depot-rows) (vals permission-rows))))])
+    (check "the rows hold the depot as a fact on the layer's own entity, and the system's permission on its holder"
            [:microbatch system-own]
-           [(record/plain-value-of (first (vals class-rows))) (record/plain-value-of (first (vals permission-rows)))])
+           [(record/plain-value-of (first (vals depot-rows))) (record/plain-value-of (first (vals permission-rows)))])
     (check "after the making, the same act of the system into the base is accepted" :accepted (:word after))
     (shown "an act into the base before it is made refused:" (told early) "| its answer was readable" waited
            "ms after the append, with nothing sent after it")
-    (shown "the base made by the system, with the class microbatch:" (told winner) "| class-of-layer :base =" (class-of-layer :base)
-           "| the class row is on" (count class-rows) "tasks, the system's permission on" (count permission-rows))
+    (shown "the base made by the system, with the depot microbatch:" (told winner) "| depot-of-layer :base =" (depot-of-layer :base)
+           "| the depot row is on" (count depot-rows) "tasks, the system's permission on" (count permission-rows))
     (shown "two making acts of the base in one batch: one accepted, the other" (:word loser))))
 
 (deftest an-act-lands-in-the-base
@@ -1001,7 +1018,7 @@
             (set (map :way (vals (:locks request)))) (count (set (map #(vec (:bytes %)) (vals (:locks request)))))])
     (check "the request's fact, its answer and its locks are on one task, the task of its uuid"
            [home-task home-task]
-           [(task-of-row :mb-facts-ps (record/place-key :base request-uuid :lock-request))
+           [(task-of-row :mb-facts-ps (record/place-key :base request-uuid :softland.store/lock-request))
             (task-of-row :mb-locks-ps (record/lock-key :base request-uuid 15))])
     (check "one act lands through the microbatch gate and is read back by act-id: accepted, with the digest of what was sent"
            [:appended :accepted nil true] [(:ack landed) (:verdict (:answer landed)) (:reason (:answer landed)) (:mine? landed)])
@@ -1039,7 +1056,7 @@
   (let [request-thing (system-act [])
         act-id (:act-id request-thing)
         uuid (nth act-id 2)
-        x (assoc request-thing :facts [{:e uuid :k :lock-request :v 1}])
+        x (assoc request-thing :facts [{:e uuid :k :softland.store/lock-request :v 1}])
         _ (append-to-base! x)
         deadline (+ (System/currentTimeMillis) time-limit-ms)
         row (loop []
@@ -1148,10 +1165,10 @@
                                                         (system-act [{:e eb :k :mark-other} {:e ea :k :mark}])])
         mark (base-fact ea :mark)
         [give-carol carol-acts dave-acts give-dave]
-        (decide-in-one-batch! [(system-act [{:e :carol :k :permission :v carol-in-base}])
+        (decide-in-one-batch! [(system-act [{:e :carol :k :softland.store/permission :v carol-in-base}])
                                (thing :base :carol carol-in-base [{:e :carol :k :note}])
                                (thing :base :dave dave-in-base [{:e :dave :k :note}])
-                               (system-act [{:e :dave :k :permission :v dave-in-base}])])
+                               (system-act [{:e :dave :k :softland.store/permission :v dave-in-base}])])
         dave-later (decide-in-base! (thing :base :dave dave-in-base [{:e :dave :k :note}]))
         one-lock (take-lock! :base)
         under-one-lock (decide-in-one-batch! [(system-act [(seal-with one-lock :base ea :under-one-lock "a")])
@@ -1180,20 +1197,23 @@
            "| two acts under one lock:" (pr-str (mapv :word under-one-lock)))))
 
 (deftest a-person-acts-in-the-base
-  (let [give (decide-in-base! (system-act [{:e :alice :k :permission :v alice-in-base}]))
-        permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :permission))
+  (let [give (decide-in-base! (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}]))
+        permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission))
         asks (ask-for-base-locks! :alice alice-in-base 2)
         writes (decide-in-base! (thing :base :alice alice-in-base [(sealed :base :alices-doc :text "alice's text in the base")]))
-        [give-again end-it class-again class-other setting-elsewhere give-bob]
+        [give-again end-it depot-again depot-other setting-elsewhere give-bob unknown-key tools-own]
         (decide-in-one-batch!
-         [(system-act [{:e :alice :k :permission :v alice-in-base}])
-          (system-act [{:e :alice :k :permission}])
-          (system-act [{:e :base :k :class :v :microbatch}])
-          (system-act [{:e :base :k :class :v :streaming}])
-          (system-act [{:e :team :k :class :v :microbatch}])
-          (thing :base :alice alice-in-base [{:e :bob :k :permission :v bob-in-base}])])
+         [(system-act [{:e :alice :k :softland.store/permission :v alice-in-base}])
+          (system-act [{:e :alice :k :softland.store/permission}])
+          (system-act [{:e :base :k :softland.store/depot :v :microbatch}])
+          (system-act [{:e :base :k :softland.store/depot :v :streaming}])
+          (system-act [{:e :team :k :softland.store/depot :v :microbatch}])
+          (thing :base :alice alice-in-base [{:e :bob :k :softland.store/permission :v bob-in-base}])
+          (system-act [{:e :base :k :softland.store/owner :v :system}])
+          (system-act [(sealed :base :alice :permission "a tool's own permission")])])
         bob-acts (decide-in-base! (thing :base :bob bob-in-base [{:e :bobs-doc :k :note}]))
-        permission-rows-after (rows-by-task :mb-facts-ps (record/place-key :base :alice :permission))
+        permission-rows-after (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission))
+        tools-own-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :permission))
         clock (System/currentTimeMillis)
         far (stamp/pack (+ clock 60000) 0)
         fact-id [(:act-id (:thing give)) 0]
@@ -1201,7 +1221,7 @@
         (decide-in-one-batch!
          [(thing :base :erin [:erin :base :base system-own] [{:e :erins-doc :k :note}])
           (thing :base :mallory alice-in-base [{:e :mallorys-doc :k :note}])
-          (thing :base :alice alice-in-base [{:e :frank :k :permission :v [:frank :base :base system-own]}])
+          (thing :base :alice alice-in-base [{:e :frank :k :softland.store/permission :v [:frank :base :base system-own]}])
           (system-act [{:e :far-doc :k :note}] {:based-on {fact-id far}})
           (thing :base :mallory alice-in-base [{:e :mallorys-doc :k :note}] {:based-on {fact-id far}})])
         next-one (decide-in-base! (system-act [{:e :far-doc :k :note}]))]
@@ -1214,16 +1234,22 @@
     (check "an act under a permission by a who that is not its holder is refused" :who-not-the-permissions-holder (:word not-holder))
     (check "a permission given beside the giver's own, not beneath it, is refused, and gives nothing"
            [:permission-fact-not-beneath-the-acts-own {}]
-           [(:word beside) (rows-by-task :mb-facts-ps (record/place-key :base :frank :permission))])
-    (check "in the base a store key takes one write for a place: a permission given again, the end of one, the class again, another class"
-           [:store-key-takes-one-write :ending-a-permission-not-decided :store-key-takes-one-write :changing-a-class-not-decided]
-           [(:word give-again) (:word end-it) (:word class-again) (:word class-other)])
+           [(:word beside) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))])
+    (check "in the base a store key takes one write for a place: a permission given again, the end of one, the depot again, another depot"
+           [:store-key-takes-one-write :ending-a-permission-not-decided :store-key-takes-one-write :changing-a-depot-not-decided]
+           [(:word give-again) (:word end-it) (:word depot-again) (:word depot-other)])
     (check "a setting key on an entity that is not the layer is refused in the base" :setting-not-on-the-layer (:word setting-elsewhere))
-    (check "after those refusals the permission's rows and the class are as they were"
+    (check "after those refusals the permission's rows and the depot are as they were"
            [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows) :microbatch]
-           [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows-after) (class-of-layer :base)])
+           [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows-after) (depot-of-layer :base)])
     (check "a person gives a permission beneath her own, in the same batch as those refusals, and an act under it is accepted"
            [:accepted :accepted] [(:word give-bob) (:word bob-acts)])
+    (check "a fact under a key in the store's namespace that the store does not know is refused by the microbatch gate too, and nothing is written"
+           [:store-key-not-known {}]
+           [(:word unknown-key) (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/owner))])
+    (check "a tool's own fact under the bare word :permission, on a holder's entity, is accepted in the base: its row is on one task, sealed, and the store's permission is on every task"
+           [:accepted 1 true tasks]
+           [(:word tools-own) (count tools-own-rows) (some? (:lock-act (first (vals tools-own-rows)))) (count permission-rows-after)])
     (check "an act that carries a stamp more than 10 seconds ahead of the gate's clock is refused"
            :carried-stamp-too-far-ahead (:word far-ahead))
     (check "the same under a permission that does not stand is refused with the word of the 10-second rule, as in the streaming gate"
@@ -1237,8 +1263,11 @@
     (shown "in the base, an act under a permission that does not stand:" (:word not-given) "| by a who that is not the holder:" (:word not-holder)
            "| a permission given beside the giver's own:" (:word beside))
     (shown "a store key takes one write in the base:" (:word give-again) "| ending a permission:" (:word end-it)
-           "| the class again:" (:word class-again) (:word class-other) "| a setting key on another entity:" (:word setting-elsewhere)
+           "| the depot again:" (:word depot-again) (:word depot-other) "| a setting key on another entity:" (:word setting-elsewhere)
            "| a permission beneath a person's, and an act under it:" (:word give-bob) (:word bob-acts))
+    (shown "in the base, a key in softland.store that the store does not know:" (:word unknown-key)
+           "| a tool's own fact under the bare word :permission:" (:word tools-own) "| its row is on" (count tools-own-rows)
+           "task, the store's permission of the same holder on" (count permission-rows-after))
     (shown "a carried stamp too far ahead, in the base:" (told far-ahead) "| the same with no standing:" (:word far-ahead-no-standing))))
 
 (deftest a-long-batch
@@ -1263,7 +1292,7 @@
         request-thing (system-act [])
         request (:act-id request-thing)
         request-uuid (nth request 2)
-        asked (decide-in-base! (assoc request-thing :facts [{:e request-uuid :k :lock-request :v 3}]))
+        asked (decide-in-base! (assoc request-thing :facts [{:e request-uuid :k :softland.store/lock-request :v 3}]))
         door-locks (locks-of request 0 255)
         locks (mapv (fn [i] {:lock-id [request i] :lock (get door-locks i)}) (range 3))
         places (mapv (fn [e] [e :body]) entities)
@@ -1345,12 +1374,12 @@
 
 (deftest each-gate-tells-the-other-gates-layers
   (let [base-on-streaming (decide! (thing :base :system system-own [{:e :wrong-depot :k :note}]
-                                          {:act-id [:base :streaming (UUID/randomUUID)] :class :streaming}))
+                                          {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
         [alice-on-microbatch nobody-on-microbatch]
         (decide-in-one-batch!
-         [(thing :alice :alice alice-own [{:e :wrong-depot :k :note}] {:act-id [:alice :microbatch (UUID/randomUUID)] :class :microbatch})
+         [(thing :alice :alice alice-own [{:e :wrong-depot :k :note}] {:act-id [:alice :microbatch (UUID/randomUUID)] :depot :microbatch})
           (thing :nobody :nobody [:nobody :nobody :nobody] [{:e :wrong-depot :k :note}]
-                 {:act-id [:nobody :microbatch (UUID/randomUUID)] :class :microbatch})])
+                 {:act-id [:nobody :microbatch (UUID/randomUUID)] :depot :microbatch})])
         strays-before (base-strays)
         both (alice [{:e :both-depots :k :text}])
         on-streaming (decide! both)
@@ -1380,15 +1409,15 @@
 
 (defn- base-snapshot
   "What the proof reads of the base before and after the module is started
-  again: the answer of the act that landed, the class, the gate's last
+  again: the answer of the act that landed, the depot, the gate's last
   stamp, the count of strays, a permission's row on each task, and the bytes
   of the locks of one request."
   [request]
   {:answer (answer-of (:act-id (:thing (:base-landed @kept))))
-   :class (class-of-layer :base)
+   :depot (depot-of-layer :base)
    :last-stamp (gates-last-stamp)
    :strays (base-strays)
-   :permission (into (sorted-map) (map (fn [[task row]] [task (:stamp row)])) (rows-by-task :mb-facts-ps (record/place-key :base :alice :permission)))
+   :permission (into (sorted-map) (map (fn [[task row]] [task (:stamp row)])) (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission)))
    :locks (into (sorted-map) (map (fn [[i lock]] [i (some-> (:bytes lock) vec)])) (locks-of request 0 255))})
 
 (deftest the-path-of-a-lock-in-the-base
@@ -1397,7 +1426,7 @@
         request-thing (system-act [])
         request (:act-id request-thing)
         request-uuid (nth request 2)
-        asked (decide-in-base! (assoc request-thing :facts [{:e request-uuid :k :lock-request :v 2}]))
+        asked (decide-in-base! (assoc request-thing :facts [{:e request-uuid :k :softland.store/lock-request :v 2}]))
         door-locks (locks-of request 0 255)
         bytes-before (into {} (map (fn [[i lock]] [i (vec (:bytes lock))])) door-locks)
         _ (append-to-base! (:thing asked))
@@ -1412,7 +1441,7 @@
         new-request (system-act [])
         forged-lock {:lock-id [(:act-id new-request) 0] :lock (seal/new-lock)}
         [requested forged] (decide-in-one-batch!
-                            [(assoc new-request :facts [{:e (nth (:act-id new-request) 2) :k :lock-request :v 1}])
+                            [(assoc new-request :facts [{:e (nth (:act-id new-request) 2) :k :softland.store/lock-request :v 1}])
                              (system-act [(seal-with forged-lock :base :lock-doc :forged "sealed with bytes that the store did not make")])])
         by-stranger (ask-for-base-locks! :mallory alice-in-base 2)
         kept-request (ask-for-base-locks! :system system-own 2)]
@@ -1463,8 +1492,8 @@
     (check "the answer that was read before is the answer after" (:answer landed) answer-after)
     (check "a repeat after it is answered from the record: the task's last stamp is the one from before"
            [:acked stamp-before] [repeat-ack stamp-after-repeat])
-    (check "the class, the strays and the locks are as they were: each lock has the same bytes"
-           [:streaming strays-before bytes-before] [(class-of-layer :alice) (strays :act-id-malformed) bytes-after])
+    (check "the depot, the strays and the locks are as they were: each lock has the same bytes"
+           [:streaming strays-before bytes-before] [(depot-of-layer :alice) (strays :act-id-malformed) bytes-after])
     (check "a lock that was asked for before seals a value after" :accepted (:word with-old-lock))
     (check "the first stamp after is later than the last stamp before" true (> (:stamp (:answer with-old-lock)) stamp-before))
     (check "a permission that was given before stands after" :accepted (:word by-bob))
@@ -1514,7 +1543,7 @@
                              beside (base-row :mb-locks-ps e (base-lock-key (:lock-id lock)))]
                          [(vec value) (some? (seal/open (record/lock-of beside) [:base e k] value))]))
                      places locks sent)]
-    (check "the answer, the class of the base, the gate's last stamp, the strays, a permission's rows and the locks are as they were"
+    (check "the answer, the depot of the base, the gate's last stamp, the strays, a permission's rows and the locks are as they were"
            before after)
     (check "a repeat after it is answered from the record" (:answer before) answer-after-repeat)
     (check "a lock of the base that was asked for before seals a value after" :accepted (:word with-old-lock))
@@ -1522,7 +1551,7 @@
     (check "a permission that the system gave before stands after" :accepted (:word by-alice))
     (check "each sealed value of the act on several tasks is as it was sent, and the bytes beside it still open it"
            (mapv (fn [fact] [(vec (:sealed fact)) true]) sent) opened)
-    (shown "after the module is started again in the cluster, the base's record is as it was: the same answer, class" (:class after)
+    (shown "after the module is started again in the cluster, the base's record is as it was: the same answer, depot" (:depot after)
            "| the same locks | the gate's last stamp before" (:last-stamp before) "the first stamp after" (:stamp (:answer with-old-lock)))))
 
 (deftest the-stamps-and-the-depot-of-the-base

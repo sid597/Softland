@@ -83,9 +83,9 @@
   (UUID. 0 n))
 
 (defn- an-act-id
-  "An act-id for a layer and a class, with a fixed UUID."
-  [layer class n]
-  [layer class (uuid n)])
+  "An act-id for a layer and a depot, with a fixed UUID."
+  [layer depot n]
+  [layer depot (uuid n)])
 
 (def ^:private earlier-act-id "The act-id of an earlier act in Alice's layer." (an-act-id :alice :streaming 2))
 (def ^:private other-act-id "The act-id of another earlier act in Alice's layer." (an-act-id :alice :streaming 3))
@@ -173,10 +173,10 @@
     #{:version :who :layer :permission :session :based-on :because-of :claimed-when :subjects :facts}]
    ["the four parts of a fact"
     (fn [] act/fact-parts) #{:e :k :v :replaces}]
-   ["the door's additions and the seal are no parts: no act-id or class on an act; no seal, lock id, layer or mark on a fact"
+   ["the door's additions and the seal are no parts: no act-id or depot on an act; no seal, lock id, layer or mark on a fact"
     (fn [] (mapv #(contains? %1 %2)
                  [act/act-parts act/act-parts act/fact-parts act/fact-parts act/fact-parts act/fact-parts]
-                 [:act-id :class :sealed :lock-id :layer :mark]))
+                 [:act-id :depot :sealed :lock-id :layer :mark]))
     [false false false false false false]]
    ["the seven reason words, read from the two declarations"
     (fn [] act/reasons)
@@ -279,7 +279,7 @@
   [;; parts that the form does not name
    ["another part" (assoc good :signature "x") :unknown-part]
    ["an act-id: the door makes it, and it is no part" (assoc good :act-id earlier-act-id) :unknown-part]
-   ["a class: the door adds it, and it is no part" (assoc good :class :streaming) :unknown-part]
+   ["a depot: the door adds it, and it is no part" (assoc good :depot :streaming) :unknown-part]
    ["a part for expected versions" (assoc good :expected-versions {}) :unknown-part]
    ;; the version
    ["version 2" (assoc good :version 2) :unknown-version]
@@ -308,7 +308,7 @@
    ;; because of, claimed when, subjects
    ["a :because-of that is no act-id" (assoc good :because-of [:alice 0]) :malformed]
    ["a :because-of with a scheme word, four slots" (assoc good :because-of [:alice :streaming :act (uuid 2)]) :malformed]
-   ["a :because-of with no class" (assoc good :because-of [:alice nil (uuid 2)]) :malformed]
+   ["a :because-of with no depot" (assoc good :because-of [:alice nil (uuid 2)]) :malformed]
    ["a :claimed-when that is a double" (assoc good :claimed-when 1.5) :malformed]
    ["a :claimed-when that is a big integer" (assoc good :claimed-when 1N) :malformed]
    ["subjects that are no set" (assoc good :subjects [:bob]) :malformed]
@@ -464,7 +464,7 @@
           [[true "Long"] [true "Long"] [true "Long"] [true "Long"] [true "Long"] [true "BigInt"] [true "Double"]
            [true "BigDecimal"] [true "BigDecimal"] [true "PersistentVector"] [true "PersistentArrayMap"]
            [true "PersistentHashSet"]]]
-         ["the shape of an act-id, as an act refers to one: [layer class uuid], the layer an id"
+         ["the shape of an act-id, as an act refers to one: [layer depot uuid], the layer an id"
           (fn [] (mapv #(act/has-shape? :act-id %)
                        [[:alice :streaming (uuid 1)] [:group :microbatch (uuid 1)] [(uuid 3) :streaming (uuid 1)]
                         [:alice :streaming :act (uuid 1)] [:alice nil (uuid 1)] [:alice :sideways (uuid 1)]

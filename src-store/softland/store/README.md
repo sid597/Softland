@@ -8,11 +8,11 @@ depots, the gate of each, the record that each gate keeps, and the three reads b
 which the door reads the module. An act that a gate accepts becomes facts in the
 record, and its answer is read back by act-id.
 
-A layer has a class, streaming or microbatch. The class says which depot takes
-its acts and which gate decides them. The streaming gate decides each thing in
-one event, on the layer's task. The microbatch gate decides the things of a
-batch, across tasks. The base is the one layer that starts as a microbatch
-layer; every other layer starts streaming.
+A layer has a depot, streaming or microbatch: the depot that takes its acts,
+whose gate decides them. The streaming gate decides each thing in one event, on
+the layer's task. The microbatch gate decides the things of a batch, across
+tasks. The base is the one layer that starts as a microbatch layer; every other
+layer starts streaming.
 
 The door is not built. The [module's proof](../../../test-store/softland/store/README.md)
 plays it by hand.
@@ -43,7 +43,7 @@ The two gates share the pure code. Both decide with [declaration.clj](door/decla
 [digest.clj](door/digest.clj), [decision.clj](gate/decision.clj),
 [first_act.clj](gate/first_act.clj), [stamp.clj](gate/stamp.clj), [seal.clj](door/seal.clj) and
 [rows.clj](record/rows.clj). Where what a function gives depends on the gate, it
-takes the gate's class: the test for a stray, the form of a making act, each
+takes the gate's depot: the test for a stray, the form of a making act, each
 check against the record. No check is written twice, and the two records have
 one shape of row.
 
@@ -69,11 +69,11 @@ The streaming gate takes the thing there, in one event:
 puts it on the task of the entity of its first fact
 ([batch.clj](gate/batch.clj) derives it). The rows of a microbatch layer are on
 several tasks: a fact on the task of its entity, an answer on the task of its
-act-id's uuid, a lock on the task of its request's uuid, and the class and each
-permission on every task. So no one task holds all that an act needs, and the
-depot holds no order between two partitions. The microbatch gate decides the
-things of a batch in four steps. Each step is done on every task before the next
-starts:
+act-id's uuid, a lock on the task of its request's uuid, and the layer's depot
+fact and each permission on every task. So no one task holds all that an act
+needs, and the microbatch depot holds no order between two partitions. The
+microbatch gate decides the things of a batch in four steps. Each step is done
+on every task before the next starts:
 
 1. Arrive and question. On the task where it arrived, each thing gets its turn,
    its number in the batch. [declaration.clj](door/declaration.clj) tests it for a
@@ -94,15 +94,15 @@ starts:
 [microbatch_gate.clj](module/microbatch_gate.clj) walks them.
 
 **Each gate asks the other's record one thing**: whether it holds a layer of
-which its own record holds nothing. The streaming gate reads the base's class
+which its own record holds nothing. The streaming gate reads the base's depot
 row in the microbatch record. The microbatch gate reads a streaming layer's
-class row in the streaming record. So an act sent to the wrong depot is refused
+depot row in the streaming record. So an act sent to the wrong depot is refused
 as an act into a layer of the other gate.
 
 **The door reads** through [door_reads.clj](module/door_reads.clj). Each read goes
-straight to one task: the layer's task for a streaming act-id and for a class,
-the task of the uuid for a microbatch act-id. A read of a microbatch layer gives
-a row only when its batch is closed; "Engineering choices" says why.
+straight to one task: the layer's task for a streaming act-id and for a layer's
+depot, the task of the uuid for a microbatch act-id. A read of a microbatch
+layer gives a row only when its batch is closed; "Engineering choices" says why.
 
 Each gate's dataflow only reads rows, calls the pure functions and writes rows.
 A pure function gives the same answer when Rama runs an event or a batch again,
@@ -181,7 +181,7 @@ shape must hold when each fact is wrong.
   task opens when it commits the next run of the gate. So for a few milliseconds
   one read can give an answer while a read on another task still gives nothing.
   The one pair of the door's reads on two tasks is the answer of the base's
-  making act and the class of the base.
+  making act and the depot of the base.
 - **The same word on every attempt of a batch.** The order of a batch is the same
   on every attempt, and with it each check that reads the batch and the record.
   Two words can differ on a second attempt: the 10-second rule reads the clock,
@@ -215,7 +215,7 @@ The act (6 October): the twelve decisions of "Decisions of 6 October 2026".
 [act.clj](act.clj) is their code. Decision 2 is why
 [declaration.clj](door/declaration.clj) contains the maker's shapes and does not write
 them again. Decision 3 is why a gate, not the form, refuses an unsealed value.
-Decision 5 is the act-id, `[layer class uuid]`.
+Decision 5 is the act-id, `[layer depot uuid]`.
 
 The store's module (7 October):
 
@@ -223,9 +223,9 @@ The store's module (7 October):
 |---|---|---|
 | F6 A, Q7 a | Two depots, one for each gate: the streaming depot and the microbatch depot | [module.clj](module.clj) declares `*streaming-depot` and `*microbatch-depot` |
 | F2 A | The record is in the gates' PStates; the acts depots are the replay log | Each gate owns the PStates of its record; neither depot is ever trimmed. What a rebuild from the microbatch depot reaches is under rules 9 and 19 |
-| F1 A | The class of a layer is a fact on the layer | The row at the layer's own entity under `:class` ([rows.clj](record/rows.clj)) |
-| F4 C | The base is a microbatch layer; every other layer starts streaming | `class-at-making` in [first_act.clj](gate/first_act.clj) |
-| F5 A | A gate reads on its own task | The streaming gate's event has no hop. In a microbatch layer the class and each permission are on every task, so an act finds its permission where it arrives. A layer holds facts under its own entity |
+| F1 A | The depot of a layer is a fact on the layer | The row at the layer's own entity under `:softland.store/depot` ([rows.clj](record/rows.clj)) |
+| F4 C | The base is a microbatch layer; every other layer starts streaming | `depot-at-making` in [first_act.clj](gate/first_act.clj) |
+| F5 A | A gate reads on its own task | The streaming gate's event has no hop. In a microbatch layer the layer's depot fact and each permission are on every task, so an act finds its permission where it arrives. A layer holds facts under its own entity |
 | Q22 A | The door reads an answer from the record by act-id; the ack is a signal | `answer-by-act-id` in [door_reads.clj](module/door_reads.clj); the streaming gate gives nothing back in the ack, and an ack of the microbatch depot says only that the depot holds the thing |
 | F7 A | A signal is not the truth; the record is; a gate reads its own record by act-id before it decides | Check (a): the first read of each event of the streaming gate, and the reply about the answer in step 2 of the microbatch gate |
 | F8 C | The gate refuses a setting key on an entity that is not the act's layer | Check (f) in [decision.clj](gate/decision.clj); `setting-keys` in [declaration.clj](door/declaration.clj) |
@@ -239,7 +239,7 @@ Who acts, and what the store reads (8 October):
 | K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
 | E3·H7 B, E4 A, E2 A | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj) |
 | H2 A | A stamp holds the clock time and a counter | [stamp.clj](gate/stamp.clj) |
-| K1 A | The store's keys are three: the class, a permission, the door's request for locks | `store-keys` in [declaration.clj](door/declaration.clj) |
+| K1 A | The store's keys are three: the depot, a permission, the door's request for locks | `store-keys` in [declaration.clj](door/declaration.clj) |
 
 The door's four questions (9 October):
 
@@ -248,7 +248,7 @@ The door's four questions (9 October):
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | Nowhere yet: no code makes a person. An id can be a UUID in [act.clj](act.clj) |
 | H1 A | One lock seals one value | [seal.clj](door/seal.clj); the lock's row in [rows.clj](record/rows.clj); the refusal `:lock-already-seals-a-value` |
 | K3 A | The system can hold many layers | The form of a making act in [first_act.clj](gate/first_act.clj): `system` can be the first holder of any layer |
-| K4 B | The store's own keys carry the namespace `softland.store`, and "class" is "depot" | Not yet: `store-keys` in [declaration.clj](door/declaration.clj) holds three bare words until the rename is made |
+| K4 B | The store's own keys carry the namespace `softland.store`, and the word for a layer's kind is "depot". A gate refuses a key in that namespace that the store does not know | `store-namespace`, `store-keys` and the rule `:store-key-is-known` in [declaration.clj](door/declaration.clj); the part `:depot` of what arrives, and "depot" in each name of this tree |
 
 ## Engineering choices
 
@@ -287,16 +287,16 @@ is written only by a right making act or by a give whose own permission stood an
 is exactly the one above, and nothing in this build ends a permission. Reading
 them would cost up to 3 reads on every act to find what cannot be false.
 
-**The class of a layer costs no read for a layer that is made here.** A gate's
-record holds rows only for layers of its class, so a row at the permission's
-place or at the class's place says that the layer is this gate's.
+**The depot of a layer costs no read for a layer that is made here.** A gate's
+record holds rows only for layers of its depot, so a row at the permission's
+place or at the depot's place says that the layer is this gate's.
 
 **How locks are asked for and read.** A request is an act with one fact under
-`:lock-request`, on the uuid of its own act, holding a count of 1 to 256. The id
-of a lock is `[the request's act-id, index]`, so the door knows the ids before it
-sends, and a retry cannot make locks under other ids. A gate makes the bytes at
-the write. The door reads all the locks of a request with one call of
-`locks-of-request`.
+`:softland.store/lock-request`, on the uuid of its own act, holding a count of 1
+to 256. The id of a lock is `[the request's act-id, index]`, so the door knows
+the ids before it sends, and a retry cannot make locks under other ids. A gate
+makes the bytes at the write. The door reads all the locks of a request with one
+call of `locks-of-request`.
 
 **The cipher.** AES-256-GCM, a random part of 12 bytes for each seal, a tag of 16
 bytes, the place `[layer entity key]` as associated data. A sealed value carries
@@ -315,7 +315,7 @@ examination first.
 what a serialiser may change and no check can see. The digest is SHA-256 over it,
 kept whole.
 
-**The form of a making act.** Exactly two facts, in either order: the class on
+**The form of a making act.** Exactly two facts, in either order: the depot on
 the layer, and the act's own permission on its holder.
 
 **The source of each gate.** It starts from the beginning of its depot. The
@@ -323,7 +323,7 @@ streaming gate's has the retry mode "all after", and nothing is given back in th
 ack.
 
 **The first argument of a query routes it.** Rama's client hashes the first
-argument and sends the query straight to one task. For `class-of-layer` it is
+argument and sends the query straight to one task. For `depot-of-layer` it is
 the layer. For `answer-by-act-id` and `locks-of-request` it is the routing id of
 the act-id: the layer of a streaming act-id, the uuid of a microbatch one. The
 caller still needs the act-id alone.
@@ -341,7 +341,7 @@ where its places are. The rest is the builder's too.
   hop and nothing passes through one task.
 - A lock is on the task of its request's uuid, with the request's answer. That is
   the one task that can be found from the lock's id.
-- A layer's class and each permission are on every task. Every act needs the
+- A layer's depot fact and each permission are on every task. Every act needs the
   permission of its `:who` where it is decided. A copy is bytes and a rare write;
   a fetch would be a hop between tasks on every act. That is Sid's reason for
   F5 A, read onto the permissions. A give writes one row on each task.
@@ -367,7 +367,7 @@ batch fails, so the second attempt gives the same turns.
 **The stamp of a batch.** The gate reads the clock once for a batch. The batch's
 base is later than the gate's last stamp and than each stamp that an act of the
 batch carries, the last held to 10 seconds ahead. An act's stamp is the base plus
-its turn. The gate keeps one last stamp, on the task of the class word
+its turn. The gate keeps one last stamp, on the task of the depot word
 `:microbatch`, so each stamp is later than every stamp that the gate gave before
 on any task.
 
@@ -385,7 +385,7 @@ on each task for each batch. And one thing that closing leaves to a read of
 facts: a place holds one row, its current fact. So after a batch replaces a
 fact, its place holds no row of a closed batch until that batch is closed, and a
 place that is replaced in every batch never holds one. No read of this build
-meets it: the one fact that a read gives is the class of a layer, which is
+meets it: the one fact that a read gives is the depot of a layer, which is
 written once.
 
 **One copy of a lock's bytes.** A lock is asked for before its value is known, so
@@ -434,11 +434,11 @@ check that examines facts takes them in the act's order.
    attempt. An act is decided once, on one task, with each row that it needs in
    hand; the rows of an accept go to several tasks inside one attempt, which Rama
    keeps or drops whole. Only the acts that meet pass one task.
-7. A layer's class is a fact at a place found from the layer id; in a microbatch
+7. A layer's depot is a fact at a place found from the layer id; in a microbatch
    layer every task holds it. An act's answer is found from its act-id alone, by
    its routing id. Each gate reads the other gate's record for a layer that its
-   own record does not hold and that starts with the other class; no act of this
-   build changes a class, so no other layer can be there.
+   own record does not hold and that starts with the other depot; no act of this
+   build changes a depot, so no other layer can be there.
 8. Each word is under "Words a session made", below.
 9. Found: no, not when the two acts are on two depot partitions. Inside one
    partition the depot holds the order. Between two it holds none: the order in
@@ -458,8 +458,8 @@ check that examines facts takes them in the act's order.
 12. Two rules of the declaration: `:place-named-once` and
     `:no-fact-replaces-a-fact-of-its-act`.
 13. A second write on a store key's place, each retract under a store key, and a
-    `:class` fact after the making are refused, with four words that say which. A
-    permission fact sits on its holder.
+    `:softland.store/depot` fact after the making are refused, with four words
+    that say which. A permission fact sits on its holder.
 14. `granted-in` must be the act's layer, in a first permission and in one given.
     The gate checks nothing more about a holder; see "What the gate does not
     check".
@@ -506,21 +506,25 @@ check that examines facts takes them in the act's order.
 ## Words a session made, Sid's to change
 
 Each says what the thing is. None comes from the rig's code. Carried from the
-contract and the decisions, not made here: `:act-id`, `:class`, `:sealed`,
-`:lock-id`, `:permission`, `:lock-request`, `:not-sealed`, `:system`, `:base`,
+contract and the decisions, not made here: `:act-id`, `:depot`, `:sealed`,
+`:lock-id`, the three store keys, `:not-sealed`, `:system`, `:base`,
 `:streaming`, `:microbatch`, `:accepted`, `:refused`; "stray", "place", "holder",
-"making act". "Class" and "act-id" are Sid's to change, and each word below that
-holds one of them follows his word.
+"making act". "Act-id" is Sid's to change, and each word below that holds it
+follows his word. "Depot" is his word, of 9 October: the contract and his
+decisions before that day say "class" for it.
 
-The three store keys, `:class`, `:permission` and `:lock-request`, are bare
-words: they have no namespace. So in every layer they are the store's. A fact of
-a tool under one of them is read as the store's fact and is held to its rules,
-whatever the tool meant; a tool cannot have a key of its own with one of the
-three words. A namespace on the three gives the bare words back to the tools.
-Sid decided on 9 October that they get one (K4 B), and gave the words:
-`softland.store` before the slash, and "depot" for "class". The rename is not
-made yet, so the three are still bare words here and this tree says "class".
-It is to be made before the first kept record.
+The three store keys carry the namespace `softland.store`:
+`:softland.store/depot`, `:softland.store/permission` and
+`:softland.store/lock-request`. Sid decided on 9 October that the store's keys
+get a namespace (K4 B), and gave the words: `softland.store` before the slash,
+and "depot". So the bare words are the tools'. A fact of a tool under `:depot`,
+`:permission` or `:lock-request`, or under one of those words in another
+namespace, is a fact under a plain key: its value arrives sealed, and the store
+reads nothing from it. The store owns the whole of its own namespace. He was
+asked that day whether a gate should refuse a key in `softland.store` that the
+store does not know, and said "yes"; such a fact is refused
+`:store-key-not-known`. The namespace is taken exactly: a key in
+`softland.store.x` is not in it. That reading is a session's.
 
 **Names in Rama.**
 
@@ -543,7 +547,7 @@ It is to be made before the first kept record.
 | `$$questions`, `$$replies`, `$$parcels` | The three temporary PStates of one attempt of a batch: what step 1 gathered, what step 2 replied, what step 3 sent |
 | `answer-by-act-id` | The query: act-id → the recorded answer, or nothing |
 | `locks-of-request` | The query: a request's act-id and a range of indexes → those locks |
-| `class-of-layer` | The query: layer → its class, or nothing |
+| `depot-of-layer` | The query: layer → its depot, or nothing |
 
 **Folders and namespaces.** Four folders: `door`, `gate`, `record`, `module`.
 Each namespace is `softland.store.`, its folder, and the word: `door.text`,
@@ -582,26 +586,27 @@ word.
 | Word | What it is |
 |---|---|
 | `:no-act-id` | The thing is no plain map, or holds no act-id |
-| `:act-id-malformed` | Its act-id is not `[layer class uuid]` |
+| `:act-id-malformed` | Its act-id is not `[layer depot uuid]` |
 | `:id-too-long` | The layer slot of its act-id prints to more than 256 characters. The same word is a reason word of the declaration, for every other id |
-| `:act-id-of-the-other-gate` | The class slot of its act-id is not the class of the gate where it arrived |
+| `:act-id-of-the-other-gate` | The depot slot of its act-id is not the depot of the gate where it arrived |
 | `:act-id-of-another-layer` | The layer slot of its act-id is not its own `:layer` |
 
 **The reason words of the declaration**, beside `act.clj`'s seven.
 
 | Word | What it is |
 |---|---|
-| `:class-not-the-act-ids-class` | `:class` is absent, is no class word, or is not the class slot of the act-id |
+| `:depot-not-the-act-ids-depot` | `:depot` is absent, is no depot word, or is not the depot slot of the act-id |
 | `:lock-id-malformed` | `:lock-id` is not `[act-id index]` with an index of 0 to 255 |
 | `:too-many-facts` | More than 256 facts in one act |
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
+| `:store-key-not-known` | A fact's key is in the namespace `softland.store` and is not one of the store keys |
 | `:store-key-sealed` | A fact under a store key carries a seal |
-| `:class-fact-not-a-class-word` | A `:class` fact's value is not `:streaming` or `:microbatch` |
-| `:permission-fact-not-a-permission` | A `:permission` fact's value is not a permission id |
-| `:permission-fact-not-on-its-holder` | A `:permission` fact's entity is not the holder that its permission names |
-| `:lock-request-not-a-count` | A `:lock-request` fact's value is not an integer of 1 or more |
+| `:depot-fact-not-a-depot-word` | A `:softland.store/depot` fact's value is not `:streaming` or `:microbatch` |
+| `:permission-fact-not-a-permission` | A `:softland.store/permission` fact's value is not a permission id |
+| `:permission-fact-not-on-its-holder` | A `:softland.store/permission` fact's entity is not the holder that its permission names |
+| `:lock-request-not-a-count` | A `:softland.store/lock-request` fact's value is not an integer of 1 or more |
 | `:too-many-locks-requested` | A request asks for more than 256 locks |
-| `:lock-request-not-on-its-act` | A `:lock-request` fact's entity is not the uuid of its act's act-id |
+| `:lock-request-not-on-its-act` | A `:softland.store/lock-request` fact's entity is not the uuid of its act's act-id |
 | `:sealed-with-a-plain-value` | A fact carries `:sealed` and a plain `:v` |
 | `:seal-incomplete` | A fact carries `:sealed` with no `:lock-id`, or `:lock-id` with no `:sealed` |
 | `:sealed-not-bytes` | `:sealed` is not a run of bytes, or holds none |
@@ -612,10 +617,10 @@ word.
 | `:id-too-long` | An id that the act holds, or a fact's key, prints to more than 256 characters |
 
 **The names in the declaration.** Its shapes: `:arrived-act`, `:arrived-fact`,
-`:class-word`, `:lock-id` (the same word as the part of a fact), `:lock-count`.
-Its rules, each named for what must hold: `:class-is-the-act-ids-class`,
-`:facts-within-the-limit`, `:based-on-within-the-limit`,
-`:store-key-fact-has-no-seal`, `:class-fact-holds-a-class-word`,
+`:depot-word`, `:lock-id` (the same word as the part of a fact), `:lock-count`.
+Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
+`:facts-within-the-limit`, `:based-on-within-the-limit`, `:store-key-is-known`,
+`:store-key-fact-has-no-seal`, `:depot-fact-holds-a-depot-word`,
 `:permission-fact-holds-a-permission`, `:permission-fact-sits-on-its-holder`,
 `:lock-request-holds-a-count`, `:lock-request-within-the-limit`,
 `:lock-request-sits-on-its-act`, `:plain-value-is-sealed`,
@@ -630,19 +635,19 @@ Its rules, each named for what must hold: `:class-is-the-act-ids-class`,
 | Word | What it is |
 |---|---|
 | `:carried-stamp-too-far-ahead` | The act carries a stamp more than 10 seconds ahead of the gate's clock |
-| `:layer-belongs-to-the-other-gate` | The layer is made, and its class is the other gate's: the act was sent to the wrong depot |
+| `:layer-belongs-to-the-other-gate` | The layer is made, and its depot is the other gate's: the act was sent to the wrong depot |
 | `:layer-not-made` | The record holds nothing for the layer, and the act is not a right making act |
 | `:who-not-the-permissions-holder` | The holder that the act's permission names is not the act's `:who` |
 | `:permission-does-not-stand` | The record does not hold the act's permission for its holder |
 | `:replaced-fact-not-current` | A fact that the act replaces is not the current fact of its place |
 | `:setting-not-on-the-layer` | A fact under a setting key is on an entity that is not the act's layer |
-| `:permission-fact-for-another-layer` | A `:permission` fact writes a permission for a layer that is not the act's |
-| `:permission-fact-granted-in-another-layer` | A `:permission` fact writes a permission whose `granted-in` is not the act's layer |
-| `:permission-fact-not-beneath-the-acts-own` | A `:permission` fact writes a permission that is not straight beneath the one the act acts under |
-| `:ending-a-permission-not-decided` | A `:permission` fact with no value: who may end a permission is not decided |
-| `:changing-a-class-not-decided` | A `:class` fact, in a layer that is made, with a class that is not the layer's |
+| `:permission-fact-for-another-layer` | A `:softland.store/permission` fact writes a permission for a layer that is not the act's |
+| `:permission-fact-granted-in-another-layer` | A `:softland.store/permission` fact writes a permission whose `granted-in` is not the act's layer |
+| `:permission-fact-not-beneath-the-acts-own` | A `:softland.store/permission` fact writes a permission that is not straight beneath the one the act acts under |
+| `:ending-a-permission-not-decided` | A `:softland.store/permission` fact with no value: who may end a permission is not decided |
+| `:changing-a-depot-not-decided` | A `:softland.store/depot` fact, in a layer that is made, with a depot that is not the layer's |
 | `:store-key-takes-one-write` | A fact under a store key on a place that already holds one |
-| `:store-key-retract-not-built` | A `:class` or `:lock-request` fact with no value |
+| `:store-key-retract-not-built` | A `:softland.store/depot` or `:softland.store/lock-request` fact with no value |
 | `:lock-not-made-for-this-layer` | A sealed value's lock is not one that the store made for the act's layer |
 | `:lock-already-seals-a-value` | A sealed value's lock already seals an accepted value |
 | `:lock-way-not-known` | The way of sealing that the lock's row names is not one that the code knows. No lock of this build can earn it |
@@ -662,7 +667,7 @@ lists above. "Batch" and "attempt" are Rama's words.
 | base | The first stamp of a batch. An act's stamp is the base plus its turn |
 | deciding task | The task that the hash of the entity of an act's first fact gives. An act that meets no other is decided there |
 | home task | The task on which a row lives |
-| the gate's task | The task that the hash of the class word `:microbatch` gives. The gate's last stamp is there |
+| the gate's task | The task that the hash of the depot word `:microbatch` gives. The gate's last stamp is there |
 | to meet; meeting task | Two acts of a batch meet when both need one row and cannot be put in order on one task. The meeting task of a layer is the task of the layer id; acts that meet are decided there, in turn |
 | pass | The walk of a meeting task over the acts that were sent to it |
 | route | An id whose hash gives a task: the uuid of an answer, the entity of a fact, the request's uuid of a lock, the layer of an act that meets |

@@ -7,7 +7,7 @@
   The gate (`softland.store.module.microbatch-gate`) only reads rows, calls these
   functions and writes rows. None of them reads a PState, a clock or a
   random source, and none throws on what arrived. They add no check: each
-  check is `softland.store.gate.decision`'s, called with the class :microbatch
+  check is `softland.store.gate.decision`'s, called with the depot :microbatch
   on one act with all its rows. So the same checks serve both gates, and
   given the things of a batch in any order of arrival these functions give
   the same decisions.
@@ -22,7 +22,7 @@
     deciding task  the task that the hash of the entity of an act's first
                    fact gives. An act that meets no other is decided there
     home task      the task on which a row lives
-    the gate's task  the task that the hash of the class word :microbatch
+    the gate's task  the task that the hash of the depot word :microbatch
                    gives. The gate's last stamp is there
     to meet        two acts of a batch meet when both need one row and
                    cannot be put in order on one task. They are decided on
@@ -70,8 +70,8 @@
             [softland.store.record.rows :as record]
             [softland.store.gate.stamp :as stamp]))
 
-(def gates-class
-  "The class of the gate that this code serves. It is also the route of the
+(def gates-depot
+  "The depot of the gate that this code serves. It is also the route of the
   gate's task: the task that the hash of this word gives."
   :microbatch)
 
@@ -151,11 +151,11 @@
 
 (defn on-every-task?
   "Takes a fact's key. Gives true for the two store keys whose rows every
-  task holds in a microbatch layer: the class and a permission. Every act
-  needs the permission of its `:who` on the task where it is decided, so a
-  copy is on each."
+  task holds in a microbatch layer: `:softland.store/depot` and
+  `:softland.store/permission`. Every act needs the permission of its
+  `:who` on the task where it is decided, so a copy is on each."
   [k]
-  (or (= :class k) (= :permission k)))
+  (or (= :softland.store/depot k) (= :softland.store/permission k)))
 
 (defn- place-of
   "Takes an act and one of its facts. Gives the key of the fact's place."
@@ -170,11 +170,11 @@
 
 (defn- lock-in-this-record?
   "Takes an act and a lock id. Gives true when the lock id names the act's
-  layer and this gate's class. Only such a lock can have a row in this
+  layer and this gate's depot. Only such a lock can have a row in this
   record of this layer."
   [act lock-id]
-  (let [[lock-layer lock-class _] (first lock-id)]
-    (and (= (:layer act) lock-layer) (= gates-class lock-class))))
+  (let [[lock-layer lock-depot _] (first lock-id)]
+    (and (= (:layer act) lock-layer) (= gates-depot lock-depot))))
 
 (defn- lock-indexes-by-request
   "Takes an act. Gives, for each request whose locks the act names in this
@@ -189,7 +189,7 @@
 (defn standing-on-arrival
   "What step 1 can say of the standing of an act, from this task's own copy
   of the layer's permissions. Takes an act; the row at the place of `:who`'s
-  permission; and the row at the place of the layer's class, read only when
+  permission; and the row at the place of the layer's depot, read only when
   the first is nil. Gives {:standing word}, with one of:
 
     :stands  the row holds the act's permission
@@ -199,19 +199,19 @@
              act's `:who` can never come to be in `:who`'s place
     :open    the permission's place is empty, and a give or a making act of
              this batch could still fill it. The act goes to the meeting
-             task. :layer-in-record? says whether the class row was there;
+             task. :layer-in-record? says whether the depot row was there;
              when it was not, the record holds nothing of the layer"
-  [act permission-row class-row]
-  (let [word (decision/standing gates-class act permission-row class-row false)]
+  [act permission-row depot-row]
+  (let [word (decision/standing gates-depot act permission-row depot-row false)]
     (cond
       (record/holds-plain-value? permission-row (:permission act))
       {:standing :stands}
 
-      (or permission-row (and class-row (= :who-not-the-permissions-holder word)))
+      (or permission-row (and depot-row (= :who-not-the-permissions-holder word)))
       {:standing :final :word word}
 
       :else
-      {:standing :open :layer-in-record? (some? class-row)})))
+      {:standing :open :layer-in-record? (some? depot-row)})))
 
 (defn questions
   "The questions of one act. Takes the act; its turn; its route, to which
@@ -221,10 +221,11 @@
 
     :answer     to the task of the act-id's uuid, always: is there an answer
     :place      to the task of the entity, for each fact under a plain key
-                or under :lock-request. :wanted? says that the fact names
-                something to replace, so the row is needed. :own? says that
-                the entity is the act's first entity, so the place is on the
-                act's own deciding task and is read there at its turn
+                or under :softland.store/lock-request. :wanted? says that
+                the fact names something to replace, so the row is needed.
+                :own? says that the entity is the act's first entity, so the
+                place is on the act's own deciding task and is read there at
+                its turn
     :locks      to the task of a request's uuid, once for each request whose
                 locks the act names: the range of keys that
                 `softland.store.gate.decision/lock-ranges` gives, and the indexes
@@ -232,10 +233,10 @@
     :new-locks  to the task of the act's own uuid, for a request of its own:
                 how many locks it will make
 
-  A fact under :class or :permission asks nothing: every task holds its
-  row. The two kinds about locks are gathered under one key, the answer key
-  of the request, so that a request and each use of its locks are seen
-  together."
+  A fact under :softland.store/depot or :softland.store/permission asks
+  nothing: every task holds its row. The two kinds about locks are gathered
+  under one key, the answer key of the request, so that a request and each
+  use of its locks are seen together."
   [act turn to asks-rows?]
   (let [layer (:layer act)
         act-uuid (nth (:act-id act) 2)
@@ -257,7 +258,7 @@
                                 (record/lock-key layer request-uuid (reduce max indexes))]
                         :indexes (set indexes))]])
              (for [fact (:facts act)
-                   :when (and (= :lock-request (:k fact)) (some? (:v fact)))]
+                   :when (and (= :softland.store/lock-request (:k fact)) (some? (:v fact)))]
                [act-uuid :locks (record/answer-key layer act-uuid)
                 [(assoc asker :question :new-locks :makes (:v fact))]]))))))
 
@@ -290,21 +291,21 @@
 
   What must hold: `stray-reason` gave nil for the thing, so its act-id is
   [layer :microbatch uuid] with a layer within the limit."
-  [thing act declarations-reason turn position permission-row class-row]
+  [thing act declarations-reason turn position permission-row depot-row]
   (let [act-id (get thing :act-id)
         [layer _ act-uuid] act-id
-        numbers [gates-class :numbers :batch {:carried (carried-of act) :position (long position)}]]
+        numbers [gates-depot :numbers :batch {:carried (carried-of act) :position (long position)}]]
     (if declarations-reason
       [[act-uuid :entry turn [{:turn turn :act-id act-id :to act-uuid
                                :refused declarations-reason :digest (digest/digest thing)}]]
        [act-uuid :answer (record/answer-key layer act-uuid) [{:turn turn :to act-uuid :question :answer}]]
        numbers]
       (let [to (first-entity-of act)
-            {:keys [standing word layer-in-record?]} (standing-on-arrival act permission-row class-row)
+            {:keys [standing word layer-in-record?]} (standing-on-arrival act permission-row depot-row)
             asks-rows? (boolean (or (= :stands standing) (and (= :open standing) layer-in-record?)))
             entry (cond-> {:turn turn :act-id act-id :to to :thing thing :act act
                            :standing standing :asks-rows? asks-rows?
-                           :permission-row permission-row :class-row class-row}
+                           :permission-row permission-row :depot-row depot-row}
                     word (assoc :final-word word))]
         (-> [[to :entry turn [entry]]]
             (into (questions act turn to asks-rows?))
@@ -513,8 +514,8 @@
   "Which acts of a task go to the meeting task. Takes the task's items.
   Gives the set of their turns. An act goes when:
 
-    1. it holds a fact under :class or :permission: it writes a row that
-       every task holds;
+    1. it holds a fact under :softland.store/depot or
+       :softland.store/permission: it writes a row that every task holds;
     2. its standing is :open: the place of its permission is empty, and an
        earlier act of this batch may fill it;
     3. a reply says :shared: a place or a lock that it names is named by an
@@ -563,7 +564,7 @@
   {:which :key :row :home :every-task?}:
 
     :fact       home: the fact's entity. :every-task? is true for a fact
-                under :class or :permission
+                under :softland.store/depot or :softland.store/permission
     :lock       the whole row of a lock that the act uses, with its bytes.
                 Home: the entity of the value that it seals
     :lock-home  the home's row of that lock, with no bytes. Home: the uuid
@@ -604,19 +605,19 @@
 (defn- decided
   "The decision of one act, with every row that it needs in hand. Takes what
   is known of the act, {:act-id :act :digest :clock :base :turn}; the row at
-  the place of `:who`'s permission and the row at the layer's class place,
+  the place of `:who`'s permission and the row at the layer's depot place,
   each as it is at the act's turn; whether the other gate's record holds the
   layer; the rows of its places; and its lock rows. It calls the checks of
   `softland.store.gate.decision` in their order: the 10-second rule, the
   standing, the places, the seals. Gives the routed rows that the decision
   writes: the answer alone for a refusal."
-  [{:keys [act-id act digest clock base turn]} permission-row class-row other-holds? place-rows lock-rows]
+  [{:keys [act-id act digest clock base turn]} permission-row depot-row other-holds? place-rows lock-rows]
   (let [refused (or (decision/refused-early clock act nil)
-                    (decision/standing gates-class act permission-row class-row other-holds?)
-                    (decision/places gates-class act
-                                     (decision/makes-the-layer? gates-class act permission-row class-row other-holds?)
+                    (decision/standing gates-depot act permission-row depot-row other-holds?)
+                    (decision/places gates-depot act
+                                     (decision/makes-the-layer? gates-depot act permission-row depot-row other-holds?)
                                      place-rows)
-                    (decision/seals gates-class act lock-rows))]
+                    (decision/seals gates-depot act lock-rows))]
     (routed act-id act (decision/writes act-id act refused (stamp-of-turn base turn) digest lock-rows))))
 
 ;; ---------------------------------------------------------- step 3: decide
@@ -697,7 +698,7 @@
            :parcels [[(:layer act) :meet
                       [(assoc known
                               :permission-row (:permission-row item)
-                              :class-row (:class-row item)
+                              :depot-row (:depot-row item)
                               :place-rows place-rows
                               :lock-rows (:lock-rows item))]]]}
           (let [rows (decided known (:permission-row item) nil false place-rows (:lock-rows item))
@@ -732,49 +733,50 @@
 
 (defn- standing-rows-at-turn
   "Takes a pass and an act sent to the meeting task. Gives [permission-row
-  class-row] as they are at the act's turn: what an earlier act of the pass
-  wrote, else what the act carried. The class row is nil when the
+  depot-row] as they are at the act's turn: what an earlier act of the pass
+  wrote, else what the act carried. The depot row is nil when the
   permission's row is there, as a gate reads it."
   [pass sent]
   (let [act (:act sent)
         written (:facts pass)
         permission-row (or (get written (decision/permission-place act)) (:permission-row sent))
-        class-row (when (nil? permission-row)
-                    (or (get written (decision/class-place act)) (:class-row sent)))]
-    [permission-row class-row]))
+        depot-row (when (nil? permission-row)
+                    (or (get written (decision/depot-place act)) (:depot-row sent)))]
+    [permission-row depot-row]))
 
 (defn reads-other-record?
   "Takes a pass and an act sent to the meeting task. Gives true when the
   gate must ask the other gate's record for the act's layer: neither this
   record nor the pass holds anything of the layer, and the layer starts with
-  the other gate's class. Only then can the other record hold it."
+  the other gate's depot. Only then can the other record hold it."
   [pass sent]
-  (let [[permission-row class-row] (standing-rows-at-turn pass sent)]
+  (let [[permission-row depot-row] (standing-rows-at-turn pass sent)]
     (boolean (and (nil? permission-row)
-                  (nil? class-row)
-                  (not= gates-class (first-act/class-at-making (:layer (:act sent))))))))
+                  (nil? depot-row)
+                  (not= gates-depot (first-act/depot-at-making (:layer (:act sent))))))))
 
-(defn class-place-of
-  "Takes an act sent to the meeting task. Gives the key of its layer's class
+(defn depot-place-of
+  "Takes an act sent to the meeting task. Gives the key of its layer's depot
   place, which the gate reads in the other gate's record."
   [sent]
-  (decision/class-place (:act sent)))
+  (decision/depot-place (:act sent)))
 
 (defn meeting-reads
   "Takes a pass and an act sent to the meeting task. Gives the keys that the
   meeting task reads from its own copy of the rows that every task holds:
-  the place of each fact of the act under :permission, and of each fact
-  under :class that names something to replace. None when neither the record
-  nor the pass holds anything of the layer, and none that the pass wrote."
+  the place of each fact of the act under :softland.store/permission, and of
+  each fact under :softland.store/depot that names something to replace.
+  None when neither the record nor the pass holds anything of the layer,
+  and none that the pass wrote."
   [pass sent]
   (let [act (:act sent)
-        [permission-row class-row] (standing-rows-at-turn pass sent)
+        [permission-row depot-row] (standing-rows-at-turn pass sent)
         written (:facts pass)]
-    (if (and (nil? permission-row) (nil? class-row))
+    (if (and (nil? permission-row) (nil? depot-row))
       []
       (into []
-            (comp (filter (fn [fact] (or (= :permission (:k fact))
-                                         (and (= :class (:k fact)) (:replaces fact)))))
+            (comp (filter (fn [fact] (or (= :softland.store/permission (:k fact))
+                                         (and (= :softland.store/depot (:k fact)) (:replaces fact)))))
                   (map (fn [fact] (place-of act fact)))
                   (remove #(contains? written %)))
             (:facts act)))))
@@ -796,7 +798,7 @@
 (defn decide-next
   "The decision of the next act of a pass. Takes the pass; the act as it was
   sent; the rows that the meeting task read for it from its own copy
-  (`meeting-reads`), a map from key to row; the row at the layer's class
+  (`meeting-reads`), a map from key to row; the row at the layer's depot
   place in the other gate's record, or nil when it was not read or is not
   there; and the row of a lock with bytes drawn for this call alone. Gives
   the pass after the act.
@@ -807,9 +809,9 @@
   the seal is given the drawn row for it: no sender can have sealed with
   bytes that are not made, and the use is refused as a value that the lock
   does not open."
-  [pass sent local-rows other-class-row drawn-lock-row]
+  [pass sent local-rows other-depot-row drawn-lock-row]
   (let [act (:act sent)
-        [permission-row class-row] (standing-rows-at-turn pass sent)
+        [permission-row depot-row] (standing-rows-at-turn pass sent)
         written (:facts pass)
         carried (merge (:place-rows sent) local-rows)
         place-rows (into {}
@@ -830,7 +832,7 @@
                                                     :else (get (:lock-rows sent) k))]
                                       (when row [k row]))))))
                         (:facts act))]
-    (lay-over pass (decided sent permission-row class-row (some? other-class-row) place-rows lock-rows))))
+    (lay-over pass (decided sent permission-row depot-row (some? other-depot-row) place-rows lock-rows))))
 
 (defn rows-to-send
   "Takes a pass that is done. Gives the rows that the meeting task sends, as

@@ -89,14 +89,19 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
      "Decisions of 9 October 2026 — the door's four questions"). No code changes with them. Of "H1
      freezes": each written value keeps the lock that sealed it; the default can change for what is
      written after. He gave the two words for K4 the same day: "softland.store" before the slash, and
-     "depot" for "class" (K6). The rename is its own commit and is not made yet. It is two renames. The
+     "depot" for "class" (K6). The rename was made the same day, by a fresh agent from a written brief,
+     and checked by the session that sent it. It was two renames. The
      three fact keys become `:softland.store/depot`, `:softland.store/permission` and
      `:softland.store/lock-request`. And the word "class" becomes "depot" in the names, the refusal
      words, the docstrings and the maps: it is in 21 files of `src-store` and `test-store`. One trap:
      `:permission` is also a part of an act, and `:class` is also a part of a thing as it arrives; only
-     the keys of facts take the namespace, and the part `:class` becomes `:depot`. The three proofs must
-     show 150, 433 and 222 passes after it, as before. Not decided, and not a part of the rename:
-     whether a gate refuses a key in `softland.store` that the store does not know. Ten open rows were found in that chat (the queue, K5 to K14). His
+     the keys of facts take the namespace, and the part `:class` becomes `:depot`. With it came one new
+     rule, on Sid's "yes" of that day: a gate refuses a fact whose key is in `softland.store` and is not
+     one of the store's keys, with `:store-key-not-known`. The three proofs, run after it by both: act
+     150 passes, pure 449, module 227, no failure. The 16 and 5 new passes are the rows of the new rule,
+     among them that a tool's own fact under the bare word `:class` or `:permission` is accepted. The
+     query `class-of-layer` is `depot-of-layer`; no depot and no table changed its name. The papers of
+     the build in this folder keep the word "class", as they were written. Ten open rows were found in that chat (the queue, K5 to K14). His
      answers do not make the door the next build.
    - Reads: `../decisions/groups/g-reads.txt`, "Reading back out", by another session of 8 October (id
      83590914). It is that session's to hand to him.

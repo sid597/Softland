@@ -13,7 +13,7 @@ All of it is pure code and loads with Clojure alone.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store keys; the limits; the test for a stray; the check. | None. |
+| [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the test for a stray; the check. | None. |
 | [seal.clj](seal.clj) | Locks and the seal: a lock's bytes, sealing a value to its place, opening it. | One random source for each process. |
 | [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
 | [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text. The door and the gates share it. | None. |

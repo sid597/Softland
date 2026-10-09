@@ -27,18 +27,20 @@
                  :seals-index the uuid of that fact's act and its index}
 
   Every accepted fact is a row of the second kind, under a store key or a
-  plain key: the class of a layer at \"<layer> <layer> :class\", a permission
-  at \"<layer> <holder> :permission\", a request for locks at
-  \"<layer> <act uuid> :lock-request\". A plain value is held as the bytes of
-  its one text, so the field has one class, and \"is this the permission that
-  the act names\" is a comparison of bytes.
+  plain key: the depot of a layer at
+  \"<layer> <layer> :softland.store/depot\", a permission at
+  \"<layer> <holder> :softland.store/permission\", a request for locks at
+  \"<layer> <act uuid> :softland.store/lock-request\". A plain value is held
+  as the bytes of its one text, so the field has one class, and \"is this
+  the permission that the act names\" is a comparison of bytes.
 
   Where a row lives. The rows are the same for both gates; the task is not.
   A row of a streaming layer is on the layer's task. A row of a microbatch
   layer is on the task that the second part of its key gives: an answer on
   the task of the act's uuid, a fact on the task of its entity, a lock on
-  the task of its request's uuid. A fact under `:class` or `:permission` of
-  a microbatch layer is on every task. No row names a task.
+  the task of its request's uuid. A fact under `:softland.store/depot` or
+  `:softland.store/permission` of a microbatch layer is on every task. No
+  row names a task.
 
   One copy of a lock's bytes. In a streaming layer a lock has one row, and
   the row keeps its bytes when it comes to seal a fact. In a microbatch
@@ -53,8 +55,8 @@
   texts is one class, equal keys are equal strings, and Rama gives the order
   of string keys, on which the range read of a request's locks rests. No
   printed text of an id holds a space, so one space parts the parts. The
-  layer and the class of an id are in no row: the key says the layer, and
-  the gate that owns the PState says the class.
+  layer and the depot of an id are in no row: the key says the layer, and
+  the gate that owns the PState says the depot.
 
   The functions that make a row give exactly the classes that the schemas
   declare: a Long, a UUID, a Keyword, a byte array. A row of another class
@@ -71,7 +73,7 @@
     locks-by-index-used-without-bytes, closed?         a row -> what it says
     routing-id                        an act-id -> the first argument of a
                                       read by that act-id
-    answer-read, lock-range-read, class-read,
+    answer-read, lock-range-read, depot-read,
     answer-read-by-routing-id, lock-range-read-by-routing-id
                                       what a caller gave a read
                                       -> the keys to read, or nil
@@ -91,8 +93,8 @@
 
 (defn answer-key
   "Takes a layer id and the uuid of an act-id. Gives the key of that act's
-  answer: \"<layer> <uuid>\". The class slot of the act-id is not in it: a
-  gate answers only under an act-id of its own class. The layer is in it,
+  answer: \"<layer> <uuid>\". The depot slot of the act-id is not in it: a
+  gate answers only under an act-id of its own depot. The layer is in it,
   although the uuid alone is random, so that a uuid used in two layers of
   one task is two rows. What must hold: the layer is an id within the
   limit."
@@ -163,16 +165,16 @@
       (assoc :value (text/utf8 (:v fact))))))
 
 (defn written-by?
-  "Takes the class of the gate that owns the record, the layer, a fact's row
-  or nil, and a fact id, [[layer class uuid] index]. Gives true when the
+  "Takes the depot of the gate that owns the record, the layer, a fact's row
+  or nil, and a fact id, [[layer depot uuid] index]. Gives true when the
   fact that wrote the row is the one named: the fact id is of this layer and
-  this class, and its uuid and index are the row's. False for no row, for a
-  fact of another layer or class, and for any other fact."
-  [gate-class layer row fact-id]
-  (let [[[named-layer named-class named-uuid] named-index] fact-id]
+  this depot, and its uuid and index are the row's. False for no row, for a
+  fact of another layer or depot, and for any other fact."
+  [gate-depot layer row fact-id]
+  (let [[[named-layer named-depot named-uuid] named-index] fact-id]
     (boolean (and row
                   (= layer named-layer)
-                  (= gate-class named-class)
+                  (= gate-depot named-depot)
                   (= (:by-act row) named-uuid)
                   (= (:by-index row) named-index)))))
 
@@ -270,7 +272,7 @@
 
 (defn answer-read
   "The test at the head of the read by act-id. Takes what a caller gave: a
-  layer and an act-id. Gives [class key]: the class slot of the act-id, and
+  layer and an act-id. Gives [depot key]: the depot slot of the act-id, and
   the key of its answer; or nil when no read is to be made: the layer is no
   id within the limit, the thing is no act-id, or its layer slot is not the
   layer given. It never throws."
@@ -282,7 +284,7 @@
 (defn lock-range-read
   "The test at the head of the read of a request's locks. Takes what a caller
   gave: a layer, the act-id of a request, and the first and the last index
-  wanted. Gives [class from-key to-key], both keys in the range; or nil when
+  wanted. Gives [depot from-key to-key], both keys in the range; or nil when
   no read is to be made: the layer or the act-id is not usable, as in
   `answer-read`, an index is no integer, or the range holds no index. The
   range is cut to 0 to 255, so one read iterates 256 rows at most. It never
@@ -298,14 +300,14 @@
       (when (<= from to)
         [(nth request-act-id 1) (lock-key layer uuid from) (lock-key layer uuid to)]))))
 
-(defn class-read
-  "The test at the head of the read of a layer's class. Takes what a caller
-  gave as a layer. Gives the key of the layer's class fact, the place of the
-  layer as entity under `:class`; or nil when the thing is no id within the
-  limit. It never throws."
+(defn depot-read
+  "The test at the head of the read of a layer's depot. Takes what a caller
+  gave as a layer. Gives the key of the layer's depot fact, the place of the
+  layer as entity under `:softland.store/depot`; or nil when the thing is no
+  id within the limit. It never throws."
   [layer]
   (when (declaration/usable-id? layer)
-    (place-key layer layer :class)))
+    (place-key layer layer :softland.store/depot)))
 
 (defn routing-id
   "Takes an act-id. Gives its routing id, the first argument of the read by
@@ -321,9 +323,9 @@
 (defn answer-read-by-routing-id
   "The test at the head of the query by act-id. Takes what a caller gave: a
   routing id and an act-id. Gives what `answer-read` gives for the act-id
-  and its own layer slot, [class key]; or nil when no read is to be made:
+  and its own layer slot, [depot key]; or nil when no read is to be made:
   the thing is no act-id, the routing id is not the one of the act-id's
-  class, or the layer is over the limit. It never throws."
+  depot, or the layer is over the limit. It never throws."
   [given act-id]
   (let [own (routing-id act-id)]
     (when (and (some? own) (= own given))
@@ -333,7 +335,7 @@
   "The test at the head of the query of a request's locks. Takes what a
   caller gave: a routing id, the act-id of a request, and the first and the
   last index wanted. Gives what `lock-range-read` gives for the act-id and
-  its own layer slot, [class from-key to-key]; or nil when no read is to be
+  its own layer slot, [depot from-key to-key]; or nil when no read is to be
   made, as in `answer-read-by-routing-id` and `lock-range-read`. It never
   throws."
   [given request-act-id from to]

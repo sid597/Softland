@@ -23,7 +23,7 @@ What it checks, group by group:
 
 1. The parts. The two declarations, the shape and the rules, each written out a
    second time as literals; the parts of an act and of a fact, and the reason
-   words, read from them; that an act-id, a class, a seal, a lock id, a layer
+   words, read from them; that an act-id, a depot, a seal, a lock id, a layer
    and a mark are no parts; the version and the limits. And that the check reads
    the declarations: for each part of an act and of a fact, a thing without the
    part, and a thing with a thing of no shape in it, get what the declaration
@@ -76,13 +76,20 @@ content. What it checks, group by group:
    The text of a value reads back as the value. The digest is the SHA-256 of the
    one text, with bytes fed as they are; a thing that throws when it is read has
    the digest of `#unreadable`.
-2. The declaration. The door's five shapes and twenty rules, each written out a
-   second time as literals; `act.clj`'s shapes inside the door's map as `act.clj`
-   declares them; the limits, the store keys, the words of a stray. The test for a
-   stray, one thing for each word. The one form on arrival.
-3. One refused thing for each fault, with its word; a long id in each place where
-   an act holds an id; each limit at its edge. The proof reads the reason words
-   from the declarations, and each word must come from a thing that earns it.
+2. The declaration. The door's five shapes and twenty-one rules, each written out
+   a second time as literals; `act.clj`'s shapes inside the door's map as
+   `act.clj` declares them; the limits, the store's namespace and the store keys,
+   the words of a stray. The test for a stray, one thing for each word. The one
+   form on arrival. A fact under each of the three store keys passes. A tool's
+   own fact with a sealed value passes as a fact under a plain key when its key
+   is a bare word that the store's keys were (`:class`, `:permission`,
+   `:lock-request`), the bare word `:depot`, one of the store's words in another
+   namespace, or in a namespace that only begins with `softland.store`.
+3. One refused thing for each fault, with its word; a key in the store's
+   namespace that the store does not know, with a sealed value, a plain value
+   and none; a long id in each place where an act holds an id; each limit at its
+   edge. The proof reads the reason words from the declarations, and each word
+   must come from a thing that earns it.
 4. The maker's check inside the door's: for each fault of the maker's form, the
    door's check gives the word that `act.clj`'s own parse gives.
 5. The order of the reasons: a thing with two faults gets the word of the part
@@ -95,23 +102,28 @@ content. What it checks, group by group:
 8. The seal: a lock; sealed bytes open at their place only; another lock, a
    changed bit, another entity, key or layer do not open; a way that is not known;
    nothing throws.
-9. The first act: the class that a layer starts with; acts that have the form of
+9. The first act: the depot that a layer starts with; acts that have the form of
    a making act, and one act for each way of not having it.
 10. The record's rows: the three keys and their order; each field of each row of
     its declared class; a retract's row; a plain value's row; what each row says;
     the heads of the three reads.
 11. The decision: the standing of an act in each state of its layer; each word of
     the checks of the places and of the seal, each on rows built as the gate
-    writes them; the stamp of a decision; the rows that a refusal, an accept, a
-    request for locks and a making act write.
+    writes them; that a tool's own fact under the bare word `:class` is no
+    setting, and one under `:permission` no permission fact; the stamp of a
+    decision; the rows that a refusal, an accept, a request for locks and a
+    making act write.
 12. The batch, function by function. What the microbatch depot derives from a
     thing, never throwing. The turn, the base and the stamp of a turn. The
     standing that step 1 can tell, and the questions of an act. The replies of a
     home task about an answer, a place and the locks of a request. Who goes to
     the meeting task: one case for each of the four rules, and the acts that
-    stay. The home of each row of a decision: a used lock as two rows, the bytes
-    in one. What a task writes at once and what it sends. The routing id, the
-    heads of the two reads by routing id, and a row of a closed batch.
+    stay, an act with a tool's own facts under the bare words among them. The
+    home of each row of a decision: a used lock as two rows, the bytes in one; a
+    tool's own fact under a bare word on its entity's task alone. The rows that
+    the meeting task reads from its own copy. What a task writes at once and
+    what it sends. The routing id, the heads of the two reads by routing id, and
+    a row of a closed batch.
 13. A batch is decided in one order. The proof runs whole batches in memory: the
     gate's four steps over the pure functions, each task's rows in its own map,
     each message gathered on the task of its route. It runs each batch in 200
@@ -163,7 +175,7 @@ What it checks, group by group:
    records the same digest that the hand took before the append; the record read
    back from the depot's log is another object, with the same digest.
 2. Layers are made. An act into a layer that is not made is refused. A person's
-   layer is made by the system for that person, with the class streaming. A
+   layer is made by the system for that person, with the depot streaming. A
    group's layer is made by the person who creates it. A making act for a layer
    that is made is refused, and so is a second act of the system in a personal
    layer.
@@ -180,8 +192,12 @@ What it checks, group by group:
    another layer. A permission that does not stand. A permission given beneath
    another by its holder, and an act under it. A give by one who does not hold the
    one above. A chain four deep, and a fifth refused. `granted-in`. One write for
-   a store key's place; the ending of a permission; a class after the making.
-   Whole or nothing: a give with a stale fact gives nothing.
+   a store key's place; the ending of a permission; a depot after the making.
+   Whole or nothing: a give with a stale fact gives nothing. A tool's own facts
+   under the bare words `:class` and `:permission`, sealed, on the layer's
+   entity and on a holder's: accepted, each at its own place, and the layer's
+   depot and the holder's permission are as they were. A key in the store's
+   namespace that the store does not know: refused, with the refusal recorded.
 6. The path of a lock. A second value under a used lock. The lock of a refused act
    still free. Sealed bytes copied to another place. A lock of another layer. A
    refused request makes no lock. A request sent twice gives the same bytes. A
@@ -190,10 +206,10 @@ What it checks, group by group:
    with no answer. A thing at and over each limit. A carried stamp too far ahead,
    and one 5 seconds ahead.
 8. The reads take anything: what is no id, no act-id, another layer's act-id or
-   the other class gets nothing.
+   the other depot gets nothing.
 9. After the module is started again. Rama's module update is run with the
    unchanged module: the memory of the old instance is gone, and the depot and
-   the PStates stay. The answer, the class, the strays and the locks are as they
+   the PStates stay. The answer, the depot, the strays and the locks are as they
    were; a repeat is still answered from the record; the next stamp is later than
    the last. During this step Rama prints some lines of its own log that are
    marked ERROR, while the new instance opens the depot's log and the client finds
@@ -207,7 +223,7 @@ group 20 after it:
 
 11. The base is made. An act into the base before it is made is refused, and so
     is one sent to the streaming depot. Two making acts in one batch, their facts
-    in the two orders: one is accepted. The class is microbatch; the class row
+    in the two orders: one is accepted. The depot is microbatch; the depot row
     and the system's permission row are on every task.
 12. An act lands in the base. Eight acts of one batch on eight entities, whose
     rows are on more than one task. A request for locks, on one task with its
@@ -227,7 +243,10 @@ group 20 after it:
     orders. Two acts under one lock.
 16. A person acts in the base under a permission that the system gave, whose row
     is on every task. Acts with no standing. One write for a store key's place. A
-    carried stamp too far ahead, also under a permission that does not stand.
+    key in the store's namespace that the store does not know, refused. A tool's
+    own fact under the bare word `:permission`, on a holder's entity: accepted,
+    its row on one task, beside the store's permission on every task. A carried
+    stamp too far ahead, also under a permission that does not stand.
 17. A long batch: 400 acts on 20 entities in one batch, each accepted, and on
     each entity the stamps go up in the order sent.
 18. An act on several tasks. Refused whole: no row of it on any task, its three
@@ -243,7 +262,7 @@ group 20 after it:
     under a used lock; a request sent twice; a value whose lock's home is its own
     task, with one row that holds the bytes; a use of a lock in the batch that
     asks for it; a refused request, which makes no lock.
-20. The base after the module is started again: the answer, the class, the
+20. The base after the module is started again: the answer, the depot, the
     gate's last stamp, the strays, a permission's rows and the locks are as they
     were; and, last of all, the stamps of the microbatch gate's answers go up in
     the order decided, each answer that a read gave was of a closed batch at the
@@ -253,7 +272,7 @@ group 20 after it:
     so a stamp above it then is a row that was read before its batch was closed.
 
 Each line that the contract asks for is on a `SHOWN` line in the contract's
-words.
+words, with "depot" where the contract says "class".
 
 Where the proof shows a row of the base, it selects it from the gate's PState
 with the row's own route, or once on each task to see which tasks hold it. Such
@@ -270,8 +289,8 @@ batch is closed, but for group 13, which uses it to look before.
   shown for a batch that ran once: that a read gives nothing of it before the
   next run of the gate, and not that a second attempt's other stamp or other lock
   bytes stay unread;
-- a layer's class and a refusal's word read between a batch and its closing: the
-  proof catches an answer and a lock there, and the class read has the same test;
+- a layer's depot and a refusal's word read between a batch and its closing: the
+  proof catches an answer and a lock there, and the depot read has the same test;
 - a read that gave a row of a batch that closed in the moment between that read
   and the hand's select of `:closed-through`: the last check of the base takes
   it for a row of a closed batch;

@@ -26,7 +26,7 @@
   Where a row lives. The facts of a microbatch layer are on the task of
   their entity, so they are on several tasks. An answer is on the task of
   its act-id's uuid, so that a reader finds it from the act-id alone. A lock
-  is on the task of its request's uuid. The class of a layer and each
+  is on the task of its request's uuid. A layer's depot fact and each
   permission are on every task, so that each act finds the permission of its
   `:who` with one read on the task where it arrives.
 
@@ -68,8 +68,8 @@
        lock's bytes are made here, at the write. The meeting task of a layer
        decides the acts that meet, one at a time in the order of their
        turns, each against the rows that earlier acts of the pass wrote, and
-       sends their rows: a row under :class or :permission to every task,
-       each other row to its home.
+       sends their rows: a row under :softland.store/depot or
+       :softland.store/permission to every task, each other row to its home.
 
   The stamp. One reading of the clock for a batch. An act's stamp is the
   base plus its turn: one stamp on its answer and on each of its facts,
@@ -260,16 +260,16 @@
           (declaration/check *thing :> {*act :ok *declarations-reason :refuse})
           (<<if *declarations-reason
             (identity nil :> *permission-row)
-            (identity nil :> *class-row)
+            (identity nil :> *depot-row)
            (else>)
             (decision/permission-place *act :> *permission-key)
             (local-select> (keypath *permission-key) $$microbatch-facts :> *permission-row)
             (<<if (nil? *permission-row)
-              (decision/class-place *act :> *class-key)
-              (local-select> (keypath *class-key) $$microbatch-facts :> *class-row)
+              (decision/depot-place *act :> *depot-key)
+              (local-select> (keypath *depot-key) $$microbatch-facts :> *depot-row)
              (else>)
-              (identity nil :> *class-row)))
-          (batch/arrive *thing *act *declarations-reason *turn *position *permission-row *class-row
+              (identity nil :> *depot-row)))
+          (batch/arrive *thing *act *declarations-reason *turn *position *permission-row *depot-row
                         :> *messages))
         (ops/explode *messages :> [*route *kind *asked-key *payload])
         (|hash *route)
@@ -277,7 +277,7 @@
 
       ;; 2. Reply: the base on the gate's task, the closing, then each home task.
       (<<batch
-        (identity batch/gates-class :> *gates-route)
+        (identity batch/gates-depot :> *gates-route)
         (|hash *gates-route)
         (local-select> (keypath :last-stamp) $$microbatch-task :> *last-stamp)
         (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
@@ -377,14 +377,14 @@
             (batch/meeting-reads *pass *met :> *local-keys)
             (rows-at $$microbatch-facts *local-keys :> *local-rows)
             ;; Rule 7: a layer of which this record holds nothing, and that
-            ;; starts with the other class, is asked of the other gate's record.
+            ;; starts with the other depot, is asked of the other gate's record.
             (<<if (batch/reads-other-record? *pass *met)
-              (batch/class-place-of *met :> *other-class-key)
-              (local-select> (keypath *other-class-key) $$streaming-facts :> *other-class-row)
+              (batch/depot-place-of *met :> *other-depot-key)
+              (local-select> (keypath *other-depot-key) $$streaming-facts :> *other-depot-row)
              (else>)
-              (identity nil :> *other-class-row))
+              (identity nil :> *other-depot-row))
             (new-lock-row :> *drawn-lock-row)
-            (batch/decide-next *pass *met *local-rows *other-class-row *drawn-lock-row :> *pass-after)
+            (batch/decide-next *pass *met *local-rows *other-depot-row *drawn-lock-row :> *pass-after)
             (continue> (rest *meeting-left) *pass-after)))
         (batch/rows-to-send *pass-done :> *rows-out)
         (ops/explode *rows-out :> {:keys [*every-task? *home *which *key *row]})

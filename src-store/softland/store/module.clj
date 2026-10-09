@@ -12,7 +12,7 @@
     *microbatch-depot     the depot to append a thing for a microbatch layer
     answer-by-act-id      the query: the recorded answer under an act-id
     locks-of-request      the query: the locks that a request made
-    class-of-layer        the query: the class of a layer
+    depot-of-layer        the query: the depot of a layer
     $$streaming-task      the PState of the streaming gate's strays, for an
                           operator: select
                           [:strays (keypath word) (view count)] with a layer
@@ -30,7 +30,7 @@
   those of the microbatch layers. The queries (`softland.store.module.door-reads`)
   own nothing.
 
-  Each depot holds every thing sent for a layer of its class, as it was
+  Each depot holds every thing sent for a layer whose depot it is, as it was
   sent, and it is the replay log of those layers. Neither is ever trimmed:
   the module sets no trimming option, and Rama keeps every record by
   default. So nothing secret goes on a depot: a request for locks carries a

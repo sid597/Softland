@@ -174,7 +174,7 @@ never live there.
     answer — so a session wrote act-id; the word is his to change. **The word
     "class"** (streaming or microbatch) is borrowed and not accepted; it stays
     until Sid gives one. He gave it on 9 October: "depot" (entry 4 of that
-    day). The code says "class" until the rename is made.
+    day). The code says "depot" since the rename of that day.
 
 ## Decisions of 8 October 2026 — who acts, and what the store reads
 
@@ -313,18 +313,17 @@ chose, and the fourth waits for two words.
    records the two words as "his words for the two kinds of depot"). On
    7 October he had met "gate" with "we are also using the gate order as of
    now would it not conflict with that", and "pace" with "Naming::: bro you
-   total shit at it ..". The rename is not made yet: until it is, the code
-   says "class" and keeps `:class`, `:permission` and `:lock-request`. Not
-   decided: whether a gate refuses a key in `softland.store` that the store
-   does not know. Open, found that day: what a key is (entry 9 of 6 October;
+   total shit at it ..". The rename was made the same day. The code says
+   "depot", the three keys of facts carry the namespace, and the part of a
+   thing as it arrives is `:depot`. The act's own part `:permission` keeps
+   its word: only the key of a fact takes the namespace. Asked "Should a gate
+   refuse a key in softland.store that the store does not know?", he said
+   "yes". So a gate refuses such a fact with `:store-key-not-known`, a
+   session's word, and a tool's own fact under the bare word `:class` or
+   `:permission` is taken like any other. A session's reading, not his: the
+   namespace is taken exactly, so a key in `softland.store.x` is not the
+   store's (K15). Open, found that day: what a key is (entry 9 of 6 October;
    K5).
-
-Decided, and not yet in the code:
-
-- **The rename to his two words (K6).** The store's keys are to be
-  `:softland.store/depot`, `:softland.store/permission` and
-  `:softland.store/lock-request`, and "class" is to be "depot". Until the
-  rename is made, the code keeps the three bare words and says "class".
 
 Open, and built to a working answer until Sid decides:
 
