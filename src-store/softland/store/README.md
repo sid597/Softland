@@ -1,12 +1,13 @@
-# Store — the act, and the store's module
+# Store — the act, the store's module, and the door
 
 [Parent: namespace root](../README.md) · [Store source entry](../../README.md).
 
-This folder holds two things. The act: the one form of what a maker gives to the
-store, and the check of that form. And the store's Rama module, `Store`: two
+This folder holds three things. The act: the one form of what a maker gives to
+the store, and the check of that form. The store's Rama module, `Store`: two
 depots, the gate of each, the record that each gate keeps, and the three reads by
-which the door reads the module. An act that a gate accepts becomes facts in the
-record, and its answer is read back by act-id.
+which the door reads the module. And the door: the client code that takes a
+maker's act into a depot and reads its answer back. An act that a gate accepts
+becomes facts in the record, and its answer is read back by act-id.
 
 A layer has a depot, streaming or microbatch: the depot that takes its acts,
 whose gate decides them. The streaming gate decides each thing in one event, on
@@ -14,15 +15,17 @@ the layer's task. The microbatch gate decides the things of a batch, across
 tasks. The base is the one layer that starts as a microbatch layer; every other
 layer starts streaming.
 
-The door is not built. The [module's proof](../../../test-store/softland/store/README.md)
-plays it by hand.
+The door is [door.clj](door.clj): it takes a maker's act into a depot and reads
+its answer back. The [module's proof](../../../test-store/softland/store/README.md)
+still plays it by hand, so that the store stays proven without the door.
 
 ## The parts
 
 | Part | Responsibility | State and lifetime |
 |---|---|---|
 | [act.clj](act.clj) | The declared shape of an act and of what it holds, the rules that a shape cannot say, and the check that reads both. It gives its engine to the door's declaration. | None. |
-| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the seal, the one text of a thing and its digest. The door itself is not built. | One random source for each process, for the seal. |
+| [door.clj](door.clj) | The door: it opens on the module, gives act-ids, asks the store for locks by an act of its own, seals each value, appends, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | Its stocks of unused locks: the memory of one process, empty at each opening. It borrows five handles of Rama's client. |
+| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the seal, the one text of a thing and its digest. And the door's own pure parts: what it makes of one act, its stock as a value, and its words. | One random source for each process, for the seal. |
 | [gate/](gate/README.md) | What a gate decides with, as pure code that both gates call: the checks of one act against rows of the record, the first act of a layer, the stamp, and the steps of one batch of the microbatch gate. | None. It reads no PState and no clock. |
 | [record/](record/README.md) | What the record is made of: its rows, and the schemas of the PStates that hold them. | None. It holds no record and declares nothing. |
 | [module/](module/README.md) | What runs in Rama beside the depots: the two gates' topologies and the three reads. | Each gate owns the PStates of its record, durable in the cluster. |
@@ -30,8 +33,8 @@ plays it by hand.
 
 [act.clj](act.clj), [door/](door/README.md), [gate/](gate/README.md) and the rows
 of [record/](record/README.md) are pure code and load with Clojure alone.
-[module.clj](module.clj), [module/](module/README.md) and the schemas of
-[record/](record/README.md) require Rama.
+[door.clj](door.clj), [module.clj](module.clj), [module/](module/README.md) and
+the schemas of [record/](record/README.md) require Rama.
 
 Each folder's map says what its files are. The sections below are about the
 module as a whole: how a thing passes through these parts, what a gate does not
@@ -159,9 +162,11 @@ shape must hold when each fact is wrong.
   so each act waits for the replication of the act before it; that is paid against
   the target of 1,000 acts a second on one task. The module leaves the setting at
   Rama's default. The choice is Sid's.
-- **Who reads a lock.** Any caller of the module can read a lock's bytes. The door
-  proper is the guard, later. The seal is for a forget of the depot's and the
-  disk's copy; it does not hide a value from a client of the cluster.
+- **Who reads a lock.** Any client of the cluster can read a lock's bytes. In the
+  runtime the door is the one client; it reads only the locks of its own requests
+  and gives a maker no lock. A guard of the record is not built (?11 is open).
+  The seal is for a forget of the depot's and the disk's copy; it does not hide a
+  value from a client of the cluster.
 - **What a lock opens.** The gate checks that the lock opens the sealed bytes and
   keeps nothing of the plain bytes. It does not check that they are a value of the
   form.
@@ -193,7 +198,9 @@ shape must hold when each fact is wrong.
   layer whose `:who` holds no permission there could still come to stand by a give
   of the same batch. So it asks for each of its rows and goes to the layer's task:
   up to 256 reads of places and 256 ranges of locks, where the streaming gate
-  reads 4 rows at most. The door proper is the guard, later.
+  reads 4 rows at most. The door as built is no guard of it: it checks nothing of
+  an act. As it falls out, a value act of such a who stops at its request for
+  locks when its stock is empty; an act with no value goes through.
 - **How long one act can hold a task of the streaming gate.** The streaming
   gate's event does not give the task back: a yield would let another act of the
   layer in between this act's reads and its writes. So one act holds its task for
@@ -204,7 +211,9 @@ shape must hold when each fact is wrong.
   of 256 sealed facts that names the two ends of 128 requests reads 32,768 lock
   rows. Such an act needs standing in the layer, and requests that were accepted
   before. Nothing is built against it: the remedy is a choice of reads or of
-  limits, and no speed is measured. The door proper is the guard, later.
+  limits, and no speed is measured. The door's own acts name the locks of one
+  request, or of two, in runs of neighbours; what is appended without the door is
+  not held by it.
 
 ## Decisions this module stands on
 
@@ -551,14 +560,17 @@ store does not know, and said "yes"; such a fact is refused
 
 **Folders and namespaces.** Four folders: `door`, `gate`, `record`, `module`.
 Each namespace is `softland.store.`, its folder, and the word: `door.text`,
-`door.digest`, `door.declaration`, `door.seal`; `gate.decision`,
+`door.digest`, `door.declaration`, `door.seal`, `door.additions`, `door.stock`,
+`door.words`; `gate.decision`,
 `gate.first-act`, `gate.stamp`, `gate.batch`; `record.rows`, `record.tables`;
-`module.streaming-gate`, `module.microbatch-gate`, `module.door-reads`. Two
-are at the top with no folder: `act` and `module`. "Rows" and "tables" are
+`module.streaming-gate`, `module.microbatch-gate`, `module.door-reads`. Three
+are at the top with no folder: `act`, `module` and `door`. "Rows" and "tables" are
 the words for the record's two files: what a gate writes and reads, and the
 PStates that hold it. Each folder's map says what its files are. In `act.clj`,
 one name is a session's: `as-shape`, which gives the act's engine to another
-namespace. The two proofs are `pure-proof` and `module-proof`.
+namespace. The proofs are `act-proof`, `pure-proof`, `module-proof` and
+`door-proof`. The words that the door's build made are in
+[door/README.md](door/README.md).
 
 **Fields of a row, and of an answer as a caller gets it.**
 

@@ -81,8 +81,9 @@
   State and effects. None. Each function is pure.
 
   Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the two gates,
-  and `softland.store.module.door-reads`. The proof's hand calls `routing-id` and
-  the `-read` functions to test what it passes before it calls a query."
+  and `softland.store.module.door-reads`. The door (`softland.store.door`) and
+  the proof's hand call `routing-id` and the `-read` functions to test what
+  they pass before they call a query."
   (:require [clojure.edn :as edn]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text])

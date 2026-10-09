@@ -4,8 +4,9 @@
 
   One function that the door and both gates share. A gate keeps the digest
   of each thing that it decides, in the answer under the thing's act-id, and
-  the read by act-id gives it back. The sender compares it with the digest
-  of what it sent, and so tells its own act's answer from the answer of
+  the read by act-id gives it back. The door gives its maker the digest of
+  what it sent, as hex text, and compares that text with the answer's: it
+  keeps no thing. So a maker tells its own act's answer from the answer of
   another act under the same act-id. A gate also keeps the digest of each
   stray.
 
@@ -60,9 +61,12 @@
   (text/hex (digest x)))
 
 (defn is-digest-of?
-  "The door's comparison. Takes a digest as hex text, as the read by act-id
-  gives it, and the thing that the door sent. Gives true when the digest is
-  the digest of that thing: the answer is then the answer of the door's own
-  act. False for a digest that is nil or of another thing."
+  "The comparison of a sender that still holds its thing, as the hand of the
+  module's proof does. Takes a digest as hex text, as the read by act-id
+  gives it, and the thing that was sent. Gives true when the digest is the
+  digest of that thing: the answer is then the answer of the sender's own
+  act. False for a digest that is nil or of another thing. The door does
+  not call it: it holds no thing after a send, and compares two hex texts
+  (`softland.store.door.words/answer`)."
   [hex thing]
   (= hex (hex-of thing)))

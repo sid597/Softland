@@ -43,7 +43,8 @@
   the entries of `shapes` in it, and `as-shape` gives it the engine that
   reads one; it reads `rules` too. `softland.store.door.text` asks
   `readable-keyword?`. The proof's hand, which plays the door, asks
-  `normal-value`.
+  `normal-value`. The door's additions (`softland.store.door.additions`) ask
+  `value?` and `normal-value`.
 
   Approach. The file has these sections, in this order: the words and the
   limits; the declared shape and the rules; what the declaration says, as
@@ -56,8 +57,8 @@
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
   session and the digest of an act: the gates'. The microbatch hash entity:
-  the depot derives it. The door is not built; the gate is in its own
-  namespaces beside this one. A stamp, an answer, locks, leases, a read and
+  the depot derives it. The door is `softland.store.door`; the gate is in its
+  own namespaces beside this one. A stamp, an answer, locks, leases, a read and
   the settings of a layer are not here either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more

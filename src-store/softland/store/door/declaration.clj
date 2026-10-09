@@ -49,6 +49,9 @@
 
   Callers. `softland.store.gate.decision`, `softland.store.record.rows` and the two
   gates (`softland.store.module.streaming-gate`, `softland.store.module.microbatch-gate`).
+  And the door's additions and its stock (`softland.store.door.additions`,
+  `softland.store.door.stock`), for the tests of an id and of an act-id,
+  the store keys and the limits.
   The door seals and sends; it is the gate that checks.
 
   Not here. Whether a thing's permission stands, whether a fact that it

@@ -10,9 +10,9 @@
         {:verdict :accepted or :refused, :reason the word or nil,
          :stamp the stamp, :digest the digest of the decided thing as hex}.
         nil is \"nothing yet\": no decision is readable under the act-id. It
-        does not mean refused. The sender compares the digest with the
-        digest of what it sent (`softland.store.door.digest/is-digest-of?`), and
-        so does not take another act's answer as its own.
+        does not mean refused. The door gave its maker the digest of what
+        it sent, and compares the two hex texts, and so does not take
+        another act's answer as its own.
     locks-of-request  [routing-id request-act-id from to] -> {index lock}
         the locks that the request made, of the indexes from `from` to `to`,
         both in the range, each as {:bytes :way}. An empty map when the
@@ -70,10 +70,12 @@
   argument; a caller that may hold a thing that is no id tests it with the
   same functions before it calls.
 
-  Any caller of the module can read a lock's bytes in this build; the door
-  proper is the guard, later. The PStates are not declared private, so a
-  select of one from outside is a second way to a row, and that way is not
-  held to `:closed-through`."
+  Any client of the cluster can read a lock's bytes. In the runtime the door
+  (`softland.store.door`) is the one client; it reads only the locks of its
+  own requests and gives a maker no lock. A guard of the record is not
+  built (?11 is open). The PStates are not declared private, so a select of
+  one from outside is a second way to a row, and that way is not held to
+  `:closed-through`."
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [softland.store.gate.first-act :as first-act]

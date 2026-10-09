@@ -37,20 +37,27 @@
 
   Inputs and results, by call:
 
-    new-lock    nothing -> a lock with fresh random bytes, of `way-of-new-locks`
-    known-way?  the number of a way -> true or false
-    seal        a lock, a place, plain bytes -> sealed bytes, or nil
-    open        a lock, a place, sealed bytes -> the plain bytes, or nil
-    opens?      a lock, a place, sealed bytes -> true or false
+    new-lock       nothing -> a lock with fresh random bytes, of
+                   `way-of-new-locks`
+    known-way?     the number of a way -> true or false
+    sealed-length  the number of a way, and a count of plain bytes -> the
+                   count of bytes that `seal` gives for them, or nil for a
+                   way that the code does not know. The door asks it before
+                   it takes a lock, so that a value whose sealed bytes
+                   would be over the declaration's limit costs no lock
+    seal           a lock, a place, plain bytes -> sealed bytes, or nil
+    open           a lock, a place, sealed bytes -> the plain bytes, or nil
+    opens?         a lock, a place, sealed bytes -> true or false
 
   State and effects. One random source for each process, made at its first
   use; it holds nothing of the record. `new-lock` and `seal` take random
   bytes from it. Nothing here writes a lock anywhere: a gate writes the
   lock's row, and a lock's bytes are never appended to a depot.
 
-  Not here. Which plain bytes stand for a value: the door's. The proof's
-  hand seals the UTF-8 of the one text of the value. A gate does not read
-  what a lock opens. Wrapping a lock under the locks of the people a value
+  Not here. Which plain bytes stand for a value: the door's.
+  `softland.store.door.additions` seals the UTF-8 of the one text of the
+  value in its normal form, and the proof's hand does the same. A gate does
+  not read what a lock opens. Wrapping a lock under the locks of the people a value
   is about, and the grains of one lock for an act or for a session and
   layer, are not built."
   (:require [softland.store.door.text :as text])
@@ -96,6 +103,17 @@
   when the code knows the way."
   [way]
   (contains? ways way))
+
+(defn sealed-length
+  "Takes the number of a way of sealing, as a lock's row holds it, and a
+  count of plain bytes. Gives the count of bytes that `seal` gives for that
+  many plain bytes under a lock of that way: in way 1 the random part, the
+  plain bytes and the tag. Gives nil for a way that the code does not know.
+  It seals nothing and takes no random bytes. It is made of the same two
+  numbers that `seal` uses, so the length of a seal has one home."
+  [way plain-count]
+  (when (known-way? way)
+    (+ random-part-length plain-count (quot tag-bits 8))))
 
 (defn new-lock
   "Gives a new lock: {:bytes 32 fresh random bytes, :way the number of the
