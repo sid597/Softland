@@ -88,10 +88,15 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
      Sid answered the four in chat on 9 October: ?4 A, H1 A, K3 A, K4 B (`src-store/README.md`,
      "Decisions of 9 October 2026 — the door's four questions"). No code changes with them. Of "H1
      freezes": each written value keeps the lock that sealed it; the default can change for what is
-     written after. Two words for K4 are not given (the queue, K6). The rename of the three keys waits
-     for both, and is its own commit: another session counted nine files of the store that hold the
-     three bare keys, a rough count that it says overstates, beside the README and the door's sheet; the
-     three proofs run after it. Ten open rows were found in that chat (the queue, K5 to K14). His
+     written after. He gave the two words for K4 the same day: "softland.store" before the slash, and
+     "depot" for "class" (K6). The rename is its own commit and is not made yet. It is two renames. The
+     three fact keys become `:softland.store/depot`, `:softland.store/permission` and
+     `:softland.store/lock-request`. And the word "class" becomes "depot" in the names, the refusal
+     words, the docstrings and the maps: it is in 21 files of `src-store` and `test-store`. One trap:
+     `:permission` is also a part of an act, and `:class` is also a part of a thing as it arrives; only
+     the keys of facts take the namespace, and the part `:class` becomes `:depot`. The three proofs must
+     show 150, 433 and 222 passes after it, as before. Not decided, and not a part of the rename:
+     whether a gate refuses a key in `softland.store` that the store does not know. Ten open rows were found in that chat (the queue, K5 to K14). His
      answers do not make the door the next build.
    - Reads: `../decisions/groups/g-reads.txt`, "Reading back out", by another session of 8 October (id
      83590914). It is that session's to hand to him.

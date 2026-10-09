@@ -173,7 +173,8 @@ never live there.
     `[layer class uuid]`, the layer and the class route the act and find its
     answer — so a session wrote act-id; the word is his to change. **The word
     "class"** (streaming or microbatch) is borrowed and not accepted; it stays
-    until Sid gives one.
+    until Sid gives one. He gave it on 9 October: "depot" (entry 4 of that
+    day). The code says "class" until the rename is made.
 
 ## Decisions of 8 October 2026 — who acts, and what the store reads
 
@@ -300,17 +301,33 @@ chose, and the fourth waits for two words.
    to the tools; it keeps a tool's own fact from being read as the store's;
    and it leaves the store room for more keys, where a bare word taken later
    would change how old acts are read when the record is built again from the
-   log. Not given yet, and his: the word before the slash, for which a session
-   proposes `store`, and his word for "class" (K6). Until he gives them the
-   code keeps `:class`, `:permission` and `:lock-request`; before the first
-   kept record the change is a rename. Open, found that day: what a key is
-   (entry 9 of 6 October; K5).
+   log. He gave the two words the same day: "softland.store" before the
+   slash, and "yes to depot" for "class" (K6). So the store's keys are
+   `:softland.store/depot`, `:softland.store/permission` and
+   `:softland.store/lock-request`, and a layer's depot is `:streaming` or
+   `:microbatch`. Two sessions had put options to him; one preferred `store`
+   and `gate`, the other `softland.store` and `depot`. A session's reasons for
+   the pair that he chose: the store owns its whole namespace, so the word
+   must be one that no tool would reach for; and "depot" says what the slot
+   holds, in a word that the decisions already have (entry 5 of 6 October
+   records the two words as "his words for the two kinds of depot"). On
+   7 October he had met "gate" with "we are also using the gate order as of
+   now would it not conflict with that", and "pace" with "Naming::: bro you
+   total shit at it ..". The rename is not made yet: until it is, the code
+   says "class" and keeps `:class`, `:permission` and `:lock-request`. Not
+   decided: whether a gate refuses a key in `softland.store` that the store
+   does not know. Open, found that day: what a key is (entry 9 of 6 October;
+   K5).
+
+Decided, and not yet in the code:
+
+- **The rename to his two words (K6).** The store's keys are to be
+  `:softland.store/depot`, `:softland.store/permission` and
+  `:softland.store/lock-request`, and "class" is to be "depot". Until the
+  rename is made, the code keeps the three bare words and says "class".
 
 Open, and built to a working answer until Sid decides:
 
-- **The words of the store's keys (K6).** He decided on 9 October that they
-  carry a namespace. The word before the slash and his word for "class" are
-  not given, so the code keeps the three bare words.
 - **What a key is (K5).** The code holds a key to a readable keyword, with a
   namespace or without one. The rulings file of September says that a key is
   an id, and that its word and its grammar are facts about it.

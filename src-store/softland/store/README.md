@@ -248,7 +248,7 @@ The door's four questions (9 October):
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | Nowhere yet: no code makes a person. An id can be a UUID in [act.clj](act.clj) |
 | H1 A | One lock seals one value | [seal.clj](door/seal.clj); the lock's row in [rows.clj](record/rows.clj); the refusal `:lock-already-seals-a-value` |
 | K3 A | The system can hold many layers | The form of a making act in [first_act.clj](gate/first_act.clj): `system` can be the first holder of any layer |
-| K4 B | The store's own keys carry a namespace | Not yet: `store-keys` in [declaration.clj](door/declaration.clj) holds three bare words until Sid gives the two words |
+| K4 B | The store's own keys carry the namespace `softland.store`, and "class" is "depot" | Not yet: `store-keys` in [declaration.clj](door/declaration.clj) holds three bare words until the rename is made |
 
 ## Engineering choices
 
@@ -517,9 +517,10 @@ words: they have no namespace. So in every layer they are the store's. A fact of
 a tool under one of them is read as the store's fact and is held to its rules,
 whatever the tool meant; a tool cannot have a key of its own with one of the
 three words. A namespace on the three gives the bare words back to the tools.
-Sid decided on 9 October that they get one (K4 B). The word before the slash
-and his word for "class" are not given yet, so the three are still bare words
-here. The change is a rename, to be made before the first kept record.
+Sid decided on 9 October that they get one (K4 B), and gave the words:
+`softland.store` before the slash, and "depot" for "class". The rename is not
+made yet, so the three are still bare words here and this tree says "class".
+It is to be made before the first kept record.
 
 **Names in Rama.**
 

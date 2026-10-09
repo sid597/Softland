@@ -37,8 +37,10 @@ What to read, in this order:
 
 What is built next is Sid's to say, and he has not said it. A build starts from
 a contract, as the store's module did from `BUILD-store-module.md`; the door has
-none yet. Before the first record is kept, two rows of the queue need his
-answer: K5, what a key is, and K6, the two words for the store's keys.
+none yet. Before the first record is kept, one row of the queue needs his
+answer: K5, what a key is. He gave the two words for the store's keys on
+9 October, `softland.store` and "depot" (K6); the rename of the code to them is
+not made yet.
 
 ## What this folder holds
 
