@@ -1,5 +1,10 @@
 # Implementation Validation
 
+This paper is the build stage's, of the tree at the commits `f33177cb` and `1626bab5`. The review of
+the whole changed the door after it was written (`FULL_SPEC_REVIEW.md`, "Items found and fixed");
+where the two differ, the review and the code hold. Its sixth difference from the plan, "no step
+starts after the call's wait has ended", was not true of one way then, and is true now.
+
 <!-- Phase 4. Fill in after Phase 3 produces the module source. -->
 
 Part: `door`, the one part of the door's build. Stage: the build, step 2 of the Rama skill's

@@ -1,5 +1,9 @@
 # Test Validation
 
+This paper is the build stage's, of the tree at the commits `f33177cb` and `1626bab5`. The review of
+the whole added cases to both proofs after it was written (`FULL_SPEC_REVIEW.md`); the counts here,
+538 and 162, are of that earlier tree.
+
 <!-- Phase 6. Fill in after tests are written in Phase 5. -->
 
 Part: `door`, the one part of the door's build. Stage: the build, step 4 of the Rama skill's
