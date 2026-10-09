@@ -91,6 +91,10 @@
   fact under one of them keeps a plain value on arrival. A setting is a key
   whose fact a gate takes only on the layer's own entity.
 
+  Sid decided on 9 October 2026 that the store's keys carry a namespace
+  (src-store/README.md, K4 B). The word before the slash and his word for
+  \"class\" are not given yet, so the three are bare words here.
+
   `:sits-on` is a word for the reader of this table; the rules
   `:permission-fact-sits-on-its-holder` and `:lock-request-sits-on-its-act`
   and the gate's check of a setting hold what it says.

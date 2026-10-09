@@ -6,8 +6,8 @@
   \"Lock\" is an encryption key. \"Key\" is a fact's key. Never one word for
   both.
 
-  Each value gets its own lock, the working answer to an open row
-  (src-store/README.md, H1). The door seals a value with a lock that the
+  Each value gets its own lock. Sid decided it on 9 October 2026
+  (src-store/README.md, H1 A). The door seals a value with a lock that the
   store made; a gate opens each sealed value once, with its lock, to check
   that the lock opens it, and keeps nothing of the plain value. A lock that
   is later destroyed is that value gone, although the sealed bytes stay in

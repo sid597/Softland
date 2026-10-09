@@ -16,7 +16,9 @@
                      -> true or false
 
   `system` and `base` are the two ids that the form knows: the system stands
-  at the top of the base's chain. The words are Sid's (\"system\", \"the
+  at the top of the base's chain. The system can hold other layers too (Sid,
+  9 October 2026): the form takes `system` as the first holder of any layer.
+  The words are Sid's (\"system\", \"the
   base\"); the keywords are a session's.
 
   What a gate does not check, and cannot: who the holder of a first
@@ -36,7 +38,8 @@
 (def system
   "The id of the system: software that acts for the architects of the
   medium. It makes the base, and it makes each personal layer at its
-  person's first sign-in."
+  person's first sign-in. It can hold other layers beside the base (Sid,
+  9 October 2026)."
   :system)
 
 (def base
@@ -60,7 +63,8 @@
      above it, granted in the layer itself;
   3. the act's `:who` is the holder (a group's layer, made by the person who
      creates the group) or `system` (a personal layer, made for its person);
-     for the base the holder is `system`;
+     for the base the holder is `system`, and `system` can be the holder of
+     another layer too;
   4. the act has exactly two facts, in either order: the class that the
      layer starts with, on the layer's own entity under `:class`; and the
      act's own permission, on its holder under `:permission`.

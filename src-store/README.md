@@ -101,8 +101,17 @@ docstring of [act.clj](softland/store/act.clj).
    `:permission-not-in-layer`. Whether the permission stands is the gate's.
    Kept from today's code, not decided: a permission is 4 levels deep at most.
 9. **An id is a readable keyword or a UUID; a key is a readable keyword only.**
-   Sid decided. The ids are an entity, who, a layer, a session, a subject and
-   the layer slot of an act-id. A key is a fact's `:k`.
+   Sid decided the half on an id. The ids are an entity, who, a layer, a
+   session, a subject and the layer slot of an act-id. A key is a fact's `:k`.
+   The half on a key is a session's (found on 9 October). The question put to
+   him was what an id is, and his line was "how can it be a keyword????? we
+   can have10^x no of ids where will we find the keywords for them???". The
+   session that answered wrote "Keywords were the rig's choice" and proposed
+   the split itself, "a key is a keyword"; no line of his takes up that half.
+   The rulings file of September says, in a session's words, "Keys are ids;
+   word and grammar are facts about them", and lists "Keys as ids: confirmed"
+   among the nine of 24 September. He has not ruled between the two. Until he
+   does, the code holds a key to a readable keyword (the queue, K5).
 10. **The microbatch hash entity is no part.** Sid decided. The depot derives
     it.
 11. **`:based-on` is a map from a fact id to a carried stamp.** Sid decided.
@@ -201,7 +210,9 @@ seal.
    three rows from this, and he let the reading stand: each actor acts under
    its own permission (E4 A); whoever holds a permission can give one beneath
    it (E2 A; Sid: "I answered this in 4 imo"); the top of a chain is a person,
-   or the system for the base, and never a session (E3·H7 B).
+   or the system for the base, and never a session (E3·H7 B). On 9 October he
+   decided that the system can hold many layers (entry 3 of that day), so
+   "for the base" in this reading is no limit.
 4. **A stamp holds the clock time and a counter.** Sid decided (H2 A):
    "clock-time+counter".
 5. **The store's keys in this build are three: the class, a permission, and
@@ -211,9 +222,93 @@ seal.
    (decision 10 of 7 October), and the request for locks is written
    `:lock-request`, a session's plain word, because "lease" is the rig's.
 
+## Decisions of 9 October 2026 — the door's four questions
+
+Sid answered these in chat on 9 October 2026, on the sheet "The door — four
+questions before it is built": "4B and all else A". Words in quotation marks
+are his, of that day unless a date is given; some are dictated, and are given
+as the dictation has them. What a session drew from an answer is marked as a
+session's. No code changes with them: for three the gates already do what he
+chose, and the fourth waits for two words.
+
+1. **A person's id says nothing: it is a UUID. Her sign-in accounts are joined
+   to it by links that the store can erase.** Sid decided (?4 A). He asked
+   first: "a person can sign in with multiple accounta so how will that work",
+   as when "i want to replace my google account with a new one or disable my
+   old google and use githib"; "if we go with uuid that would still be
+   possible????" It is. The id is the person's and not an account's, so an
+   account is added, replaced or removed by its link, and no act changes.
+   A session's, from that: there is a link for each account, where the sheet
+   said "one link"; the id is the store's own random id, never the number
+   that Google gives an account; what a person is called is a fact about her,
+   and not the link; and nothing that is written plain in an act is made from
+   the person, her own layer's id and a session's id too, or the record names
+   her there. Acts about her carry the same id in `:subjects`, so forgetting
+   a person meets this at H11. No code makes a person yet. Open, for sign-in:
+   the queue, K7 to K10.
+2. **One lock seals one value.** Sid decided (H1 A): "I think my stance is A.
+   Because given A, any tool user layer group can decide by themselves what
+   uh, a log delete means for different kind of values for their tool or
+   layer" (dictated; "log" is the lock). His frame: "this is only about what
+   gets deleted", and "how much uh, control do we have over what gets
+   deleted". The gates already make a lock for each value, and refuse a second
+   value under a used lock. A session's, from that:
+   - A lock does one thing: it is destroyed when a value must be forgotten.
+     Who may read is not its work.
+   - Each write of a value is a new value, so this is a lock for each version.
+   - H1 is three things. The floor is the least that a lock can seal, one
+     value: it is code, and each written value keeps the lock that sealed it.
+     The default is this answer; it can change for what is written after. The
+     switch that moves a layer to one lock for each act (ruling 7 of the
+     rulings file) is not built; it is built when a bulk layer asks for it.
+     Values that share a lock can still be forgotten one by one: the others
+     are written again under new locks and the shared lock is destroyed, and
+     the others then lose their earlier versions.
+   - What a forget takes with it is chosen when forgetting, not when writing.
+     The things around a forgotten value, its links and its context, were
+     written in other acts, sittings and layers, so a lock for each act or for
+     each sitting would not have taken them either. The store owes the one who
+     forgets the means to find them (the queue, K11; W8 of the reads sheet
+     names "a forget" as an asker).
+3. **The system can hold many layers.** Sid decided (K3 A): "my preference is
+   a uh, system can have uh, many layers". His picture: "what I will be
+   providing in Softland is like code and then like a few layers that are
+   built on top of it, kind of libraries", the "converters or importers,
+   ingesters", "the default things that I will be making"; "any other person
+   can make their own"; "other people can use either theirs or the system
+   ones, or maybe it turns out like the other people's becomes the system one
+   on some point". As with Linux, "we can like uh, basically draw a line of
+   what we mean by what is being shipped by Linux and what is not being
+   shipped by it". This replaces the reading "or the system for the base" in
+   entry 3 of 8 October, which was a session's. A gate accepts such a layer
+   today. A session's, from that: a layer is the system's when the system
+   holds its first permission; the layer's first act writes that, so the line
+   can be read from the record. A session's reason, beside his: the base is a
+   microbatch layer and every other layer starts streaming (entry 4 of
+   7 October), so with the base alone the system could hold nothing that
+   answers one act at once. Open: how layers build on layers (W2 of the reads
+   sheet), how a person's tool becomes the system's (K13), who may act as the
+   system (K9), and what the "world group" of his line of 8 October is (K14).
+4. **The store's own keys carry a namespace; they are not bare words.** Sid
+   decided (K4 B). He asked what it is for, from the side of those who build
+   on Softland: "if someone is building like 50 layers of uh, different tools
+   on top of each other then they would have to answer it each time right",
+   and "what are we trying to do here". A session's answer, which he heard
+   before he decided: B asks a builder nothing. It gives the bare words back
+   to the tools; it keeps a tool's own fact from being read as the store's;
+   and it leaves the store room for more keys, where a bare word taken later
+   would change how old acts are read when the record is built again from the
+   log. Not given yet, and his: the word before the slash, for which a session
+   proposes `store`, and his word for "class" (K6). Until he gives them the
+   code keeps `:class`, `:permission` and `:lock-request`; before the first
+   kept record the change is a rename. Open, found that day: what a key is
+   (entry 9 of 6 October; K5).
+
 Open, and built to a working answer until Sid decides:
 
-- **A lock for each value, or one for each session and layer (H1).** Sid:
-  "do we need to answer now???" The module makes a lock for each value, as
-  ruling 7 of the rulings file says. This build keeps no record, so his answer
-  can still change it.
+- **The words of the store's keys (K6).** He decided on 9 October that they
+  carry a namespace. The word before the slash and his word for "class" are
+  not given, so the code keeps the three bare words.
+- **What a key is (K5).** The code holds a key to a readable keyword, with a
+  namespace or without one. The rulings file of September says that a key is
+  an id, and that its word and its grammar are facts about it.
