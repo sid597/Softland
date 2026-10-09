@@ -36,8 +36,8 @@ so each stage's paper says how it adapts the skill's template.
 |---|---|---|
 | the starting point confirmed | done | — |
 | the implied spec; rulings on its 22 open points | done | `3746b4e5` |
-| the split into parts: one part, `door` | done; judged sound | with the plan |
-| the plan | running | |
+| the split into parts: one part, `door` | done; judged sound | `1a68cde7` |
+| the plan (cut off by a restart of the machine on the evening of 9 October, before any of it was on disk; the same session was resumed at 22:02) | running | |
 | the check of the plan | | |
 | the build: the door, its proof, the maps | | |
 | one fresh review of the whole against the contract | | |
@@ -48,6 +48,10 @@ and the papers before it; it writes one paper (or the code) and does not commit.
 report and the parts of its paper that need a ruling, checks the facts that a ruling rests on in the
 source, rules, has the rulings applied, and commits with a message that says what and why. No
 `Co-Authored-By`, no session link. Never push.
+
+Scratch files of a stage (probes, the proofs' full outputs) go under
+`/mnt/data/projects/research/softland/door-build-2026-10-09/`, outside the repository. Nothing goes
+under `/tmp`: a restart of the machine empties it, and one did during the plan.
 
 ## Rulings
 
@@ -111,3 +115,78 @@ is at the end of `IMPLICIT_SPEC.md`):
 
 Not settled, and not reachable on the in-process cluster: what a Rama worker does with bytes of a Java
 type that it does not have. The door seals `:v` and passes each other part as given.
+
+## For a session that takes this build over
+
+Written on the evening of 9 October, when the build session stood at about 410,000 tokens with four
+stages still to run. Everything that the build session held and a successor needs is in this folder.
+Nothing that matters is only in its chat.
+
+**Where the build stands.** The stage table above says it. One thing a table cannot say: a stage's
+fresh agent is a child of the session that started it and ends with that session. A new session
+cannot resume it. So when a stage's row says "running" and its paper is not on disk, or is cut short,
+run that stage again in a fresh agent.
+
+**What each stage's brief must carry.** The build session wrote each brief by hand; these are the
+parts that did not change from stage to stage.
+
+- The contract is the full spec and the only spec. `IMPLICIT_SPEC.md`, with its last section of
+  rulings and rules A and B, holds requirements beside it. A stage re-opens no ruling.
+- The stage reads the skill's doc for its own stage, and the skill's `SKILL.md`. The skill's
+  templates are written for a module; the door is a client of one. Each paper says how it adapts the
+  template, and leaves no section out: where one does not apply it says why in a line.
+- One paper, or the code; no commit; nothing written outside what the stage owns.
+- It decides nothing that is Sid's. It changes no code of the gates, the record or the declaration.
+- Never read `src/app/server/env.clj` or any `.env` file. No form, name, call shape or default from
+  the rig's code, the server's or Inland's; the rig's notes are findings only.
+- Words: "act", "maker", "door", "gate", "depot", "act-id", "stock". "Key" is a fact's key and "lock"
+  is an encryption key. Plain sentences, as `src-store/CLAUDE.md` asks.
+- Probe files go under the scratch path above, never under `/tmp`.
+- A report back of a fixed length, not the paper's text: the paper's path and headings; the points
+  that need the build session's ruling, each with its passage, the choices, and a pick where the
+  pick is engineering; what was read and what was run.
+- Model Opus 5.5 at effort xhigh for a stage that designs or judges. Judgment is never sent to a
+  lower model.
+
+**What to hold the plan to**, beside each ruling. The build session's own list for judging
+`PLAN.md`; the check of the plan is a fresh agent's, and this list is not given to it as answers.
+
+1. The door has no thread of its own, and each request is sent inside a maker's call (P16).
+2. The door remembers no layer's depot between two calls (implied spec O2.6). That would be a cache
+   of what the cluster holds, and the project's rule sends a cache to its own examination before it
+   is designed in.
+3. Many makers at once: no lock goes to two facts or to two acts; the locks of one act are taken in
+   one step, as neighbours of as few requests as the stock allows (O3.6, O4.14). The streaming gate
+   reads one range of lock rows for each request that an act names.
+4. A maker never waits without a bound on a request that is not its own, and is never handed the
+   refusal of a request that carried another permission (O3.11).
+5. A lock's bytes are in no word of the door's, in nothing printed or thrown, and in nothing that a
+   maker gets (P18). A door that is printed must not print its stock.
+6. The digest is of the very thing that is appended, with its facts as a vector (P20).
+7. Each of the door's own words has a case that the in-process cluster reaches, and says which of two
+   things holds: nothing was appended, or the door does not know (P1).
+8. The wait: how often it reads, what that costs a task at the microbatch gate's aim, and how far the
+   maker's bound reaches. The hand reads every 20 ms; at a thousand waits at once that rate is a
+   thousand times fifty queries a second.
+9. Each call's round trips are counted and each is justified. The skill's rule: never trade I/O or
+   correctness under failure for simpler code.
+10. The three other proofs keep their counts, 150, 449 and 227, unless the pure proof takes the
+    door's pure parts; then the plan says by how many.
+11. Every explanation that the door makes untrue is named with what it must now say. They are in
+    `act.clj`, `door/README.md`, `door/digest.clj`, `record/rows.clj`, `module/door_reads.clj`, the
+    store's map (five places), the tree's entry, `test-store/README.md`, the proofs' README (two
+    places) and the docstring of `module_proof.clj`.
+
+**The stages that are left, and what the build session does at each.**
+
+- The check of the plan (`phase-2-plan-validate.md`): a fresh agent, adversarial, whose default
+  verdict is fail. On a minor fail it fixes the plan itself; on a major fail the plan stage runs
+  again. The build session rules on what it brings back.
+- The build (`phase-build.md`, which walks `phase-3` to `phase-7`): one fresh agent writes the door,
+  its proof and the maps, with `IMPLEMENTATION_VALIDATION.md` and `TEST_VALIDATION.md`, and runs the
+  four proofs to a pass. The build session reads the code and the diff whole before it commits.
+- One fresh review of the whole against the contract (`phase-full-spec-review.md`), then the build
+  session's rulings on it.
+- The commits, grouped by concern: the door; its proof; the maps. Then the receipt, as the
+  contract's last section lists it. The four proofs' outputs in full go under the scratch path, and
+  their count lines into the receipt.
