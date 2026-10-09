@@ -16,7 +16,7 @@ server or Inland.
 |---|---|---|
 | The act: the one form of what a maker gives to the store | built, 6 October | `src-store/softland/store/act.clj` |
 | The store's module: two depots, the streaming gate, the microbatch gate, the record, the reads by act-id | built and reviewed, 8 October | `src-store/softland/store/` |
-| The door: the code that takes an act from a maker into the store | not built. Its four questions are answered, 9 October. No build contract is written | — |
+| The door: the code that takes an act from a maker into the store | not built. Its four questions are answered, 9 October. Its contract is `BUILD-door.md` | — |
 | Reads: a fact read back out | not built, not decided. The sheet "Reading back out" is not answered | `decisions/groups/g-reads.txt` |
 | Sign-in, and all that is above the act | not built | — |
 
@@ -35,9 +35,11 @@ What to read, in this order:
 4. `decisions/groups/` — the text of each sheet of questions. The printed PDFs
    are in the research depot, `/mnt/data/projects/research/softland/`.
 
-What is built next is Sid's to say, and he has not said it. A build starts from
-a contract, as the store's module did from `BUILD-store-module.md`; the door has
-none yet. Before the first record is kept, one row of the queue needs his
+The door is built next. Sid, 9 October: "no no what about building the door??
+since all the questions are clear for it correct????", and "should i start a new
+session for the a door work now". A build starts from a contract, as the store's
+module did from `BUILD-store-module.md`; the door's is `BUILD-door.md`, cut that
+day by the session that he asked. Before the first record is kept, one row of the queue needs his
 answer: K5, what a key is. He gave the two words for the store's keys on
 9 October, `softland.store` and "depot" (K6), and the code was renamed to them
 the same day. Older papers of this folder say "class" for "depot".

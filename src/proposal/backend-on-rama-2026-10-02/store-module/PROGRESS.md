@@ -102,7 +102,9 @@ For part 2's plan, give the planner the check's list of what part 2 will find ha
      among them that a tool's own fact under the bare word `:class` or `:permission` is accepted. The
      query `class-of-layer` is `depot-of-layer`; no depot and no table changed its name. The papers of
      the build in this folder keep the word "class", as they were written. Ten open rows were found in that chat (the queue, K5 to K14). His
-     answers do not make the door the next build.
+     answers did not by themselves make the door the next build. He said it later that day: "no no what
+     about building the door?? since all the questions are clear for it correct????", and "should i
+     start a new session for the a door work now". The door's contract is `../BUILD-door.md`.
    - Reads: `../decisions/groups/g-reads.txt`, "Reading back out", by another session of 8 October (id
      83590914). It is that session's to hand to him.
 
