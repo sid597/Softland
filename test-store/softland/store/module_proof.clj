@@ -9,7 +9,9 @@
   prints those lines again together at the end, and exits with a status that
   is not zero when a check fails.
 
-  The door is not built. The proof plays it by hand, with a few functions of
+  The proof plays the door by hand and does not use `softland.store.door`:
+  the store stays proven without the door, and the hand stays the proof that
+  anything can append to a depot without it. The hand is a few functions of
   this namespace, in the order of one act: it reads the depot of the layer;
   makes the act-id, with a random UUID; asks for locks by an act and reads
   them with one query; seals each value, the UTF-8 of the one text of the

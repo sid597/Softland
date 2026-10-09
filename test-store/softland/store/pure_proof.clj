@@ -2,8 +2,9 @@
   "The proof of the gates' pure namespaces: the one text and the digest, the
   door's declaration, the stamp, the seal, the first act of a layer, the
   record's rows, the checks of the decision, and the pure code of a batch of
-  the microbatch gate. It needs no cluster and no Rama. One command, from
-  the repository root:
+  the microbatch gate. And of the door's pure namespaces: its words, what it
+  makes of one act, and its stock of locks as a value. It needs no cluster
+  and no Rama. One command, from the repository root:
 
     clojure -M:store -m softland.store.pure-proof
 
@@ -30,21 +31,31 @@
   clock for nothing. The orders of arrival come from a random source with a
   fixed seed, so each run draws the same.
 
+  The door. The cases of its three pure namespaces hold each rule of the
+  door that needs no cluster: each kind of thing that is no act, the
+  limits, the thing that it builds, its request for locks, the
+  taking of locks from a stock, and the size rule. Where a case needs a
+  lock, it makes one itself, as a gate would.
+
   What it does not reach is in the folder's README: anything that needs a
-  depot, a PState or a query, which the module's proof runs on a cluster."
+  depot, a PState or a query, which the module's proof and the door's proof
+  run on a cluster."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
             [softland.store.act :as act]
             [softland.store.gate.batch :as batch]
             [softland.store.gate.decision :as decision]
+            [softland.store.door.additions :as additions]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record]
             [softland.store.door.seal :as seal]
             [softland.store.gate.stamp :as stamp]
-            [softland.store.door.text :as text])
+            [softland.store.door.stock :as stock]
+            [softland.store.door.text :as text]
+            [softland.store.door.words :as words])
   (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest]
            [java.util UUID]))
@@ -287,7 +298,7 @@
 
 (def ^:private digest-cases
   "The cases of the digest: its size; what it is the SHA-256 of; a thing that
-  throws; the door's comparison."
+  throws; the comparison of a sender that still holds its thing."
   (let [no-bytes {:b [1 2N "x"] :a #{:k}}
         with-bytes {:sealed (bytes-of 5) :e :note-1}]
     [["a digest is 32 bytes, and its hex text 64 characters"
@@ -305,7 +316,7 @@
      ["the digest of a thing that throws when it is read is the digest of the text #unreadable"
       (fn [] (digest/hex-of {:facts (throwing)}))
       (sha-256 (utf8 "#unreadable"))]
-     ["the door's comparison: the digest of the thing sent, of another thing, and no digest"
+     ["the comparison of a sender that still holds its thing: the digest of the thing sent, of another thing, and no digest"
       (fn [] [(digest/is-digest-of? (digest/hex-of good) good)
               (digest/is-digest-of? (digest/hex-of good) (arrived 1 (sealed-fact :note-2 :text)))
               (digest/is-digest-of? nil good)])
@@ -2030,6 +2041,642 @@
      :words (words-by-number (one-at-a-time (flat-of rows) other-facts things now (:base in-depot-order)))
      :record in-depot-order}))
 
+;; ----------------------------------------------------------- the door's words
+
+(def ^:private door-words
+  "The door's own fourteen words, written out a second time, each with its
+  `:appended`: whether nothing was appended for the maker's act, or the door
+  does not know."
+  {:find-the-module            :nothing
+   :make-an-act-id             :nothing
+   :read-the-layers-depot      :nothing
+   :read-the-act               :nothing
+   :add-its-parts              :nothing
+   :seal-a-value               :nothing
+   :seal-that-many-values      :nothing
+   :have-its-request-accepted  :nothing
+   :append-its-request-cleanly :nothing
+   :get-locks-within-its-wait  :nothing
+   :read-its-requests-answer   :nothing
+   :read-its-requests-locks    :nothing
+   :append-cleanly             :not-known
+   :read-the-answer            :nothing})
+
+(def ^:private read-accepted
+  "What the read by act-id gives for an accepted act whose digest is \"aa\"."
+  {:verdict :accepted :reason nil :stamp 77 :digest "aa"})
+
+(def ^:private read-refused
+  "What the read by act-id gives for a refused act whose digest is \"aa\"."
+  {:verdict :refused :reason :not-sealed :stamp 78 :digest "aa"})
+
+(def ^:private door-words-cases
+  "The cases of the door's words: the table of the fourteen; that none is a
+  gate's word; a word as a maker gets it; the four answers from what a read
+  gave; the two acks."
+  [["the door's fourteen words, each with whether nothing was appended for the act or the door does not know"
+    (fn [] (into {} (map (fn [[w entry]] [w (:appended entry)])) words/words))
+    door-words]
+   ["no word of the door's is a reason word of the act or of the declaration, or a word of a stray"
+    (fn [] (filterv (set (concat act/reasons declaration/reasons declaration/stray-reasons)) (keys words/words)))
+    []]
+   ["a word as a maker gets it holds :could-not, its own :appended and what it carries, and no :answer and no :reason"
+    (fn [] (words/word :append-cleanly {:act-id (act-id 1) :digest "aa" :answer :accepted :reason :not-sealed :appended :nothing}))
+    {:could-not :append-cleanly :appended :not-known :act-id (act-id 1) :digest "aa"}]
+   ["a word that the table does not hold is not made"
+    (fn [] [(words/word :refused {:at :layer}) (words/word :layer-not-made nil) (words/word nil nil)])
+    [nil nil nil]]
+   ["the answer from a read of an accept with the digest given: accepted, with its stamp"
+    (fn [] (words/answer read-accepted "aa"))
+    {:answer :accepted :stamp 77}]
+   ["the answer from a read of a refusal with the digest given: refused, with the gate's reason word and its stamp"
+    (fn [] (words/answer read-refused "aa"))
+    {:answer :refused :reason :not-sealed :stamp 78}]
+   ["the answer from a read that gave nothing: nothing yet"
+    (fn [] (words/answer nil "aa"))
+    {:answer :nothing-yet}]
+   ["the answer from a read of an answer with another digest: not mine, and nothing more, for an accept and for a refusal"
+    (fn [] [(words/answer read-accepted "bb") (words/answer read-refused "bb")])
+    [{:answer :not-mine} {:answer :not-mine}]]
+   ["a digest that is nil, or is no text, with an answer there: not mine"
+    (fn [] [(words/answer read-accepted nil) (words/answer (assoc read-accepted :digest nil) nil) (words/answer read-accepted 7)])
+    [{:answer :not-mine} {:answer :not-mine} {:answer :not-mine}]]
+   ["a digest that is nil with no answer there: nothing yet"
+    (fn [] (words/answer nil nil))
+    {:answer :nothing-yet}]
+   ["the two acks, by the depot word: the streaming gate ran, the microbatch depot holds the thing"
+    (fn [] words/acks)
+    {:streaming :gate-ran :microbatch :depot-holds}]])
+
+;; ------------------------------------------------------- the door's additions
+
+(def ^:private makers-act
+  "Alice's act as a maker gives it, with no facts: the parts that the form
+  asks for, plain."
+  {:version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1})
+
+(defn- maker
+  "Alice's act as a maker gives it, with these facts as a vector."
+  [& facts]
+  (assoc makers-act :facts (vec facts)))
+
+(def ^:private value-fact
+  "A value fact as a maker gives it: a plain value under a plain key."
+  {:e :note-1 :k :text :v "a text"})
+
+(defn- said
+  "Takes one of the door's words as a maker gets it. Gives what the cases
+  hold of it: the word, its `:appended`, and the place and the numbers that
+  it carries."
+  [word]
+  (select-keys word [:could-not :appended :at :most :sealed-bytes]))
+
+(defn- could-not
+  "One of the door's words as `said` gives it, for what a case must give:
+  the word with `:appended :nothing`, and its place when one is given."
+  ([word] {:could-not word :appended :nothing})
+  ([word at] (assoc (could-not word) :at at)))
+
+(defn- locks-of-a-read
+  "What the read of a request's locks gives for a request of n locks that a
+  gate accepted: a map from each index to a new lock."
+  [n]
+  (into {} (map (fn [i] [i (seal/new-lock)])) (range n)))
+
+(defn- locks-for
+  "The locks of an act as a stock gives them, for a reading: one new lock
+  for each value fact, each with the id of a lock of request 60."
+  [reading]
+  (mapv (fn [i] {:lock-id (lock-id 60 i) :lock (seal/new-lock)}) (range (:values reading))))
+
+(defn- built
+  "What the door's pure parts make of a maker's thing, with no cluster:
+  {:thing the thing to append}, under the act-id given or `(act-id 70)`,
+  each value sealed with a new lock; or the door's word."
+  ([thing] (built thing nil))
+  ([thing given]
+   (let [reading (additions/reading thing given)]
+     (if (:could-not reading)
+       reading
+       (additions/thing-to-append reading (or given (act-id 70)) (locks-for reading))))))
+
+(defn- through
+  "What comes of a maker's thing: the door's word, as `said` gives it; or
+  [:goes-in word], where the word is what the declaration's check gives for
+  the thing that the door would append, :ok or a gate's reason word."
+  ([thing] (through thing nil))
+  ([thing given]
+   (let [made (built thing given)]
+     (if (:could-not made)
+       (said made)
+       [:goes-in (verdict (declaration/check (:thing made)))]))))
+
+(defn- read-word
+  "The door's word for a reading of a thing, as `said` gives it, or :read
+  when the door read the thing."
+  [thing given]
+  (let [reading (additions/reading thing given)]
+    (if (:could-not reading) (said reading) :read)))
+
+(defn- numbered-fact
+  "A value fact on the entity `n<i>`, whose value is i."
+  [i]
+  {:e (keyword (str "n" i)) :k :text :v i})
+
+(defn- text-of-bytes
+  "A string whose one text has n bytes: n - 2 letters, and the two quotes."
+  [n]
+  (apply str (repeat (- n 2) "a")))
+
+(def ^:private not-an-act-cases
+  "The cases of things given to the door that are no act, one kind of thing
+  after the other. A thing that ends in one of the door's words gives the
+  word. A thing that goes in gives the word that the declaration's check has
+  for the thing that the door would append."
+  [["no act: no map: nil, a number, a string, a vector"
+    (fn [] (mapv through [nil 7 "x" [1 2]]))
+    (vec (repeat 4 (could-not :read-the-act)))]
+   ["no act: a map with no :layer, or a nil one"
+    (fn [] (mapv through [{:facts []} (assoc (maker value-fact) :layer nil)]))
+    (vec (repeat 2 (could-not :make-an-act-id :layer)))]
+   ["no act: a thing whose :layer cannot be read without a throw: a sorted map with string keys"
+    (fn [] (through (sorted-map "layer" :alice "facts" [])))
+    (could-not :read-the-act :layer)]
+   ["no act: a record with a :layer"
+    (fn [] (through (assoc (->Thing :note-1 :text) :layer :alice :facts [])))
+    (could-not :read-the-act)]
+   ["no act: a :layer that is no id: a string, a number, a keyword that does not read back"
+    (fn [] (mapv (fn [layer] (through (assoc (maker value-fact) :layer layer))) ["notes" 7 (keyword "a b")]))
+    (vec (repeat 3 (could-not :make-an-act-id :layer)))]
+   ["no act: a :layer that prints to 257 characters; one of 256 is read"
+    (fn [] [(read-word (assoc (maker) :layer (long-id 257)) nil) (read-word (assoc (maker) :layer (long-id 256)) nil)])
+    [(could-not :make-an-act-id :layer) :read]]
+   ["no act: :facts absent or nil: the thing goes in as given"
+    (fn [] [(through (dissoc (maker) :facts)) (through (assoc (maker) :facts nil))
+            (contains? (:thing (built (dissoc (maker) :facts))) :facts)])
+    [[:goes-in :malformed] [:goes-in :malformed] false]]
+   ["no act: :facts that is no sequence, one fact map, a set, a string: the door finds no fact, and a value inside goes plain"
+    (fn [] [(mapv (fn [facts] (through (assoc (maker) :facts facts))) [value-fact #{value-fact} "facts"])
+            (:facts (:thing (built (assoc (maker) :facts value-fact))))])
+    [(vec (repeat 3 [:goes-in :malformed])) value-fact]]
+   ["no act: facts with no end that each hold a value: the walk stops at the 257th; so it does for 257 facts; 256 are read"
+    (fn [] [(through (assoc (maker) :facts (map numbered-fact (range))))
+            (through (assoc (maker) :facts (map numbered-fact (range 257))))
+            (:values (additions/reading (assoc (maker) :facts (map numbered-fact (range 256))) nil))])
+    [{:could-not :seal-that-many-values :appended :nothing :most 256}
+     {:could-not :seal-that-many-values :appended :nothing :most 256}
+     256]]
+   ["no act: a fact that is no map, a string, a number, a vector: as given"
+    (fn [] [(through (maker "x" 7 [1])) (:facts (:thing (built (maker "x" 7 [1]))))])
+    [[:goes-in :malformed] ["x" 7 [1]]]]
+   ["no act: a fact that is a record, with a value"
+    (fn [] (through (maker (assoc (->Thing :note-1 :text) :v "a text"))))
+    (could-not :seal-a-value [:facts 0])]
+   ["no act: a fact that is a record, with no value: as given"
+    (fn [] (through (maker (->Thing :note-1 :text))))
+    [:goes-in :malformed]]
+   ["no act: a fact that already carries :sealed and :lock-id, and no :v: as given, no lock is taken, and a gate judges the maker's seal"
+    (fn [] (let [fact (sealed-fact :note-1 :text)
+                 act (maker fact)]
+             [(through act) (:values (additions/reading act nil)) (identical? fact (first (:facts (:thing (built act)))))]))
+    [[:goes-in :ok] 0 true]]
+   ["no act: a fact with a value under a plain key that also holds :sealed, or :lock-id"
+    (fn [] [(through (maker (assoc value-fact :sealed (bytes-of 3))))
+            (through (maker (assoc value-fact :lock-id (lock-id 50 0))))
+            (through (maker (assoc value-fact :sealed nil)))])
+    [(could-not :add-its-parts [:facts 0 :sealed])
+     (could-not :add-its-parts [:facts 0 :lock-id])
+     (could-not :add-its-parts [:facts 0 :sealed])]]
+   ["no act: a fact with a value under a store key that also holds :sealed: as given, since the door adds no part to it"
+    (fn [] (through (maker {:e :alice :k :softland.store/depot :v :streaming :sealed (bytes-of 3)})))
+    [:goes-in :store-key-sealed]]
+   ["no act: an act that already carries :act-id, also a nil one"
+    (fn [] [(through (assoc (maker value-fact) :act-id (act-id 1))) (through (assoc (maker value-fact) :act-id nil))])
+    (vec (repeat 2 (could-not :add-its-parts :act-id)))]
+   ["no act: an act that already carries :depot"
+    (fn [] (through (assoc (maker value-fact) :depot :streaming)))
+    (could-not :add-its-parts :depot)]
+   ["no act: a value that is no value of the form: a ratio, a list, a record, a number that is not finite, a value inside 33 collections"
+    (fn [] (mapv (fn [v] (through (maker (assoc value-fact :v v))))
+                 [1/3 (list 1 2) (->Thing 1 2) Double/NaN (nested 33)]))
+    (vec (repeat 5 (could-not :seal-a-value [:facts 0 :v])))]
+   ["no act: a fact with a value whose :e is no id: sealed to the place as given, with one lock, and sent"
+    (fn [] (let [act (maker {:e "n1" :k :text :v "a text"})]
+             [(through act) (:values (additions/reading act nil))]))
+    [[:goes-in :malformed] 1]]
+   ["no act: a part that the form does not know, on the act and on a fact, and one named as the door's own words are: as given"
+    (fn [] [(through (assoc (maker value-fact) :note "x"))
+            (through (maker (assoc value-fact :note "x")))
+            (:note (first (:facts (:thing (built (maker (assoc value-fact :note "x")))))))
+            (through (assoc (maker value-fact) :could-not :read-the-act))
+            (:could-not (:thing (built (assoc (maker value-fact) :could-not :read-the-act))))])
+    [[:goes-in :unknown-part] [:goes-in :unknown-part] "x" [:goes-in :unknown-part] :read-the-act]]
+   ["no act: 257 facts, two of them with a value: each value sealed, the whole thing sent"
+    (fn [] (let [act (assoc (maker) :facts (concat [(numbered-fact 0) (numbered-fact 1)]
+                                                     (map (fn [i] {:e (keyword (str "r" i)) :k :text}) (range 255))))]
+             [(through act) (:values (additions/reading act nil))]))
+    [[:goes-in :too-many-facts] 2]]
+   ["no act: 1,025 entries of :based-on"
+    (fn [] (through (assoc (maker value-fact) :based-on (into {} (map (fn [i] [[(act-id i) 0] 1])) (range 1025)))))
+    [:goes-in :too-many-based-on]]
+   ["no act: an id of 300 characters that is not the layer"
+    (fn [] (through (maker {:e (long-id 300) :k :text})))
+    [:goes-in :id-too-long]]])
+
+(def ^:private additions-cases
+  "The cases of the door's additions beside the table: the limit of sealed
+  bytes; an act-id given back; the kinds of fact; the order of the steps;
+  the thing that is built; the request for locks; things that throw; a
+  lock's bytes; the count of a series."
+  (let [lock (seal/new-lock)
+        place [:alice :note-1 :text]
+        given (fn [depot] [:alice depot (uuid 9)])
+        permission-fact {:e :bob :k :softland.store/permission :v bobs}
+        retract {:e :note-2 :k :text}
+        mixed (fn [facts] (assoc makers-act :facts facts))
+        three [value-fact retract permission-fact]
+        hands-thing (fn [facts] (assoc makers-act :act-id (act-id 70) :depot :streaming :facts (vec facts)))
+        no-value [retract permission-fact]]
+    [;; the limit of sealed bytes
+     ["a value whose sealed bytes are exactly the limit, 65,536, is read; one byte more is a value that the door could not seal, before any lock"
+      (fn [] [(read-word (maker (assoc value-fact :v (text-of-bytes 65508))) nil)
+              (read-word (maker (assoc value-fact :v (text-of-bytes 65509))) nil)])
+      [:read {:could-not :seal-a-value :appended :nothing :at [:facts 0 :v] :sealed-bytes 65537 :most 65536}]]
+     ["the length that seal.clj gives for a count of plain bytes is the length of what `seal` gives, for three sizes; nil for a way that is not known"
+      (fn [] [(mapv (fn [n] [(seal/sealed-length seal/way-of-new-locks n)
+                             (alength ^bytes (seal/seal lock place (byte-array n)))])
+                    [0 1 1000])
+              (seal/sealed-length 2 10)])
+      [[[28 28] [29 29] [1028 1028]] nil]]
+     ["the sealed bytes of the value at the limit, sealed with a real lock, are within the declaration's limit, and its check takes the thing"
+      (fn [] (let [made (built (maker (assoc value-fact :v (text-of-bytes 65508))))]
+               [(alength ^bytes (:sealed (first (:facts (:thing made))))) (verdict (declaration/check (:thing made)))]))
+      [65536 :ok]]
+
+     ;; an act-id given back
+     ["an act-id given back, of the act's layer: used as given"
+      (fn [] (select-keys (:thing (built (maker value-fact) (given :streaming))) [:act-id :depot]))
+      {:act-id (given :streaming) :depot :streaming}]
+     ["an act-id given back, of another layer"
+      (fn [] (read-word (maker value-fact) [:bob :streaming (uuid 9)]))
+      (could-not :make-an-act-id :act-id)]
+     ["an act-id given back that is not of the shape: two slots, a string, a depot slot that is no depot word, a word of the door's"
+      (fn [] (mapv (fn [id] (read-word (maker value-fact) id))
+                   [[:alice :streaming] "an act-id" [:alice :nowhere (uuid 9)] (could-not :make-an-act-id :layer)]))
+      (vec (repeat 4 (could-not :make-an-act-id :act-id)))]
+     ["an act-id given back with the other depot word: used as given, and the thing names that depot"
+      (fn [] [(select-keys (:thing (built (maker value-fact) (given :microbatch))) [:act-id :depot])
+              (declaration/stray-reason :microbatch (:thing (built (maker value-fact) (given :microbatch))))])
+      [{:act-id (given :microbatch) :depot :microbatch} nil]]
+
+     ;; the kinds of fact
+     ["a fact under each of the three store keys keeps its plain value, and takes no lock"
+      (fn [] (let [facts [{:e :alice :k :softland.store/depot :v :streaming}
+                          permission-fact
+                          {:e (uuid 70) :k :softland.store/lock-request :v 4}]
+                   act (mixed facts)]
+               [(:values (additions/reading act nil)) (= facts (:facts (:thing (built act))))
+                (every? true? (map identical? facts (:facts (:thing (built act)))))]))
+      [0 true true]]
+     ["a fact with a value under a key in the store's namespace that is no store key: its value is sealed, and a gate refuses it either way"
+      (fn [] (let [act (maker {:e :note-1 :k :softland.store/owner :v :alice})
+                   fact (first (:facts (:thing (built act))))]
+               [(:values (additions/reading act nil)) (contains? fact :v) (bytes? (:sealed fact)) (through act)]))
+      [1 false true [:goes-in :store-key-not-known]]]
+     ["a retract, a fact with no :v: as given, and it takes no lock"
+      (fn [] (let [act (maker retract)]
+               [(:values (additions/reading act nil)) (identical? retract (first (:facts (:thing (built act))))) (through act)]))
+      [0 true [:goes-in :ok]]]
+     ["a fact with a nil :v: as given, with its nil"
+      (fn [] (let [fact {:e :note-2 :k :text :v nil}
+                   act (maker fact)]
+               [(:values (additions/reading act nil)) (first (:facts (:thing (built act))))]))
+      [0 {:e :note-2 :k :text :v nil}]]
+     ["one act with a store-key fact, a retract and a value: one lock, for the one value, and each fact at its position"
+      (fn [] (let [act (mixed [permission-fact retract value-fact])
+                   facts (:facts (:thing (built act)))]
+               [(:values (additions/reading act nil))
+                (mapv (fn [fact] (cond (:sealed fact) :sealed (contains? fact :v) :plain :else :retract)) facts)
+                (:lock-id (nth facts 2))
+                (through act)]))
+      [1 [:plain :retract :sealed] (lock-id 60 0) [:goes-in :ok]]]
+
+     ;; the order of the steps
+     ["two faults, the thing is no plain map and it carries :act-id: the first step gives the word"
+      (fn [] (through (assoc (->Thing :note-1 :text) :layer :alice :act-id (act-id 1))))
+      (could-not :read-the-act)]
+     ["two faults, it carries :act-id and has no :layer: the door's own parts come before the layer"
+      (fn [] (through {:act-id (act-id 1) :facts [value-fact]}))
+      (could-not :add-its-parts :act-id)]
+     ["two faults, a :layer that is no id and a value that is no value: the layer comes before the walk of the facts"
+      (fn [] (through (assoc (maker (assoc value-fact :v 1/3)) :layer "notes")))
+      (could-not :make-an-act-id :layer)]
+
+     ;; the thing that is built
+     ["facts given as a vector: :facts is a vector, each fact at its position, the value sealed"
+      (fn [] (let [facts (:facts (:thing (built (mixed (vec three)))))]
+               [(vector? facts) (count facts) (bytes? (:sealed (nth facts 0))) (nth facts 1) (nth facts 2)]))
+      [true 3 true retract permission-fact]]
+     ["facts given as a list: :facts is a vector, each fact at its position"
+      (fn [] (let [facts (:facts (:thing (built (mixed (apply list three)))))]
+               [(vector? facts) (count facts) (bytes? (:sealed (nth facts 0))) (nth facts 1) (nth facts 2)]))
+      [true 3 true retract permission-fact]]
+     ["facts given as a lazy sequence: :facts is a vector, each fact at its position"
+      (fn [] (let [facts (:facts (:thing (built (mixed (map identity three)))))]
+               [(vector? facts) (count facts) (bytes? (:sealed (nth facts 0))) (nth facts 1) (nth facts 2)]))
+      [true 3 true retract permission-fact]]
+     ["a sealed fact is the maker's fact without :v and with :sealed and :lock-id; each other part of it stays"
+      (fn [] (let [fact (assoc value-fact :replaces [(act-id 5) 0] :note "kept")
+                   sealed (first (:facts (:thing (built (maker fact)))))]
+               [(set (keys sealed)) (dissoc sealed :sealed)]))
+      [#{:e :k :replaces :note :sealed :lock-id}
+       {:e :note-1 :k :text :replaces [(act-id 5) 0] :note "kept" :lock-id (lock-id 60 0)}]]
+     ["the lock opens the sealed bytes at the place [layer entity key] to the UTF-8 of the one text of the value in its normal form"
+      (fn [] (let [v {:b 1.50M :a [1 2N]}
+                   reading (additions/reading (maker (assoc value-fact :v v)) nil)
+                   taken [{:lock-id (lock-id 60 0) :lock lock}]
+                   sealed (:sealed (first (:facts (:thing (additions/thing-to-append reading (act-id 70) taken)))))]
+               [(String. ^bytes (seal/open lock place sealed) StandardCharsets/UTF_8)
+                (seal/opens? lock [:alice :note-2 :text] sealed)]))
+      ["{:a [1 2] :b 1.5M}" false]]
+     ["the declaration's check takes the thing that the door builds, and its one form holds the sealed bytes"
+      (fn [] (let [thing (:thing (built (mixed three)))
+                   checked (declaration/check thing)]
+               [(verdict checked) (bytes? (:sealed (first (:facts (:ok checked)))))]))
+      [:ok true]]
+     ["a thing that the door reads is no stray on the depot that its act-id names; a record that carries a right act-id is one, and the door does not read it"
+      (fn [] [(mapv (fn [[thing id]] (declaration/stray-reason (nth id 1) (:thing (built thing id))))
+                    [[(maker value-fact) (given :streaming)]
+                     [(maker value-fact) (given :microbatch)]
+                     [(dissoc (maker) :facts) (given :streaming)]
+                     [(assoc (maker value-fact) :note "x") (given :streaming)]])
+              (declaration/stray-reason :streaming (assoc (->Thing :note-1 :text) :layer :alice :act-id (given :streaming)))
+              (read-word (assoc (->Thing :note-1 :text) :layer :alice) (given :streaming))])
+      [[nil nil nil nil] :no-act-id (could-not :read-the-act)]]
+     ["each part that the maker gave is the maker's own object in the thing, and each fact that the door did not seal"
+      (fn [] (let [act (assoc (mixed three) :subjects #{:bob} :based-on {[(act-id 5) 0] 7} :note {:a 1})
+                   thing (:thing (built act))]
+               [(every? (fn [part] (identical? (get act part) (get thing part)))
+                        [:version :who :layer :permission :session :subjects :based-on :note])
+                (identical? retract (nth (:facts thing) 1))
+                (identical? permission-fact (nth (:facts thing) 2))
+                (sort (remove (set (keys act)) (keys thing)))
+                (:facts act)]))
+      [true true true [:act-id :depot] three]]
+     ["the digest of the thing that the door builds, for facts given as a list and as a lazy sequence, is the digest of the thing with the facts as a vector, as the hand sends it"
+      (fn [] (let [wanted (digest/hex-of (hands-thing no-value))]
+               [(= wanted (digest/hex-of (:thing (built (mixed (apply list no-value))))))
+                (= wanted (digest/hex-of (:thing (built (mixed (map identity no-value))))))
+                (= wanted (digest/hex-of (:thing (built (mixed (vec no-value))))))
+                (= wanted (digest/hex-of (assoc (hands-thing no-value) :facts (apply list no-value))))]))
+      [true true true false]]
+
+     ;; the request for locks
+     ["the door's request carries the version, who, permission and session of the maker's act as given; a part that the act does not hold is absent from it"
+      (fn [] (let [request-id [:alice :streaming (uuid 61)]
+                   whole (additions/request (additions/reading (maker value-fact) nil) request-id 4)
+                   bare (additions/request (additions/reading (dissoc (maker value-fact) :session :version) nil) request-id 4)
+                   odd (additions/request (additions/reading (assoc (maker value-fact) :who "nobody" :session nil) nil) request-id 4)]
+               [(dissoc whole :facts) (sort (keys bare)) (select-keys odd [:who :session]) (contains? odd :session)]))
+      [{:version 1 :who :alice :permission alice-own :session :alice-s1 :layer :alice
+        :act-id [:alice :streaming (uuid 61)] :depot :streaming}
+       [:act-id :depot :facts :layer :permission :who]
+       {:who "nobody" :session nil}
+       true]]
+     ["the request's one fact: the count, under the store's key for a request, on the uuid of the request's own act-id; its depot is the depot slot of its act-id"
+      (fn [] (let [request (additions/request (additions/reading (maker value-fact) nil) [:alice :microbatch (uuid 61)] 16)]
+               [(:facts request) (:depot request)]))
+      [[{:e (uuid 61) :k :softland.store/lock-request :v 16}] :microbatch]]
+     ["the declaration's check takes the door's request at a count of 1 and of 256, and it is no stray; at 257 it would be refused"
+      (fn [] (let [request (fn [n] (additions/request (additions/reading (maker value-fact) nil) [:alice :streaming (uuid 61)] n))]
+               [(mapv (fn [n] (verdict (declaration/check (request n)))) [1 256 257])
+                (declaration/stray-reason :streaming (request 1))]))
+      [[:ok :ok :too-many-locks-requested] nil]]
+
+     ;; things that throw
+     ["nothing throws for facts that throw when they are read: the word names the place"
+      (fn [] [(through (assoc (maker) :facts (throwing)))
+              (through (assoc (maker) :facts (concat [value-fact retract] (throwing))))])
+      [(could-not :read-the-act [:facts 0]) (could-not :read-the-act [:facts 2])]]
+     ["nothing throws for a fact that throws when it is read, or for a thing that is anything at all"
+      (fn [] [(through (maker value-fact (sorted-map "e" :note-1 "v" 1)))
+              (mapv (fn [x] (:could-not (additions/reading x x))) [(throwing) (Object.) 'x {:layer (throwing)}])])
+      [(could-not :read-the-act [:facts 1]) [:read-the-act :read-the-act :read-the-act :make-an-act-id]]]
+
+     ;; a lock's bytes
+     ["no lock's bytes are in the thing that the door builds, or in its request: the hex of each lock is in the text of neither"
+      (fn [] (let [reading (additions/reading (mixed [value-fact (numbered-fact 1) (numbered-fact 2)]) nil)
+                   taken (locks-for reading)
+                   thing (:thing (additions/thing-to-append reading (act-id 70) taken))
+                   request (additions/request reading [:alice :streaming (uuid 61)] 4)
+                   texts (str (text/text thing) (text/text request))]
+               [(count taken) (boolean (some (fn [{:keys [lock]}] (str/includes? texts (text/hex (:bytes lock)))) taken))]))
+      [3 false]]
+
+     ;; the count of a series
+     ["the count of a series of act-ids: an integer of 1 or more"
+      (fn [] (mapv additions/series-word [1 20 (int 3)]))
+      [nil nil nil]]
+     ["a count that is no integer of 1 or more: no act-id is made"
+      (fn [] (mapv (fn [n] (said (additions/series-word n))) [0 -1 1.5 "3" nil]))
+      (vec (repeat 5 (could-not :make-an-act-id :count)))]]))
+
+;; ------------------------------------------------------------------ the stock
+
+(def ^:private door-numbers
+  "The door's five numbers, with the default of each, written out a second
+  time."
+  {:request-wait-ms 10000 :read-every-ms 200 :fewest-at-once 4
+   :most-at-once-streaming 64 :most-at-once-microbatch 256})
+
+(defn- request-id
+  "The act-id of the n-th request for locks in Alice's layer, of a depot."
+  ([n] (request-id :streaming n))
+  ([depot n] [:alice depot (uuid (+ 1000 n))]))
+
+(defn- with-locks-of
+  "A stock after the door asked for n locks under the request `request` and
+  read them, with a take of m for the act that came short. Gives
+  [the stock after, the locks of the act or nil]."
+  [stock request n m]
+  (stock/with-locks-read (stock/with-request stock {:act-id request :digest "aa" :count n} 0)
+                         request (locks-of-a-read n) m))
+
+(defn- writing
+  "A who that writes acts through one stock as the door does: each act takes
+  its locks; when the stock is short, the door asks by the size rule, reads
+  the locks and takes. Takes the five numbers, a depot word and the count of
+  values of each act. Gives the counts of the requests in their order, the
+  unused locks at the end, and whether after each request the stock held
+  fewer unused locks than that request asked for."
+  [numbers depot values-of-acts]
+  (loop [stock stock/nothing
+         acts values-of-acts
+         requests []
+         held? true]
+    (if-let [m (first acts)]
+      (if-let [[after _] (stock/take-locks stock m)]
+        (recur after (rest acts) requests held?)
+        (let [n (stock/ask-for numbers depot m (:given-out stock))
+              [after taken] (with-locks-of stock (request-id depot (count requests)) n m)]
+          (recur after (rest acts) (conj requests n)
+                 (and held? (some? taken) (< (stock/unused after) n)))))
+      {:requests requests :left (stock/unused stock) :held? held?})))
+
+(defn- arrays-in
+  "Each run of bytes that a thing holds, wherever it sits."
+  [x]
+  (cond
+    (bytes? x) [x]
+    (map? x) (mapcat arrays-in (concat (keys x) (vals x)))
+    (coll? x) (mapcat arrays-in x)
+    :else []))
+
+(def ^:private stock-cases
+  "The cases of the stock: an empty stock; taking; how many a request asks
+  for; what goes into a run; the open request; the counts."
+  (let [r1 (request-id 1)
+        r2 (request-id 2)
+        ids (fn [taken] (mapv :lock-id taken))
+        four (first (with-locks-of stock/nothing r1 4 3))
+        border (first (with-locks-of four r2 4 0))]
+    [;; an empty stock
+     ["a stock that holds nothing: no unused lock, nothing given out, no open request; the door lets such a stock go"
+      (fn [] [(stock/unused stock/nothing) (stock/holds-nothing? stock/nothing) (stock/count-of [stock/nothing])
+              (stock/holds-nothing? (stock/with-request stock/nothing {:act-id r1 :digest "aa" :count 4} 0))
+              (stock/holds-nothing? (first (stock/take-locks (first (with-locks-of stock/nothing r1 1 0)) 1)))])
+      [0 true {:unused-locks 0 :stocks 0 :open-requests 0} false false]]
+     ["a take from a stock that holds nothing gives nothing"
+      (fn [] (stock/take-locks stock/nothing 1))
+      nil]
+
+     ;; taking
+     ["a take from one run: the next locks of the request, in the order of their indexes, each as the read gave it"
+      (fn [] (let [read (locks-of-a-read 4)
+                   filled (first (stock/with-locks-read (stock/with-request stock/nothing {:act-id r1 :digest "aa" :count 4} 0) r1 read 0))
+                   [after taken] (stock/take-locks filled 2)]
+               [(ids taken) (stock/unused after) (:given-out after)
+                (mapv (fn [i {:keys [lock]}] (and (identical? (:bytes (get read i)) (:bytes lock)) (= 1 (:way lock)))) [0 1] taken)]))
+      [[[r1 0] [r1 1]] 2 2 [true true]]]
+     ["two takes share no lock, and a third that the stock cannot serve gives nothing"
+      (fn [] (let [filled (first (with-locks-of stock/nothing r1 4 0))
+                   [after-one one] (stock/take-locks filled 2)
+                   [after-two two] (stock/take-locks after-one 2)]
+               [(ids one) (ids two) (stock/take-locks after-two 1)]))
+      [[[r1 0] [r1 1]] [[r1 2] [r1 3]] nil]]
+     ["a take across the border of two runs: what is left of the old run, then the new one; nothing is left behind in the old run"
+      (fn [] (let [[after taken] (stock/take-locks border 3)]
+               [(ids taken) (mapv (fn [run] [(:request run) (count (:locks run))]) (:runs after)) (:given-out after)]))
+      [[[r1 3] [r2 0] [r2 1]] [[r2 2]] 6]]
+     ["a take that is short changes nothing: it gives nothing, and the stock is as it was"
+      (fn [] [(stock/take-locks border 6) (stock/unused border) (ids (second (stock/take-locks border 5)))])
+      [nil 5 [[r1 3] [r2 0] [r2 1] [r2 2] [r2 3]]]]
+
+     ;; how many a request asks for
+     ["the size rule, the first request of a who: the fewest at once, 4, in a streaming layer and in the base"
+      (fn [] [(stock/ask-for door-numbers :streaming 1 0) (stock/ask-for door-numbers :microbatch 1 0)])
+      [4 4]]
+     ["the size rule in a streaming layer: as many as the stock has given out so far, 64 at most"
+      (fn [] (mapv (fn [given-out] (stock/ask-for door-numbers :streaming 1 given-out)) [0 4 8 16 32 64 128 5000]))
+      [4 4 8 16 32 64 64 64]]
+     ["the size rule in a microbatch layer: as many as the stock has given out so far, 256 at most"
+      (fn [] (mapv (fn [given-out] (stock/ask-for door-numbers :microbatch 1 given-out)) [8 100 256 5000]))
+      [8 100 256 256]]
+     ["the size rule never asks for fewer than the act needs, also past the most at once of a streaming layer"
+      (fn [] (mapv (fn [[m given-out]] (stock/ask-for door-numbers :streaming m given-out)) [[10 0] [10 4] [100 8] [256 0] [3 16]]))
+      [10 10 100 256 16]]
+     ["the size rule never asks for more than the declaration's ceiling of one request, whatever the opener gives"
+      (fn [] (let [given (stock/numbers {:most-at-once-streaming 9999 :most-at-once-microbatch 9999 :fewest-at-once 9999})]
+               [(select-keys given [:fewest-at-once :most-at-once-streaming :most-at-once-microbatch])
+                (stock/ask-for given :streaming 1 0) (stock/ask-for given :microbatch 1 100000)]))
+      [{:fewest-at-once 256 :most-at-once-streaming 256 :most-at-once-microbatch 256} 256 256]]
+     ["the door's five numbers: the defaults; a number that is missing or is no integer of 1 or more takes its default; a name that is none of the five is left out"
+      (fn [] [(stock/numbers nil) stock/default-numbers
+              (stock/numbers {:request-wait-ms 400 :read-every-ms 0 :fewest-at-once 2.5 :most-at-once-streaming "64" :other 1})
+              (stock/numbers 7)
+              (stock/numbers (sorted-map "a" 1))])
+      [door-numbers door-numbers (assoc door-numbers :request-wait-ms 400) door-numbers door-numbers]]
+     ["the size rule with the opener's numbers: the fewest 8 and the most 16"
+      (fn [] (let [given (stock/numbers {:fewest-at-once 8 :most-at-once-streaming 16})]
+               (mapv (fn [[m given-out]] (stock/ask-for given :streaming m given-out)) [[1 0] [1 12] [1 100] [20 0]])))
+      [8 12 16 20]]
+     ["a who that writes one value at a time in a streaming layer: 1 value is 1 request and 3 left; 20 values are requests of 4, 4, 8 and 16 and 12 left; 2,000 values are 36 requests and 48 left"
+      (fn [] (mapv (fn [values] (let [{:keys [requests left]} (writing door-numbers :streaming (repeat values 1))]
+                                  [(count requests) (vec (take 7 requests)) left]))
+                   [1 20 2000]))
+      [[1 [4] 3] [4 [4 4 8 16] 12] [36 [4 4 8 16 32 64 64] 48]]]
+
+     ;; the bound of the stock
+     ["over 200 acts of 1 to 5 values, drawn with a fixed seed, the stock holds after each request fewer unused locks than that request asked for"
+      (fn [] (let [random (java.util.Random. 7)
+                   acts (vec (repeatedly 200 (fn [] (inc (.nextInt random 5)))))
+                   {:keys [requests left held?]} (writing door-numbers :streaming acts)]
+               [held? (< left (peek requests)) (<= (reduce + acts) (reduce + requests)) (every? (fn [n] (<= 4 n 64)) requests)]))
+      [true true true true]]
+
+     ;; what goes into a run
+     ["what goes into a run: a lock that the read gave with nil for its bytes, and a lock of a way that the code does not know, are left out"
+      (fn [] (let [read (-> (locks-of-a-read 5)
+                            (assoc-in [1 :bytes] nil)
+                            (assoc-in [3 :way] 2))
+                   [after taken] (stock/with-locks-read (stock/with-request stock/nothing {:act-id r1 :digest "aa" :count 5} 0) r1 read 3)]
+               [(ids taken) (stock/unused after) (:open after)]))
+      [[[r1 0] [r1 2] [r1 4]] 0 nil]]
+     ["a read of locks that came back ends its request, whatever it gave: with no lock that can seal the stock holds no run, the request is forgotten, and the act's take gives nothing"
+      (fn [] (let [read (into {} (map (fn [[i lock]] [i (assoc lock :way 2)])) (locks-of-a-read 4))
+                   [after taken] (stock/with-locks-read (stock/with-request stock/nothing {:act-id r1 :digest "aa" :count 4} 0) r1 read 1)
+                   [short none] (with-locks-of four r2 2 4)]
+               [taken (:runs after) (:open after) (stock/holds-nothing? after)
+                none (stock/unused short) (:open short)]))
+      [nil [] nil true nil 3 nil]]
+     ["a lock that was taken is in the stock no more: the stock after a take holds none of the taken bytes"
+      (fn [] (let [filled (first (with-locks-of stock/nothing r1 4 0))
+                   [after taken] (stock/take-locks filled 3)
+                   left (arrays-in after)]
+               [(count left)
+                (boolean (some (fn [{:keys [lock]}] (some (fn [b] (identical? b (:bytes lock))) left)) taken))
+                (count (arrays-in filled))]))
+      [1 false 4]]
+
+     ;; the open request
+     ["a request is written into its stock before its append, in doubt, with its moment; a request in doubt is kept for the door's wait from that moment and no longer"
+      (fn [] (let [written (stock/with-request stock/nothing {:act-id r1 :digest "aa" :count 4 :other "left out"} 1000)
+                   open (:open written)]
+               [open (:unused-locks (stock/count-of [written])) (:open-requests (stock/count-of [written]))
+                (mapv (fn [read-began] (stock/kept-long-enough? open read-began 500)) [1000 1499 1500 9000])]))
+      [{:act-id r1 :digest "aa" :count 4 :state :in-doubt :since 1000} 0 1 [false false true true]]]
+     ["an append that returned makes the request sent, and a request that is sent is never given up; an append that threw leaves it in doubt from the moment of the throw"
+      (fn [] (let [written (stock/with-request stock/nothing {:act-id r1 :digest "aa" :count 4} 1000)
+                   sent (stock/request-sent written)
+                   threw (stock/request-in-doubt-since written 3000)]
+               [(select-keys (:open sent) [:state :act-id]) (stock/kept-long-enough? (:open sent) 999999 500)
+                (select-keys (:open threw) [:state :since]) (stock/kept-long-enough? (:open threw) 3499 500)
+                (stock/kept-long-enough? (:open threw) 3500 500)]))
+      [{:state :sent :act-id r1} false {:state :in-doubt :since 3000} false true]]
+     ["a request is forgotten: by word, and by the read of its locks; the locks that the stock held stay"
+      (fn [] (let [written (stock/with-request four {:act-id r2 :digest "aa" :count 4} 1000)
+                   [after taken] (stock/with-locks-read written r2 (locks-of-a-read 4) 2)]
+               [(:open (stock/without-request written)) (stock/unused (stock/without-request written))
+                (:open after) (ids taken) (stock/unused after)
+                (stock/request-sent four) (stock/request-in-doubt-since four 5)]))
+      [nil 1 nil [[r1 3] [r2 0]] 3 four four]]
+
+     ;; the counts
+     ["how many locks a stock has given out is the sum of its takes, across requests"
+      (fn [] (let [[one _] (with-locks-of stock/nothing r1 4 3)
+                   [two _] (stock/take-locks one 1)
+                   [three _] (with-locks-of two r2 8 5)]
+               (mapv :given-out [stock/nothing one two three])))
+      [0 3 4 9]]
+     ["the count of the door's stocks is three numbers, and prints no byte of a lock"
+      (fn [] (let [open (stock/with-request stock/nothing {:act-id r2 :digest "aa" :count 4} 0)
+                   counted (stock/count-of [four border open stock/nothing])
+                   printed (pr-str counted)]
+               [counted
+                (some? (re-matches #"\{(:[a-z-]+ \d+(, )?)+\}" printed))
+                (boolean (some (fn [b] (str/includes? printed (text/hex b))) (arrays-in [four border])))]))
+      [{:unused-locks 6 :stocks 2 :open-requests 1} true false]]]))
+
 ;; ---------------------------------------------------------------- the checks
 
 (deftest the-one-text-and-the-digest
@@ -2217,6 +2864,42 @@
            (pr-str (select-keys words [1 2])) "| two under one lock:" (pr-str (select-keys words [10 11])))
     (shown "a batch into a base that is not made, in" orders "orders: an act before the making, two making acts, acts after:" (pr-str (:words making)))))
 
+(deftest the-doors-words
+  (let [n (holds door-words-cases)]
+    (shown "the door's words," n "cases. Its own fourteen, each read after \"the door could not\":"
+           (str/join " " (map (fn [[word appended]] (str word (when (= :not-known appended) " (the door does not know whether the depot holds the thing)")))
+                              (sort-by key door-words)))
+           "| none is a gate's reason word or a word of a stray")
+    (shown "the four answers from what a read by act-id gave:"
+           (pr-str (words/answer read-accepted "aa")) (pr-str (words/answer read-refused "aa"))
+           (pr-str (words/answer nil "aa")) (pr-str (words/answer read-accepted "bb"))
+           "| the two acks:" (pr-str words/acks))))
+
+(deftest the-doors-additions
+  (let [rows (holds not-an-act-cases)
+        others (holds additions-cases)]
+    (shown "what the door makes of one act," (+ rows others) "cases." rows
+           "of them are things that are no act, one kind after the other: a thing ends in one of the door's words and nothing is appended, or it goes in and a gate's check has the word:"
+           (str/join " | " (map (fn [[what f _]] (str (second (str/split what #": ")) " -> " (pr-str (f))))
+                                (filter (fn [[what _ _]] (re-find #"^no act: (a map with no :layer|a thing whose :layer cannot|a record with a :layer|a fact that is a record, with a value|a fact with a value under a store|an act that already carries :depot|a fact with a value whose :e|1,025)" what))
+                                        not-an-act-cases))))
+    (shown "the door's two bounds, before any lock is taken: one act holds" additions/most-values-in-one-act
+           "values to seal at most, and a sealed value holds" declaration/max-sealed-bytes "bytes at most, by the length that seal.clj gives:"
+           (pr-str (said (additions/reading (maker (assoc value-fact :v (text-of-bytes 65509))) nil))))
+    (shown "the thing that the door builds: the maker's act with :act-id and :depot, :facts as a vector, each value fact sealed; the declaration's check takes it and it is no stray:"
+           (pr-str (comparable (update (:thing (built (maker value-fact {:e :note-2 :k :text})))
+                                       :facts (fn [facts] (mapv (fn [fact] (if (:sealed fact) (assoc fact :sealed (symbol (str (alength ^bytes (:sealed fact)) "-bytes"))) fact)) facts))))))
+    (shown "the door's request for 4 locks under that act's who and permission:"
+           (pr-str (additions/request (additions/reading (maker value-fact) nil) [:alice :streaming (uuid 61)] 4)))))
+
+(deftest the-doors-stock
+  (let [n (holds stock-cases)]
+    (shown "the door's stock," n "cases: a take gives the next locks of the oldest run, across the border of two runs, or nothing; a lock that was taken is in the stock no more; a read of locks that came back ends its request")
+    (shown "the size rule: a who that writes one value at a time in a streaming layer makes requests of"
+           (pr-str (:requests (writing door-numbers :streaming (repeat 200 1))))
+           "for 200 values; in the base" (pr-str (:requests (writing door-numbers :microbatch (repeat 600 1)))) "for 600")
+    (shown "the door's five numbers:" (pr-str (into (sorted-map) stock/default-numbers)))))
+
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them."
   []
@@ -2232,7 +2915,10 @@
   (the-records-rows)
   (the-decision)
   (the-batch)
-  (a-batch-is-decided-in-one-order))
+  (a-batch-is-decided-in-one-order)
+  (the-doors-words)
+  (the-doors-additions)
+  (the-doors-stock))
 
 (defn -main
   "Runs the proof and exits: status 0 when each check holds. It takes no
