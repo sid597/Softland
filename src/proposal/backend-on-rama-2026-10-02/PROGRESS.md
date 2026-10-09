@@ -3,6 +3,43 @@
 Read this page first. It says where the work stands, what is written down, how
 firm each part is, and what is open. It is not a ruling. Only Sid decides.
 
+## Now (9 October 2026)
+
+The sections below this one are the record of 2 to 5 October. This section says
+where the work stands today, and what to read to work on it.
+
+The store that is built to stay is in `src-store/`, with its checks in
+`test-store/`. No form, no name and no call shape in it comes from the rig, the
+server or Inland.
+
+| Part | State | Where |
+|---|---|---|
+| The act: the one form of what a maker gives to the store | built, 6 October | `src-store/softland/store/act.clj` |
+| The store's module: two depots, the streaming gate, the microbatch gate, the record, the reads by act-id | built and reviewed, 8 October | `src-store/softland/store/` |
+| The door: the code that takes an act from a maker into the store | not built. Its four questions are answered, 9 October. No build contract is written | — |
+| Reads: a fact read back out | not built, not decided. The sheet "Reading back out" is not answered | `decisions/groups/g-reads.txt` |
+| Sign-in, and all that is above the act | not built | — |
+
+The three proofs ran on 9 October with no failure: act 150 passes, pure 433,
+module 222. Their commands are in `store-module/PROGRESS.md`.
+
+What to read, in this order:
+
+1. `src-store/README.md` — Sid's decisions of 6, 7, 8 and 9 October, in his
+   words. It wins over every contract and over every page of this folder.
+2. `store-module/PROGRESS.md` — where the build stands, what it found, and what
+   comes next.
+3. `decisions/OPEN-QUESTIONS.md` — what is not decided, once each. And
+   `decisions/METHOD.md` — how a question reaches Sid, and how an answer
+   reaches disk.
+4. `decisions/groups/` — the text of each sheet of questions. The printed PDFs
+   are in the research depot, `/mnt/data/projects/research/softland/`.
+
+What is built next is Sid's to say, and he has not said it. A build starts from
+a contract, as the store's module did from `BUILD-store-module.md`; the door has
+none yet. Before the first record is kept, two rows of the queue need his
+answer: K5, what a key is, and K6, the two words for the store's keys.
+
 ## What this folder holds
 
 | File | What it is |
@@ -14,6 +51,9 @@ firm each part is, and what is open. It is not a ruling. Only Sid decides.
 | `make_print.py` | Draws the four print sheets from `mapping.json`. |
 | `LADDER-FILLED.md` | The detail under the ladder: who writes each row, what each source would be on it, and each row with a mark for where every line comes from. |
 | `CONTRACT-above-the-act.md` | Not in use. Sid declined that test on 3 October. |
+| `BUILD-store-module.md` | The contract that the store's module was built from, amended to Sid's answers of 8 October. `src-store/README.md` wins over it. |
+| `decisions/` | How a question reaches Sid (`METHOD.md`), the queue of open questions (`OPEN-QUESTIONS.md`), and the text of each sheet (`groups/`). |
+| `store-module/` | The papers of the build of the store's module, and the build's page, `store-module/PROGRESS.md`. |
 
 The printed sheets are outside the repo, at
 `/mnt/data/projects/research/softland/architecture-print-2026-10-05/`. That folder
@@ -22,6 +62,9 @@ An earlier two-sheet print of 3 October is beside it, in
 `builds-on-the-architecture-2026-10-03/`. The four sheets replace it.
 
 ## Now (5 October 2026)
+
+This section is the state of 5 October. For today's, see "Now (9 October 2026)"
+at the top.
 
 On 2 October Sid and one session drew the backend from the depots down to resolve.
 On 3 October Sid went up from the depot and the act, one layer at a time, and
@@ -371,6 +414,9 @@ Already waiting in `ARCHITECTURE-STE100.md` section 9: D1, D2 and the open
 items ?2 to ?16.
 
 ## Next
+
+This section is of 5 October. What followed it, the act and the store's module,
+is built: see "Now (9 October 2026)" at the top.
 
 By Sid's words above: use the map to see what must be built in code, given
 that adapters can be data and are not ported; then settle which topologies are
