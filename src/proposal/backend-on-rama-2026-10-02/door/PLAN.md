@@ -144,7 +144,9 @@ The door requires nothing of `softland.store.module`, of the two gates' namespac
 `record/tables.clj` or of `gate/decision.clj`. It names the five things that it opens by their names
 in Rama, as text: `*streaming-depot`, `*microbatch-depot`, `answer-by-act-id`, `locks-of-request`,
 `depot-of-layer` (`module.clj:9-15`). The door's proof opens the door on the real module, so a name
-that drifts fails there. No rule is written a second time (P6).
+that drifts fails there. No rule is written a second time (P6), with one line that ruling 10 names:
+the test of a plain map, which the tree writes in five places already and the door writes in a
+sixth.
 
 `deps.edn` does not change: both aliases hold `src-store` and `test-store` already.
 
@@ -294,8 +296,10 @@ A stock holds:
   read from it;
 - at most one **open request**: a request that this door sent and whose locks it has not read. Of it
   the stock keeps the act-id, the digest of the thing that was sent, the count that it asked for,
-  and its state, one of three: *sent* (its append was acked), *in doubt* (its append threw), or
-  *accepted* (the door read its answer, and not yet its locks);
+  and its state, one of two: *sent* (its append returned) or *in doubt* (its append threw, or has
+  not returned yet). Of a request in doubt it also keeps the moment from which the door's bound for
+  it is counted, by the clock that the waits read, which never goes back. The stock keeps no answer
+  that the door read (ruling 13);
 - one **seat**: the call that sits in it is the one call that asks for this stock, or reads what an
   earlier call asked for. A seat is a thing of the JVM on which one thread at a time gets in, in the
   order of arrival, and a thread can stop waiting for it at a time limit.
@@ -386,8 +390,13 @@ The acts of the table hold one value each, and the layer is a streaming layer.
   store's map, rule 21), the task would decide 125 requests beside each 1,000 acts.
 - (b) follows the who. **The stock holds fewer unused locks than its last request asked for, and
   that request asked for no more than the stock had given out before it** (or 4, or what one act
-  needed). So what a restart loses for a who is less than what that who wrote through this door, and
-  less than the most for its depot. The requests of a who that goes on writing are few: sizes 4, 4,
+  needed). So what a restart loses for a who is fewer than 4 locks while that who has written up to 4
+  values, less than what it wrote through this door after that, and less than the most for its depot
+  when no act needs more. One state is outside the sentence in bold: a call read an earlier call's
+  request, its stock was still short, and the call ended before it sent its own (its wait had
+  passed, or its own append threw). The stock then holds what it held and that request's locks,
+  which is fewer than the act that came short needed, so 255 at most (the check of the plan, F3;
+  ruling 11). The next call's request brings the sentence back. The requests of a who that goes on writing are few: sizes 4, 4,
   8, 16, 32, 64 and then 64 each, so 6 requests for its first 128 values and one for each 64 after
   that, 1.6% of its acts.
 
@@ -414,15 +423,18 @@ the length of the gate's one event for the request, which writes one lock row fo
 holds the layer's task (IS G26).
 
 **The most at once is 256 in a microbatch layer**, the ceiling. There a request costs its maker the
-time until the request's batch is closed: 752 to 1,034 ms on the in-process cluster (*ran*, probe 2,
-six requests; the module's build saw 873 to 893 ms, IS G17). All that time the stock gives nothing.
+time until the request's batch is closed: 752 to 979 ms on the in-process cluster (*ran*, probe 2,
+five requests, and 1,034 ms for the base's making act; the module's build saw 873 to 893 ms, IS G17). All that time the stock gives nothing.
 So the largest request that the declaration allows is the one that stops a who least often. What
 this cannot lift is the first point under "Points for the build session".
 
 **One act never takes more locks than 256** (P9, the first bound): the smaller of the declaration's
 `max-facts` and `max-locks-in-request`, both 256 today. A lock past that number cannot seal an
 accepted value, and one request can then always cover one act. An act with more value facts ends in
-the word `:seal-that-many-values` before any lock is taken.
+the word `:seal-that-many-values` before any lock is taken. The bound is the door's own, of its
+stock, and the docstring says so: if the declaration's `max-locks-in-request` were made less than
+its `max-facts`, the door would stop an act that a gate would take with the locks of two requests
+(ruling 17; for the receipt).
 
 ### What holds between makers who need locks of one stock at once
 
@@ -441,7 +453,7 @@ Three answers were weighed.
 - **(b) One request at a time for one stock, and the others wait for it.** A maker that finds the
   stock short waits for the seat. The call in the seat asks, reads the locks and takes its own; the
   next call in the seat finds locks, or asks. The stock keeps its bound. A maker waits for a request
-  that is not its own, but never past the door's bound.
+  that is not its own, but never past the door's bound ("How far the door's bound reaches", below).
 - **(c) One mutual exclusion around every use of the stock.** Simple, and wrong for the common
   path: a call that asks holds it across three round trips, and a maker whose act the stock could
   serve at once would wait behind it.
@@ -466,14 +478,24 @@ the seat, reading an earlier call's open request, and waiting for its own reques
 that one moment. When it passes, the call ends in the word `:get-locks-within-its-wait`, and nothing
 is appended for its act (P8).
 
+**How far the door's bound reaches** (the check of the plan, F1). The bound says when the door stops
+waiting for the seat and stops starting a step. A call of Rama's client that is on its way when the
+bound passes takes its own time, and only the call in the seat can be in one: the append of its
+request, for as long as Rama's client holds an append (`foreign.depot.operation.timeout.millis`,
+10,000 ms by default, *ran*, probe 3); a read of an answer or of locks, for as long as a query can
+take (70,002 ms in one run with Rama's defaults, *ran*, probe 2). So a call that waits for the seat
+ends at its bound, and the call in the seat can outlast its bound by one append and by one query. The
+docstring of `send-act` says so, as the docstring of `answer-of` does for the maker's bound.
+
 **The door's bound is 10,000 ms** (P8: "a number with its reason"). Two reasons. It is about ten
 times the time in which a request's answer was readable in the base on the in-process cluster (752
-to 1,034 ms, *ran*, probe 2), and five times the microbatch gate's aim of an answer within two runs
+to 979 ms for five requests, 1,034 ms for the making act, *ran*, probe 2), and five times the microbatch gate's aim of an answer within two runs
 of the gate, each inside a second (the store's map, rule 21). So a maker of the base does not meet
 the word in ordinary work. And it is the time for which Rama's own client holds a caller in one
 append by default: `foreign.depot.operation.timeout.millis` is 10,000 (*ran*, probe 3, read from the
 jar's own table of defaults; *ran*, probe 2: an append to a module that was destroyed threw after
-10,000 ms). So the door holds a maker for locks no longer than one append can hold it anyway.
+10,000 ms). So the door's own bound is no longer than the time for which one append can hold a maker
+anyway.
 
 ### The life of one request
 
@@ -482,12 +504,20 @@ call's wait ends.
 
 | State | What the call does | What comes of it |
 |---|---|---|
-| **D0** not sent | Makes the request's act-id, in the depot of the act's act-id. Makes the thing and takes its digest. Writes the open request into the stock as *in doubt*. Appends. | The append returned: the state is *sent*. The append threw: D5. |
-| **D1** *sent*, no answer read | Reads the answer by act-id: at once in a streaming layer, after one `:read-every-ms` in a microbatch layer when this call sent the request itself; then again each `:read-every-ms` until T. | Accepted, with the request's digest: D2. Refused, or an answer with another digest: D4. Nothing yet at T: the word `:get-locks-within-its-wait`; the open request stays *sent*. A read threw: the word `:read-its-requests-answer`; the open request stays. |
-| **D2** *accepted*, locks not read | Reads the locks, indexes 0 to n - 1, with one query. | The read gave them: D3. The read threw: the word `:read-its-requests-locks`; the open request stays *accepted*, and the next call in the seat reads the locks with one round trip. |
-| **D3** locks in the stock | In one step: the locks that can seal become a run at the end of the queue, the open request is forgotten, and this call's own locks are taken when the stock now holds them. | The call leaves the seat and goes on to seal. When the read gave fewer locks that can seal than the act needs, so that the stock is still short: the run and the forgetting all the same, no lock is taken, and the word `:read-its-requests-locks` (ruling 8). |
+| **D0** not sent | Makes the request's act-id, in the depot of the act's act-id. Makes the thing and takes its digest. Writes the open request into the stock as *in doubt*, with the moment. Appends. A call does this once at most. | The append returned: the state is *sent*. The append threw: D5. |
+| **D1** open, no answer read in this call | Reads the answer by act-id: at once in a streaming layer and for a request that an earlier call left; after one `:read-every-ms` in a microbatch layer when this call sent the request itself; then again each `:read-every-ms`, until T. | Accepted, with the request's digest: D2. Refused, or an answer with another digest: D4. Nothing yet, the request *sent*: at T the word `:get-locks-within-its-wait`; the request stays. Nothing yet, the request *in doubt*: D5, second row. A read threw: the word `:read-its-requests-answer`; the request stays as it was. |
+| **D2** answer read as accepted, locks not read | Reads the locks, indexes 0 to n - 1, with one query. | The read came back: D3. The read threw: the word `:read-its-requests-locks`; the request stays open as it was, and the next call in the seat reads its answer again and then its locks, two round trips (ruling 13). |
+| **D3** the read of locks came back | In one step: the locks that can seal become a run at the end of the queue, the open request is forgotten, and this call's own locks are taken when the stock now holds them. | The stock holds them: the call leaves the seat and goes on to seal. The stock is still short, and the request was an earlier call's: this call goes to D0 with its own, inside its own wait (ruling 11). The stock is still short, and the request was this call's own, so that locks of it cannot seal: the word `:read-its-requests-locks`. |
 | **D4** refused | Forgets the open request. | A request that this call sent: the word `:have-its-request-accepted`, with the request's act-id and the request's answer as `answer-of` gives one. A request that an earlier call left: nobody is handed it, and this call goes to D0 with its own. |
-| **D5** the append threw | Leaves the open request *in doubt*. | The word `:append-its-request-cleanly`. The next call in the seat reads the answer as in D1, until its own T. An answer is used as any. No answer by then: the request is forgotten. |
+| **D5** the append threw | Leaves the open request *in doubt*, and sets its moment to the moment of the throw. | The word `:append-its-request-cleanly`. |
+| **D5**, met by a later call | Reads the answer as in D1. An answer is used as any. | Nothing yet, at a read that began the door's bound or more after the request's moment: the request is forgotten, and this call goes to D0 with its own. Nothing yet, and this call's own T comes before that: the word `:get-locks-within-its-wait`; the request stays *in doubt* (ruling 12). |
+
+**One call sends one request at most, and reads one earlier request at most.** A call in the seat
+first deals with the request that an earlier call left, when there is one; then, when its stock is
+still short, it sends its own. So the four ways in which an earlier request ends without giving this
+act its locks (refused, another digest, too few locks, in doubt for the door's bound with no answer)
+all go on to D0, and the door's words about a request are said only by the call that sent it, or by
+a call whose wait passed. A step is started only while the call's own T has not passed.
 
 Four things in that table are choices.
 
@@ -498,24 +528,31 @@ run of the gate after its own (IS G17). A read at once is a round trip that can 
 **A request is written into the stock before its append.** If the call ends in any way between the
 append and the answer, the stock still knows the request, as *in doubt*.
 
-**A request whose append threw is kept, and waited for once more.** *Rama's documentation*: "An
-exception doesn't mean the append did not go through" (docs 14:212). With `:ack`, a first attempt
-that fails gives the client an exception also when a retry succeeds (docs 14:214). When a task's
-limit of pending records is hit, an `:ack` append throws and "the appends will have gone through"
-(docs 11:297). Two answers were weighed.
+**A request whose append threw is kept for the door's bound, counted from the throw.** *Rama's
+documentation*: "An exception doesn't mean the append did not go through" (docs 14:212). With `:ack`,
+a first attempt that fails gives the client an exception also when a retry succeeds (docs 14:214).
+When a task's limit of pending records is hit, an `:ack` append throws and "the appends will have
+gone through" (docs 11:297). *Ran* by the check of the plan: an append on a thread whose interrupt
+mark was set threw at once and went through all the same. Three answers were weighed.
 
 - *(a) Forget it at once.* If it went in, its locks are rows that seal nothing, up to 256. And under
   the third case, a task that is over its limit, each maker that comes back sends one more request
   into a gate that is already behind, and each of them goes through: the door would add load at the
   moment when the gate has too much.
-- *(b) Keep it as in doubt.* The next call that needs locks of that stock reads its answer first,
-  inside its own wait. If the request went in, its locks are used, and no second request is sent. If
-  it never went in, that one call waits to its T and ends in `:get-locks-within-its-wait`; the
-  request is then forgotten, and the call after it asks anew.
+- *(b) Keep it for the wait of the next call.* The plan as first written. The next call that needs
+  locks of that stock reads its answer until its own T, and then forgets it. That wait is what is
+  left of that call's bound: one read when the call stood long for the seat (the check of the plan,
+  F2), and the whole bound, for nothing, when the call comes an hour after an append that truly
+  failed.
+- *(c) Keep it by its age.* A call forgets a request in doubt only at a read that finds nothing and
+  that began the door's bound or more after the moment of the throw. A call that comes later than
+  that pays one read and asks at once. A call that comes sooner reads each `:read-every-ms` until
+  that moment, or until its own T when that is first.
 
-The plan takes (b). Its cost is one call that waits for nothing after an append that truly failed.
-"The door retries nothing on its own" (C part 3) holds: the door sends no thing twice, and it sends
-the next request only inside a maker's next call.
+The plan takes (c), by ruling 12. Each request in doubt gets the whole of the door's bound, and no
+call waits for one that is older than that. Its cost is one moment more in the open request. "The
+door retries nothing on its own" (C part 3) holds: the door sends no thing twice, and it sends the
+next request only inside a maker's call.
 
 **A request that was acked is never forgotten before it is answered.** The depot holds it, so a gate
 will decide it. While it is open the stock sends no other request. Under a gate that is slow, calls
@@ -546,8 +583,10 @@ Two orders were weighed.
 - **(b) Always from one run when one run can serve the act, and leave a smaller rest behind.** An
   act then names one request more often. But the rests add up: with acts of 3 values and requests of
   64, each run leaves 1, and when three rests of 1 are all that the stock holds, the next act names
-  three requests. Over three runs (a) costs the gate 3 seeks more and (b) costs it 2. And a rest that
-  no later act fits is a row that seals nothing.
+  three requests. Over three runs (a) costs the gate 2 seeks more, one at each of the two borders
+  that an act falls on (the third border, at 192, falls between two acts), and (b) costs it 2 as
+  well, both in the one act that names three requests (recounted by the check of the plan, F4). And
+  a rest that no later act fits is a row that seals nothing.
 
 **The plan's choice: (a).** An act names one request, or two at a border. It names more than two
 only when the door had fewer locks left than the act needs and read the locks of an earlier, open
@@ -562,10 +601,12 @@ knows (`seal/known-way?`). A lock with nil for its bytes, or with a way that thi
 is left out: it can seal nothing (IS O3, edge cases; IS G18). No lock of this build is such a lock.
 A read of locks that came back ends its request, whatever it gave: the locks that can seal become a
 run, and the open request is forgotten. A second read of the same request can give no more: a gate
-writes all the locks of a request in the event or the batch that accepts it. When the stock then
-still holds fewer locks than the act needs, the call ends in the word `:read-its-requests-locks`
-and sends no second request; the next call that needs locks of that stock takes what is there, or
-asks anew. So no stock is held at one request for good (ruling 8 on this plan).
+writes all the locks of a request in the event or the batch that accepts it. So no stock is held at
+one request for good (ruling 8). When the stock then still holds fewer locks than the act needs,
+what the call does turns on whose request it was (ruling 11). An earlier call's: this call has sent
+nothing yet, so it asks for its own, inside its own wait. Its own: it asked for as many as the act
+needs, so locks of it cannot seal; the call ends in the word `:read-its-requests-locks` and sends
+no second request, and the next call takes what is there, or asks anew.
 
 **A run gives up a lock when it is taken.** The stock holds no reference to a lock that it gave: the
 bytes are held by the one call that seals with them, and by nothing after that call returns. The door
@@ -662,6 +703,10 @@ and the reads on the task, total and meaningful (a read that finds a row).
     meaningful.
   - A microbatch act-id that is on its depot and not decided: 1 read, 0 meaningful. This is each
     read of a wait but the last.
+  - A microbatch act-id that is decided in a batch that is not closed yet: 2 reads (the row, then
+    `:closed-through`), and nil (`door_reads.clj:97-107`). The state lasts one short run of the
+    gate, so a read of a wait seldom falls in it; where one does, the 9 seeks of kind D below are
+    10 (added by the check of the plan, F5).
   - An act-id that fails the head's test: 0 reads; and through the door, no call at all.
   - Fixed or variable: fixed by the depot slot, 1 or 2. The module is built; the door changes
     nothing of it.
@@ -702,7 +747,12 @@ can know beforehand may cost one.
 
 **What step 3 and rule A hold.** These tests are what P2 allows and no more: "the thing is a plain
 map; its `:layer` is an id that an act-id can hold; an act-id given back has the shape of one and is
-of that layer". They are the two functions of which `declaration/stray-reason` is made. So a thing
+of that layer". `declaration/usable-id?` and `declaration/act-id-in-layer?` are made of the tests
+that `declaration/stray-reason` makes: the shape of an act-id, the limit of an id's text, the layer.
+The test of a plain map is private in that file (`declaration.clj:295-298`), so the table of what
+each namespace requires names no home for it (the check of the plan, F10). By ruling 10 the door
+writes it once, as a private function of `softland.store.door.additions`, and the pure proof holds
+it against `stray-reason` for the thing. So a thing
 that passes them is no stray on the depot that its act-id names, and a gate answers it; the pure
 proof holds that as a case (for each thing that passes, `stray-reason` gives nil). An act-id given
 back whose depot slot is a depot word and not the layer's depot is used as given: the thing goes to
@@ -722,8 +772,8 @@ that is a sequence" (rule B).
 | A map that is no plain map (a record), with a value under `:v` | The word `:seal-a-value`, at that fact | Rule B; P3 |
 | A map that is no plain map, with no value | As given | Rule B finds no value |
 | A plain map with no `:v`, or a nil one: a retract, or a fact that already carries `:sealed` or `:lock-id` | As given; the gate judges it | C part 4; P3, last sentence |
-| A plain map with a value, that also holds the part `:sealed` or `:lock-id` | The word `:add-its-parts`, at that part: the door would write over what the maker gave | Rule A; P3 |
-| A plain map with a value, under one of the three store keys | As given, the value plain | C part 4; C K4 B |
+| A plain map with a value, under one of the three store keys | As given, the value plain. Also when it holds `:sealed` or `:lock-id`: the door adds no part to a fact under a store key, so it writes over nothing, and a gate refuses the fact `:store-key-sealed` (ruling 9). This row is tested before the next | C part 4; C K4 B; rule A |
+| A plain map with a value, under any other key, that also holds the part `:sealed` or `:lock-id` | The word `:add-its-parts`, at that part: the door would write over what the maker gave | Rule A; P3 |
 | A plain map with a value, under any other key: a value fact | It is counted. The value must be a value of the form (`act/value?`); else the word `:seal-a-value`. Its plain bytes are the UTF-8 of the one text of its normal form | Rule B; IS O4.3 |
 
 A key in the namespace `softland.store` that is no store key is "any other key": its value is sealed,
@@ -753,7 +803,10 @@ of a sequence in which facts with a value to seal keep coming. It does not end t
 with no end that holds 256 such facts or fewer, for example retracts with no end: that call does not
 come back, as `act/parse` does not for the same thing (`act.clj:505-506`). The door has no bound on
 the count of facts as such: that count is a gate's to judge (`:too-many-facts`), and P9 names two
-bounds and no third. The docstring of `send-act` says it.
+bounds and no third. The docstring of `send-act` says it. The same holds of any other part of the
+thing that has no end, an entity or a part that the form does not know: the seal's place and the
+digest walk what they are given (`door/text.clj`, "Limit"), and that call does not come back
+either. And `act-ids-for` has no bound on its count but the memory of the process (F12).
 
 **The thing that is built (step 7).** The maker's map, with `:act-id` and `:depot` added, the depot
 being the act-id's second slot (IS O4.4), and `:facts` in place: a vector, each fact at the position
@@ -838,12 +891,12 @@ interrupted in the sleep ends the wait as if the bound had passed, with the thre
 a second arriving on one depot partition, and about a second to an answer, so about 1,000 waits at
 once (IS O5, Throughput).
 
-| Schedule | Reads for one answer at 0.9 s | Queries each second at 1,000 waits | How late the maker learns, at the mean |
+| Schedule | Reads for one answer at 0.9 s | Queries each second at 1,000 acts a second: the reads for one answer, times 1,000 (recounted by the check of the plan, F4) | How late the maker learns, at the mean |
 |---|---|---|---|
-| Every 20 ms, as the hand reads (`module_proof.clj:330`) | 46 | 50,000 | 10 ms |
-| Every 200 ms | 6 | 5,000 | 100 ms |
-| Every 500 ms | 3 | 2,000 | 250 ms |
-| 50 ms, then twice as long each time | 6 (at 0, 50, 150, 350, 750, 1,550) | about 4,000 | 650 ms in this case: the answer falls just after a read |
+| Every 20 ms, as the hand reads (`module_proof.clj:330`) | 46 | 46,000 | 10 ms |
+| Every 200 ms | 6 | 6,000 | 100 ms |
+| Every 500 ms | 3 | 3,000 | 250 ms |
+| 50 ms, then twice as long each time | 6 (at 0, 50, 150, 350, 750, 1,550) | 6,000, from 1,550 waits at once | 650 ms in this case: the answer falls just after a read |
 
 *Ran*, probe 2: the hand's schedule made 37 to 49 reads for each of six answers in the base. Each read
 of a wait but the last finds nothing, and each is one round trip and one read on a task whose one
@@ -900,7 +953,7 @@ Each word reads after "the door could not".
 | `:append-its-request-cleanly` | `send-act` | The append of the door's request threw. The door does not know whether the depot holds the request (P1). | `:request`, `:threw`, `:said` | `:nothing` of the act. Of the request: not known; the door remembers it as in doubt. |
 | `:get-locks-within-its-wait` | `send-act` | The door's wait for locks passed: its request, or one that an earlier call left, has no answer yet, or another call was still getting locks for this stock (P8). | `:waited-ms`; `:request` when this call read or sent one | `:nothing`. A request that was acked stays open and is read at the next need. |
 | `:read-its-requests-answer` | `send-act` | The read of the request's answer threw. | `:request`, `:threw`, `:said` | `:nothing`. The request stays open. |
-| `:read-its-requests-locks` | `send-act` | The request was accepted, and the read of its locks threw, or gave fewer locks that can seal than the act needs. | `:request`; `:threw` when the read threw | `:nothing`. After a read that threw, the request stays open, as accepted. After a read that came back short, the request is ended: what it gave is in the stock, and the next call asks anew (ruling 8). |
+| `:read-its-requests-locks` | `send-act` | The request was accepted, and the read of its locks threw, or gave fewer locks that can seal than the act needs. | `:request`; `:threw` when the read threw | `:nothing`. After a read that threw, the request stays open, and the next call reads its answer again and then its locks. After a read of the call's own request that came back with too few locks that can seal, the request is ended: what it gave is in the stock, and the next call asks anew (rulings 8 and 11). |
 | `:append-cleanly` | `send-act` | The append of the act threw. The door does not know whether the depot holds the thing; the maker reads the record (P1; C D4). | `:act-id`, `:digest`, `:threw`, `:said` | `:not-known` |
 | `:read-the-answer` | `answer-of` | The read by act-id threw. None of the four answers is true (P10). | `:act-id`, `:threw`, `:said` | `:nothing`: the call appends nothing |
 
@@ -957,6 +1010,10 @@ requests at the most at once.
 | E. The base, and it meets a request | 0.0005 | 15: D's, and the request's append, 5 reads of its answer, its locks | 9 + 4 + 2 + 3 = 18 | 256 |
 | F. A thing that ends in a word before the first round trip | 0.0100 | 0 | 0 | 0 |
 
+An act whose act-id the maker gave back, or took from `act-ids-for`, costs one round trip fewer in
+each row, and one seek fewer (two in the base): the table takes the dearer case for every act, so
+its sums are the most that the mix costs (F15).
+
 How D's 9 are counted: the base's depot is 2 reads; a wait at 200 ms for an answer at 0.9 s is 5 reads
 that find nothing and a sixth that reads the row and `:closed-through`. E adds the request's 4 reads
 that find nothing and its fifth of 2, and the read of locks: the request's row, `:closed-through`,
@@ -1005,7 +1062,8 @@ with the cluster is nothing of the door's.
 21). One accepted act with one sealed value costs the gate 4 reads and 4 row writes in one event (IS
 G22). Through the door the same act costs the layer's task 2 reads more, in two queries: the layer's
 depot and the answer. They are on the same one thread (IS G26). So an act of kind A is 6 reads on the
-layer's task, and a request adds its own event and 2 reads for each 64 values, about 0.1 read an act.
+layer's task, and a request adds its own event and 2 reads for each 64 values, about 0.03 read an act
+beside the gate's own event for the request (F4).
 By the cost of a cold read, 0.3 to 0.5 ms (SKILL.md), 4 reads give 500 to 830 acts a second on one
 task (the store's map says 480 to 770) and 6 reads give 330 to 550. The store's map already says of the gate's 4 reads that "the first
 aim is met only when the rows are read from memory"; the same holds with 6, and more so. No number
@@ -1031,7 +1089,7 @@ in the stock makes no request on its way (IS O3, Latency), and one send in 64 of
 writing does. For a who that has just begun, the requests come sooner: 6 in its first 128 values.
 
 **Held against the microbatch gate's aim: 1,000 acts a second arriving on one depot partition.** The
-waits cost 5,000 queries a second over all tasks ("The wait", above). A stock in the base gives at
+waits cost 6,000 queries a second over all tasks ("The wait", above). A stock in the base gives at
 most 256 locks for each time that a request takes to be answered; that is the first point for the
 build session.
 
@@ -1058,7 +1116,7 @@ The door's own choices are each in their section, with what the other answers co
 | Makers at once | One call asks for one stock; the others wait for it inside the door's bound | "What holds between makers" |
 | Whose refusal | Only of a request that the maker's own call sent | the same |
 | The door's bound (P8) | 10,000 ms; the opener may give another | the same |
-| A request whose append threw | Kept as in doubt, waited for once more | "The life of one request" |
+| A request whose append threw | Kept as in doubt for the door's bound, counted from the throw (ruling 12) | "The life of one request" |
 | The first read of an own request in the base | After one interval | the same |
 | The order of taking | Oldest run first, across a border | "How the locks of one act are taken" |
 | The order of the steps of a send | Every test before the first round trip; the locks last before the seal | "The way of one act in" |
@@ -1119,7 +1177,15 @@ Data growth). The plan's answer:
   door. (Each such try still leaves a refused request in the depot and in the record; that cost is
   P9's, and the docstring says it.) A call counts itself into its stock when it gets it and out when
   it leaves, each in one atomic step of the map, and a stock goes only when no call is counted in:
-  so no call ever holds a stock that the map has let go.
+  so no call ever holds a stock that the map has let go. Whether the stock holds nothing is read
+  inside that same step, after the count has come to none, and never before it: a call that read
+  "nothing" first and counted itself out later could take away a stock that another call had filled
+  in between, and its locks would be lost with no word and no count (the check of the plan, F13).
+  A stock that holds an open request is not such a stock: it stays until a later call of the same
+  layer, depot and who reads that request or forgets it. So a who whose request was left open and
+  who never comes back leaves about 550 bytes for the life of the process, and a `:who` that is
+  equal to no other thing, a Java object, leaves that for each call whose request's append threw
+  (F11).
 - A stock that has given out a lock stays for the life of the process: its count of what it gave
   out is what the next request is sized by. So the memory grows with the whos that wrote a value
   through this door, at about 300 bytes each and 60 bytes for each unused lock: 100,000 such whos
@@ -1149,13 +1215,14 @@ of these is for good. The sizes are by arithmetic from the rows' shapes, not mea
 1. **A stock that a restart loses** (C part 3 names it). A stock holds fewer unused locks than its
    last request asked for: fewer than 4 for a who that wrote up to 4 values, fewer than it wrote
    after that, and at most 63 in a streaming layer and 255 in a microbatch layer when no act needs
-   more. The sum over all stocks is what one restart leaves. `stock-count` gives that sum before the
+   more. In the one state that ruling 11 leaves outside that sentence, it holds fewer than the act that
+   came short needed, 255 at most in either depot (F3). The sum over all stocks is what one restart leaves. `stock-count` gives that sum before the
    restart, and the door's proof counts the same rows in the record after it.
 2. **A request that was accepted and whose locks the door never read.** One stock has at most one
    open request, so a restart loses at most one request's locks for each stock, 256 at most. While
    the process lives, an open request is read at the next need of its stock (P8), and the only one
-   that is given up is a request whose append threw and that had no answer through one more whole
-   wait.
+   that is given up is a request whose append threw and that had no answer at a read that began the
+   door's bound or more after the throw (ruling 12; the check of the plan, F2).
 3. **A lock that was taken for an act that is not accepted**: the gate refused the act, the thing
    arrived second under its act-id, or its append threw (P7). One row for each value of each such
    act. Nothing in the door bounds it: a maker that sends a refused value act in a loop loses one
@@ -1190,13 +1257,13 @@ makers call at once. Each line says how far the claim reaches.
 | What happens | What holds | What does not |
 |---|---|---|
 | **The act's append throws** | The maker gets `:append-cleanly` with the act-id and the digest, and reads the record (P1). The door sends nothing again. The locks of the act are out of the stock. | The door does not know whether the depot holds the thing. A maker that sends the act again under the same act-id has sent a second, different thing when the act has a value; at most one of the two is decided (IS G8), and the other digest reads "not mine". Under a new act-id both can be accepted: the act is then twice in the record. |
-| **The request's append throws** | Nothing is appended for the act. The stock keeps the request as in doubt; the next call that needs locks of that stock reads its answer first and sends no second request while it waits. | If the request never went in, that next call waits for nothing and ends in a word. If it goes in after it was forgotten, its locks are rows that seal nothing. |
+| **The request's append throws** | Nothing is appended for the act. The stock keeps the request as in doubt, with the moment of the throw; a later call that needs locks of that stock reads its answer first, and sends its own request only when that answer is no accept, or when a read finds nothing the door's bound or more after the throw (ruling 12). | If the request never went in, a call that comes within the door's bound of the throw waits for nothing until that bound has passed. If the request goes in after it was forgotten, its locks are rows that seal nothing. |
 | **A query throws** | The call ends in a word that says which read it was. No state changes, but that an open request stays open. The door does not take "the read failed" for "nothing yet" or for "not made" (P10, P21). | The door reads nothing again on its own inside that call. |
 | **A gate runs an event or a batch again** | The module's: check (a) answers a repeat from the record, and a request sent once makes its locks once (IS G8, G14). In the base a read gives a row only of a closed batch, so the door never reads lock bytes that a second attempt would change (IS G17). | Not reached by any proof on the in-process cluster (`test-store/softland/store/README.md:285-291`). |
 | **The door's process ends** | Every act that is on a depot is decided all the same. A maker that kept its act-id and its digest reads the answer through a door opened later (IS O5.11). | The stocks are gone, and each open request with them. The rows that this leaves are bounded as above. The door promises nothing across a restart (IS O6.4). |
 | **The module is started again under an opened door** | On the in-process cluster the same handles read the same answer and the same lock bytes after Rama's module update, and a lock asked for before seals after (IS G25). The door's proof shows it through the door. | A real cluster: not shown anywhere. A finding of the rig's notes is that a module update drains and is no failover (IS, "What could not be settled", 7). |
-| **Many makers at once** | No lock goes to two facts or to two acts: a take is one compare-and-set. One request at a time for one stock. A maker never waits past the door's bound on a request that is not its own, and is handed the refusal only of its own. `act-id-for` and `answer-of` share nothing and never wait on another call. | Two sends in flight at once have no order that the door promises (IS O4, Concurrency). |
-| **A thread is interrupted while it waits** | The wait ends as if its time had passed, and the thread's mark is set again. A seat is always given up when a call leaves it, whatever ended the call. | |
+| **Many makers at once** | No lock goes to two facts or to two acts: a take is one compare-and-set. One request at a time for one stock. A maker that waits for the seat never waits past the door's bound on a request that is not its own; the call in the seat can outlast its bound by one call of Rama's client that is on its way ("How far the door's bound reaches"). A maker is handed the refusal only of its own request. `act-id-for` and `answer-of` share nothing and never wait on another call. | Two sends in flight at once have no order that the door promises (IS O4, Concurrency). |
+| **A thread is interrupted while it waits** | The wait ends as if its time had passed, and the thread's mark is set again. A seat is always given up when a call leaves it, whatever ended the call. A thread that is interrupted before or inside a call of Rama's client: the call throws `InterruptedException` at once and the thread's mark is cleared (*ran* by the check of the plan, F8: `out-interrupt-2.txt`). The door takes it as any throw of that call, so the word names the class, and it sets the thread's mark again, as it does after a wait. | An append on an interrupted thread threw and went through all the same: the log held the record and its answer was readable later (the same run). So `:append-cleanly` and a request in doubt are the right words for it. |
 | **A thing that Rama's client cannot turn into bytes** | *Ran*, probe 2: a thing that holds a plain Java object in a part that the form does not know made `foreign-append!` throw `CallbackException` after 14 ms, and no answer was readable under its act-id; the same handle took the next append. Through the door that is `:append-cleanly`. A thing that holds a function or a ratio there was appended, and refused `:unknown-part`. | What a worker of another process does with bytes of a Java type that it does not have cannot be shown on the in-process cluster (the build session's line after P22). For the receipt. |
 
 **What the door can cost when it checks nothing** (P9; the docstring says each): a refused act sent
@@ -1346,9 +1413,16 @@ The door gives a maker no thing, no lock id and no lock. So, as the module's pro
      permission that does not stand; that act goes in, and its refusal is under its own act-id.
    - `:append-its-request-cleanly`: a value act whose `:session` is a plain Java object, with an
      empty stock. The request carries that session as given, and Rama's client throws: a real throw.
-     Nothing is appended for the act. The next call of that who waits the door's bound for the
-     request that is in doubt and ends in `:get-locks-within-its-wait`; the call after it asks anew
-     and goes in. For this the proof opens a second door with a bound of 400 ms.
+     Nothing is appended for the act. The proof then waits for longer than the door's bound, and
+     the next send of that who makes one read of the request in doubt, forgets it, asks anew and
+     goes in, inside a time that is less than the bound (ruling 12). For this the proof opens a
+     second door with a bound of 400 ms. And the other
+     branch, which ruling 6 is for (added by the check of the plan, F7): the proof stands in for
+     `foreign-append!` with a function that sets the interrupt mark of its own thread and then
+     calls Rama, for the request's append alone. Rama's client throws and the request goes through
+     all the same. The word; then the next send of that who reads the request's answer and uses
+     its locks: one request in the log, and no lock of it is left unread. The line says that the
+     proof interrupted its own thread.
    - `:get-locks-within-its-wait`, for an acked request: the microbatch topology is paused with
      Rama's test tool; a value act into the base, through the door with the short bound; the word.
      The topology goes on; the next send of that who uses the same request: the log holds one
@@ -1360,11 +1434,23 @@ The door gives a maker no thing, no lock id and no lock. So, as the module's pro
      other. No real throw of a query was found that the in-process cluster gives without a fault of
      the cluster: the door tests each thing that it passes to a read before it calls. After
      `:read-its-requests-locks`, the next send reads the locks of the same request: one request in
-     the log.
+     the log. The short read of an earlier call's request (F7; ruling 11): a send of one value
+     whose read of the request's answer is made to throw leaves a request for 4 open; a send of 10
+     values of that who then reads it, asks for its own in the same call and goes in. The log holds
+     two requests of that who, for 4 and for 10 or more, and the act names both. The word's other
+     branch, a read of the call's own request that gives locks that cannot seal: the proof stands in
+     for `foreign-invoke-query` with a function that calls Rama and gives each lock back with a way
+     that the code does not know, and the line says so; the word; `stock-count` counts none of
+     them; the send after it asks anew and goes in.
    - `:append-cleanly`: an act with a part that the form does not know, which holds a plain Java
      object. A real throw of Rama's client. The word carries the act-id and the digest and
      `:appended :not-known`; `answer-of` with that pair gives "nothing yet"; the proof reads the log
-     and says whether the record is there.
+     and says whether the record is there. A second case, where the thing is on the depot (F7): an
+     act with no value and a given act-id, sent on a thread whose interrupt mark the proof has set.
+     Rama's client throws, and the append goes through all the same. The word carries the act-id
+     and the digest; round the door, the log holds one record under that act-id, and its digest is
+     the word's; with the mark cleared, `answer-of` with the word's pair gives accepted. Without
+     this case a door that gave a wrong digest in the word would pass.
 9. **The answer back.** The four answers. Accepted and refused carry the stamp, and "not mine"
    carries nothing more. "Nothing yet" for an act-id that was never sent, and for a thing that is no
    act-id with no query made. "Not mine": a second, different act through the door under a used
@@ -1377,8 +1463,11 @@ The door gives a maker no thing, no lock id and no lock. So, as the module's pro
     act's, and whose depot is the act's depot.
 11. **Many makers at once.** 16 threads through the one door, for one who in one layer, 25 acts
     each of 1 to 3 values. Every act is accepted. No lock id is named twice over all of them. Each
-    act names one request, or two. The requests that the log holds for that who are as many as the
-    size rule gives for the values written, and not one for each thread. Then 8 whos at once, each
+    act names one request, or two. The requests that the log holds for that who are held to the
+    size rule, each by its own count: 4 at least, 64 at most, and no more than the counts of the
+    requests before it together, or 4; and they are fewer than the threads' acts by far, not one
+    for each thread. Their number is not one fixed number: a request's count follows what the
+    stock held when it was sent (F7). Then 8 whos at once, each
     on 2 threads.
 12. **The base, through the door.** The making act by the system: `:depot-holds`, and a wait that
     gives accepted. A value act: the request is sent inside the call, and the call comes back after
@@ -1386,7 +1475,10 @@ The door gives a maker no thing, no lock id and no lock. So, as the module's pro
     topology is paused, then it goes on: one request in the log; each answer by a wait. The base's
     batches: 8 acts on 8 entities in one batch, each answer read with a bounded wait.
 13. **No lock's bytes are ever appended.** Every lock of every request in both logs is read round
-    the door; no record of either log holds a run of bytes that is one of them. And no result that
+    the door; no record of either log holds a run of bytes that is one of them. For a lock of the
+    base that seals a value, `locks-of-request` gives nil for the bytes (`door_reads.clj:20-26`),
+    so the proof takes those bytes from the lock's whole row, by its select of
+    `$$microbatch-locks` on each task (F7). And no result that
     the door gave the proof in the whole run holds a run of bytes at all.
 14. **A restart of the door's memory.** `stock-count` of the first door says how many unused locks
     it holds. A new door is opened and the first is let go. Its first value act for a who of the
@@ -1399,7 +1491,8 @@ The door gives a maker no thing, no lock id and no lock. So, as the module's pro
     the same answer for an act-id and a digest from before.
 
 **What the door's proof does not reach** (its README says so): a throw of a query that Rama's client
-makes by itself; an append that threw and went through all the same; a worker of another process and
+makes by itself; an append that threw for a fault of the cluster and went through all the same (the
+one that the proof reaches is an append on a thread that it interrupted itself); a worker of another process and
 a type that it does not have; a real cluster, more than one machine, replication; how fast the door
 is; a wait that outlasts its bound by the time limit of a query; a gate that is so slow that an acked
 request stays open over many calls.
@@ -1439,7 +1532,7 @@ Group 16, the stock (23): an empty stock (2); a take from one run (1); two takes
 take across a border (1); a take that is short changes nothing (1); how many a request asks for,
 eight cases of the rule (8); over 200 acts of 1 to 5 values the unused locks are fewer than the last
 request asked for (1); what goes into a run (2); a lock that was taken is in the stock no more (1);
-the open request through its states (3); the count of what was given out (1); `stock-count`'s numbers
+the open request: written in doubt with its moment, made *sent*, forgotten (3); the count of what was given out (1); `stock-count`'s numbers
 print no bytes (1).
 
 If the build's list differs from these 89, its receipt says by which cases.
@@ -1481,7 +1574,8 @@ that a gate runs changes.
 - **The proofs' README**: a row and a section for the door's proof: how to run it, what a pass
   shows, what state it changes, what it does not reach. Under it, the two exceptions to C D8: the
   module's proof, whose hand appends without the door; and the door's proof, which reads the logs
-  and the record round the door (P13).
+  and the record round the door (P13), and appends one request and one act by hand, for the one
+  check that holds the door against the hand (F6).
 
 ### The sentences that the door makes untrue
 
@@ -1509,6 +1603,9 @@ that a gate runs changes.
 | 20 | `test-store/softland/store/README.md:5-9` and the pure proof's section | The pure proof's row names the gates' pure namespaces; its section has 13 groups. | The row names the door's three pure namespaces too; groups 14 to 16; what they do not reach. The module's proof's row stays as it is (C "Explanations"). |
 | 21 | `test-store/softland/store/module_proof.clj:12` | "The door is not built. The proof plays it by hand [...]" | The proof plays the door by hand and does not use `softland.store.door`: the store stays proven without the door, and the hand stays the proof that anything can append to a depot without it. No check changes. |
 | 22 | `test-store/softland/store/pure_proof.clj:2-5`, `:33-34` | "The proof of the gates' pure namespaces: [...]" | And the door's pure namespaces. |
+| 23 | the store's map, `:1` and `:5-9` (added by the check of the plan, F6, as are rows 24 and 25) | The title "Store — the act, and the store's module"; "This folder holds two things. The act [...] And the store's Rama module [...]" | Three things: the act, the store's module, and the door. |
+| 24 | `test-store/softland/store/README.md:59`, under "What the act's proof does not reach" | "the use of the act by a gate: the two proofs below show it." | The pure proof and the module's proof show it. With the door's proof there are three proofs below. |
+| 25 | `test-store/softland/store/pure_proof.clj:290` and `:308` | "the door's comparison" in the docstring of the digest's cases, and in the name of one case, of `is-digest-of?` | The comparison of a sender that still holds its thing, as row 12 has it. The case's name is a text; no check changes and the count stays. |
 
 Three sentences stay true and are not changed: "It plays the door by hand" in the row of the
 module's proof; "reads the answer by act-id in a loop with a time limit, as a door would"
@@ -1549,6 +1646,14 @@ Each stays open. Where the door's code leaves room for one, its docstring says s
 From C "Commits and the receipt", from each line of the rulings that is marked "For the receipt", and
 from this plan.
 
+0. The commits (C "Commits and the receipt"; added by the check of the plan, F9): on `main`, grouped
+   by concern, each message saying what and why; no push; no `Co-Authored-By`, no `Claude-Session`
+   and no other attribution line. The contract names three groups, "the door; its proof; the
+   maps", and P15 has each sentence that the door makes untrue changed "in the commit that makes it
+   untrue". By ruling 14: two commits of the tree, the door with each sentence that it makes untrue,
+   and its proof with the proofs' maps; then the build's papers. The receipt says that the
+   contract's third group, the maps, went into the first two. The build stage commits nothing; the
+   build session makes the commits.
 1. The line "proven by a hand-played maker, used by no inhabitant yet"; the commit hashes; the four
    proofs' outputs in full; the count lines before (act 150, pure 449, module 227) and after (act
    150, pure 538 by this plan, module 227, and the door's proof's own line); `git status --short`.
@@ -1562,13 +1667,23 @@ from this plan.
 3. Each provisional choice: the placement and the split; the two calls that the contract does not
    name, `act-ids-for` and `stock-count`; the stock's key, its size rule and its three numbers; one
    request at a time for one stock; the door's bound; the wait's interval; the fourteen words and
-   the words of the results; a request whose append threw is kept and waited for once more; the one
+   the words of the results; a request whose append threw is kept for the door's bound, counted
+   from the throw (ruling 12); that a call sends one request of its own at most (ruling 11); the one
    function that `seal.clj` gained (ruling 5).
 3a. What the stock costs the base (ruling 1): one who gets at most 256 locks for each time that a
    request's batch takes to close, and each send that finds its stock short waits that time; with
    what would lift it. And that the door's memory has no bound but the life of its process.
 3b. The read of a layer's depot for each act-id (ruling 2): its cost, that no copy is built, and
    that it goes to the examination of its own that the project's rule on caching asks for.
+3c. The most at once of a streaming layer, 64, against the aim for one person (ruling 16): 1 send
+   in 64 of a who that goes on writing one value at a time asks for locks, three round trips more,
+   so counted from the maker's call the slowest 1 in 100 sends is a send that asks; at 128 it is
+   not. The store's map counts the aim from the door's append, after the request. Not measured.
+   With it, a row for the queue, decided by nobody: from where the aim for one person is counted
+   once a door is built, the maker's call or the door's append.
+3d. The door's first bound of P9 is the smaller of two limits of the declaration, which are the
+   same number today (ruling 17). The test of a plain map is written in six places of the tree
+   (ruling 10). The word "stock" (ruling 15).
 4. The rows that seal nothing: the count that the door's proof prints, with its sources (P7, P22),
    and what would change the third source.
 5. What was not settled: one handle and many threads, by Rama's own word; a worker and a type that
@@ -1619,6 +1734,7 @@ part 1); `act-id-for` and `answer-of` (C parts 2 and 5); "nothing yet" and "not 
 | `:appended`, with `:nothing` and `:not-known` | Whether nothing was appended for the act, or the door does not know whether the depot holds it. |
 | `:at` | The place in the maker's thing where the door stopped, by the thing's own part names. |
 | `:most`, `:sealed-bytes`, `:waited-ms`, `:module` | Numbers and a name that a word carries. |
+| `sealed-length`, in `door/seal.clj` | How many bytes `seal` gives for a count of plain bytes, by the way of sealing (ruling 5; listed by the check of the plan, F14). |
 | `:request`, `:request-answer` | The act-id of the door's request, and its answer as `answer-of` gives one. |
 | `:threw`, `:said` | The class of what Rama's client threw, and its message. |
 
@@ -1632,9 +1748,9 @@ part 1); `act-id-for` and `answer-of` (C parts 2 and 5); "nothing yet" and "not 
 
 | Word | What it is |
 |---|---|
-| a stock | The unused locks that the door holds for one who in one layer and that layer's depot. The door's memory is its stocks. |
+| a stock | The unused locks that the door holds for one who in one layer and that layer's depot. The door's memory is its stocks. The word is the contract's and the door's sheet's. It is a session's: no line that Sid typed has "stock of locks", and a session wrote it first on 8 October (the record of his lines, searched on 10 October). The rig's code has a function `stock!` (`rig/store/client.clj:358`, found by a search for the word; the file was not read). Whether the session took the word from there is not known. C D7: "No word comes from the rig's code" (ruling 15). |
 | a run | The unused locks of one request, in the order of their indexes. |
-| open request | A request that the door sent and whose locks it has not read. Its states: sent, in doubt, accepted. |
+| open request | A request that the door sent and whose locks it has not read. Its states: sent, in doubt. |
 | in doubt | Of a request: its append threw, so the door does not know whether the depot holds it. |
 | seat | What lets one call at a time ask for a stock. Never called a lock. |
 | given out | Of a stock: how many locks it has handed to acts since the door was opened. |
@@ -1646,8 +1762,8 @@ the pick is engineering.
 
 **1. P16 and the base: one stock gives at most 256 locks for each time that a request takes.**
 P16: "Each request is sent inside the call of a maker whose act needs locks". IS G17: a request's
-answer in the base is readable only when its batch is closed, 0.75 to 1.03 s on the in-process
-cluster. The declaration's ceiling is 256 locks for one request. With one request at a time for one
+answer in the base is readable only when its batch is closed, 0.75 to 0.98 s on the in-process
+cluster (1.03 s for the making act). The declaration's ceiling is 256 locks for one request. With one request at a time for one
 stock, a who that writes values into the base faster than 256 for each such time waits for locks:
 each of its makers stands in `send-act` until the request's batch is closed. The microbatch gate's
 aim is 1,000 acts a second arriving on one partition; that aim is over all whos, and many whos have
@@ -1763,7 +1879,7 @@ his to strike. Rulings 5 and 8 changed this paper; the passages that they change
    the difficulty log on this stays as the record of the first answer. For the receipt, as a
    provisional choice.
 6. **A request whose append threw is kept as in doubt and waited for once more**, as the plan has
-   it. Rama's own words make "it went in" the common case of a thrown `:ack` append, and a door that
+   it. (How long it is kept is ruled again in ruling 12, after the check of the plan.) Rama's own words make "it went in" the common case of a thrown `:ack` append, and a door that
    forgets would send more requests into a gate that is behind. The price is one call that waits the
    door's bound for nothing after an append that truly failed. For the receipt, as a provisional
    choice; the plan's writer was least sure of this one.
@@ -1776,7 +1892,9 @@ his to strike. Rulings 5 and 8 changed this paper; the passages that they change
    second read can give no more, so a who whose acts all need more than that request gave would get
    the word at each call for the life of the process, and the stock would never ask again. The
    locks that can seal go into the stock, the request is forgotten, and the call ends in the word;
-   the next call takes or asks anew. Only a read that threw leaves the request open.
+   the next call takes or asks anew. Only a read that threw leaves the request open. (Ruling 11,
+   after the check of the plan, lets the same call ask for its own when the request was an earlier
+   call's.)
 
 Accepted as the plan has them, with no change: the three pure namespaces under `door/`; the stock's
 key with the depot in it; the size rule and its three numbers; the seat; the door's bound of
@@ -1787,6 +1905,78 @@ gave out a lock stays for the life of the process. Each is a provisional choice 
 For the check of the plan to trace, because this session read them and did not trace them: what
 holds between a take, a call that counts itself into a stock and out of it, and the taking of an
 empty stock out of the map; and that a seat is given up on every way out of a call.
+
+### Rulings on the check of the plan
+
+By the same build session, 10 October 2026. The check (`PLAN_VALIDATION.md`) gave the verdict
+minor-fail: fifteen fails, each fixed in this paper by the check and marked F1 to F15, and ten
+points. The build session read every line that the check changed (the diff of this paper against
+its commit `088ff5f6`) and takes each of the fifteen fixes as written. The two things that it had
+asked the check to trace gave F13 (where "holds nothing" is read) and F8 (a thread interrupted
+inside a call of Rama's client); both fixes stand. It checked in the source, for the rulings below:
+that a gate refuses a fact under a store key that holds `:sealed` or `:lock-id`, by the rule
+`:store-key-fact-has-no-seal` (`declaration.clj:377-380`); that the test of a plain map is private
+in `declaration.clj:295-298` and in `gate/batch.clj:80-83`, and written in line three times in
+`act.clj` (`:265`, `:332`, `:413`); and in the record of Sid's lines, that "stock of locks" is in
+no line that he typed.
+
+9. **Point 1: (a). A fact under a store key goes as given, also when it carries a seal.** Rule A is
+   the rule, and the ruling on P3 is drawn from it: the door stops a thing when it would write over
+   what the maker gave. To a fact under a store key the door adds no part, so it writes over
+   nothing, and a gate sees the fact as it was given and refuses it. The row of a store key is
+   tested first.
+10. **Point 2: (a). The door writes the test of a plain map once, as a private function of its
+    additions.** "No rule is written a second time" (P6) is read of the store's own rules: a limit,
+    a key, a way to a task, a number such as the length of a seal (ruling 5). This test is two of
+    Clojure's own predicates, and the tree writes it in five places already. One home for it is a
+    change to `act.clj`, the declaration and the gates' batch, and the last two are closed to this
+    build; a public function in `act.clj` alone would change the code of the one form for a line
+    and leave four copies. For the receipt, as a finding.
+11. **Point 3: (b), by one rule: a call sends one request of its own at most.** A call that read an
+    earlier call's request, and whose stock is still short, has sent nothing yet; it asks for its
+    own inside its own wait, as it does after an earlier call's refused request. The word
+    `:read-its-requests-locks` stays for a read that threw, and for a call's own request whose
+    locks cannot seal. D1 holds the door's words to what the door could not do, and here it could.
+    This amends ruling 8, which stays for what it was for: a read that came back ends its request.
+12. **Point 4: a request in doubt is kept by its age.** A call forgets it only at a read that finds
+    nothing and that began the door's bound or more after the throw. The first answer gave such a
+    request what was left of the next call's bound: one read for a call that had stood long for the
+    seat, and a whole bound of waiting, for nothing, for a call that came an hour later. By its
+    age each such request gets the whole bound and no call waits for one that is older. The clock
+    is the one that the waits read. This amends ruling 6, on which the plan's writer was least
+    sure; the check's probe gives the ruling its case, an append that threw and went through.
+13. **Point 5: (b). The stock keeps no answer that the door read; an open request has two states.**
+    After a read of locks that threw, the next call reads the request's answer again and then its
+    locks. That is one round trip more on a way that follows a thrown read, and every call then
+    reads in the contract's order and compares the digest (D4). The state "accepted" could not go
+    stale, and the check passed it; it was still the one thing in the stock that was a read's
+    result and no lock, and the project's rule on caching is kept clear of it at that price.
+14. **Point 6: (a). Two commits of the tree, and one of the papers.** The door, with each sentence
+    that it makes untrue; its proof, with the proofs' maps; then the build's papers.
+    `src-store/CLAUDE.md`, which the contract makes binding, and P15 say the same thing against the
+    contract's third group, "the maps". For the receipt, as a place where the contract is not met
+    as written.
+15. **Point 7: "stock" is listed for Sid with what was found.** It is a session's word and not his,
+    and the rig's code has a function of that name. The build keeps the contract's word. He may
+    give another.
+16. **Point 8: the most at once of a streaming layer stays 64, and the point goes to the receipt.**
+    No number of the three is measured, and the opener may give another. At 64 the gate's one
+    event for a request stayed under the 20 ms of the aim in the plan's probe (14.9 ms for the
+    append with `:ack`), and that event holds the layer's task for every act behind it. From where
+    the aim for one person is counted, the maker's call or the door's append, is not the build's to
+    say: a row for the queue, decided by nobody.
+17. **Point 9: the door's first bound of P9 stays the smaller of the two limits.** One request must
+    cover one act, because a call sends one request at most (ruling 11). The docstring says that
+    the bound is the door's own. For the receipt.
+18. **Point 10: the door sets the thread's mark again** after a throw of Rama's client that is an
+    `InterruptedException`, as it does after a wait. The door turns the throw into a word, so
+    without the mark the maker's thread would not know that it was interrupted.
+
+Checked least well, by the check's own word, and carried to the build and the review: the seat, the
+compare-and-set and the count are traced on paper only, since no code exists; one handle on many
+threads rests on one probe run; what the microbatch gate does with an act that names the locks of
+two requests was read in `gate/batch.clj`'s pure code and not run. The door's proof has a case for
+each of the three.
 
 ## Where each thing of the split, and each ruling, is met
 
@@ -1827,7 +2017,7 @@ empty stock out of the map; and that a seat is given up on every way out of a ca
 | P12 | Rows 5 and 16 of the explanations | "The explanations" |
 | P13 | What the proof reads round the door; a case for each word; real throws for both appends | "The door's own proof" |
 | P14 | `:make-an-act-id` has the case | "The door's own words" |
-| P15 | The 22 rows; the module's proof stays at 227 | "The explanations"; "The three other proofs, after" |
+| P15 | The 25 rows; the module's proof stays at 227 | "The explanations"; "The three other proofs, after" |
 | P16 | The door asks only at need, inside a maker's call; no thread | "How many locks a request asks for"; point 1 |
 | P17 | `:append-ack` | "Topologies and PStates" |
 | P18 | The door's printed text; what a word carries; no copy of a lock's bytes | "The calls of the door"; "The door's own words"; group 13 of the proof |

@@ -39,9 +39,9 @@ so each stage's paper says how it adapts the skill's template.
 | the starting point confirmed | done | — |
 | the implied spec; rulings on its 22 open points | done | `3746b4e5` |
 | the split into parts: one part, `door` | done; judged sound | `1a68cde7` |
-| the plan; eight rulings on it | done. Before it ran, the tree under `src-store/` and `test-store/` was checked and had not changed since `c296a459` | the commit after `980ed903` |
-| the check of the plan | running: a fresh agent, started late on 9 October. When no `PLAN_VALIDATION.md` is on disk, or it is cut short, run the stage again from its start; `git diff` of `PLAN.md` shows what a cut-off run changed in the plan | |
-| the build: the door, its proof, the maps | | |
+| the plan; eight rulings on it | done. Before it ran, the tree under `src-store/` and `test-store/` was checked and had not changed since `c296a459` | `088ff5f6` |
+| the check of the plan; ten rulings on its points | done, 10 October. Verdict minor-fail: fifteen fails, each fixed in `PLAN.md` by the check; ten points, ruled as 9 to 18 | the commit after `088ff5f6` |
+| the build: the door, its proof, the maps | running: one fresh agent, started on 10 October. It commits nothing. When it was cut off, `git status` shows what it wrote; read `IMPLEMENTATION_VALIDATION.md` and `TEST_VALIDATION.md` when they are there, run the four proofs, and start a fresh agent on what is left with the tree as it stands | |
 | one fresh review of the whole against the contract | | |
 | the receipt to Sid | | |
 
@@ -53,7 +53,8 @@ source, rules, has the rulings applied, and commits with a message that says wha
 
 Scratch files of a stage (probes, the proofs' full outputs) go under
 `/mnt/data/projects/research/softland/door-build-2026-10-09/`, outside the repository. The plan's
-four probes and their outputs are in its folder `plan-probes/`. Nothing goes
+four probes and their outputs are in its folder `plan-probes/`, and the check's in
+`plan-check-probes/`. Nothing goes
 under `/tmp`: a restart of the machine empties it, and one did during the plan.
 
 ## Rulings
@@ -96,6 +97,27 @@ its reason and with what was checked in the source. In short:
 6. A request whose append threw is kept as in doubt and waited for once more.
 7. `door/README.md` keeps the four files that a gate requires apart from the door's own three.
 8. A read of a request's locks that came back ends the request, also when it gave too few.
+
+**On the check of the plan, 10 October.** The check gave minor-fail and fixed fifteen fails in the
+plan itself; none asked for a new design. The build session read every line that the check changed
+and took each fix. The check brought ten points, ruled in `PLAN.md` as 9 to 18, under "Rulings on
+the check of the plan". Four of them change how a request for locks lives:
+
+9. A fact under a store key goes as given, also when it carries a seal: the door adds nothing to
+   it, and a gate refuses it.
+10. The door writes the test of a plain map once, privately. The tree has it in five places already.
+11. A call sends one request of its own at most. A call that read an earlier call's request and is
+    still short asks for its own in the same call. (This amends ruling 8.)
+12. A request whose append threw is kept by its age: forgotten only at a read that finds nothing the
+    door's bound or more after the throw. (This amends ruling 6.)
+13. The stock keeps no answer that the door read: an open request has two states, sent and in doubt.
+14. Two commits of the tree (the door with each sentence that it makes untrue; its proof with the
+    proofs' maps) and one of the papers.
+15. "Stock" is listed for Sid: a session's word, and the rig's code has a function `stock!`.
+16. The most at once of a streaming layer stays 64; the point goes to the receipt with a row for
+    the queue.
+17. The door's first bound of P9 stays the smaller of two limits of the declaration.
+18. The door sets a thread's interrupt mark again after a throw of Rama's client.
 
 ## For the receipt: what Sid should know, as found so far
 
@@ -155,6 +177,24 @@ From the plan and its rulings, for the receipt beside the lists above:
   again in a real cluster.
 - The words that the plan made, for Sid to change: the six calls, the door's five numbers, the
   fourteen words, and the words of the stock. They are in `PLAN.md`, "Words a session made".
+- "Stock" itself: the contract's word and the door's sheet's, written first by a session on
+  8 October and in no line that Sid typed; the rig's code has a function `stock!`. D7 says that no
+  word comes from the rig's code. Whether this one did is not known.
+- The commits are two of the tree and one of the papers, where the contract names three groups,
+  "the door; its proof; the maps": the tree's own rule and P15 put each explanation in the commit
+  that makes the old one untrue.
+- The test of a plain map is written in six places of the tree, the door's among them. One home
+  for it is a change to `act.clj`, the declaration and the gates' batch.
+- At 64 locks for one request in a streaming layer, 1 send in 64 of a who that writes one value at a
+  time asks for locks. Counted from the maker's call, the slowest 1 in 100 sends is then a send
+  that asks. The store's map counts the aim from the door's append. Not measured.
+- By the check's own word, checked least well: the seat, the compare-and-set and the count, traced
+  on paper only; one handle on many threads, one probe run; the microbatch gate with an act that
+  names the locks of two requests, read and not run. The door's proof has a case for each.
+
+One more row for the queue, decided by nobody: from where the aim for one person (100 acts a second,
+the slowest 1 in 100 at 20 ms) is counted once a door is built: the maker's call, or the door's
+append.
 
 ## For a session that takes this build over
 
