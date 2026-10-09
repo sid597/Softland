@@ -1,15 +1,20 @@
 # Build: the door — from a maker's act into a depot, and the answer back
 
-Cut by: the session that went through the door's sheet with Sid on 9 October 2026 (Fable 5.1, effort
-max; the record's session id 09ed7533, unnamed).
+Cut by: one of the two instances of Sid's session of 9 October 2026, the one that went through the door's
+four questions with him in chat (Fable 5.1, effort max); the other instance landed his decisions and the
+rename.
+Amended by: the same instance, 9 October 2026, on six points from the other: the cutter's name; the
+receipt's line on use; the scope of D8; the reason of the lock rule; the three proof counts; and the door's
+own proof in place of a module proof driven through the door.
 For: one build, run by the Rama skill's stages (see "How the build runs"). Status: Sid's decisions of 6,
 7, 8 and 9 October 2026 are the contract. Nothing is left to ask before the build. The open rows that the
 door touches are named under "Not in this build, by decision"; this build decides none of them.
 Written for the tree as the rename of 9 October leaves it: the word **depot** in place of "class" (the
 fact on a layer, the act's part and the act-id slot), the namespace **`softland.store`** on the store's
 three keys, and a gate's refusal of a key in that namespace that it does not know. That rename is another
-session's commit, made before this build starts. Before the first stage: confirm with `git log` that it has
-landed and run the three proofs on the renamed tree; if either fails, stop and ask.
+session's commit, `c296a459`, made before this build starts; on that tree the three proofs give act 150,
+pure 449, module 227. Before the first stage: confirm both, with `git log` and a run; if either differs, stop
+and ask.
 The decisions, with Sid's reasons, are in `src-store/README.md`: the act's twelve (6 October), the store's
 ten (7 October), who acts and what the store reads (8 October), the door's four (9 October). Everything else
 a builder chooses is engineering, written with its reason in a docstring, never as a decision. The rules the
@@ -21,8 +26,8 @@ The door: the one piece of code by which a maker's act goes into the store and i
 It is the proof's hand made general. Today `test-store/softland/store/module_proof.clj` plays the door by
 hand: it makes an act-id, asks for locks by an act, seals each value, appends to a depot, and reads the
 answer by act-id. When this build passes, any maker in the runtime's process does the same with two calls,
-one to send and one to read the answer, and the module proof drives its own acts through the door, keeping
-its hand only for the strays that show the gate refusing what did not come through the door.
+one to send and one to read the answer, and the door has a proof of its own against the module. The module
+proof stays as it is, so that the store stays proven without the door.
 
 ```
 MAKER ─act─► THE DOOR [act-id · depot · locks · seal · append] ─► DEPOT ─► GATE ─► RECORD
@@ -104,8 +109,9 @@ pure namespace so that the pure proof can hold them; builder's choice.
 
 1. **Opening the door.** The door is opened on a cluster handle and the module's name, and holds the two
    depots' handles and the three queries' handles. It owns no durable state. Its one memory is a stock of
-   locks (part 3), the memory of one process. The door is the module's only client in the runtime
-   (3 October: the runtime is the only Rama client); nothing else in the runtime touches a depot or a query.
+   locks (part 3), the memory of one process. In this build the door is the module's only client in the runtime
+   (3 October: the runtime is the only Rama client), and nothing else in the runtime touches a depot or a
+   query. Where a read's steps run (W3) is open and not decided here.
 2. **Act-ids on request, ahead of sending.** `act-id-for` a layer gives `[layer depot uuid]`: the layer's
    depot as the module gives it (`depot-of-layer`), or the depot that the layer starts with when it is not
    made (`first_act.clj`), and a random UUID. A maker may ask for the ids of a series before it sends the
@@ -115,9 +121,8 @@ pure namespace so that the pure proof can hold them; builder's choice.
    whose `:layer` is the act's, and whose one fact is `{:e <the uuid of the request's own act-id>
    :k :softland.store/lock-request :v n}`; it reads the request's answer by act-id and then its locks with
    `locks-of-request`. A lock-id is `[request-act-id index]`. *Cutter's rule, with its reason:* a lock is
-   used only for values of acts that carry the same `:who` and `:layer` as the request that made it, because
-   a forget of a person (?4, H11) will find her locks by her requests, and a lock shared across whos would
-   defeat it. The stock — per layer and who, how far ahead it asks, how many at once (the declaration's
+   used only for values of acts that carry the same `:who` and `:layer` as the request that made it. Forget is not designed (K11, H10, H11); the rule keeps room for a forget of a
+   person that finds her locks by her requests, and it costs nothing now. It is the cutter's, not a decision. The stock — per layer and who, how far ahead it asks, how many at once (the declaration's
    limit is the ceiling) — is engineering, with its reason in the docstring. A lock's bytes never go into a
    depot (the store's builder's rule 5). A refused request is handed to the maker as the gate's refusal; the
    door retries nothing on its own. A lock that a stock loses at a restart is a row that seals nothing, for
@@ -148,14 +153,15 @@ pure namespace so that the pure proof can hold them; builder's choice.
    README says so. The door's docstring says the same in plain words. A sign-in built later stands in front
    of the door and refuses before this code runs; it changes none of the five parts above. Who may act as
    the system (K9) is not decided; a maker that names `:system` is treated as any who.
-7. **The proof.** The module proof drives its acts through the door for everything the door covers: acts
-   to both depots, lock requests, sealing, answers, the base's batches. The hand remains for the strays
-   only — things appended without the door: no act-id, an act-id of the wrong shape, the other gate's
-   act-id, a thing over a limit, a second value under a used lock, a key in the store's namespace that no
-   gate knows — so that the gate's refusals stay proven and the gate stays the authority. New cases: each
-   of the door's own words, the not-mine answer, that a lock never crosses a who, that no lock's bytes are
-   ever appended. The act proof is unchanged. The pure proof gains the door's pure parts if they are split
-   out. The three proofs' count lines before and after go in the receipt.
+7. **The door's own proof.** A fourth proof, `test-store/softland/store/door_proof.clj` (the name is the
+   builder's), on Rama's in-process cluster as the module proof runs, through the door for everything the
+   door covers: acts to both depots, lock requests, sealing, answers, the base's batches. Its own cases: each
+   of the door's own words; the not-mine answer; that a lock never crosses a who; that no lock's bytes are
+   ever appended; and that what the door sends for an act is what the hand sends for the same act, but for
+   the random parts. The module proof stays as it is: the store stays proven without the door, and its hand
+   stays the proof that anything can append to a depot without the door. The act proof and the pure proof
+   are unchanged, unless the door's pure parts are split out and the pure proof takes them. The counts
+   before are act 150, pure 449, module 227; the receipt gives them after, with the door proof's own line.
 
 ## The builder's rules
 
@@ -174,8 +180,8 @@ do. These are the door's own. Each has its source. The plan decides how each is 
   open), and reads locks only of the requests it made itself.
 - **D7.** Every word the door makes is plain, says what the thing is, and is listed for Sid in the door's
   README under "Words a session made, Sid's to change". No word comes from the rig's code.
-- **D8.** The door is the module's only client in the runtime. The proof's hand for strays is the one
-  exception, and the proofs' README says so.
+- **D8.** In this build the door is the module's only client in the runtime; where a read's steps run (W3)
+  is open. The module proof's hand is the one exception, and the proofs' README says so.
 
 ## Not in this build, by decision
 
@@ -205,8 +211,8 @@ sits and what the folder gives it. The door's own explanation holds **"Decisions
 (the four of 9 October by row, the rest by pointer), **"Engineering choices"** (the placement, the stock,
 the wait, the door's words, how each of D1 to D8 is met), and **"Words a session made, Sid's to change"**.
 `module/README.md`'s line that any caller can read a lock's bytes stays true and now names the door as the
-caller it meant. The proofs' README changes the module proof's row: it drives through the door, and the
-hand remains for strays. Sid's answers are in `src-store/README.md` as his, never in these files as new text.
+caller it meant. The proofs' README gains a row for the door's proof and leaves the module proof's row as
+it is. Sid's answers are in `src-store/README.md` as his, never in these files as new text.
 
 ## How the build runs
 
@@ -218,10 +224,11 @@ whole against this contract. The build session judges each stage's paper. The pa
 
 ## Commits and the receipt
 
-Commit on `main`, grouped by concern (the door; the proof through the door; the maps), each message saying
+Commit on `main`, grouped by concern (the door; its proof; the maps), each message saying
 what and why. No push. No `Co-Authored-By`, no `Claude-Session`, no attribution line of any kind. The
-receipt to Sid: the commit hashes; the three proofs' outputs in full, with the count lines before and
-after; every provisional choice made (the placement, the stock, the wait, the words); every place this
+receipt to Sid: the line "proven by a hand-played maker, used by no inhabitant yet", so that presence,
+tested behaviour and use stay apart; the commit hashes; the four proofs' outputs in full, with the count
+lines before (act 150, pure 449, module 227) and after; every provisional choice made (the placement, the stock, the wait, the words); every place this
 contract could not be met as written, and why; what the build found that is not decided, proposed as rows
 for the queue and decided by nobody; `git status --short` (expect only `src/app/server/README.md` modified
 and `docs/.obsidian/`, `docs/Untitled.md` untracked — leave them).
