@@ -75,6 +75,18 @@ Kind: **system sets** — one form, for every layer. **Freezes.**
  their group". A permission of today has no slot for "xyz".
 ```
 
+## More of what you have already said
+
+Each question has this part: your own lines on it, each with its date. A dictated line is given without its "uh" and "um"; "…" marks a cut; the mark at the end of a line names it in the record, or in your vision log.
+
+- **About 28 April.** “from the consumer's pov (human user, ai, human guiding ai, other internal modules, api, data gathering bots etc.) the question is basically what am i allowed to query ... this is my mental model .... now this is from an individual pov but we can also have these nested like if a user is part of a group they get access to the group resources etc..” {{vision/LOG.md, line 91}}
+- **17 September.** “anything that is shared in Rama and two accounts are registered for the same space then they can share anything on that it's just like an open internet kind of thing you can comment on any paper … your comments are your comments they, they are always marked so when they enter anyone else's land it's read kind of thing” {{‹f2468e83›}}
+- **23 September.** “if the user has to log into Rama, then it creates a session. They have their session ID, and just by having their session ID, they have different permissions for what they can read and write to Softland. what different groups are they subscribed to, and what can be pushed from them, what they can import, everything.” {{‹73d9f8c2›}}
+- **23 September.** “inside it we can have multiple hierarchies of authorship and granularity but that only gets affected at the read or query time because at the write time we are just checking if this user is authorized to write this data in some place” {{‹1225ee72›}}
+- **24 September.** “what if a user is logged in then by default it means like everything that they have can be read” {{‹b7e33663›}}
+- **2 October.** “an individual is always a part of a groups, a group is part of another group ... world is the open group that every group if make open their data publishes to” {{‹56a55527›}}
+- **Not your typing:** the line of the rulings file in the box. On 23 September one session wrote “I stand on” it, and a second session wrote it as “the reply as I think you'd send it”. On 24 September you pasted a block, “My answers on the rig rulings”, that the record marks as a paste. No line that you typed on those two days is about who may see.
+
 **How does a layer say who may see it?**
 
 [ ] **A** — it does not. Whoever holds a permission in a layer may see it. Nobody else.
@@ -107,6 +119,15 @@ Kind: **spectrum** — the default is the question. **Freezes in part:** how a l
  context is derived by walking it; two parents without a stated order is a miss".
 ```
 
+## What you have already said
+
+- **17 September.** “I define two groups and both groups are built on some layer but within those groups they have different kind of layers and then I make another layer that is some set of both of those groups and this goes both up and down … so they can be infinitely compositional or is the definition more strict here” {{‹af5a942e›}}
+- **17 September**, your whole answer to the session's reply: “yeah I agree let's do the remaining three at once” {{‹d963e842›}} The reading in the box rests on this line. The reply that you agreed to also said, in a session's words: “Two ways to compose, not one. By context, reading through both, which is free and instant. By promotion, writing facts from both into the composite … A view over both is the first.”
+- **14 September**, on which definition a use of a tool follows: “there can be multiple and since our platform is collaborative everyone can have their own and then there is time travel or version ones” {{‹2952c016›}}
+- **17 September.** “they both can have different versions of their own world like they can have the same base document that they read but have like very distinct things to say about it” {{‹f2468e83›}}
+- **16 September.** “if I ask a general query what was done on this day what does this query resolve to … for this query I only am interested in the notes but not the code and since everything is versioned how do we draw this line” {{‹fc6d106f›}}
+- **2 October.** “a very high level layer can be made of streaming but lower level can be of microbatch how will they resolve?? i am soooo confused” {{‹54cec4f0›}} A session answered then: the nearest layer wins, whatever its kind; in a read the two kinds differ only in time.
+
 **Who says which layers a read looks through, and in what order?**
 
 [ ] **A** — the layer says it. A layer names the layers that it builds on, in order, as a fact on the layer. A read looks through the layer that it starts from, and through all that it builds on.
@@ -138,6 +159,14 @@ Kind: **system sets**. Can change later.
  fault in the runtime that asks in the wrong person's name gets that person's things in both.
 ```
 
+## What you have already said
+
+- **14 September.** “if someone wants to read this data where do they have to look? how do we expose that this lives here or there … But does it matter who is asking because from the rama or the place with gives way to this data is only given the data and the metadata involved (what is it why? how is it decided)” {{‹b0dfb991›}}
+- **23 September.** “this calculation of is it allowed or not we have a Rama related module or something for it if I remember correctly” {{‹1225ee72›}} A session answered then that Rama itself does no authorization.
+- **30 September.** “what do I see there that is the data that would be computed or like gathered from Softland … it is stored somewhere here let me grab that code and send all this to the client … then maybe in the same call or next call I'm not sure where we pull the data that those components will be filled with” {{‹f6f7532f›}}
+- **8 October.** “how will encryption work in super nested structure as i discribed above??? who has the key how and where is it stored??” {{‹751c2af7›}} A session answered: “the store, and only the store”. No line of yours takes that up.
+- These are your questions on it. No line of yours takes a side.
+
 **Where are the three steps of a read done?**
 
 [ ] **A** — in the store. No program outside the store can read the record's tables.
@@ -167,6 +196,16 @@ Kind: **system sets**. Can change later.
  those get synced, these are also the decision that the tool has to make, like how collaborative it
  is, that is a spectrum, and that is a choice that layers and tools and groups can make".
 ```
+
+## More of what you have already said
+
+- **11 July, vision log.** “I want to write directly to rama and then stream from there that is the best case scenerio that i want to target and only and only and only if that is not feasable i would go for the optimistic update route but never by default” {{vision/LOG.md, line 555}} The summary on the first page leaves out “and then stream from there”.
+- **12 August, vision log.** “the reactive composiion between rama->electric/missionary querying data that needs to be rendered <-> rendering engine taking it and also asking for more <-> user interacting and based on the interaction we add or remove the data needed” {{vision/LOG.md, line 1258}}
+- **10 September**, on caching, data held in memory and optimistic updates: “the proposition is that you don't have to do these the network latency is every small and the diff rendering solves the fine grained reactivity and this is enabled by rama on the server side.” {{‹e347e404›}}
+- **10 September.** “the ui is just a data and manipulation of it changes some other data that gets saved to rama and then reactively pulled and add the new data to old data.” {{‹1f998b6a›}}
+- **29 September.** “there is collaboration there is fine grained reactivity fine grained authorship reactive updates reactive reading and all that” {{‹6b8c2421›}}
+- **7 October**, your yes on F7: “ahh i understand why " Because the ack can fail to carry it" so yeah A it is” {{‹9b8f461f›}} Your reason is about the ack.
+- **Not your words:** that a bell carries no value. Two sessions agreed between themselves on 2 October: “Proxies only ring. Values are read again through resolve.” It was not put to you as a question.
 
 **When a gate accepts a new fact for a place, what does a screen that shows the place get?**
 
@@ -203,6 +242,13 @@ Kind: **target**.
  Measured in this build, on one machine: the answer to an act in the base can be read 887 ms after
  the act is appended. Nothing else of this is measured.
 ```
+
+## More of what you have already said
+
+- **7 October**, on the store's three limits (F9): “The limits are what we should be optimising for what we measured is starting point maybe a better optimised sytem will perform better we can take this as the base starting option” and “idk lets go by whats measured and we will know better when we build more and optimise” {{‹27882354›}}
+- **2 October**, of a canvas that you share with your ten agents: “there is very very little personal here the whole graph is shared to everyone in the group anyone at anytime can go to anywhere. But the "own work feels instant" is still needed.” {{‹12fed86b›}}
+- **16 September.** “a user should not be waiting too much to use a tool … From the user point of view while they are working they should not feel any lag in their workflow” {{‹9169ca3c›}}
+- **17 July.** “previously it was 7.6 ms iirc and is this snappy? what is the speed that code editors are expected to have? i am strongly against optimistic updates” {{‹af8cd389›}} and “if i move it to s3 or digital ocean for real it would be certanly so so so bad correct” {{‹13c9bc0c›}} A session's figure of that day, not measured again: 26.6 ms from a key press to the confirmed text on the screen, for the slowest 1 in 20, with Rama on your own PC.
 
 **What is the target for each wait?**
 
@@ -246,6 +292,14 @@ Kind: **spectrum** — the default is the question. The form of a read entry **f
  6 October: you put the read question off. So the lean of 24 September is asked again here.
 ```
 
+## More of what you have already said
+
+- **24 September.** “have I not already said like the tools that fire some kind of read if the system is deterministic it will we can just derive what was read at some point so we only need that data right” {{‹f68cf1a3›}}
+- **24 September.** “I don't have to store everything … the entity ID the time and the version are these three not enough to do this Or maybe just time.” {{‹aab30856›}}
+- **24 September**, to the session that then wrote the rulings file: “so its hybrid with pattern as default” {{‹3f24ec27›}} “Pattern”: one short line for a whole pattern that a tool read, and not a row for each fact.
+- **17 September**, on pointer moves: “there is some kind of decision that we make not we but the user should make how many times they want an event to be saved and like they will know the cost of cost of it because if they say like save everything then basically their view will become a bit slower” {{‹e624d4e7›}}
+- **Not your word:** “always”. The rulings file says that a model's or a person's reads are kept “always”. Each of the two sessions had its own hybrid that morning, one by kind of read and one by kind of reader; they joined the two themselves.
+
 **Whose reads does the store keep as read entries, when nobody has chosen otherwise?**
 
 [ ] **A** — each read of a model, and each read of a person. No switch.
@@ -274,6 +328,10 @@ Kind: **system sets**. Can change later. It has no weight if W6 is D.
  acknowledged."
  The store's target for one person's act (F9): answered within 20 ms, for the slowest 1 in 100.
 ```
+
+## What you have already said
+
+- No line of yours is on this question. The nearest, **2 October**: “btw the no optimisim was strictly for electric or client side runtime ... it might work well for the server side as well but i did not think much about it .” {{‹5efe41a1›}}
 
 **Does an asker get the result of a kept read before its read entry is accepted, or after?**
 
@@ -313,6 +371,12 @@ Kind: **system sets**. Can change later.
  later day. No code for that is built.
 ```
 
+## More of what you have already said
+
+- **23 September.** “we are looking at what happens when the pointed-at thing moves, deletes or something .. this is a chain of dependency that is filled out by the user and user in this case is not a single user only but there can be group of users (humans, agents included) and those groups can be part of bigger groups ... different groups have different rules for what happens in each case and what you are signing up for by being part of a group. So what we have to provide for this dimension is a default AND proof/compute that the dependency chain will be done. Note that the actions not only involve move/delete it can be notification, recompute my layer over something etc.” {{‹d048babc›}}
+- **23 September.** “any data that is user has not shared with anyone else which is like only personal that gets deleted in some sense like it is not recoverable but then the flip side is if they have their agent and it can read its read their data then the data is already somewhere in whatever agent they were using” {{‹6304b683›}}
+- **Asked before:** on 3 October a session put this question to you in “opus-build-on-top”, in these words: “must the store ever answer "what stands on this" beyond the asker's own context?” No line of yours answers it.
+
 **Must the store answer "what stands on this fact" beyond the layers that the asker can see?**
 
 [ ] **A** — no. It is asked by an asker, through that asker's own context.
@@ -338,3 +402,7 @@ A session suggests: **A**. The depots and the record keep what B needs, so B can
 - **One query for a whole context, or one for each layer.** The builder's, under W2 and W5.
 - **A forget, and what was already read.** With forget.
 - **The door.** It has its own sheet, "The door — four questions before it is built", of 8 October.
+
+## Your words on one of these
+
+- **Looking back**, 23 September: “what happens when we try to do Time travel kind of thing so let's say in the present time the user has deleted some of their data but there is a UI from using which they can see their past data but the, since the key is deleted would they be able to watch their past data and would they be able to recover it yeah because in many apps it is possible to do it so I'm not sure what does delete even mean” {{‹73d9f8c2›}} The rulings file answers with two deletes, retract and forget, in a session's words.
