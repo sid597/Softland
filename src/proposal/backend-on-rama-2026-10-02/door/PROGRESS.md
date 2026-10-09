@@ -37,7 +37,7 @@ so each stage's paper says how it adapts the skill's template.
 | the starting point confirmed | done | — |
 | the implied spec; rulings on its 22 open points | done | `3746b4e5` |
 | the split into parts: one part, `door` | done; judged sound | `1a68cde7` |
-| the plan (cut off by a restart of the machine on the evening of 9 October, before any of it was on disk; the same session was resumed at 22:02) | running | |
+| the plan | not written; to be run from its start by the session that takes over. Its first run was cut off by a restart of the machine on the evening of 9 October, and the build session stopped the resumed run itself when Sid chose a new session. No `PLAN.md` is on disk | |
 | the check of the plan | | |
 | the build: the door, its proof, the maps | | |
 | one fresh review of the whole against the contract | | |
@@ -119,7 +119,8 @@ type that it does not have. The door seals `:v` and passes each other part as gi
 ## For a session that takes this build over
 
 Written on the evening of 9 October, when the build session stood at about 410,000 tokens with four
-stages still to run. Everything that the build session held and a successor needs is in this folder.
+stages still to run. Sid chose a new session that evening ("stop i start a new"), and the build
+session "door build" ended here: nothing of it is running, and the next stage is the plan. Everything that the build session held and a successor needs is in this folder.
 Nothing that matters is only in its chat.
 
 **Where the build stands.** The stage table above says it. One thing a table cannot say: a stage's
