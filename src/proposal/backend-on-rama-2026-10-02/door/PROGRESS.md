@@ -35,9 +35,9 @@ so each stage's paper says how it adapts the skill's template.
 | stage | state | commit |
 |---|---|---|
 | the starting point confirmed | done | — |
-| the implied spec; rulings on its 22 open points | done | this commit |
-| the split into parts | | |
-| the plan | | |
+| the implied spec; rulings on its 22 open points | done | `3746b4e5` |
+| the split into parts: one part, `door` | done; judged sound | with the plan |
+| the plan | running | |
 | the check of the plan | | |
 | the build: the door, its proof, the maps | | |
 | one fresh review of the whole against the contract | | |
@@ -64,6 +64,13 @@ P22", each with its reason. Two rules hold most of them:
   D1 by one corner, and it is a working answer: see the first row below.
 
 All else of a thing goes as the maker gave it, and a gate judges it (D1).
+
+**On the split, 9 October.** One part, `door`. Its hard core is the stock of locks: the door's one
+memory, the one thing that makers share at once, and the one place where the contract leaves the
+builder a design. The split's writer weighed one cut, the way in of an act with no value and its
+answer first, then the stock and the seal, and turned it down: the first half has no hard core, and a
+request for locks is itself an act that goes in and is answered by the same way. The build session
+agrees: no ruling was needed.
 
 ## For the receipt: what Sid should know, as found so far
 
