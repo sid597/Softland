@@ -2260,10 +2260,11 @@
     (fn [] (mapv (fn [v] (through (maker (assoc value-fact :v v))))
                  [1/3 (list 1 2) (->Thing 1 2) Double/NaN (nested 33)]))
     (vec (repeat 5 (could-not :seal-a-value [:facts 0 :v])))]
-   ["no act: a fact with a value whose :e is no id: sealed to the place as given, with one lock, and sent"
-    (fn [] (let [act (maker {:e "n1" :k :text :v "a text"})]
-             [(through act) (:values (additions/reading act nil))]))
-    [[:goes-in :malformed] 1]]
+   ["no act: a fact with a value whose :e is no id, or whose :k is no key: sealed to the place as given, with one lock, and sent"
+    (fn [] (mapv (fn [fact] (let [act (maker fact)]
+                              [(through act) (:values (additions/reading act nil))]))
+                 [{:e "n1" :k :text :v "a text"} {:e :note-1 :k "text" :v "a text"}]))
+    [[[:goes-in :malformed] 1] [[:goes-in :malformed] 1]]]
    ["no act: a part that the form does not know, on the act and on a fact, and one named as the door's own words are: as given"
     (fn [] [(through (assoc (maker value-fact) :note "x"))
             (through (maker (assoc value-fact :note "x")))
@@ -2447,6 +2448,17 @@
       (fn [] (let [request (additions/request (additions/reading (maker value-fact) nil) [:alice :microbatch (uuid 61)] 16)]
                [(:facts request) (:depot request)]))
       [[{:e (uuid 61) :k :softland.store/lock-request :v 16}] :microbatch]]
+     ["a reading holds the four parts that a request for locks carries, each as given: a part with nil is in it, a part that the act does not hold is not; the request is made of them and reads nothing of the maker's thing again"
+      (fn [] (let [whole (additions/reading (maker value-fact) nil)
+                   bare (additions/reading (dissoc (maker value-fact) :session :version) nil)
+                   odd (additions/reading (assoc (maker value-fact) :who "nobody" :session nil) nil)
+                   request-id [:alice :streaming (uuid 61)]]
+               [(:carried whole) (:carried bare) (:carried odd)
+                (= (additions/request whole request-id 4) (additions/request (dissoc whole :thing) request-id 4))]))
+      [{:version 1 :who :alice :permission alice-own :session :alice-s1}
+       {:who :alice :permission alice-own}
+       {:version 1 :who "nobody" :permission alice-own :session nil}
+       true]]
      ["the declaration's check takes the door's request at a count of 1 and of 256, and it is no stray; at 257 it would be refused"
       (fn [] (let [request (fn [n] (additions/request (additions/reading (maker value-fact) nil) [:alice :streaming (uuid 61)] n))]
                [(mapv (fn [n] (verdict (declaration/check (request n)))) [1 256 257])
@@ -2474,12 +2486,12 @@
       [3 false]]
 
      ;; the count of a series
-     ["the count of a series of act-ids: an integer of 1 or more"
+     ["the count of a series of act-ids: a fixed-width integer of 1 or more"
       (fn [] (mapv additions/series-word [1 20 (int 3)]))
       [nil nil nil]]
-     ["a count that is no integer of 1 or more: no act-id is made"
-      (fn [] (mapv (fn [n] (said (additions/series-word n))) [0 -1 1.5 "3" nil]))
-      (vec (repeat 5 (could-not :make-an-act-id :count)))]]))
+     ["a count that is no fixed-width integer of 1 or more, a big integer among them: no act-id is made"
+      (fn [] (mapv (fn [n] (said (additions/series-word n))) [0 -1 1.5 "3" nil 3N]))
+      (vec (repeat 6 (could-not :make-an-act-id :count)))]]))
 
 ;; ------------------------------------------------------------------ the stock
 
@@ -2590,12 +2602,18 @@
                [(select-keys given [:fewest-at-once :most-at-once-streaming :most-at-once-microbatch])
                 (stock/ask-for given :streaming 1 0) (stock/ask-for given :microbatch 1 100000)]))
       [{:fewest-at-once 256 :most-at-once-streaming 256 :most-at-once-microbatch 256} 256 256]]
-     ["the door's five numbers: the defaults; a number that is missing or is no integer of 1 or more takes its default; a name that is none of the five is left out"
+     ["the door's five numbers: the defaults; a number that is missing or is no fixed-width integer of 1 or more takes its default; a name that is none of the five is left out"
       (fn [] [(stock/numbers nil) stock/default-numbers
               (stock/numbers {:request-wait-ms 400 :read-every-ms 0 :fewest-at-once 2.5 :most-at-once-streaming "64" :other 1})
               (stock/numbers 7)
               (stock/numbers (sorted-map "a" 1))])
       [door-numbers door-numbers (assoc door-numbers :request-wait-ms 400) door-numbers door-numbers]]
+     ["a wait that the opener gives is cut to the longest wait that the door counts; that many milliseconds, as nanoseconds and four times over, stay in the range of a long"
+      (fn [] (let [given (stock/numbers {:request-wait-ms Long/MAX_VALUE :read-every-ms Long/MAX_VALUE})]
+               [(= stock/longest-wait-ms (:request-wait-ms given)) (= stock/longest-wait-ms (:read-every-ms given))
+                (<= (* 4 1000000 stock/longest-wait-ms) Long/MAX_VALUE)
+                (< (* 1000 60 60 24 365 70) stock/longest-wait-ms)]))
+      [true true true true]]
      ["the size rule with the opener's numbers: the fewest 8 and the most 16"
       (fn [] (let [given (stock/numbers {:fewest-at-once 8 :most-at-once-streaming 16})]
                (mapv (fn [[m given-out]] (stock/ask-for given :streaming m given-out)) [[1 0] [1 12] [1 100] [20 0]])))

@@ -124,8 +124,14 @@ end of the process would leave.
   second, the stock would have no bound.
 - One time limit for all of a call's getting of locks, 10 seconds by default.
   It says when the door stops waiting for the seat and stops starting a step;
-  the call in the seat can outlast it by one append and one query of Rama's
-  client.
+  the call in the seat can outlast it by the one call of Rama's client that
+  was on its way, an append or a query.
+- The seat is held for the door's own steps and for calls of Rama's client,
+  and for nothing whose length a maker's thing sets. The call in the seat
+  takes the digest of its request, which holds four parts of the maker's act
+  as given; so a call walks those parts once before it goes for the seat. A
+  part that does not come back when it is read then holds its own maker's
+  thread and no other maker.
 - A maker is handed the refusal only of a request that its own call sent. One
   call sends one request at most.
 - A request is written into its stock before it is appended. One whose append
@@ -138,13 +144,18 @@ end of the process would leave.
   threw, the next call reads the answer again.
 - The locks of one act are taken in one step, the oldest run first, across the
   border of two runs. An act names one request, or two at a border, and
-  nothing is left behind in an old run.
+  nothing is left behind in an old run. It names more than two only where a
+  call read the locks of a request that an earlier call left open, was still
+  short, and asked for its own: one request for each run that the act crosses.
 - A lock that was taken never comes back, whatever becomes of its act. So each
   value of an act that is refused, that arrives second under its act-id, or
   whose append threw, leaves one row that seals nothing.
 - A stock that holds nothing at all leaves the door's memory when the last
   call that used it leaves. A stock that gave out a lock stays for the life of
-  the process.
+  the process. A stock that holds an open request stays until a later call of
+  its who reads that request or forgets it; a `:who` that is a plain Java
+  object is equal to no other, so each call under a new one whose request's
+  append threw leaves a stock for good.
 
 **What the stock costs the base.** One who gets at most 256 locks for each time
 that a request's batch takes to close, and each send that finds its stock short
@@ -277,5 +288,7 @@ door's proof, `softland.store.door-proof`.
 | in doubt, `:since` | Of a request: its append threw, or has not returned yet, so the door does not know whether a depot holds it; and the moment from which it is kept |
 | seat | What lets one call at a time ask for a stock. Never called a lock |
 | given out, `:given-out` | Of a stock: how many locks it has handed to acts since the door was opened |
-| a reading | What the door read of a maker's thing before any round trip: its layer, its who, and one entry for each fact |
+| a reading, with `:thing`, `:carried`, `:entries`, `:values` | What the door read of a maker's thing before any round trip: the thing, its layer, its who, the four parts that a request for locks carries, one entry for each fact, and how many values there are to seal. An entry holds `:fact`, and for a value fact `:plain` and `:place` |
+| `:calls`, `:cell` | Of a stock in the door's memory, beside its seat: how many calls are using it now, and the place that holds its value |
+| `:lock` | Beside `:lock-id`, in a lock as a stock gives it to an act: the lock's bytes and its way |
 | value fact | A fact that carries a value and whose key is not one of the three store keys: a fact whose value the door seals |

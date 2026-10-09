@@ -23,28 +23,39 @@
   open a sealed value; the answer under a request's act-id, by the query
   `answer-by-act-id`; each lock's row, by a select of the gates' PStates on
   each task, to count the rows that seal nothing and to hold every lock's
-  bytes against every record; and the strays of both gates.
+  bytes against every record; and the strays of both gates. And it reads
+  one thing of the door's own memory that no call of the door shows: the
+  door's map of stocks, from the field of the door's type, to see that a
+  stock has left it, that each call was counted out of its stock, and that
+  a stock's seat is free. It reads no lock there.
 
   Where the proof stands in for a call of Rama's client. Clojure lets a
   proof put a function of its own in the place of `foreign-append!` or
-  `foreign-invoke-query` for a while. The proof does so for four things,
+  `foreign-invoke-query` for a while. The proof does so for six things,
   and each line that rests on it says so: to count the round trips of a
-  call of the door, or to note the moment of each; to make a read throw, since no real throw of a query
-  was found that the in-process cluster gives without a fault of the
-  cluster; to give the locks of one read back with a way of sealing that
-  the code does not know; and to set the interrupt mark of its own thread
-  at the append of one request. The other throws are real throws of Rama's
-  client: a module name under which no module runs, a thing that holds a
-  plain Java object, and a call made on a thread whose interrupt mark the
-  proof set. The proof never destroys the module to make a call throw: the
-  close of the cluster then throws.
+  call of the door, or to note the moment of each; to make a read throw,
+  since no real throw of a query was found that the in-process cluster
+  gives without a fault of the cluster; to give the locks of one read back
+  with a way of sealing that the code does not know; to set the interrupt
+  mark of its own thread at the append of one request; to make one call
+  slow, the append of a request or a read of an answer, so that it outlasts
+  the door's wait; and to give the answer of one request back with another
+  digest. The other throws are real throws of Rama's client: a module name
+  under which no module runs, a thing that holds a plain Java object, and a
+  call made on a thread whose interrupt mark the proof set. The proof never
+  destroys the module to make a call throw: the close of the cluster then
+  throws. Two things of a maker's act are the proof's own objects: a
+  `:session` whose read blocks until the proof lets it end, and a `:who`
+  that throws when it is hashed.
 
   State. The proof starts one in-process cluster with four tasks and two
   workers, launches the module `Store` in it, and closes it at the end; the
-  cluster's files are temporary and are Rama's. It opens three doors on the
+  cluster's files are temporary and are Rama's. It opens five doors on the
   module: the door of most checks; a second door whose wait for locks is
-  400 ms, for the checks of that wait; and a third near the end, which
-  stands for the door of a process that started again. It owns four atoms:
+  400 ms, for the checks of that wait; one with four of its numbers given;
+  one for whos that cannot be the key of a stock, which ends with one
+  request in doubt and no lock; and one near the end, which stands for the
+  door of a process that started again. It owns four atoms:
   the lines that it showed; each result that a door gave it; what later
   checks come back to; and the locks that the proof itself left outside
   every stock. It reads the clock to time a wait.
@@ -75,7 +86,9 @@
             [softland.store.module :as module]
             [softland.store.record.rows :as record])
   (:import [java.nio.charset StandardCharsets]
-           [java.util UUID]))
+           [java.util UUID]
+           [java.util.concurrent Semaphore]
+           [softland.store.door Door]))
 
 (defonce ^:private shown-lines (atom []))
 
@@ -392,6 +405,41 @@
     (.start thread)
     (deref out 60000 [:no-return])))
 
+;; ------------------------------------------- the door's own memory, read round it
+
+(defn- stocks-of
+  "The door's own map of stocks, read round the door from the field of the
+  door's type: a map from [layer depot who] to what the door holds for that
+  stock. No call of the door shows it."
+  [d]
+  @(.-stocks ^Door d))
+
+(defn- stock-told
+  "What a door's map holds for the stock of one layer, depot and who, or nil
+  when the map holds none: how many calls are counted in, whether the stock
+  holds an open request, and whether its seat is free. No lock is read."
+  [d triple]
+  (when-let [held (get (stocks-of d) triple)]
+    {:calls      (:calls held)
+     :open?      (some? (:open @(:cell held)))
+     :seat-free? (= 1 (.availablePermits ^Semaphore (:seat held)))}))
+
+(defn- delaying
+  "Calls f while the proof stands in for one of Rama's two client calls with
+  a function that sleeps for `ms` and then calls Rama: for the append of a
+  request for locks when `which` is :request-append, and for a read of an
+  answer when it is :answer-read. Each other call goes to Rama at once."
+  [which ms f]
+  (let [real-append rama/foreign-append!
+        real-query rama/foreign-invoke-query]
+    (with-redefs [rama/foreign-append! (fn [depot data & more]
+                                         (when (and (= :request-append which) (request? data)) (Thread/sleep (long ms)))
+                                         (apply real-append depot data more))
+                  rama/foreign-invoke-query (fn [query & args]
+                                              (when (and (= :answer-read which) (= 2 (count args))) (Thread/sleep (long ms)))
+                                              (apply real-query query args))]
+      (f))))
+
 ;; ----------------------------------------------------------------- the makers
 
 (defn- own
@@ -530,6 +578,8 @@
         waited (counting #(answer! d never (:digest (:result held)) 600))
         waited-ms (quot (- (System/nanoTime) began) 1000000)
         no-wait (mapv (fn [bound] (counting #(answer! d never (:digest (:result held)) bound))) [0 -5 "soon" nil])
+        great (mapv (fn [bound] (counting #(answer! d given-id (:digest (:result held)) bound)))
+                    [Long/MAX_VALUE 100000000000000000000N 1e300 Double/POSITIVE_INFINITY 1/2 0.4])
         began-no-id (System/nanoTime)
         no-id (counting #(answer! d :no-act-id (:digest (:result held)) 600))
         no-id-ms (quot (- (System/nanoTime) began-no-id) 1000000)
@@ -544,6 +594,8 @@
            [[0 4] {:answer :nothing-yet} true] [(trips waited) (:result waited) (<= 600 waited-ms 5000)])
     (check "a bound of zero, a bound below zero, and a bound that is no number or nil: one read each, and nothing yet"
            (vec (repeat 4 [[0 1] {:answer :nothing-yet}])) (mapv (fn [counted] [(trips counted) (:result counted)]) no-wait))
+    (check "a bound greater than any wait that the door counts, as a long, a big integer, a double and infinity, and a bound that is a ratio or a fraction: no call throws, and each reads the answer that is there with one query"
+           (vec (repeat 6 [[0 1] :accepted])) (mapv (fn [counted] [(trips counted) (:answer (:result counted))]) great))
     (check "answer-of a thing that is no act-id, with a bound: nothing yet, with no query, at once"
            [[0 0] {:answer :nothing-yet} true] [(trips no-id) (:result no-id) (< no-id-ms 300)])
     (shown "round trips of one call of the door, [appends queries]: a send that meets a request" (pr-str (trips meets))
@@ -837,7 +889,9 @@
         doras-requests (count (requests-of :dora))
         unused-before (:unused-locks (door/stock-count d))
         faulty (decide! d (act-of :dora [(value :faulty "a value")] {:permission [:dora :dora :dora [:dan :dora :dora (own :dora)]]}))
-        unused-after (:unused-locks (door/stock-count d))]
+        unused-after (:unused-locks (door/stock-count d))
+        left-the-map [(stock-told d [:alice :streaming :mallory]) (stock-told d [:nowhere :streaming :nowhere])]
+        stays (stock-told d [:dora :streaming :dora])]
     (check "a who with no permission in a made layer sends a value act: the word, with the request's act-id and the request's answer as answer-of gives one"
            [:have-its-request-accepted :nothing [:alice :streaming] {:answer :refused :reason :permission-does-not-stand}]
            [(:could-not word) (:appended word) (vec (take 2 request)) (dissoc (:request-answer word) :stamp)])
@@ -853,7 +907,10 @@
            [nil {:answer :refused :reason :permission-does-not-stand} 1 0]
            [(:could-not (:sent faulty)) (dissoc (:answer faulty) :stamp) (- unused-before unused-after)
             (- (count (requests-of :dora)) doras-requests)])
-    (shown "a value act of a who with no permission, with an empty stock:" (pr-str (dissoc word :request)) "| nothing is recorded under the act's own act-id")
+    (check "the stock of a who whose one request was refused has left the door's memory, for both; the stock of a who that was given locks stays, with no call counted in and its seat free"
+           [[nil nil] {:calls 0 :open? false :seat-free? true}] [left-the-map stays])
+    (shown "a value act of a who with no permission, with an empty stock:" (pr-str (dissoc word :request)) "| nothing is recorded under the act's own act-id"
+           "| the door's memory holds no stock for that who after the call; the proof read the door's map of stocks from the door's own field")
     (shown "the same fault with locks in the stock: the act goes in and is refused under its own act-id:" (told faulty)
            "| the lock that it took does not come back")))
 
@@ -944,6 +1001,7 @@
         id-1 (act-id-for! d :hana)
         hana-word (with-read-thrown 2 #(send! d (act-of :hana [(value :h-0 0)]) id-1))
         count-hana (door/stock-count d)
+        hana-stays (stock-told d [:hana :streaming :hana])
         hanas-requests-1 (requests-of :hana)
         id-2 (act-id-for! d :hana)
         ten (decide! d (act-of :hana (mapv (fn [i] (value (keyword (str "h-" i)) i)) (range 1 11))) id-2)
@@ -996,6 +1054,8 @@
            [:read-its-requests-answer :nothing [:hana :streaming] 1 [4] []]
            [(:could-not hana-word) (:appended hana-word) (vec (take 2 (:request hana-word))) (:open-requests count-hana)
             (mapv asked hanas-requests-1) (records-of id-1)])
+    (check "the stock that holds that open request stays in the door's memory, with no call counted in and its seat free"
+           {:calls 0 :open? true :seat-free? true} hana-stays)
     (check "a send of 10 values of that who then reads that request, of 4 locks, asks for its own in the same call and goes in: two requests in the log, for 4 and for 10"
            [true [4 10] 0] [(accepted? ten) (mapv asked hanas-requests-2) (:open-requests (door/stock-count d))])
     (check "and the act names the locks of both requests, as neighbours: the 4 of the first, then the first 6 of the second"
@@ -1031,6 +1091,207 @@
            (pr-str (dissoc (:request-answer stranger-next) :stamp)))
     (shown "locks that cannot seal:" (pr-str (dissoc judy-word :request))
            "| the door holds none of them. The proof gave each lock of that read back with a way of sealing that the code does not know, by standing in for Rama's client call with a function that calls Rama and changes what it gave.")))
+
+(deftest the-seat-and-the-wait
+  (let [d2 (the-short-door)
+        ;; a part of the act that does not come back when it is read
+        made-olga? (make-layer! d2 :olga)
+        blocker (promise)
+        stuck (future (send! d2 (act-of :olga [(value :o-1 "a value")] {:session (lazy-seq @blocker)})))
+        _ (Thread/sleep 150)
+        while-stuck (stock-told d2 [:olga :streaming :olga])
+        other (decide! d2 (act-of :olga [(value :o-2 "a value")]))
+        olgas-requests (count (requests-of :olga))
+        _ (deliver blocker nil)
+        came-back (deref stuck 30000 {:could-not :no-return})
+        after-olga (stock-told d2 [:olga :streaming :olga])
+        ;; the append of a request that outlasts the door's wait
+        made-pia? (make-layer! d2 :pia)
+        id-1 (act-id-for! d2 :pia)
+        id-w (act-id-for! d2 :pia)
+        slow-maker (future (timing #(delaying :request-append 600 (fn [] (send! d2 (act-of :pia [(value :p-1 "a value")]) id-1)))))
+        _ (Thread/sleep 50)
+        began-w (System/nanoTime)
+        waiter (send! d2 (act-of :pia [(value :p-w "a value")]) id-w)
+        waiter-ms (quot (- (System/nanoTime) began-w) 1000000)
+        slow (deref slow-maker 30000 {:result {:could-not :no-return} :calls []})
+        slow-word (:result slow)
+        pia-open (stock-told d2 [:pia :streaming :pia])
+        id-2 (act-id-for! d2 :pia)
+        pia-next (counting #(send! d2 (act-of :pia [(value :p-1 "a value")]) id-2))
+        pias-answer (answer! d2 id-2 (:digest (:result pia-next)))
+        pias-requests (requests-of :pia)
+        pias-record (record-of id-2)
+        ;; a wait that ends after the call read an earlier call's request to its end
+        strangers [:stranger-2 :pia :pia (own :pia)]
+        strangers-act (fn [e] {:version 1 :who :stranger-2 :layer :pia :permission strangers :session :door-proof
+                               :facts [(value e "a value of a who with no permission")]})
+        left-open (with-read-thrown 2 #(send! d2 (strangers-act :s-1)))
+        open-before (stock-told d2 [:pia :streaming :stranger-2])
+        late (counting #(delaying :answer-read 600 (fn [] (send! d2 (strangers-act :s-2)))))
+        late-word (:result late)
+        open-after (stock-told d2 [:pia :streaming :stranger-2])
+        own-refusal (send! d2 (strangers-act :s-3))
+        strangers-requests (requests-of :stranger-2 :pia :streaming)
+        ;; a request in doubt whose append truly failed, met before the door's wait has passed since the throw
+        made-sam? (make-layer! d2 :sam)
+        sams-word (send! d2 (act-of :sam [(value :s-1 "a value")] {:session (Object.)}))
+        _ (Thread/sleep 200)
+        began (System/nanoTime)
+        sams-next (counting #(send! d2 (act-of :sam [(value :s-1 "a value")])))
+        sams-ms (quot (- (System/nanoTime) began) 1000000)
+        sams-answer (when-not (:could-not (:result sams-next))
+                      (answer! d2 (:act-id (:result sams-next)) (:digest (:result sams-next))))]
+    (check "the layers of this check are made" [true true true] [made-olga? made-pia? made-sam?])
+    (check "a value act whose :session does not come back when it is read, with an empty stock: its call is counted into the stock and holds no seat"
+           {:calls 1 :open? false :seat-free? true} while-stuck)
+    (check "another maker of that who and layer meanwhile is not held by it: the door asks for locks for it, and its act is accepted"
+           [true 1] [(accepted? other) olgas-requests])
+    (check "when the proof lets that read end, the first call comes back; no call is counted into the stock and its seat is free"
+           [true {:calls 0 :open? false :seat-free? true}] [(not= :no-return (:could-not came-back)) after-olga])
+    (check "the append of a request that the proof made take 600 ms, on the door whose wait is 400 ms: when it returns the wait has ended, and the door starts no step more: the one call of Rama's client in that send is the append, and no read follows it"
+           [[:append 2]] (mapv (fn [[kind _ arguments]] [kind arguments]) (:calls slow)))
+    (check "a second maker of that who, 50 ms later, waits for the stock's seat while the first is inside that append: its own wait ends first, at 400 ms and before the first maker's append returns. The word names no request, and that call made no call of Rama's client"
+           [:get-locks-within-its-wait :nothing false true true []]
+           [(:could-not waiter) (:appended waiter) (contains? waiter :request) (<= 395 (:waited-ms waiter 0) 540) (< waiter-ms 540)
+            (records-of id-w)])
+    (check "the word names the request, which its depot holds, and the request stays open with its stock's seat free"
+           [:get-locks-within-its-wait :nothing [:pia :streaming] true {:calls 0 :open? true :seat-free? true}]
+           [(:could-not slow-word) (:appended slow-word) (vec (take 2 (:request slow-word))) (<= 600 (:waited-ms slow-word 0)) pia-open])
+    (check "the next send of that who reads that request's answer and then its locks and sends no second request: 1 append and 2 queries, and its act names the request of the word"
+           [nil 1 2 {:answer :accepted} 1 [(:request slow-word) 0]]
+           [(:could-not (:result pia-next)) (:appends pia-next) (:queries pia-next) (dissoc pias-answer :stamp)
+            (count pias-requests) (:lock-id (first (:facts pias-record)))])
+    (check "a refused request that an earlier call left open, and a next send whose read of its answer the proof made take 600 ms: the call reads the request to its end, and its wait has then ended before it could send its own. The word names no request, since none of this call stays open, and the stock has left the door's memory"
+           [:read-its-requests-answer {:calls 0 :open? true :seat-free? true}
+            :get-locks-within-its-wait :nothing false true [0 2] nil]
+           [(:could-not left-open) open-before
+            (:could-not late-word) (:appended late-word) (contains? late-word :request) (<= 600 (:waited-ms late-word 0))
+            [(:appends late) (:queries late)] open-after])
+    (check "the send after it asks for itself and is handed the refusal of its own request: two requests of that who in the log"
+           [:have-its-request-accepted {:answer :refused :reason :permission-does-not-stand} 2 true]
+           [(:could-not own-refusal) (dissoc (:request-answer own-refusal) :stamp) (count strangers-requests)
+            (= (:request own-refusal) (:act-id (second strangers-requests)))])
+    (check "a request whose append threw before it left the process, met by the next send 200 ms later, on the door whose wait is 400 ms: that send reads the request in doubt until 400 ms have passed since the throw, forgets it, asks anew inside its own wait and goes in"
+           [:append-its-request-cleanly nil 2 true true {:answer :accepted} 1 {:calls 0 :open? false :seat-free? true}]
+           [(:could-not sams-word) (:could-not (:result sams-next)) (:appends sams-next) (<= 5 (:queries sams-next))
+            (<= 150 sams-ms 3000) (dissoc sams-answer :stamp) (count (requests-of :sam)) (stock-told d2 [:sam :streaming :sam])])
+    (shown "a value act whose :session does not come back when it is read held no seat:" (pr-str while-stuck)
+           "| another maker of that who went in meanwhile:" (told other)
+           "| the proof made that read block and then let it end, and read the door's map of stocks from the door's own field")
+    (shown "an append of a request that outlasted the door's wait of 400 ms:" (pr-str (select-keys slow-word [:could-not :appended :waited-ms]))
+           "| calls of Rama's client in that send:" (pr-str (mapv first (:calls slow))) "| the next send used that request with" (:appends pia-next)
+           "append and" (:queries pia-next) "queries. The proof made the append slow by standing in for Rama's client call with a function that sleeps and then calls Rama.")
+    (shown "a wait that ended after the call had read an earlier call's refused request to its end:" (pr-str (select-keys late-word [:could-not :appended :waited-ms :request]))
+           "| the send after it:" (pr-str (dissoc (:request-answer own-refusal) :stamp))
+           "| the proof made the read of the answer slow by standing in for Rama's client call with a function that sleeps and then calls Rama.")
+    (shown "a request in doubt whose append truly failed, met 200 ms after the throw: the next send went in after" sams-ms "ms with" (:appends sams-next)
+           "appends and" (:queries sams-next) "queries, which the proof counted by standing in for Rama's two client calls with functions that count and then call Rama")))
+
+(deftest a-requests-answer-with-another-digest
+  (let [d (the-door)
+        made? (make-layer! d :quinn)
+        id (act-id-for! d :quinn)
+        real-query rama/foreign-invoke-query
+        reads-of-locks (atom 0)
+        word (with-redefs [rama/foreign-invoke-query
+                           (fn [query & args]
+                             (when (= 4 (count args)) (swap! reads-of-locks inc))
+                             (let [got (apply real-query query args)]
+                               (if (and (= 2 (count args)) (map? got))
+                                 (assoc got :digest (apply str (repeat 64 "0")))
+                                 got)))]
+               (send! d (act-of :quinn [(value :q-1 "a value")]) id))
+        told-after (stock-told d [:quinn :streaming :quinn])
+        request-round (when (:request word) (answer-round (:request word)))
+        locks-made (when (:request word) (count (locks-round (:request word))))
+        next-send (decide! d (act-of :quinn [(value :q-1 "a value")]))
+        quinns-requests (requests-of :quinn)
+        record (record-of (:act-id (:sent next-send)))]
+    (swap! outside-the-stocks conj
+           {:why "a request whose answer the proof gave back with another digest, so the door read none of its locks" :locks (or locks-made 0)})
+    (check "the layer of this check is made" true made?)
+    (check "the answer under the door's own request comes back with a digest that is not the digest of the request as sent: the door does not take it for its own. The word, with the request's answer as not mine; no read of locks is made, and nothing is appended for the act"
+           [:have-its-request-accepted :nothing {:answer :not-mine} 0 [] nil]
+           [(:could-not word) (:appended word) (:request-answer word) @reads-of-locks (records-of id) told-after])
+    (check "round the door, the record's own answer to that request is an accept, and its 4 locks were made: the door held to the digest and not to the verdict"
+           [:accepted 4] [(:verdict request-round) locks-made])
+    (check "the send after it asks anew and goes in: two requests of that who in the log, and the act names the second"
+           [true 2 (:act-id (second quinns-requests))]
+           [(accepted? next-send) (count quinns-requests) (first (:lock-id (first (:facts record))))])
+    (shown "a request's answer with another digest:" (pr-str (select-keys word [:could-not :appended :request-answer]))
+           "| reads of locks made:" @reads-of-locks
+           "| the proof changed the digest of the answer that the read gave, by standing in for Rama's client call with a function that calls Rama and changes what it gave")))
+
+(deftest an-act-over-three-runs
+  (let [d (the-door)
+        made? (make-layer! d :rosa)
+        one (decide! d (act-of :rosa [(value :r-0 0)]))
+        two (decide! d (act-of :rosa [(value :r-1 1) (value :r-2 2)]))
+        word (with-read-thrown 2 #(send! d (act-of :rosa (mapv (fn [i] (value (keyword (str "r3-" i)) i)) (range 3)))))
+        open-told (stock-told d [:rosa :streaming :rosa])
+        id (act-id-for! d :rosa)
+        ten (decide! d (act-of :rosa (mapv (fn [i] (value (keyword (str "r10-" i)) i)) (range 10))) id)
+        requests (requests-of :rosa)
+        named (mapv :lock-id (:facts (record-of id)))
+        request-id (fn [i] (:act-id (nth requests i nil)))]
+    (check "the layer of this check is made, and two acts of 1 and of 2 values go in from one request for 4: the stock then holds 1 lock"
+           [true true true [4]] [made? (accepted? one) (accepted? two) (mapv asked (take 1 requests))])
+    (check "a send of 3 values asks for 4 more, and the read of that request's answer is made to throw: the request stays open"
+           [:read-its-requests-answer {:calls 0 :open? true :seat-free? true}]
+           [(:could-not word) open-told])
+    (check "a send of 10 values then holds 1 lock, reads the 4 of the open request, is still short and asks for 10 of its own: accepted, and the requests in the log ask for 4, 4 and 10"
+           [true [4 4 10]] [(accepted? ten) (mapv asked requests)])
+    (check "that act names the locks of three requests, one for each run that it crosses, each a run of neighbours: the last of the first, the 4 of the second, the first 5 of the third"
+           (vec (concat [[(request-id 0) 3]]
+                        (map (fn [i] [(request-id 1) i]) (range 4))
+                        (map (fn [i] [(request-id 2) i]) (range 5))))
+           named)
+    (shown "an act that names the locks of three requests: the stock held 1 lock, the door read 4 of a request that an earlier call left open and asked for 10 more; indexes by request:"
+           (pr-str (mapv (fn [ids] (mapv second ids)) (partition-by first named))) "|" (told ten))))
+
+(deftest the-openers-numbers
+  (let [d4 (noted (door/open (:ipc *round*) (:module *round*)
+                             {:fewest-at-once 2 :most-at-once-streaming 3 :read-every-ms 100 :request-wait-ms Long/MAX_VALUE}))
+        made? (make-layer! d4 :nora)
+        sent (mapv (fn [i] (decide! d4 (act-of :nora [(value (keyword (str "n-" i)) i)]))) (range 6))
+        sizes (mapv asked (requests-of :nora))
+        never (act-id-for! d4 :nora)
+        waited (counting #(answer! d4 never "no digest" 250))]
+    (swap! kept assoc :numbers-door d4)
+    (check "a door opened with four of its numbers given, one of them a wait greater than any that the door counts: a door, and its layer is made"
+           [nil true] [(:could-not d4) made?])
+    (check "with the fewest at once 2 and the most at once 3, six acts of one value go in and the requests in the log ask for 2, 2 and 3; the door holds the one lock that is left"
+           [6 [2 2 3] {:unused-locks 1 :stocks 1 :open-requests 0}]
+           [(count (filter accepted? sent)) sizes (door/stock-count d4)])
+    (check "with a read each 100 ms, a wait of 250 ms that finds nothing makes 4 queries"
+           [[0 4] {:answer :nothing-yet}] [[(:appends waited) (:queries waited)] (:result waited)])
+    (shown "a door opened with the numbers {:fewest-at-once 2 :most-at-once-streaming 3 :read-every-ms 100} and a wait for locks of Long/MAX_VALUE ms: requests of one who for 6 values"
+           (pr-str sizes) "| a wait of 250 ms that finds nothing made" (:queries waited)
+           "queries, which the proof counted by standing in for Rama's client call with a function that counts and then calls Rama")))
+
+(deftest a-who-that-cannot-be-a-key
+  (let [d5 (noted (door/open (:ipc *round*) (:module *round*)))
+        made? (make-layer! d5 :tess)
+        logs-before (log-counts)
+        no-hash (reify Object (hashCode [_] (throw (ex-info "the proof made this who throw when it is hashed" {}))))
+        said (fn [word] (select-keys word [:could-not :appended :at]))
+        unhashed (send! d5 (act-of :tess [(value :t-1 "a value")] {:who no-hash}))
+        sorted-who (send! d5 (act-of :tess [(value :t-2 "a value")] {:who (sorted-map :a 1) :session (Object.)}))
+        kept-stock (stock-told d5 [:tess :streaming (sorted-map :a 1)])
+        other-map (send! d5 (act-of :tess [(value :t-3 "a value")] {:who {"a" 1}}))
+        logs-after (log-counts)]
+    (check "the layer of this check is made" true made?)
+    (check "a value act whose :who throws when it is hashed: the door's word, at :who"
+           {:could-not :read-the-act :appended :nothing :at :who} (said unhashed))
+    (check "a value act whose :who is a sorted map with keyword keys, and whose request's append throws: the door keeps a stock for that who, with its request in doubt"
+           [:append-its-request-cleanly {:calls 0 :open? true :seat-free? true}] [(:could-not sorted-who) kept-stock])
+    (check "then a value act of that layer whose :who is a map with string keys, which throws when it is compared with the who of that stock: the door's word, at :who, and no throw out of the call"
+           {:could-not :read-the-act :appended :nothing :at :who} (said other-map))
+    (check "nothing was appended for the three, and that door holds no lock and the one request in doubt"
+           [logs-before {:unused-locks 0 :stocks 0 :open-requests 1}] [logs-after (door/stock-count d5)])
+    (shown "a :who that cannot be hashed:" (pr-str (said unhashed)) "| a :who that cannot be compared with a who that the door holds a stock for:"
+           (pr-str (said other-map)) "| no call threw")))
 
 (deftest an-append-that-threw
   (let [d (the-door)
@@ -1386,7 +1647,8 @@
         record (record-of (:act-id (:sent after-restart)))
         new-request (first (remove (set (map :act-id alices-requests)) (map :act-id alices-requests-after)))
         ;; the rows that seal nothing, counted from the record round the door
-        counts (mapv door/stock-count [d d2 d3])
+        d4 (:numbers-door @kept)
+        counts (mapv door/stock-count [d d2 d3 d4])
         rows (lock-rows)
         sealing? (fn [found] (boolean (some record/seals-a-fact? found)))
         seals-nothing (set (keep (fn [[k found]] (when-not (sealing? found) k)) rows))
@@ -1402,18 +1664,18 @@
                              :when (and (= :accepted (:verdict answer)) (= (:digest answer) (digest/hex-of r)))
                              n counts]
                          n))]
-    (swap! kept assoc :rows rows)
+    (swap! kept assoc :rows rows :doors [d d2 d3 d4])
     (check "the first door holds unused locks, of Alice among others" [true true] [(pos? (:unused-locks first-count)) (pos? (:stocks first-count))])
     (check "a door that is opened holds nothing, whatever the record holds" {:unused-locks 0 :stocks 0 :open-requests 0} third-before)
     (check "its first value act for a who of the first door sends a new request, and names no lock of an old one"
            [true (inc (count alices-requests)) [new-request 0]]
            [(accepted? after-restart) (count alices-requests-after) (:lock-id (first (:facts record)))])
-    (check "no door holds an open request at the end" [0 0 0] (mapv :open-requests counts))
+    (check "none of the four doors that hold locks holds an open request at the end" [0 0 0 0] (mapv :open-requests counts))
     (check "each lock that an accepted request made is a row of the record" made (count rows))
-    (check "the rows that seal nothing and that no record of a log names are exactly: the unused locks that the three doors hold, and the locks that the proof left outside every stock"
+    (check "the rows that seal nothing and that no record of a log names are exactly: the unused locks that the four doors hold, and the locks that the proof left outside every stock"
            (+ in-the-stocks outside) never-named)
     (shown "THE ROWS THAT SEAL NOTHING, counted in both records round the door:" (count seals-nothing) "of" (count rows) "lock rows."
-           "Their sources:" in-the-stocks "unused in the stocks of the three doors" (pr-str (mapv :unused-locks counts))
+           "Their sources:" in-the-stocks "unused in the stocks of the four doors" (pr-str (mapv :unused-locks counts))
            "(the first door's would be lost at a restart of its process) |" named-and-not-sealing
            "taken for an act that was not accepted: refused, second under its act-id, or one whose value was sealed and the gate refused the thing |"
            outside "outside every stock:" (str/join "; " (map (fn [{:keys [why locks]}] (str locks " " why)) @outside-the-stocks)))
@@ -1457,7 +1719,8 @@
                                        (= (nth request 1) (nth (:act-id r) 1))))]
                    [(:act-id r) request])
         acts-with-locks (count (filter (fn [r] (and (map? r) (seq (lock-ids-of r)))) records))
-        given (set (keep :could-not @results))]
+        given (set (keep :could-not @results))
+        every-stock (for [door (:doors @kept) triple (keys (stocks-of door))] (stock-told door triple))]
     (check "every lock of every request in both logs was read round the door: as many different runs of bytes as lock rows"
            (count rows) (count every-lock))
     (check "the bytes of a lock of the base that seals a value come from its whole row, since the query gives nil for them: the query gave bytes for every lock but those"
@@ -1471,6 +1734,8 @@
            [((:printed @kept) d) (every? int? (vals (door/stock-count d)))])
     (check "a lock never crosses a who: over every record of both logs, each lock id that an act names is of a request whose who and layer are that act's, and whose depot is the act's depot"
            [true []] [(< 600 acts-with-locks) (vec crossing)])
+    (check "at the end, over every stock in the memory of the four doors that hold locks: no call is counted in, no seat is taken, and no request is open"
+           [true #{{:calls 0 :open? false :seat-free? true}}] [(< 20 (count every-stock)) (set every-stock)])
     (check "the door made no stray in the whole run" 0 (strays))
     (check "each of the door's fourteen words was given in this run" (set (keys words/words)) given)
     (shown "no lock's bytes are on a depot:" (count every-lock) "locks, each read round the door, of which" nil-from-the-query
@@ -1497,6 +1762,11 @@
   (a-refused-request)
   (a-request-in-doubt)
   (reads-that-throw)
+  (the-seat-and-the-wait)
+  (a-requests-answer-with-another-digest)
+  (an-act-over-three-runs)
+  (the-openers-numbers)
+  (a-who-that-cannot-be-a-key)
   (an-append-that-threw)
   (a-lock-never-crosses-a-who)
   (many-makers-at-once)

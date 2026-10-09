@@ -93,8 +93,10 @@
   (and (map? x) (not (record? x))))
 
 (defn series-word
-  "Takes the count of a series of act-ids. Gives nil for an integer of 1 or
-  more, or the word `:make-an-act-id` at `:count`."
+  "Takes the count of a series of act-ids. Gives nil for a fixed-width
+  integer of 1 or more, or the word `:make-an-act-id` at `:count`: for a
+  count below 1, and for anything else, a big integer and a number with a
+  fraction among them."
   [n]
   (when-not (and (int? n) (<= 1 n))
     (words/word :make-an-act-id {:at :count})))
@@ -269,6 +271,24 @@
                    (conj entries entry)
                    (if (:plain entry) (inc counted) counted))))))))
 
+(def ^:private parts-carried
+  "The parts of a maker's thing that the door's request for locks carries,
+  each as given: a gate holds a request to the version, the who, the
+  permission and the session of an act as it holds any act."
+  [:version :who :permission :session])
+
+(defn- carried-of
+  "Takes a thing that is a plain map, and its parts as `read-parts` gave
+  them. Gives a map of the parts of `parts-carried` that the thing holds,
+  each as given: a part that is there with nil is in it with nil, and a
+  part that the thing does not hold is not in it. It can throw, for a thing
+  that throws when it is asked whether it holds a part; `reading` turns the
+  throw into a word."
+  [thing parts]
+  (into {}
+        (keep (fn [part] (when (contains? thing part) [part (get parts part)])))
+        parts-carried))
+
 (defn- reading*
   "The body of `reading`, with no guard around it."
   [thing act-id]
@@ -284,6 +304,7 @@
               {:thing   thing
                :layer   (:layer parts)
                :who     (:who parts)
+               :carried (carried-of thing parts)
                :entries (:entries walked)
                :values  (:values walked)}))))))
 
@@ -294,9 +315,11 @@
   own words; with a word, nothing is appended.
 
   A reading is a map: `:thing`, the maker's own map; `:layer` and `:who` as
-  the thing holds them; `:entries`, one for each fact at its position, or
-  nil when `:facts` is no sequence; `:values`, how many value facts the act
-  holds, which is how many locks it needs.
+  the thing holds them; `:carried`, the parts that a request for locks
+  carries, `:version`, `:who`, `:permission` and `:session`, each as given
+  and none that the thing does not hold; `:entries`, one for each fact at
+  its position, or nil when `:facts` is no sequence; `:values`, how many
+  value facts the act holds, which is how many locks it needs.
 
   The tests, in their order; the first that fails gives the word:
 
@@ -402,12 +425,15 @@
   door makes no session and no id of its own for it. It carries a count and
   no lock's bytes: a gate makes the bytes when it accepts the request.
 
+  It reads nothing of the maker's thing again: the four parts are the
+  reading's `:carried`. So it cannot throw, and the door calls it while it
+  sits in a stock's seat.
+
   What must hold: the count is 1 to the declaration's ceiling of one
   request, which `softland.store.door.stock/ask-for` gives."
   [reading request-act-id n]
-  (let [thing (:thing reading)]
-    (assoc (into {} (keep (fn [part] (find thing part))) [:version :who :permission :session])
-           :layer (:layer reading)
-           :act-id request-act-id
-           :depot (nth request-act-id 1)
-           :facts [{:e (nth request-act-id 2) :k :softland.store/lock-request :v n}])))
+  (assoc (:carried reading)
+         :layer (:layer reading)
+         :act-id request-act-id
+         :depot (nth request-act-id 1)
+         :facts [{:e (nth request-act-id 2) :k :softland.store/lock-request :v n}]))

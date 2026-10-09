@@ -57,7 +57,7 @@
 
    :make-an-act-id
    {:from     #{:act-id-for :act-ids-for :send-act}
-    :says     "no act-id can be made for this layer, or the act-id given is not one of this layer, or the count of a series is no integer of 1 or more"
+    :says     "no act-id can be made for this layer, or the act-id given is not one of this layer, or the count of a series is no fixed-width integer of 1 or more"
     :appended :nothing}
 
    :read-the-layers-depot
@@ -97,7 +97,7 @@
 
    :get-locks-within-its-wait
    {:from     #{:send-act}
-    :says     "the door's wait for locks passed: its request, or one that an earlier call left, has no answer yet, or another call was still getting locks for this stock; a request that a depot holds stays open and is read at the next need"
+    :says     "the door's wait for locks passed: its request, or one that an earlier call left, has no answer yet; or another call was still getting locks for this stock; or the wait ended after the door had read an earlier call's request to its end and before it could send its own. The request that the word names stays open and is read at the next need; a word that names none leaves none of this call open"
     :appended :nothing}
 
    :read-its-requests-answer
@@ -107,7 +107,7 @@
 
    :read-its-requests-locks
    {:from     #{:send-act}
-    :says     "the request was accepted, and the read of its locks threw, or gave fewer locks that can seal than the act needs"
+    :says     "the request was accepted, and the read of its locks threw, or gave fewer locks that can seal than the act needs. After a read that threw, which the word then names by its class, the request stays open and the next call reads its answer again and then its locks; after a read that came back, the request is ended and what it gave is in the stock"
     :appended :nothing}
 
    :append-cleanly
@@ -129,7 +129,7 @@
    :layer          "the layer whose depot the door could not read"
    :most           "the greatest number that the door takes: of values to seal in one act, or of bytes in one sealed value"
    :sealed-bytes   "how many bytes the sealed value would have"
-   :request        "the act-id of the door's request for locks"
+   :request        "the act-id of the door's request for locks that the word is about"
    :request-answer "the answer of that request, as `answer-of` gives one, with the gate's reason word"
    :waited-ms      "how long the call waited for locks, in milliseconds"
    :act-id         "the act-id of the maker's act, or of the read"

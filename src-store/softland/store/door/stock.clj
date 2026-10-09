@@ -132,8 +132,8 @@
 (defn numbers
   "Takes what the opener of the door gave for the five numbers: a map, or
   anything. Gives the five numbers as a map. A number that is missing, or is
-  no integer of 1 or more, takes its default. A count of locks over the
-  declaration's ceiling of one request
+  no fixed-width integer of 1 or more, takes its default. A count of locks
+  over the declaration's ceiling of one request
   (`softland.store.door.declaration/max-locks-in-request`) is cut to it, and
   a wait over `longest-wait-ms` is cut to that. A name that is none of the
   five is left out. It never throws."
@@ -222,9 +222,13 @@
 
   All m leave the stock in this one step. So the locks that an act names are
   neighbours: of one request, or of two where the act falls on the border
-  between two runs. A gate reads one range of lock rows for each request
-  that an act names, from the least index that the act names to the
-  greatest, and neighbours make each range exactly the locks named.
+  between two runs. An act names more than two only where the stock held
+  more than two runs: the door had fewer locks left than the act needs,
+  read the locks of a request that an earlier call left open, and then
+  asked for its own; that act names one request for each run that it
+  crosses. A gate reads one range of lock rows for each request that an act
+  names, from the least index that the act names to the greatest, and
+  neighbours make each range exactly the locks named.
 
   Why the oldest first, across a border. To take from one run whenever one
   run can serve the act would leave a rest behind in the older run. Rests

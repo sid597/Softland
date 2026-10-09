@@ -211,9 +211,11 @@ shape must hold when each fact is wrong.
   of 256 sealed facts that names the two ends of 128 requests reads 32,768 lock
   rows. Such an act needs standing in the layer, and requests that were accepted
   before. Nothing is built against it: the remedy is a choice of reads or of
-  limits, and no speed is measured. The door's own acts name the locks of one
-  request, or of two, in runs of neighbours; what is appended without the door is
-  not held by it.
+  limits, and no speed is measured. The door's own acts name the locks of few
+  requests, in runs of neighbours: of one, of two where an act falls on the
+  border of two requests, and of more only where a call first read a request
+  that an earlier call had left open. What is appended without the door is not
+  held by it.
 
 ## Decisions this module stands on
 
