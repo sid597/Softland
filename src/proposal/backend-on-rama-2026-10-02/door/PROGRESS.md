@@ -2,7 +2,9 @@
 
 For a session that takes this build over, and for the receipt to Sid. Kept by the build session
 "door build" (Opus 5.5, effort xhigh), started on 9 October 2026 on Sid's line "Build the door. The
-contract is src/proposal/backend-on-rama-2026-10-02/BUILD-door.md".
+contract is src/proposal/backend-on-rama-2026-10-02/BUILD-door.md". From the plan on it is kept by a
+second session (Opus 5.5, effort xhigh), which took the build over late on 9 October on Sid's line
+"Take over the door's build". "The build session" below is the one that holds the build at the time.
 
 ## What to read, in this order
 
@@ -37,8 +39,8 @@ so each stage's paper says how it adapts the skill's template.
 | the starting point confirmed | done | — |
 | the implied spec; rulings on its 22 open points | done | `3746b4e5` |
 | the split into parts: one part, `door` | done; judged sound | `1a68cde7` |
-| the plan | not written; to be run from its start by the session that takes over. Its first run was cut off by a restart of the machine on the evening of 9 October, and the build session stopped the resumed run itself when Sid chose a new session. No `PLAN.md` is on disk | |
-| the check of the plan | | |
+| the plan; eight rulings on it | done. Before it ran, the tree under `src-store/` and `test-store/` was checked and had not changed since `c296a459` | the commit after `980ed903` |
+| the check of the plan | running: a fresh agent, started late on 9 October. When no `PLAN_VALIDATION.md` is on disk, or it is cut short, run the stage again from its start; `git diff` of `PLAN.md` shows what a cut-off run changed in the plan | |
 | the build: the door, its proof, the maps | | |
 | one fresh review of the whole against the contract | | |
 | the receipt to Sid | | |
@@ -50,7 +52,8 @@ source, rules, has the rulings applied, and commits with a message that says wha
 `Co-Authored-By`, no session link. Never push.
 
 Scratch files of a stage (probes, the proofs' full outputs) go under
-`/mnt/data/projects/research/softland/door-build-2026-10-09/`, outside the repository. Nothing goes
+`/mnt/data/projects/research/softland/door-build-2026-10-09/`, outside the repository. The plan's
+four probes and their outputs are in its folder `plan-probes/`. Nothing goes
 under `/tmp`: a restart of the machine empties it, and one did during the plan.
 
 ## Rulings
@@ -75,6 +78,24 @@ builder a design. The split's writer weighed one cut, the way in of an act with 
 answer first, then the stock and the seal, and turned it down: the first half has no hard core, and a
 request for locks is itself an act that goes in and is answered by the same way. The build session
 agrees: no ruling was needed.
+
+**On the plan, 9 October.** The plan brought four points; the build session ruled on them and added
+four rulings of its own. They are in `PLAN.md`, "Rulings of the build session on the plan", each with
+its reason and with what was checked in the source. In short:
+
+1. The door asks for locks only at need, one request at a time for one stock. In the base one who
+   then gets at most 256 locks for each time that a request's batch takes to close.
+2. No copy of a layer's depot is built. The read for each act-id is a finding for the receipt, and
+   goes to the examination of its own that the project's rule on caching asks for.
+3. The door reads a request's answer and then its locks, as the contract orders.
+4. The locks of one act are taken oldest run first, across the border of two runs.
+5. `seal.clj` gains one function, `sealed-length`, and the door asks it. The plan had measured the
+   length by a run, because the brief of the plan stage closed `seal.clj` to code; the contract
+   closes the gates, the record and the declaration only. A brief of a later stage says what the
+   contract says, and no more.
+6. A request whose append threw is kept as in doubt and waited for once more.
+7. `door/README.md` keeps the four files that a gate requires apart from the door's own three.
+8. A read of a request's locks that came back ends the request, also when it gave too few.
 
 ## For the receipt: what Sid should know, as found so far
 
@@ -116,12 +137,32 @@ is at the end of `IMPLICIT_SPEC.md`):
 Not settled, and not reachable on the in-process cluster: what a Rama worker does with bytes of a Java
 type that it does not have. The door seals `:v` and passes each other part as given.
 
+From the plan and its rulings, for the receipt beside the lists above:
+
+- What the stock costs the base: at most 256 locks for one who for each time that a request's batch
+  takes to close (0.75 to 1.03 s on the in-process cluster, by the plan's probe), and that wait at
+  each send that finds its stock short. What would lift it is not built: a request sent before the
+  stock is empty, or several at once.
+- The read of a layer's depot for each act-id that the door makes: one round trip, and one read on
+  the layer's task, for a row that no act of this build changes. No copy is built.
+- The door's memory has no bound but the life of its process: one stock for each layer, depot and
+  who that wrote a value through it.
+- `seal.clj` gained one function. No gate calls it.
+- A request whose append threw is kept and waited for once more.
+- Not settled by Rama's own word: whether one handle of the client may be used by many threads (one
+  probe run of 16 threads had no error; the local documentation is silent); the number of a query's
+  time limit (one run gave 70 s); whether a client's handles stay good when a module is started
+  again in a real cluster.
+- The words that the plan made, for Sid to change: the six calls, the door's five numbers, the
+  fourteen words, and the words of the stock. They are in `PLAN.md`, "Words a session made".
+
 ## For a session that takes this build over
 
-Written on the evening of 9 October, when the build session stood at about 410,000 tokens with four
-stages still to run. Sid chose a new session that evening ("stop i start a new"), and the build
-session "door build" ended here: nothing of it is running, and the next stage is the plan. Everything that the build session held and a successor needs is in this folder.
-Nothing that matters is only in its chat.
+First written on the evening of 9 October, when the first build session stood at about 410,000
+tokens with four stages still to run. Sid chose a new session that evening ("stop i start a new"),
+and that session ended before the plan. The second session ran the plan and ruled on it. The stage
+table says what is next. Everything that a build session held and a successor needs is in this
+folder. Nothing that matters is only in a chat.
 
 **Where the build stands.** The stage table above says it. One thing a table cannot say: a stage's
 fresh agent is a child of the session that started it and ends with that session. A new session
@@ -138,6 +179,8 @@ parts that did not change from stage to stage.
   template, and leaves no section out: where one does not apply it says why in a line.
 - One paper, or the code; no commit; nothing written outside what the stage owns.
 - It decides nothing that is Sid's. It changes no code of the gates, the record or the declaration.
+  Say it in those words. The plan stage's brief also closed `seal.clj`, `text.clj` and `digest.clj`,
+  and the plan then worked round a private number of `seal.clj` (ruling 5 on the plan).
 - Never read `src/app/server/env.clj` or any `.env` file. No form, name, call shape or default from
   the rig's code, the server's or Inland's; the rig's notes are findings only.
 - Words: "act", "maker", "door", "gate", "depot", "act-id", "stock". "Key" is a fact's key and "lock"
@@ -151,6 +194,8 @@ parts that did not change from stage to stage.
 
 **What to hold the plan to**, beside each ruling. The build session's own list for judging
 `PLAN.md`; the check of the plan is a fresh agent's, and this list is not given to it as answers.
+The plan was held to it on 9 October, and it was not given to the plan's writer either. It stays
+for the build's code and for the review.
 
 1. The door has no thread of its own, and each request is sent inside a maker's call (P16).
 2. The door remembers no layer's depot between two calls (implied spec O2.6). That would be a cache
