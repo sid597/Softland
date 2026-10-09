@@ -40,9 +40,9 @@ so each stage's paper says how it adapts the skill's template.
 | the implied spec; rulings on its 22 open points | done | `3746b4e5` |
 | the split into parts: one part, `door` | done; judged sound | `1a68cde7` |
 | the plan; eight rulings on it | done. Before it ran, the tree under `src-store/` and `test-store/` was checked and had not changed since `c296a459` | `088ff5f6` |
-| the check of the plan; ten rulings on its points | done, 10 October. Verdict minor-fail: fifteen fails, each fixed in `PLAN.md` by the check; ten points, ruled as 9 to 18 | the commit after `088ff5f6` |
-| the build: the door, its proof, the maps | running: one fresh agent, started on 10 October. It commits nothing. When it was cut off, `git status` shows what it wrote; read `IMPLEMENTATION_VALIDATION.md` and `TEST_VALIDATION.md` when they are there, run the four proofs, and start a fresh agent on what is left with the tree as it stands | |
-| one fresh review of the whole against the contract | | |
+| the check of the plan; ten rulings on its points | done, 10 October. Verdict minor-fail: fifteen fails, each fixed in `PLAN.md` by the check; ten points, ruled as 9 to 18 | `e37dc8b1` |
+| the build: the door, its proof, the maps | done, 10 October. The build stage's verdict is pass. The build session read the door's four source files whole, every changed line of the tree's other source files and maps, and the proof's hardest cases, and ran the four proofs itself: act 150, pure 538, module 227, door 162, each with exit 0 | `f33177cb` the door; `1626bab5` its proof; the papers in the commit after |
+| one fresh review of the whole against the contract | running: one fresh agent, started on 10 October. It may change the door and its proof in place and commits nothing. When it was cut off: `git diff` shows what it changed since `1626bab5`; run the four proofs, read `FULL_SPEC_REVIEW.md` when it is there, and start a fresh agent with the tree as it stands | |
 | the receipt to Sid | | |
 
 How a stage is run: a fresh agent reads the skill's doc for its stage, the contract and its read list,
@@ -119,6 +119,43 @@ the check of the plan". Four of them change how a request for locks lives:
 17. The door's first bound of P9 stays the smaller of two limits of the declaration.
 18. The door sets a thread's interrupt mark again after a throw of Rama's client.
 
+**On the build, 10 October.** The build stage wrote the door, its proof and the maps to the plan and
+its eighteen rulings, and reported no bug of the plan and no ruling that could not be built. What the
+build session did before it committed, and what it found:
+
+- It read `door.clj`, `door/additions.clj`, `door/stock.clj` and `door/words.clj` whole, and traced
+  in the code what the check of the plan had traced on paper: a take is one compare-and-set; a seat
+  is given up and a call counts itself out on every way out of `locks-for`; "holds nothing" is read
+  inside the step that brings the count of calls to none, and that step is tried again when another
+  call came in between, because the door's map is changed by identity. It found no fault.
+- It took the stage's ten differences from the plan as built, each small and with its reason in a
+  docstring: among them, that no step is started after a call's wait has ended, the read of locks
+  too, so an answer that the last read of a wait finds is used by the next call and not by this
+  one; and a longest wait of about 73 years, which keeps the clock's arithmetic in range.
+- The stage ran 27 wrong doors, each one change of one source file, against both proofs: each fails
+  the door's proof, and two that the first proof would have passed got cases
+  (`build/mutants/results.txt` under the scratch path).
+- The line of the door's proof on the rows that seal nothing is not the same number in each run:
+  229 of 1,362 lock rows in the stage's last run, 240 of 1,373 in the build session's. The sixteen
+  threads of one group meet the size rule at different moments. The receipt gives the run that it
+  quotes.
+- Two corrections of the build session's own, after its run and in no code: one sentence of
+  `door/README.md` said that no word comes from the rig's code, beside the row on "stock" that says
+  this is not known; and the plan's proof group 8 still read the locks, where ruling 13 reads the
+  answer again first.
+- `PLAN_VALIDATION.md` is the check's paper as the check wrote it. Its sections "Concurrency" and
+  "Failure" forget a request in doubt at the next call's wait and name a state "accepted"; rulings
+  12 and 13 came after it. The plan and the code hold the rulings.
+
+**Another session commits in this repository while this build runs.** On 10 October its commit
+`67ad8d25` took the whole of `src-store/README.md` while the door's three sentences there were in
+the working tree, so those sentences are in that commit and not in the door's. A build session
+stages its own paths by name, never a folder that another session may be writing in, and reads
+`git log` before each commit. That commit also put lines of Sid's of 9 October into the decisions
+(the cases behind H1 A; how often a tool writes; undo; the grain of a value and of an act). The
+build session read them: none is a tick on a row, and none changes what the door does. One meets
+the door and goes to the receipt, below.
+
 ## For the receipt: what Sid should know, as found so far
 
 Places where the contract is not met as written, each ruled in `IMPLICIT_SPEC.md`:
@@ -191,6 +228,20 @@ From the plan and its rulings, for the receipt beside the lists above:
 - By the check's own word, checked least well: the seat, the compare-and-set and the count, traced
   on paper only; one handle on many threads, one probe run; the microbatch gate with an act that
   names the locks of two requests, read and not run. The door's proof has a case for each.
+
+- Sid, 9 October: how often a tool writes is "a spectrum, and that is a choice that layers and tools
+  and groups can make", and "the tool is deciding how much of their different actions are put
+  together inside a single value or inside a single act" (`src-store/README.md`, entry 5 of that
+  day). The door takes any grain: it seals each value of each act. What a grain costs through the
+  door follows the door's five numbers, and those are one set for a process, given by whoever opens
+  the door. A number of the stock by layer, by tool or by maker is not built, and nothing in the
+  contract asks for one. A tool that writes one value for each letter meets a request for locks
+  once in each 64 values of one who in a streaming layer.
+- What the door's proof does not reach, by the build stage's own list: a query that Rama's client
+  throws by itself; an append that a fault of the cluster threw and that went through; an act with
+  a value whose append threw; an empty stock leaving the door's memory, and the race beside it,
+  which no call shows; two takes forced to the same moment; a call that outlasts its bound by a
+  call of Rama's client; speed. Three of its checks rest on a time.
 
 One more row for the queue, decided by nobody: from where the aim for one person (100 acts a second,
 the slowest 1 in 100 at 20 ms) is counted once a door is built: the maker's call, or the door's

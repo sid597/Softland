@@ -1433,8 +1433,8 @@ The door gives a maker no thing, no lock id and no lock. So, as the module's pro
      arguments (one for the depot, two for the answer, four for the locks) and calls Rama for each
      other. No real throw of a query was found that the in-process cluster gives without a fault of
      the cluster: the door tests each thing that it passes to a read before it calls. After
-     `:read-its-requests-locks`, the next send reads the locks of the same request: one request in
-     the log. The short read of an earlier call's request (F7; ruling 11): a send of one value
+     `:read-its-requests-locks`, the next send reads the answer of the same request again and then
+     its locks (ruling 13): one request in the log. The short read of an earlier call's request (F7; ruling 11): a send of one value
      whose read of the request's answer is made to throw leaves a request for 4 open; a send of 10
      values of that who then reads it, asks for its own in the same call and goes in. The log holds
      two requests of that who, for 4 and for 10 or more, and the act names both. The word's other
