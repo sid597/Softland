@@ -162,7 +162,10 @@ Kind: **system sets**. Can change later.
  Decided on 7 October (F7): a bell is a signal; the truth is the record.
  With W3 A, no program outside the store can read the record's tables, and Rama pushes a change by
  itself only from a table that outside programs can read. So the gates keep one table more for the
- bells, readable from outside, with no value in it. What a bell says is this question.
+  bells, readable from outside, with no value in it. What a bell says is this question.
+ Your words of 9 October: for an editor, "each word typed or each letter that you type, how often do
+ those get synced, these are also the decision that the tool has to make, like how collaborative it
+ is, that is a spectrum, and that is a choice that layers and tools and groups can make".
 ```
 
 **When a gate accepts a new fact for a place, what does a screen that shows the place get?**
@@ -192,7 +195,9 @@ Kind: **target**.
  Your words of 7 October: personal work that you engage with directly is "supposed to be fast like
  editor, canvas, 3d roaming around, live collaboration"; and "if they are subscribed to something
  some other layer the data is coming from somewhere else that is not marked as live collaboration
- is fine to come a little bit delayed".
+  is fine to come a little bit delayed".
+ Your words of 9 October: how often a tool writes is "a spectrum, and that is a choice that layers
+ and tools and groups can make".
  The store's target (F9): at least 100 acts each second for one person, each answered within 20 ms
  of the door's append, for the slowest 1 in 100.
  Measured in this build, on one machine: the answer to an act in the base can be read 887 ms after
@@ -297,8 +302,11 @@ Kind: **system sets**. Can change later.
  Alice's note stood on a fact of the base. That fact is replaced, and the note is stale. Alice
  finds out when her screen asks, through the layers of her own context.
  Two askers are not a person who asks through her own context:
-   a forget        must it reach a thing that only stood on the forgotten value, in a layer that
-                   the one who forgets cannot see?
+      a forget        must it reach a thing that only stood on the forgotten value, in a layer that
+                   the one who forgets cannot see? Your words of 9 October: "if we delete a block, we
+                   might also want to delete some thing more related to it. For example, some context
+                   around it that was added, some relation link, etc.", and "we might forget that, even
+                   though the intent would be to delete".
    a promotion     how many things, in all layers, stand on what it replaces?
  Whichever you tick: each act keeps its :based-on in the depot, the depots are never trimmed, and
  the record keeps the answer to each act. So a list over all layers can be built from the two on a

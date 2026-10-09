@@ -4,9 +4,11 @@ This tree holds the code of the store that is built to stay. The implementation
 lives beneath [softland/](softland/README.md). It holds the act: the one form of
 what a maker gives to the store, and the check of that form. And it holds the
 store's Rama module: the two depots, the streaming gate and the microbatch gate,
-the record that each gate keeps, and the reads by act-id. The pure code owns no
-state. The module's state, the depots and the records, is durable in the cluster
-that runs it.
+the record that each gate keeps, and the reads by act-id. And it holds the door:
+the client code that takes a maker's act into a depot and reads its answer back.
+The pure code owns no state. The module's state, the depots and the records, is
+durable in the cluster that runs it. The door's state, its stocks of unused
+locks, is the memory of one process.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
@@ -19,6 +21,7 @@ Start with the question you are carrying:
 | What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
 | What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
 | What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and [batch.clj](softland/store/gate/batch.clj) |
+| How does a maker's act get into the store, and how is its answer read? | The namespace docstring of [door.clj](softland/store/door.clj), then [door/](softland/store/door/README.md) for its choices and its words |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
@@ -34,7 +37,7 @@ require of any of them from here fails at load.
   proofs run on it. It is the guard that the pure code needs nothing else: a pure
   namespace that came to require Rama would fail to load here.
 - `:store-module` holds Clojure and Rama (`com.rpl/rama` 1.6.0), and the same JVM
-  options. The module and its proof run on it. It is a whole alias and not an
+  options. The module and its proof run on it, and so do the door and its proof. It is a whole alias and not an
   addition to `:store`: with Rama in `:store`, the guard above would be gone.
   Rama's helper library is left out; the module uses none of it.
 
@@ -265,10 +268,15 @@ chose, and the fourth waits for two words.
      Values that share a lock can still be forgotten one by one: the others
      are written again under new locks and the shared lock is destroyed, and
      the others then lose their earlier versions.
-   - What a forget takes with it is chosen when forgetting, not when writing.
-     The things around a forgotten value, its links and its context, were
-     written in other acts, sittings and layers, so a lock for each act or for
-     each sitting would not have taken them either. The store owes the one who
+   - His two cases, which the choice turned on. Against a lock for a sitting: "if everything was
+     written in one session, and then we want to forget something, but keep like ninety nine percent
+     of it, that might not be possible because we have a single log for everything that was done".
+     And the worry he raised against the fine grain: "if we delete a block, we might also want to
+     delete some thing more related to it. For example, some context around it that was added, some
+     relation link, etc.", and "we might forget that, even though the intent would be to delete". A
+     session's, from that: what a forget takes with it is chosen when forgetting, not when writing;
+     the things around a forgotten value were written in other acts, sittings and layers, so a lock
+     for each act or for each sitting would not have taken them either. The store owes the one who
      forgets the means to find them (the queue, K11; W8 of the reads sheet
      names "a forget" as an asker).
 3. **The system can hold many layers.** Sid decided (K3 A): "my preference is
@@ -296,7 +304,9 @@ chose, and the fourth waits for two words.
    decided (K4 B). He asked what it is for, from the side of those who build
    on Softland: "if someone is building like 50 layers of uh, different tools
    on top of each other then they would have to answer it each time right",
-   and "what are we trying to do here". A session's answer, which he heard
+   and "what are we trying to do here". His own reason for deciding it now, in his words: "I have to
+   decide it right now because then we would be exporting the thinking process and going more of the
+   same question every time for like literally say like billions of times". A session's answer, which he heard
    before he decided: B asks a builder nothing. It gives the bare words back
    to the tools; it keeps a tool's own fact from being read as the store's;
    and it leaves the store room for more keys, where a bare word taken later
@@ -330,3 +340,16 @@ Open, and built to a working answer until Sid decides:
 - **What a key is (K5).** The code holds a key to a readable keyword, with a
   namespace or without one. The rulings file of September says that a key is
   an id, and that its word and its grammar are facts about it.
+
+5. **Beside the four: what Sid said on 9 October that no box asked.** Positions in his
+   words, kept here because the reads sheet asks about each; none is a tick on a row.
+   - How often a tool writes: "for an editor we do write things into it, so each word typed or each
+     letter that you type, how often do those get synced, these are also the decision that the tool
+     has to make, like how collaborative it is, that is a spectrum, and that is a choice that layers
+     and tools and groups can make". Bears on W4 and W5 of the reads sheet, and on K12.
+   - Undo and redo: "what does undo and redo mean, if it is like per value how much are we undoing,
+     and if we take that as an act then it becomes a little bit easier to think about it, but maybe all
+     this could be tool choice because we cannot make that decision right now".
+   - The grain of a value and of an act: "the tool is deciding how much of their different actions
+     are put together inside a single value or inside a single act".
+   - The word for whatever makes an act: "maker is fine general word for what we are doing imo".
