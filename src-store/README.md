@@ -288,7 +288,9 @@ chose, and the fourth waits for two words.
    7 October), so with the base alone the system could hold nothing that
    answers one act at once. Open: how layers build on layers (W2 of the reads
    sheet), how a person's tool becomes the system's (K13), who may act as the
-   system (K9), and what the "world group" of his line of 8 October is (K14).
+   system (K9), and whether the "world group" of his line of 8 October is the
+   base (K14). His line of 2 October: "world is the open group that every
+   group if make open their data publishes to".
 4. **The store's own keys carry a namespace; they are not bare words.** Sid
    decided (K4 B). He asked what it is for, from the side of those who build
    on Softland: "if someone is building like 50 layers of uh, different tools
