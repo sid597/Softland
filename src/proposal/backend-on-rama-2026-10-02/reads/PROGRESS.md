@@ -77,9 +77,10 @@ it adapts the skill's template.
 | the implied spec, with the check of each "as built" line of the contract against the code; rulings on its 31 points | done | `dc70e98b` |
 | the split into parts: three, `base-for-a-reader`, `what-the-gates-keep`, `read-path`; rulings 32 to 39 on its notes | done; judged sound | in the commit after `dc70e98b` |
 | the plan of `base-for-a-reader` | running | — |
-| the plan of `what-the-gates-keep` | running, beside the one above (ruling 38) | — |
-| the plan of `read-path` | starts when the plan of `what-the-gates-keep` is written | — |
-| the check of each plan | — | — |
+| the plan of `what-the-gates-keep`; rulings 40 to 45 on its five points | done | in the commit after `a8c1783b` |
+| the plan of `read-path` | running, from the hand-off section of the plan above | — |
+| the check of the plan of `what-the-gates-keep` | running; it reads the other plan of the walk when that is in | — |
+| the check of the two other plans | — | — |
 | the build of each part | — | — |
 | one fresh review of the whole against the contract | — | — |
 | the measures of the contract's section C | — | — |
@@ -328,6 +329,39 @@ carry its name: `PLAN-<part>.md`, `PLAN_VALIDATION-<part>.md`, and so on.
 39. **The head comments.** Three source files tell whoever changes them to read the store-module's
     plan of that part again. The plan sessions read those plans' sections on the walks. Each such
     comment gains this build's plan of the part that changed the file.
+
+### On the plan of `what-the-gates-keep` (`PLAN-what-the-gates-keep.md`), its five points
+
+The build session read the plan's "PState Design" (the fact's row, the three keys, the permission, the
+mark, the facts by value), its hand-off section, its open points and its difficulty log whole. The
+forms are judged sound and go to the check as they stand.
+
+40. **A mark of a key in the store's namespace is refused**, by the declaration, with a plain word. The
+    store's own facts are not kept in the other order (the plan's point 1, its (a)).
+41. **A key that is newly marked in a microbatch layer gets the last stamp of its batch**, not the
+    stamp of the act that marked it (point 2, (a)). One sentence then holds for both gates, and a read
+    may say it: the order of a marked key holds every fact under that key whose stamp is later than
+    the key's stamp, and no other. It adds two lines and one argument to step 2 of the walk, beside
+    the clock's lines of the other part and not in them; the two checks read those lines together.
+42. **The "text that no other value has" of ruling 10 is the SHA-256 of the value's bytes**, 64 hex
+    characters in the row's key (point 3, (a)). A key then has a bound whatever the value is, and a
+    value's text may hold a space.
+43. **Since which stamp a key's order is level is kept in the row of the marks**, as a field that the
+    gate derives (point 4, (a)), and that stamp is part of each row's key in the other order. A mark
+    that is taken off and put on again gets a new stamp, so it names other rows; the rows of the
+    earlier marking stay and no read names them. This is how ruling 20 is met.
+44. **A reply carries the row before with its whole value**, as today (point 5, (a)); the measures say
+    whether that must change.
+45. **Where the microbatch gate reads the marks.** Ruling 18 counted one read on the act's own task.
+    The plan has the home task of each place read the marks in step 2, once for each task and layer in
+    a batch, with the place's row before in hand. It is the same single read for an act on one entity
+    that is alone in its batch, fewer under load, and one for each task for an act that is spread
+    over several. Taken as the plan has it; it replaces that sentence of ruling 18.
+
+For the receipt, from this plan: after A1 no row of the facts table names a lock, so a lock is found
+only from the act in the depot; one value that very many places hold is a run on one task, which the
+contract's "a run of neighbouring rows" asks for; the removal of a row of the other order rests on a
+navigator that the store has not run before, so the build's proof must show it.
 
 ## For the receipt: what Sid should know, as found so far
 
