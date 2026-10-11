@@ -16,7 +16,9 @@
 
     batch          the things that one run of the gate takes from the depot
     turn           the number of a thing in its batch. The acts of a batch
-                   are decided in the order of their turns
+                   are decided in the order of their turns, with one thing
+                   that is not: a mark of a key holds from the batch after
+                   (see \"The marked keys\", below)
     base           the first stamp of a batch. An act's stamp is the base
                    plus its turn
     deciding task  the task that the hash of the entity of an act's first
@@ -34,10 +36,11 @@
                    sent to the meeting task
     pass           the walk of a meeting task over the acts sent to it
 
-  A value never names a task. It names a route: an id whose hash the gate's
-  partitioner turns into a task. The route of an answer is the uuid of its
-  act-id; of a fact, its entity; of a lock's home, its request's uuid; of an
-  act, the entity of its first fact; of an act that meets, its layer.
+  A value never names a task. It names a route: an id or a text whose hash
+  the gate's partitioner turns into a task. The route of an answer is the
+  uuid of its act-id; of a fact, its entity; of a lock's home, its request's
+  uuid; of a row of the facts by value, its value digest; of an act, the
+  entity of its first fact; of an act that meets, its layer.
 
   The data between these functions and the gate, by step of the gate's walk.
 
@@ -46,25 +49,67 @@
             key. The kinds: :entry, the act as step 3 needs it, under its
             turn; :answer, :place and :locks, the questions, under the key
             of the row asked for; :numbers, what the gate's task needs for
-            the base.
+            the base. A question about a place also holds :marks-place, the
+            key of its layer's marked-keys place, and :k, the fact's key.
     step 2  `base` and `last-stamp-of-batch` on the gate's task. On each
-            task `reads-of` gives one read for each key that was asked for,
-            and `replies` gives [route turn [reply]] for each asker.
+            task `marks-places-asked` names the marked-keys places that the
+            task reads from its own copy, once for a layer; `reads-of`
+            gives one read for each key that was asked for, with :since for
+            a place whose key is marked; `batch-end` gives the last stamp
+            that the batch can hold; and `replies` gives
+            [route turn [reply]] for each asker. The reply about an answer
+            carries :batch-end; the reply about a place under a marked key
+            carries :since.
     step 3  `items-of-task` joins a task's entries with their replies and
-            marks which acts meet (`who-meets`). `own-places-wanted` names
-            the rows that the task reads for an act at its turn.
-            `decide-or-send` gives the fact rows to write at once and the
-            parcels, each [route kind payload].
-    step 4  `rows-in-write-order` gives the rows that a task was sent.
-            `acts-that-meet` gives the acts sent to a meeting task, and
-            `decide-next` decides one of them against the rows that earlier
-            acts of the pass wrote. `rows-to-send` gives the rows of a pass.
+            marks which acts meet (`who-meets`). An item holds
+            :since-by-place, the stamp of each of its places whose key is
+            marked. `own-places-wanted` names the rows that the task reads
+            for an act at its turn. `decide-or-send` gives the fact rows to
+            write at once and the parcels, each [route kind payload].
+    step 4  `rows-in-write-order` gives the rows that a task was sent, a
+            row of the kind :by-value among them; a row of that kind that
+            is nil takes its key out. `acts-that-meet` gives the acts sent
+            to a meeting task, and `decide-next` decides one of them
+            against the rows that earlier acts of the pass wrote.
+            `rows-to-send` gives the rows of a pass.
+
+  The marked keys. A layer marks a key by a fact whose row every task holds
+  (`on-every-task?`). For a fact under a marked key the gate keeps one more
+  row, in the facts by value, on the task of the value's digest; and it
+  takes the row of the value before out, which needs the row before of the
+  fact's place. Three things follow here.
+
+    Where the marks are read. On the home task of a place, in step 2, from
+    that task's own copy, once for each layer that the batch's questions
+    name there. Nothing writes the facts in steps 1 and 2, and the batch
+    before is committed on every task before this one starts; so every act
+    of a batch is decided with the marks as every task held them when the
+    batch began, the same on every attempt. That is why a mark holds from
+    the batch after, whatever the turns of the mark and of a fact are. A
+    key that is newly marked gets the last stamp of its batch
+    (`batch-end`), which is not below any stamp of that batch. So one
+    sentence holds: the order of a marked key holds every fact under that
+    key whose stamp is later than the key's stamp, and no other.
+
+    The row before. A place under a marked key is read when an asker does
+    not have it as its own, and its row goes in the reply; an asker reads
+    its own place at its turn (`own-places-wanted`).
+
+    Two acts on one place under a marked key meet, also when each has the
+    place as its own. A row of the facts by value lives on a third task,
+    and what several tasks or steps send there has no order; so every key
+    of that order has one writer in a batch, or all its writers are in one
+    pass, which decides them in turn and sends one row for a key, the last.
+    When the first of two such acts puts an entry and the second takes it
+    out, the row sent is the removal: a key that was never written is taken
+    out, which changes nothing.
 
   State and effects. None.
 
   Callers. `softland.store.module.microbatch-gate`, and `softland.store.module`
   for `first-entity`, by which the microbatch depot partitions."
-  (:require [softland.store.gate.decision :as decision]
+  (:require [softland.store.door.declaration :as declaration]
+            [softland.store.gate.decision :as decision]
             [softland.store.door.digest :as digest]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record]
@@ -149,13 +194,28 @@
 
 ;; --------------------------------------------- step 1: arrive and question
 
+(def ^:private keys-on-every-task
+  "The store keys whose rows every task holds in a microbatch layer."
+  #{:softland.store/depot
+    :softland.store/permission
+    :softland.store/who-may-see
+    :softland.store/builds-on
+    :softland.store/marked-keys})
+
 (defn on-every-task?
-  "Takes a fact's key. Gives true for the two store keys whose rows every
-  task holds in a microbatch layer: `:softland.store/depot` and
-  `:softland.store/permission`. Every act needs the permission of its
-  `:who` on the task where it is decided, so a copy is on each."
+  "Takes a fact's key. Gives true for the five store keys whose rows every
+  task holds in a microbatch layer: `:softland.store/depot`,
+  `:softland.store/permission`, `:softland.store/who-may-see`,
+  `:softland.store/builds-on` and `:softland.store/marked-keys`. Every act
+  needs the permission of its `:who` on the task where it is decided, so a
+  copy is on each. A gate reads a layer's marked keys on the home task of
+  each place, and a reader finds who may see a layer and what it builds on
+  on the task where it reads. Each is small and written rarely. What follows
+  from this one function: such a fact asks no question (`questions`), its
+  act goes to the meeting task (`who-meets`), and its row is sent to every
+  task (`routed`)."
   [k]
-  (or (= :softland.store/depot k) (= :softland.store/permission k)))
+  (contains? keys-on-every-task k))
 
 (defn- place-of
   "Takes an act and one of its facts. Gives the key of the fact's place."
@@ -192,11 +252,15 @@
   permission; and the row at the place of the layer's depot, read only when
   the first is nil. Gives {:standing word}, with one of:
 
-    :stands  the row holds the act's permission
+    :stands  the row holds the act's permission, and it allows acting
     :final   the act is refused for its standing, and nothing in this batch
              can change that. :word is the reason. A permission row that is
              there never changes, and a permission whose holder is not the
-             act's `:who` can never come to be in `:who`'s place
+             act's `:who` can never come to be in `:who`'s place. A row
+             that holds the act's permission, where that permission says
+             `:see`, is final too, with the word
+             :permission-does-not-allow-acting: the act then asks for its
+             answer only, and for none of its rows
     :open    the permission's place is empty, and a give or a making act of
              this batch could still fill it. The act goes to the meeting
              task. :layer-in-record? says whether the depot row was there;
@@ -204,7 +268,11 @@
   [act permission-row depot-row]
   (let [word (decision/standing gates-depot act permission-row depot-row false)]
     (cond
-      (record/holds-plain-value? permission-row (:permission act))
+      (and (record/holds-value? permission-row (:permission act))
+           (= :permission-does-not-allow-acting word))
+      {:standing :final :word word}
+
+      (record/holds-value? permission-row (:permission act))
       {:standing :stands}
 
       (or permission-row (and depot-row (= :who-not-the-permissions-holder word)))
@@ -225,7 +293,9 @@
                 the fact names something to replace, so the row is needed.
                 :own? says that the entity is the act's first entity, so the
                 place is on the act's own deciding task and is read there at
-                its turn
+                its turn. :marks-place is the key of the layer's marked-keys
+                place and :k the fact's key: the home task reads from them
+                whether the place's key is marked
     :locks      to the task of a request's uuid, once for each request whose
                 locks the act names: the range of keys that
                 `softland.store.gate.decision/lock-ranges` gives, and the indexes
@@ -233,15 +303,16 @@
     :new-locks  to the task of the act's own uuid, for a request of its own:
                 how many locks it will make
 
-  A fact under :softland.store/depot or :softland.store/permission asks
-  nothing: every task holds its row. The two kinds about locks are gathered
+  A fact under a key whose row every task holds (`on-every-task?`) asks
+  nothing. The two kinds about locks are gathered
   under one key, the answer key of the request, so that a request and each
   use of its locks are seen together."
   [act turn to asks-rows?]
   (let [layer (:layer act)
         act-uuid (nth (:act-id act) 2)
         asker {:turn turn :to to}
-        first-e (first-entity-of act)]
+        first-e (first-entity-of act)
+        marks-place (decision/marked-keys-place act)]
     (into [[act-uuid :answer (record/answer-key layer act-uuid) [(assoc asker :question :answer)]]]
           (when asks-rows?
             (concat
@@ -250,7 +321,9 @@
                [(:e fact) :place (place-of act fact)
                 [(assoc asker :question :place
                         :wanted? (some? (:replaces fact))
-                        :own? (= first-e (:e fact)))]])
+                        :own? (= first-e (:e fact))
+                        :marks-place marks-place
+                        :k (:k fact))]])
              (for [[request-uuid indexes] (lock-indexes-by-request act)]
                [request-uuid :locks (record/answer-key layer request-uuid)
                 [(assoc asker :question :locks
@@ -361,34 +434,76 @@
 
 ;; ------------------------------------------------------ step 2: the replies
 
+(defn marks-places-asked
+  "Takes what a task gathered in step 1, a map from kind to key to
+  questions. Gives the keys of the marked-keys places that the task reads
+  from its own copy before it replies: the one of each layer that a question
+  about a place under a plain key names, each once, in the order of the
+  keys. So the marks cost one read for a task and a layer in a batch,
+  however many acts the batch holds. A question about the place of a request
+  for locks names none: no store key can be marked, so a batch of requests
+  reads no marks."
+  [asked]
+  (->> (vals (:place asked))
+       (apply concat)
+       (remove #(declaration/store-key? (:k %)))
+       (keep :marks-place)
+       (distinct)
+       (sort)
+       (vec)))
+
 (defn reads-of
   "Takes what a task gathered in step 1, a map from kind to key to
-  questions. Gives one read for each key that was asked for, as a map:
+  questions; and the rows of `marks-places-asked` as the task read them, a
+  map from key to row. Gives one read for each key that was asked for, as a
+  map:
 
     {:about :answer :key k :questions qs}
-    {:about :place  :key k :questions qs :read? whether the row is read: an
-                    asker that does not have the place as its own wants it}
+    {:about :place  :key k :questions qs
+                    :since the stamp of the place's key, only when the
+                    layer marks that key
+                    :read? whether the row is read: an asker that does not
+                    have the place as its own wants it, because its fact
+                    names something to replace or because the key is
+                    marked}
     {:about :locks  :key k :questions qs :ranges the ranges of lock keys to
-                    read, each once}"
-  [asked]
-  (vec (concat
-        (for [[k qs] (:answer asked)]
-          {:about :answer :key k :questions qs})
-        (for [[k qs] (:place asked)]
-          {:about :place :key k :questions qs
-           :read? (boolean (some #(and (:wanted? %) (not (:own? %))) qs))})
-        (for [[k qs] (:locks asked)]
-          {:about :locks :key k :questions qs
-           :ranges (vec (distinct (keep :range qs)))}))))
+                    read, each once}
+
+  The questions about one place name one layer and one key, so the first
+  tells both."
+  [asked marks-rows]
+  (let [marked-at (into {} (map (fn [[place row]] [place (record/marked-keys-of row)])) marks-rows)]
+    (vec (concat
+          (for [[k qs] (:answer asked)]
+            {:about :answer :key k :questions qs})
+          (for [[k qs] (:place asked)]
+            (let [asked-first (first qs)
+                  since (get (get marked-at (:marks-place asked-first)) (:k asked-first))]
+              (cond-> {:about :place :key k :questions qs
+                       :read? (boolean (some #(and (or (:wanted? %) since) (not (:own? %))) qs))}
+                since (assoc :since since))))
+          (for [[k qs] (:locks asked)]
+            {:about :locks :key k :questions qs
+             :ranges (vec (distinct (keep :range qs)))})))))
+
+(defn batch-end
+  "Takes the base of a batch, or nil; its numbers; and the module's number of
+  tasks. Gives nil for a batch with no base, else the last stamp that the
+  batch can hold (`last-stamp-of-batch`): the stamp that a key gets when an
+  act of this batch marks it. It reads no clock; a task computes it from
+  what the gate's task handed on, and every task gets the same number."
+  [base numbers tasks]
+  (when base
+    (last-stamp-of-batch base numbers tasks)))
 
 (defn- answer-replies
   "The replies about an act-id. Takes the answer's row or nil, the
-  questions, the batch's clock and its base. A row there: each asker is told
-  :used. No row: the asker with the least turn is told :yours, each other
-  :taken-in-this-batch. This is check (a): the first thing under an act-id
-  uses it, whether it is then accepted or refused. The reply carries the
-  clock and the base to the task that decides."
-  [row qs now-millis base]
+  questions, the batch's clock, its base and its end. A row there: each
+  asker is told :used. No row: the asker with the least turn is told :yours,
+  each other :taken-in-this-batch. This is check (a): the first thing under
+  an act-id uses it, whether it is then accepted or refused. The reply
+  carries the clock, the base and the batch's end to the task that decides."
+  [row qs now-millis base batch-end]
   (let [first-turn (reduce min (map :turn qs))]
     (mapv (fn [q]
             [(:to q) (:turn q)
@@ -397,21 +512,28 @@
                            (= first-turn (:turn q)) :yours
                            :else :taken-in-this-batch)
                :clock now-millis
-               :base base}]])
+               :base base
+               :batch-end batch-end}]])
           qs)))
 
 (defn- place-replies
-  "The replies about a place. Takes the place's key, its row or nil, and the
-  questions. The place is shared when more than one act of the batch names
-  it, unless each of them has it as its own. The row goes to each asker
-  that wants it and does not have the place as its own."
-  [k row qs]
+  "The replies about a place. Takes the place's key; its row or nil; the
+  questions; and the stamp of the place's key when the layer marks it, else
+  nil. Under a key that is not marked the place is shared when more than one
+  act of the batch names it, unless each of them has it as its own; and the
+  row goes to each asker that wants it and does not have the place as its
+  own. Under a marked key the place is shared whenever two acts of the batch
+  name it, so that both go to the meeting task; each asker is told :since,
+  the key's stamp; and the row goes to each asker that does not have the
+  place as its own, whether its fact names something to replace or not."
+  [k row qs since]
   (let [shared? (boolean (and (< 1 (count (distinct (map :turn qs))))
-                              (not (every? :own? qs))))]
+                              (or since (not (every? :own? qs)))))]
     (mapv (fn [q]
             [(:to q) (:turn q)
              [(cond-> {:about :place :key k :shared? shared?}
-                (and (:wanted? q) (not (:own? q))) (assoc :row row))]])
+                since (assoc :since since)
+                (and (or (:wanted? q) since) (not (:own? q))) (assoc :row row))]])
           qs)))
 
 (defn- lock-replies
@@ -450,22 +572,26 @@
 (defn replies
   "The replies of a home task about one key. Takes one read of `reads-of`;
   what the gate read for it: the answer's row, the place's row, or the lock
-  rows as a map, nil when nothing was read; the batch's clock; and its base.
-  Gives one [route turn [reply]] for each asker. A reply holds :about, and:
+  rows as a map, nil when nothing was read; the batch's clock; its base; and
+  its end (`batch-end`). Gives one [route turn [reply]] for each asker. A
+  reply holds :about, and:
 
     about an answer     :says, one of :yours, :used, :taken-in-this-batch;
-                        :clock and :base
-    about a place       :key, :shared?, and :row when the asker wanted it
+                        :clock, :base and :batch-end
+    about a place       :key, :shared?, and :row when the asker wanted it.
+                        Under a marked key also :since, the key's stamp,
+                        and the row for each asker that does not have the
+                        place as its own
     about locks         :shared?, and :rows, a map from key to row
     about new locks     :shared?
 
   The asker of the reply is found by the route, the task that decides the
   act, and by the turn."
-  [read found now-millis base]
+  [read found now-millis base batch-end]
   (let [qs (:questions read)]
     (case (:about read)
-      :answer (answer-replies found qs now-millis base)
-      :place (place-replies (:key read) found qs)
+      :answer (answer-replies found qs now-millis base batch-end)
+      :place (place-replies (:key read) found qs (:since read))
       :locks (lock-replies found qs)
       [])))
 
@@ -473,16 +599,24 @@
 
 (defn- with-replies
   "Takes an entry and the replies gathered for its turn. Gives the entry
-  with what the replies say: :says, :clock and :base from the reply about
-  its answer; :shared?, true when any reply says so; :place-rows, the rows
-  of the places it asked for; :lock-rows, the rows of the locks it names."
+  with what the replies say: :says, :clock, :base and :batch-end from the
+  reply about its answer; :shared?, true when any reply says so;
+  :place-rows, the rows of the places it asked for; :since-by-place, a map
+  from the key of each of its places whose key is marked to that key's
+  stamp; :lock-rows, the rows of the locks it names."
   [entry replies]
   (let [answer (first (filter #(= :answer (:about %)) replies))]
     (assoc entry
            :says (:says answer)
            :clock (:clock answer)
            :base (:base answer)
+           :batch-end (:batch-end answer)
            :shared? (boolean (some :shared? replies))
+           :since-by-place (into {}
+                                 (keep (fn [reply]
+                                         (when (and (= :place (:about reply)) (:since reply))
+                                           [(:key reply) (:since reply)])))
+                                 replies)
            :place-rows (into {}
                              (keep (fn [reply]
                                      (when (and (= :place (:about reply)) (contains? reply :row))
@@ -514,12 +648,14 @@
   "Which acts of a task go to the meeting task. Takes the task's items.
   Gives the set of their turns. An act goes when:
 
-    1. it holds a fact under :softland.store/depot or
-       :softland.store/permission: it writes a row that every task holds;
+    1. it holds a fact under a key whose row every task holds
+       (`on-every-task?`): a layer's depot, a permission, who may see the
+       layer, what it builds on, its marked keys;
     2. its standing is :open: the place of its permission is empty, and an
        earlier act of this batch may fill it;
     3. a reply says :shared: a place or a lock that it names is named by an
-       act that cannot be put in order with it on this task;
+       act that cannot be put in order with it on this task, or a place
+       under a marked key that it names is named by another act at all;
     4. an act of this task with an earlier turn that goes to the meeting
        task names one of its own places.
 
@@ -564,7 +700,11 @@
   {:which :key :row :home :every-task?}:
 
     :fact       home: the fact's entity. :every-task? is true for a fact
-                under :softland.store/depot or :softland.store/permission
+                under a key whose row every task holds (`on-every-task?`)
+    :by-value   a row of the facts by value, or nil for a key to take out.
+                Home: the value digest that the key holds
+                (`softland.store.record.rows/by-value-route`), so the run of
+                one value is on one task
     :lock       the whole row of a lock that the act uses, with its bytes.
                 Home: the entity of the value that it seals
     :lock-home  the home's row of that lock, with no bytes. Home: the uuid
@@ -597,6 +737,8 @@
                          :home request-uuid :every-task? false}
                         {:which :lock :key k :row row
                          :home (:e fact) :every-task? false}])
+               :by-value [{:which :by-value :key k :row row
+                           :home (record/by-value-route k) :every-task? false}]
                :new-lock [{:which :new-lock :key k :row nil :home act-uuid :every-task? false}]
                :answer [{:which :answer :key k :row row :home act-uuid :every-task? false}]
                [])))
@@ -604,39 +746,60 @@
 
 (defn- decided
   "The decision of one act, with every row that it needs in hand. Takes what
-  is known of the act, {:act-id :act :digest :clock :base :turn}; the row at
-  the place of `:who`'s permission and the row at the layer's depot place,
-  each as it is at the act's turn; whether the other gate's record holds the
-  layer; the rows of its places; and its lock rows. It calls the checks of
-  `softland.store.gate.decision` in their order: the 10-second rule, the
-  standing, the places, the seals. Gives the routed rows that the decision
-  writes: the answer alone for a refusal."
-  [{:keys [act-id act digest clock base turn]} permission-row depot-row other-holds? place-rows lock-rows]
-  (let [refused (or (decision/refused-early clock act nil)
-                    (decision/standing gates-depot act permission-row depot-row other-holds?)
-                    (decision/places gates-depot act
-                                     (decision/makes-the-layer? gates-depot act permission-row depot-row other-holds?)
-                                     place-rows)
-                    (decision/seals gates-depot act lock-rows))]
-    (routed act-id act (decision/writes act-id act refused (stamp-of-turn base turn) digest lock-rows))))
+  is known of the act,
+  {:act-id :act :digest :clock :base :turn :since-by-place :batch-end}; the
+  row at the place of `:who`'s permission and the row at the layer's depot
+  place, each as it is at the act's turn; whether the other gate's record
+  holds the layer; the rows of its places; and its lock rows. It calls the
+  checks of `softland.store.gate.decision` in their order: the 10-second
+  rule, the standing, the places, the seals. Each sealed value is opened
+  once, only when no earlier check refused the act. Gives the routed rows
+  that the decision writes: the answer alone for a refusal.
+
+  `:since-by-place` is what step 2's replies said of the act's places: the
+  marks as the batch began. `:batch-end` is the stamp that a key gets which
+  the act newly marks. What must hold for an accept: the place rows hold
+  the row before of each place of `:since-by-place`, and of the marked-keys
+  place when the act writes it."
+  [{:keys [act-id act digest clock base turn since-by-place batch-end]}
+   permission-row depot-row other-holds? place-rows lock-rows]
+  (let [refused-before (or (decision/refused-early clock act nil)
+                           (decision/standing gates-depot act permission-row depot-row other-holds?)
+                           (decision/places gates-depot act
+                                            (decision/makes-the-layer? gates-depot act permission-row depot-row other-holds?)
+                                            place-rows))
+        opened (when-not refused-before (decision/opened gates-depot act lock-rows))
+        refused (or refused-before (:refused opened))
+        in-hand (if refused
+                  {}
+                  {:lock-rows lock-rows
+                   :plain (:plain opened)
+                   :since-by-place since-by-place
+                   :place-rows place-rows
+                   :level-from batch-end})]
+    (routed act-id act (decision/writes act-id act refused (stamp-of-turn base turn) digest in-hand))))
 
 ;; ---------------------------------------------------------- step 3: decide
 
 (defn own-places-wanted
   "Takes an item. Gives the keys of the rows that the deciding task reads
-  for it at its turn: its own places whose fact names something to replace.
-  None for an item that is not decided, for an act that asked for no rows,
-  and for an act that the 10-second rule refuses."
+  for it at its turn: its own places whose fact names something to replace,
+  and its own places whose key is marked (`:since-by-place`), whose row
+  before gives the entry to take out of the facts by value. None for an item
+  that is not decided, for an act that asked for no rows, and for an act
+  that the 10-second rule refuses."
   [item]
   (let [act (:act item)]
     (if (and (to-decide? item)
              (:asks-rows? item)
              (nil? (decision/refused-early (:clock item) act nil)))
-      (let [first-e (first-entity-of act)]
+      (let [first-e (first-entity-of act)
+            marked (:since-by-place item)]
         (into []
-              (comp (filter (fn [fact] (and (:replaces fact)
-                                            (= first-e (:e fact))
-                                            (not (on-every-task? (:k fact))))))
+              (comp (filter (fn [fact] (and (= first-e (:e fact))
+                                            (not (on-every-task? (:k fact)))
+                                            (or (:replaces fact)
+                                                (contains? marked (place-of act fact))))))
                     (map (fn [fact] (place-of act fact))))
               (:facts act)))
       [])))
@@ -663,12 +826,15 @@
                  fails: it comes before the standing in the order of the
                  checks
     an act that meets   one parcel of the kind :meet, to its layer's task:
-                 the act, its digest, the clock and the base, its two
-                 standing rows, and the rows of its places and locks
+                 the act, its digest, the clock, the base and the batch's
+                 end, its two standing rows, the rows of its places and
+                 locks, and the stamp of each of its places whose key is
+                 marked
     any other act   decided here. Each row but the facts of its own places
                  is a parcel of the kind :rows, to the row's home; also both
                  rows of a lock that it uses, so that step 4 writes them in
-                 its order"
+                 its order, and each row of the facts by value, a row that
+                 is nil among them"
   [item own-rows]
   (let [{:keys [says act-id act turn clock base refused standing]} item]
     (cond
@@ -691,7 +857,8 @@
 
       :else
       (let [known {:turn turn :act-id act-id :act act :digest (digest/digest (:thing item))
-                   :clock clock :base base}
+                   :clock clock :base base
+                   :since-by-place (:since-by-place item) :batch-end (:batch-end item)}
             place-rows (merge (:place-rows item) own-rows)]
         (if (:meets? item)
           {:now []
@@ -764,10 +931,15 @@
 (defn meeting-reads
   "Takes a pass and an act sent to the meeting task. Gives the keys that the
   meeting task reads from its own copy of the rows that every task holds:
-  the place of each fact of the act under :softland.store/permission, and of
-  each fact under :softland.store/depot that names something to replace.
-  None when neither the record nor the pass holds anything of the layer,
-  and none that the pass wrote."
+  the place of each fact of the act under :softland.store/permission; of
+  each fact under :softland.store/depot, :softland.store/who-may-see or
+  :softland.store/builds-on that names something to replace; and of each
+  fact under :softland.store/marked-keys, whether it names something to
+  replace or not, since its row before gives the stamps that its keys keep.
+  An act that holds no fact under :softland.store/marked-keys does not read
+  the marks here: it has the stamp of each of its places from step 2. None
+  when neither the record nor the pass holds anything of the layer, and none
+  that the pass wrote."
   [pass sent]
   (let [act (:act sent)
         [permission-row depot-row] (standing-rows-at-turn pass sent)
@@ -775,8 +947,11 @@
     (if (and (nil? permission-row) (nil? depot-row))
       []
       (into []
-            (comp (filter (fn [fact] (or (= :softland.store/permission (:k fact))
-                                         (and (= :softland.store/depot (:k fact)) (:replaces fact)))))
+            (comp (filter (fn [fact]
+                            (let [k (:k fact)]
+                              (or (= :softland.store/permission k)
+                                  (= :softland.store/marked-keys k)
+                                  (and (on-every-task? k) (:replaces fact))))))
                   (map (fn [fact] (place-of act fact)))
                   (remove #(contains? written %)))
             (:facts act)))))
@@ -804,8 +979,13 @@
   the pass after the act.
 
   Each row is taken as it is at the act's turn: what an earlier act of the
-  pass wrote, else what the meeting task read, else what the act carried. A
-  lock that a request of this pass makes has no bytes yet, so the check of
+  pass wrote, else what the meeting task read, else what the act carried.
+  So of two acts of a pass that write one place under a marked key, the
+  second takes out the entry that the first put; and of two that write the
+  marks, the second finds the first one's stamps, so a key that both hold
+  keeps one stamp. Which keys are marked is not taken from the pass: each
+  act carries the stamps that step 2 gave it, the marks as the batch began.
+  A lock that a request of this pass makes has no bytes yet, so the check of
   the seal is given the drawn row for it: no sender can have sealed with
   bytes that are not made, and the use is refused as a value that the lock
   does not open."
@@ -838,7 +1018,10 @@
   "Takes a pass that is done. Gives the rows that the meeting task sends, as
   `routed` gives them: one row for each kind and key, the last that the pass
   wrote, so that of two acts that write one place the later turn's row is
-  the one written; and every home's row of a lock before any other row."
+  the one written; and every home's row of a lock before any other row. For
+  a key of the facts by value the last row can be nil, a removal: when an
+  earlier act of the pass put the entry and a later one took it out, the
+  key is taken out at its home, where it was never written."
   [pass]
   (let [out (:out pass)
         id (juxt :which :key)

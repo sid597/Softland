@@ -1,9 +1,10 @@
-;; Before changing this file, read the plan of this part again:
+;; Before changing this file, read the plans of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
 
 (ns softland.store.module.microbatch-gate
   "The microbatch gate: the microbatch topology that decides the things of
-  the microbatch depot, and the four PStates of its record. It requires
+  the microbatch depot, and the five PStates of its record. It requires
   Rama.
 
   What it takes. Each thing that arrives on `*microbatch-depot`, which the
@@ -12,23 +13,30 @@
   the things in batches: a batch is what had gathered on the depot when a
   run of the gate began.
 
-  What it changes. It owns four PStates, the record of the microbatch
+  What it changes. It owns five PStates, the record of the microbatch
   layers, and it alone writes them: `$$microbatch-answers`,
-  `$$microbatch-facts`, `$$microbatch-locks` and `$$microbatch-task`. Their
-  schemas are `softland.store.record.tables`'s and their rows
-  `softland.store.record.rows`'s. They are durable state of the cluster. It
-  borrows one PState of the streaming gate to read, `$$streaming-facts`, on
-  the meeting task of a layer that starts streaming. The gate keeps nothing
-  in the memory of a process: what one step hands to the next is in three
-  temporary PStates of Rama, `$$questions`, `$$replies` and `$$parcels`,
-  which live for one attempt of one batch.
+  `$$microbatch-facts`, `$$microbatch-facts-by-value`, `$$microbatch-locks`
+  and `$$microbatch-task`. Their schemas are `softland.store.record.tables`'s
+  and their rows `softland.store.record.rows`'s. They are durable state of
+  the cluster. It borrows one PState of the streaming gate to read,
+  `$$streaming-facts`, on the meeting task of a layer that starts streaming.
+  The gate keeps nothing in the memory of a process: what one step hands to
+  the next is in three temporary PStates of Rama, `$$questions`, `$$replies`
+  and `$$parcels`, which live for one attempt of one batch; and the row of
+  a layer's marked keys is read from the PState in each batch that needs
+  it, on every attempt.
 
   Where a row lives. The facts of a microbatch layer are on the task of
   their entity, so they are on several tasks. An answer is on the task of
   its act-id's uuid, so that a reader finds it from the act-id alone. A lock
-  is on the task of its request's uuid. A layer's depot fact and each
-  permission are on every task, so that each act finds the permission of its
-  `:who` with one read on the task where it arrives.
+  is on the task of its request's uuid. A row of the facts by value is on
+  the task of its value digest, so that every place that holds one value
+  under one marked key is one run on one task, found from the value alone.
+  A fact under one of five store keys is on every task: a layer's depot and
+  each permission, so that each act finds the permission of its `:who` with
+  one read on the task where it arrives; the layer's marked keys, which the
+  home task of each place reads; and who may see the layer and what it
+  builds on, which a reader finds on the task where it reads.
 
   Approach. The dataflow only reads rows, calls pure functions and writes
   rows. The pure code of a batch is `softland.store.gate.batch`'s; the checks are
@@ -41,7 +49,13 @@
   its depot partition's part of the batch, times the number of tasks, plus
   the partition's number. The count of positions is in `$$microbatch-task`,
   which Rama sets back when an attempt fails, so a turn is the same on every
-  attempt.
+  attempt. One thing is not decided in the order of the turns: a mark of a
+  key holds from the batch after. Each act of a batch is decided with the
+  layer's marked keys as every task held them when the batch began; so a
+  mark and a fact under its key in one batch leave no row in the facts by
+  value, whatever their two turns are. The key gets the last stamp of that
+  batch, so the order of a marked key holds every fact under that key whose
+  stamp is later than the key's stamp, and no other.
 
   The walk of one batch: four steps, each a batch block of Rama. A step
   starts when the one before is done on every task.
@@ -55,21 +69,35 @@
        facts, its locks.
     2. reply   The gate's task reads the clock once, gives the batch its
        base stamp, and writes the gate's last stamp. Every task writes
-       `:closed-through`, when it has changed. Each home task reads each row
-       that was asked for, once, and replies; a reply also says whether
-       another act of the batch needs the same row. The reply about an
-       answer is check (a): the least turn has the act-id.
+       `:closed-through`, when it has changed. Each home task first reads,
+       from its own copy and once for a layer, the marked keys of each layer
+       that a question about a place names. Then it reads each row that was
+       asked for, once, and replies; a reply also says whether another act
+       of the batch needs the same row. A place under a marked key is read
+       for each asker that does not have it as its own, and its reply
+       carries the key's stamp. The reply about an answer is check (a): the
+       least turn has the act-id; it also carries the last stamp that the
+       batch can hold.
     3. decide   On each task, in the order of the turns: an act that meets
        no act of another task is decided here, and its facts on this task
-       are written at once, so that a later act of the task reads them.
-       Each other row, and each act that meets, is sent as a parcel.
+       are written at once, so that a later act of the task reads them. For
+       a fact under a marked key the task first reads the act's own place,
+       the row before. Each other row, a row of the facts by value among
+       them, and each act that meets, is sent as a parcel.
     4. write and meet   Each task writes the rows that it was sent, the
-       home's row of each lock before any row with a lock's bytes. A new
-       lock's bytes are made here, at the write. The meeting task of a layer
-       decides the acts that meet, one at a time in the order of their
-       turns, each against the rows that earlier acts of the pass wrote, and
-       sends their rows: a row under :softland.store/depot or
-       :softland.store/permission to every task, each other row to its home.
+       home's row of each lock before any row with a lock's bytes; a row of
+       the facts by value that is nil takes its key out. A new lock's bytes
+       are made here, at the write. The meeting task of a layer decides the
+       acts that meet, one at a time in the order of their turns, each
+       against the rows that earlier acts of the pass wrote, and sends their
+       rows: a row under one of the five store keys that every task holds to
+       every task, each other row to its home.
+
+  Two acts of one batch on one place under a marked key meet, also when
+  each has the place as its own. A row of the facts by value is on a third
+  task, and what two tasks or two steps send there has no order; in the pass
+  the two are decided in turn, and one row is sent for each key, the last
+  (`softland.store.gate.batch`).
 
   The stamp. One reading of the clock for a batch. An act's stamp is the
   base plus its turn: one stamp on its answer and on each of its facts,
@@ -79,7 +107,10 @@
   Whole or nothing. An act is decided once, on one task, with every row
   that it needs in hand. A refusal writes its answer and nothing else. The
   rows of an accept go to several tasks inside one attempt, and Rama keeps
-  or drops an attempt's writes on all tasks together.
+  or drops an attempt's writes on all tasks together, a key that was taken
+  out too. A fact's row and its row of the facts by value are on two tasks,
+  and Rama shows a batch task by task: a reader of the tables can see one
+  before the other.
 
   Closing: what a read may give. Rama makes a batch visible task by task,
   and it can run a batch again after one task has shown its part; a second
@@ -197,14 +228,23 @@
   (:> *all-locks))
 
 (deframafn write-row
-  "Writes one row of a decision on this task: a whole row at a fixed key, no
-  read. Takes the answers, the facts and the locks PState of the gate, and
-  [which key row] as `softland.store.gate.batch` gives it. For :new-lock it makes
-  the lock here, at the write."
-  [$$answers $$facts $$locks *which *key *row]
+  "Writes one row of a decision on this task: a whole row at a fixed key, or
+  a fixed key taken out; no read. Takes the answers, the facts, the facts by
+  value and the locks PState of the gate, and [which key row] as
+  `softland.store.gate.batch` gives it. A row of the kind :by-value that is
+  nil takes its key out of the facts by value; taking out a key that holds
+  no row changes nothing. For :new-lock it makes the lock here, at the
+  write."
+  [$$answers $$facts $$facts-by-value $$locks *which *key *row]
   (<<cond
     (case> (= :fact *which))
     (local-transform> [(keypath *key) (termval *row)] $$facts)
+
+    (case> (and> (= :by-value *which) (nil? *row)))
+    (local-transform> [(keypath *key) NONE>] $$facts-by-value)
+
+    (case> (= :by-value *which))
+    (local-transform> [(keypath *key) (termval *row)] $$facts-by-value)
 
     (case> (or> (= :lock *which) (= :lock-home *which)))
     (local-transform> [(keypath *key) (termval *row)] $$locks)
@@ -222,7 +262,7 @@
 
 (defn add-to
   "Adds the microbatch gate to a module. Takes the module's `topologies`.
-  Declares the microbatch topology `microbatch-gate`, its four PStates, and
+  Declares the microbatch topology `microbatch-gate`, its five PStates, and
   the dataflow of one batch, as the namespace docstring walks it. What must
   hold: the module declares the depot `*microbatch-depot`, and has the
   streaming gate, whose `$$streaming-facts` step 4 reads."
@@ -230,6 +270,7 @@
   (let [gate (microbatch-topology topologies "microbatch-gate")]
     (declare-pstate gate $$microbatch-answers (record-pstates/answers))
     (declare-pstate gate $$microbatch-facts (record-pstates/facts))
+    (declare-pstate gate $$microbatch-facts-by-value (record-pstates/facts-by-value))
     (declare-pstate gate $$microbatch-locks (record-pstates/locks))
     (declare-pstate gate $$microbatch-task (record-pstates/microbatch-task))
     (<<sources gate
@@ -293,7 +334,14 @@
         (<<if *closes
           (local-transform> [(keypath :closed-through) (termval *last-stamp)] $$microbatch-task))
         (local-select> STAY $$questions :> *asked)
-        (batch/reads-of *asked :> *reads)
+        ;; The marked keys of each layer that a question about a place names,
+        ;; from this task's own copy, once for a layer; and the last stamp
+        ;; that the batch can hold. Neither reads a clock.
+        (batch/marks-places-asked *asked :> *marks-keys)
+        (rows-at $$microbatch-facts *marks-keys :> *marks-rows)
+        (batch/reads-of *asked *marks-rows :> *reads)
+        (ops/module-instance-info :> *info-here)
+        (batch/batch-end *base *numbers (tasks-of *info-here) :> *batch-end)
         (loop<- [*reads-left *reads
                  *replies-so-far []
                  :> *replies]
@@ -317,7 +365,7 @@
 
               (default>)
               (identity nil :> *found))
-            (batch/replies *read *found *now *base :> *more-replies)
+            (batch/replies *read *found *now *base *batch-end :> *more-replies)
             (continue> (rest *reads-left) (into *replies-so-far *more-replies))))
         (ops/explode *replies :> [*reply-route *reply-turn *reply])
         (|hash *reply-route)
@@ -360,7 +408,8 @@
             (:> true)
            (else>)
             (first *rows-left :> [*sent-which *sent-key *sent-row])
-            (write-row $$microbatch-answers $$microbatch-facts $$microbatch-locks
+            (write-row $$microbatch-answers $$microbatch-facts $$microbatch-facts-by-value
+                       $$microbatch-locks
                        *sent-which *sent-key *sent-row
                        :> *sent-written)
             (continue> (rest *rows-left))))
@@ -392,6 +441,7 @@
           (|all)
          (else>)
           (|hash *home))
-        (write-row $$microbatch-answers $$microbatch-facts $$microbatch-locks
+        (write-row $$microbatch-answers $$microbatch-facts $$microbatch-facts-by-value
+                   $$microbatch-locks
                    *which *key *row
                    :> *written)))))

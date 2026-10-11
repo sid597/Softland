@@ -4,7 +4,7 @@
   record: the record is in a gate's PStates
   (`softland.store.record.tables`), and a gate reads and writes it.
 
-  The record has three kinds of row, each under a string key that begins
+  The record has four kinds of row, each under a string key that begins
   with its layer, and one value for each task.
 
     an answer   key \"<layer> <act uuid>\"
@@ -12,35 +12,69 @@
                  :stamp   the stamp of the decision
                  :digest  32 bytes, the digest of the thing that was decided}
     a fact      key \"<layer> <entity> <key>\": the current fact of a place
-                {:value      the value's bytes: sealed when a lock is named,
-                             the one text of a plain value when none is;
-                             absent for a retract
-                 :lock-act   the lock that seals :value, as the uuid of the
-                 :lock-index act that asked for it and its index
-                 :by-act     the fact that wrote this row, as the uuid of
-                 :by-index   its act and its index in that act
-                 :stamp      the stamp of that act's decision}
+                {:value       the value's bytes, plain: for a fact under a
+                              plain key the bytes that its lock opened; for
+                              a fact under a store key the one text of its
+                              value. Absent for a retract
+                 :by-act      the fact that wrote this row, as the uuid of
+                 :by-index    its act and its index in that act
+                 :stamp       the stamp of that act's decision
+                 :who         the one text of the act's `:who`
+                 :permission  the one text of the permission that the act
+                              named
+                 :level-since only in the row of the fact under
+                              `:softland.store/marked-keys`: the one text of
+                              a map from each marked key to the stamp since
+                              which its order by value is level}
     a lock      key \"<layer> <request uuid> <index, three digits>\"
                 {:bytes       the lock's bytes
                  :way         the number of the way of sealing it is for
                  :seals-act   the fact that it seals, once it seals one, as
                  :seals-index the uuid of that fact's act and its index}
+    a fact by value
+                key \"<layer> <key> <since> <value digest> <entity>\": one
+                place under a marked key, in the order of its value
+                {:by-act :by-index :stamp :who :permission}: the fact's row
+                without its value. The value is the one whose digest the key
+                holds
 
   Every accepted fact is a row of the second kind, under a store key or a
   plain key: the depot of a layer at
   \"<layer> <layer> :softland.store/depot\", a permission at
   \"<layer> <holder> :softland.store/permission\", a request for locks at
-  \"<layer> <act uuid> :softland.store/lock-request\". A plain value is held
-  as the bytes of its one text, so the field has one class, and \"is this
-  the permission that the act names\" is a comparison of bytes.
+  \"<layer> <act uuid> :softland.store/lock-request\", and at the layer's own
+  entity who may see it, what it builds on and its marked keys. A value is
+  held as bytes, so the field has one class, and \"is this the permission
+  that the act names\" is a comparison of bytes. No row names a lock: the
+  lock of a value is found from the act in the depot, which holds each
+  fact's lock id, and from the lock's own row, which names the fact that it
+  seals.
+
+  The fourth kind, the facts by value. A layer marks a key by a fact
+  (`softland.store.door.declaration/store-keys`). For a marked key a gate
+  keeps each fact that has a value in this order too, so that every place
+  that holds one value under one key is a run of neighbouring keys: the keys
+  that begin with \"<layer> <key> <since> <value digest> \" (`by-value-run`).
+  The value digest is the SHA-256 of the row's value bytes, as 64 hex
+  characters: a key then has a bound whatever the value is, a value's text
+  may hold a space, and two values share a run only by a collision of the
+  hash. <since> is the stamp that the marks row gives for the key
+  (`marked-keys-of`): the order of a marked key holds every fact under that
+  key whose stamp is later than it, and no other. A mark that is taken off
+  and put on again gets another stamp, so it names other keys, and the rows
+  of the earlier marking stay where they are and no read names them. A
+  retract has no row in this order.
 
   Where a row lives. The rows are the same for both gates; the task is not.
   A row of a streaming layer is on the layer's task. A row of a microbatch
-  layer is on the task that the second part of its key gives: an answer on
-  the task of the act's uuid, a fact on the task of its entity, a lock on
-  the task of its request's uuid. A fact under `:softland.store/depot` or
-  `:softland.store/permission` of a microbatch layer is on every task. No
-  row names a task.
+  layer is on the task that one part of its key gives: an answer on the task
+  of the act's uuid, a fact on the task of its entity, a lock on the task of
+  its request's uuid, a fact by value on the task of its value digest
+  (`by-value-route`), so that the run of one value is on one task. A fact of
+  a microbatch layer under `:softland.store/depot`,
+  `:softland.store/permission`, `:softland.store/who-may-see`,
+  `:softland.store/builds-on` or `:softland.store/marked-keys` is on every
+  task. No row names a task.
 
   One copy of a lock's bytes. In a streaming layer a lock has one row, and
   the row keeps its bytes when it comes to seal a fact. In a microbatch
@@ -59,17 +93,22 @@
   the gate that owns the PState says the depot.
 
   The functions that make a row give exactly the classes that the schemas
-  declare: a Long, a UUID, a Keyword, a byte array. A row of another class
+  declare: a Long, a UUID, a Keyword, a String, a byte array. A row of another class
   throws in a topology, and a throw there stops the partition. So a gate
   writes no row that these functions did not make.
 
   Inputs and results, by group:
 
-    answer-key, place-key, lock-key   ids -> the text of a key
-    answer-row, fact-row, lock-row, lock-row-sealing,
-    lock-row-without-bytes                             -> a row to write
-    answer-of, written-by?, holds-plain-value?, plain-value-of,
-    seals-a-fact?, lock-of, locks-by-index,
+    answer-key, place-key, lock-key, by-value-key      -> the text of a key
+    by-value-run                      a layer, a key, a stamp, a value
+                                      -> the two ends of that value's run
+    value-digest, value-digest-of     bytes, or a value -> 64 hex characters
+    place-of-key, by-value-entity, by-value-route, id-of-text
+                                      the text of a key -> its parts
+    answer-row, fact-row, with-level-since, by-value-row, lock-row,
+    lock-row-sealing, lock-row-without-bytes           -> a row to write
+    answer-of, written-by?, holds-value?, value-of, read-value, who-of,
+    permission-of, marked-keys-of, seals-a-fact?, lock-of, locks-by-index,
     locks-by-index-used-without-bytes, closed?         a row -> what it says
     routing-id                        an act-id -> the first argument of a
                                       read by that act-id
@@ -83,12 +122,26 @@
   Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the two gates,
   and `softland.store.module.door-reads`. The door (`softland.store.door`) and
   the proof's hand call `routing-id` and the `-read` functions to test what
-  they pass before they call a query."
+  they pass before they call a query. `read-value`, `who-of`,
+  `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,
+  `place-of-key` and `value-digest-of` are for a reader of the tables; no
+  gate calls `read-value`, `who-of` or `permission-of`.
+
+  What must hold before a key is made. The functions that make a key, or
+  the two ends of a run, test nothing of what they are given. A thing that
+  is no id can print with a space in it, and a key made of it can name a row
+  of another place. So a caller that holds what somebody gave it tests
+  first: each id with `softland.store.door.declaration/usable-id?`, a fact's
+  key as a readable keyword within the limit, a value with
+  `softland.store.act/value?`. A gate makes keys only of an act that passed
+  the declaration."
   (:require [clojure.edn :as edn]
+            [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text])
   (:import [java.nio.charset StandardCharsets]
-           [java.util Arrays]))
+           [java.security MessageDigest]
+           [java.util Arrays UUID]))
 
 ;; ----------------------------------------------------------------- the keys
 
@@ -147,23 +200,38 @@
 ;; -------------------------------------------------------------------- facts
 
 (defn fact-row
-  "Takes a fact in its one form on arrival, the uuid of its act's act-id, its
-  index in the act, and the stamp of the act's decision. Gives the row of
-  the fact's place. A sealed fact: its sealed bytes and its lock. A fact
-  with a plain value, which is a fact under a store key: the bytes of the
-  one text of the value, and no lock. A fact with no value, a retract: no
-  value and no lock; the row is there all the same, so that a later fact
-  can replace the retract. What must hold: the fact passed the declaration's
-  check."
-  [fact act-uuid index stamp]
-  (let [sealed (:sealed fact)
-        [[_ _ lock-uuid] lock-index] (:lock-id fact)]
-    (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)}
-      sealed
-      (assoc :value sealed :lock-act lock-uuid :lock-index (long lock-index))
+  "Takes the act in its one form on arrival; one of its facts; the plain
+  bytes that the fact's lock opened, or nil for a fact that is not sealed;
+  the uuid of the act's act-id; the fact's index in the act; and the stamp
+  of the act's decision. Gives the row of the fact's place. A sealed fact:
+  the plain bytes. A fact with a plain value, which is a fact under a store
+  key: the bytes of the one text of the value. A fact with no value, a
+  retract: no value; the row is there all the same, so that a later fact can
+  replace the retract. Each row holds who wrote it and the permission that
+  the act named, each as its one text: a UUID has two texts, and the one
+  text reads back as a UUID. It names no lock.
 
-      (and (nil? sealed) (some? (:v fact)))
-      (assoc :value (text/utf8 (:v fact))))))
+  What must hold: the act passed the declaration's check; for a sealed fact
+  the bytes are what its lock opened
+  (`softland.store.gate.decision/opened`)."
+  [act fact plain act-uuid index stamp]
+  (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)
+           :who (text/text (:who act)) :permission (text/text (:permission act))}
+    (some? plain)
+    (assoc :value plain)
+
+    (and (nil? plain) (some? (:v fact)))
+    (assoc :value (text/utf8 (:v fact)))))
+
+(defn with-level-since
+  "Takes the row of a fact under `:softland.store/marked-keys`, as `fact-row`
+  gives it, and a map from each key that the fact marks to the stamp since
+  which the order of that key is level. Gives the row with `:level-since`,
+  the one text of the map. A gate derives the map at the write
+  (`softland.store.gate.decision/writes`): no maker can write a gate's
+  stamp. `marked-keys-of` reads it back."
+  [row since-by-key]
+  (assoc row :level-since (text/text since-by-key)))
 
 (defn written-by?
   "Takes the depot of the gate that owns the record, the layer, a fact's row
@@ -179,25 +247,215 @@
                   (= (:by-act row) named-uuid)
                   (= (:by-index row) named-index)))))
 
-(defn holds-plain-value?
+(defn holds-value?
   "Takes a fact's row or nil, and a value in its one normal form. Gives true
-  when the row holds that value as a plain value: its bytes are the one text
-  of the value, and no lock is named. No decoding."
+  when the row's bytes are the one text of that value. No decoding. The
+  gates ask it of the row at a permission's place, where only a fact under
+  that store key can be."
   [row v]
   (boolean (and row
-                (nil? (:lock-act row))
                 (some? (:value row))
                 (Arrays/equals ^bytes (:value row) ^bytes (text/utf8 v)))))
 
-(defn plain-value-of
-  "Takes a fact's row or nil. Gives the plain value that the row holds, read
-  back from its one text, or nil when there is no row, the row holds no
-  value, or its value is sealed. It never throws. A row that holds the plain
-  value nil does not exist: a fact with no value is a retract."
+(defn- first-form
+  "Takes a string. Gives the first EDN form that it holds, or nil when it
+  holds none or does not read. It never throws. nil is also what the text
+  `nil` reads as; a caller that must tell the two apart compares the text."
+  [s]
+  (try (edn/read-string s)
+       (catch Throwable _ nil)))
+
+(defn value-of
+  "Takes a fact's row or nil. Gives the first form that the row's bytes read
+  as, or nil when there is no row, the row holds no value, or its bytes do
+  not read. It never throws. `softland.store.module.door-reads` asks it of
+  the row at a depot's place and gets the depot word. It tests nothing of
+  the form that it gives: a reader of a tool's fact calls `read-value`."
   [row]
-  (when (and row (some? (:value row)) (nil? (:lock-act row)))
-    (try (edn/read-string (String. ^bytes (:value row) StandardCharsets/UTF_8))
-         (catch Throwable _ nil))))
+  (when (and row (some? (:value row)))
+    (first-form (String. ^bytes (:value row) StandardCharsets/UTF_8))))
+
+(defn read-value
+  "What a fact's row says of its value, for a reader of the tables. Takes a
+  fact's row, or nil. Gives one of four:
+
+    [:no-fact]       no row: no fact was ever accepted at the place
+    [:nothing-here]  a row with no value: the current fact is a retract
+    [:value v]       the value, as its maker gave it
+    [:not-a-value]   the row's bytes are no value of the form
+
+  `[:value v]` only when the bytes read as one EDN form `v`, `v` is a value
+  that a fact can hold (`softland.store.act/value?`), and the UTF-8 of the
+  one text of its normal form is exactly the row's bytes: so nothing stands
+  after the form, and the value was written as the door writes one. A gate
+  keeps what a lock opened, whatever the bytes are, and does not check that
+  they are a value; a thing that was appended without the door can leave
+  bytes that earn the fourth. The bytes of the text `nil` read as the value
+  nil: the door never seals them, since a fact with no value is a retract.
+  It never throws."
+  [row]
+  (cond
+    (nil? row) [:no-fact]
+    (nil? (:value row)) [:nothing-here]
+    :else
+    (try
+      (let [^bytes held (:value row)
+            v (edn/read-string (String. held StandardCharsets/UTF_8))]
+        (if (and (act/value? v)
+                 (Arrays/equals held ^bytes (text/utf8 (act/normal-value v))))
+          [:value (act/normal-value v)]
+          [:not-a-value]))
+      (catch Throwable _ [:not-a-value]))))
+
+(defn who-of
+  "Takes a fact's row or a row of the facts by value, or nil. Gives the id
+  that the act which wrote the row gave as its `:who`, read back from its
+  one text: a keyword or a UUID. nil when there is no row or the text does
+  not read as an id. It never throws. The id is a claim until sign-in is
+  built: a gate cannot check `:who`."
+  [row]
+  (when-let [held (:who row)]
+    (let [id (first-form held)]
+      (when (or (act/readable-keyword? id) (uuid? id)) id))))
+
+(defn permission-of
+  "Takes a fact's row or a row of the facts by value, or nil. Gives the
+  permission that the act which wrote the row named, read back from its one
+  text, in its one form. That permission stood when the act was decided.
+  nil when there is no row or the text does not read as a permission id. It
+  never throws. What the permission allows is
+  `softland.store.act/allows` of it."
+  [row]
+  (when-let [held (:permission row)]
+    (let [permission (first-form held)]
+      (when (act/has-shape? :permission-id permission) permission))))
+
+(defn marked-keys-of
+  "Takes the row at a layer's marked-keys place, or nil. Gives a map from
+  each key that the layer marks to the stamp since which the order of that
+  key is level: the row's `:level-since`, read back. `{}` for no row, for a
+  row with no such field, and for a text that does not read as a map from
+  readable keywords to integers. It never throws. A gate reads it where an
+  act is decided, and a read of \"what points at a thing\" reads it first:
+  the stamp is a part of each key of that order."
+  [row]
+  (let [held (when-let [text (:level-since row)] (first-form text))]
+    (if (and (map? held)
+             (every? (fn [[k since]] (and (act/readable-keyword? k) (int? since))) held))
+      held
+      {})))
+
+;; ------------------------------------------------------- the facts by value
+
+(defn value-digest
+  "Takes the bytes of a value, as a fact's row holds them. Gives the value's
+  text in the order by value: the SHA-256 of the bytes, as 64 lower-case hex
+  characters. Every JVM has the algorithm. Cost: one hash over the bytes,
+  65,508 at most for a value that came sealed."
+  [value-bytes]
+  (text/hex (.digest (MessageDigest/getInstance "SHA-256") ^bytes value-bytes)))
+
+(defn value-digest-of
+  "Takes a value, as a maker would give it. Gives `value-digest` of the bytes
+  that a row holds for it: the UTF-8 of the one text of its normal form. So
+  a UUID is always taken as `#uuid \"...\"`, never as its 36 characters,
+  and no caller chooses a text. In a microbatch layer this is also the
+  partitioning key of the value's run. What must hold: the thing is a value
+  (`softland.store.act/value?`)."
+  [v]
+  (value-digest (text/utf8 (act/normal-value v))))
+
+(defn by-value-key
+  "Takes a layer id, a fact's key, the stamp since which the key's order is
+  level, a value digest and an entity id. Gives the key of that place in the
+  facts by value: \"<layer> <key> <since> <value digest> <entity>\". The
+  entity is last, so the places that hold one value under one key are
+  neighbours. No part before the entity holds a space, and the digest has a
+  fixed length, so a key begins with a run's text only when its layer, key,
+  stamp and digest are that run's. What must hold: each id is within the
+  limit, and the digest is `value-digest`'s."
+  [layer k since digest entity]
+  (str (declaration/id-text layer) " " (declaration/id-text k) " " (long since) " " digest " "
+       (declaration/id-text entity)))
+
+(defn by-value-run
+  "Takes a layer id, a marked key, the key's stamp as the marks row gives it
+  (`marked-keys-of`), and a value. Gives [from to], the two ends of the run
+  of that value in the facts by value: every key from `from` up to `to`,
+  with `to` not in the run, is a place of that layer whose current fact
+  under that key has that value and was written since that stamp. `from` is
+  the run's text with a space at its end; `to` is the same text with `!` in
+  the place of that space. `!` is the character after a space, so the range
+  holds the keys that begin with `from` and no other. What must hold: the
+  ids are within the limit and the thing is a value; see the namespace
+  docstring."
+  [layer k since v]
+  (let [run (str (declaration/id-text layer) " " (declaration/id-text k) " " (long since) " "
+                 (value-digest-of v))]
+    [(str run " ") (str run "!")]))
+
+(defn- parts-of-key
+  "Takes the text of a key. Gives its parts, the texts between its spaces,
+  as a vector. No printed text of an id holds a space."
+  [k]
+  (vec (.split ^String k " " -1)))
+
+(defn by-value-route
+  "Takes a key of the facts by value. Gives its value digest, the fourth
+  part: the route of the row in a microbatch layer, whose hash gives the
+  row's task. What must hold: the key is `by-value-key`'s."
+  [k]
+  (nth (parts-of-key k) 3 nil))
+
+(defn by-value-row
+  "Takes the act in its one form on arrival, the uuid of its act-id, the
+  index of one of its facts and the stamp of the act's decision. Gives the
+  row of that fact in the facts by value: the fact's row without its value.
+  A read of a run then gets who wrote each place and under which permission
+  with no second read, and a fact that is written again with the same value
+  changes the row."
+  [act act-uuid index stamp]
+  {:by-act act-uuid :by-index (long index) :stamp (long stamp)
+   :who (text/text (:who act)) :permission (text/text (:permission act))})
+
+(defn id-of-text
+  "Takes the printed text of an id or of a fact's key
+  (`softland.store.door.declaration/id-text`). Gives the id: a keyword for a
+  text that begins with a colon, else a UUID. nil for a text that is
+  neither, and for one whose id does not print back as that text. It never
+  throws."
+  [id-text]
+  (try
+    (if (and (string? id-text) (.startsWith ^String id-text ":"))
+      (let [k (keyword (subs id-text 1))]
+        (when (and (act/readable-keyword? k) (= id-text (str k))) k))
+      (let [uuid (UUID/fromString id-text)]
+        (when (= id-text (str uuid)) uuid)))
+    (catch Throwable _ nil)))
+
+(defn place-of-key
+  "Takes a key of the facts table, the text of a place. Gives
+  [layer entity key], each as an id; or nil for a text that is no place's
+  key. It never throws. A row of a run is under one of the store's own keys
+  when `softland.store.door.declaration/store-key?` of the third part is
+  true."
+  [place-key-text]
+  (try
+    (let [parts (mapv id-of-text (parts-of-key place-key-text))]
+      (when (and (= 3 (count parts)) (every? some? parts) (keyword? (nth parts 2)))
+        parts))
+    (catch Throwable _ nil)))
+
+(defn by-value-entity
+  "Takes a key of the facts by value. Gives the entity of its place, the
+  last part, as an id; nil for a text that is no such key. It never throws.
+  The place is then [layer entity key], with the layer and the key that the
+  run was asked for."
+  [k]
+  (try
+    (let [parts (parts-of-key k)]
+      (when (= 5 (count parts)) (id-of-text (nth parts 4))))
+    (catch Throwable _ nil)))
 
 ;; -------------------------------------------------------------------- locks
 
@@ -263,8 +521,8 @@
   given with its way and with nil for its bytes. On most tasks the home's
   row of such a lock holds no bytes; where the lock's home is also the task
   of its value, the one row holds them. The read leaves them out in both
-  cases, so that it gives the same on every cluster: the bytes of a lock
-  that seals a value are read beside the value."
+  cases, so that it gives the same on every cluster: the whole row of such a
+  lock, with its bytes, is on the task of its value."
   [rows]
   (locks-by-index
    (map (fn [[k row]] [k (if (seals-a-fact? row) (lock-row-without-bytes row) row)]) rows)))

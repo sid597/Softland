@@ -914,6 +914,42 @@
     (shown "the same fault with locks in the stock: the act goes in and is refused under its own act-id:" (told faulty)
            "| the lock that it took does not come back")))
 
+(deftest a-holder-of-see
+  (let [d (the-door)
+        veras [:vera :alice :alice (own :alice) :see]
+        gave (decide! d (act-of :alice [{:e :vera :k :softland.store/permission :v veras}]))
+        id (act-id-for! d :alice)
+        logs-before (log-counts)
+        word (send! d {:version 1 :who :vera :layer :alice :permission veras :session :door-proof
+                       :facts [(value :v-1 "a value of a holder of see")]}
+                    id)
+        logs-after (log-counts)
+        request (:request word)
+        request-record (when request (record-of request))
+        request-answer (when request (answer-round request))
+        own-answer (answer! d id "no digest was given")
+        left-the-map (stock-told d [:alice :streaming :vera])
+        ;; an act of hers with no value needs no lock, so the door appends it
+        no-value (decide! d {:version 1 :who :vera :layer :alice :permission veras :session :door-proof
+                             :facts [{:e :v-1 :k :text}]})]
+    (check "Alice gives, through the door, a permission in her layer that says see: a fact under a store key, which goes plain, and is accepted"
+           true (accepted? gave))
+    (check "the holder of see sends a value: the door asks for locks first, under her who and her permission; a gate refuses that request with its word, an act needs act; the door gives its own word with that answer, and appends nothing for her act"
+           [:have-its-request-accepted :nothing [:alice :streaming] {:answer :refused :reason :permission-does-not-allow-acting}]
+           [(:could-not word) (:appended word) (vec (take 2 request)) (dissoc (:request-answer word) :stamp)])
+    (check "round the door: one record more in the streaming log, the request, under her who and the permission as she named it, and its refusal is in the record"
+           [[1 0] {:who :vera :permission veras :layer :alice} [:refused :permission-does-not-allow-acting]]
+           [(mapv - logs-after logs-before) (select-keys request-record [:who :permission :layer])
+            [(:verdict request-answer) (:reason request-answer)]])
+    (check "nothing is under her act's own act-id: no record in the log, and nothing yet" [[] {:answer :nothing-yet}] [(records-of id) own-answer])
+    (check "her stock, whose one request was refused, has left the door's memory" nil left-the-map)
+    (check "an act of hers with no value needs no lock: the door appends it, and the gate refuses it under its own act-id with the same word"
+           [nil {:answer :refused :reason :permission-does-not-allow-acting}]
+           [(:could-not (:sent no-value)) (dissoc (:answer no-value) :stamp)])
+    (shown "a holder of a permission that says see sends a value through the door:" (pr-str (dissoc word :request))
+           "| the door did not change for this: the refusal is the gate's, of the door's own request for locks, and nothing is appended for her act")
+    (shown "her act with no value goes in and is refused under its own act-id:" (told no-value))))
+
 (deftest a-request-in-doubt
   (let [;; a request that never left the process, on the door whose wait is 400 ms
         d2 (the-short-door)
@@ -1760,6 +1796,7 @@
   (things-that-are-no-act)
   (the-answer-back)
   (a-refused-request)
+  (a-holder-of-see)
   (a-request-in-doubt)
   (reads-that-throw)
   (the-seat-and-the-wait)

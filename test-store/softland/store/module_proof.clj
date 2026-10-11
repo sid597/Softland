@@ -17,7 +17,11 @@
   them with one query; seals each value, the UTF-8 of the one text of the
   value, to its place under a lock that it has not used; appends the thing;
   reads the answer by act-id; and compares the answer's digest with the
-  digest of what it sent. An error from the append is not an answer. It
+  digest of what it sent. The hand also plays a reader of the tables, since
+  no reader is built in this part: it selects a fact's row, the row of a
+  layer's marked keys, and a run of the facts by value, with the keys and
+  the partitioning keys that `softland.store.record.rows` gives, and reads a
+  row back with that namespace's functions. An error from the append is not an answer. It
   keeps each thing that it sent, so that a repeat is the same thing byte for
   byte.
 
@@ -92,7 +96,7 @@
 
 (def ^:dynamic ^:private *hand*
   "What the proof's hand holds of the cluster: the cluster itself, the name
-  of the module, the two depots, the three queries, and the four PStates of
+  of the module, the two depots, the three queries, and the five PStates of
   each gate. `-main` binds it for the run."
   nil)
 
@@ -115,12 +119,14 @@
      :depot-of-layer (rama/foreign-query ipc m "depot-of-layer")
      :answers-ps (rama/foreign-pstate ipc m "$$streaming-answers")
      :facts-ps   (rama/foreign-pstate ipc m "$$streaming-facts")
+     :by-value-ps (rama/foreign-pstate ipc m "$$streaming-facts-by-value")
      :locks-ps   (rama/foreign-pstate ipc m "$$streaming-locks")
      :task-ps    (rama/foreign-pstate ipc m "$$streaming-task")
      :module     m
      :mb-depot      (rama/foreign-depot ipc m "*microbatch-depot")
      :mb-answers-ps (rama/foreign-pstate ipc m "$$microbatch-answers")
      :mb-facts-ps   (rama/foreign-pstate ipc m "$$microbatch-facts")
+     :mb-by-value-ps (rama/foreign-pstate ipc m "$$microbatch-facts-by-value")
      :mb-locks-ps   (rama/foreign-pstate ipc m "$$microbatch-locks")
      :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")}))
 
@@ -256,6 +262,38 @@
   "The row of a lock, by its id."
   [[[layer _ request-uuid] index]]
   (row :locks-ps layer (record/lock-key layer request-uuid index)))
+
+(defn- marked-keys
+  "The keys that a streaming layer marks, each with the stamp since which its
+  order by value is level: read from the row at the layer's marked-keys
+  place."
+  [layer]
+  (record/marked-keys-of (fact-row layer layer :softland.store/marked-keys)))
+
+(defn- entries-of
+  "The rows of the run of one value under a marked key of a streaming layer,
+  since a stamp of that key: [key row] of each, in the order of the keys.
+  One select of a range of the facts by value, on the layer's task."
+  [layer k since v]
+  (let [[from to] (record/by-value-run layer k since v)]
+    (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:by-value-ps *hand*) {:pkey layer})))
+
+(defn- run-of
+  "The entities of the places in the run of one value: what points at it, in
+  a streaming layer, under a marked key, since a stamp of that key."
+  [layer k since v]
+  (mapv (fn [[k _]] (record/by-value-entity k)) (entries-of layer k since v)))
+
+(defn- entry
+  "The row at one key of the facts by value of a streaming layer, or nil."
+  [layer k since v e]
+  (row :by-value-ps layer (record/by-value-key layer k since (record/value-digest-of v) e)))
+
+(defn- record-of-act
+  "The record that a depot's log holds under an act-id, among records read
+  back as [partition record]."
+  [records act-id]
+  (some (fn [[_ r]] (when (and (map? r) (= act-id (:act-id r))) r)) records))
 
 (defn- last-stamp
   "The last stamp that the gate gave on the task of a layer."
@@ -445,6 +483,36 @@
   [pstate k]
   (first (keys (rows-by-task pstate k))))
 
+(defn- base-marks-rows
+  "The row at the base's marked-keys place, on each task that holds one."
+  []
+  (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/marked-keys)))
+
+(defn- base-marked-keys
+  "The keys that the base marks, each with its stamp, as the task of the
+  layer id holds them."
+  []
+  (record/marked-keys-of (base-row :mb-facts-ps :base (record/place-key :base :base :softland.store/marked-keys))))
+
+(defn- base-entries-of
+  "The rows of the run of one value under a marked key of the base, since a
+  stamp of that key: [key row] of each. One select of a range of the facts
+  by value, with the value's digest as the partitioning key: the run of one
+  value is on one task."
+  [k since v]
+  (let [[from to] (record/by-value-run :base k since v)]
+    (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:mb-by-value-ps *hand*) {:pkey (record/value-digest-of v)})))
+
+(defn- base-run-of
+  "The entities of the places in the run of one value of the base."
+  [k since v]
+  (mapv (fn [[k _]] (record/by-value-entity k)) (base-entries-of k since v)))
+
+(defn- base-entry-key
+  "The key in the facts by value of a place of the base, for a value."
+  [k since v e]
+  (record/by-value-key :base k since (record/value-digest-of v) e))
+
 (defn- gates-last-stamp
   "The last stamp that the microbatch gate gave: one for the gate, on the
   gate's task, the task of the depot word."
@@ -485,6 +553,15 @@
 (def ^:private dave-in-base "Dave's permission in the base, beneath the system's." [:dave :base :base system-own])
 (def ^:private bob-in-base "Bob's permission in the base, beneath Alice's." [:bob :base :base alice-in-base])
 
+(def ^:private alice-in-canvas
+  "Alice's permission in the layer :canvas, which she makes for the checks of
+  what the gates keep for a read."
+  [:alice :canvas :canvas])
+
+(def ^:private who-may-see "The store key of who may see a layer." :softland.store/who-may-see)
+(def ^:private builds-on "The store key of what a layer builds on." :softland.store/builds-on)
+(def ^:private marks "The store key of the keys that a layer marks." :softland.store/marked-keys)
+
 (defn- making
   "The making act of a layer: by `who`, naming the first permission of
   `holder`, with the depot that the layer starts with."
@@ -502,6 +579,17 @@
   "The system's act into the base, with these facts."
   ([facts] (system-act facts {}))
   ([facts more] (thing :base :system system-own facts more)))
+
+(defn- canvas-act
+  "Alice's act into the layer :canvas, with these facts."
+  [facts]
+  (thing :canvas :alice alice-in-canvas facts))
+
+(def ^:private kinds-of-value
+  "One value of each kind that the checks of a plain value write: an id that
+  is a keyword, a string with spaces, a number, a map; the proof adds an id
+  that is a UUID."
+  {:kw :canvas-1 :string "a string with spaces" :number 42 :map {:a [1 #{2}] "b c" 1.5}})
 
 ;; ---------------------------------------------------------------- the checks
 
@@ -565,7 +653,7 @@
            [:accepted true :streaming] [(:word personal) (:mine? personal) (depot-of-layer :alice)])
     (check "the record holds the depot as a fact on the layer's own entity, and the person's permission on its holder"
            [:streaming alice-own]
-           [(record/plain-value-of (fact-row :alice :alice :softland.store/depot)) (record/plain-value-of (fact-row :alice :alice :softland.store/permission))])
+           [(record/value-of (fact-row :alice :alice :softland.store/depot)) (record/value-of (fact-row :alice :alice :softland.store/permission))])
     (check "the depot, the permission and the answer hold one stamp"
            [(:stamp (:answer personal)) (:stamp (:answer personal))]
            [(:stamp (fact-row :alice :alice :softland.store/depot)) (:stamp (fact-row :alice :alice :softland.store/permission))])
@@ -580,7 +668,7 @@
     (check "the system holds no permission in the personal layer that it made: its second act there is refused"
            :who-not-the-permissions-holder (:word system-again))
     (check "the first permission of the group's layer is the one that the first making act wrote"
-           alice-in-team (record/plain-value-of (fact-row :team :alice :softland.store/permission)))
+           alice-in-team (record/value-of (fact-row :team :alice :softland.store/permission)))
     (shown "an act into a layer that is not made refused:" (told not-made))
     (shown "a person's layer made by the system for that person, with the depot streaming:" (told personal)
            "| depot-of-layer :alice =" (depot-of-layer :alice))
@@ -606,18 +694,20 @@
            [(count (:locks request)) (set (map #(alength ^bytes (:bytes %)) (vals (:locks request))))
             (set (map :way (vals (:locks request)))) (count (set (map #(vec (:bytes %)) (vals (:locks request)))))])
     (check "the request's own fact is a row: its count, as a plain value on the uuid of its act"
-           16 (record/plain-value-of (fact-row :alice (nth (:request request) 2) :softland.store/lock-request)))
+           16 (record/value-of (fact-row :alice (nth (:request request) 2) :softland.store/lock-request)))
     (check "one act lands through the streaming gate and is read back by act-id: accepted, with the digest of what was sent"
            [:acked :accepted nil true] [(:ack landed) (:verdict (:answer landed)) (:reason (:answer landed)) (:mine? landed)])
-    (check "the place holds the sealed bytes as sent, the fact that wrote it, its lock, and the stamp of the answer"
-           [(vec (:sealed fact)) act-uuid 0 (nth (first (:lock-id fact)) 2) (second (:lock-id fact)) (:stamp (:answer landed))]
-           [(vec (:value the-row)) (:by-act the-row) (:by-index the-row) (:lock-act the-row) (:lock-index the-row) (:stamp the-row)])
+    (check "the place holds the plain bytes of the value, the fact that wrote it, who wrote it and the permission that the act named, the stamp of the answer, and no lock"
+           [(vec (plain-bytes "the first text")) act-uuid 0 ":alice" (text/text alice-own) (:stamp (:answer landed)) false false false]
+           [(vec (:value the-row)) (:by-act the-row) (:by-index the-row) (:who the-row) (:permission the-row) (:stamp the-row)
+            (contains? the-row :lock-act) (contains? the-row :lock-index) (= (vec (:value the-row)) (vec (:sealed fact)))])
     (check "the lock's row has the bytes that the door read, and now names the fact that it seals"
            [(vec (:bytes (:lock in-hand))) 1 act-uuid 0]
            [(vec (:bytes the-lock)) (:way the-lock) (:seals-act the-lock) (:seals-index the-lock)])
-    (check "the lock opens the place's bytes at its place: the value as it was sealed"
-           (vec (plain-bytes "the first text"))
-           (vec (seal/open (record/lock-of the-lock) [:alice :note-1 :text] (:value the-row))))
+    (check "the lock opens the sealed bytes that the hand sent, at their place, and what it opens is the row's value"
+           [(vec (plain-bytes "the first text")) true]
+           (let [opened (seal/open (record/lock-of the-lock) [:alice :note-1 :text] (:sealed fact))]
+             [(vec opened) (= (vec opened) (vec (:value the-row)))]))
     (check "an act whose facts came as a list is accepted, and each fact has its index in the order sent"
            [:accepted [list-uuid 0] [list-uuid 1]]
            [(:word listed)
@@ -627,8 +717,9 @@
     (shown "a request for 16 locks, read with one query:" (told request) "| locks" (count (:locks request)))
     (shown "one act landing through the streaming gate and read back by act-id:" (pr-str (:answer landed)))
     (shown "its place in the record: written by" (str (:by-act the-row)) "index" (:by-index the-row)
-           "stamp" (:stamp the-row) "sealed bytes" (alength ^bytes (:value the-row))
-           "| its lock sits beside it and names the fact:" (str (:seals-act the-lock)) (:seals-index the-lock))))
+           "stamp" (:stamp the-row) "| its value, kept plain:" (pr-str (record/read-value the-row))
+           "| who wrote it:" (pr-str (record/who-of the-row)) "under" (pr-str (record/permission-of the-row))
+           "| the row names no lock; the lock's own row names the fact:" (str (:seals-act the-lock)) (:seals-index the-lock))))
 
 (deftest refusals-and-repeats
   (let [accepted-thing (:thing (:landed @kept))
@@ -689,9 +780,10 @@
            (:answer replaced) repeat-of-replace)
     (check "a fact that names nothing to replace is never stale: it becomes the current fact of a place that holds one"
            [:accepted (nth (:act-id (:thing over)) 2)] [(:word over) (:by-act over-row)])
-    (check "a retract is recorded as the current fact of its place: a row with no value and no lock"
-           [:accepted (nth (:act-id (:thing retract)) 2) false false]
-           [(:word retract) (:by-act retract-row) (contains? retract-row :value) (contains? retract-row :lock-act)])
+    (check "a retract is recorded as the current fact of its place: a row with no value, which holds who retracted and under which permission"
+           [:accepted (nth (:act-id (:thing retract)) 2) false [:nothing-here] :alice alice-own]
+           [(:word retract) (:by-act retract-row) (contains? retract-row :value) (record/read-value retract-row)
+            (record/who-of retract-row) (record/permission-of retract-row)])
     (check "a later fact can replace the retract" :accepted (:word over-retract))
     (check "a retract on an empty place, and a retract of a retract, are accepted" [:accepted :accepted]
            [(:word retract-of-retract) (:word retract-again)])
@@ -752,7 +844,7 @@
     (check "an act with a permission for another layer is refused by the form" :permission-not-in-layer (:word other-layer))
     (check "an act under a permission that does not stand is refused" :permission-does-not-stand (:word not-yet))
     (check "a permission given beneath another by its holder is accepted, and sits on its holder as a fact"
-           [:accepted bobs] [(:word give) (record/plain-value-of (fact-row :alice :bob :softland.store/permission))])
+           [:accepted bobs] [(:word give) (record/value-of (fact-row :alice :bob :softland.store/permission))])
     (check "a repeat of the refused act reads its recorded refusal, although the act would now pass"
            (:answer not-yet) not-yet-again)
     (check "an act under it is accepted: a request for locks, and a value sealed under one of them"
@@ -768,7 +860,7 @@
     (check "a granted-in that is not the act's layer is refused" :permission-fact-granted-in-another-layer (:word granted-elsewhere))
     (check "a permission fact for another layer is refused" :permission-fact-for-another-layer (:word for-elsewhere))
     (check "a permission with nothing above it, in a layer that is made, is refused" :permission-fact-not-beneath-the-acts-own (:word at-the-top))
-    (check "a permission that stands is not given again: a store key takes one write for a place" :store-key-takes-one-write (:word give-again))
+    (check "a permission that stands is not given again: a permission's place takes one write" :store-key-takes-one-write (:word give-again))
     (check "a retract of a permission is refused with the word that says it is not decided" :ending-a-permission-not-decided (:word end-it))
     (check "a depot fact after the making: the same depot, the other depot, a retract"
            [:store-key-takes-one-write :changing-a-depot-not-decided :store-key-retract-not-built]
@@ -782,10 +874,10 @@
            [(:word with-stale) (:word erin-acts) (fact-row :alice :erin :softland.store/permission)])
     (check "a tool's own facts under the bare words :class and :permission, sealed, on the layer's entity and on a holder's, are accepted as facts under plain keys"
            [:accepted :accepted true] [(:word tool-locks) (:word tools-own) (:mine? tools-own)])
-    (check "each sits at its own place, sealed, and the store's facts are as they were: the layer's depot, Bob's permission, and Bob still acts"
-           [true true :streaming bobs :accepted]
-           [(some? (:lock-act (fact-row :alice :alice :class))) (some? (:lock-act (fact-row :alice :bob :permission)))
-            (depot-of-layer :alice) (record/plain-value-of (fact-row :alice :bob :softland.store/permission)) (:word bob-after)])
+    (check "each sits at its own place, and its row's value reads back as the tool's value; the store's facts are as they were: the layer's depot, Bob's permission, and Bob still acts"
+           [[:value "a tool's own class"] [:value "a tool's own permission"] :streaming bobs :accepted]
+           [(record/read-value (fact-row :alice :alice :class)) (record/read-value (fact-row :alice :bob :permission))
+            (depot-of-layer :alice) (record/value-of (fact-row :alice :bob :softland.store/permission)) (:word bob-after)])
     (check "a fact under a key in the store's namespace that the store does not know is refused, the refusal is recorded, and nothing is written"
            [:store-key-not-known true nil]
            [(:word unknown-key) (:mine? unknown-key) (fact-row :alice :alice :softland.store/owner)])
@@ -796,7 +888,7 @@
     (shown "a permission given by one who does not hold the one above refused:" (told beside)
            "| by a who that is not the holder of the permission it names:" (told by-no-holder))
     (shown "a chain four deep stands, and a fifth is refused:" (:word give-carol) (:word give-dave) (:word dave-acts) (:word five-deep))
-    (shown "granted-in must be the act's layer:" (:word granted-elsewhere) "| a store key takes one write:" (:word give-again)
+    (shown "granted-in must be the act's layer:" (:word granted-elsewhere) "| a permission's place takes one write:" (:word give-again)
            "| ending a permission:" (:word end-it) "| a depot after the making:" (:word depot-again) (:word depot-other) (:word depot-retract))
     (shown "whole or nothing: a give with a stale fact" (:word with-stale) "| an act under the permission that was not given" (:word erin-acts))
     (shown "a tool's own facts under the bare words :class and :permission, sealed, accepted as facts under plain keys:" (told tools-own)
@@ -908,8 +1000,10 @@
     (check "an act of 256 facts is accepted, and each fact is a row; one of 257 is refused"
            [:accepted 255 :too-many-facts] [(:word facts-256) (:by-index (fact-row :alice :many-255 :text)) (:word facts-257)])
     (check "1,024 entries of based-on are taken; 1,025 are refused" [:accepted :too-many-based-on] [(:word based-1024) (:word based-1025)])
-    (check "a sealed value of 65,537 bytes is refused; one of 65,536 is accepted, under the same lock"
-           [:sealed-value-too-large :accepted 65536] [(:word sealed-over) (:word sealed-at) (alength ^bytes (:value (fact-row :alice :note-32 :text)))])
+    (check "a sealed value of 65,537 bytes is refused; one of 65,536 is accepted, under the same lock, and its row holds the 65,508 plain bytes that the lock opened"
+           [:sealed-value-too-large :accepted 65508] [(:word sealed-over) (:word sealed-at) (alength ^bytes (:value (fact-row :alice :note-32 :text)))])
+    (check "those 65,508 bytes are zeros, which the hand sealed without the door and which are no value of the form: the gate kept what the lock opened, whatever it is, and a reader is told so"
+           [:not-a-value] (record/read-value (fact-row :alice :note-32 :text)))
     (check "an id that prints to more than 256 characters is refused, and the refusal is recorded under the act-id" :id-too-long (:word long-entity))
     (check "an act that carries a stamp more than 10 seconds ahead of the gate's clock is refused"
            :carried-stamp-too-far-ahead (:word far-ahead))
@@ -951,6 +1045,350 @@
            [nil nil] [(ask :answer :team [:team :streaming (nth accepted 2)]) (answer-of [:team :streaming (nth accepted 2)])])
     (shown "the three reads give nothing for what is no id, no act-id, another layer's act-id or the other depot, and do not fail")))
 
+;; ------------------------------------ what the streaming gate keeps for a read
+
+(deftest what-a-fact-keeps
+  (let [made (decide! (making :canvas :alice :alice))
+        request (ask-for-locks! :canvas :alice alice-in-canvas 64)
+        u (UUID/randomUUID)
+        values (assoc kinds-of-value :uuid u)
+        facts (mapv (fn [[k v]] (sealed :canvas :kept k v)) values)
+        landed (decide! (canvas-act facts))
+        act-uuid (nth (:act-id (:thing landed)) 2)
+        rows (into {} (map (fn [k] [k (fact-row :canvas :kept k)])) (keys values))
+        logged (record-of-act (stored) (:act-id (:thing landed)))
+        lock-rows (mapv (fn [fact] (lock-row (:lock-id fact))) facts)
+        lock-a (take-lock! :canvas)
+        lock-b (take-lock! :canvas)
+        refused (decide! (canvas-act [(seal-with lock-a :canvas :not-kept :text "opened, and then dropped")
+                                      (assoc (seal-with lock-b :canvas :not-kept-2 :text "x") :sealed (byte-array 40))]))
+        unsealed (decide! (canvas-act [{:e :not-kept :k :text :v "a plain value"}]))
+        graces [:grace :canvas :canvas alice-in-canvas]
+        give (decide! (canvas-act [{:e :grace :k :softland.store/permission :v graces}]))
+        grace-asks (ask-for-locks! :canvas :grace graces 2)
+        grace-writes (decide! (thing :canvas :grace graces [(sealed :canvas :graces-note :text "grace's text")]))
+        retract (decide! (thing :canvas :grace graces [{:e :graces-note :k :gone}]))
+        graces-row (fact-row :canvas :graces-note :text)
+        retract-row (fact-row :canvas :graces-note :gone)
+        give-row (fact-row :canvas :grace :softland.store/permission)
+        personal-depot (fact-row :alice :alice :softland.store/depot)
+        personal-permission (fact-row :alice :alice :softland.store/permission)]
+    (swap! kept assoc-in [:canvas-before :kept-value] (record/read-value (get rows :map)))
+    (check "a layer for these checks is made, and a request for 64 locks in it is accepted" [:accepted :accepted 64]
+           [(:word made) (:word request) (count (:locks request))])
+    (check "an act with a value of each kind is accepted" [:accepted true] [(:word landed) (:mine? landed)])
+    (check "each row holds its value plain: it reads back as the value that the maker gave, a keyword, a UUID, a string with spaces, a number and a map"
+           (into {} (map (fn [[k v]] [k [:value v]])) values)
+           (into {} (map (fn [[k row]] [k (record/read-value row)])) rows))
+    (check "each row holds the plain bytes that the hand sealed, and no field of a lock; the bytes are not the sealed bytes that were sent"
+           (mapv (fn [[_ v]] [(vec (plain-bytes v)) false false false]) values)
+           (mapv (fn [[k _] fact] (let [row (get rows k)]
+                                    [(vec (:value row)) (contains? row :lock-act) (contains? row :lock-index)
+                                     (= (vec (:value row)) (vec (:sealed fact)))]))
+                 values facts))
+    (check "the act in the depot's log is as the hand sent it: each fact holds the sealed bytes and its lock id, and no plain value"
+           (mapv (fn [fact] [(vec (:sealed fact)) (:lock-id fact) false]) facts)
+           (mapv (fn [fact] [(vec (:sealed fact)) (:lock-id fact) (contains? fact :v)]) (:facts logged)))
+    (check "the lock of each value still names the fact that it seals, and opens the log's sealed bytes to the row's bytes: the lock is found from the act in the log, not from the row"
+           (mapv (fn [i] [act-uuid i true]) (range (count facts)))
+           (mapv (fn [i [k _] the-lock]
+                   [(:seals-act the-lock) (:seals-index the-lock)
+                    (= (vec (seal/open (record/lock-of the-lock) [:canvas :kept k] (:sealed (nth (:facts logged) i))))
+                       (vec (:value (get rows k))))])
+                 (range) values lock-rows))
+    (check "an act whose first value opens and whose second does not is refused whole: no row at either place, and both locks are free; the bytes that were opened are kept nowhere"
+           [:lock-does-not-open-the-value nil nil false false]
+           [(:word refused) (fact-row :canvas :not-kept :text) (fact-row :canvas :not-kept-2 :text)
+            (record/seals-a-fact? (lock-row (:lock-id lock-a))) (record/seals-a-fact? (lock-row (:lock-id lock-b)))])
+    (check "a gate still refuses an unsealed value that arrives, and writes no row" [:not-sealed nil]
+           [(:word unsealed) (fact-row :canvas :not-kept :text)])
+    (check "each row holds who wrote it and the permission that the act named: the maker of the layer under her first permission"
+           #{[:alice alice-in-canvas]} (set (map (fn [row] [(record/who-of row) (record/permission-of row)]) (vals rows))))
+    (check "a second holder, given a permission in the kept form without the slot, acts: her rows hold her and her permission; a retract's row holds them too; the give's row holds the giver and the giver's permission"
+           [:accepted :accepted :accepted :accepted
+            [:grace graces [:value "grace's text"]] [:grace graces [:nothing-here]] [:alice alice-in-canvas [:value graces]]]
+           [(:word give) (:word grace-asks) (:word grace-writes) (:word retract)
+            [(record/who-of graces-row) (record/permission-of graces-row) (record/read-value graces-row)]
+            [(record/who-of retract-row) (record/permission-of retract-row) (record/read-value retract-row)]
+            [(record/who-of give-row) (record/permission-of give-row) (record/read-value give-row)]])
+    (check "the system made Alice's personal layer for her: the rows of that making hold the system as who, and Alice's permission; the two differ"
+           [[:system alice-own] [:system alice-own]]
+           [[(record/who-of personal-depot) (record/permission-of personal-depot)]
+            [(record/who-of personal-permission) (record/permission-of personal-permission)]])
+    (shown "a value of each kind, kept plain in its row by the streaming gate and read back:"
+           (pr-str (into (sorted-map) (map (fn [[k row]] [k (record/read-value row)])) rows)))
+    (shown "the act in the depot's log keeps the sealed bytes and the lock ids, and no plain value: for the first fact" (alength ^bytes (:sealed (first (:facts logged))))
+           "sealed bytes in the log," (alength ^bytes (:value (get rows (first (keys values))))) "plain bytes in the row; the row names no lock, and the lock's row names the fact")
+    (shown "who wrote a fact, and under which permission:" (pr-str [(record/who-of graces-row) (record/permission-of graces-row)])
+           "| the system's making of a personal layer:" (pr-str [(record/who-of personal-depot) (record/permission-of personal-depot)]))
+    (shown "an act refused at its second seal leaves no row and no used lock:" (told refused) "| an unsealed value:" (:word unsealed))))
+
+(deftest the-keys-that-take-a-second-write
+  (let [more-locks (ask-for-locks! :team :alice alice-in-team 4)
+        team (fn [facts] (thing :team :alice alice-in-team facts))
+        walk (fn [k v1 v2]
+               (let [before (fact-row :team :team k)
+                     first-write (decide! (team [{:e :team :k k :v v1}]))
+                     row-1 (fact-row :team :team k)
+                     second-write (decide! (team [{:e :team :k k :v v2}]))
+                     row-2 (fact-row :team :team k)
+                     named (decide! (team [{:e :team :k k :v v1 :replaces [(:act-id (:thing second-write)) 0]}]))
+                     row-3 (fact-row :team :team k)
+                     stale (decide! (team [{:e :team :k k :v v2 :replaces [(:act-id (:thing first-write)) 0]}]))
+                     retract (decide! (team [{:e :team :k k}]))
+                     elsewhere (decide! (team [{:e :plan :k k :v v1}]))
+                     sealed-one (decide! (team [(sealed :team :team k v1)]))]
+                 {:before before :starts-with (first-act/starts-with :team k)
+                  :words (mapv :word [first-write second-write named stale retract elsewhere sealed-one])
+                  :values (mapv record/read-value [row-1 row-2 row-3 (fact-row :team :team k)])
+                  :written-by (mapv :by-act [row-1 row-2 row-3 (fact-row :team :team k)])
+                  :acts (mapv #(nth (:act-id (:thing %)) 2) [first-write second-write named])
+                  :stamps (mapv #(:stamp (:answer %)) [first-write second-write named])
+                  :level-since (mapv record/marked-keys-of [row-1 row-2 row-3])
+                  :who (record/who-of row-3) :permission (record/permission-of row-3)
+                  :elsewhere-row (fact-row :team :plan k)}))
+        seen (walk who-may-see :everyone :members)
+        listed (walk builds-on [:base :alice] [])
+        marked (walk marks #{:plan} #{})
+        wrong (mapv (fn [fact] (:word (decide! (team [fact]))))
+                    [{:e :team :k who-may-see :v :owner}
+                     {:e :team :k builds-on :v #{:base}}
+                     {:e :team :k builds-on :v (mapv #(keyword (str "layer-" %)) (range 65))}
+                     {:e :team :k marks :v [:plan]}
+                     {:e :team :k marks :v (set (map #(keyword (str "key-" %)) (range 33)))}
+                     {:e :team :k marks :v #{:softland.store/permission}}])
+        at-the-limits (decide! (team [{:e :team :k builds-on :v (mapv #(keyword (str "layer-" %)) (range 64))}
+                                      {:e :team :k marks :v (set (map #(keyword (str "key-" %)) (range 32)))}]))
+        read-at-the-limits [(count (second (record/read-value (fact-row :team :team builds-on)))) (count (marked-keys :team))]
+        odd-list (decide! (team [{:e :team :k builds-on :v [:team :base :base :nobody-made-this]}]))
+        odd-list-read (record/read-value (fact-row :team :team builds-on))
+        bob-in-team [:bob :team :team alice-in-team]
+        give (decide! (team [{:e :bob :k :softland.store/permission :v bob-in-team}]))
+        give-again (decide! (team [{:e :bob :k :softland.store/permission :v bob-in-team}]))
+        depot-again (decide! (team [{:e :team :k :softland.store/depot :v :streaming}]))
+        by-bob (decide! (thing :team :bob bob-in-team [{:e :team :k who-may-see :v :everyone}]))
+        not-made (decide! (thing :no-such-layer :alice [:alice :no-such-layer :no-such-layer]
+                                 [{:e :no-such-layer :k who-may-see :v :everyone}]))
+        making-with-a-third (decide! (update (making :third-fact :alice :alice) :facts conj
+                                             {:e :third-fact :k who-may-see :v :everyone}))
+        expected-words [:accepted :accepted :accepted :replaced-fact-not-current :store-key-retract-not-built
+                        :setting-not-on-the-layer :store-key-sealed]]
+    (check "the hand has locks in the layer :team" :accepted (:word more-locks))
+    (check "before any fact says it, the place of each of the three keys holds no row, and the layer reads as: seen by its members, building on nothing, marking no key"
+           [[nil nil nil] [:members [] #{}]]
+           [(mapv :before [seen listed marked]) (mapv :starts-with [seen listed marked])])
+    (check "who may see a layer: written, written a second time, written again naming the fact that is there; then a stale replaces, a retract, another entity and a sealed value are each refused with a recorded word"
+           expected-words (:words seen))
+    (check "what a layer builds on: the same" expected-words (:words listed))
+    (check "the keys that a layer marks: the same" expected-words (:words marked))
+    (check "after each accepted write the place holds that write's value, by that act; after the four refusals it holds the last accepted one"
+           [[[:value :everyone] [:value :members] [:value :everyone] [:value :everyone]]
+            [[:value [:base :alice]] [:value []] [:value [:base :alice]] [:value [:base :alice]]]
+            [[:value #{:plan}] [:value #{}] [:value #{:plan}] [:value #{:plan}]]
+            true]
+           [(:values seen) (:values listed) (:values marked)
+            (every? (fn [walked] (= (conj (:acts walked) (last (:acts walked))) (:written-by walked))) [seen listed marked])])
+    (check "the refused write on another entity wrote nothing there" [nil nil nil] (mapv :elsewhere-row [seen listed marked]))
+    (check "the row of a setting holds who wrote it and under which permission" [[:alice alice-in-team] [:alice alice-in-team] [:alice alice-in-team]]
+           (mapv (juxt :who :permission) [seen listed marked]))
+    (check "the row of the marked keys also holds, derived by the gate, the stamp of each marked key: the stamp of the act that marked it; none when the set is empty; and a new stamp when the key is marked again"
+           [{:plan (nth (:stamps marked) 0)} {} {:plan (nth (:stamps marked) 2)} true]
+           (conj (:level-since marked) (< (nth (:stamps marked) 0) (nth (:stamps marked) 2))))
+    (check "the rows of the setting and of the list hold no stamps of marked keys" [[{} {} {}] [{} {} {}]]
+           [(:level-since seen) (:level-since listed)])
+    (check "a wrong value under each key is refused by the declaration: a word that is neither; a set for a list; 65 layers; a vector for the marks; 33 keys; a key of the store's own namespace"
+           [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-layers :builds-on-too-many-layers
+            :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys :marked-key-in-the-stores-namespace]
+           wrong)
+    (check "64 layers and 32 marked keys in one act are accepted; a list that names the layer itself, a layer twice and a layer that nobody made is taken as written"
+           [:accepted [64 32] :accepted [:value [:team :base :base :nobody-made-this]]]
+           [(:word at-the-limits) read-at-the-limits (:word odd-list) odd-list-read])
+    (check "a permission's place and the layer's depot still take one write"
+           [:accepted :store-key-takes-one-write :store-key-takes-one-write]
+           [(:word give) (:word give-again) (:word depot-again)])
+    (check "who may write the three is whoever may act in the layer, kept and not decided: a second holder of the layer sets it to everyone"
+           [:accepted [:value :everyone] :bob] [(:word by-bob) (record/read-value (fact-row :team :team who-may-see))
+                                               (record/who-of (fact-row :team :team who-may-see))])
+    (check "a setting into a layer that is not made is refused as any act into it; a making act with a third fact, a setting, is no making act: nothing is written at the making but the depot and the first permission"
+           [:layer-not-made :layer-not-made nil nil]
+           [(:word not-made) (:word making-with-a-third) (depot-of-layer :third-fact) (fact-row :third-fact :third-fact who-may-see)])
+    (shown "the three keys that take a second write, in a streaming layer. For each: written, written again, written again naming the fact there, a stale replaces, a retract, another entity, sealed:"
+           (pr-str {who-may-see (:words seen) builds-on (:words listed) marks (:words marked)}))
+    (shown "no fact reads as:" (pr-str (mapv :starts-with [seen listed marked])) "| a wrong value under each:" (pr-str wrong))
+    (shown "the stamps of the marked keys, derived by the gate: after the first write" (pr-str (nth (:level-since marked) 0))
+           "after the set was emptied" (pr-str (nth (:level-since marked) 1)) "after the key was marked again" (pr-str (nth (:level-since marked) 2)))
+    (shown "a permission a second time:" (:word give-again) "| a depot after the making:" (:word depot-again)
+           "| a second holder of the layer writes who may see it:" (:word by-bob))))
+
+(deftest what-a-permission-allows
+  (let [bob-sees [:bob :canvas :canvas alice-in-canvas :see]
+        bob-without-the-slot [:bob :canvas :canvas alice-in-canvas]
+        bob-acts-too [:bob :canvas :canvas alice-in-canvas :see-and-act]
+        carols-here [:carol :canvas :canvas alice-in-canvas :see-and-act]
+        franks [:frank :canvas :canvas carols-here :see]
+        give-see (decide! (canvas-act [{:e :bob :k :softland.store/permission :v bob-sees}]))
+        the-row (fact-row :canvas :bob :softland.store/permission)
+        stamp-before (last-stamp :canvas)
+        acts (decide! (thing :canvas :bob bob-sees [{:e :bobs-note :k :text}]))
+        names-less (decide! (thing :canvas :bob bob-without-the-slot [{:e :bobs-note :k :text}]))
+        names-more (decide! (thing :canvas :bob bob-acts-too [{:e :bobs-note :k :text}]))
+        gives (decide! (thing :canvas :bob bob-sees [{:e :erin :k :softland.store/permission :v [:erin :canvas :canvas bob-sees :see]}]))
+        asks (ask-for-locks! :canvas :bob bob-sees 2)
+        two-faults (decide! (thing :canvas :bob bob-sees [{:e :kept :k :kw :replaces [(new-act-id :canvas) 0]}]))
+        raise (decide! (canvas-act [{:e :bob :k :softland.store/permission :v bob-acts-too}]))
+        row-after (fact-row :canvas :bob :softland.store/permission)
+        still-sees (decide! (thing :canvas :bob bob-acts-too [{:e :bobs-note :k :text}]))
+        give-carol (decide! (canvas-act [{:e :carol :k :softland.store/permission :v carols-here}]))
+        carol-writes (decide! (thing :canvas :carol carols-here [{:e :carols-note :k :text}]))
+        carol-gives (decide! (thing :canvas :carol carols-here [{:e :frank :k :softland.store/permission :v franks}]))
+        frank-acts (decide! (thing :canvas :frank franks [{:e :franks-note :k :text}]))
+        by-another-giver (decide! (thing :canvas :carol carols-here
+                                         [{:e :bob :k :softland.store/permission :v [:bob :canvas :canvas carols-here :see-and-act]}]))
+        slotted [:alice :slotted :slotted [:x :slotted :slotted] :see-and-act]
+        slotted-making (decide! (thing :slotted :alice slotted
+                                       [{:e :slotted :k :softland.store/depot :v :streaming}
+                                        {:e :alice :k :softland.store/permission :v slotted}]))
+        right-making (decide! (making :slotted :alice :alice))]
+    (check "a permission is given with the slot that says what it allows, see: accepted, and its row holds the whole text, slot and all"
+           [:accepted [:value bob-sees] :see] [(:word give-see) (record/read-value the-row) (act/allows (record/value-of the-row))])
+    (check "the holder of see acts and names her permission as the row has it: refused, an act needs act; the refusal is recorded, and nothing is written"
+           [:permission-does-not-allow-acting true nil] [(:word acts) (:mine? acts) (fact-row :canvas :bobs-note :text)])
+    (check "she names it without the slot, and with see and act in the slot: the bytes are not the row's, so it does not stand; nobody raises her right by naming it"
+           [:permission-does-not-stand :permission-does-not-stand] [(:word names-less) (:word names-more)])
+    (check "she cannot give: a give is an act; and her request for locks is refused with the same word and makes no lock"
+           [:permission-does-not-allow-acting nil :permission-does-not-allow-acting {}]
+           [(:word gives) (fact-row :canvas :erin :softland.store/permission) (:word asks) (:locks asks)])
+    (check "an act of hers with a second fault, a stale replaces, gets the word of her permission: the standing comes before the places"
+           :permission-does-not-allow-acting (:word two-faults))
+    (check "a second give to her, of see and act, is refused: a permission's place takes one write, so see stays see; her row is as it was, and she still cannot act"
+           [:store-key-takes-one-write true :permission-does-not-stand]
+           [(:word raise) (= (vec (:value the-row)) (vec (:value row-after))) (:word still-sees)])
+    (check "a permission that says see and act: its holder acts, and gives one beneath her own that says see; the holder of that one cannot act"
+           [:accepted :accepted :accepted :permission-does-not-allow-acting]
+           [(:word give-carol) (:word carol-writes) (:word carol-gives) (:word frank-acts)])
+    (check "a give to the holder of see by another giver, of see and act: refused with the same word; a holder has one permission in a layer, as built"
+           [:store-key-takes-one-write true]
+           [(:word by-another-giver) (= (vec (:value the-row)) (vec (:value (fact-row :canvas :bob :softland.store/permission))))])
+    (check "a making act whose permission has the slot is no making act: refused as an act into a layer that is not made; the layer is then made by a right act"
+           [:layer-not-made :accepted :streaming] [(:word slotted-making) (:word right-making) (depot-of-layer :slotted)])
+    (check "each of those refusals got a stamp of its own on the task, later than the stamp before them" true (< stamp-before (:stamp (:answer acts))))
+    (shown "a permission that says see, as its row holds it:" (pr-str (record/value-of the-row))
+           "| its holder acts:" (told acts) "| names it without the slot:" (:word names-less) "| with see and act:" (:word names-more)
+           "| gives:" (:word gives) "| asks for locks:" (:word asks))
+    (shown "see stays see: a second give of see and act" (:word raise)
+           "| a holder of see and act acts and gives:" (:word carol-writes) (:word carol-gives) "| a making act whose permission has the slot:" (:word slotted-making))))
+
+(deftest what-points-at-a-thing
+  (let [u (UUID/randomUUID)
+        place (fn [e] (fact-row :canvas e :on))
+        writes! (fn [e v & {:as more}] (decide! (canvas-act [(merge (sealed :canvas e :on v) more)])))
+        marks! (fn [keys] (decide! (canvas-act [{:e :canvas :k marks :v keys}])))
+        before-the-mark (writes! :b0 :canvas-1)
+        nothing-marked (marked-keys :canvas)
+        mark-1 (marks! #{:on})
+        s1 (:stamp (:answer mark-1))
+        marked-1 (marked-keys :canvas)
+        run-0 (run-of :canvas :on s1 :canvas-1)
+        a1 (writes! :b1 :canvas-1)
+        run-1 (entries-of :canvas :on s1 :canvas-1)
+        a2 (writes! :b2 u)
+        run-2 (run-of :canvas :on s1 u)
+        a3 (writes! :b1 u :replaces [(:act-id (:thing a1)) 0])
+        after-3 [(run-of :canvas :on s1 :canvas-1) (entry :canvas :on s1 :canvas-1 :b1) (run-of :canvas :on s1 u)]
+        a4 (writes! :b1 :canvas-2)
+        after-4 [(run-of :canvas :on s1 u) (entry :canvas :on s1 u :b1) (run-of :canvas :on s1 :canvas-2)]
+        a5 (writes! :b1 :canvas-2)
+        after-5 (entries-of :canvas :on s1 :canvas-2)
+        spaced (writes! :b3 "a string with spaces")
+        run-spaced (run-of :canvas :on s1 "a string with spaces")
+        stale (decide! (canvas-act [(assoc (sealed :canvas :b3 :on :never-written) :replaces [(new-act-id :canvas) 0])]))
+        after-stale [(run-of :canvas :on s1 "a string with spaces") (run-of :canvas :on s1 :never-written)]
+        ;; an entry that a later act put back is not taken out when an earlier act is sent again
+        x1 (writes! :b9 :v1)
+        x2 (writes! :b9 :v2)
+        x3 (writes! :b9 :v1)
+        again (send! (:thing x2))
+        after-again [(run-of :canvas :on s1 :v1) (run-of :canvas :on s1 :v2) (:by-act (entry :canvas :on s1 :v1 :b9))]
+        a6 (decide! (canvas-act [{:e :b1 :k :on}]))
+        after-6 [(run-of :canvas :on s1 :canvas-2) (record/read-value (place :b1))]
+        onto-the-retract (writes! :b1 :canvas-7)
+        after-onto [(run-of :canvas :on s1 :canvas-7) (run-of :canvas :on s1 :canvas-2)]
+        mark-off (marks! #{})
+        marked-off (marked-keys :canvas)
+        a8 (writes! :b2 :canvas-3)
+        after-8 [(some? (entry :canvas :on s1 u :b2)) (entry :canvas :on s1 :canvas-3 :b2) (record/read-value (place :b2))]
+        mark-2 (marks! #{:on})
+        s2 (:stamp (:answer mark-2))
+        marked-2 (marked-keys :canvas)
+        after-mark-2 [(run-of :canvas :on s2 :canvas-3) (run-of :canvas :on s2 u) (run-of :canvas :on s2 :v1)]
+        a10 (writes! :b2 :canvas-4)
+        after-10 [(run-of :canvas :on s2 :canvas-4) (run-of :canvas :on s2 :canvas-3)]
+        a11 (writes! :b2 :canvas-5)
+        after-11 [(run-of :canvas :on s2 :canvas-4) (entry :canvas :on s2 :canvas-4 :b2) (run-of :canvas :on s2 :canvas-5)
+                  (some? (entry :canvas :on s1 u :b2))]
+        both-base (canvas-act [])
+        both (decide! (assoc both-base :facts [{:e :canvas :k marks :v #{:on :in}} (sealed :canvas :b5 :in :canvas-1)]))
+        in-since (get (marked-keys :canvas) :in)
+        after-both [(run-of :canvas :in in-since :canvas-1) (:stamp (fact-row :canvas :b5 :in))]
+        later (decide! (canvas-act [(sealed :canvas :b6 :in :canvas-1)]))
+        after-later (run-of :canvas :in in-since :canvas-1)
+        unmarked (decide! (canvas-act [(sealed :canvas :b1 :text :canvas-1)]))
+        final-run (entries-of :canvas :on s2 :canvas-5)]
+    (swap! kept update :canvas-before merge {:since s2 :value :canvas-5 :run final-run :marked (marked-keys :canvas)})
+    (check "each act of this walk is accepted"
+           #{:accepted}
+           (set (map :word [before-the-mark mark-1 a1 a2 a3 a4 a5 spaced x1 x2 x3 a6 onto-the-retract mark-off a8 mark-2 a10 a11 both later
+                            unmarked])))
+    (check "before the mark no key is marked; the mark puts the key in the row of the marked keys with the stamp of the act that marked it"
+           [{} {:on s1}] [nothing-marked marked-1])
+    (check "nothing is filled from before: the fact that was written before the mark is in no run" [] run-0)
+    (check "a fact under the marked key, with a value that is a keyword id: its place is the run of that value, and the row holds the fact that wrote it, its stamp, who and the permission, and no value"
+           [[(record/by-value-key :canvas :on s1 (record/value-digest-of :canvas-1) :b1)
+             {:by-act (nth (:act-id (:thing a1)) 2) :by-index 0 :stamp (:stamp (:answer a1))
+              :who ":alice" :permission (text/text alice-in-canvas)}]]
+           run-1)
+    (check "a fact whose value is a UUID: the run of that thing holds its place" [:b2] run-2)
+    (check "the fact is replaced, naming what it replaces: its place is out of the run of the value before, the key of that entry holds no row, and it is in the run of the new value beside the other place"
+           [[] nil [:b1 :b2]] after-3)
+    (check "the fact is written over with no replaces: the same, out of one run and into another"
+           [[:b2] nil [:b1]] after-4)
+    (check "the same value written again: the entry is written over, and holds the later fact"
+           [[(record/by-value-key :canvas :on s1 (record/value-digest-of :canvas-2) :b1)
+             {:by-act (nth (:act-id (:thing a5)) 2) :by-index 0 :stamp (:stamp (:answer a5))
+              :who ":alice" :permission (text/text alice-in-canvas)}]]
+           after-5)
+    (check "a value that is a string with spaces has a run of its own" [:b3] run-spaced)
+    (check "a fact under the marked key that names a fact which is not current is refused whole: the run of the value that is there is as it was, and the refused value has no run"
+           [:replaced-fact-not-current [:b3] []] (into [(:word stale)] after-stale))
+    (check "an act that took an entry out is sent a second time, after a later act put the entry back: the gate answers it from the record and writes nothing, so the entry is still there and is the later act's"
+           [:acked [:b9] [] (nth (:act-id (:thing x3)) 2)] (into [again] after-again))
+    (check "a retract: the place is out of the run, and the place holds a fact with no value" [[] [:nothing-here]] after-6)
+    (check "a fact onto the retract, naming nothing: its place is in the run of its value, and nothing went out" [[:b1] []] after-onto)
+    (check "the mark is taken off by a second write of the set without the key: no key is marked" {} marked-off)
+    (check "a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays, though its fact is no longer current, and the new value has no row"
+           [true nil [:value :canvas-3]] after-8)
+    (check "the key is marked again: it gets a new stamp, later than the first" [{:on s2} true] [marked-2 (< s1 s2)])
+    (check "under the new stamp every run is empty: the row that stayed is under the old stamp, in no run that a read can name, and the fact from before the second mark is not filled in"
+           [[] [] []] after-mark-2)
+    (check "a fact written after the second mark, over a fact from before it: its place is in the run of its value, since the new stamp"
+           [[:b2] []] after-10)
+    (check "and replaced again: out of that run, the key of the entry holds no row, in the run of the new value; the row of the first marking is still where it was"
+           [[] nil [:b2] true] after-11)
+    (check "a mark and a fact under its key in one act: the act is decided with the marks as they were before it, so the fact is in no run, and its stamp is the key's stamp, not a later one"
+           [[] in-since] after-both)
+    (check "a later fact under that key is in the order" [:b6] after-later)
+    (check "a fact under a key that the layer does not mark has no row in the order by value"
+           [] (rama/foreign-select [(path/sorted-map-range ":canvas :text " ":canvas :text!") path/MAP-KEYS] (:by-value-ps *hand*) {:pkey :canvas}))
+    (shown "what points at a thing, in a streaming layer. The key :on is marked since" s1 "| a fact with a keyword id, one with a UUID:"
+           (pr-str (mapv first run-1)) "| the place" (pr-str run-2) "points at the UUID")
+    (shown "the fact replaced, written over, written again, retracted; after each, the run of the value before, the key of the entry that went out, the run of the new value:"
+           (pr-str after-3) (pr-str after-4) "| the same value again is the later fact's:" (= (nth (:act-id (:thing a5)) 2) (:by-act (second (first after-5))))
+           "| after the retract:" (pr-str after-6))
+    (shown "the same act appended a second time, after a later act put back the entry that it had taken out: the run is as the later act left it:" (pr-str after-again))
+    (shown "the mark taken off, the fact replaced, the key marked again since" s2 ": every run under the new stamp is empty" (pr-str after-mark-2)
+           "| the stale row stays under" s1 "| then a fact written and replaced:" (pr-str after-10) (pr-str after-11))
+    (shown "a mark and a fact under it in one act: the fact is in no run" (pr-str after-both) "| a later fact is:" (pr-str after-later))))
+
 ;; ----------------------------------------------- the checks of the base's gate
 
 (deftest the-base-is-made
@@ -982,7 +1420,7 @@
            [(count depot-rows) (count permission-rows) (set (map :stamp (concat (vals depot-rows) (vals permission-rows))))])
     (check "the rows hold the depot as a fact on the layer's own entity, and the system's permission on its holder"
            [:microbatch system-own]
-           [(record/plain-value-of (first (vals depot-rows))) (record/plain-value-of (first (vals permission-rows)))])
+           [(record/value-of (first (vals depot-rows))) (record/value-of (first (vals permission-rows)))])
     (check "after the making, the same act of the system into the base is accepted" :accepted (:word after))
     (shown "an act into the base before it is made refused:" (told early) "| its answer was readable" waited
            "ms after the append, with nothing sent after it")
@@ -1024,9 +1462,10 @@
             (task-of-row :mb-locks-ps (record/lock-key :base request-uuid 15))])
     (check "one act lands through the microbatch gate and is read back by act-id: accepted, with the digest of what was sent"
            [:appended :accepted nil true] [(:ack landed) (:verdict (:answer landed)) (:reason (:answer landed)) (:mine? landed)])
-    (check "the place holds the sealed bytes as sent, the fact that wrote it, its lock, and the stamp of the answer"
-           [(vec (:sealed fact)) act-uuid 0 request-uuid (second (:lock-id fact)) (:stamp (:answer landed))]
-           [(vec (:value the-row)) (:by-act the-row) (:by-index the-row) (:lock-act the-row) (:lock-index the-row) (:stamp the-row)])
+    (check "the place holds the plain bytes of the value, the fact that wrote it, who wrote it and the permission that the act named, the stamp of the answer, and no lock"
+           [(vec (plain-bytes "the first text of the base")) act-uuid 0 ":system" (text/text system-own) (:stamp (:answer landed)) false false]
+           [(vec (:value the-row)) (:by-act the-row) (:by-index the-row) (:who the-row) (:permission the-row) (:stamp the-row)
+            (contains? the-row :lock-act) (contains? the-row :lock-index)])
     (check "the lock's row beside the value, on the value's task, has the bytes that the door read and names the fact that it seals"
            [(vec (:bytes (:lock in-hand))) 1 act-uuid 0]
            [(vec (:bytes beside)) (:way beside) (:seals-act beside) (:seals-index beside)])
@@ -1035,18 +1474,20 @@
            [(:seals-act at-home) (:seals-index at-home) (contains? at-home :bytes)])
     (check "one copy of the lock's bytes: over every task, one row under the lock's key holds bytes"
            1 (count (filter #(contains? % :bytes) (vals by-task))))
-    (check "a sealed value in the base is opened by its lock: the bytes beside the value open the place's bytes"
-           (vec (plain-bytes "the first text of the base"))
-           (vec (seal/open (record/lock-of beside) [:base e :title] (:value the-row))))
+    (check "the lock's bytes, beside the value, open the sealed bytes that the hand sent, and what they open is the row's value"
+           [(vec (plain-bytes "the first text of the base")) true]
+           (let [opened (seal/open (record/lock-of beside) [:base e :title] (:sealed fact))]
+             [(vec opened) (= (vec opened) (vec (:value the-row)))]))
     (check "the read of the request's locks then gives the used lock with its way and no bytes, and each other lock with its bytes"
            [{:bytes nil :way 1} 15]
            [(get read-after (second (:lock-id in-hand))) (count (filter :bytes (vals read-after)))])
     (check "an act-id of the base that was never sent has no answer: nothing yet" nil never-sent)
     (shown "a request for 16 locks in the base, read with one query:" (told request) "| locks" (count (:locks request)))
     (shown "one act landing through the microbatch gate and read back by act-id:" (pr-str (:answer landed)))
-    (shown "a sealed value in the base opened by its lock, with one copy of the lock's bytes: the value on task" (task-of-entity e)
+    (shown "a value of the base kept plain in its row, with one copy of its lock's bytes: the value on task" (task-of-entity e)
            "| rows under the lock's key, by task, with bytes?" (pr-str (into (sorted-map) (map (fn [[task row]] [task (contains? row :bytes)])) by-task))
-           "| the lock's home is task" home-task "| opened:" (String. ^bytes (seal/open (record/lock-of beside) [:base e :title] (:value the-row)) "UTF-8"))))
+           "| the lock's home is task" home-task "| the row's value:" (pr-str (record/read-value the-row))
+           "| what the lock opens of the sealed bytes that were sent:" (String. ^bytes (seal/open (record/lock-of beside) [:base e :title] (:sealed fact)) "UTF-8"))))
 
 (defn- seen-before-closing
   "Sends one request for a lock, alone, and watches the answers table
@@ -1228,7 +1669,7 @@
           (thing :base :mallory alice-in-base [{:e :mallorys-doc :k :note}] {:based-on {fact-id far}})])
         next-one (decide-in-base! (system-act [{:e :far-doc :k :note}]))]
     (check "the system gives a person a permission in the base, beneath its own: accepted, and it sits on its holder as a fact"
-           [:accepted alice-in-base] [(:word give) (record/plain-value-of (first (vals permission-rows)))])
+           [:accepted alice-in-base] [(:word give) (record/value-of (first (vals permission-rows)))])
     (check "the permission's row is on every task" tasks (count permission-rows))
     (check "a person acts in the base under the permission that the system gave: a request for locks, and a sealed value"
            [:accepted 2 :accepted true] [(:word asks) (count (:locks asks)) (:word writes) (:mine? writes)])
@@ -1237,7 +1678,7 @@
     (check "a permission given beside the giver's own, not beneath it, is refused, and gives nothing"
            [:permission-fact-not-beneath-the-acts-own {}]
            [(:word beside) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))])
-    (check "in the base a store key takes one write for a place: a permission given again, the end of one, the depot again, another depot"
+    (check "in the base a permission's place and the layer's depot take one write: a permission given again, the end of one, the depot again, another depot"
            [:store-key-takes-one-write :ending-a-permission-not-decided :store-key-takes-one-write :changing-a-depot-not-decided]
            [(:word give-again) (:word end-it) (:word depot-again) (:word depot-other)])
     (check "a setting key on an entity that is not the layer is refused in the base" :setting-not-on-the-layer (:word setting-elsewhere))
@@ -1249,9 +1690,9 @@
     (check "a fact under a key in the store's namespace that the store does not know is refused by the microbatch gate too, and nothing is written"
            [:store-key-not-known {}]
            [(:word unknown-key) (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/owner))])
-    (check "a tool's own fact under the bare word :permission, on a holder's entity, is accepted in the base: its row is on one task, sealed, and the store's permission is on every task"
-           [:accepted 1 true tasks]
-           [(:word tools-own) (count tools-own-rows) (some? (:lock-act (first (vals tools-own-rows)))) (count permission-rows-after)])
+    (check "a tool's own fact under the bare word :permission, on a holder's entity, is accepted in the base: its row is on one task, with the tool's value, and the store's permission is on every task"
+           [:accepted 1 [:value "a tool's own permission"] tasks]
+           [(:word tools-own) (count tools-own-rows) (record/read-value (first (vals tools-own-rows))) (count permission-rows-after)])
     (check "an act that carries a stamp more than 10 seconds ahead of the gate's clock is refused"
            :carried-stamp-too-far-ahead (:word far-ahead))
     (check "the same under a permission that does not stand is refused with the word of the 10-second rule, as in the streaming gate"
@@ -1264,7 +1705,7 @@
            (count permission-rows) "tasks | her request for locks:" (told asks) "| her act:" (told writes))
     (shown "in the base, an act under a permission that does not stand:" (:word not-given) "| by a who that is not the holder:" (:word not-holder)
            "| a permission given beside the giver's own:" (:word beside))
-    (shown "a store key takes one write in the base:" (:word give-again) "| ending a permission:" (:word end-it)
+    (shown "a permission's place takes one write in the base:" (:word give-again) "| ending a permission:" (:word end-it)
            "| the depot again:" (:word depot-again) (:word depot-other) "| a setting key on another entity:" (:word setting-elsewhere)
            "| a permission beneath a person's, and an act under it:" (:word give-bob) (:word bob-acts))
     (shown "in the base, a key in softland.store that the store does not know:" (:word unknown-key)
@@ -1347,10 +1788,12 @@
            [[1 1 1] true]
            [(mapv (fn [rows] (count (filter #(contains? % :bytes) (vals rows)))) locks-after)
             (boolean (some (fn [rows] (< 1 (count rows))) locks-after))])
-    (check "each sealed value is opened by the bytes beside it"
-           (mapv (fn [[e _]] (vec (plain-bytes (str "the body of " (name e))))) places)
-           (mapv (fn [row [e k] rows] (vec (seal/open (record/lock-of row) [:base e k] (:value (first (vals rows))))))
-                 beside places places-after))
+    (check "each lock's bytes, beside its value, open the sealed bytes that the hand sent, and what they open is the row's value"
+           (mapv (fn [[e _]] [(vec (plain-bytes (str "the body of " (name e)))) true]) places)
+           (mapv (fn [row [e k] rows fact]
+                   (let [opened (seal/open (record/lock-of row) [:base e k] (:sealed fact))]
+                     [(vec opened) (= (vec opened) (vec (:value (first (vals rows)))))]))
+                 beside places places-after sent-facts))
     (check "the one stamp of builder's rule 18: later than the stamp of each row written before on those tasks, and than the refusal's"
            [true true] [(every? #(< % stamp) earlier-stamps) (< (:stamp (:answer refused)) stamp)])
     (check "the gate has one last stamp: it was below the act's stamp before the batch, and is not below it after"
@@ -1409,17 +1852,337 @@
     (shown "one act-id on both depots has one answer:" (told on-streaming) "| strays of the microbatch gate, by word:"
            (pr-str (merge-with - strays-after strays-before)) "| the same stray sent twice counts once")))
 
+;; ------------------------------------ what the microbatch gate keeps for a read
+
+(deftest what-a-fact-keeps-in-the-base
+  (let [request (ask-for-base-locks! :system system-own 64)
+        u (UUID/randomUUID)
+        values (assoc kinds-of-value :uuid u)
+        facts (mapv (fn [[k v]] (sealed :base :kept-doc k v)) values)
+        landed (decide-in-base! (system-act facts))
+        act-uuid (nth (:act-id (:thing landed)) 2)
+        rows (into {} (map (fn [k] [k (base-fact :kept-doc k)])) (keys values))
+        logged (record-of-act (stored-in-base) (:act-id (:thing landed)))
+        beside (mapv (fn [fact] (base-row :mb-locks-ps :kept-doc (base-lock-key (:lock-id fact)))) facts)
+        lock-a (take-lock! :base)
+        lock-b (take-lock! :base)
+        refused (decide-in-base! (system-act [(seal-with lock-a :base :not-kept-doc :text "opened, and then dropped")
+                                              (assoc (seal-with lock-b :base :not-kept-doc-2 :text "x") :sealed (byte-array 40))]))
+        alices-row (base-fact :alices-doc :text)
+        retract (decide-in-base! (thing :base :alice alice-in-base [{:e :alices-doc :k :gone}]))
+        retract-row (base-fact :alices-doc :gone)
+        give-row (base-row :mb-facts-ps :alice (record/place-key :base :alice :softland.store/permission))]
+    (check "a request for 64 locks in the base, and an act with a value of each kind on one entity, are accepted"
+           [:accepted 64 :accepted true] [(:word request) (count (:locks request)) (:word landed) (:mine? landed)])
+    (check "each row of the base holds its value plain: it reads back as the value that the maker gave"
+           (into {} (map (fn [[k v]] [k [:value v]])) values)
+           (into {} (map (fn [[k row]] [k (record/read-value row)])) rows))
+    (check "each row holds the plain bytes that the hand sealed, and no field of a lock"
+           (mapv (fn [[_ v]] [(vec (plain-bytes v)) false false]) values)
+           (mapv (fn [[k _]] (let [row (get rows k)] [(vec (:value row)) (contains? row :lock-act) (contains? row :lock-index)])) values))
+    (check "the act in the microbatch depot's log is as the hand sent it: each fact holds the sealed bytes and its lock id, and no plain value"
+           (mapv (fn [fact] [(vec (:sealed fact)) (:lock-id fact) false]) facts)
+           (mapv (fn [fact] [(vec (:sealed fact)) (:lock-id fact) (contains? fact :v)]) (:facts logged)))
+    (check "the whole row of each lock is beside its value, names the fact, and opens the log's sealed bytes to the row's bytes"
+           (mapv (fn [i] [act-uuid i true]) (range (count facts)))
+           (mapv (fn [i [k _] the-lock]
+                   [(:seals-act the-lock) (:seals-index the-lock)
+                    (= (vec (seal/open (record/lock-of the-lock) [:base :kept-doc k] (:sealed (nth (:facts logged) i))))
+                       (vec (:value (get rows k))))])
+                 (range) values beside))
+    (check "an act whose first value opens and whose second does not is refused whole: no row at either place on any task, and both locks are free"
+           [:lock-does-not-open-the-value {} {} false false]
+           [(:word refused) (rows-by-task :mb-facts-ps (record/place-key :base :not-kept-doc :text))
+            (rows-by-task :mb-facts-ps (record/place-key :base :not-kept-doc-2 :text))
+            (boolean (some record/seals-a-fact? (vals (rows-by-task :mb-locks-ps (base-lock-key (:lock-id lock-a))))))
+            (boolean (some record/seals-a-fact? (vals (rows-by-task :mb-locks-ps (base-lock-key (:lock-id lock-b))))))])
+    (check "each row holds who wrote it and the permission that the act named: the system's rows the system and its first permission; a person's rows her and the permission that the system gave her; a retract's row too; the give's row the giver"
+           [#{[:system system-own]} [:alice alice-in-base [:value "alice's text in the base"]] :accepted [:alice alice-in-base [:nothing-here]]
+            [:system system-own [:value alice-in-base]]]
+           [(set (map (fn [row] [(record/who-of row) (record/permission-of row)]) (vals rows)))
+            [(record/who-of alices-row) (record/permission-of alices-row) (record/read-value alices-row)]
+            (:word retract)
+            [(record/who-of retract-row) (record/permission-of retract-row) (record/read-value retract-row)]
+            [(record/who-of give-row) (record/permission-of give-row) (record/read-value give-row)]])
+    (shown "a value of each kind, kept plain in its row by the microbatch gate and read back:"
+           (pr-str (into (sorted-map) (map (fn [[k row]] [k (record/read-value row)])) rows)))
+    (shown "the act in the microbatch depot's log keeps the sealed bytes and the lock ids; who wrote a fact of the base, and under which permission:"
+           (pr-str [(record/who-of alices-row) (record/permission-of alices-row)])
+           "| an act refused at its second seal leaves no row:" (told refused))))
+
+(deftest the-keys-that-take-a-second-write-in-the-base
+  (let [place (fn [k] (record/place-key :base :base k))
+        rows (fn [k] (rows-by-task :mb-facts-ps (place k)))
+        before (mapv rows [who-may-see builds-on marks])
+        write (fn [k v & {:as more}] (system-act [(merge {:e :base :k k :v v} more)]))
+        firsts (decide-in-one-batch! [(write who-may-see :members) (write builds-on [:team :alice]) (write marks #{:tag})])
+        after-first (mapv rows [who-may-see builds-on marks])
+        end-of-first (gates-last-stamp)
+        seconds (decide-in-one-batch! [(write who-may-see :everyone) (write builds-on []) (write marks #{})])
+        after-second (mapv rows [who-may-see builds-on marks])
+        fact-of (fn [results i] [(:act-id (:thing (nth results i))) 0])
+        named (decide-in-one-batch! [(write who-may-see :members :replaces (fact-of seconds 0))
+                                     (write builds-on [:team] :replaces (fact-of seconds 1))
+                                     (write marks #{:tag} :replaces (fact-of seconds 2))])
+        after-named (mapv rows [who-may-see builds-on marks])
+        end-of-named (gates-last-stamp)
+        refused (decide-in-one-batch!
+                 [(write who-may-see :everyone :replaces (fact-of firsts 0))
+                  (write builds-on [] :replaces (fact-of firsts 1))
+                  (write marks #{} :replaces (fact-of firsts 2))
+                  (system-act [{:e :base :k who-may-see}])
+                  (system-act [{:e :base :k builds-on}])
+                  (system-act [{:e :base :k marks}])
+                  (system-act [{:e :team :k who-may-see :v :everyone}])
+                  (system-act [{:e :team :k builds-on :v [:base]}])
+                  (system-act [{:e :team :k marks :v #{:tag}}])
+                  (system-act [(sealed :base :base who-may-see :everyone)])
+                  (system-act [(sealed :base :base builds-on [:team])])
+                  (system-act [(sealed :base :base marks #{:tag})])
+                  (write who-may-see :owner)
+                  (write builds-on #{:team})
+                  (write builds-on (mapv #(keyword (str "layer-" %)) (range 65)))
+                  (write marks [:tag])
+                  (write marks (set (map #(keyword (str "key-" %)) (range 33))))
+                  (write marks #{:softland.store/permission})])
+        after-refused (mapv rows [who-may-see builds-on marks])
+        values-of (fn [by-task] (set (map record/read-value (vals by-task))))
+        by-alice (decide-in-base! (thing :base :alice alice-in-base [{:e :base :k who-may-see :v :everyone}]))
+        after-alice (rows who-may-see)
+        on-the-other-depot (decide! (thing :base :system system-own [{:e :base :k who-may-see :v :members}]
+                                           {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
+        after-the-other-depot (rows who-may-see)]
+    (check "before any fact says it, no task holds a row at the place of any of the three keys, and the base reads as: seen by everyone, building on nothing, marking no key"
+           [[{} {} {}] [:everyone [] #{}]]
+           [before (mapv #(first-act/starts-with :base %) [who-may-see builds-on marks])])
+    (check "each of the three keys is written in the base, in one batch: accepted, and its row is on every task, the same on each"
+           [[:accepted :accepted :accepted] [tasks tasks tasks] [#{[:value :members]} #{[:value [:team :alice]]} #{[:value #{:tag}]}]]
+           [(mapv :word firsts) (mapv count after-first) (mapv values-of after-first)])
+    (check "each is written a second time, naming nothing: accepted, and every task holds the second write"
+           [[:accepted :accepted :accepted] [tasks tasks tasks] [#{[:value :everyone]} #{[:value []]} #{[:value #{}]}]]
+           [(mapv :word seconds) (mapv count after-second) (mapv values-of after-second)])
+    (check "each is written again naming the fact that is there: accepted"
+           [[:accepted :accepted :accepted] [#{[:value :members]} #{[:value [:team]]} #{[:value #{:tag}]}]]
+           [(mapv :word named) (mapv values-of after-named)])
+    (check "a stale replaces, a retract, another entity, a sealed value and a wrong value are each refused with a recorded word, for each of the three keys"
+           (vec (concat (repeat 3 :replaced-fact-not-current) (repeat 3 :store-key-retract-not-built)
+                        (repeat 3 :setting-not-on-the-layer) (repeat 3 :store-key-sealed)
+                        [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-layers :builds-on-too-many-layers
+                         :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys :marked-key-in-the-stores-namespace]))
+           (mapv :word refused))
+    (check "after those eighteen refusals every task holds the rows that the last accepted writes left, with the same stamps"
+           (mapv (fn [by-task] (into {} (map (fn [[task row]] [task (:stamp row)])) by-task)) after-named)
+           (mapv (fn [by-task] (into {} (map (fn [[task row]] [task (:stamp row)])) by-task)) after-refused))
+    (check "the row of the marked keys holds on every task, derived by the gate, the stamp of each marked key: the last stamp of the batch that marked it; none when the set is empty; a new one when the key is marked again"
+           [#{{:tag end-of-first}} #{{}} #{{:tag end-of-named}} true]
+           [(set (map record/marked-keys-of (vals (nth after-first 2)))) (set (map record/marked-keys-of (vals (nth after-second 2))))
+            (set (map record/marked-keys-of (vals (nth after-named 2)))) (< end-of-first end-of-named)])
+    (check "the stamp of a newly marked key is not below the stamp of any act of its batch"
+           true (every? #(<= (:stamp (:answer %)) end-of-first) firsts))
+    (check "who may write the three is whoever may act in the layer, kept and not decided: a person with a permission in the base sets the base to everyone, on every task"
+           [:accepted tasks #{[:value :everyone]} #{:alice}]
+           [(:word by-alice) (count after-alice) (values-of after-alice) (set (map record/who-of (vals after-alice)))])
+    (check "a setting for the base sent to the streaming depot is refused as any act into a layer of the other gate, and the base's rows are as they were"
+           [:layer-belongs-to-the-other-gate (into {} (map (fn [[task row]] [task (:stamp row)])) after-alice)]
+           [(:word on-the-other-depot) (into {} (map (fn [[task row]] [task (:stamp row)])) after-the-other-depot)])
+    (shown "the three keys that take a second write, in the base: written, written again, written again naming the fact there:"
+           (pr-str (mapv :word firsts)) (pr-str (mapv :word seconds)) (pr-str (mapv :word named))
+           "| each row is on" (pr-str (mapv count after-named)) "tasks | refused, by word:" (pr-str (frequencies (map :word refused))))
+    (shown "the stamps of the base's marked keys, derived by the gate, the same on every task: after the first write"
+           (pr-str (set (map record/marked-keys-of (vals (nth after-first 2))))) "where the last stamp of that batch is" end-of-first
+           "| after the set was emptied" (pr-str (set (map record/marked-keys-of (vals (nth after-second 2)))))
+           "| after the key was marked again" (pr-str (set (map record/marked-keys-of (vals (nth after-named 2))))))))
+
+(deftest what-a-permission-allows-in-the-base
+  (let [erin-sees [:erin :base :base system-own :see]
+        erin-without-the-slot [:erin :base :base system-own]
+        erin-acts-too [:erin :base :base system-own :see-and-act]
+        gretas [:greta :base :base system-own :see-and-act]
+        [give-see in-the-same-batch] (decide-in-one-batch!
+                                      [(thing :base :system system-own [{:e :erin :k :softland.store/permission :v erin-sees}])
+                                       (thing :base :erin erin-sees [{:e :erin :k :note}])])
+        permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :erin :softland.store/permission))
+        [acts names-less names-more gives raise give-greta]
+        (decide-in-one-batch!
+         [(thing :base :erin erin-sees [{:e :erins-doc :k :note}])
+          (thing :base :erin erin-without-the-slot [{:e :erins-doc :k :note}])
+          (thing :base :erin erin-acts-too [{:e :erins-doc :k :note}])
+          (thing :base :erin erin-sees [{:e :frank :k :softland.store/permission :v [:frank :base :base erin-sees :see]}])
+          (system-act [{:e :erin :k :softland.store/permission :v erin-acts-too}])
+          (system-act [{:e :greta :k :softland.store/permission :v gretas}])])
+        asks (ask-for-base-locks! :erin erin-sees 2)
+        greta-writes (decide-in-base! (thing :base :greta gretas [{:e :gretas-doc :k :note}]))
+        permission-rows-after (rows-by-task :mb-facts-ps (record/place-key :base :erin :softland.store/permission))]
+    (check "the system gives a person a permission in the base that says see: accepted, and its row is on every task with the whole text, slot and all"
+           [:accepted tasks #{[:value erin-sees]}]
+           [(:word give-see) (count permission-rows) (set (map record/read-value (vals permission-rows)))])
+    (check "her act in the batch of the give, after it, is decided on the meeting task against the row that the give wrote: refused, an act needs act"
+           :permission-does-not-allow-acting (:word in-the-same-batch))
+    (check "in a later batch her act is refused for good where it arrives, with the same word, and nothing is written"
+           [:permission-does-not-allow-acting true {}]
+           [(:word acts) (:mine? acts) (rows-by-task :mb-facts-ps (record/place-key :base :erins-doc :note))])
+    (check "she names her permission without the slot, and with see and act in it: it does not stand"
+           [:permission-does-not-stand :permission-does-not-stand] [(:word names-less) (:word names-more)])
+    (check "she cannot give, and her request for locks is refused with the same word and makes no lock"
+           [:permission-does-not-allow-acting {} :permission-does-not-allow-acting {}]
+           [(:word gives) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission)) (:word asks) (:locks asks)])
+    (check "a second give to her, of see and act, is refused: a permission's place takes one write, and her rows are as they were"
+           [:store-key-takes-one-write (into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows)]
+           [(:word raise) (into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows-after)])
+    (check "a permission that says see and act, given in the same batch: its holder acts in a later batch" [:accepted :accepted]
+           [(:word give-greta) (:word greta-writes)])
+    (shown "in the base, a permission that says see:" (pr-str (record/value-of (first (vals permission-rows)))) "on" (count permission-rows) "tasks"
+           "| its holder acts in the batch of the give:" (:word in-the-same-batch) "| in a later batch:" (told acts)
+           "| names it without the slot:" (:word names-less) "| with see and act:" (:word names-more) "| gives:" (:word gives)
+           "| asks for locks:" (:word asks) "| a second give of see and act:" (:word raise))))
+
+(deftest what-points-at-a-thing-in-the-base
+  (let [task-of-entity (:base-task-of-entity @kept)
+        [e1 e2 e3] (:base-entities @kept)
+        u (UUID/randomUUID)
+        place (fn [e] (base-fact e :on))
+        writes! (fn [e v & {:as more}] (decide-in-base! (system-act [(merge (sealed :base e :on v) more)])))
+        marks! (fn [keys] (decide-in-base! (system-act [{:e :base :k marks :v keys}])))
+        key-task (fn [k] (vec (keys (rows-by-task :mb-by-value-ps k))))
+        before-the-mark (writes! e3 :canvas-1)
+        mark-1 (marks! #{:on})
+        s1 (gates-last-stamp)
+        marked-1 (base-marks-rows)
+        run-0 (base-run-of :on s1 :canvas-1)
+        a1 (writes! e1 :canvas-1)
+        a2 (writes! e2 :canvas-1)
+        run-1 (base-entries-of :on s1 :canvas-1)
+        tasks-of-run-1 (mapv (fn [[k _]] (key-task k)) run-1)
+        a3 (writes! e1 u :replaces [(:act-id (:thing a1)) 0])
+        after-3 [(base-run-of :on s1 :canvas-1) (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e1)) (base-run-of :on s1 u)]
+        a4 (writes! e1 :canvas-2)
+        after-4 [(base-run-of :on s1 u) (rows-by-task :mb-by-value-ps (base-entry-key :on s1 u e1)) (base-run-of :on s1 :canvas-2)]
+        a5 (writes! e1 :canvas-2)
+        after-5 (base-entries-of :on s1 :canvas-2)
+        _ (append-to-base! (:thing a4))
+        _ (wait-until-processed!)
+        after-again (base-entries-of :on s1 :canvas-2)
+        a6 (decide-in-base! (system-act [{:e e1 :k :on}]))
+        after-6 [(base-run-of :on s1 :canvas-2) (record/read-value (place e1))]
+        mark-off (marks! #{})
+        marked-off (base-marked-keys)
+        a8 (writes! e2 :canvas-3)
+        after-8 [(count (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e2)))
+                 (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-3 e2)) (record/read-value (place e2))]
+        mark-2 (marks! #{:on})
+        s2 (gates-last-stamp)
+        marked-2 (base-marks-rows)
+        after-mark-2 [(base-run-of :on s2 :canvas-3) (base-run-of :on s2 :canvas-1)]
+        a10 (writes! e2 :canvas-4)
+        after-10 [(base-run-of :on s2 :canvas-4) (base-run-of :on s2 :canvas-3)]
+        a11 (decide-in-base! (system-act [{:e e1 :k :beside} (sealed :base e2 :on :canvas-5)]))
+        after-11 [(base-run-of :on s2 :canvas-4) (rows-by-task :mb-by-value-ps (base-entry-key :on s2 :canvas-4 e2))
+                  (base-run-of :on s2 :canvas-5) (count (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e2)))]
+        final-run (base-entries-of :on s2 :canvas-5)]
+    (swap! kept assoc :base-run {:k :on :since s2 :value :canvas-5} :base-marked-since s2)
+    (check "each act of this walk is accepted"
+           #{:accepted} (set (map :word [before-the-mark mark-1 a1 a2 a3 a4 a5 a6 mark-off a8 mark-2 a10 a11])))
+    (check "the two entities of the walk are on two tasks" true (not= (task-of-entity e1) (task-of-entity e2)))
+    (check "the mark puts the key in the row of the marked keys, on every task, with the last stamp of the batch that marked it, which is not below the stamp of the marking act"
+           [tasks #{{:on s1}} true]
+           [(count marked-1) (set (map record/marked-keys-of (vals marked-1))) (<= (:stamp (:answer mark-1)) s1)])
+    (check "nothing is filled from before: the fact that was written before the mark is in no run" [] run-0)
+    (check "two facts on two tasks with one value: both places are in the run of that value, and their two rows are on one task, found from the value alone"
+           [(vec (sort-by str [e1 e2])) true true
+            {:by-act (nth (:act-id (:thing a1)) 2) :by-index 0 :stamp (:stamp (:answer a1)) :who ":system" :permission (text/text system-own)}]
+           [(vec (sort-by str (map (fn [[k _]] (record/by-value-entity k)) run-1)))
+            (apply = tasks-of-run-1) (= 1 (count (first tasks-of-run-1)))
+            (some (fn [[k row]] (when (= e1 (record/by-value-entity k)) row)) run-1)])
+    (check "the fact is replaced, naming what it replaces, with a UUID: its place is out of the run of the value before, no task holds a row under the key of that entry, and it is in the run of the UUID"
+           [[e2] {} [e1]] after-3)
+    (check "the fact is written over with no replaces: out of the run of the UUID, no row under that key on any task, into the run of the new value"
+           [[] {} [e1]] after-4)
+    (check "the same value written again: the entry is written over, and holds the later fact"
+           [[(base-entry-key :on s1 :canvas-2 e1)
+             {:by-act (nth (:act-id (:thing a5)) 2) :by-index 0 :stamp (:stamp (:answer a5)) :who ":system" :permission (text/text system-own)}]]
+           after-5)
+    (check "an earlier act that wrote that entry is appended a second time: the gate answers it from the record, and the run is as the later act left it"
+           after-5 after-again)
+    (check "a retract: the place is out of the run, and holds a fact with no value" [[] [:nothing-here]] after-6)
+    (check "the mark is taken off by a second write of the set without the key" {} marked-off)
+    (check "a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays on its one task, and the new value has no row"
+           [1 {} [:value :canvas-3]] after-8)
+    (check "the key is marked again: every task holds the new stamp, the last stamp of that batch, later than the first"
+           [tasks #{{:on s2}} true]
+           [(count marked-2) (set (map record/marked-keys-of (vals marked-2))) (< s1 s2)])
+    (check "under the new stamp every run is empty: the row that stayed is under the old stamp, in no run that a read can name"
+           [[] []] after-mark-2)
+    (check "a fact written after the second mark, over a fact from before it: its place is in the run of its value" [[e2] []] after-10)
+    (check "an act that arrives on another task replaces it: the home task of the place sent the row before in its reply, so the entry of the value before is out, no task holds a row under its key, and the place is in the run of the new value; the row of the first marking is still there"
+           [[] {} [e2] 1] after-11)
+    (shown "what points at a thing, in the base. The key :on is marked since" s1 ", the last stamp of the batch that marked it | two places on tasks"
+           (task-of-entity e1) "and" (task-of-entity e2) "hold one value: the rows of its run are both on task" (pr-str (first tasks-of-run-1)))
+    (shown "the fact replaced, written over, written again, retracted; after each, the run of the value before, the rows under the key of the entry that went out, the run of the new value:"
+           (pr-str after-3) (pr-str after-4) "| after the retract:" (pr-str after-6))
+    (shown "the mark taken off, a fact replaced, the key marked again since" s2 ": every run under the new stamp is empty" (pr-str after-mark-2)
+           "| then a fact written, and replaced by an act that arrived on another task:" (pr-str after-10) (pr-str after-11)
+           "| the run that a read then finds:" (pr-str (mapv (fn [[k _]] (record/by-value-entity k)) final-run)))))
+
+(deftest one-batch-under-a-marked-key
+  (let [task-of-entity (:base-task-of-entity @kept)
+        [e1 e2 e3] (:base-entities @kept)
+        s2 (:base-marked-since @kept)
+        [first-on-one-place second-on-one-place]
+        (decide-in-one-batch! [(system-act [(sealed :base e2 :on :first-of-two)])
+                               (system-act [(sealed :base e2 :on :second-of-two)])])
+        place (base-fact e2 :on)
+        after-two [(base-run-of :on s2 :canvas-5) (base-run-of :on s2 :first-of-two) (base-run-of :on s2 :second-of-two)
+                   (rows-by-task :mb-by-value-ps (base-entry-key :on s2 :first-of-two e2))]
+        [marking under-the-new-mark]
+        (decide-in-one-batch! [(system-act [{:e :base :k marks :v #{:on :in}}])
+                               (system-act [(sealed :base e1 :in :canvas-1)])])
+        end-of-marking (gates-last-stamp)
+        marked (base-marks-rows)
+        in-fact (base-fact e1 :in)
+        after-marking (base-run-of :in end-of-marking :canvas-1)
+        later (decide-in-base! (system-act [(sealed :base e3 :in :canvas-1)]))
+        after-later (base-run-of :in end-of-marking :canvas-1)
+        [see-a see-b] (decide-in-one-batch! [(system-act [{:e :base :k who-may-see :v :members}])
+                                             (system-act [{:e e1 :k :beside-2} {:e :base :k who-may-see :v :everyone}])])
+        see-rows (rows-by-task :mb-facts-ps (record/place-key :base :base who-may-see))
+        later-of-the-two (if (< (:stamp (:answer see-a)) (:stamp (:answer see-b))) see-b see-a)]
+    (check "two acts of one batch on one place under a marked key, each with the place as its own: both are accepted"
+           [:accepted :accepted] [(:word first-on-one-place) (:word second-on-one-place)])
+    (check "the place holds the later turn's value; the entry of the value before the batch is out, the first act's value has no row on any task, and the place is in the run of the later value alone"
+           [[:value :second-of-two] (:stamp (:answer second-on-one-place)) [[] [] [e2] {}]]
+           [(record/read-value place) (:stamp place) after-two])
+    (check "a mark and a fact under its key in one batch: both accepted; the key is marked on every task since the last stamp of that batch, and the stamp that it keeps for the other key is as it was"
+           [:accepted :accepted tasks #{{:on s2 :in end-of-marking}}]
+           [(:word marking) (:word under-the-new-mark) (count marked) (set (map record/marked-keys-of (vals marked)))])
+    (check "the mark holds from the batch after: the fact of the mark's own batch is in no run, and its stamp is not later than the key's stamp"
+           [[] true] [after-marking (<= (:stamp in-fact) end-of-marking)])
+    (check "a fact under that key in a later batch is accepted, and is in the order" [:accepted [e3]] [(:word later) after-later])
+    (check "two writes of who may see the base in one batch, from two tasks: both accepted, and every task holds one row, the later turn's"
+           [:accepted :accepted tasks #{(nth (:act-id (:thing later-of-the-two)) 2)}]
+           [(:word see-a) (:word see-b) (count see-rows) (set (map :by-act (vals see-rows)))])
+    (shown "two acts of one batch on one place under a marked key:" (told first-on-one-place) "|" (told second-on-one-place)
+           "| the runs of the value before, of the first act's value and of the second's:" (pr-str (vec (take 3 after-two))))
+    (shown "a mark and a fact under its key in one batch: the fact's stamp" (:stamp in-fact) "is not later than the key's stamp" end-of-marking
+           ", and the fact is in no run:" (pr-str after-marking) "| a fact of a later batch is:" (pr-str after-later))
+    (shown "two writes of who may see the base in one batch, arriving on tasks" (task-of-entity e1) "and the task of the layer's entity: every task holds the row of"
+           (short-id (:act-id (:thing later-of-the-two))))))
+
 (defn- base-snapshot
   "What the proof reads of the base before and after the module is started
   again: the answer of the act that landed, the depot, the gate's last
-  stamp, the count of strays, a permission's row on each task, and the bytes
-  of the locks of one request."
+  stamp, the count of strays, a permission's row on each task, the bytes
+  of the locks of one request, the marked keys on each task with their
+  stamps, the run of one value in the facts by value, and a value kept
+  plain."
   [request]
   {:answer (answer-of (:act-id (:thing (:base-landed @kept))))
    :depot (depot-of-layer :base)
    :last-stamp (gates-last-stamp)
    :strays (base-strays)
    :permission (into (sorted-map) (map (fn [[task row]] [task (:stamp row)])) (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission)))
+   :marked-keys (into (sorted-map) (map (fn [[task row]] [task (record/marked-keys-of row)])) (base-marks-rows))
+   :run (let [{:keys [k since value]} (:base-run @kept)] (base-entries-of k since value))
+   :kept-value (record/read-value (base-fact :kept-doc :map))
    :locks (into (sorted-map) (map (fn [[i lock]] [i (some-> (:bytes lock) vec)])) (locks-of request 0 255))})
 
 (deftest the-path-of-a-lock-in-the-base
@@ -1457,9 +2220,10 @@
     (check "one copy of a lock's bytes also then: the one row under the lock's key, on one task, holds the bytes and the fact"
            [1 (get bytes-before 0) (nth (:act-id (:thing on-its-home)) 2) 0]
            [(count rows) (vec (:bytes the-lock)) (:seals-act the-lock) (:seals-index the-lock)])
-    (check "and its bytes open the value"
-           (vec (plain-bytes "a value on its lock's home"))
-           (vec (seal/open (record/lock-of the-lock) [:base request-uuid :note] (:value the-value))))
+    (check "and its bytes open the sealed bytes that the hand sent, which are the row's value"
+           [(vec (plain-bytes "a value on its lock's home")) true]
+           (let [opened (seal/open (record/lock-of the-lock) [:base request-uuid :note] (:sealed (first (:facts (:thing on-its-home)))))]
+             [(vec opened) (= (vec opened) (vec (:value the-value)))]))
     (check "the read of locks gives that lock with no bytes all the same, and the lock that is not used with its bytes"
            [{:bytes nil :way 1} (get bytes-before 1)] [(get read-after 0) (vec (:bytes (get read-after 1)))])
     (check "a request for locks and a use of its lock in one batch: the request is accepted, and the use is refused"
@@ -1490,8 +2254,12 @@
         stamp-after-repeat (last-stamp :alice)
         bytes-after (into {} (map (fn [[i lock]] [i (vec (:bytes lock))])) (locks-of (:request request) 0 255))
         with-old-lock (decide! (alice [(sealed :alice :note-40 :text "sealed under a lock from before")]))
-        by-bob (decide! (thing :alice :bob bobs [{:e :bobs-note-4 :k :text}]))]
+        by-bob (decide! (thing :alice :bob bobs [{:e :bobs-note-4 :k :text}]))
+        {:keys [since value run marked kept-value]} (:canvas-before @kept)]
     (check "the answer that was read before is the answer after" (:answer landed) answer-after)
+    (check "what the gates keep for a read is as it was: a value kept plain, the layer's marked keys with their stamps, and the run of a value in the facts by value"
+           [kept-value marked run]
+           [(record/read-value (fact-row :canvas :kept :map)) (marked-keys :canvas) (entries-of :canvas :on since value)])
     (check "a repeat after it is answered from the record: the task's last stamp is the one from before"
            [:acked stamp-before] [repeat-ack stamp-after-repeat])
     (check "the depot, the strays and the locks are as they were: each lock has the same bytes"
@@ -1542,17 +2310,18 @@
         {:keys [places locks sent]} (:base-values @kept)
         opened (mapv (fn [[e k] lock fact]
                        (let [value (:value (base-fact e k))
-                             beside (base-row :mb-locks-ps e (base-lock-key (:lock-id lock)))]
-                         [(vec value) (some? (seal/open (record/lock-of beside) [:base e k] value))]))
+                             beside (base-row :mb-locks-ps e (base-lock-key (:lock-id lock)))
+                             plain (seal/open (record/lock-of beside) [:base e k] (:sealed fact))]
+                         [(vec value) (and (some? plain) (= (vec plain) (vec value)))]))
                      places locks sent)]
-    (check "the answer, the depot of the base, the gate's last stamp, the strays, a permission's rows and the locks are as they were"
+    (check "the answer, the depot of the base, the gate's last stamp, the strays, a permission's rows, the locks, the marked keys, a run of the facts by value and a value kept plain are as they were"
            before after)
     (check "a repeat after it is answered from the record" (:answer before) answer-after-repeat)
     (check "a lock of the base that was asked for before seals a value after" :accepted (:word with-old-lock))
     (check "the first stamp after is later than the gate's last stamp before" true (< (:last-stamp before) (:stamp (:answer with-old-lock))))
     (check "a permission that the system gave before stands after" :accepted (:word by-alice))
-    (check "each sealed value of the act on several tasks is as it was sent, and the bytes beside it still open it"
-           (mapv (fn [fact] [(vec (:sealed fact)) true]) sent) opened)
+    (check "each value of the act on several tasks is in its row as the plain bytes of what was sent, and the bytes beside it still open the sealed bytes that were sent, to those bytes"
+           (mapv (fn [[e _]] [(vec (plain-bytes (str "the body of " (name e)))) true]) places) opened)
     (shown "after the module is started again in the cluster, the base's record is as it was: the same answer, depot" (:depot after)
            "| the same locks | the gate's last stamp before" (:last-stamp before) "the first stamp after" (:stamp (:answer with-old-lock)))))
 
@@ -1600,6 +2369,10 @@
   (the-path-of-a-lock)
   (strays-and-limits)
   (the-reads-take-anything)
+  (what-a-fact-keeps)
+  (the-keys-that-take-a-second-write)
+  (what-a-permission-allows)
+  (what-points-at-a-thing)
   (the-base-is-made)
   (an-act-lands-in-the-base)
   (an-answer-is-readable-when-its-batch-is-closed)
@@ -1609,6 +2382,11 @@
   (a-long-batch)
   (an-act-on-several-tasks)
   (each-gate-tells-the-other-gates-layers)
+  (what-a-fact-keeps-in-the-base)
+  (the-keys-that-take-a-second-write-in-the-base)
+  (what-a-permission-allows-in-the-base)
+  (what-points-at-a-thing-in-the-base)
+  (one-batch-under-a-marked-key)
   (the-path-of-a-lock-in-the-base)
   (after-the-module-is-started-again)
   (the-base-after-the-module-is-started-again)

@@ -1,6 +1,7 @@
 ;; Before changing this file, read the plans of the two parts again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
 
 (ns softland.store.module.door-reads
   "The three query topologies by which the door reads the module, for layers
@@ -160,7 +161,7 @@
       (<<if *row
         (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
         (<<if (record/closed? *row *closed-through)
-          (record/plain-value-of *row :> *depot)
+          (record/value-of *row :> *depot)
          (else>)
           (identity nil :> *depot))
        (else>)
@@ -168,5 +169,5 @@
 
       (default>)
       (local-select> (keypath *key) $$streaming-facts :> *row)
-      (record/plain-value-of *row :> *depot))
+      (record/value-of *row :> *depot))
     (|origin)))

@@ -72,7 +72,7 @@ reasons. The door stands on the act's decisions of 6 October (the one form is
 the maker's act; the door's additions are its own declaration, which a gate
 checks; the seal is below the form), on the store's of 7 October (two depots;
 the answer is read from the record by act-id, and an ack is a signal), and on
-those of 8 October (who acts, the stamp, the three store keys). The door's own
+those of 8 October (who acts, the stamp, the store's keys). The door's own
 four, of 9 October, by row:
 
 | Row | Decision | Where it shows in the door |
@@ -80,7 +80,7 @@ four, of 9 October, by row:
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | The door makes no person and no id for one. It carries `:who` as given. An act-id's uuid is random, made from nothing of the person |
 | H1 A | One lock seals one value | The door takes one lock from a stock for each value fact and seals the value with it. The switch of a layer to one lock for each act is not built |
 | K3 A | The system can hold many layers | The door treats `:system` as a who like any other and checks nothing about it |
-| K4 B | The store's own keys carry the namespace `softland.store` | The door knows the three store keys for one reason: a value under one of them stays plain. It asks for locks under `:softland.store/lock-request` |
+| K4 B | The store's own keys carry the namespace `softland.store` | The door knows the store keys for one reason: a value under one of them stays plain. The table of them is `store-keys` in [declaration.clj](declaration.clj), which also says which of them take a second write. The door asks for locks under `:softland.store/lock-request` |
 
 ## Engineering choices
 
@@ -291,4 +291,4 @@ door's proof, `softland.store.door-proof`.
 | a reading, with `:thing`, `:carried`, `:entries`, `:values` | What the door read of a maker's thing before any round trip: the thing, its layer, its who, the four parts that a request for locks carries, one entry for each fact, and how many values there are to seal. An entry holds `:fact`, and for a value fact `:plain` and `:place` |
 | `:calls`, `:cell` | Of a stock in the door's memory, beside its seat: how many calls are using it now, and the place that holds its value |
 | `:lock` | Beside `:lock-id`, in a lock as a stock gives it to an act: the lock's bytes and its way |
-| value fact | A fact that carries a value and whose key is not one of the three store keys: a fact whose value the door seals |
+| value fact | A fact that carries a value and whose key is not one of the store keys: a fact whose value the door seals |

@@ -1,20 +1,23 @@
-;; Before changing this file, read the plan of this part again:
+;; Before changing this file, read the plans of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
 
 (ns softland.store.module.streaming-gate
   "The streaming gate: the stream topology that decides each thing of the
-  streaming depot, and the four PStates of its record. It requires Rama.
+  streaming depot, and the five PStates of its record. It requires Rama.
 
   What it takes. Each thing that arrives on `*streaming-depot`, which the
   module declares (`softland.store.module`) and which partitions by the
   thing's `:layer`. Anything can arrive: the door is not the only sender.
 
-  What it changes. It owns four PStates, the record of the streaming layers,
+  What it changes. It owns five PStates, the record of the streaming layers,
   and it alone writes them (in Rama only the owning topology writes a
-  PState): `$$streaming-answers`, `$$streaming-facts`, `$$streaming-locks`
-  and `$$streaming-task`. Their schemas are `softland.store.record.tables`'s
-  and their rows `softland.store.record.rows`'s. They are durable state of the
-  cluster. The gate keeps nothing in the memory of a process.
+  PState): `$$streaming-answers`, `$$streaming-facts`,
+  `$$streaming-facts-by-value`, `$$streaming-locks` and `$$streaming-task`.
+  Their schemas are `softland.store.record.tables`'s and their rows
+  `softland.store.record.rows`'s. They are durable state of the cluster. The
+  gate keeps nothing in the memory of a process: the row of a layer's marked
+  keys is read from the PState in each event that needs it.
 
   What it borrows. Two PStates of the microbatch gate, to read on its own
   task: `$$microbatch-facts` and `$$microbatch-task`. It reads them only for
@@ -47,36 +50,65 @@
                   empty too, and the layer starts with the other gate's
                   depot, whether the other gate's record holds the layer:
                   the layer's depot place in `$$microbatch-facts`, which
-                  every task holds, and this task's `:closed-through`.
+                  every task holds, and this task's `:closed-through`. A
+                  permission that stands and says `:see` is refused here,
+                  with no read more: an act needs \"act\".
     5. places     Read the place of each fact that names something to
                   replace and of each fact under
-                  `:softland.store/permission`; then checks (e), (f), (g)
-                  and what a store key does not take.
+                  `:softland.store/permission`; then checks (e), (f), (g),
+                  who may write a key that takes a second write, and what a
+                  store key does not take.
     6. the seal   Read one range of locks for each request whose locks the
-                  act names; then each sealed value is opened once.
+                  act names; then each sealed value is opened once, and the
+                  plain bytes are kept for its row.
+    6b. the marked keys   Only for an act that no check refused, and only
+                  when it holds a fact under a plain key or under
+                  `:softland.store/marked-keys`: read the row at the layer's
+                  marked-keys place, unless step 5 read it. Then read the
+                  place of each fact under a key that the row marks, unless
+                  step 5 read it: the row before gives the entry to take out
+                  of the facts by value.
     7. the stamp  Read the task's last stamp. A refusal writes the answer
                   and the last stamp and nothing else. An accept writes the
-                  row of each fact, the row of each lock that it uses, a new
-                  lock at each key that a request asks for, the answer and
-                  the last stamp.
+                  row of each fact, with its plain value, who wrote it and
+                  the permission that the act named; for a fact under a
+                  marked key the entry of its value in the facts by value,
+                  and the entry of the value before taken out; the row of
+                  each lock that it uses; a new lock at each key that a
+                  request asks for; the answer and the last stamp.
 
-  A later stage's rows are read only when the earlier checks passed. So an
-  act whose permission does not stand costs 4 reads at most, whatever it
-  carries, and an act into the base on this depot 6 at most. One accepted
-  act with one sealed value costs 4 reads and 4 row writes.
+  A later stage's rows are read only when the earlier checks passed, and no
+  check reads the marked keys. So an act whose permission does not stand
+  costs 4 reads at most, whatever it carries, and an act into the base on
+  this depot 6 at most. One accepted act with one sealed value costs 5 reads
+  and 4 row writes: the answer, the permission, the lock, the marked keys,
+  the last stamp. That is one read more than before the facts by value were
+  kept, also in a layer that marks no key. When the fact's key is marked it
+  costs 6 reads, and with them the row before, and 5 row writes, or 6 when
+  the entry of a value before goes out. An act with no fact under a plain
+  key, a request for locks, a give, a setting or a list, reads no marked
+  keys.
 
   The event has no partitioner and does not yield. It starts and ends on the
   task of the depot's partition, so all its writes are one group: they
   become visible together or not at all, and a reader sees an accepted
-  answer and each fact of its act at once. Rama's docs say this of a batch
-  of streaming events on one task. No other event of the task runs between
+  answer, each fact of its act, the entry that came into the facts by value
+  and the entry that went out at once. Rama's docs say this of a batch of
+  streaming events on one task. No other event of the task runs between
   this event's reads and its writes.
+
+  The marked keys. An act is decided with the layer's marks as they were
+  before it. So a fact of the act that marks its own key is not in the order
+  by value; the key gets the stamp of that act; and every fact with a later
+  stamp under that key is in the order. The depot's order is the order of a
+  mark and of a fact after it.
 
   When Rama runs an event again. A stream topology can process a record
   again, also after its writes were committed. Each write of a decision is
   behind check (a), and the answer commits with the rest: a second run after
   a commit ends at check (a) and writes nothing, so no lock is made again
-  for a value that is sealed and no stamp is given twice. A second run after
+  for a value that is sealed, no stamp is given twice, and no entry of the
+  facts by value that a later act put back is taken out again. A second run after
   a discard is the first that counts; the lock bytes and the stamp of the
   discarded run were never visible and may differ. The stray's write is not
   behind check (a); it is an add to a set, the same write however often it
@@ -140,14 +172,17 @@
 
 (defn add-to
   "Adds the streaming gate to a module. Takes the module's `topologies`.
-  Declares the stream topology `streaming-gate` and its four PStates, and
-  the dataflow of one event, as the namespace docstring walks it. What must
-  hold: the module declares the depot `*streaming-depot`, and has the
-  microbatch gate, which declares the two PStates that step 4 borrows."
+  Declares the stream topology `streaming-gate` and its five PStates, and
+  the dataflow of one event, as the namespace docstring walks it. Each write
+  of an accept is a whole row at a fixed key, or a fixed key taken out: the
+  same write however often it runs. What must hold: the module declares the
+  depot `*streaming-depot`, and has the microbatch gate, which declares the
+  two PStates that step 4 borrows."
   [topologies]
   (let [gate (stream-topology topologies "streaming-gate")]
     (declare-pstate gate $$streaming-answers (record-pstates/answers))
     (declare-pstate gate $$streaming-facts (record-pstates/facts))
+    (declare-pstate gate $$streaming-facts-by-value (record-pstates/facts-by-value))
     (declare-pstate gate $$streaming-locks (record-pstates/locks))
     (declare-pstate gate $$streaming-task (record-pstates/task))
     (<<sources gate
@@ -201,9 +236,11 @@
             (decision/makes-the-layer? :streaming *act *permission-row *depot-row *other-holds
                                        :> *makes-the-layer))
 
-          ;; 5. Places: checks (e), (f), (g), and what a store key does not take.
+          ;; 5. Places: checks (e), (f), (g), who may write a key that takes a
+          ;; second write, and what a store key does not take.
           (<<if *refused-standing
             (identity *refused-standing :> *refused-places)
+            (identity {} :> *place-rows)
            (else>)
             (decision/places-needed *act *makes-the-layer :> *place-keys)
             (loop<- [*keys-left *place-keys
@@ -221,6 +258,7 @@
           (<<if *refused-places
             (identity *refused-places :> *refused)
             (identity {} :> *lock-rows)
+            (identity nil :> *plain)
            (else>)
             (decision/lock-ranges :streaming *act :> *ranges)
             (loop<- [*ranges-left *ranges
@@ -235,16 +273,59 @@
                                $$streaming-locks
                                :> *range-rows)
                 (continue> (rest *ranges-left) (merge *locks-read *range-rows))))
-            (decision/seals :streaming *act *lock-rows :> *refused))
+            (decision/opened :streaming *act *lock-rows :> {*refused :refused *plain :plain}))
 
-          ;; 7. The stamp, and the writes: each a whole row at a fixed key.
+          ;; 6b. Only for an act that no check refused: the layer's marked
+          ;; keys, and the row before of each place under a marked key. Each
+          ;; row is read once: step 5 may have read it.
+          (<<if (and> (nil? *refused) (decision/reads-marked-keys? *act))
+            (decision/marked-keys-place *act :> *marks-key)
+            (<<if (contains? *place-rows *marks-key)
+              (get *place-rows *marks-key :> *marks-row)
+             (else>)
+              (local-select> (keypath *marks-key) $$streaming-facts :> *marks-row))
+            (decision/since-by-place *act *marks-row :> *since-by-place)
+            (decision/rows-before-needed *since-by-place *place-rows :> *before-keys)
+            (loop<- [*before-left *before-keys
+                     *before-read {}
+                     :> *before-rows]
+              (<<if (empty? *before-left)
+                (:> *before-read)
+               (else>)
+                (first *before-left :> *before-key)
+                (local-select> (keypath *before-key) $$streaming-facts :> *before-row)
+                (continue> (rest *before-left) (assoc *before-read *before-key *before-row))))
+            (assoc (merge *place-rows *before-rows) *marks-key *marks-row :> *rows-in-hand)
+           (else>)
+            (identity {} :> *since-by-place)
+            (identity *place-rows :> *rows-in-hand))
+
+          ;; 7. The stamp, and the writes: each a whole row at a fixed key, or
+          ;; a fixed key taken out.
           (local-select> (keypath :last-stamp) $$streaming-task :> *last-stamp)
           (decision/stamp-of *now *last-stamp *act *refused :> *stamp)
-          (decision/writes *act-id *act *refused *stamp *digest *lock-rows :> *writes)
+          ;; What the gate has in hand for an accept; nothing for a refusal.
+          ;; A key that this act newly marks gets the act's own stamp.
+          (<<if *refused
+            (identity {} :> *in-hand)
+           (else>)
+            (hash-map :lock-rows *lock-rows
+                      :plain *plain
+                      :since-by-place *since-by-place
+                      :place-rows *rows-in-hand
+                      :level-from *stamp
+                      :> *in-hand))
+          (decision/writes *act-id *act *refused *stamp *digest *in-hand :> *writes)
           (ops/explode *writes :> [*which *key *row])
           (<<cond
             (case> (= *which :fact))
             (local-transform> [(keypath *key) (termval *row)] $$streaming-facts)
+
+            (case> (and> (= *which :by-value) (nil? *row)))
+            (local-transform> [(keypath *key) NONE>] $$streaming-facts-by-value)
+
+            (case> (= *which :by-value))
+            (local-transform> [(keypath *key) (termval *row)] $$streaming-facts-by-value)
 
             (case> (= *which :lock))
             (local-transform> [(keypath *key) (termval *row)] $$streaming-locks)

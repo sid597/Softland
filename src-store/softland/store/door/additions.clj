@@ -6,7 +6,7 @@
   The door adds three things to a maker's act: an act-id, the depot that the
   act-id names, and for each value fact `:sealed` bytes and a `:lock-id` in
   place of `:v`. A value fact is a fact that carries a value and whose key
-  is not one of the three store keys. This namespace makes each addition
+  is not one of the store keys. This namespace makes each addition
   right, or gives one of the door's own words (`softland.store.door.words`),
   and then nothing is appended for the act. An addition is right when the
   door's declaration (`softland.store.door.declaration`) takes it and when
@@ -165,7 +165,7 @@
       a retract, or a fact that already
       carries :sealed or :lock-id            as given; a gate judges it
     a plain map with a value, under one of
-      the three store keys                   as given, the value plain, also
+      the store keys                         as given, the value plain, also
                                              when it holds :sealed or
                                              :lock-id: the door adds no part
                                              to it, so it writes over
@@ -178,7 +178,10 @@
 
   A key in the store's namespace that is no store key is \"any other key\":
   its value is sealed, and a gate refuses the fact either way. The door
-  tells a store key by its being one of the three, as the gates do.
+  tells a store key by its being one of the declaration's table
+  (`softland.store.door.declaration/store-keys`), as the gates do. So a
+  layer's setting, the list of what it builds on and its marked keys go
+  plain, with no lock, as its depot and a permission do.
 
   For a value fact, in order: the word `:seal-that-many-values` when the
   walk has counted `most-values-in-one-act` already; `:seal-a-value` at

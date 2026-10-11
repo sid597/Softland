@@ -34,8 +34,10 @@ fails.
 
 A pass of the first two shows the pure code on values of one process. A pass of
 the third shows the module in one process: acts that went through each depot and
-its gate, and were read back by act-id. The third plays the door by hand, so the
-store stays proven without the door. A pass of the fourth shows the door in one
+its gate, and were read back by act-id; and what each gate keeps for a read,
+selected straight from its tables. The third plays the door by hand, so the
+store stays proven without the door. It also plays a reader of the tables by
+hand: no reader of facts is built in this tree yet. A pass of the fourth shows the door in one
 process: acts that a maker gave it, which went through each depot and its gate,
 and whose answers the door read back. The proof is the door's one maker; no
 other maker uses the door yet. Neither shows a cluster of several machines, a

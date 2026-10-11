@@ -24,8 +24,8 @@
   check reads them; acts that pass, from the least act to one with each
   optional part, each in its one form; one refused act for each fault, and
   each reason word earned; the order of the checks, which is the order of
-  the declarations; that nothing throws; the limits at their edges; ids and
-  values."
+  the declarations; that nothing throws; the limits at their edges, and the
+  three forms of a permission; ids and values."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
             [softland.store.act :as act])
@@ -158,7 +158,9 @@
           [:replaces :fact-id {:optional true}]]
    :act-id [:tuple :id [:enum :streaming :microbatch] :uuid]
    :fact-id [:tuple :act-id [:int {:min 0}]]
-   :permission-id [:or [:tuple :id :id :id] [:tuple :id :id :id :permission-id]]
+   :permission-id [:or [:tuple :id :id :id]
+                       [:tuple :id :id :id :permission-id]
+                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
    :carried-stamp [:int {:min 0 :below 4611686018427387904}]})
 
 (def ^:private parts-cases
@@ -240,6 +242,14 @@
       (assoc good :who :bob :permission [:bob :alice :alice alice-own])
       (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
              :who :bob :permission [:bob :alice :alice alice-own])]
+     ["an act under a given permission that says what it allows: see"
+      (assoc good :who :bob :permission [:bob :alice :alice alice-own :see])
+      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
+             :who :bob :permission [:bob :alice :alice alice-own :see])]
+     ["an act under a given permission that says what it allows: see and act"
+      (assoc good :who :bob :permission [:bob :alice :alice alice-own :see-and-act])
+      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
+             :who :bob :permission [:bob :alice :alice alice-own :see-and-act])]
      ["an act that replaces a fact, says what it was based on and what it came from"
       (assoc (act-of (assoc a-fact :replaces [earlier-act-id 0]))
              :based-on {[earlier-act-id 0] 41 [other-act-id 1] 7} :because-of other-act-id)
@@ -295,6 +305,16 @@
    ["a permission that is a list" (assoc good :permission '(:alice :alice :alice)) :malformed]
    ["a permission with an item that is a string" (assoc good :permission [:alice "alice" :alice]) :malformed]
    ["a permission whose parent is no permission" (assoc good :permission [:alice :alice :alice [:alice]]) :malformed]
+   ["a permission whose fourth slot is a word for what it allows, and no permission"
+    (assoc good :permission [:alice :alice :alice :see]) :malformed]
+   ["a permission whose fifth slot is a third word"
+    (assoc good :permission [:alice :alice :alice alice-own :act]) :malformed]
+   ["a permission whose fifth slot is a permission"
+    (assoc good :permission [:alice :alice :alice alice-own alice-own]) :malformed]
+   ["a permission of six items"
+    (assoc good :permission [:alice :alice :alice alice-own :see :see]) :malformed]
+   ["a first permission with a word after it: the slot is only for a given permission"
+    (assoc good :permission [:alice :alice :alice nil :see]) :malformed]
    ["a permission in another layer" (assoc good :permission [:alice :bob :bob]) :permission-not-in-layer]
    ["a permission whose parent is in the act's layer, but itself in another"
     (assoc good :permission [:alice :bob :bob alice-own]) :permission-not-in-layer]
@@ -410,7 +430,11 @@
    ["a carried stamp of 2^62" (assoc good :based-on {[earlier-act-id 0] act/max-carried-stamp}) :malformed]
    ["a carried stamp below zero" (assoc good :based-on {[earlier-act-id 0] -5}) :malformed]
    ["a permission four deep" (assoc good :permission (deep-permission 4)) :ok]
-   ["a permission five deep" (assoc good :permission (deep-permission 5)) :malformed]])
+   ["a permission five deep" (assoc good :permission (deep-permission 5)) :malformed]
+   ["a permission four deep that says what it allows: the slot is a word, and counts for no depth"
+    (assoc good :permission [:alice :alice :alice (deep-permission 3) :see]) :ok]
+   ["a permission five deep that says what it allows"
+    (assoc good :permission [:alice :alice :alice (deep-permission 4) :see]) :malformed]])
 
 (def ^:private limit-cases "The limit rows as cases." (verdicts limit-rows))
 
@@ -479,7 +503,16 @@
           (fn [] (mapv #(act/has-shape? :permission-id %)
                        [alice-own [(uuid 1) (uuid 2) (uuid 2)] (deep-permission 2) (deep-permission 4)
                         [:alice :alice] '(:alice :alice :alice) (deep-permission 5)]))
-          [true true true true false false false]]]))
+          [true true true true false false false]]
+         ["permission ids with the slot that says what one allows: see; see and act; above a permission that has the slot too; not a third word, not a word in the fourth slot, not six items"
+          (fn [] (mapv #(act/has-shape? :permission-id %)
+                       [[:bob :alice :alice alice-own :see]
+                        [:bob :alice :alice alice-own :see-and-act]
+                        [:carol :alice :alice [:bob :alice :alice alice-own :see-and-act] :see]
+                        [:bob :alice :alice alice-own :act]
+                        [:bob :alice :alice :see]
+                        [:bob :alice :alice alice-own :see :see]]))
+          [true true true false false false]]]))
 
 ;; ------------------------------------------------------------- the checks
 
@@ -552,7 +585,16 @@
 
 (deftest the-limits
   (holds limit-cases)
-  (shown "the limits at their edges:" (words limit-rows)))
+  (shown "the limits at their edges:" (words limit-rows))
+  (shown "a permission has three forms: [who layer granted-in], a first permission;"
+         "[who layer granted-in parent], a given one; and [who layer granted-in parent allows],"
+         "a given one that says :see or :see-and-act. The check takes an act under each:"
+         (pr-str (mapv (fn [p] (verdict (act/parse (assoc good :who (first p) :permission p))))
+                       [alice-own [:bob :alice :alice alice-own] [:bob :alice :alice alice-own :see]
+                        [:bob :alice :alice alice-own :see-and-act]]))
+         "| a third word in the slot, and a word in the place of the permission above:"
+         (pr-str (mapv (fn [p] (verdict (act/parse (assoc good :who :bob :permission p))))
+                       [[:bob :alice :alice alice-own :act] [:bob :alice :alice :see]]))))
 
 (deftest ids-and-values
   (holds value-cases)

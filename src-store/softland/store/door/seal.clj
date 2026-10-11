@@ -9,9 +9,11 @@
   Each value gets its own lock. Sid decided it on 9 October 2026
   (src-store/README.md, H1 A). The door seals a value with a lock that the
   store made; a gate opens each sealed value once, with its lock, to check
-  that the lock opens it, and keeps nothing of the plain value. A lock that
-  is later destroyed is that value gone, although the sealed bytes stay in
-  the depot for ever.
+  that the lock opens it, and keeps the plain bytes in the fact's row
+  (`softland.store.gate.decision/opened`; Sid's decision of 11 and 12
+  October 2026, entry 5: the tables keep a value plain). The act in the
+  depot's log keeps the sealed bytes. So a lock that is later destroyed is
+  the log's copy of that value gone, and not the tables' copy.
 
   A lock, in this namespace, is what its row in the record gives:
   {:bytes the lock's bytes, :way the number of its way of sealing}.
@@ -167,8 +169,9 @@
       (catch Throwable _ nil))))
 
 (defn opens?
-  "The gate's test. Takes a lock, a place and sealed bytes. Gives true when
-  the lock opens the bytes at that place. It keeps nothing of the plain
-  bytes."
+  "A test of a seal. Takes a lock, a place and sealed bytes. Gives true when
+  the lock opens the bytes at that place, and drops the plain bytes. No gate
+  calls it: a gate calls `open` and keeps what it gives. The proofs call
+  it."
   [lock place sealed]
   (some? (open lock place sealed)))

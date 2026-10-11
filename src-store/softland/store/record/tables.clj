@@ -1,11 +1,11 @@
 (ns softland.store.record.tables
   "The record as PStates: the schemas, written once. It requires Rama, and
-  it declares nothing: a gate declares four PStates with these schemas under
+  it declares nothing: a gate declares five PStates with these schemas under
   its own names, because in Rama only the topology that owns a PState can
   write it. So \"the same record shape\" for each gate is these functions:
-  the answers, the facts and the locks are one schema for both gates, and
-  what a gate keeps for a task is `task` for the streaming gate and
-  `microbatch-task` for the microbatch gate.
+  the answers, the facts, the facts by value and the locks are one schema
+  for both gates, and what a gate keeps for a task is `task` for the
+  streaming gate and `microbatch-task` for the microbatch gate.
 
   What each schema holds, field by field, is in the namespace docstring of
   `softland.store.record.rows`, which makes and reads the rows. Here is why each
@@ -17,6 +17,19 @@
     facts    {String -> a row}. The current fact of each place, one seek for
              a place. Entity and key are one sorted key, not a map inside a
              map, which would cost one seek for each level.
+    facts-by-value
+             {String -> a row}. For each key that a layer marks, the same
+             facts in one more order: layer, key, the stamp since which the
+             key is marked, the digest of the value, then the entity. So
+             the places that hold one value under one key are neighbours,
+             and \"what points at this thing\" is one seek and one step for
+             each place. A top-level map and not a map inside a map: Rama's
+             push can watch a run of a top-level map's keys, and a second
+             level would cost one seek more for each read and each write. A
+             table of its own and not more keys of `facts`: its key has five
+             parts where a place has three, so in one map a key of this
+             order could sort into the run of an entity; and in a
+             microbatch layer the two are placed by different parts.
     locks    {String -> a row}. One row for each lock, keyed so that the
              locks of one request are neighbours: the check of one seal is
              one seek, and the locks of one request are one seek and one
@@ -38,9 +51,9 @@
              `:last-stamp` is one for the whole gate, on the gate's task
              only.
 
-  Why three flat maps and not one PState keyed by the layer. An answer is
-  found by an act's uuid, a fact by its place, a lock by its id: they share
-  no key. With the layer as the top-level key and three subindexed maps
+  Why flat maps and not one PState keyed by the layer. An answer is found
+  by an act's uuid, a fact by its place, a lock by its id: they share no
+  key. With the layer as the top-level key and three subindexed maps
   under it, each row would cost two seeks to read and one more to write;
   the decision of one common act would cost 6 to 8 seeks, against 4 here.
   A row is placed by the task on which its gate writes it, not by a hash of
@@ -48,15 +61,20 @@
   writes each row of a layer on the layer's task, and each read of a
   streaming layer routes by the layer. The microbatch gate writes a row on
   the task that the second part of its key gives: the uuid of an answer,
-  the entity of a fact, the request's uuid of a lock; a row under
-  `:softland.store/depot` or `:softland.store/permission` on every task; and
-  the whole row of a lock that seals a value on the task of that value's
-  entity. A read of a microbatch layer routes by that part.
+  the entity of a fact, the request's uuid of a lock; a row of the facts by
+  value on the task of its value digest, the fourth part of its key, so
+  that the run of one value is on one task; a row under one of the five
+  store keys that sit on every task (`softland.store.gate.batch/on-every-task?`)
+  on every task; and the whole row of a lock that seals a value on the task
+  of that value's entity. A read of a microbatch layer routes by that part.
   `softland.store.record.rows` says it row by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
-  does not have is absent. A row of another class throws at the write, so
+  does not have is absent: `:value` in the row of a retract, `:level-since`
+  in every row but the one at a layer's marked-keys place. Who wrote a fact,
+  the permission that its act named and the stamps of the marked keys are
+  each held as a String, the one text of what it is. A row of another class throws at the write, so
   the rows are made only by `softland.store.record.rows`.
 
   The strays. The outer map, a reason word to a set, is not subindexed: its
@@ -92,14 +110,26 @@
 
 (defn facts
   "Gives the schema of the current facts: the key of a place to the row of
-  its current fact."
+  its current fact. No field names a lock: a value is kept plain."
   []
-  {String (fixed-keys-schema {:value      byte-array-class
-                              :lock-act   UUID
-                              :lock-index Long
-                              :by-act     UUID
+  {String (fixed-keys-schema {:value       byte-array-class
+                              :by-act      UUID
+                              :by-index    Long
+                              :stamp       Long
+                              :who         String
+                              :permission  String
+                              :level-since String})})
+
+(defn facts-by-value
+  "Gives the schema of the facts by value: the key of a place in the order
+  of its value, under a marked key, to the fact's row without its value.
+  One schema for both gates."
+  []
+  {String (fixed-keys-schema {:by-act     UUID
                               :by-index   Long
-                              :stamp      Long})})
+                              :stamp      Long
+                              :who        String
+                              :permission String})})
 
 (defn locks
   "Gives the schema of the locks: the key of a lock to its row."

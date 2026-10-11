@@ -19,6 +19,16 @@
   the two declarations, takes anything, and gives the act in its one form or
   the reason why it is not an act.
 
+  A permission id has three forms. `[who layer granted-in]` is a first
+  permission, with nothing above it. `[who layer granted-in parent]` is a
+  given permission, with the permission above it. And
+  `[who layer granted-in parent allows]` is a given permission that says
+  what it allows: `:see`, or `:see-and-act`. A permission without that slot
+  allows seeing and acting; `allows` is the one function that reads the
+  slot. That a permission says what it allows is Sid's decision of 11 and 12
+  October 2026 (src-store/README.md, entry 1); that it says so in a slot of
+  its own id is the builder's.
+
   Why the shape is in code and not a fact in the store. Each shape that a
   tool gives enters the store as a fact, inside an act. So the shape of the
   act itself is the floor: it must hold when each fact is wrong. It is
@@ -33,6 +43,7 @@
                   -> [:ok the thing in its one form] or [:no reason]
     value?        anything -> true for a value that a fact can hold
     normal-value  a value -> its one normal form
+    allows        a permission id in its one form -> :see or :see-and-act
 
   State and effects. The namespace owns no state, and each function is pure.
   Nothing here reads a clock, takes a random id, seals or opens a value,
@@ -44,7 +55,11 @@
   reads one; it reads `rules` too. `softland.store.door.text` asks
   `readable-keyword?`. The proof's hand, which plays the door, asks
   `normal-value`. The door's additions (`softland.store.door.additions`) ask
-  `value?` and `normal-value`.
+  `value?` and `normal-value`. The gates' checks
+  (`softland.store.gate.decision`, `softland.store.gate.batch`) ask `allows`
+  of the permission that an act names, and the record's rows
+  (`softland.store.record.rows`) ask `value?`, `normal-value` and
+  `has-shape?` when they read a row back.
 
   Approach. The file has these sections, in this order: the words and the
   limits; the declared shape and the rules; what the declaration says, as
@@ -168,10 +183,15 @@
    :fact-id
    [:tuple :act-id [:int {:min 0}]]
 
-   ;; [who layer granted-in], or [who layer granted-in parent].
+   ;; [who layer granted-in]: a first permission. [who layer granted-in
+   ;; parent]: a given permission. [who layer granted-in parent allows]: a
+   ;; given permission that says what it allows. A tuple fits only its own
+   ;; count, so each thing fits one alternative at most; the slot is a word
+   ;; and no permission, so it does not count toward the nesting limit.
    :permission-id
    [:or [:tuple :id :id :id]
-        [:tuple :id :id :id :permission-id]]
+        [:tuple :id :id :id :permission-id]
+        [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
 
    :carried-stamp
    [:int {:min 0 :below max-carried-stamp}]})
@@ -453,6 +473,23 @@
   (conform declared shape-name x {}))
 
 ;; ---------------------------------------------------------------- the check
+
+(defn allows
+  "Takes a permission id in its one form. Gives what the permission allows:
+  the word of its fifth slot, `:see` or `:see-and-act`, when it has one;
+  `:see-and-act` for a permission with three or four slots. So a permission
+  that was given before the slot existed reads as \"see and act\", and this
+  is the one place where that is code. A gate refuses an act under a
+  permission that allows `:see`; a read asks this of the permission of
+  whoever asks.
+
+  What must hold: the thing has the shape `:permission-id`. It never throws:
+  anything that is no vector of five slots gives `:see-and-act`, so a caller
+  that holds a thing of no shape tests the shape first."
+  [permission]
+  (if (and (vector? permission) (= 5 (count permission)))
+    (nth permission 4)
+    :see-and-act))
 
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which

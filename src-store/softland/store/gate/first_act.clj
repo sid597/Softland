@@ -1,6 +1,7 @@
 (ns softland.store.gate.first-act
-  "The first act of a layer: the depot that a layer starts with, and the form
-  of a making act. Pure code. It needs no cluster.
+  "The first act of a layer: the depot that a layer starts with, the form of
+  a making act, and what a layer starts with where no fact says it. Pure
+  code. It needs no cluster.
 
   A layer is made by one act, its first, so that the making of a layer is in
   the acts depot. A gate accepts an act into a layer for which the record
@@ -14,6 +15,9 @@
     depot-at-making  a layer id -> the depot that the layer starts with
     making-act?      a gate's depot, and an act in its one form on arrival
                      -> true or false
+    starts-with      a layer id, and one of the three store keys that take a
+                     second write -> what the layer reads as under that key
+                     while no fact is there
 
   `system` and `base` are the two ids that the form knows: the system stands
   at the top of the base's chain. The system can hold other layers too (Sid,
@@ -60,7 +64,10 @@
 
   1. the gate's depot is the depot that the act's layer starts with;
   2. the act's permission is [holder layer layer]: three slots, nothing
-     above it, granted in the layer itself;
+     above it, granted in the layer itself. A permission with four or five
+     slots is a given one, so an act that names one is no making act, also
+     when its fifth slot says `:see-and-act`; it is refused
+     `:layer-not-made`, and the layer can still be made by a right act;
   3. the act's `:who` is the holder (a group's layer, made by the person who
      creates the group) or `system` (a personal layer, made for its person);
      for the base the holder is `system`, and `system` can be the holder of
@@ -92,3 +99,30 @@
           (= #{{:e layer :k :softland.store/depot :v starts-as}
                {:e holder :k :softland.store/permission :v permission}}
              (into #{} (map #(select-keys % [:e :k :v])) (:facts act)))))))
+
+(defn starts-with
+  "What a layer starts with. Takes a layer id and a store key. Gives what the
+  layer reads as under that key while its place holds no fact:
+
+    :softland.store/who-may-see  `:everyone` for the base, `:members` for
+                                 any other layer
+    :softland.store/builds-on    `[]`: a layer builds on nothing until a
+                                 fact says so
+    :softland.store/marked-keys  `#{}`: no key is marked
+
+  and nil for any other key. No gate calls it, and no fact is written at the
+  making: a layer that was made before these keys existed holds no such
+  fact, so a reader must read \"no fact\" either way, and the form of a
+  making act stays two facts. A reader of the tables calls it.
+
+  Not decided. That a new layer is \"members\" and the base \"everyone\" is
+  kept only so that the build can run (BUILD-reads.md, \"Not decided\"; with
+  \"everyone\" a person who is not signed in sees the base). This function
+  is the one place where the other answer would be made. A later change
+  here changes how every layer with no fact reads."
+  [layer k]
+  (case k
+    :softland.store/who-may-see (if (= base layer) :everyone :members)
+    :softland.store/builds-on []
+    :softland.store/marked-keys #{}
+    nil))

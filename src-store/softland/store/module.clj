@@ -1,6 +1,7 @@
 ;; Before changing this file, read the plans of the two parts again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
 
 (ns softland.store.module
   "The Rama module `Store`: its two depots, and the calls that add the two
@@ -49,7 +50,11 @@
   first fact (`softland.store.gate.batch/first-entity`). A microbatch layer's
   facts are on the tasks of their entities, so an act on one entity arrives
   on the task where its places are, and a request for locks arrives where
-  its locks and its answer will be. The acts with one first entity are one
+  its locks and its answer will be. Five kinds of fact are on every task
+  instead (`softland.store.gate.batch/on-every-task?`): the layer's depot,
+  each permission, who may see the layer, what it builds on and its marked
+  keys. And a row of the facts by value is on the task of its value's
+  digest, wherever its fact is. The acts with one first entity are one
   partition and keep the depot's order. Acts on two partitions have no
   order in the depot; the microbatch gate gives each batch one. The
   function gives nil, and does not throw, for a thing with no first fact.

@@ -16,15 +16,16 @@ The two gates themselves, the topologies that read and write the record, are in
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data. | None. It reads no PState. |
-| [first_act.clj](first_act.clj) | The depot that a layer starts with, and the form of a making act. | None. |
+| [decision.clj](decision.clj) | The checks of one act against rows of the record; the opening of each sealed value, whose plain bytes go into the fact's row; and the rows that a decision writes, as data, those of the facts by value among them. | None. It reads no PState. |
+| [first_act.clj](first_act.clj) | The depot that a layer starts with, the form of a making act, and what a layer starts with when no fact says who may see it, what it builds on or which keys it marks. | None. |
 | [stamp.clj](stamp.clj) | The stamp: clock time and a counter in one integer, the next stamp, the 10-second rule. | None. It reads no clock. |
-| [batch.clj](batch.clj) | The pure code of one batch of the microbatch gate: what the depot derives from a thing, the turn of a thing, what an act asks of other tasks and what they reply, which acts meet, the decision of an act with its rows in hand, the home of each row. | None. It reads no PState. |
+| [batch.clj](batch.clj) | The pure code of one batch of the microbatch gate: what the depot derives from a thing, the turn of a thing, what an act asks of other tasks and what they reply, since which stamp a place's key is marked, which acts meet, the decision of an act with its rows in hand, the home of each row, that of a row of the facts by value too. | None. It reads no PState. |
 
 ## How the files relate
 
 [decision.clj](decision.clj) holds each check. It asks
-[first_act.clj](first_act.clj) whether an act has the form of a making act, and
+[first_act.clj](first_act.clj) whether an act has the form of a making act,
+[the act](../act.clj) what the act's permission allows, and
 [stamp.clj](stamp.clj) for the stamp of a decision. [batch.clj](batch.clj) adds
 no check: it puts the things of a batch in one order and calls
 [decision.clj](decision.clj) on one act with all its rows in hand.
