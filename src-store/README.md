@@ -353,3 +353,163 @@ Open, and built to a working answer until Sid decides:
    - The grain of a value and of an act: "the tool is deciding how much of their different actions
      are put together inside a single value or inside a single act".
    - The word for whatever makes an act: "maker is fine general word for what we are doing imo".
+
+## Decisions of 11 and 12 October 2026 — reading back out
+
+Sid answered these in chat on 11 and 12 October 2026, on the sheet "Reading back
+out, second sheet — what the read build needs from you"
+(`src/proposal/backend-on-rama-2026-10-02/decisions/groups/g-reads.txt`). Words
+in quotation marks are his, of those two days unless a date is given, as he
+typed them. The record holds his lines as ‹601c6793› and ‹cad7d6b5› (11
+October) and ‹191d9442› (12 October), and one "yes" after them. Where a session
+read his answer onto a box, the entry says so. What a session drew from an
+answer is marked as a session's, and what stays not decided is named. No code
+changes with them. They shape the read build, whose starter is
+`src/proposal/backend-on-rama-2026-10-02/BUILD-reads.md`.
+
+1. **Who may see a layer: a setting on the layer, and a permission that says
+   what it allows.** Sid decided (W1 C). On 10 October: "The owner of the layer
+   decides they can say on the group members or everyone, so everyone's data in
+   that layer is avaailble if the owner says so and people are joing it". Asked
+   whether a members-only layer ever has someone who may see and not write:
+   "yes ofc and I am not sure why is this a question as i have said many times
+   the softland system is providing the full spectrum so". On 12 October he
+   confirmed it with "yes", to these words of a session: "a layer has a
+   setting, members or everyone, and a permission says see, or see and act. The
+   three extras stay undecided, and the build treats them as temporary."
+   A session's reading, which he did not strike: "members" is whoever holds a
+   permission in the layer, since the store holds nothing else that the word
+   could mean; "everyone" takes in a person who is not signed in (entry 2 of 8
+   October). Not decided, and kept only so that the build can run:
+   - A holder has one permission in a layer, as built. She cannot hold "see"
+     from one giver and "act" from another.
+   - The setting takes a second write. Who may write it is not said: his word
+     is "the owner", and no layer names an owner as a fact (entry 5 of 8
+     October).
+   - A new layer starts as "members" and the base as "everyone". With the
+     reading above, a person who is not signed in then sees the base; that is
+     half of the queue's K14.
+   - A permission that says "see" cannot later be made "see and act" in that
+     layer: a permission's place takes one write, and nothing ends a
+     permission. A session read this in `gate/decision.clj`; it was not run.
+2. **Which layers a read looks through: the layer says, and a view may ask for
+   another list.** Sid decided (W2 C): "yes", and "ok" after a session showed
+   him two of its follow-ons. On 10 October: "Agrreee". A layer says which
+   layers it builds on, in order, as a fact on the layer. A read gets that list
+   when the view names none. A view may give another list, of layers that the
+   asker may see. The two follow-ons that he was shown and let stand: a layer
+   of the list that the asker may not see is left out, and the read says that
+   it left one out; the nearest layer that holds a fact at a place wins, also
+   when that fact says "nothing here". Three more are on the sheet and were not
+   put to him one by one; they are a session's: the list is one more store key,
+   and where a layer builds on two, the one who writes the fact states the
+   order; a read is given a list, or a layer to walk the list from, and where a
+   read starts and where a person's acts go are two choices of the view; the
+   store key takes a second write.
+3. **A read is done in the runtime, straight from the tables, with Rama's
+   push.** Sid decided (W3): "I think yes", and then "ok". On 10 October: "the
+   electric missionary client should read from the pstates directly
+   correct??". His ruling on the sheet's last follow-on: "yeah i also don't
+   consider it a cache". That follow-on: Rama's push keeps the current value in
+   the runtime's memory, and Rama keeps it level; the read path shares one live
+   read among those who look at the same thing, and ends it when the last one
+   leaves. Rama's own page says "the current cached value" of it
+   (`reference/rama/docs/28-clj-defining-modules.md`); his ruling is on what it
+   is. The other follow-ons are a session's, and he struck none: the read path
+   is one piece of code in the runtime, and a tool asks it; "trusted and
+   verified for their layer" is checked when a live read opens, and the read
+   path keeps a live read on the permission too; a screen is shown the newest
+   state; one push watches one value. On the last, see entry 6: one value can
+   be a run of places.
+4. **Only programs on machines that Sid runs may reach Rama's ports.** Sid
+   decided (W9 A): "A", and then "yes". On 12 October: "this is a solved
+   problem correct you can say the same for google.com ... even if someone hits
+   to the server ip we can reject because of no permisisons or other
+   techinques nginx etc.". What A carries, from the sheet: each program that
+   can open the ports is trusted with the whole store, in any person's name; a
+   program that is not trusted that far talks to the runtime; the rule is a
+   setting of the network, set and checked when a cluster is first run for real
+   data. A session's note to his line: Rama asks no name and rejects nothing,
+   so the rejecting is done before Rama, by the network. Read in Rama's docs,
+   not run.
+5. **The tables keep a value plain, when a layer has not chosen otherwise.**
+   Sid decided (W10 A): "A", and then "we are keeing everything plain see Z
+   sections". The gate keeps the plain bytes that it already has when it
+   checks a value. The copy in the log is the other sheet's Z2, under entry 9:
+   that phase comes after the read build, so until then the door seals for the
+   log as built. A layer whose members hold their own locks keeps its values
+   sealed in the tables too; that kind of layer is not built.
+6. **What can be asked: a query written as data, made of a few words; and one
+   more order for the keys that a layer marks.** His position, 11 October:
+   "can this not be set for each user, tool, layer, group from data?? because
+   we don't know how different tools,users or groups might want right?? so how
+   do we decide on what we want is the query engine generalised enough that we
+   can make query from data side??? which is what we will need.What we need
+   For starters is defined by what is possible". On 12 October: "there can be
+   thousands of tools that get build then like how are we deciding right
+   now???" A session then ran what the sheet had left unrun, put the result and
+   the following to him, and he answered "yes" (W11; it is box B with his
+   change):
+   - The first read build serves one place; one entity, or any run of
+     neighbouring keys; and what points at a thing. Each can be asked once, or
+     kept live.
+   - A tool hands the read path a query written as data. Nobody decides what a
+     tool asks. What is decided is the few words that a query is made of. A
+     word that does not exist yet, such as finding by text or looking back, is
+     added to the store once, in code.
+   - "What points at a thing" is switched on by a fact on the layer that marks
+     a key. For a marked key the gates keep the facts in one more order, by
+     value.
+   The run: one push can watch a run of neighbouring places in a table of the
+   facts table's shape, and it sends only the changed, new or removed place.
+   It cannot watch a whole table. In-process, one machine, Rama 1.6.0:
+   `src/proposal/backend-on-rama-2026-10-02/reads/push-probe/RESULTS.md`.
+   Not designed, and the builder's to propose: the form of the fact that marks
+   a key, and who may write it; the facts of a key that were written before it
+   was marked; the form of the new table; what it costs each write.
+7. **From a fact, a read can get who wrote it, and under which permission.**
+   Sid decided (W12 B), by a session's reading of "agree with you". What he
+   agreed with, in the session's words to him: "keep the writer within reach
+   for every fact, and let each tool choose whether to ask". The session told
+   him that it read this as box B, and that the further parts of box C stay
+   not decided; he did not object, and his "yes" of 12 October was to a summary
+   that held "the writer with each fact". His first line on it, 11 October:
+   "maybe it is needed for some groups or tools for some reason but this does
+   not make it default to all that is going to be build on sofland". The answer
+   to that line: a read that does not ask for the writer is sent nothing of it;
+   the row keeps it within reach. Not decided: the whole act from a fact (box
+   C): its session, because of which act, and what it stood on.
+8. **The base's second is fine.** Sid decided (W13 Yes): "hmmm yes". The base
+   stays a microbatch layer (decision 4 of 7 October). The sheet names two
+   things that the read build does whichever he ticked; they are a session's,
+   and he struck neither: it shows no fact of a batch that could still be tried
+   again, and it never gives nothing for a place that holds a fact. A session's
+   note, which he did not answer: with no optimistic update, whoever writes
+   into the base waits that second to see her own fact.
+9. **The other sheet comes after the read build.** Sid, 12 October: "all the Z
+   phase can be done after this one imo". The sheet is "Before real data is
+   kept" (`decisions/groups/g-check.txt`). His lines of 11 October on its
+   questions are given here as he typed them. None is recorded as a decision:
+   each wants one more word from him, or waits for a run.
+   - Z2, the copy in the log: "plain we will not store any locks and such by
+     default it is up to the layer, tool, group etc if they want to for their
+     they can and should but not by default and we are providing the
+     spectrum." That is box A. It reopens decision 3 of 6 October and entry 2
+     of 9 October for the layers that do not seal. Box A asks for a time, which
+     he did not give: how long a forgotten thing may stay in the log before it
+     is cut out. The purge is not run.
+   - Z3, the log kept whole: "forever never trim". That is box A. Whether
+     "never" also holds for the purge of a forgotten thing is the same missing
+     word as in Z2.
+   - Z1, what brings the tables back: "can't we just replay the log?? why it
+     says A ?? when its deployed there will be a backup that will run and even
+     if the main gets blown up we should be able to replay log and get to
+     latest". A question. He ticked neither box.
+   - Z4, whose reads are kept: "model as in ai model??? and we have this
+     question because we are saying that models on differnt runs can ask for
+     different reads ?? yeah we should for them store it". His line gives the
+     half that boxes A, B and C share, a model's reads. He did not say for a
+     person's. Until that phase the read build keeps no read.
+   - Z6, copies and machines: "idk but we will do it right as rama team will
+     suggest and  i think that will include backups and all".
+   - Z5: not answered.

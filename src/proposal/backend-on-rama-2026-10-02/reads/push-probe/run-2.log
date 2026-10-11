@@ -1,0 +1,73 @@
+
+PROBE 2 START
+  seeding 5,000 places of entity big took 102.2 ms
+  the run of big counts 5000
+
+CASE Z1  a run of 5,000 places
+  path   [(sorted-map-range "L1 big " "L1 big!")]
+  OPEN   ok in 58.9 ms — value now a VectorBackedSortedMap of 5000 entries
+  write  change one place of the 5,000
+         push 33.6 ms after the append call · KeyDiff KeyDiff[L1 big k002500 | NewValueDiff[{:stamp 2, :value "changed"}]]
+         value now a PersistentTreeMapSortedMap of 5000 entries
+  write  a NEW place in the run
+         push 7.9 ms after the append call · KeyDiff KeyDiff[L1 big k9new | NewValueDiff[{:stamp 2, :value "new"}]]
+         value now a PersistentTreeMapSortedMap of 5001 entries
+  write  remove that place
+         push 11.8 ms after the append call · KeyRemoveDiff KeyRemoveDiff[L1 big k9new]
+         value now a PersistentTreeMapSortedMap of 5000 entries
+  seeding 15,000 more places of entity big took 144.1 ms
+  the run of big counts 20000
+
+CASE Z2  a run of 20,000 places
+  path   [(sorted-map-range "L1 big " "L1 big!")]
+  OPEN   ok in 31.5 ms — value now a VectorBackedSortedMap of 20000 entries
+  write  change one place of the 20,000
+         push 28.1 ms after the append call · KeyDiff KeyDiff[L1 big k012500 | NewValueDiff[{:stamp 3, :value "changed"}]]
+         value now a PersistentTreeMapSortedMap of 20000 entries
+
+CASE Z3  a run of 3 places, in a table that now holds 20,003
+  path   [(sorted-map-range "L1 e1 " "L1 e1!")]
+  OPEN   ok in 1.9 ms — value now {"L1 e1 k1" {:stamp 1, :value "one"}, "L1 e1 k2" {:stamp 1, :value "two"}, "L1 e1 k3" {:stamp 1, :value "three"}}
+  write  change one of the 3
+         push 6.9 ms after the append call · KeyDiff KeyDiff[L1 e1 k2 | NewValueDiff[{:stamp 2, :value "two-b"}]]
+         value now {"L1 e1 k1" {:stamp 1, :value "one"}, "L1 e1 k2" {:stamp 2, :value "two-b"}, "L1 e1 k3" {:stamp 1, :value "three"}}
+  write  change one of the 20,000 others
+         no push within 500 ms
+
+CASE Z4  a window: the first 3 places of the big run
+  path   [(sorted-map-range-from "L1 big " {:max-amt 3})]
+  OPEN   ok in 3.5 ms — value now {"L1 big k000000" {:stamp 1, :value "v"}, "L1 big k000001" {:stamp 1, :value "v"}, "L1 big k000002" {:stamp 1, :value "v"}}
+  write  change a place inside the window
+         push 6.6 ms after the append call · KeyDiff KeyDiff[L1 big k000001 | NewValueDiff[{:stamp 4, :value "changed"}]]
+         value now {"L1 big k000000" {:stamp 1, :value "v"}, "L1 big k000001" {:stamp 4, :value "changed"}, "L1 big k000002" {:stamp 1, :value "v"}}
+  write  a NEW place that sorts INTO the window
+         push 19.1 ms after the append call · MultiDiff MultiDiff[[#object[com.rpl.rama.diffs.KeyDiff 0x3432eb58 "KeyDiff[L1 big a-first | NewValueDiff[{:stamp 4, :value \"first\"}]]"] #object[com.rpl.rama.diffs.KeyR … (215 chars)
+         value now {"L1 big a-first" {:stamp 4, :value "first"}, "L1 big k000000" {:stamp 1, :value "v"}, "L1 big k000001" {:stamp 4, :value "changed"}}
+  write  change a place far outside the window
+         no push within 500 ms
+  after Z4, a fresh read of the same window gives ("L1 big a-first" "L1 big k000000" "L1 big k000001")
+
+CASE Z5  a range that covers everything on the task
+  path   [(sorted-map-range "" "~")]
+  OPEN   ok in 0.9 ms — value now {"a" "1", "b" "2"}
+  write  change a key
+         push 4.0 ms after the append call · KeyDiff KeyDiff[a | NewValueDiff[1b]]
+         value now {"a" "1b", "b" "2"}
+  write  a NEW key
+         push 6.1 ms after the append call · KeyDiff KeyDiff[c | NewValueDiff[3]]
+         value now {"a" "1b", "b" "2", "c" "3"}
+
+CASE Z6  a run on a table that a microbatch topology writes
+  path   [(sorted-map-range "L1 e1 " "L1 e1!")]
+  OPEN   ok in 2.4 ms — value now {"L1 e1 k1" {:stamp 1, :value "one"}, "L1 e1 k2" {:stamp 1, :value "two"}}
+  write  change a place inside the run
+         push 284.6 ms after the append call · KeyDiff KeyDiff[L1 e1 k1 | NewValueDiff[{:stamp 2, :value "one-b"}]]
+         value now {"L1 e1 k1" {:stamp 2, :value "one-b"}, "L1 e1 k2" {:stamp 1, :value "two"}}
+  write  a NEW place inside the run
+         push 114.1 ms after the append call · KeyDiff KeyDiff[L1 e1 k9 | NewValueDiff[{:stamp 2, :value "nine"}]]
+         value now {"L1 e1 k1" {:stamp 2, :value "one-b"}, "L1 e1 k2" {:stamp 1, :value "two"}, "L1 e1 k9" {:stamp 2, :value "nine"}}
+  write  a place OUTSIDE the run
+         no push within 3000 ms
+
+PROBE 2 END
+exit 0
