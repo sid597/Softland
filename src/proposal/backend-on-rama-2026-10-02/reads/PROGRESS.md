@@ -73,10 +73,12 @@ it adapts the skill's template.
 | stage | state | commit |
 |---|---|---|
 | the starting point confirmed | done | — |
-| a run on Rama beside the stages: what a second attempt of a batch does, and what state survives a failed attempt (`batch-probe/`) | running | — |
-| the implied spec, with the check of each "as built" line of the contract against the code | running | — |
-| the split into parts | — | — |
-| the plan of each part | — | — |
+| a run on Rama beside the stages: what a second attempt of a batch does, and what state survives a failed attempt (`batch-probe/`) | done; ruling 17 | `00721838` |
+| the implied spec, with the check of each "as built" line of the contract against the code; rulings on its 31 points | done | `dc70e98b` |
+| the split into parts: three, `base-for-a-reader`, `what-the-gates-keep`, `read-path`; rulings 32 to 39 on its notes | done; judged sound | in the commit after `dc70e98b` |
+| the plan of `base-for-a-reader` | running | — |
+| the plan of `what-the-gates-keep` | running, beside the one above (ruling 38) | — |
+| the plan of `read-path` | starts when the plan of `what-the-gates-keep` is written | — |
 | the check of each plan | — | — |
 | the build of each part | — | — |
 | one fresh review of the whole against the contract | — | — |
@@ -87,7 +89,8 @@ How a stage is run: a fresh agent reads the skill's doc for its stage, the contr
 list, and the papers before it; it writes one paper (or the code) and does not commit. This session
 reads its report and the parts of its paper that need a ruling, checks the facts that a ruling rests
 on in the source, rules, has the rulings applied, and commits with a message that says what and why.
-No `Co-Authored-By`, no session link. Never push. An agent that writes code runs on Opus 5.5 at
+Each commit names its own paths in the commit itself (`git commit -m ... -- <paths>`), since another
+session's staged files are in the index. No `Co-Authored-By`, no session link. Never push. An agent that writes code runs on Opus 5.5 at
 effort xhigh, at Sid's word.
 
 The batch probe runs beside the first stage and is not a stage of the skill. The contract asks for
@@ -286,9 +289,58 @@ check (d) and `store-key-fault` (`gate/decision.clj`), the three reads' hold to 
     for a person who is not signed in. An asker that is no id within the limit is turned away with a
     word. `:system` is a who like any other.
 
+### On the split into parts (`DECOMPOSITION.json`), its eight notes
+
+The split is judged sound: three parts, `base-for-a-reader` (A7 alone), `what-the-gates-keep` (A1 to
+A6 for both gates, and R7), `read-path` (B1 to B5, R1 to R5, and C). A cut by gate was weighed and
+left: both gates share one declaration, one set of checks and one row shape. The papers of a part
+carry its name: `PLAN-<part>.md`, `PLAN_VALIDATION-<part>.md`, and so on.
+
+32. **The order.** As the split has it. `base-for-a-reader` is built first: its run of ruling 17 (d)
+    says what a row of the base may rest on, before anything is built on those rows.
+33. **The other way of A7.** The plan of `base-for-a-reader` states the stop test and what "the row
+    before" would ask of each part. It does not design that way in full. If the stop is met, that
+    plan runs again and the two later plans are changed where they touch a row of the base. The check
+    of `what-the-gates-keep` may pass before that run is in; its pass then holds only if the run
+    holds, and the page says so.
+34. **A depot that holds no act.** Sid's decision of 7 October is "Two depots, one for each gate". The
+    clock's depot takes no act and no gate decides from it, so the two depots of acts stay two. Nobody
+    asked him. A line for the receipt.
+35. **Rows of the store's page that word an earlier decision of Sid's.** Such a row's wording of his
+    decision is not written again as new text. Its "Where it shows" side changes with the code, and
+    rows are added for the entries of 11 and 12 October. The decisions sections of
+    `src-store/README.md` are his and are not edited by this build.
+36. **The measures of C.** The plan of `read-path` gives each shape. The measuring code lives in
+    `test-store/`, beside the proofs, as a run that is no proof: it prints what it measured and holds
+    nothing to a number. The build session runs it at the end and puts what it printed in this folder
+    and in the receipt.
+37. **No cut in `read-path`** now. If its plan grows past what one session can check, the plan says
+    so at its top and names the cut between a read asked once and a read kept live.
+38. **The plans of the first two parts are written side by side**, and each check reads both. The one
+    walk of a batch is changed by two plans: `base-for-a-reader` owns the batch's clock in step 2 and
+    the depot and topology that keep it; `what-the-gates-keep` owns every other change of the walk.
+    Each plan names the lines of the walk that it changes. The builds of the first two parts run one
+    after the other. The plan of `read-path` starts when the plan of `what-the-gates-keep` is written,
+    and takes the record's forms from that plan and not from the code. Its build may start while
+    `what-the-gates-keep` is being built, on files of its own only; its proof against the module runs
+    when that build has ended. This is one step away from the skill's "each subsystem builds on the
+    subsystems before it", taken for time at Sid's word that the build must end by the morning.
+39. **The head comments.** Three source files tell whoever changes them to read the store-module's
+    plan of that part again. The plan sessions read those plans' sections on the walks. Each such
+    comment gains this build's plan of the part that changed the file.
+
 ## For the receipt: what Sid should know, as found so far
 
-Nothing yet. The receipt's parts, as the contract lists them: the line "proven by a hand-played
+1. **A slip of the build session, undone.** Its first commit took another session's staged rename
+   with it (`decisions/groups/g-reads.txt -> g-reads-first.txt`): a commit with no path takes the
+   whole index, and not only what was added by name. A minute later, with nothing built on them, the
+   build session undid its own two commits and made them again by path (`00721838`, `dc70e98b`). The
+   rename is staged and not committed again, as it was; no file changed. From then on each commit of
+   this build names its paths in the commit itself.
+2. **The four proofs' checks change.** See ruling 1: the row that A1 changes, and the exact set of
+   store keys, are checked by today's proofs.
+
+The receipt's parts, as the contract lists them: the line "proven by a hand-played
 asker, used by no inhabitant yet"; the commit hashes; the proofs' outputs with their count lines
 before and after; the measures of C; every provisional choice; every not-decided thing as it was
 built; every place where the contract could not be met as written, and why; what the build found that
