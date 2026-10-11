@@ -76,11 +76,12 @@ it adapts the skill's template.
 | a run on Rama beside the stages: what a second attempt of a batch does, and what state survives a failed attempt (`batch-probe/`) | done; ruling 17 | `00721838` |
 | the implied spec, with the check of each "as built" line of the contract against the code; rulings on its 31 points | done | `dc70e98b` |
 | the split into parts: three, `base-for-a-reader`, `what-the-gates-keep`, `read-path`; rulings 32 to 39 on its notes | done; judged sound | in the commit after `dc70e98b` |
-| the plan of `base-for-a-reader` | running | — |
+| the plan of `base-for-a-reader`, with two runs of its own; rulings 46 to 51 on its six points | done | in the commit after `b378e8f0` |
 | the plan of `what-the-gates-keep`; rulings 40 to 45 on its five points | done | in the commit after `a8c1783b` |
 | the plan of `read-path` | running, from the hand-off section of the plan above | — |
 | the check of the plan of `what-the-gates-keep` | running; it reads the other plan of the walk when that is in | — |
-| the check of the two other plans | — | — |
+| the check of the plan of `base-for-a-reader`; it first applies ruling 49 to the plan | running | — |
+| the check of the plan of `read-path` | — | — |
 | the build of each part | — | — |
 | one fresh review of the whole against the contract | — | — |
 | the measures of the contract's section C | — | — |
@@ -358,7 +359,49 @@ forms are judged sound and go to the check as they stand.
     that is alone in its batch, fewer under load, and one for each task for an act that is spread
     over several. Taken as the plan has it; it replaces that sentence of ruling 18.
 
-For the receipt, from this plan: after A1 no row of the facts table names a lock, so a lock is found
+### On the plan of `base-for-a-reader` (`PLAN-base-for-a-reader.md`), its six points
+
+The build session read the plan's report, its changed step 2 line by line, its open points and its
+lines for the receipt. The plan stage ran two things of its own (`plan-probes-base-for-a-reader/`):
+on a stand-in walk, that the append works in place on the gate's task and that a run with nothing
+pays nothing; and on the store's own module, with nothing under `src-store/` changed, a second
+attempt of a real batch: 15 of 15 rows differ between the attempts today, in `:stamp` only. So what
+the repair must make the same is the stamp, as the implied spec derived.
+
+46. **A stream topology of its own keeps the clock** (the plan's point 1, its (a)): `batch-clock`,
+    beside `streaming-gate`. As a second source of the streaming gate, every batch of the base would
+    wait in that gate's queue on one task, and the streaming gate would own a row of the microbatch
+    gate's working. The skill's "at most one" guards against a topology with no reason; this one has
+    one. A line for the receipt.
+47. **The table keeps one row, the newest batch's clock** (point 2, (a)). The depot keeps every
+    record. A record of the same batch or of an older one writes nothing.
+48. **The window on the store's own module is left to the batch probe** (point 3, (a)), and the
+    proofs' map and the receipt say so (ruling 17 (e)).
+49. **The check of the second attempt has a cluster of its own** (point 4, its (b), against the plan's
+    recommendation). Every other check of the module's proof runs on the functions as the store
+    defines them; the three functions that the proof replaces are in place only for the cluster that
+    makes a batch run twice, and are put back after it. Reason: what a pass of the module's proof
+    shows stays plain, the module as defined. It costs about 30 s for each run of that proof. If two
+    clusters in one JVM do not work, the check becomes a proof file with a command of its own, and
+    the proofs' map says how to run it.
+50. **The depot of batch clocks is not trimmed** (point 5), as the depots of acts are not. Nothing
+    reads its old records. A line for the receipt, and a row proposed for the queue: is the log of
+    batch clocks kept for ever, as the logs of acts are.
+51. **Rama's phase timeout stays unset** (point 6, (a)). After a fault of the clock's topology on
+    another worker, the base can stand still for that timeout, about 30 s in the plan's run, and no
+    stamp is made meanwhile. A line for the receipt.
+
+The plan reads ruling 17 (b) as "nothing of an act and no lock's bytes": the record on the clock's
+depot holds the batch's id beside its clock. That is the ruling's sense. When the gate cannot read a
+kept clock back after the ack, it throws and Rama runs the batch again: it is the one place where the
+module's own code throws, and it guards against a stamp from a clock that is not kept.
+
+For the receipt, from this plan: the module update that first brings the repair is the one moment at
+which two attempts of a batch can still differ; and Sid's line of 7 October, "a second depot of
+decisions adds nothing", stands beside ruling 34: the new depot holds no decision, and it does hold a
+thing that the depots of acts cannot give again, a reading of the clock.
+
+For the receipt, from the plan of `what-the-gates-keep`: after A1 no row of the facts table names a lock, so a lock is found
 only from the act in the depot; one value that very many places hold is a run on one task, which the
 contract's "a run of neighbouring rows" asks for; the removal of a row of the other order rests on a
 navigator that the store has not run before, so the build's proof must show it.

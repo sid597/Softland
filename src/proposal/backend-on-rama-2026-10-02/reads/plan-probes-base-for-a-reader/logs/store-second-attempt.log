@@ -1,0 +1,14 @@
+   5416.0  RUN     Rama 1.6.0, in-process, the store's module `Store`, 4 tasks, 2 threads, 2 workers
+   6422.8  OUTSIDE the making act of the base is answered: true :accepted
+   6423.0  INSIDE  attempts noted so far (S1: the replacements run inside the module): 1
+   6987.8  INSIDE  rows-to-send THROWS on purpose, in step 4 of attempt 2 since the JVM began
+   8831.5  OUTSIDE each of the 8 things of the batch is answered: true · 2108 ms after the topology went on
+   8835.3  OUTSIDE the words: {:accepted 7, :permission-does-not-stand 1}
+   8836.1  RESULT  S2: attempts of batches with things since the topology went on: 2
+   8836.2  INSIDE  attempt 1 at 6845.7 · the clock 1791750523684 · the base 117424162320154624 · numbers {:carried nil, :position 3} · rows noted 15 · by kind {:fact 7, :answer 8}
+   8836.2  INSIDE  attempt 2 at 7934.0 · the clock 1791750524772 · the base 117424162391457792 · numbers {:carried nil, :position 3} · rows noted 15 · by kind {:fact 7, :answer 8}
+   8836.3  RESULT  S3: the two attempts made rows under the same keys: true · 15 keys in attempt 1, 15 in attempt 2
+   8836.5  RESULT  S4: keys whose row differs between the two attempts: 15 of 15 · the fields that differ, over all of them: {:stamp 15}
+   8836.5  RESULT  S4: the clocks differ by 1088 ms · the bases by 71303168
+   8858.3  RESULT  the 6 fact rows in the table: the same as attempt 2 made: 6 · the same as attempt 1 made: 0
+   8858.4  RUN     END

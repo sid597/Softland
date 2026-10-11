@@ -1,0 +1,51 @@
+   3553.0  RUN     Rama 1.6.0, in-process, 4 tasks, 2 threads, 2 workers. Keys: ["key-a" "key-c" "key-j" "key-b"] · the route of the gate's task: "key-j"
+   4732.6  OUTSIDE warm: true true
+   4732.9  RUN     ---- W1 W2 W3: a batch with things, nothing fails ---- the batch is 3
+   4733.4  INSIDE  batch 3 at 4565.4 {:what :read-the-clock, :wall 1791751391735, :class "java.lang.Long"}
+   4733.6  INSIDE  batch 3 at 4578.7 {:what :appended, :kept-after {:batch 3, :clock 1791751391735}, :ms 13.277912}
+   4734.0  INSIDE  batch 3 at 4578.7 {:what :step-2, :things 4, :clock 1791751391735}
+   4734.1  INSIDE  the stream topology got at 4576.3 {:batch 3, :clock 1791751391735} · it held {:batch 1, :clock 1791751391135}
+   4736.8  OUTSIDE the kept row: {:batch 3, :clock 1791751391735}
+   4739.7  OUTSIDE the rows: [{:value "warm-2", :clock 1791751391735} {:value "warm-2", :clock 1791751391735} {:value "warm-2", :clock 1791751391735} {:value "warm-2", :clock 1791751391735}]
+   4743.6  RESULT  the four rows carry one clock: true · it is the kept row's clock: true · clocks read in this batch: [1791751391735]
+   7770.3  RUN     ---- W4: 3 s with nothing appended ----
+   7773.6  RESULT  runs of step 2 in that time: 6 · of them with a clock: 0 · clocks read: 0 · records on the depot of clocks before and after: 2 2
+  16781.8  COST    the append with :ack and the read back, inside the attempt: 20 batches · least 4.2 · middle 5.0 · most 12.2 ms
+  17246.4  INSIDE  batch 44 task 0 : the late point THROWS on purpose, after the rows of step 3 were written
+  18362.7  OUTSIDE four rows give second: true
+  18362.9  RUN     ---- W3: the first attempt fails at the late point, after the clock is kept ---- the batch is 44
+  18362.9  INSIDE  batch 44 at 17164.3 {:what :read-the-clock, :wall 1791751404334, :class "java.lang.Long"}
+  18363.0  INSIDE  batch 44 at 17169.4 {:what :appended, :kept-after {:batch 44, :clock 1791751404334}, :ms 5.084948}
+  18363.0  INSIDE  batch 44 at 17169.4 {:what :step-2, :things 4, :clock 1791751404334}
+  18363.0  INSIDE  batch 44 at 17918.3 {:what :found-kept, :clock 1791751404334}
+  18363.0  INSIDE  batch 44 at 17918.4 {:what :step-2, :things 4, :clock 1791751404334}
+  18363.1  INSIDE  the stream topology got at 17167.6 {:batch 44, :clock 1791751404334} · it held {:batch 42, :clock 1791751403800}
+  18363.5  OUTSIDE the kept row: {:batch 44, :clock 1791751404334}
+  18364.0  OUTSIDE the rows: [{:value "second", :clock 1791751404334} {:value "second", :clock 1791751404334} {:value "second", :clock 1791751404334} {:value "second", :clock 1791751404334}]
+  18364.8  RESULT  the four rows carry one clock: true · it is the kept row's clock: true · clocks read in this batch: [1791751404334]
+  18849.9  INSIDE  the stream topology THROWS on the record {:batch 46, :clock 1791751406016} · it held {:batch 44, :clock 1791751404334}
+  51032.4  OUTSIDE four rows give keeper-fails: true
+  51032.6  RUN     ---- W5: the stream topology throws on the record's first try ---- the batch is 46
+  51032.7  INSIDE  batch 46 at 18847.0 {:what :read-the-clock, :wall 1791751406016, :class "java.lang.Long"}
+  51032.7  INSIDE  batch 46 at 50261.7 {:what :found-kept, :clock 1791751406016}
+  51032.7  INSIDE  batch 46 at 50261.7 {:what :step-2, :things 4, :clock 1791751406016}
+  51032.7  INSIDE  the stream topology got at 18849.9 {:batch 46, :clock 1791751406016} · it held {:batch 44, :clock 1791751404334}
+  51032.8  INSIDE  the stream topology got at 19085.3 {:batch 46, :clock 1791751406016} · it held {:batch 44, :clock 1791751404334}
+  51033.1  OUTSIDE the kept row: {:batch 46, :clock 1791751406016}
+  51037.3  OUTSIDE the rows: [{:value "keeper-fails", :clock 1791751406016} {:value "keeper-fails", :clock 1791751406016} {:value "keeper-fails", :clock 1791751406016} {:value "keeper-fails", :clock 1791751406016}]
+  51037.9  RESULT  the four rows carry one clock: true · it is the kept row's clock: true · clocks read in this batch: [1791751406016]
+  51040.8  OUTSIDE the last records on the depot of clocks: ([2 {:batch 42, :clock 1791751403800}] [2 {:batch 44, :clock 1791751404334}] [2 {:batch 46, :clock 1791751406016}])
+  51041.0  RUN     ---- W6: the module is updated with itself ----
+  55776.6  OUTSIDE update-module! gave :updated
+  56178.6  OUTSIDE the kept row before the update: {:batch 46, :clock 1791751406016} · after: {:batch 46, :clock 1791751406016}
+  58323.3  OUTSIDE four rows give after-update: true
+  58323.4  RUN     ---- W6: the first batch with things after the update ---- the batch is 57
+  58323.5  INSIDE  batch 57 at 57428.3 {:what :read-the-clock, :wall 1791751444598, :class "java.lang.Long"}
+  58323.5  INSIDE  batch 57 at 57433.2 {:what :appended, :kept-after {:batch 57, :clock 1791751444598}, :ms 4.920198}
+  58323.5  INSIDE  batch 57 at 57433.3 {:what :step-2, :things 4, :clock 1791751444598}
+  58323.6  INSIDE  the stream topology got at 57431.3 {:batch 57, :clock 1791751444598} · it held {:batch 46, :clock 1791751406016}
+  58323.9  OUTSIDE the kept row: {:batch 57, :clock 1791751444598}
+  58324.9  OUTSIDE the rows: [{:value "after-update", :clock 1791751444598} {:value "after-update", :clock 1791751444598} {:value "after-update", :clock 1791751444598} {:value "after-update", :clock 1791751444598}]
+  58331.4  RESULT  the four rows carry one clock: true · it is the kept row's clock: true · clocks read in this batch: [1791751444598]
+  58333.0  RESULT  records on the depot of clocks, by partition: {2 25} · batches with things that step 2 saw: 25
+  58333.1  RUN     END

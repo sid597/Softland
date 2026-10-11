@@ -1,0 +1,41 @@
+02:13:24.419 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :mb :topology-event]}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:13:24.423 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:13:24.424 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:13:24.424 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2005 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:13:24.452 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:13:24.485 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2005], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+ [{:type clojure.lang.ExceptionInfo
+ [{:type clojure.lang.ExceptionInfo
+  [java.lang.Thread run Thread.java 1583]]}]}] [clojure.lang.ExceptionInfo probe: forced failure of this attempt {:batch 44}]]}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:13:26.021 [Worker bb1ad573 00000000@2006 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :batch-clock :topology-event :execute-batch]}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+02:13:26.021 [Worker bb1ad573 00000000@2006 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+02:13:26.022 [Worker bb1ad573 00000000@2006 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+02:13:26.022 [Worker bb1ad573 00000000@2006 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2006 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+02:13:26.053 [Worker bb1ad573 00000000@2006-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:13:26.063 [Worker bb1ad573 00000000@2006-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2006], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+ [{:type clojure.lang.ExceptionInfo
+ [{:type clojure.lang.ExceptionInfo
+  [java.lang.Thread run Thread.java 1583]]}]}] [clojure.lang.ExceptionInfo probe: the stream topology fails this record once {}]]}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+02:13:50.153 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-4-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name probe.walk/WalkProbe, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, 
+02:13:50.153 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-4-2] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name probe.walk/WalkProbe, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, 
+02:13:50.178 [Conductor-worp-client-event-loop-group localEventLoopGroup-1-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name probe.walk/WalkProbe, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, :supervisor-id 00
+02:13:54.763 [Worker bb1ad573 00000000@2005-worp-client-event-loop-group localEventLoopGroup-13-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name prob
+02:13:56.694 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.topology.microbatch - :rpl.rama.distributed.topology.microbatch/processing-timed-out Microbatch processing phase timed out {:event-dag-id 1596559506115216543, :timeout-secs 30, :attempt #rpl.rama.distri
+02:14:01.959 [Worker e83c7520 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*batch-clock-depot
+02:14:01.959 [Worker e83c7520 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*batch-clock-depot
+02:14:01.969 [Worker e83c7520 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*things/0/0/log/0/
+02:14:01.969 [Worker e83c7520 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*things/2/0/log/0/
+02:14:02.017 [Worker e83c7520 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*batch-clock-depot
+02:14:02.019 [Worker e83c7520 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*batch-clock-depot
+02:14:02.028 [Worker e83c7520 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*things/3/0/log/0/
+02:14:02.030 [Worker e83c7520 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc1328505586900556241/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/e83c7520-de26-aab8-a3fe-fb14a892cbd9/local/*things/1/0/log/0/

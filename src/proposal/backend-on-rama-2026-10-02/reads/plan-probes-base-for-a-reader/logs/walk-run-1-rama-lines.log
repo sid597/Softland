@@ -1,0 +1,36 @@
+01:57:11.429 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :mb :topology-event]}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+01:57:11.434 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+01:57:11.434 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+01:57:11.435 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2005 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+01:57:11.518 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+01:57:11.553 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2005], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+ [{:type clojure.lang.ExceptionInfo
+ [{:type clojure.lang.ExceptionInfo
+  [java.lang.Thread run Thread.java 1583]]}]}] [clojure.lang.ExceptionInfo probe: forced failure of this attempt {:batch 40}]]}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+01:57:13.194 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :batch-clock :topology-event :execute-batch]}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+01:57:13.195 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+01:57:13.195 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+01:57:13.196 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2005 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+01:57:13.295 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+01:57:13.305 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2005], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+ [{:type clojure.lang.ExceptionInfo
+ [{:type clojure.lang.ExceptionInfo
+  [java.lang.Thread run Thread.java 1583]]}]}] [clojure.lang.ExceptionInfo probe: the stream topology fails this record once {}]]}
+clojure.lang.ExceptionInfo: probe: the stream topology fails this record once
+01:57:18.640 [Worker 7eb0b0f5 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*batch-clock-depot/
+01:57:18.649 [Worker 7eb0b0f5 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*batch-clock-depot/
+01:57:18.651 [Worker 7eb0b0f5 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*things/2/0/log/0/l
+01:57:18.659 [Worker 7eb0b0f5 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*things/0/0/log/0/l
+01:57:18.705 [Worker 7eb0b0f5 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*batch-clock-depot/
+01:57:18.713 [Worker 7eb0b0f5 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*batch-clock-depot/
+01:57:18.715 [Worker 7eb0b0f5 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*things/3/0/log/0/l
+01:57:18.722 [Worker 7eb0b0f5 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc222697530387712094/supervisors/00000000-0000-0000-0000-000000000000/objects/probe.walk%2FWalkProbe/7eb0b0f5-fdd4-de81-de2a-170e031be318/local/*things/1/0/log/0/l

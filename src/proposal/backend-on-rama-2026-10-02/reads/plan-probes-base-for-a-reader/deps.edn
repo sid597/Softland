@@ -1,0 +1,11 @@
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {;; W: the changed step 2 on a stand-in module, run from this folder.
+           :walk {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.walk"]}}}
+;; S, the second attempt of a batch of the store's own module, is not run by
+;; this file: it needs the store's tree on the classpath. From the repository
+;; root:
+;;   clojure -Sdeps '{:aliases {:plan-probe {:extra-paths ["src/proposal/backend-on-rama-2026-10-02/reads/plan-probes-base-for-a-reader/src"]}}}' \
+;;           -M:store-module:plan-probe -m probe.store-second-attempt
