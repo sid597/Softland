@@ -78,10 +78,10 @@ it adapts the skill's template.
 | the split into parts: three, `base-for-a-reader`, `what-the-gates-keep`, `read-path`; rulings 32 to 39 on its notes | done; judged sound | in the commit after `dc70e98b` |
 | the plan of `base-for-a-reader`, with two runs of its own; rulings 46 to 51 on its six points | done | in the commit after `b378e8f0` |
 | the plan of `what-the-gates-keep`; rulings 40 to 45 on its five points | done | in the commit after `a8c1783b` |
-| the plan of `read-path` | running, from the hand-off section of the plan above | — |
+| the plan of `read-path`, with two runs of its own; rulings 60 to 70 on its eleven points | done | in the commit after `a6857ba8` |
 | the check of the plan of `what-the-gates-keep`; rulings 52 to 55 | done. Verdict minor-fail: eleven faults, each fixed in the plan by the check; it ran the removal of a top-level row (`plan-check-probes-what-the-gates-keep/`) | in the commit after `2ea0fff9` |
 | the check of the plan of `base-for-a-reader`; rulings 56 to 59 | done. Verdict minor-fail: nine faults, each fixed in the plan by the check; it applied ruling 49 and ran three clusters in one JVM (`plan-check-probes-base-for-a-reader/`) | in the commit after `794bc2fd` |
-| the check of the plan of `read-path` | — | — |
+| the check of the plan of `read-path`; it first applies ruling 64 to the plan | running | — |
 | the build of `what-the-gates-keep` (first, by ruling 53) | running | — |
 | the build of `base-for-a-reader` | after the build above | — |
 | the build of `read-path` | — | — |
@@ -464,6 +464,66 @@ check (a) and the clock keeper's "first write wins" are what make that harmless.
 For the receipt, from this check: after a commit that fails, the tasks of the base can show one batch
 seconds apart; not run here: the late ack of an attempt that Rama gave up, what the append gives when
 the keeper fails, a move of a leader, a module update in the middle of a commit.
+
+### On the plan of `read-path` (`PLAN-read-path.md`), its eleven points and three readings
+
+The build session read the plan's report, its section "Live" whole (what one live read opens, the
+steps of a callback, why no put-together value is kept, what a live read follows, the ending), and its
+open points and lines for the receipt. The plan stage ran two probes of its own
+(`plan-probes-read-path/`): how a client learns the number of tasks and names one task for a select
+and for a push, and which paths Rama serves for a run. The plan says that no ruling fails, that it
+needs no store of its own beside Rama's push, and that it needs no cut (ruling 37).
+
+Three rulings are read by the plan in a way that it states at its top; each reading is taken.
+- Ruling 23: one push follows a layer's depot, setting, list and marks together. They are neighbours,
+  all on the layer's own entity, so it is one run.
+- Ruling 23: an asker's permission is followed only while the layer's setting is "members". Under
+  "everyone" it shapes nothing.
+- Ruling 30: the depot fact is always read, since it rides that same run at no cost.
+
+60. **Once or live is the call, not a part of the query** (the plan's point 1, its (a)): `read-once`
+    and `read-live` take the same query.
+61. **A read asked once reads a layer's fact in the same call as its rights** (point 2, (a)). The
+    runtime can so read up to 257 rows of a layer for an asker who may then not see it, and drops
+    them; nothing of them is handed over. It halves the round trips of the commonest read. The other
+    answer is one function that gives false. A line for the receipt.
+62. **One task of a microbatch layer is named with `com.rpl.rama.Helpers/genHashingIndexKeys`**
+    (point 3, (a)). Rama's pages show it for tests; it ran on Rama 1.6.0 for a select and for a push.
+    Only a run across entities of the base needs it. A line for the receipt, and a question for
+    Rama's team; Sid's line on that sheet is "we will do it right as rama team will suggest".
+63. **The numbers of the build stand as the plan lists them** (point 4): 256 places read first; 20,000
+    places for one run; 40,000 checks of ruling 12 for one read; 2,000 paths; a wait of 10 s. None
+    bounds the bytes of a run: no table gives the size of a run's values before it is read. Each is
+    kept and not decided.
+64. **Ruling 12's edge is closed the other way, against the plan's recommendation** (point 5). At a
+    place that a farther layer's order gives, the nearest layer that holds a counted row wins, and the
+    place is given when the winner's value is the thing that was asked for. So a nearer layer whose
+    own fact at the place points at the same thing no longer hides the place: the read gives it from
+    the nearer layer's row, which the check of ruling 12 already has in hand. Reason: that is B3 as the
+    contract writes it; and a hole where two layers say the same thing is a wrong answer that the
+    read can see. It costs a comparison of bytes. The asker is still told, for each layer, since which
+    stamp its order is level; a place of a nearer layer that no farther layer's order holds is found
+    only through the nearer layer's own order. The count of pushes stays one for each such place and
+    nearer layer; the measures give it, and the row for the queue (P12) carries the number.
+65. **`:from-layer` when the asker may not see the start layer — provisional, for Sid** (point 6, (a)).
+    The layer's list is not used. The answer says that this one layer is left out, and gives nothing
+    else. With the list used, she would learn what a layer that she may not see builds on. It goes
+    with ruling 8 in the row for the queue.
+66. **Five functions more in `record/rows.clj`** are added by this part's build as its last step
+    (point 7, (a)), when the build of `what-the-gates-keep` has ended; its pure code is written
+    against them from the start.
+67. **The asker's function is called on a thread of Rama's client, under the read's lock** (point 8,
+    (a)). The docstring says what the function must not do. The check of the plan is asked to break
+    this: a function that leaves, or that asks again, inside its own call.
+68. **A place under a key of the store's own, asked without the store's own facts, is turned away with
+    a word** (point 9, (a)). To answer "no fact" would say that a layer has no setting when it has one.
+69. **When a thing that shapes a read changes, the asker is given the whole answer anew** (point 10,
+    (a)): a setting, a permission, a list or a mark. This replaces the sentence of ruling 24 that gave
+    each place again one by one. Such changes are rare, and one form fewer reaches a caller.
+70. **A finding for the queue, decided by nobody** (point 11). One select with a path that Rama does not
+    serve stopped a worker of the in-process cluster. Entry 4 trusts each program that reaches Rama's
+    ports with the whole store; such a program can also stop a worker with one call. The read path
+    sends five forms of path and no other. A line for the receipt and a row proposed for the queue.
 
 ## For the receipt: what Sid should know, as found so far
 

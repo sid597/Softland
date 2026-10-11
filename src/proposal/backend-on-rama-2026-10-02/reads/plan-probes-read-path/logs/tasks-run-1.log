@@ -1,0 +1,56 @@
+# Run 1, 12 October 2026: the lines that the probe printed, cut to 400 characters, and after them the lines of Rama's that say what the submap select did to the worker.
+# The whole output of the run is tasks-run-1-all.log beside this file (265 KB, most of it stack traces).
+PROBE    2580.1  START
+PROBE    2580.6  T1 object info of the stream table: {:name "$$s-rows", :module-name "probe.tasks/TaskProbe", :num-partitions 4}
+PROBE    2580.7  T1 object info of the microbatch table: {:name "$$m-rows", :module-name "probe.tasks/TaskProbe", :num-partitions 4}
+PROBE    2581.0  T1 object info of a depot: {:name "*m-writes", :module-name "probe.tasks/TaskProbe", :num-partitions 4}
+PROBE    2581.6  T2 Helpers/genHashingIndexKeys 4 → ["d" "a" "b" "g"] · the same as the test namespace's: true · class of one: java.lang.String
+PROBE    3298.5  T3 select, microbatch table, key of task 0 → ["L e0 a" "L e0 b"]
+PROBE    3301.2  T3 select, microbatch table, key of task 1 → ["L e1 a" "L e1 b"]
+PROBE    3302.8  T3 select, microbatch table, key of task 2 → ["L e2 a" "L e2 b"]
+PROBE    3304.1  T3 select, microbatch table, key of task 3 → ["L e3 a" "L e3 b"]
+PROBE    3306.0  T3 select, stream table, key of task 0 → ["L e0 a"]
+PROBE    3306.6  T3 select, stream table, key of task 1 → ["L e1 a"]
+PROBE    3307.2  T3 select, stream table, key of task 2 → ["L e2 a"]
+PROBE    3307.8  T3 select, stream table, key of task 3 → ["L e3 a"]
+PROBE    3336.5  T4 push, microbatch table, key of task 0 · value now ["L e0 a" "L e0 b"]
+PROBE    3336.6  T4 push, microbatch table, key of task 1 · value now ["L e1 a" "L e1 b"]
+PROBE    3336.6  T4 push, microbatch table, key of task 2 · value now ["L e2 a" "L e2 b"]
+PROBE    3336.7  T4 push, microbatch table, key of task 3 · value now ["L e3 a" "L e3 b"]
+PROBE    3937.0  T4 before any write, push of task 0 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    3937.6  T4 before any write, push of task 1 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    3937.6  T4 before any write, push of task 2 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    3937.6  T4 before any write, push of task 3 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    4851.7  T4 after one write on task 2, push of task 0 no callback
+PROBE    4851.8  T4 after one write on task 2, push of task 1 no callback
+PROBE    4851.9  T4 after one write on task 2, push of task 2 callback KeyDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L e2 c"]] · KeyDiff[L e2 c | NewValueDiff[{:stamp 2, :value "new-on-task-2"}]]
+PROBE    4851.9  T4 after one write on task 2, push of task 3 no callback
+PROBE    5252.3  T6 after close! callback DestroyedDiff · same value as before: false · size nil · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · DestroyedDiff[]
+PROBE    5253.5  T6 status after close!: :terminated · deref after close!: [:threw "ExceptionInfo: Tried to fetch from closed ProxyState"]
+PROBE    6029.7  T6 a write on its task after close! no callback
+PROBE    6029.9  T6 a second close!: :no-throw
+PROBE    6030.0  T6 status of an open push: :active
+PROBE    6046.9  T5 stream table: value now ["L m a" "L m b" "L m c"]
+PROBE    6868.2  T5 stream table, one event: change a, add d, remove b: callback MultiDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L m a"] [:put "L m d"] [:out "L m b"]] · MultiDiff[[#object[com.rpl.rama.diffs.KeyDiff 0x61103c3d "KeyDiff[L m a | NewValueDiff[{:stamp 2, :value \"a2\"}]]"] #object[com.rpl.rama.diffs.Ke
+PROBE    7275.5  T5 stream table, the same row written again: callback KeyDiff · same value as before: true · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L m a"]] · KeyDiff[L m a | NewValueDiff[{:stamp 2, :value "a2"}]]
+PROBE    8665.4  T5 microbatch table, one batch: change a, add d, remove b: callback MultiDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:put "L m a"] [:put "L m d"] [:out "L m b"]] · MultiDiff[[#object[com.rpl.rama.diffs.KeyDiff 0x213003d5 "KeyDiff[L m a | NewValueDiff[{:stamp 2, :value \"a2\"}]]"] #object[com.rpl.rama.diff
+PROBE    8674.1  T5 one place: value now {:stamp 2, :value "a2"}
+PROBE    9383.6  T5 one place, changed: callback NewValueDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · NewValueDiff[{:stamp 3, :value "a3"}]
+PROBE    9690.0  T5 one place, removed: callback NewValueDiff · same value as before: false · size nil · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · NewValueDiff[null]
+PROBE    9690.1  T5 one place: value after the removal nil
+PROBE    9691.5  T5 one place that holds no row: value now nil
+PROBE   10298.1  T5 one place, its first row: callback NewValueDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:unhandled]] · NewValueDiff[{:stamp 1, :value "first"}]
+PROBE   10300.0  T7 foreign-select-one-async with :pkey → ["L e3 a" "L e3 b"]
+PROBE   10301.5  T7 foreign-proxy-async with :pkey: a CompletableFuture · given in 1.3 ms · status :active value now ["L e3 a" "L e3 b"]
+PROBE   10309.7  T9 select, multi-path of a run, a place, and a place with no row → [:threw "ClassCastException: class java.lang.String cannot be cast to class clojure.lang.Keyword (java.lang.String is in module java.base of loader 'bootstrap'; clojure.lang.Keyword is in unnamed module of loader 'app')"]
+PROBE   10423.7  T9 select, submap of two keys, one with no row → [:threw "CallbackException: Callback failure"]
+PROBE   16424.6  T9 push on a submap of two keys: [:timeout]
+# --- Rama's own lines, by their line number in tasks-run-1-all.log
+44:02:21:48.043 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+45:java.lang.AbstractMethodError: Method rpl/rama/api/durable/rocksdb/sub_indexing/SubindexingPersistentMap.entryAt(Ljava/lang/Object;)Lclojure/lang/IMapEntry; is abstract
+125:java.lang.AbstractMethodError: Method rpl/rama/api/durable/rocksdb/sub_indexing/SubindexingPersistentMap.entryAt(Ljava/lang/Object;)Lclojure/lang/IMapEntry; is abstract
+205:java.lang.AbstractMethodError: Method rpl/rama/api/durable/rocksdb/sub_indexing/SubindexingPersistentMap.entryAt(Ljava/lang/Object;)Lclojure/lang/IMapEntry; is abstract
+284:02:21:48.075 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+454:java.lang.AbstractMethodError: Method rpl/rama/api/durable/rocksdb/sub_indexing/SubindexingPersistentMap.entryAt(Ljava/lang/Object;)Lclojure/lang/IMapEntry; is abstract
+534:02:21:48.609 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+535:java.lang.AbstractMethodError: Method rpl/rama/api/durable/rocksdb/sub_indexing/SubindexingPersistentMap.entryAt(Ljava/lang/Object;)Lclojure/lang/IMapEntry; is abstract

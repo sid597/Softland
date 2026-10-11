@@ -1,0 +1,57 @@
+# probe.runs, run 2, 12 October 2026: the lines that the probe printed, cut to 400 characters. Rama 1.6.0, in-process, 4 tasks, 2 threads.
+# Run 1 is the same without the U6 lines. The whole outputs are runs-run-1-all.log and runs-run-2-all.log beside this file.
+PROBE    2561.9  START
+PROBE    4014.8  seeded: 3 places of L aaa, 200,000 of L big, 1 of L n, all on one task
+PROBE    4049.6  U1 small run, exact range: try 1 : 34.3 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4055.1  U1 small run, exact range: try 2 : 3.6 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4057.3  U1 small run, exact range: try 3 : 2.1 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4063.4  U1 small run, window of 257 then the run's end: try 1 : 5.8 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4064.8  U1 small run, window of 257 then the run's end: try 2 : 1.3 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4066.4  U1 small run, window of 257 then the run's end: try 3 : 1.5 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4102.8  U1 small run, window of 20,001 then the run's end: try 1 : 36.2 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4124.2  U1 small run, window of 20,001 then the run's end: try 2 : 21.1 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4141.7  U1 small run, window of 20,001 then the run's end: try 3 : 17.4 ms · ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4146.3  U1 run of 200,000, window of 257 then the run's end: try 1 : 4.2 ms · 257 places, first L big k000000, last L big k000256
+PROBE    4149.1  U1 run of 200,000, window of 257 then the run's end: try 2 : 2.7 ms · 257 places, first L big k000000, last L big k000256
+PROBE    4151.2  U1 run of 200,000, window of 257 then the run's end: try 3 : 2.0 ms · 257 places, first L big k000000, last L big k000256
+PROBE    4182.8  U1 run of 200,000, window of 20,001 then the run's end: try 1 : 31.3 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE    4196.4  U1 run of 200,000, window of 20,001 then the run's end: try 2 : 13.5 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE    4209.3  U1 run of 200,000, window of 20,001 then the run's end: try 3 : 12.8 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE    4215.2  U1 run of 200,000, window of 257 then the run's end, counted: try 1 : 5.7 ms · 257
+PROBE    4216.1  U1 run of 200,000, window of 257 then the run's end, counted: try 2 : 0.7 ms · 257
+PROBE    4216.9  U1 run of 200,000, window of 257 then the run's end, counted: try 3 : 0.7 ms · 257
+PROBE    4228.7  U1 run of 200,000, window of 20,001 then the run's end, counted: try 1 : 11.6 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE    4250.1  U1 run of 200,000, window of 20,001 then the run's end, counted: try 2 : 21.3 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE    4265.0  U1 run of 200,000, window of 20,001 then the run's end, counted: try 3 : 14.8 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE    4282.9  U1 small run, window of 20,001 then the run's end, counted: try 1 : 17.5 ms · 3
+PROBE    4295.3  U1 small run, window of 20,001 then the run's end, counted: try 2 : 12.2 ms · 3
+PROBE    4307.0  U1 small run, window of 20,001 then the run's end, counted: try 3 : 11.5 ms · 3
+PROBE    4321.2  U1 small run, window of 20,001 with no end, counted: try 1 : 14.0 ms · 20001
+PROBE    4336.2  U1 small run, window of 20,001 with no end, counted: try 2 : 14.9 ms · 20001
+PROBE    4347.2  U1 small run, window of 20,001 with no end, counted: try 3 : 10.9 ms · 20001
+PROBE    4350.1  U2 multi-path: a place, a place with no row, a window of 257 then the run's end: try 1 : 2.6 ms · [{:stamp 1, :value "2"} nil ["L aaa k1" "L aaa k2" "L aaa k3"]]
+PROBE    4351.0  U2 multi-path: a place, a place with no row, a window of 257 then the run's end: try 2 : 0.8 ms · [{:stamp 1, :value "2"} nil ["L aaa k1" "L aaa k2" "L aaa k3"]]
+PROBE    4352.3  U4 a run whose two ends are the same text: try 1 : 1.1 ms · []
+PROBE    4353.6  U4 a run with its end included, by the option: try 1 : 1.1 ms · ["L aaa k1" "L aaa k2"]
+PROBE    4354.7  U4 a run with its end included, by a space after the end's text: try 1 : 1.0 ms · ["L aaa k1" "L aaa k2"]
+PROBE    4374.5  U3 push on a window of 6 then the run's end: opens · value now ["L aaa k1" "L aaa k2" "L aaa k3"]
+PROBE    4988.0  U3 a place of the run changed: callback KeyDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:put "L aaa k2"]] · KeyDiff[L aaa k2 | NewValueDiff[{:stamp 2, :value "2b"}]]
+PROBE    5300.7  U3 a new place in the run: callback KeyDiff · same value as before: false · size 4 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:put "L aaa k4"]] · KeyDiff[L aaa k4 | NewValueDiff[{:stamp 2, :value "4"}]]
+PROBE    5606.3  U3 a place inside the window and after the run's end changed: no callback
+PROBE    5606.4  U3 value now ["L aaa k1" "L aaa k2" "L aaa k3" "L aaa k4"]
+PROBE    5638.7  U6 run of 200,000, window of 20,001: its count and its last key, one call: try 1 : 31.9 ms · [20001 "L big k020000"]
+PROBE    5650.1  U6 run of 200,000, window of 20,001: its count and its last key, one call: try 2 : 11.2 ms · [20001 "L big k020000"]
+PROBE    5660.6  U6 run of 200,000, window of 20,001: its count and its last key, one call: try 3 : 10.4 ms · [20001 "L big k020000"]
+PROBE    5671.9  U6 small run, window of 20,001: its count and its last key, one call: try 1 : 11.0 ms · [20001 "L big k019996"]
+PROBE    5682.2  U6 small run, window of 20,001: its count and its last key, one call: try 2 : 10.2 ms · [20001 "L big k019996"]
+PROBE    5692.5  U6 small run, window of 20,001: its count and its last key, one call: try 3 : 10.2 ms · [20001 "L big k019996"]
+PROBE    5694.1  U6 the last run of the task, window of 20,001: its count and its last key: try 1 : 1.4 ms · [1 "L n x"]
+PROBE    5694.7  U6 the last run of the task, window of 20,001: its count and its last key: try 2 : 0.6 ms · [1 "L n x"]
+PROBE    5696.0  U6 a window that holds nothing: its count and its last key: try 1 : 1.1 ms · [0]
+PROBE    5696.6  U6 a window that holds nothing: its count and its last key: try 2 : 0.5 ms · [0]
+PROBE    5701.5  U6 the last place before a run's end, a window of 1 backward: try 1 : 4.6 ms · ["L aaa k4"]
+PROBE    5702.1  U6 the last place before a run's end, a window of 1 backward: try 2 : 0.5 ms · ["L aaa k4"]
+PROBE    6000.6  U6 a push on a run of 200,000, exact range, opened and closed: try 1 : 298.4 ms · 200000
+PROBE    6003.4  U5 a run whose ends are in the wrong order, as a select → []
+PROBE    6005.1  U5 a select after it, on the same task → ["L aaa k1" "L aaa k2" "L aaa k3" "L aaa k4"]
+PROBE    6005.2  END

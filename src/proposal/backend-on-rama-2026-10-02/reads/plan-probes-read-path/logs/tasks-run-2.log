@@ -1,0 +1,74 @@
+# probe.tasks, run 2, 12 October 2026: the lines that the probe printed, cut to 400 characters. Rama 1.6.0, in-process, 4 tasks, 2 threads.
+# The whole output is tasks-run-2-all.log beside this file.
+PROBE    2514.3  START
+PROBE    2514.8  T1 object info of the stream table: {:name "$$s-rows", :module-name "probe.tasks/TaskProbe", :num-partitions 4}
+PROBE    2514.9  T1 object info of the microbatch table: {:name "$$m-rows", :module-name "probe.tasks/TaskProbe", :num-partitions 4}
+PROBE    2515.1  T1 object info of a depot: {:name "*m-writes", :module-name "probe.tasks/TaskProbe", :num-partitions 4}
+PROBE    2515.6  T2 Helpers/genHashingIndexKeys 4 → ["d" "a" "b" "g"] · the same as the test namespace's: true · class of one: java.lang.String
+PROBE    3246.2  T3 select, microbatch table, key of task 0 → ["L e0 a" "L e0 b"]
+PROBE    3248.9  T3 select, microbatch table, key of task 1 → ["L e1 a" "L e1 b"]
+PROBE    3250.6  T3 select, microbatch table, key of task 2 → ["L e2 a" "L e2 b"]
+PROBE    3252.1  T3 select, microbatch table, key of task 3 → ["L e3 a" "L e3 b"]
+PROBE    3254.1  T3 select, stream table, key of task 0 → ["L e0 a"]
+PROBE    3255.9  T3 select, stream table, key of task 1 → ["L e1 a"]
+PROBE    3256.6  T3 select, stream table, key of task 2 → ["L e2 a"]
+PROBE    3257.2  T3 select, stream table, key of task 3 → ["L e3 a"]
+PROBE    3289.7  T4 push, microbatch table, key of task 0 · value now ["L e0 a" "L e0 b"]
+PROBE    3289.9  T4 push, microbatch table, key of task 1 · value now ["L e1 a" "L e1 b"]
+PROBE    3289.9  T4 push, microbatch table, key of task 2 · value now ["L e2 a" "L e2 b"]
+PROBE    3289.9  T4 push, microbatch table, key of task 3 · value now ["L e3 a" "L e3 b"]
+PROBE    3890.2  T4 before any write, push of task 0 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    3891.0  T4 before any write, push of task 1 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    3891.1  T4 before any write, push of task 2 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    3891.1  T4 before any write, push of task 3 callback ResyncDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:unhandled]] · ResyncDiff[]
+PROBE    4802.1  T4 after one write on task 2, push of task 0 no callback
+PROBE    4802.3  T4 after one write on task 2, push of task 1 no callback
+PROBE    4802.3  T4 after one write on task 2, push of task 2 callback KeyDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L e2 c"]] · KeyDiff[L e2 c | NewValueDiff[{:stamp 2, :value "new-on-task-2"}]]
+PROBE    4802.4  T4 after one write on task 2, push of task 3 no callback
+PROBE    5202.9  T6 after close! callback DestroyedDiff · same value as before: false · size nil · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · DestroyedDiff[]
+PROBE    5203.8  T6 status after close!: :terminated · deref after close!: [:threw "ExceptionInfo: Tried to fetch from closed ProxyState"]
+PROBE    5975.7  T6 a write on its task after close! no callback
+PROBE    5975.9  T6 a second close!: :no-throw
+PROBE    5976.0  T6 status of an open push: :active
+PROBE    5994.6  T5 stream table: value now ["L m a" "L m b" "L m c"]
+PROBE    6812.0  T5 stream table, one event: change a, add d, remove b: callback MultiDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L m a"] [:put "L m d"] [:out "L m b"]] · MultiDiff[[#object[com.rpl.rama.diffs.KeyDiff 0x4eb29672 "KeyDiff[L m a | NewValueDiff[{:stamp 2, :value \"a2\"}]]"] #object[com.rpl.rama.diffs.Ke
+PROBE    7218.9  T5 stream table, the same row written again: callback KeyDiff · same value as before: true · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L m a"]] · KeyDiff[L m a | NewValueDiff[{:stamp 2, :value "a2"}]]
+PROBE    8591.4  T5 microbatch table, one batch: change a, add d, remove b: callback MultiDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:put "L m a"] [:put "L m d"] [:out "L m b"]] · MultiDiff[[#object[com.rpl.rama.diffs.KeyDiff 0x512e8fe3 "KeyDiff[L m a | NewValueDiff[{:stamp 2, :value \"a2\"}]]"] #object[com.rpl.rama.diff
+PROBE    8593.5  T5 one place: value now {:stamp 2, :value "a2"}
+PROBE    9302.0  T5 one place, changed: callback NewValueDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · NewValueDiff[{:stamp 3, :value "a3"}]
+PROBE    9608.2  T5 one place, removed: callback NewValueDiff · same value as before: false · size nil · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:unhandled]] · NewValueDiff[null]
+PROBE    9608.4  T5 one place: value after the removal nil
+PROBE    9609.6  T5 one place that holds no row: value now nil
+PROBE   10215.4  T5 one place, its first row: callback NewValueDiff · same value as before: false · size 2 · thread clientside-cluster-manager-executor-pool-1-0 · processor got [[:unhandled]] · NewValueDiff[{:stamp 1, :value "first"}]
+PROBE   10217.5  T7 foreign-select-one-async with :pkey → ["L e3 a" "L e3 b"]
+PROBE   10219.1  T7 foreign-proxy-async with :pkey: a CompletableFuture · given in 1.4 ms · status :active value now ["L e3 a" "L e3 b"]
+PROBE   10225.8  T9 select, multi-path of a run, a place, and a place with no row → [["L m a" "L m c" "L m d" "L m never"] {:stamp 4, :value "a4"} nil]
+PROBE   11666.1  T8 seeding 200,000 places took 1440.1 ms
+PROBE   11834.7  T8 (a) the run, counted on the task: try 1 : 168.3 ms · 200000
+PROBE   11954.7  T8 (a) the run, counted on the task: try 2 : 119.8 ms · 200000
+PROBE   12067.5  T8 (a) the run, counted on the task: try 3 : 112.6 ms · 200000
+PROBE   12194.3  T8 (b) the run, then its first 3: try 1 : 126.5 ms · ["L big k000000" "L big k000001" "L big k000002"]
+PROBE   12321.1  T8 (b) the run, then its first 3: try 2 : 126.6 ms · ["L big k000000" "L big k000001" "L big k000002"]
+PROBE   12449.1  T8 (b) the run, then its first 3: try 3 : 127.8 ms · ["L big k000000" "L big k000001" "L big k000002"]
+PROBE   12453.0  T8 (c) the first 3 from the run's start, no end: try 1 : 3.5 ms · ["L big k000000" "L big k000001" "L big k000002"]
+PROBE   12453.5  T8 (c) the first 3 from the run's start, no end: try 2 : 0.4 ms · ["L big k000000" "L big k000001" "L big k000002"]
+PROBE   12453.8  T8 (c) the first 3 from the run's start, no end: try 3 : 0.3 ms · ["L big k000000" "L big k000001" "L big k000002"]
+PROBE   12578.3  T8 (d) the run, then its first 20,001: try 1 : 124.3 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE   12691.8  T8 (d) the run, then its first 20,001: try 2 : 113.4 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE   12803.3  T8 (d) the run, then its first 20,001: try 3 : 111.4 ms · [:threw "IllegalArgumentException: No implementation of method: :combine-separated-sorted-structures* of protocol: #'com.rpl.ramaspecter.protocols/SortedCombine found for class: clojure.lang.APersistentVector$SubVector"]
+PROBE   12847.7  T8 (e) the first 20,001 from the run's start, no end: try 1 : 43.9 ms · 20001 places
+PROBE   12879.7  T8 (e) the first 20,001 from the run's start, no end: try 2 : 31.9 ms · 20001 places
+PROBE   12912.7  T8 (e) the first 20,001 from the run's start, no end: try 3 : 32.8 ms · 20001 places
+PROBE   13167.4  T8 (f) the run whole: try 1 : 254.4 ms · 200000 places
+PROBE   13419.2  T8 (f) the run whole: try 2 : 251.6 ms · 200000 places
+PROBE   13441.0  T8 (g) 2,000 places of the run by multi-path, one call: try 1 : 21.3 ms · 2000 rows of 2000
+PROBE   13455.4  T8 (g) 2,000 places of the run by multi-path, one call: try 2 : 14.2 ms · 2000 rows of 2000
+PROBE   13724.5  T8 (i) 2,000 places of the run, one call each, one after another: try 1 : 268.9 ms · 2000
+PROBE   13769.2  T8 (j) 2,000 places of the run, one call each, all sent at once: try 1 : 44.4 ms · 2000
+PROBE   13817.7  T8 (j) 2,000 places of the run, one call each, all sent at once: try 2 : 48.2 ms · 2000
+PROBE   13820.6  T8 push on a run capped at 3: opens · value now ["L m a" "L m c" "L m d"]
+PROBE   14430.9  T8 capped push, a place inside the cap changed: callback KeyDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L m c"]] · KeyDiff[L m c | NewValueDiff[{:stamp 6, :value "c10"}]]
+PROBE   14736.6  T8 capped push, a place of the run beyond the cap changed: no callback
+PROBE   15050.2  T8 capped push, a new place that sorts into the cap: callback MultiDiff · same value as before: false · size 3 · thread clientside-cluster-manager-executor-pool-0-0 · processor got [[:put "L m aa"] [:out "L m d"]] · MultiDiff[[#object[com.rpl.rama.diffs.KeyDiff 0x14dddd02 "KeyDiff[L m aa | NewValueDiff[{:stamp 6, :value \"aa1\"}]]"] #object[com.rpl.rama.diffs.KeyR … (196 ch
+PROBE   15050.4  T8 capped push: value now ["L m a" "L m aa" "L m c"]
+PROBE   15050.4  END
