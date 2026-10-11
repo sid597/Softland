@@ -1,0 +1,43 @@
+# probe.callbacks, run 2, 12 October 2026: everything that the run printed. Rama 1.6.0, in-process, 4 tasks, 2 threads.
+# The line 'C7 by code point' of this run is wrong by a fault of the probe's own sort (a vector compares by its length first); run 3 has it right. The line above it, the table's own order, is as run.
+PROBE    2266.5  START · keys of the tasks ["d" "a" "b" "g"]
+PROBE    2869.1  C1 at the opening: {:push :place, :diff "ResyncDiff", :thread "clientside-cluster-manager-executor-pool-1-0", :at 2359.823036, :own-holds nil, :other-holds nil}
+PROBE    2869.4  C1 at the opening: {:push :run, :diff "ResyncDiff", :thread "clientside-cluster-manager-executor-pool-0-0", :at 2368.853866, :own-holds nil, :other-holds :the-new}
+PROBE    4148.9  C1 six writes of one place, one event each. Callbacks: 12 · the push's own value inside its callback: {:the-new 12}
+PROBE    4149.5  C2 inside a callback, what the other push of the same row holds: {[:place :the-old] 6, [:run :the-new] 6}
+PROBE    4149.5  C2 threads: {[:place "clientside-cluster-manager-executor-pool-1-0"] 6, [:run "clientside-cluster-manager-executor-pool-0-0"] 6}
+PROBE    5649.9  C1 forty writes with no pause. Callbacks: 6 · own value inside the callback: {[:place :the-new] 3, [:run :the-new] 3}
+PROBE    5650.1  C2 the same forty, the other push: {[:place :the-old] 2, [:run :the-new] 3, [:place :the-new] 1}
+PROBE    6059.6  C3 a push opened with the call that does not block, begun at 5650.6
+PROBE    6059.7  C3   {:what :callback, :diff "ResyncDiff", :old-nil? true, :thread "clientside-cluster-manager-executor-pool-1-0", :at 5659.354082}
+PROBE    6059.8  C3   {:what :future-chained, :thread "clientside-cluster-manager-executor-pool-1-0", :at 5659.463321}
+PROBE    6059.9  C3   {:what :future-given-to-the-caller, :thread "main", :at 5659.466031}
+PROBE    6072.7  C3 a select with the call that does not block: a function chained to its future ran on clientside-cluster-manager-executor-pool-1-0
+PROBE    6374.5  C3 a push on a place with no row, its first callbacks: [{:diff "ResyncDiff", :old-nil? true}]
+PROBE    6790.4  C4 eight pushes on task 0, how many on each thread at the first callback: {"clientside-cluster-manager-executor-pool-1-0" 4, "clientside-cluster-manager-executor-pool-0-0" 4}
+PROBE    6966.9  C4 while one callback sleeps 2.5 s, six of each from other threads, ms each, sorted:
+PROBE    9307.1  C4   a select that blocks: [2341 2341 2341 2341 2341 2341]
+PROBE    9307.3  C4   a select that does not block, waited for: [2341 2341 2341 2341 2341 2341]
+PROBE    9308.7  C4   the opening of a push, waited for: [6 6 6 2342 2342 2342]
+PROBE   12514.9  C4 the callback that slept ran on clientside-cluster-manager-executor-pool-1-0
+PROBE   12516.7  C4 the other seven pushes, ms from the first write to the callback, by thread: {"the other thread" [174 175 175 175], "the sleeper's thread" [2516 2516 2516]}
+PROBE   13646.1  C5 inside the callback of push 0, each as [ms, what it gave]:
+PROBE   13646.2  C5   :close-own [0.01 :returned]
+PROBE   13646.3  C5   :status-own-inside :active
+PROBE   13646.3  C5   :deref-own-inside go
+PROBE   13646.4  C5   :close-same-thread [0.0 :returned]
+PROBE   13646.4  C5   :close-other-thread [0.01 :returned]
+PROBE   13646.4  C5 callbacks seen after, in order: [[0 "NewValueDiff" "go"] [0 "DestroyedDiff" nil] [1 "DestroyedDiff" nil] [2 "DestroyedDiff" nil]]
+PROBE   13646.5  C5 status after the callback returned: own :terminated · the one on the same thread :terminated · the one on the other thread :terminated
+PROBE   14153.7  C5 a write to all six after: callbacks of [3 4 5] · closed were [0 2 1]
+PROBE   17271.4  C5 inside a callback that stays 2.5 s: of 6 selects that do not block, 3 were given inside it; of 6 openings of a push, 3
+PROBE   17271.6  C5 0.3 s after the callback returned: selects given 6 · openings given 6
+PROBE   17595.3  C6 close! from another thread while the push's callback runs: took 0.01 ms → :returned · status at once :active
+PROBE   19800.7  C6 callbacks after it: [["NewValueDiff" "hold"] ["DestroyedDiff" nil]] · status :terminated
+PROBE   19813.6  C7 the order in which the table keeps keys that differ after "L x": ["(nothing)" "(space)a" "!" "z" "ä" "U+E000" "U+FFFF" "U+1F600"]
+PROBE   19813.7  C7 by Java's compareTo (UTF-16 units): ["(nothing)" "(space)a" "!" "z" "ä" "U+1F600" "U+E000" "U+FFFF"]
+PROBE   19815.4  C7 by code point: ["(nothing)" "!" "z" "ä" "U+E000" "U+FFFF" "U+1F600" "(space)a"]
+PROBE   19815.6  C8 foreign-object-info, 200 calls: 0.09 ms in all → {:name "$$rows", :module-name "probe.callbacks/CallbackProbe", :num-partitions 4}
+PROBE   20138.3  C9 a select that blocks, called inside a callback, within 20 s: [0.95 "go"]
+PROBE   20138.4  END
+exit 0

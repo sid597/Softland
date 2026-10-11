@@ -81,10 +81,10 @@ it adapts the skill's template.
 | the plan of `read-path`, with two runs of its own; rulings 60 to 70 on its eleven points | done | in the commit after `a6857ba8` |
 | the check of the plan of `what-the-gates-keep`; rulings 52 to 55 | done. Verdict minor-fail: eleven faults, each fixed in the plan by the check; it ran the removal of a top-level row (`plan-check-probes-what-the-gates-keep/`) | in the commit after `2ea0fff9` |
 | the check of the plan of `base-for-a-reader`; rulings 56 to 59 | done. Verdict minor-fail: nine faults, each fixed in the plan by the check; it applied ruling 49 and ran three clusters in one JVM (`plan-check-probes-base-for-a-reader/`) | in the commit after `794bc2fd` |
-| the check of the plan of `read-path`; it first applies ruling 64 to the plan | running | — |
-| the build of `what-the-gates-keep` (first, by ruling 53); rulings 71 to 73 | done. The build stage's verdict is pass. The build session ran the four proofs itself: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 17, :pass 671, :fail 0, :error 0}`, module `{:test 31, :pass 333, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, each with exit 0 | the code and its explanations; its proofs; the papers: the three commits after `efaf6275` |
-| the build of `base-for-a-reader` | after the build above | — |
-| the build of `read-path` | — | — |
+| the check of the plan of `read-path`; rulings 74 to 80 | done. Verdict minor-fail: fifteen faults, each fixed in the plan by the check; it broke and repaired the plan's argument for "what points at", applied ruling 64, and ran nine things on Rama's client (`plan-check-probes-read-path/`) | in the commit after `ffc10f29` |
+| the build of `what-the-gates-keep` (first, by ruling 53); rulings 71 to 73 | done. The build stage's verdict is pass. The build session ran the four proofs itself: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 17, :pass 671, :fail 0, :error 0}`, module `{:test 31, :pass 333, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, each with exit 0 | `371c6d2f` the code with its proofs; `ffc10f29` the papers |
+| the build of `base-for-a-reader` | running, on the tree at `371c6d2f` | — |
+| the build of `read-path` | running, beside the build above (ruling 38), on files of its own until that build has ended | — |
 | one fresh review of the whole against the contract | — | — |
 | the measures of the contract's section C | — | — |
 | the receipt to Sid | — | — |
@@ -551,6 +551,59 @@ For the receipt, from this build: what no check of this part reaches is a push, 
 batch, an event that Rama runs again, a real cluster, and the cost of the gate's one read more, which
 is counted from the dataflow and not measured; the build session's page lists scratch that the build
 left under `reads/runs/` and did not commit.
+
+### On the check of the plan of `read-path` (`PLAN_VALIDATION-read-path.md`)
+
+74. **The verdict is minor-fail and is taken.** Fifteen faults, each fixed in the plan. The check was
+    asked to break the plan's least certain argument, that no "before" value need be kept, and it
+    did, for one word of a query. For a place, an entity and a run the argument holds as worded (a
+    model played 620 lists of callbacks in every order). For "what points at" it did not: when a
+    farther order loses a place in the moment in which a nearer layer gets a row there, one order of
+    the two callbacks left the asker with a place that the tables no longer give (118 of 672 small
+    lists). A fix that keeps no value exists and is in the plan; played in every order, 13 scenarios
+    and 672 lists, none fails. That is derived and modelled, not run on Rama. So the build does not
+    stop for R2. The check applied ruling 64 first, and ran nine things on Rama's client about
+    threads, openings and callbacks (`plan-check-probes-read-path/`).
+75. **Ruling 67 stands, with its cost as it was run.** While one asker's function stayed for 2.5 s,
+    other askers' pushes on the same thread of Rama's client waited, and so did selects and openings
+    of pushes from other threads. So the function must return at once, and a caller that has work to
+    do hands the change to a thread of its own; the docstring says what was run. Rama's own callback
+    has the same rule, and the read path passes it on. The other answer is an executor of the read
+    path's own with a queue. A line for the receipt.
+76. **A read holds one mark more: "the whole answer is owed".** It is true or false, and no value of
+    the tables. Without it a layer that joins over a farther order never gives its own places. Ruling
+    26's list of what the read path keeps gains it.
+77. **A read asked from inside an asker's function is turned away with a word of its own.** Without
+    the guard such a read can wait out its bound with a thread of Rama's client held.
+78. **The function's first call is the whole answer** (the check's point 4, its other answer, against
+    its fix by docstring). `read-live` calls the asker's function once with `{:anew answer}` on the
+    caller's own thread, under the read's turn, before it returns and before any change is told. Then
+    a screen that is made only from what the function was given is right, in order. With the first
+    answer only in what `read-live` returns, a change could reach the function before its caller had
+    that answer in place, and a caller that then put the answer in place would show an older state
+    over a newer one, against R5. What `read-live` returns still holds that same answer under `:now`,
+    and the docstring says that a caller who keeps a screen uses the function's calls alone.
+79. **A cheaper way for the checks of ruling 12 is not built in this build.** The check designed it on
+    paper: where a nearer layer is small, read it whole once, or keep one push on it, and take every
+    check of that layer from it; in the worked case 2 pushes against 10,020. The skill says not to put
+    a cheaper design aside without building it. It is put aside here for three reasons, and the
+    receipt says so. What "what points at" means through layers is Sid's and not decided (P12), so
+    the checks may go or change. The way that is built was played in every order by a model, and the
+    cheaper one was not. And it is a second way to answer one question, with a switch by size under
+    an open read. One function makes the checks, so the cheaper way is a change of that function. The
+    measures give the cost of the way that is built, and the row for the queue carries both.
+80. **The read path's pure checks are a proof of their own**, beside its proof against the module, each
+    with its own command, and the proofs' map says so. The plan put them in `pure_proof.clj`, which
+    the build of `base-for-a-reader` is changing at the same time; and that file is already long. The
+    pure proof of the read path runs on the alias with Clojure alone, so it also holds that the read
+    path's pure namespaces load with no Rama.
+
+For the receipt, from this check: Rama's client had two threads in-process, and how many it has on a
+real cluster is not known here; a call of Rama that blocks, made inside a callback, hung in one run of
+three, and the read path makes none; after ruling 64 a place of a nearer layer that no farther layer's
+order holds is still found only through the nearer layer's own order; a run across entities of the
+base costs one seek on each task, so it grows with the cluster; a live read across entities of the
+base would not notice a change in the number of tasks, which never changes.
 
 ## For the receipt: what Sid should know, as found so far
 

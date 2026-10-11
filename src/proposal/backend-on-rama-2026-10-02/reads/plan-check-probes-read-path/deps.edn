@@ -1,0 +1,21 @@
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {;; C: what Rama's client does around a callback of a push. The check of
+           ;; the plan of the read path rests on it (PLAN_VALIDATION-read-path.md,
+           ;; "What was run for this check"). A probe: its module is no code of
+           ;; the store, and no form, name or table shape comes from it.
+           ;; From this folder:   clojure -M:callbacks
+           ;; From the repository root, with no change of directory (the root's
+           ;; alias :store-module holds the same Clojure and Rama):
+           ;;   clojure -Sdeps '{:aliases {:read-path-check {:extra-paths ["src/proposal/backend-on-rama-2026-10-02/reads/plan-check-probes-read-path/src"]}}}' \
+           ;;           -M:store-module:read-path-check -m probe.callbacks
+           ;; Run one at a time: two in-process clusters at once collide on a port.
+           :callbacks {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.callbacks"]}}}
+;; The other runs of this check need no Rama. Two models play the steps of a
+;; callback as the plan words them, in every order, with Python 3 alone:
+;;   python3 model/crossing.py    what points at a thing, through layers
+;;   python3 model/standing.py    one place, with a setting and a permission
+;; edits/ holds each replacement that the check made in PLAN-read-path.md,
+;; old text and new, as it was applied.

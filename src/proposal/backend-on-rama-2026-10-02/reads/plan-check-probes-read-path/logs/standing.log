@@ -1,0 +1,8 @@
+# python3 model/standing.py show, 12 October 2026, cut to 300 characters a line. No Rama: one place through two layers, with a setting and a permission, played in every order.
+owes=by-kind   620 lists of up to 3 writes, 22142 states, 0 lists with a failing order
+owes=standing  620 lists of up to 3 writes, 22727 states, 92 lists with a failing order
+     the first: setting=everyone permission=None writes=(('S1', 'members'), ('S1', 'everyone'), ('S2', 'P'))
+     a failing order: W W US1 HS1 SS2 W AS2 US1 US2 HS1 SFN AFN
+     the screen at the end (may see N, the place): (False, ('F', 'f0', 1))   the tables give: (True, ('F', 'f0', 1))
+owes=setting   620 lists of up to 3 writes, 22320 states, 0 lists with a failing order
+owes=any-step  620 lists of up to 3 writes, 22167 states, 0 lists with a failing order

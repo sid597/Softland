@@ -1,0 +1,50 @@
+# python3 model/crossing.py show, 12 October 2026, cut to 330 characters a line. No Rama: a model of the steps of a callback, played in every order.
+== THE PLAN AS WORDED  {'told': 'before-leave', 'arrival': 'by-kind', 'wait': 'lazy', 'checks': 'plan'}
+  FAIL     13 states     2 ends  1. the plan's own crossing: the farther order loses p while the nearer layer gets another row at p
+         a failing order: W W U('C',1,'p') U('O',2) H('O',2)
+         the screen at the end: {'p': (2, 1, 'order')}   the tables give: {}
+  FAIL     14 states     3 ends  2. ruling 64: a nearer layer that does not mark the key writes the same thing; then the farther order loses p
+         a failing order: W W U('C',1,'p') U('O',2) H('O',2)
+         the screen at the end: {'p': (2, 1, 'order')}   the tables give: {}
+  ok       47 states     1 ends  3. ruling 64, and back: the nearer writes the same thing, the farther moves away and moves back
+  ok       37 states     1 ends  4. the nearer hides, then says the same thing, while the farther is written again
+  ok       62 states     1 ends  5. both mark: the nearer moves p away and back while the farther moves it away
+  ok       86 states     1 ends  6. three layers, all mark: the middle loses p, the nearest gets a row, the farthest is written again
+  ok       88 states     1 ends  7. three layers: the middle loses p and the farthest loses p, then the middle gets it back
+  FAIL    716 states     5 ends  8. three layers, four writes on one place
+         a failing order: W W W W U('C',1,'p') U('O',2) U('O',2) H('O',2) H('O',2) U('O',3) H('O',3)
+         the screen at the end: {'p': (3, 1, 'order')}   the tables give: {}
+  FAIL     13 states     2 ends  9. a permission is given: a nearer layer joins, with a place q of its own, over a farther place p
+         a failing order: W P S('O',1) A('O',1) S('C',1,'p') A('C',1,'p')
+         the screen at the end: {'p': (2, 2, 'order')}   the tables give: {'q': (1, 1, 'order'), 'p': (2, 2, 'order')}
+  ok      172 states     1 ends  10. the same, while the farther layer is written
+  FAIL     38 states     2 ends  11. a new place in the farther order, with a nearer row there already
+         a failing order: W U('O',2) H('O',2) S('C',1,'p') W W A('C',1,'p') U('O',2) H('O',2)
+         the screen at the end: {'p': (1, 1, 'check')}   the tables give: {}
+  ok       62 states     1 ends  12. four layers: the second loses p, so checks are asked in the second and the third; then the third gets p
+  FAIL    312 states     2 ends  13. a nearer layer joins while a check of a new place is on its way
+         a failing order: W W W P S('O',1) U('O',3) A('O',1) S('C',1,'p') A('C',1,'p') S('C',2,'p') A('C',2,'p') H('O',3)
+         the screen at the end: {'p': (2, 103, 'check')}   the tables give: {'q': (1, 1, 'order'), 'p': (2, 103, 'check')}
+  every list of up to 3 writes on one place in 2 layers: 672 lists, 23461 states, 118 lists with a failing order
+         the first: nearer marks=True start={} writes=(('w', 2, 'p', 'V'), ('w', 1, 'p', 'U'), ('w', 2, 'p', 'U'))
+         a failing order: W U('O',2) H('O',2) S('C',1,'p') W W A('C',1,'p') U('C',1,'p') U('O',2) H('O',2)
+         the screen at the end: {'p': (2, 101, 'order')}   the tables give: {}
+== THE PLAN AS FIXED BY THE CHECK  {'told': 'after-leave', 'arrival': 'owed', 'wait': 'lazy', 'checks': 'tight'}
+  ok       12 states     1 ends  1. the plan's own crossing: the farther order loses p while the nearer layer gets another row at p
+  ok       12 states     1 ends  2. ruling 64: a nearer layer that does not mark the key writes the same thing; then the farther order loses p
+  ok       37 states     1 ends  3. ruling 64, and back: the nearer writes the same thing, the farther moves away and moves back
+  ok       37 states     1 ends  4. the nearer hides, then says the same thing, while the farther is written again
+  ok       60 states     1 ends  5. both mark: the nearer moves p away and back while the farther moves it away
+  ok       86 states     1 ends  6. three layers, all mark: the middle loses p, the nearest gets a row, the farthest is written again
+  ok       76 states     1 ends  7. three layers: the middle loses p and the farthest loses p, then the middle gets it back
+  ok      645 states     1 ends  8. three layers, four writes on one place
+  ok       13 states     1 ends  9. a permission is given: a nearer layer joins, with a place q of its own, over a farther place p
+  ok      175 states     1 ends  10. the same, while the farther layer is written
+  ok       37 states     1 ends  11. a new place in the farther order, with a nearer row there already
+  ok       78 states     1 ends  12. four layers: the second loses p, so checks are asked in the second and the third; then the third gets p
+  ok      323 states     1 ends  13. a nearer layer joins while a check of a new place is on its way
+  every list of up to 3 writes on one place in 2 layers: 672 lists, 22906 states, 0 lists with a failing order
+== the fixed plan with told=before-leave: scenarios that fail: ['1', '2', '8', '11']; small lists that fail: 118 of 672
+== the fixed plan with arrival=by-kind: scenarios that fail: ['9', '13']; small lists that fail: 0 of 672
+== the fixed plan with wait=strict: scenarios that fail: ['12']; small lists that fail: 0 of 672
+== the fixed plan with checks=plan: scenarios that fail: none; small lists that fail: 0 of 672

@@ -1,0 +1,39 @@
+# probe.callbacks, run 1, 12 October 2026: everything that the run printed (Rama printed nothing of its own). Rama 1.6.0, in-process, 4 tasks, 2 threads.
+# It is the run of the probe's FIRST form: C4 measured its four calls one after the other, and C5 made a select that BLOCKS inside the callback as its last step.
+# That select did not come back: the lines C5 :select-blocking-inside :not-reached, 'status after: own :active' and 'callbacks []' are of a thread of Rama's client that stayed in the callback.
+# The probe then stood still at its next opening of a push and was stopped by hand after about two minutes. C6 to C8 did not run. The source beside this file is the later form (runs 2 and 3).
+PROBE    2288.5  START · keys of the tasks ["d" "a" "b" "g"]
+PROBE    2888.2  C1 at the opening: {:push :place, :diff "ResyncDiff", :thread "clientside-cluster-manager-executor-pool-1-0", :at 2378.311882, :own-holds nil, :other-holds nil}
+PROBE    2888.5  C1 at the opening: {:push :run, :diff "ResyncDiff", :thread "clientside-cluster-manager-executor-pool-0-0", :at 2387.975827, :own-holds nil, :other-holds :the-new}
+PROBE    4153.2  C1 six writes of one place, one event each. Callbacks: 12 · the push's own value inside its callback: {:the-new 12}
+PROBE    4153.8  C2 inside a callback, what the other push of the same row holds: {[:place :the-old] 6, [:run :the-new] 6}
+PROBE    4153.9  C2 threads: {[:place "clientside-cluster-manager-executor-pool-1-0"] 6, [:run "clientside-cluster-manager-executor-pool-0-0"] 6}
+PROBE    5654.2  C1 forty writes with no pause. Callbacks: 6 · own value inside the callback: {[:place :the-new] 3, [:run :the-new] 3}
+PROBE    5654.4  C2 the same forty, the other push: {[:place :the-old] 2, [:run :the-new] 3, [:place :the-new] 1}
+PROBE    6063.8  C3 a push opened with the call that does not block, begun at 5654.9
+PROBE    6063.9  C3   {:what :callback, :diff "ResyncDiff", :old-nil? true, :thread "clientside-cluster-manager-executor-pool-1-0", :at 5663.516166}
+PROBE    6064.0  C3   {:what :future-chained, :thread "clientside-cluster-manager-executor-pool-1-0", :at 5663.622815}
+PROBE    6064.0  C3   {:what :future-given-to-the-caller, :thread "main", :at 5663.640125}
+PROBE    6075.6  C3 a select with the call that does not block: a function chained to its future ran on clientside-cluster-manager-executor-pool-1-0
+PROBE    6377.1  C3 a push on a place with no row, its first callbacks: [{:diff "ResyncDiff", :old-nil? true}]
+PROBE    6794.7  C4 eight pushes on task 0, the thread of each one's first callback: {0 "clientside-cluster-manager-executor-pool-1-0", 1 "clientside-cluster-manager-executor-pool-0-0", 2 "clientside-cluster-manager-executor-pool-1-0", 3 "clientside-cluster-manager-executor-pool-0-0", 4 "clientside-cluster-manager-executor-pool-1-0", 5 "clientside-cluster-manager-executor-pool-0-0", 6 "clientside-cluster-manager-executor-pool-1-0", 7 "clientside-cluster-manager-executor-pool-0-0"}
+PROBE    9316.9  C4 while push 0's callback sleeps 2.5 s: a select that blocks took 2340.6 ms → after · a select that does not block: 1.78 ms · the opening of a push on the same task: 1.19 ms :given · on another task: 2.19 ms :given
+PROBE   12517.4  C4 the callback that slept ran on clientside-cluster-manager-executor-pool-1-0 from 15 ms after the write
+PROBE   12517.7  C4   push 1 on clientside-cluster-manager-executor-pool-0-0 · its callback began 174 ms after the first write · another thread
+PROBE   12517.8  C4   push 2 on clientside-cluster-manager-executor-pool-1-0 · its callback began 2515 ms after the first write · THE SAME thread as the sleeper
+PROBE   12517.9  C4   push 3 on clientside-cluster-manager-executor-pool-0-0 · its callback began 174 ms after the first write · another thread
+PROBE   12517.9  C4   push 4 on clientside-cluster-manager-executor-pool-1-0 · its callback began 2515 ms after the first write · THE SAME thread as the sleeper
+PROBE   12517.9  C4   push 5 on clientside-cluster-manager-executor-pool-0-0 · its callback began 174 ms after the first write · another thread
+PROBE   12518.0  C4   push 6 on clientside-cluster-manager-executor-pool-1-0 · its callback began 2515 ms after the first write · THE SAME thread as the sleeper
+PROBE   12518.0  C4   push 7 on clientside-cluster-manager-executor-pool-0-0 · its callback began 175 ms after the first write · another thread
+PROBE   22343.8  C5 inside the callback of a push, each as [ms, what it gave]:
+PROBE   22343.9  C5   :close-own [0.01 :returned]
+PROBE   22344.0  C5   :status-own-inside :active
+PROBE   22344.0  C5   :close-other [0.01 :returned]
+PROBE   22344.1  C5   :select-inside [4000.36 [:timeout]]
+PROBE   22344.1  C5   :open-inside [1.75 [:given "0"]]
+PROBE   22344.1  C5   :select-blocking-inside :not-reached
+PROBE   22344.2  C5 callbacks seen, in order: [[:own "NewValueDiff" "go"] [:other "DestroyedDiff" nil]]
+PROBE   22344.2  C5 status after: own :active · other :terminated
+PROBE   22751.5  C5 a write to both after they were closed inside the callback: callbacks []
+exit 143
