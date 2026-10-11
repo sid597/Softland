@@ -82,7 +82,7 @@ it adapts the skill's template.
 | the check of the plan of `what-the-gates-keep`; rulings 52 to 55 | done. Verdict minor-fail: eleven faults, each fixed in the plan by the check; it ran the removal of a top-level row (`plan-check-probes-what-the-gates-keep/`) | in the commit after `2ea0fff9` |
 | the check of the plan of `base-for-a-reader`; rulings 56 to 59 | done. Verdict minor-fail: nine faults, each fixed in the plan by the check; it applied ruling 49 and ran three clusters in one JVM (`plan-check-probes-base-for-a-reader/`) | in the commit after `794bc2fd` |
 | the check of the plan of `read-path`; it first applies ruling 64 to the plan | running | — |
-| the build of `what-the-gates-keep` (first, by ruling 53) | running | — |
+| the build of `what-the-gates-keep` (first, by ruling 53); rulings 71 to 73 | done. The build stage's verdict is pass. The build session ran the four proofs itself: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 17, :pass 671, :fail 0, :error 0}`, module `{:test 31, :pass 333, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, each with exit 0 | the code and its explanations; its proofs; the papers: the three commits after `efaf6275` |
 | the build of `base-for-a-reader` | after the build above | — |
 | the build of `read-path` | — | — |
 | one fresh review of the whole against the contract | — | — |
@@ -524,6 +524,33 @@ Three rulings are read by the plan in a way that it states at its top; each read
     serve stopped a worker of the in-process cluster. Entry 4 trusts each program that reaches Rama's
     ports with the whole store; such a program can also stop a worker with one call. The read path
     sends five forms of path and no other. A line for the receipt and a row proposed for the queue.
+
+### On the build of `what-the-gates-keep`
+
+71. **The build's verdict is pass and is taken.** The build session ran the four proofs itself on the
+    tree as the build left it; the count lines are in the table of the stages. It read whole the
+    changed dataflow of the two gates, and in `gate/decision.clj` the standing with its new check, the
+    opening of a sealed value, the stamps of the marks, and the writes of the facts by value. It
+    traced those writes by hand against the plan's sentence for a marked key: a fact replaced, a
+    retract, the same value written again, a fact of the act that marks its own key, and a mark taken
+    off and put on again with the fact replaced meanwhile. In each the run under the key's current
+    stamp holds a place exactly when the place's current fact has that value and was written since
+    that stamp. It checked ruling 35 in the rows of the store's page and of the door's page that word
+    an earlier decision of Sid's: his wording stands, and the "Where it shows" side says what the code
+    now holds.
+72. **The one place where the plan could not be met is taken as built.** The plan's line had the gate
+    read a layer's marked keys for every question about a place; its own cost table said that a
+    request for locks reads what it reads today. The build kept the cost table: a question about a
+    place under a store key asks for no marks.
+73. **43 checks of the proofs were written again and none was removed**; six of them were beyond the
+    plan's list. `TEST_VALIDATION-what-the-gates-keep.md` gives each with its old and new sense and
+    the decision that made the old one untrue. The check that this part's rows are the same on a
+    second attempt was not written, by ruling 53; the build of `base-for-a-reader` writes it.
+
+For the receipt, from this build: what no check of this part reaches is a push, a second attempt of a
+batch, an event that Rama runs again, a real cluster, and the cost of the gate's one read more, which
+is counted from the dataflow and not measured; the build session's page lists scratch that the build
+left under `reads/runs/` and did not commit.
 
 ## For the receipt: what Sid should know, as found so far
 
