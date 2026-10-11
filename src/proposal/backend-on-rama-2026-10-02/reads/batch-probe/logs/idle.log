@@ -1,0 +1,67 @@
+    3517.8  RUN     Rama 1.6.0, in-process, three modules, each 4 tasks and 2 threads. Nothing is appended for 5 s.
+    8537.8  OUTSIDE thing 1 appended to default
+    8542.1  OUTSIDE thing 2 appended to two-sec
+    8546.0  OUTSIDE thing 3 appended to minute
+   11680.2  OUTSIDE thing 4 appended to default
+   11682.8  OUTSIDE thing 5 appended to two-sec
+   11685.8  OUTSIDE thing 6 appended to minute
+   14868.4  OUTSIDE thing 7 appended to default
+   14870.4  OUTSIDE thing 8 appended to two-sec
+   14873.0  OUTSIDE thing 9 appended to minute
+   18036.3  OUTSIDE thing 10 appended to default
+   18038.7  OUTSIDE thing 11 appended to two-sec
+   18042.0  OUTSIDE thing 12 appended to minute
+   18095.0  OUTSIDE thing 13 appended to default
+   18097.3  OUTSIDE thing 14 appended to two-sec
+   18099.6  OUTSIDE thing 15 appended to minute
+   18099.7  RUN     nothing more is appended. The run watches for 66 s more, for the module set to one minute.
+   84100.1  REPORT  default : 224 runs began · batch ids 0 to 223 · the block that goes to every task reached, in each run, the tasks {#{0 1 3 2} 224}
+   84100.7  REPORT  default : between two runs that both got nothing — 214 gaps, least 363 ms, middle 366 ms, most 475 ms
+   84100.9  REPORT  default : run 0 batch 0 began at 2686  · got nothing
+   84101.0  REPORT  default : run 1 batch 1 began at 3108 · 422 ms after the run before · got nothing
+   84101.0  REPORT  default : run 2 batch 2 began at 3481 · 373 ms after the run before · got nothing
+   84101.1  REPORT  default : run 3 batch 3 began at 3854 · 374 ms after the run before · got nothing
+   84101.1  REPORT  default : run 4 batch 4 began at 4226 · 372 ms after the run before · got nothing
+   84101.1  REPORT  default : run 5 batch 5 began at 4598 · 372 ms after the run before · got nothing
+   84103.0  REPORT  default : run 16 batch 16 began at 8719 · 369 ms after the run before · got things [1], the first 201 ms after its append call
+   84103.0  REPORT  default : run 17 batch 17 began at 8841 · 122 ms after the run before · got nothing
+   84103.1  REPORT  default : run 25 batch 25 began at 11795 · 371 ms after the run before · got things [4], the first 119 ms after its append call
+   84103.1  REPORT  default : run 26 batch 26 began at 11912 · 117 ms after the run before · got nothing
+   84103.2  REPORT  default : run 35 batch 35 began at 14980 · 118 ms after the run before · got things [7], the first 114 ms after its append call
+   84103.2  REPORT  default : run 36 batch 36 began at 15096 · 116 ms after the run before · got nothing
+   84103.2  REPORT  default : run 44 batch 44 began at 18046 · 368 ms after the run before · got things [10], the first 13 ms after its append call
+   84103.3  REPORT  default : run 45 batch 45 began at 18165 · 119 ms after the run before · got things [13], the first 73 ms after its append call
+   84103.3  REPORT  default : run 46 batch 46 began at 18282 · 117 ms after the run before · got nothing
+   84103.4  REPORT  default : run 221 batch 221 began at 83180 · 366 ms after the run before · got nothing
+   84103.4  REPORT  default : run 222 batch 222 began at 83545 · 365 ms after the run before · got nothing
+   84103.5  REPORT  default : run 223 batch 223 began at 83911 · 366 ms after the run before · got nothing
+   84103.5  REPORT  two-sec : 44 runs began · batch ids 0 to 43 · the block that goes to every task reached, in each run, the tasks {#{0 1 3 2} 44}
+   84103.6  REPORT  two-sec : between two runs that both got nothing — 35 gaps, least 2116 ms, middle 2121 ms, most 2220 ms
+   84103.7  REPORT  two-sec : run 0 batch 0 began at 3066  · got nothing
+   84103.7  REPORT  two-sec : run 1 batch 1 began at 5227 · 2161 ms after the run before · got nothing
+   84103.7  REPORT  two-sec : run 2 batch 2 began at 7353 · 2126 ms after the run before · got nothing
+   84103.8  REPORT  two-sec : run 3 batch 3 began at 8724 · 1371 ms after the run before · got things [2], the first 186 ms after its append call
+   84103.8  REPORT  two-sec : run 4 batch 4 began at 8844 · 120 ms after the run before · got nothing
+   84103.8  REPORT  two-sec : run 5 batch 5 began at 11064 · 2220 ms after the run before · got nothing
+   84103.9  REPORT  two-sec : run 6 batch 6 began at 11939 · 876 ms after the run before · got things [5], the first 259 ms after its append call
+   84103.9  REPORT  two-sec : run 7 batch 7 began at 12057 · 118 ms after the run before · got nothing
+   84103.9  REPORT  two-sec : run 9 batch 9 began at 15046 · 867 ms after the run before · got things [8], the first 178 ms after its append call
+   84103.9  REPORT  two-sec : run 10 batch 10 began at 15163 · 117 ms after the run before · got nothing
+   84104.0  REPORT  two-sec : run 12 batch 12 began at 18153 · 869 ms after the run before · got things [11 14], the first 116 ms after its append call
+   84104.0  REPORT  two-sec : run 13 batch 13 began at 18273 · 120 ms after the run before · got nothing
+   84104.1  REPORT  two-sec : run 41 batch 41 began at 78144 · 2117 ms after the run before · got nothing
+   84104.1  REPORT  two-sec : run 42 batch 42 began at 80360 · 2216 ms after the run before · got nothing
+   84104.1  REPORT  two-sec : run 43 batch 43 began at 82476 · 2116 ms after the run before · got nothing
+   84104.1  REPORT  minute : 10 runs began · batch ids 0 to 9 · the block that goes to every task reached, in each run, the tasks {#{0 1 3 2} 10}
+   84104.2  REPORT  minute : between two runs that both got nothing — 1 gaps, least 60268 ms, middle 60268 ms, most 60268 ms
+   84104.2  REPORT  minute : run 0 batch 0 began at 3397  · got nothing
+   84104.3  REPORT  minute : run 1 batch 1 began at 8704 · 5307 ms after the run before · got things [3], the first 162 ms after its append call
+   84104.3  REPORT  minute : run 2 batch 2 began at 8829 · 125 ms after the run before · got nothing
+   84104.3  REPORT  minute : run 3 batch 3 began at 11705 · 2876 ms after the run before · got things [6], the first 22 ms after its append call
+   84104.3  REPORT  minute : run 4 batch 4 began at 11822 · 118 ms after the run before · got nothing
+   84104.4  REPORT  minute : run 5 batch 5 began at 14954 · 3131 ms after the run before · got things [9], the first 83 ms after its append call
+   84104.4  REPORT  minute : run 6 batch 6 began at 15070 · 116 ms after the run before · got nothing
+   84104.4  REPORT  minute : run 7 batch 7 began at 18194 · 3124 ms after the run before · got things [12 15], the first 155 ms after its append call
+   84104.5  REPORT  minute : run 8 batch 8 began at 18310 · 117 ms after the run before · got nothing
+   84104.5  REPORT  minute : run 9 batch 9 began at 78578 · 60268 ms after the run before · got nothing
+   84104.5  RUN     END

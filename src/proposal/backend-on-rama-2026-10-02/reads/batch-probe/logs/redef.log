@@ -1,0 +1,64 @@
+    2100.2  RUN     Rama 1.6.0, in-process, each module 4 tasks and 2 threads
+    2100.6  RUN     ---- (a0) replaced BEFORE the launch by a function that closes over an atom ----
+    2145.1  OUTSIDE the launch gave [:threw "ExceptionInfo: Object cache disallowed"]
+    2145.2  RUN     ---- (a) replaced BEFORE the launch by a function that a var holds ----
+    3089.8  OUTSIDE a thing with the value "a-1" is appended
+    3350.5  INSIDE  RedefBefore : an attempt of batch 1 got "a-1"
+    3350.6  INSIDE  the REPLACEMENT of direct-before ran: it throws, this once
+    3773.1  INSIDE  RedefBefore : an attempt of batch 1 got "a-1"
+    3773.3  INSIDE  the REPLACEMENT of direct-before ran: it gives its argument
+    3913.3  OUTSIDE its row came: true
+    4215.5  OUTSIDE a thing with the value "a-2" is appended
+    4469.3  INSIDE  RedefBefore : an attempt of batch 4 got "a-2"
+    4469.4  INSIDE  the REPLACEMENT of direct-before ran: it gives its argument
+    4508.4  OUTSIDE its row came: true
+    4808.7  RUN     ---- (b) replaced AFTER the launch ----
+    5144.3  OUTSIDE a thing with the value "b-1, nothing replaced" is appended
+    5410.0  INSIDE  RedefAfter : an attempt of batch 1 got "b-1, nothing replaced"
+    5456.1  OUTSIDE its row came: true
+    5756.4  OUTSIDE direct-after, which the DATAFLOW calls, is now replaced
+    5759.0  OUTSIDE a thing with the value "b-2, after direct-after was replaced" is appended
+    5792.8  INSIDE  RedefAfter : an attempt of batch 3 got "b-2, after direct-after was replaced"
+    5833.3  OUTSIDE its row came: true
+    6133.5  OUTSIDE inner-after, which PLAIN CODE calls, is now replaced
+    6136.2  OUTSIDE a thing with the value "b-3, after inner-after was replaced" is appended
+    6163.4  INSIDE  RedefAfter : an attempt of batch 5 got "b-3, after inner-after was replaced"
+    6163.6  INSIDE  the REPLACEMENT of inner-after ran: it throws, this once
+    6461.4  INSIDE  RedefAfter : an attempt of batch 5 got "b-3, after inner-after was replaced"
+    6461.5  INSIDE  the REPLACEMENT of inner-after ran: it gives its argument
+    6608.8  OUTSIDE its row came: true
+    6910.8  OUTSIDE a thing with the value "b-4" is appended
+    7130.5  INSIDE  RedefAfter : an attempt of batch 8 got "b-4"
+    7130.6  INSIDE  the REPLACEMENT of inner-after ran: it gives its argument
+    7169.4  OUTSIDE its row came: true
+    7469.6  RUN     ---- (b) goes on: the module is updated with itself, Rama's way to restart its workers in a test ----
+   11410.3  OUTSIDE update-module! gave :updated
+   11411.6  OUTSIDE a thing with the value "b-5, after the restart" is appended
+   11672.9  INSIDE  RedefAfter : an attempt of batch 20 got "b-5, after the restart"
+   11673.0  INSIDE  the REPLACEMENT of direct-after ran: it throws, this once
+   12006.3  INSIDE  RedefAfter : an attempt of batch 20 got "b-5, after the restart"
+   12006.4  INSIDE  the REPLACEMENT of direct-after ran: it gives its argument
+   12006.4  INSIDE  the REPLACEMENT of inner-after ran: it gives its argument
+   12046.5  OUTSIDE its row came: true
+   12348.5  OUTSIDE a thing with the value "b-6" is appended
+   12962.7  INSIDE  RedefAfter : an attempt of batch 24 got "b-6"
+   12962.9  INSIDE  the REPLACEMENT of direct-after ran: it gives its argument
+   12962.9  INSIDE  the REPLACEMENT of inner-after ran: it gives its argument
+   13005.3  OUTSIDE its row came: true
+   13305.6  RUN     ---- (c) with-redefs around the launch and one thing; another thing after it ended ----
+   13542.2  OUTSIDE a thing with the value "c-1, inside with-redefs" is appended
+   13802.0  INSIDE  RedefWith : an attempt of batch 1 got "c-1, inside with-redefs"
+   13802.1  INSIDE  the REPLACEMENT of direct-with ran: it throws, this once
+   14097.6  INSIDE  RedefWith : an attempt of batch 1 got "c-1, inside with-redefs"
+   14097.7  INSIDE  the REPLACEMENT of direct-with ran: it gives its argument
+   14252.8  OUTSIDE its row came: true
+   14554.4  OUTSIDE a thing with the value "c-2, inside with-redefs" is appended
+   14748.2  INSIDE  RedefWith : an attempt of batch 4 got "c-2, inside with-redefs"
+   14748.3  INSIDE  the REPLACEMENT of direct-with ran: it gives its argument
+   14785.1  OUTSIDE its row came: true
+   15085.3  OUTSIDE with-redefs has ended: the first function is back in its var
+   15086.7  OUTSIDE a thing with the value "c-3, after with-redefs" is appended
+   15149.8  INSIDE  RedefWith : an attempt of batch 7 got "c-3, after with-redefs"
+   15149.9  INSIDE  the REPLACEMENT of direct-with ran: it gives its argument
+   15189.2  OUTSIDE its row came: true
+   15489.4  RUN     END

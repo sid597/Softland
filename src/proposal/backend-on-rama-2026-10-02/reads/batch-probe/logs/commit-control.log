@@ -1,0 +1,57 @@
+    3631.1  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads, the topology's phase timeout NOT set (Rama's own value) . Keys, one for each task: ["key-a" "key-c" "key-j" "key-b"]
+    3921.9  OUTSIDE four things with the value "warm" are on the depot; the topology goes on
+    4066.1  OUTSIDE all four rows give warm: true
+    4067.9  SELECT  task 0 key-a now gives {:value "warm", :clock 1791747098133, :batch "1", :attempt 1}
+    4067.9  SELECT  task 2 key-j now gives {:value "warm", :clock 1791747098133, :batch "1", :attempt 1}
+    4068.0  SELECT  task 3 key-b now gives {:value "warm", :clock 1791747098133, :batch "1", :attempt 1}
+    4068.0  SELECT  task 1 key-c now gives {:value "warm", :clock 1791747098133, :batch "1", :attempt 1}
+    4092.6  PUSH    task 0 key-a got ResyncDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} 
+    4094.4  PUSH    task 1 key-c got ResyncDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} 
+    4095.2  PUSH    task 2 key-j got ResyncDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} 
+    4096.1  PUSH    task 3 key-b got ResyncDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} 
+    4205.7  PUSH    task 1 key-c got NewValueDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} · THE SAME as the value before
+    4205.7  PUSH    task 0 key-a got NewValueDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} · THE SAME as the value before
+    4206.2  PUSH    task 2 key-j got NewValueDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} · THE SAME as the value before
+    4206.2  PUSH    task 3 key-b got NewValueDiff · new {:value "warm", :clock 1791747098133, :batch "1", :attempt 1} · THE SAME as the value before
+    4896.2  RUN     ---- CONTROL: task 3's thread is held for 3500 ms, and no phase timeout is set ----
+    5768.8  OUTSIDE four things with the value "control" are on the depot; the topology goes on
+    5775.1  INSIDE  batch 7 attempt 1 begins · it read the wall clock 1791747099978 · it will write the clock 1791747099978
+    5809.7  INSIDE  batch 7 attempt 1 task 1 writes the row of ["key-c" "control"]
+    5809.7  INSIDE  batch 7 attempt 1 task 0 writes the row of ["key-a" "control"]
+    5809.7  INSIDE  batch 7 attempt 1 task 3 writes the row of ["key-b" "control"]
+    5809.7  INSIDE  batch 7 attempt 1 task 2 writes the row of ["key-j" "control"]
+    5836.9  INSIDE  batch 7 attempt 1 : step 3, on task 1, asks for the hold of task 3; steps 1 and 2 are done on every task
+    5856.6  INSIDE  task 3 : its thread is HELD for 3500 ms from now
+    6006.9  INSIDE  batch 7 attempt 1 : step 3 ends; the attempt has no more code to run
+    6069.0  SELECT  task 1 key-c now gives {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+    6071.1  PUSH    task 2 key-j got NewValueDiff · new {:value "control", :clock 1791747099978, :batch "7", :attempt 1} 
+    6071.1  PUSH    task 1 key-c got NewValueDiff · new {:value "control", :clock 1791747099978, :batch "7", :attempt 1} 
+    6071.2  PUSH    task 0 key-a got NewValueDiff · new {:value "control", :clock 1791747099978, :batch "7", :attempt 1} 
+    6071.2  SELECT  task 2 key-j now gives {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+    6071.3  SELECT  task 0 key-a now gives {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+    9356.9  INSIDE  task 3 : its thread is free again
+    9385.7  PUSH    task 3 key-b got NewValueDiff · new {:value "control", :clock 1791747099978, :batch "7", :attempt 1} 
+    9385.7  SELECT  task 3 key-b now gives {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+    9386.1  OUTSIDE all four rows give "control" : true
+    9399.3  INSIDE  batch 8 attempt 1 begins · it read the wall clock 1791747103602 · it will write the clock 1791747103602
+    9778.4  INSIDE  batch 9 attempt 1 begins · it read the wall clock 1791747103982 · it will write the clock 1791747103982
+   10156.8  INSIDE  batch 10 attempt 1 begins · it read the wall clock 1791747104360 · it will write the clock 1791747104360
+   10537.1  INSIDE  batch 11 attempt 1 begins · it read the wall clock 1791747104740 · it will write the clock 1791747104740
+   10886.4  OUTSIDE the row of task 0 at the end: {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+   10886.7  OUTSIDE the row of task 1 at the end: {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+   10886.7  OUTSIDE the row of task 2 at the end: {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+   10886.9  OUTSIDE the row of task 3 at the end: {:value "control", :clock 1791747099978, :batch "7", :attempt 1}
+   10887.2  SUMMARY "control" : batch 7 began 1 time(s)
+   10887.4  SUMMARY   PUSH    task 0 key-a was given, in order: [["6071" {:clock 1791747099978, :attempt 1}]]
+   10887.4  SUMMARY   PUSH    task 1 key-c was given, in order: [["6071" {:clock 1791747099978, :attempt 1}]]
+   10887.5  SUMMARY   PUSH    task 2 key-j was given, in order: [["6071" {:clock 1791747099978, :attempt 1}]]
+   10900.9  SUMMARY   PUSH    task 3 key-b was given, in order: [["9386" {:clock 1791747099978, :attempt 1}]]
+   10901.0  SUMMARY   SELECT  task 0 key-a was given, in order: [["6071" {:clock 1791747099978, :attempt 1}]]
+   10901.0  SUMMARY   SELECT  task 1 key-c was given, in order: [["6069" {:clock 1791747099978, :attempt 1}]]
+   10901.1  SUMMARY   SELECT  task 2 key-j was given, in order: [["6071" {:clock 1791747099978, :attempt 1}]]
+   10901.1  SUMMARY   SELECT  task 3 key-b was given, in order: [["9386" {:clock 1791747099978, :attempt 1}]]
+   10901.4  RUN     END
+   10904.4  PUSH    task 0 key-a got DestroyedDiff · new nil 
+   10904.4  PUSH    task 1 key-c got DestroyedDiff · new nil 
+   10904.5  PUSH    task 2 key-j got DestroyedDiff · new nil 
+   10904.5  PUSH    task 3 key-b got DestroyedDiff · new nil 

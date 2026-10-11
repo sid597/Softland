@@ -1,0 +1,15 @@
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {:jvm    {:jvm-opts ["-Xss16m" "-Xmx4g"]}
+           ;; B2 and B3 (i), (iii): a forced failure late in the first attempt
+           :fail   {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.fail"]}
+           ;; B3 (ii) and B4: the clock kept through a depot and a stream topology
+           :keep   {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.keep"]}
+           ;; B5: a function replaced before and after the launch
+           :redef  {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.redef"]}
+           ;; B6: the runs of a topology whose depot holds nothing new
+           :idle   {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.idle"]}
+           ;; B7: one task's thread held while the others commit
+           :commit {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.commit"]}}}

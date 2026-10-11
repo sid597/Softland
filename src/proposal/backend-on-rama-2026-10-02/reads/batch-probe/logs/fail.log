@@ -1,0 +1,185 @@
+    2407.2  INSIDE  the task global of task 0 was made ready, and it is empty
+    3083.5  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads. Keys, one for each task: ["key-a" "key-c" "key-j" "key-b"]
+    3351.9  OUTSIDE four things with the value "A" are on the depot; the topology goes on
+    3404.5  INSIDE  batch 1 attempt 1 began at 3371.2 and read the clock 1791747414964
+    3404.6  INSIDE  batch 1 attempt 1 task 1 (Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0) got ["key-c" "A"] · the row before, as the topology sees it: nil
+    3404.5  INSIDE  batch 1 attempt 1 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "A"] · the row before, as the topology sees it: nil
+    3404.5  INSIDE  batch 1 attempt 1 task 2 (Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0) got ["key-j" "A"] · the row before, as the topology sees it: nil
+    3404.6  INSIDE    its own PState held before: {:batch "0", :clock 1791747414463, :attempt 1}
+    3406.8  INSIDE    the task global held before: {"note" {:batch "0", :clock 1791747414463, :attempt 1}}
+    3406.9  INSIDE  batch 1 attempt 1 task 3 (Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0) got ["key-b" "A"] · the row before, as the topology sees it: nil
+    3505.0  OUTSIDE all four rows give A: true
+    3505.4  SUMMARY the batch that carried "A" has id 1 and began 1 time(s)
+    3505.6  SUMMARY   attempt 1 got, by task: {0 [["key-a" "A"]], 1 [["key-c" "A"]], 2 [["key-j" "A"]], 3 [["key-b" "A"]]}
+    3505.7  SUMMARY   every attempt got the same things in the same order on each task: true
+    3508.3  SELECT  task 1 key-c now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3508.5  SELECT  task 3 key-b now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3508.6  SELECT  task 2 key-j now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3508.6  SELECT  task 0 key-a now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3538.7  PUSH    task 0 key-a got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · before nil
+    3539.2  PUSH    task 0 key-a opened: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3541.4  PUSH    task 1 key-c got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · before nil
+    3541.5  PUSH    task 1 key-c opened: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3542.4  PUSH    task 2 key-j got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · before nil
+    3542.5  PUSH    task 2 key-j opened: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3544.5  PUSH    task 3 key-b got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · before nil
+    3544.6  PUSH    task 3 key-b opened: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3553.3  QUERY   task 3 key-b now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3553.5  QUERY   task 2 key-j now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3553.5  QUERY   task 0 key-a now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3553.6  QUERY   task 1 key-c now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    3655.8  PUSH    task 2 key-j got NewValueDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    3655.8  PUSH    task 3 key-b got NewValueDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    3656.4  PUSH    task 1 key-c got NewValueDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    3656.5  PUSH    task 0 key-a got NewValueDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    4044.7  RUN     ---- batch B: the first attempt is made to fail ----
+    4074.2  OUTSIDE four things with the value "B" are on the depot; the topology goes on
+    4121.3  INSIDE  batch 4 attempt 1 began at 4094.5 and read the clock 1791747415687
+    4121.4  INSIDE  batch 4 attempt 1 task 1 (Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0) got ["key-c" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4121.3  INSIDE  batch 4 attempt 1 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4121.3  INSIDE  batch 4 attempt 1 task 2 (Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0) got ["key-j" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4121.4  INSIDE    its own PState held before: {:batch "3", :clock 1791747415519, :attempt 1}
+    4121.6  INSIDE    the task global held before: {"note" {:batch "3", :clock 1791747415519, :attempt 1}}
+    4121.6  INSIDE  batch 4 attempt 1 task 3 (Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0) got ["key-b" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4149.1  INSIDE  batch 4 attempt 1 task 3 : the last step THROWS on purpose, after 4 rows were written
+    4153.2  OUTSIDE one more thing, value "extra" for task 0's key, was appended while attempt 1 still ran
+    4324.9  SELECT  task 1 key-c now gives [:read-threw "CallbackException: Callback failure"]
+    4324.9  SELECT  task 2 key-j now gives [:read-threw "CallbackException: Callback failure"]
+    4325.6  SELECT  task 0 key-a now gives [:read-threw "CallbackException: Callback failure"]
+    4325.7  SELECT  task 3 key-b now gives [:read-threw "CallbackException: Callback failure"]
+    4535.1  INSIDE  the task global of task 0 was made ready, and it is empty
+    4753.4  INSIDE  batch 4 attempt 2 began at 4726.4 and read the clock 1791747416319
+    4753.4  INSIDE  batch 4 attempt 2 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4753.5  INSIDE    its own PState held before: {:batch "3", :clock 1791747415519, :attempt 1}
+    4753.4  INSIDE  batch 4 attempt 2 task 3 (Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0) got ["key-b" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4753.4  INSIDE  batch 4 attempt 2 task 1 (Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0) got ["key-c" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4753.5  INSIDE    the task global held before: {}
+    4753.6  INSIDE  batch 4 attempt 2 task 2 (Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0) got ["key-j" "B"] · the row before, as the topology sees it: {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4796.5  SELECT  task 0 key-a now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4797.1  PUSH    task 0 key-a got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    4797.2  SELECT  task 3 key-b now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4797.3  SELECT  task 1 key-c now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4797.3  SELECT  task 2 key-j now gives {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4797.3  PUSH    task 3 key-b got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    4797.4  PUSH    task 1 key-c got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    4797.4  PUSH    task 2 key-j got ResyncDiff · new {:value "A", :clock 1791747414964, :attempt 1, :batch "1"} · THE SAME as the value before
+    4844.9  PUSH    task 2 key-j got NewValueDiff · new {:value "B", :clock 1791747416319, :attempt 2, :batch "4"} · before {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4845.0  QUERY   task 2 key-j now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4844.9  PUSH    task 1 key-c got NewValueDiff · new {:value "B", :clock 1791747416319, :attempt 2, :batch "4"} · before {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4845.1  SELECT  task 2 key-j now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4845.1  SELECT  task 1 key-c now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4845.3  QUERY   task 0 key-a now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4845.3  SELECT  task 0 key-a now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4845.5  QUERY   task 1 key-c now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4845.2  PUSH    task 0 key-a got NewValueDiff · new {:value "B", :clock 1791747416319, :attempt 2, :batch "4"} · before {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4845.7  PUSH    task 3 key-b got NewValueDiff · new {:value "B", :clock 1791747416319, :attempt 2, :batch "4"} · before {:value "A", :clock 1791747414964, :attempt 1, :batch "1"}
+    4845.7  SELECT  task 3 key-b now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4845.7  QUERY   task 3 key-b now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    4892.6  INSIDE  batch 5 attempt 1 began at 4865.6 and read the clock 1791747416458
+    4892.7  INSIDE    its own PState held before: {:batch "4", :clock 1791747416319, :attempt 2}
+    4892.8  INSIDE    the task global held before: {"note" {:batch "4", :clock 1791747416319, :attempt 2}}
+    4892.8  INSIDE  batch 5 attempt 1 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "extra"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    5032.2  PUSH    task 0 key-a got NewValueDiff · new {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"} · before {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    5032.3  OUTSIDE task 0's key gives "extra": true
+    5032.4  SELECT  task 0 key-a now gives {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"}
+    5032.7  QUERY   task 0 key-a now gives {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"}
+    5032.9  OUTSIDE the other three give B: true
+    6533.1  SUMMARY the batch that carried "B" has id 4 and began 2 time(s)
+    6533.3  SUMMARY   attempt 1 got, by task: {0 [["key-a" "B"]], 1 [["key-c" "B"]], 2 [["key-j" "B"]], 3 [["key-b" "B"]]}
+    6533.4  SUMMARY   attempt 2 got, by task: {0 [["key-a" "B"]], 1 [["key-c" "B"]], 2 [["key-j" "B"]], 3 [["key-b" "B"]]}
+    6533.5  SUMMARY   every attempt got the same things in the same order on each task: true
+    6533.5  SUMMARY the batch that carried "extra" has id 5 and began 1 time(s)
+    6533.6  SUMMARY   attempt 1 got, by task: {0 [["key-a" "extra"]]}
+    6533.6  SUMMARY   every attempt got the same things in the same order on each task: true
+    6533.6  RUN     ---- batch C: the first two attempts are made to fail ----
+    7008.7  OUTSIDE four things with the value "C" are on the depot; the topology goes on
+    7051.4  INSIDE  batch 10 attempt 1 began at 7025.0 and read the clock 1791747418618
+    7051.4  INSIDE  batch 10 attempt 1 task 2 (Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0) got ["key-j" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7051.4  INSIDE  batch 10 attempt 1 task 3 (Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0) got ["key-b" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7051.4  INSIDE  batch 10 attempt 1 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "C"] · the row before, as the topology sees it: {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"}
+    7051.4  INSIDE    its own PState held before: {:batch "9", :clock 1791747417806, :attempt 1}
+    7051.6  INSIDE    the task global held before: {"note" {:batch "9", :clock 1791747417806, :attempt 1}}
+    7051.6  INSIDE  batch 10 attempt 1 task 1 (Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0) got ["key-c" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7077.4  INSIDE  batch 10 attempt 1 task 3 : the last step THROWS on purpose, after 4 rows were written
+    7179.3  SELECT  task 1 key-c now gives [:read-threw "CallbackException: Callback failure"]
+    7179.5  SELECT  task 2 key-j now gives [:read-threw "CallbackException: Callback failure"]
+    7179.5  SELECT  task 3 key-b now gives [:read-threw "CallbackException: Callback failure"]
+    7179.7  SELECT  task 0 key-a now gives [:read-threw "CallbackException: Callback failure"]
+    7353.4  INSIDE  the task global of task 0 was made ready, and it is empty
+    7451.9  INSIDE  batch 10 attempt 2 began at 7425.4 and read the clock 1791747419018
+    7451.9  INSIDE  batch 10 attempt 2 task 2 (Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0) got ["key-j" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7451.9  INSIDE  batch 10 attempt 2 task 1 (Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0) got ["key-c" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7451.9  INSIDE  batch 10 attempt 2 task 3 (Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0) got ["key-b" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7451.9  INSIDE    its own PState held before: {:batch "9", :clock 1791747417806, :attempt 1}
+    7452.0  INSIDE    the task global held before: {}
+    7452.0  INSIDE  batch 10 attempt 2 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "C"] · the row before, as the topology sees it: {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"}
+    7477.7  INSIDE  batch 10 attempt 2 task 3 : the last step THROWS on purpose, after 4 rows were written
+    7589.5  QUERY   task 1 key-c now gives [:read-threw "CallbackException: Callback failure"]
+    7589.5  QUERY   task 3 key-b now gives [:read-threw "CallbackException: Callback failure"]
+    7589.5  QUERY   task 2 key-j now gives [:read-threw "CallbackException: Callback failure"]
+    7589.8  QUERY   task 0 key-a now gives [:read-threw "CallbackException: Callback failure"]
+    7755.6  INSIDE  the task global of task 0 was made ready, and it is empty
+    7949.2  INSIDE  batch 10 attempt 3 began at 7922.0 and read the clock 1791747419515
+    7949.2  INSIDE  batch 10 attempt 3 task 0 (Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0) got ["key-a" "C"] · the row before, as the topology sees it: {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"}
+    7949.2  INSIDE  batch 10 attempt 3 task 2 (Worker bb1ad573 00000000@2005 DTT 2 0-task-group-exec-0) got ["key-j" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7949.2  INSIDE  batch 10 attempt 3 task 1 (Worker bb1ad573 00000000@2005 DTT 1 0-task-group-exec-0) got ["key-c" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7949.3  INSIDE    its own PState held before: {:batch "9", :clock 1791747417806, :attempt 1}
+    7949.4  INSIDE    the task global held before: {}
+    7949.4  INSIDE  batch 10 attempt 3 task 3 (Worker bb1ad573 00000000@2005 DTT 3 0-task-group-exec-0) got ["key-b" "C"] · the row before, as the topology sees it: {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7983.1  SELECT  task 1 key-c now gives {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    7983.3  PUSH    task 1 key-c got ResyncDiff · new {:value "B", :clock 1791747416319, :attempt 2, :batch "4"} · THE SAME as the value before
+    8037.8  PUSH    task 1 key-c got NewValueDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · before {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    8037.9  SELECT  task 1 key-c now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9191.0  SELECT  task 2 key-j now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9191.0  SELECT  task 3 key-b now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9191.1  PUSH    task 2 key-j got ResyncDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · before {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    9191.1  PUSH    task 3 key-b got ResyncDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · before {:value "B", :clock 1791747416319, :attempt 2, :batch "4"}
+    9298.9  PUSH    task 3 key-b got NewValueDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · THE SAME as the value before
+    9299.1  PUSH    task 2 key-j got NewValueDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · THE SAME as the value before
+    9993.0  SELECT  task 0 key-a now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9993.3  PUSH    task 0 key-a got ResyncDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · before {:value "extra", :clock 1791747416458, :attempt 1, :batch "5"}
+    9993.3  OUTSIDE all four rows give C: true
+    9993.5  QUERY   task 3 key-b now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9993.5  QUERY   task 1 key-c now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9993.5  QUERY   task 0 key-a now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+    9993.5  QUERY   task 2 key-j now gives {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   10086.6  PUSH    task 0 key-a got NewValueDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · THE SAME as the value before
+   11493.5  SUMMARY the batch that carried "C" has id 10 and began 3 time(s)
+   11493.7  SUMMARY   attempt 1 got, by task: {0 [["key-a" "C"]], 1 [["key-c" "C"]], 2 [["key-j" "C"]], 3 [["key-b" "C"]]}
+   11493.8  SUMMARY   attempt 2 got, by task: {0 [["key-a" "C"]], 1 [["key-c" "C"]], 2 [["key-j" "C"]], 3 [["key-b" "C"]]}
+   11493.8  SUMMARY   attempt 3 got, by task: {0 [["key-a" "C"]], 1 [["key-c" "C"]], 2 [["key-j" "C"]], 3 [["key-b" "C"]]}
+   11493.9  SUMMARY   every attempt got the same things in the same order on each task: true
+   11493.9  RUN     ---- the module is updated with itself: Rama's way to restart its workers in a test ----
+   11750.1  INSIDE  the task global of task 0 was made ready, and it is empty
+   15742.7  OUTSIDE update-module! gave :updated
+   16791.6  PUSH    task 1 key-c got ResyncDiff · new {:value "C", :clock 1791747419515, :attempt 3, :batch "10"} · THE SAME as the value before
+   16824.3  OUTSIDE four things with the value "D" are on the depot; the topology goes on
+   16864.0  INSIDE  batch 29 attempt 1 began at 16837.8 and read the clock 1791747428430
+   16864.0  INSIDE  batch 29 attempt 1 task 2 (Worker 032de930 00000000@2006 DTT 2 0-task-group-exec-0) got ["key-j" "D"] · the row before, as the topology sees it: {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   16864.0  INSIDE  batch 29 attempt 1 task 1 (Worker 032de930 00000000@2006 DTT 1 0-task-group-exec-0) got ["key-c" "D"] · the row before, as the topology sees it: {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   16864.0  INSIDE  batch 29 attempt 1 task 3 (Worker 032de930 00000000@2006 DTT 3 0-task-group-exec-0) got ["key-b" "D"] · the row before, as the topology sees it: {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   16864.1  INSIDE    its own PState held before: {:batch "28", :clock 1791747427218, :attempt 1}
+   16864.2  INSIDE    the task global held before: {"note" {:batch "28", :clock 1791747427218, :attempt 1}}
+   16864.2  INSIDE  batch 29 attempt 1 task 0 (Worker 032de930 00000000@2006 DTT 0 0-task-group-exec-0) got ["key-a" "D"] · the row before, as the topology sees it: {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   16952.6  QUERY   task 3 key-b now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   16952.7  PUSH    task 1 key-c got NewValueDiff · new {:value "D", :clock 1791747428430, :attempt 1, :batch "29"} · before {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   16952.8  SELECT  task 1 key-c now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   16953.3  QUERY   task 2 key-j now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   16953.4  QUERY   task 0 key-a now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   16953.4  QUERY   task 1 key-c now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   18391.7  SELECT  task 0 key-a now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   18391.7  SELECT  task 2 key-j now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   18391.7  SELECT  task 3 key-b now gives {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   18391.9  PUSH    task 2 key-j got ResyncDiff · new {:value "D", :clock 1791747428430, :attempt 1, :batch "29"} · before {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   18391.9  PUSH    task 3 key-b got ResyncDiff · new {:value "D", :clock 1791747428430, :attempt 1, :batch "29"} · before {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   18392.0  PUSH    task 0 key-a got ResyncDiff · new {:value "D", :clock 1791747428430, :attempt 1, :batch "29"} · before {:value "C", :clock 1791747419515, :attempt 3, :batch "10"}
+   18392.2  OUTSIDE all four rows give D: true
+   19892.3  SUMMARY the batch that carried "D" has id 29 and began 1 time(s)
+   19892.6  SUMMARY   attempt 1 got, by task: {0 [["key-a" "D"]], 1 [["key-c" "D"]], 2 [["key-j" "D"]], 3 [["key-b" "D"]]}
+   19892.6  SUMMARY   every attempt got the same things in the same order on each task: true
+   19893.1  RUN     batch ids that began: 38 · of them with things: 5
+   19893.2  RUN     END
+   19895.9  PUSH    task 2 key-j got DestroyedDiff · new nil · before {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   19895.9  PUSH    task 0 key-a got DestroyedDiff · new nil · before {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   19896.0  PUSH    task 1 key-c got DestroyedDiff · new nil · before {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
+   19896.1  PUSH    task 3 key-b got DestroyedDiff · new nil · before {:value "D", :clock 1791747428430, :attempt 1, :batch "29"}
