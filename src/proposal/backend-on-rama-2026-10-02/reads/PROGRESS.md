@@ -80,7 +80,7 @@ it adapts the skill's template.
 | the plan of `what-the-gates-keep`; rulings 40 to 45 on its five points | done | in the commit after `a8c1783b` |
 | the plan of `read-path` | running, from the hand-off section of the plan above | — |
 | the check of the plan of `what-the-gates-keep`; rulings 52 to 55 | done. Verdict minor-fail: eleven faults, each fixed in the plan by the check; it ran the removal of a top-level row (`plan-check-probes-what-the-gates-keep/`) | in the commit after `2ea0fff9` |
-| the check of the plan of `base-for-a-reader`; it first applies ruling 49 to the plan | running | — |
+| the check of the plan of `base-for-a-reader`; rulings 56 to 59 | done. Verdict minor-fail: nine faults, each fixed in the plan by the check; it applied ruling 49 and ran three clusters in one JVM (`plan-check-probes-base-for-a-reader/`) | in the commit after `794bc2fd` |
 | the check of the plan of `read-path` | — | — |
 | the build of `what-the-gates-keep` (first, by ruling 53) | running | — |
 | the build of `base-for-a-reader` | after the build above | — |
@@ -398,8 +398,9 @@ depot holds the batch's id beside its clock. That is the ruling's sense. When th
 kept clock back after the ack, it throws and Rama runs the batch again: it is the one place where the
 module's own code throws, and it guards against a stamp from a clock that is not kept.
 
-For the receipt, from this plan: the module update that first brings the repair is the one moment at
-which two attempts of a batch can still differ; and Sid's line of 7 October, "a second depot of
+For the receipt, from this plan and its check: two attempts of a batch can still differ across a
+module update that changes the code that makes a row, when the update falls between the two attempts;
+the update that first brings the repair is one such; and Sid's line of 7 October, "a second depot of
 decisions adds nothing", stands beside ruling 34: the new depot holds no decision, and it does hold a
 thing that the depots of acts cannot give again, a reading of the clock.
 
@@ -439,6 +440,30 @@ store's arithmetic 384 to 616 acts a second on one task, against 480 to 770); a 
 sent the removal of a place that the run never held, and the read path takes it as no change; after a
 worker of Rama was started again, a stream topology was handed its partition's records once more, so
 check (a) and the clock keeper's "first write wins" are what make that harmless.
+
+### On the check of the plan of `base-for-a-reader` (`PLAN_VALIDATION-base-for-a-reader.md`)
+
+56. **The verdict is minor-fail and is taken.** The design holds: the check found no trace that reaches
+    a stamp from a clock that is not kept, and none in which two attempts make a fact's row, or an
+    answer's verdict or stamp, differently. Nine faults, each of the plan's text or of its proof, each
+    fixed in the plan. Two of them were ways for the proof to pass falsely: it could not tell two
+    attempts from two batches, and its forced throw left the first attempt's note whole only by where
+    a task happened to sit. Both are closed in the plan.
+57. **Ruling 49 is applied and was run.** Three clusters one after the other in one JVM, on the store's
+    own module: a function replaced after the first launch runs in the second cluster, and put back,
+    the third runs the store's own. The second cluster costs about 6 s for each run of the module's
+    proof, not 30, and needs no proof file of its own.
+58. **The head comments are four, not three**: `module/door_reads.clj` has one too. Ruling 39 holds for
+    each file that a part changes.
+59. **The gate's one throw stays**, with what it costs said plainly: a throw in the gate starts the
+    worker again, with both gates and the reads on it, and while its cause stays the batch fails each
+    time. It is reached only when a clock that was acked cannot be read back, which no traced case
+    gives without a fault of the cluster or of this module. The other answer, a stamp from a clock
+    that is not kept, is the one thing that must not be made. A line for the receipt.
+
+For the receipt, from this check: after a commit that fails, the tasks of the base can show one batch
+seconds apart; not run here: the late ack of an attempt that Rama gave up, what the append gives when
+the keeper fails, a move of a leader, a module update in the middle of a commit.
 
 ## For the receipt: what Sid should know, as found so far
 

@@ -1,0 +1,60 @@
+   1760.3  RUN     Rama 1.6.0, in-process, the store's module `Store`, each cluster 4 tasks, 2 threads, 2 workers
+   1760.7  RUN     ---- cluster 1 (the functions as the store defines them) ----
+   5361.9  OUTSIDE cluster 1 (the functions as the store defines them) : created and launched in 3601 ms
+   6395.7  OUTSIDE the making act of the base: :accepted
+   7405.7  OUTSIDE a batch of 8 things: answered true in 699 ms · {:accepted 7, :permission-does-not-stand 1}
+  12811.8  OUTSIDE update-module! with the unchanged module gave :updated
+  14181.6  OUTSIDE a batch after the update: answered true in 780 ms
+  14181.7  RESULT  T1: attempts noted while cluster 1 ran (nothing is replaced yet): 0
+  15074.6  OUTSIDE cluster 1 (the functions as the store defines them) : closed, 13314 ms after its creation began
+  15074.7  OUTSIDE the three functions are replaced in their vars, after cluster 1 was closed
+  15074.9  RUN     ---- cluster 2 (three functions replaced before its launch) ----
+  16626.1  OUTSIDE cluster 2 (three functions replaced before its launch) : created and launched in 1551 ms
+  17744.0  OUTSIDE the making act of the base: :accepted
+  17744.1  RESULT  T2: attempts noted after the making act (the replacements run in the second launch): 1
+  18775.5  OUTSIDE a batch with no throw: answered true in 749 ms · attempts noted 1 · rows noted 15
+  21292.5  RESULT  T4 first-call 20 : answered true in 1941 ms · attempts noted 2 · the last stamps that `base` was given [117424272598302739 117424272598302739] · the same last stamp: true · the clocks differ by 1146 ms
+  21292.6  RESULT  T4 first-call 20 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+  21292.7  INSIDE  T4 first-call 20 : the throw came at 19322.9 · in the call that gave 0 rows · on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"
+  25168.3  RESULT  T4 first-call 21 : answered true in 3176 ms · attempts noted 2 · the last stamps that `base` was given [117424272738877451 117424272738877451] · the same last stamp: true · the clocks differ by 1481 ms
+  25168.4  RESULT  T4 first-call 21 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+  25168.4  INSIDE  T4 first-call 21 : the throw came at 21967.9 · in the call that gave 0 rows · on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"
+  36594.4  RESULT  T4 first-call 22 : answered true in 10618 ms · attempts noted 2 · the last stamps that `base` was given [117424272934174735 117424272934174735] · the same last stamp: true · the clocks differ by 5102 ms
+  36594.5  RESULT  T4 first-call 22 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+  36594.6  INSIDE  T4 first-call 22 : the throw came at 25946.6 · in the call that gave 0 rows · on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"
+  54198.7  RESULT  T4 first-call 23 : answered true in 16421 ms · attempts noted 2 · the last stamps that `base` was given [117424273432248339 117424273432248339] · the same last stamp: true · the clocks differ by 15331 ms
+  54198.8  RESULT  T4 first-call 23 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+  54198.9  INSIDE  T4 first-call 23 : the throw came at 37797.7 · in the call that gave 0 rows · on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"
+  77340.6  RESULT  T4 first-call 24 : answered true in 21073 ms · attempts noted 2 · the last stamps that `base` was given [117424274877710347 117424274877710347] · the same last stamp: true · the clocks differ by 15325 ms
+  77340.7  RESULT  T4 first-call 24 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+  77340.7  INSIDE  T4 first-call 24 : the throw came at 56263.1 · in the call that gave 0 rows · on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"
+ 105176.6  RESULT  T4 first-call 25 : answered true in 24288 ms · attempts noted 2 · the last stamps that `base` was given [117424276089077771 117424276089077771] · the same last stamp: true · the clocks differ by 15300 ms
+ 105176.7  RESULT  T4 first-call 25 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 105176.7  INSIDE  T4 first-call 25 : the throw came at 80984.8 · in the call that gave 0 rows · on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"
+ 113758.4  RESULT  T4 first-call-with-rows 30 : answered true in 1690 ms · attempts noted 2 · the last stamps that `base` was given [117424277707620367 117424277707620367] · the same last stamp: true · the clocks differ by 1001 ms
+ 113758.5  RESULT  T4 first-call-with-rows 30 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 113758.6  INSIDE  T4 first-call-with-rows 30 : the throw came at 112038.5 · in the call that gave 3 rows · on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"
+ 116767.0  RESULT  T4 first-call-with-rows 31 : answered true in 2415 ms · attempts noted 2 · the last stamps that `base` was given [117424278805610507 117424278805610507] · the same last stamp: true · the clocks differ by 1548 ms
+ 116767.2  RESULT  T4 first-call-with-rows 31 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 116767.2  INSIDE  T4 first-call-with-rows 31 : the throw came at 114300.1 · in the call that gave 3 rows · on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"
+ 124371.9  RESULT  T4 first-call-with-rows 32 : answered true in 7087 ms · attempts noted 2 · the last stamps that `base` was given [117424278991405071 117424278991405071] · the same last stamp: true · the clocks differ by 5992 ms
+ 124372.0  RESULT  T4 first-call-with-rows 32 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 124372.0  INSIDE  T4 first-call-with-rows 32 : the throw came at 117234.6 · in the call that gave 3 rows · on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"
+ 136532.3  RESULT  T4 first-call-with-rows 33 : answered true in 11409 ms · attempts noted 2 · the last stamps that `base` was given [117424279474929683 117424279474929683] · the same last stamp: true · the clocks differ by 10298 ms
+ 136532.3  RESULT  T4 first-call-with-rows 33 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 136532.4  INSIDE  T4 first-call-with-rows 33 : the throw came at 125069.1 · in the call that gave 3 rows · on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"
+ 154656.6  RESULT  T4 first-call-with-rows 34 : answered true in 17069 ms · attempts noted 2 · the last stamps that `base` was given [117424280270536715 117424280270536715] · the same last stamp: true · the clocks differ by 15415 ms
+ 154656.7  RESULT  T4 first-call-with-rows 34 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 154656.7  INSIDE  T4 first-call-with-rows 34 : the throw came at 137706.9 · in the call that gave 3 rows · on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"
+ 172139.9  RESULT  T4 first-call-with-rows 35 : answered true in 15876 ms · attempts noted 2 · the last stamps that `base` was given [117424281430786063 117424281430786063] · the same last stamp: true · the clocks differ by 10378 ms
+ 172140.0  RESULT  T4 first-call-with-rows 35 : keys noted in attempt 1: 15 · in attempt 2: 15 · the same keys: true · in attempt 2 only, by kind: {} · in attempt 1 only, by kind: {}
+ 172140.1  INSIDE  T4 first-call-with-rows 35 : the throw came at 156233.0 · in the call that gave 3 rows · on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"
+ 172791.4  OUTSIDE cluster 2 (three functions replaced before its launch) : closed, 157716 ms after its creation began
+ 172791.5  OUTSIDE the three functions are put back, after cluster 2 was closed
+ 172791.6  RUN     ---- cluster 3 (the three functions put back before its launch) ----
+ 174303.2  OUTSIDE cluster 3 (the three functions put back before its launch) : created and launched in 1512 ms
+ 175360.8  OUTSIDE the making act of the base: :accepted
+ 176222.7  OUTSIDE a batch of 8 things: answered true in 686 ms
+ 176222.8  RESULT  T3: attempts noted while cluster 3 ran (the first functions are back): 0
+ 177050.4  OUTSIDE cluster 3 (the three functions put back before its launch) : closed, 4259 ms after its creation began
+ 177050.5  RUN     END

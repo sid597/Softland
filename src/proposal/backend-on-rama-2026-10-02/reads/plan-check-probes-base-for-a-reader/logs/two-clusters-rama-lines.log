@@ -1,0 +1,161 @@
+02:26:40.284 [Worker a3d048fc 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*microbatch
+02:26:40.284 [Worker a3d048fc 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*microbatch
+02:26:40.298 [Worker a3d048fc 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*streaming-
+02:26:40.298 [Worker a3d048fc 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*streaming-
+02:26:40.422 [Worker a3d048fc 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*microbatch
+02:26:40.425 [Worker a3d048fc 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*microbatch
+02:26:40.433 [Worker a3d048fc 00000000@2008 DTT 2 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*streaming-
+02:26:40.434 [Worker a3d048fc 00000000@2007 DTT 0 0-background-0] ERROR rpl.shaded.kafka.log.Log - [Log partition=kafka-log-0, dir=/tmp/ipc2027477989480426713/supervisors/00000000-0000-0000-0000-000000000000/objects/softland.store.module%2FStore/a3d048fc-410f-1777-8c60-fae863c952ac/local/*streaming-
+02:26:41.728 [clientside-cluster-manager-worp-0] ERROR rpl.rama.distributed.worp.core.resolve - ModuleAssignmentInfoNotFoundException from resolve-leader; clearing caches; rethrowing {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992}
+02:26:47.551 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:47.555 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:47.557 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:47.558 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:47.644 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:26:47.657 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:50.194 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:50.195 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:50.196 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:50.197 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:50.224 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:26:50.235 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:54.172 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:54.174 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:54.174 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:54.175 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:26:54.197 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:26:54.211 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:06.023 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:06.025 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:06.025 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:06.026 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:06.080 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:27:06.091 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:14.389 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:27:14.390 [Conductor-worp-client-event-loop-group localEventLoopGroup-21-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, :supervis
+02:27:14.498 [Worker bb1ad573 00000000@2003-worp-client-event-loop-group localEventLoopGroup-28-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name soft
+02:27:17.937 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-4] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:27:17.937 [Worker bb1ad573 00000000@2003-worp-client-event-loop-group localEventLoopGroup-28-3] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name soft
+02:27:20.641 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-5] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:27:24.489 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:24.490 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:24.491 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:24.492 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:24.564 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:27:24.574 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:34.498 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-6] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:27:44.180 [Worker bb1ad573 00000000@2003-rpl.rama.distributed.daemon.worker/throttled-logging-flusher-0] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Throttled 2 logs over 60s for callsite :rpl.rama.distribute
+02:27:49.211 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:49.212 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:49.213 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:49.214 [Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:49.254 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:27:49.272 [Worker bb1ad573 00000000@2002-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:27:49.297 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-7] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:27:51.096 [Worker bb1ad573 00000000@2003-worp-client-event-loop-group localEventLoopGroup-28-6] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name soft
+02:28:09.580 [Worker bb1ad573 00000000@2003-worp-client-event-loop-group localEventLoopGroup-28-7] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name soft
+02:28:13.423 [Conductor-worp-client-event-loop-group localEventLoopGroup-21-2] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, :supervis
+02:28:15.381 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-8] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:28:20.264 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:20.265 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:20.266 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:20.267 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2003 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:20.335 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:28:20.346 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2003], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:22.526 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:22.527 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:22.528 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:22.529 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2003 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:22.598 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:28:22.609 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2003], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:25.460 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:25.462 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:25.462 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:25.463 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2003 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:25.561 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:28:25.576 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2003], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:33.295 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:33.296 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:33.297 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:33.298 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2003 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:33.341 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:28:33.352 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2003], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:44.389 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-2] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:28:45.933 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:45.934 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:45.935 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:45.936 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2003 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:46.029 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:28:46.045 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2003], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:28:49.606 [Worker bb1ad573 00000000@2002-worp-client-event-loop-group localEventLoopGroup-52-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name soft
+02:28:50.491 [Worker bb1ad573 00000000@2002-worp-client-event-loop-group localEventLoopGroup-52-3] ERROR rpl.rama.distributed.worp.client.clientside-protocol - :rpl.rama.distributed.worp.client.clientside-protocol/worp-pong-timeout Unexpected channel pong timeout; closing channel. {:module-name soft
+02:28:51.680 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-10] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f6
+02:28:54.590 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-1] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:29:02.094 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-2] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68
+02:29:04.459 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :microbatch-gate :topology-event]}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:29:04.460 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:29:04.461 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:29:04.462 [Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2003 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:29:04.513 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:29:04.524 [Worker bb1ad573 00000000@2003-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2003], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+clojure.lang.ExceptionInfo: check probe: forced failure of this attempt
+02:29:14.457 [clientside-cluster-manager-worp-client-event-loop-group localEventLoopGroup-23-3] ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name softland.store.module/Store, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f68

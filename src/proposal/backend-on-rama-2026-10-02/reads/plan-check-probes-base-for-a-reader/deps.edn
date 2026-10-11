@@ -1,0 +1,15 @@
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {:jvm {:jvm-opts ["-Xss16m" "-Xmx4g"]}}}
+;; T, three clusters one after the other in one JVM with the store's own
+;; module, is not run by this file: it needs the store's tree on the
+;; classpath, as the plan's run S does. The check session ran it from the
+;; repository root, with no change of directory, on the same Clojure and Rama
+;; as this file names (the root's alias :store-module holds both and the
+;; store's two trees):
+;;   clojure -Sdeps '{:aliases {:check-probe {:extra-paths ["src/proposal/backend-on-rama-2026-10-02/reads/plan-check-probes-base-for-a-reader/src"]}}}' \
+;;           -M:store-module:check-probe -m check.two-clusters
+;; The log is logs/two-clusters.log in this folder. Run one at a time: two
+;; in-process clusters at once collide on a port.
