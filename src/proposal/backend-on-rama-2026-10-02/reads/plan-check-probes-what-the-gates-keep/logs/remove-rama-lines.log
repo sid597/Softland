@@ -1,0 +1,15 @@
+02:15:39.397 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:microbatch :mb :topology-event]}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:15:39.402 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:15:39.402 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:15:39.402 [Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0] ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2005 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt
+02:15:39.487 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:15:39.546 [Worker bb1ad573 00000000@2005-bootstrap-0] ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2005], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated 
+ [{:type clojure.lang.ExceptionInfo
+  [java.lang.Thread run Thread.java 1583]]} #error {
+ [{:type clojure.lang.ExceptionInfo
+  [java.lang.Thread run Thread.java 1583]]}]}] [clojure.lang.ExceptionInfo probe: forced failure of this attempt {:batch 18}]]}
+clojure.lang.ExceptionInfo: probe: forced failure of this attempt

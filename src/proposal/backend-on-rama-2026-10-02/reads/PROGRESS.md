@@ -79,10 +79,12 @@ it adapts the skill's template.
 | the plan of `base-for-a-reader`, with two runs of its own; rulings 46 to 51 on its six points | done | in the commit after `b378e8f0` |
 | the plan of `what-the-gates-keep`; rulings 40 to 45 on its five points | done | in the commit after `a8c1783b` |
 | the plan of `read-path` | running, from the hand-off section of the plan above | — |
-| the check of the plan of `what-the-gates-keep` | running; it reads the other plan of the walk when that is in | — |
+| the check of the plan of `what-the-gates-keep`; rulings 52 to 55 | done. Verdict minor-fail: eleven faults, each fixed in the plan by the check; it ran the removal of a top-level row (`plan-check-probes-what-the-gates-keep/`) | in the commit after `2ea0fff9` |
 | the check of the plan of `base-for-a-reader`; it first applies ruling 49 to the plan | running | — |
 | the check of the plan of `read-path` | — | — |
-| the build of each part | — | — |
+| the build of `what-the-gates-keep` (first, by ruling 53) | running | — |
+| the build of `base-for-a-reader` | after the build above | — |
+| the build of `read-path` | — | — |
 | one fresh review of the whole against the contract | — | — |
 | the measures of the contract's section C | — | — |
 | the receipt to Sid | — | — |
@@ -405,6 +407,38 @@ For the receipt, from the plan of `what-the-gates-keep`: after A1 no row of the 
 only from the act in the depot; one value that very many places hold is a run on one task, which the
 contract's "a run of neighbouring rows" asks for; the removal of a row of the other order rests on a
 navigator that the store has not run before, so the build's proof must show it.
+
+### On the check of the plan of `what-the-gates-keep` (`PLAN_VALIDATION-what-the-gates-keep.md`)
+
+52. **The verdict is minor-fail and is taken.** Eleven faults, none of the design, each fixed in the
+    plan by the check; the forms of rulings 40 to 45 stand. The check counted the reads, writes and
+    messages from the walk itself, traced the microbatch gate with real batches by hand, and ran the
+    one thing that the store had never run: the removal of a row at a top-level key works in a stream
+    and in a microbatch topology, and a failed attempt's removal is set back. The pass holds only if
+    the run of ruling 17 (d) holds (ruling 33).
+53. **The order of the builds changes; ruling 32 is replaced.** `what-the-gates-keep` is built first.
+    Its plan has passed its check while the other check still runs, and the two builds run one after
+    the other. The split's first note allows it: the two parts share no mechanism. One thing moves
+    with it: that this part's new rows are the same on a second attempt is shown by the build of
+    `base-for-a-reader`, which now comes after and sees every row. The risk that is taken: if the run
+    of ruling 17 (d) does not hold, this part's rows of the base are planned again. The plan stage's
+    own run on the store's module makes that unlikely: two attempts differ today in the stamp only.
+54. **Three names that the rig's code also has stay**: `:by-value`, `value-digest` and `read-values`.
+    The plan's read list holds no file of the rig, so none comes from it. "By value" is the contract's
+    own phrase in A6, and "digest" is the store's word since its module. Each says what the thing is.
+    The receipt names the three for Sid all the same; each is his to change.
+55. **A cheaper form that the check found is not taken.** One row for each streaming layer, holding the
+    layer's last stamp and its marks, would give an accepted act 4 reads again where this build makes
+    it 5. It changes what a stamp is, from "increasing on its task" to "in its layer", and the
+    contract changes two of the store's rules and no stamp. A row proposed for the queue, to weigh
+    with the measures.
+
+For the receipt, from this check: in a streaming layer every accepted act with a fact under a plain
+key pays one seek more than today, 5 where it paid 4, also in a layer that marks no key (by the
+store's arithmetic 384 to 616 acts a second on one task, against 480 to 770); a push on a run can be
+sent the removal of a place that the run never held, and the read path takes it as no change; after a
+worker of Rama was started again, a stream topology was handed its partition's records once more, so
+check (a) and the clock keeper's "first write wins" are what make that harmless.
 
 ## For the receipt: what Sid should know, as found so far
 

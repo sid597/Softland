@@ -12,6 +12,11 @@ this one file. It ran nothing: no proof, no probe, no cluster.
 
 **Blocked.** Nothing.
 
+**Changed by the check of this plan.** The check (`PLAN_VALIDATION-what-the-gates-keep.md`, 12 October
+2026) found eleven faults, each small, and fixed each here. Its paper gives the lines before and after.
+It also ran the one thing that this plan had only read: the removal of a row at a top-level key
+(`plan-check-probes-what-the-gates-keep/`, "X1" to "X7" below are that run's cases).
+
 **Rulings that cannot hold.** None was found. One is met by a reading that the build session should see
 before the check: ruling 10 asks for "a text of the value that no other value has". This plan uses the
 SHA-256 of the value's bytes, as hex. Two values with one digest would share a run. The store already
@@ -287,7 +292,7 @@ change.
 | 4, standing | 183-202 | The reads do not change. `decision/standing` gives one word more, `:permission-does-not-allow-acting`, when the row holds the act's permission and `act/allows` of it is `:see`. No row more is read for it, and no place is read after it |
 | 5, places | 208-218 | The reads do not change. `decision/places` also calls `who-may-write-fault` (R7) |
 | 6, the seal | 225-238 | The lock reads do not change. `decision/opened` replaces `decision/seals`: it gives the word of the first sealed fact that fails, or the plain bytes of each sealed fact, by index. Each value is opened once |
-| 6b, new | — | Only for an act that no check refused, and only when `decision/reads-marked-keys?` says so: read the row at `decision/marked-keys-place`. Then read the place of each fact under a marked key whose row step 5 did not read (`decision/rows-before-needed`). The rows join `*place-rows`, and so does the marks row under its own place, which is the row before for an act that writes the marks |
+| 6b, new | — | Only for an act that no check refused, and only when `decision/reads-marked-keys?` says so: read the row at `decision/marked-keys-place`, unless step 5 read it already (an act that writes the marks and names something to replace: its place is in `*place-rows`, and a second read of it would be a seek for nothing). Then read the place of each fact under a marked key whose row step 5 did not read (`decision/rows-before-needed`). The rows join `*place-rows`, and so does the marks row under its own place, which is the row before for an act that writes the marks |
 | 7, the stamp and the writes | 241-260 | `decision/writes` takes what is in hand as one map: the lock rows, the plain bytes, the place rows, for each place under a marked key its key's stamp (`decision/since-by-place` of the act and the marks row), and `level-from`, which is the stamp. One case more in the `<<cond`: `:by-value`, a `termval` of the row, or `NONE>` at the key when the row is nil |
 
 Which acts read the marks row: an act that holds a fact under a plain key, or a fact under
@@ -317,12 +322,12 @@ is sent to every task (`routed`, then `|all` at line 391).
 | declare | 231-234 | four PStates | one more: `$$microbatch-facts-by-value` |
 | 1 | 261-273 | reads the permission's row, and the depot's row when that is nil; `batch/arrive` | **no read more.** In `questions`, a question about a place also holds `:marks-place`, the key of the layer's marked-keys place, and `:k`, the fact's key |
 | 2 | 295-296 | `$$questions`, `reads-of` | after 295, on each task: `batch/marks-places-asked` of `*asked` gives the marked-keys place of each layer that a question about a place names; `rows-at` reads each from this task's own copy, **once for a layer in a batch**; `reads-of` takes those rows. A place whose key is marked is read when an asker does not have it as its own. Then the number of tasks and `batch/batch-end` of `*base` and `*numbers`, both bound before `|all`; it calls `last-stamp-of-batch` again and reads no clock |
-| 2 | 320 | `(batch/replies *read *found *now *base)` | one argument more, the batch's end. The reply about an answer carries it as `:batch-end`, beside `:clock` and `:base`. The reply about a place whose key is marked carries `:since`, the key's stamp, to every asker, and the row to each asker that does not have the place as its own |
+| 2 | 320 | `(batch/replies *read *found *now *base)`, with the batch's clock in the place of `*now` under whatever name the other part's build gave it | one argument more, the batch's end. The reply about an answer carries it as `:batch-end`, beside `:clock` and `:base`. The reply about a place whose key is marked carries `:since`, the key's stamp, to every asker, and the row to each asker that does not have the place as its own |
 | 2 | `batch.clj:403-415` | a place is shared when two acts name it, unless each has it as its own | a place under a marked key is shared whenever two acts of the batch name it |
 | 3 | 340-341 | `own-places-wanted`: own places that name something to replace | also own places whose reply carries `:since` |
 | 3 | 342 | `decide-or-send` | `decided` takes each place's `:since` and the batch's end; the parcel of an act that meets carries both |
 | 4 | 363, 395 | `write-row` with three PStates | with four; one case more, `:by-value`, as in the streaming gate |
-| 4 | `batch.clj:764-782` | `meeting-reads`: permission places, and a depot place that names something to replace | also the place of a fact under one of the three new keys that names something to replace, and the marked-keys place always |
+| 4 | `batch.clj:764-782` | `meeting-reads`: permission places, and a depot place that names something to replace | also the place of a fact under `:softland.store/who-may-see` or `:softland.store/builds-on` that names something to replace; and the place of a fact under `:softland.store/marked-keys` whether it names something to replace or not, since its row before gives the stamps of `:level-since`. An act that holds no fact under `:softland.store/marked-keys` does not read the marks here: it has the `:since` of each of its places from step 2 |
 
 **Where the marks are read.** Step 2, on the home task of a place, from that task's own copy, once
 for each layer that the batch's questions name there. Every act with a fact under a plain key asks
@@ -359,7 +364,11 @@ never have one key; step 4 needs no order between them, as today.
 What they leave: with the place at value V0 before the batch, act 1 writing T and act 2 writing U, the
 pass gives for the entry of V0 "out", for the entry of T "in" and then "out", for the entry of U "in".
 One row for each key is sent: V0 out, T out, U in. The "out" for T takes out a row that was never
-written: one message and one delete of nothing.
+written: one message and one delete of nothing. Run (X3, in both kinds of topology): such a removal
+changes no row and throws nothing, and **a push that is open on the run of T is sent a removal of that
+place all the same**, a place that the run never held. This is the one way by which this plan takes out
+a key that holds no row; `by-value-writes` gives no "out" for a row before that is not in the order. The
+hand-off says it to the read path.
 
 **How a row of the other order reaches its home.** `decision/writes` gives `[:by-value key row]`, with a
 nil row for "out". `batch/routed` gives it the home `rows/by-value-route` of the key, which is the
@@ -501,7 +510,12 @@ Layer `L` is streaming. Key `:on` is marked. Stamps are small numbers for readin
 nothing is written; the new step 6b is never reached. After a discard: every read is made again from
 committed rows and gives the same rows, so the same keys are written; the stamp may differ, and no
 reader saw the first. The event has no partitioner, so no part of it is committed on another task. The
-new writes are `termval` and `NONE>` at fixed keys.
+new writes are `termval` and `NONE>` at fixed keys. Seen in the check's run: after a worker was started
+again, Rama handed a stream topology every record of its partition once more, eight things whose writes
+were long committed, and a topology with no check (a) made each write again, a removal too
+(`logs/remove.log`, 7710 to 7712). In the store each such event ends at check (a). So check (a) is what
+keeps an entry that was put back by a later act from being taken out again; no write of this part may
+ever stand before it.
 
 **S2. A second attempt of a batch.** Rama sets the gate's PStates back (batch probe, B3.i) and gives the
 same things in the same order (B2.3). By the table "Every new row is the same on a second attempt",
@@ -594,6 +608,17 @@ place that names something to replace is read today.
 its value of up to 65,508 bytes, and the decision uses its stamp and the digest of its value. The same
 is true today of a fact that names something to replace. Open point 5.
 
+**How long one act can now hold a task of the streaming gate.** The event does not give the task back
+(the store's page, `:204-217`), and this part adds to what one act can make it do. The greatest case:
+an act of 256 facts, each under a marked key, each a sealed value of 65,508 plain bytes, none naming
+something to replace, each over a place that holds such a value written since the mark. Today that act
+reads no place. After: the marks row and 256 rows before, 257 seeks more (77 to 129 ms cold) that bring
+about 16.8 MB of rows into the event; 512 digests, one of each new value and one of each value before,
+over about 33.5 MB; and 512 writes of the other order beside the 256 fact rows. The bound is still the
+declaration's: 256 places, each read once at most, in step 5 or in step 6b. Nothing is built against
+it, as nothing is today; the measures of C say what it costs. The microbatch gate gives the task back
+between two acts, as today.
+
 **What grows for ever.**
 
 | What | By how much |
@@ -627,6 +652,23 @@ Weighted seeks = 2 at each N. Weighted steps = 0.9 × m at each N. Flat.
 For the write: one fact under a marked key in a microbatch layer touches at most two tasks more, the
 home of the new entry and the home of the old, at any N.
 
+The same for what a gate does for one act, since an act is the other kind of input of this part.
+Proportions are assumed, not measured. Seeks and row writes are totals over all tasks; each act is
+taken alone in its batch.
+
+| Data category | Proportion | Seeks/op at N = 1 | at N = 16 | at N = 128 | Row writes/op at N = 1, 16, 128 |
+|---|---|---|---|---|---|
+| One value under a plain key, streaming layer, key not marked | 0.70 | 5 | 5 | 5 | 4, 4, 4 |
+| The same, key marked, a value before to take out | 0.10 | 6 | 6 | 6 | 6, 6, 6 |
+| One value under a plain key, microbatch layer, key not marked | 0.10 | 4 | 4 | 4 | 4, 4, 4 |
+| The same, key marked, a value before to take out | 0.05 | 5 | 5 | 5 | 6, 6, 6 |
+| A give in a streaming layer | 0.049 | 4 | 4 | 4 | 3, 3, 3 |
+| A fact under one of the five keys whose row every task holds, microbatch layer | 0.001 | 3 | 3 | 3 | 2, 17, 129 |
+
+Weighted seeks = 4.95 at each N. Flat. Weighted row writes = 4.25, 4.26 and 4.38: the one line that
+grows is the write to every task, which is small and rare (the skill's test for `|all`), and its
+reads do not grow.
+
 **Each write's partitioner.**
 
 - A row of the facts by value in a microbatch layer: `|hash` of the value digest. The digests of many
@@ -656,7 +698,17 @@ in a microbatch layer the two are placed by different parts.
 - **Colocation.** The marks row is where an act is decided (every task, or the layer's task). The entry
   of the other order is where its run is read.
 - **`NONE>` at a key of a top-level map** is a delete with no read (`paths.md`, "No-Read
-  Optimizations"). Read, not run by the store. A removed place came through a push in the probe (F2).
+  Optimizations"). Run by the check of this plan, on Rama 1.6.0 in-process, in a stream topology and in
+  a microbatch topology, on a table of the shape of the facts by value
+  (`plan-check-probes-what-the-gates-keep/logs/remove.log`). X2: the row is gone for the topology's own
+  next read, for a select of the key and of the run, and a push on the run is sent the removal. X3: a
+  key that holds no row is taken out with no throw. X4: one event, and one batch, takes one row out and
+  puts two, and all three show together. X5: a key that was taken out is put again by a later write. X6
+  (stream): two writes at one key in one event leave what the later one wrote. X7 (microbatch): an
+  attempt that took a row out and then failed left the row in place for every read from outside, and the
+  second attempt read the row before it took it out again. The microbatch writes went to their task by
+  `|hash` of a String, and a client found them with that String as the partitioning key. The store's own
+  module has not run it; N13 and N14 do.
 
 ## State primitive selection
 
@@ -749,7 +801,11 @@ the proofs that call it; no gate calls it, and its docstring says so.
     `:since-by-place`, and of the marked-keys place when the act writes it.
 
 **`gate/batch.clj`**
-26. `on-every-task?`: five keys.
+26. `on-every-task?`: five keys. `standing-on-arrival`: a row that holds the act's permission, where
+    `act/allows` of it is `:see`, gives `{:standing :final :word :permission-does-not-allow-acting}`
+    and no longer `:stands`; the test for the word stands before the test that gives `:stands`. (If it
+    were left as it is, the act would still be refused, in step 3, by `decision/standing`; it would
+    then have asked for each of its rows first.)
 27. `questions`: a question about a place holds `:marks-place` and `:k`.
 28. `marks-places-asked` (new) [asked] → the marked-keys places that the questions about places name,
     each once. `reads-of` [asked marks-rows]: a read of a place holds `:since` when its key is marked,
@@ -872,6 +928,24 @@ permission in a layer, and its row is written once.
   microbatch layer they are on two tasks, and Rama shows a batch task by task.
 - In a microbatch layer the tasks do not show a write of a row that every task holds at one instant.
 - A lock: no row of the facts table names one. The locks table is not a read's.
+- That a removal which a push on a run is sent names a place that the run held. In a microbatch layer,
+  when two acts of one batch write one place under a marked key, the gate takes out the entry of the
+  first act's value though it was never written, and Rama sends an open push on that value's run the
+  removal of that place all the same (run: X3 of `plan-check-probes-what-the-gates-keep/`). A read
+  takes the removal of a place that it does not hold as no change.
+
+### What must hold before a key is made, and how a row of the store's own keys is told
+
+- The functions that make a key or the two ends of a run test nothing of what they are given. Before a
+  read calls one with what a caller gave: each id passes `declaration/usable-id?`; a fact's key is a
+  readable keyword within the limit (`act/readable-keyword?`, `declaration/id-within-the-limit?`); the
+  value V of `by-value-run` and of `value-digest-of` passes `act/value?`. The functions do not throw
+  on anything else, and that is the danger: a thing that is no id can print with a space in it, and a
+  key made of it can name a row of another place. So the test comes first, as the door's reads make it
+  (`rows/depot-read`).
+- A row of a run is under one of the store's own keys when `declaration/store-key?` of the key part
+  that `rows/place-of-key` gives is true. A gate refuses every other key of the namespace
+  `softland.store`, so no accepted fact is under one.
 
 ## The proofs
 
@@ -897,9 +971,30 @@ read whole; the build reads each group that a hit is in. Lines are of head `dc70
 | module | 692-694 | a retract's row has "no value and no lock" | entry 5 | no value; who retracted and the permission |
 | module | 785-788, 1252-1254 | a tool's fact is "sealed", by `(some? (:lock-act row))` | entry 5 | the row's value reads back as the tool's value, and the store's rows are as they were |
 | module | 911-912 | a sealed value of 65,536 bytes is kept as 65,536 | entry 5 | kept as 65,508 plain bytes |
+| pure | 332, 401-403 | "the five shapes that the door adds", and their second writing | entries 1, 2, 6 | the eight: with `:who-may-see-word`, `:layer-list`, `:key-set` |
+| pure | 384, 404-406 | "the twenty-one rules, the maker's first, each with its reason", and their second writing | entries 1, 2, 6; ruling 40 | the twenty-seven, in the order of step 6 |
+| pure | 407-409 | the words with which the check refuses | the same | the same set and the six new words |
+| pure | 2739 | "each word of the declaration comes from a thing that earns it" | the same | the same check; a thing that earns each of the six new words is added to its rows, or it fails |
+| pure | 913 | the row of a fact under a store key: its value's text, `:by-act`, `:by-index`, `:stamp`, and no other field | entry 7 | the same and who and the permission |
+| pure | 916 | the row of a retract: `:by-act`, `:by-index`, `:stamp`, and no other field | entry 7 | the same and who and the permission |
+| pure | 1215, 1223-1224, 1232-1233 | the rows that `writes` gives for a request, for a making act, for a retract and a give: no who, no permission | entry 7 | each row with who and the permission |
+| pure | 1393-1395 | a question about a place holds `:turn`, `:to`, `:question`, `:wanted?`, `:own?` and no more | ruling 45 | and `:marks-place` and `:k` |
+| pure | 1450-1464 | `reads-of` takes the questions alone; a place is read only when an asker that does not have it as its own wants it | rulings 18 and 45 | `reads-of` takes the marks rows too; a read of a place under a marked key holds `:since`, and the place is read when an asker does not have it as its own |
+| pure | 1467-1473, 1563-1564 | a reply about an answer holds `:says`, `:clock`, `:base` and no more | ruling 41 | and `:batch-end` |
+| pure | 1476-1485 | a reply about a place holds `:key`, `:shared?`, and `:row` when wanted; a place that two acts have as their own is not shared | entry 6; ruling 45 | under a marked key it holds `:since` too, and the row for each asker that does not have the place as its own; such a place is shared whenever two acts name it. Under a key that is not marked: as today |
+| pure | 1604-1609 | "the home of each row: a fact under :softland.store/depot or :softland.store/permission on every task" | ruling 18 | under each of the five keys; and the home of a row of the facts by value is its value digest |
+| pure | 1619-1630 | the rows that the meeting task reads from its own copy: a permission fact's place, and a depot fact's that names something to replace | ruling 18 | and the place of a setting or a list that names something to replace, and of a marks fact always |
+| pure | 1884-1921 | the model that the run of one batch is held against puts a row "on every task" for two keys | ruling 18 | for five; it holds the facts by value too |
+
+These fourteen rows were added by the check of this plan. It found them by a search of the two files
+for a whole row written out, for the counts of the declaration, and for each function of
+`gate/batch.clj` that this plan changes. It did not read the four proofs whole either. So the build
+reads each group that it changes and names in the receipt each further check that it had to write
+again, with its decision (ruling 1).
 
 Each call of a function whose arguments change (`fact-row`, `writes`, `seals`, `arrive`, `replies`,
-`decided`) is a fixture and changes with it. The two keys `:softland.store/owner` and
+`reads-of`, `decided`) is a fixture and changes with it; where a check writes out what such a function
+gives, the check is in the table above. The two keys `:softland.store/owner` and
 `:softland.store/class` stay keys that the store does not know, so the checks at pure 587-590 and 648,
 and module 749, 791, 1214 and 1251, stay as they are. No check of the door's proof was found untrue.
 
@@ -919,9 +1014,9 @@ and module 749, 791, 1214 and 1251, stay as they are. No check of the door's pro
 | N10 | module, each gate (VA2): who and the permission in the row; for the system's making of a personal layer the two differ | A2 |
 | N11 | module, each gate (VA3, VA5, R7): each new key written, written again, written again naming `:replaces`, a stale `:replaces`, a retract, a wrong value, another entity, sealed; a permission a second time; a depot after the making | A3, A5, R7, each refusal recorded with its word |
 | N12 | module, each gate (VA4): a holder of `:see` acts, gives; a give to her of `:see-and-act`; a holder of each kept form acts; a making act whose permission has a slot | A4 |
-| N13 | module, each gate (VA6): mark a key; a fact with a keyword id, then with a UUID; replace it; write over it with no `:replaces`; the same value again; retract; take the mark off, replace, mark again | The run of each value after each act; S5 |
+| N13 | module, each gate (VA6): mark a key; a fact with a keyword id, then with a UUID; replace it; write over it with no `:replaces`; the same value again; retract; take the mark off, replace, mark again. After each act a select of the run of each value, and of the key of each entry that went out. Once, the same thing appended a second time | The run of each value after each act; S5. That a row which went out is gone in the store's own module, which had not run a removal. That a second run of an act behind check (a) leaves the run as it was |
 | N14 | module, the base: in one batch, two acts on one place under a marked key; a mark and a fact under it | What the walk says they leave |
-| N15 | module, the base: each row that this part adds, on a second attempt of a real batch, by the other part's hand | The same in every field (decomposition, scope item 9). It rests on that hand |
+| N15 | module, the base: each row that this part adds, on a second attempt of a real batch, by the other part's hand. That hand notes the rows that `decide-or-send` and `rows-to-send` give (`PLAN-base-for-a-reader.md`, "The proof of ruling 17 (d)"); this part makes both give rows of the kind `:by-value`, a row that is nil among them, so its noting functions and its check of two attempts side by side take that kind too, and tell "out" from "no row noted". That check has a cluster of its own (ruling 49), so the earlier batches that this one stands on, the mark and the first value, are sent on that cluster too. The batch of that check gains: a fact under a key that an earlier batch marked, over a value to take out; two acts on one place under that key; a write of the marks, of the setting and of the list; a give with the slot | The same in every field, and the same keys taken out (decomposition, scope item 9). It rests on that hand |
 | N16 | door: a holder of `:see` sends a value | `:have-its-request-accepted`, with the gate's new word in the request's answer; nothing appended for her act |
 
 The four proofs pass at the end of this part. Their count lines change; the build gives them before
@@ -966,6 +1061,12 @@ Each is replaced, not amended.
 | `:517-538`, `:540-561`, `:577-596`, `:608-671`, `:673-699` | the words | each word of this plan is added; `:lock-act` and `:lock-index` go |
 | "Engineering choices" | — | one paragraph for each of: the facts by value and its key; `:level-since`; who may write the three; what a layer starts with. Each kept answer says that it is not decided (R8) |
 | `test-store/softland/store/README.md` | the groups of the act's, the pure and the module's proof | each group whose check is written again or added |
+| the store's page `:204-217` | "How long one act can hold a task of the streaming gate": its reads and the opening of its values | and the marks row, the row before of each fact under a marked key, a digest of each such value and of each value before, and the writes of the other order; the greatest case of this plan |
+| `gate/README.md`, its table | `first_act.clj`: "The depot that a layer starts with, and the form of a making act"; `batch.clj`: what an act asks and what the tasks reply | `first_act.clj`: and what a layer starts with when no fact says who may see it or what it builds on; `batch.clj`: and since which stamp a place's key is marked, and the home of a row of the facts by value |
+| `record/README.md:5-6`, `:25-27` | "its rows, and the schemas"; "a plain value is kept as the bytes of its one text" | every value is kept plain: the bytes that its lock opened, or the one text of a value under a store key; the facts by value and the text of their key; the digest that the key holds |
+| `streaming_gate.clj:141-146`, `microbatch_gate.clj:199-203`, `:223-228` | `add-to`: "its four PStates"; `write-row`: three PStates, "a whole row at a fixed key" | five; `write-row`: four PStates, and a row that is nil takes its key out |
+| `decision.clj:16-38`, `:212-224` | the list of the checks names `seals`; `store-key-fault`: "a store key takes one write for a place", "the three store keys" | `opened`, the new word of the standing, `who-may-write-fault`; a permission's place and a depot take one write, the three new keys a second |
+| `batch.clj:42-61`, and the docstring of each function that "Every function, in the order to build" changes | the data between the functions and the gate, by step; what each function takes and gives | with `:marks-place` and `:k` in a question, `:since` and `:batch-end` in a reply, `:since-by-place` in an item, the kind `:by-value` among the routed rows; each docstring as its function then is (`src-store/CLAUDE.md`: a docstring changes with its function) |
 
 **Head comments** (ruling 39): `module.clj`, `module/streaming_gate.clj`, `module/microbatch_gate.clj`
 and `module/door_reads.clj` each gain the line

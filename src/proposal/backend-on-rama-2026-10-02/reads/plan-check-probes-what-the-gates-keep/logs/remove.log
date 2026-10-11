@@ -1,0 +1,97 @@
+   3049.5  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads. One key for each task: ["home-d" "home-c" "home-a" "home-b"]
+   3050.1  RUN     STREAM     ---- the run of c1 is from "L :on 100 c1 " to "L :on 100 c1!" , the end not in it ----
+   3081.2  INSIDE  stream  task 0 thing "1 put" PUTS "L :on 100 c1 :b1" · read before: nil · read after: {:stamp 110, :who ":alice"}
+   3081.9  INSIDE  stream  task 0 thing "1 put" PUTS "L :on 100 c1 :b2" · read before: nil · read after: {:stamp 111, :who ":alice"}
+   3082.1  INSIDE  stream  task 0 thing "1 put" PUTS "L :on 100 c2 :b1" · read before: nil · read after: {:stamp 112, :who ":alice"}
+   3100.9  OUTSIDE STREAM     1 three rows put: two of value c1, one of value c2
+   3114.5  OUTSIDE STREAM       one key read: {:stamp 110, :who ":alice"}
+   3124.0  OUTSIDE STREAM       the run of c1 now: {"L :on 100 c1 :b1" {:stamp 110, :who ":alice"}, "L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   3453.2  INSIDE  stream  task 0 thing "2 out" TAKES OUT "L :on 100 c1 :b1" · read before: {:stamp 110, :who ":alice"} · read after: nil
+   3764.2  OUTSIDE STREAM     2 the row of c1 :b1 was taken out
+   3766.3  OUTSIDE STREAM       the run of c1 now: {"L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   3768.0  OUTSIDE STREAM       every key of the task now: ["L :on 100 c1 :b2" "L :on 100 c2 :b1"]
+   3768.1  OUTSIDE STREAM       pushes since the last line: ["KeyRemoveDiff[L :on 100 c1 :b1]"]
+   3768.7  OUTSIDE STREAM       that key read alone: nil
+   3772.3  INSIDE  stream  task 0 thing "3 out of nothing" TAKES OUT "L :on 100 c1 :never" · read before: nil · read after: nil
+   4075.8  OUTSIDE STREAM     3 a key that never held a row was taken out
+   4077.6  OUTSIDE STREAM       the run of c1 now: {"L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   4078.4  OUTSIDE STREAM       every key of the task now: ["L :on 100 c1 :b2" "L :on 100 c2 :b1"]
+   4078.4  OUTSIDE STREAM       pushes since the last line: ["KeyRemoveDiff[L :on 100 c1 :never]"]
+   4083.0  INSIDE  stream  task 0 thing "4 out and in, one thing" TAKES OUT "L :on 100 c2 :b1" · read before: {:stamp 112, :who ":alice"} · read after: nil
+   4083.2  INSIDE  stream  task 0 thing "4 out and in, one thing" PUTS "L :on 100 c1 :b1" · read before: nil · read after: {:stamp 140, :who ":alice"}
+   4083.4  INSIDE  stream  task 0 thing "4 out and in, one thing" PUTS "L :on 100 c3 :b9" · read before: nil · read after: {:stamp 141, :who ":alice"}
+   4395.5  OUTSIDE STREAM     4 one thing took c2 :b1 out, and put c1 :b1 and c3 :b9
+   4398.0  OUTSIDE STREAM       the run of c1 now: {"L :on 100 c1 :b1" {:stamp 140, :who ":alice"}, "L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   4398.9  OUTSIDE STREAM       every key of the task now: ["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"]
+   4399.0  OUTSIDE STREAM       pushes since the last line: ["KeyDiff[L :on 100 c1 :b1 | NewValueDiff[{:stamp 140, :who \":alice\"}]]"]
+   4403.7  INSIDE  stream  task 0 thing "5 out, then put back later" TAKES OUT "L :on 100 c1 :b2" · read before: {:stamp 111, :who ":alice"} · read after: nil
+   4410.2  INSIDE  stream  task 0 thing "5b" PUTS "L :on 100 c1 :b2" · read before: nil · read after: {:stamp 150, :who ":alice"}
+   4712.9  OUTSIDE STREAM     5 c1 :b2 was taken out by one thing and put again by the next
+   4714.5  OUTSIDE STREAM       the run of c1 now: {"L :on 100 c1 :b1" {:stamp 140, :who ":alice"}, "L :on 100 c1 :b2" {:stamp 150, :who ":alice"}}
+   4715.2  OUTSIDE STREAM       every key of the task now: ["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"]
+   4715.3  OUTSIDE STREAM       pushes since the last line: ["KeyRemoveDiff[L :on 100 c1 :b2]" "KeyDiff[L :on 100 c1 :b2 | NewValueDiff[{:stamp 150, :who \":alice\"}]]"]
+   4719.3  INSIDE  stream  task 0 thing "6 out then in, one key, one event" TAKES OUT "L :on 100 c1 :b7" · read before: nil · read after: nil
+   4719.5  INSIDE  stream  task 0 thing "6 out then in, one key, one event" PUTS "L :on 100 c1 :b7" · read before: nil · read after: {:stamp 160, :who ":alice"}
+   4729.3  OUTSIDE STREAM     6 one event took c1 :b7 out and then put it: {:stamp 160, :who ":alice"}
+   4732.4  INSIDE  stream  task 0 thing "6b in then out, one key, one event" PUTS "L :on 100 c1 :b8" · read before: nil · read after: {:stamp 161, :who ":alice"}
+   4732.6  INSIDE  stream  task 0 thing "6b in then out, one key, one event" TAKES OUT "L :on 100 c1 :b8" · read before: {:stamp 161, :who ":alice"} · read after: nil
+   4736.9  OUTSIDE STREAM     6b one event put c1 :b8 and then took it out: nil
+   4737.0  RUN     MICROBATCH ---- the run of c1 is from "L :on 100 c1 " to "L :on 100 c1!" , the end not in it ----
+   4814.7  INSIDE  microbatch batch 6 task 2 thing "1 put" PUTS "L :on 100 c1 :b1" · read before: nil · read after: {:stamp 110, :who ":alice"}
+   4815.0  INSIDE  microbatch batch 6 task 2 thing "1 put" PUTS "L :on 100 c1 :b2" · read before: nil · read after: {:stamp 111, :who ":alice"}
+   4815.2  INSIDE  microbatch batch 6 task 2 thing "1 put" PUTS "L :on 100 c2 :b1" · read before: nil · read after: {:stamp 112, :who ":alice"}
+   4911.3  OUTSIDE MICROBATCH 1 three rows put: two of value c1, one of value c2
+   4915.3  OUTSIDE MICROBATCH   one key read: {:stamp 110, :who ":alice"}
+   4916.5  OUTSIDE MICROBATCH   the run of c1 now: {"L :on 100 c1 :b1" {:stamp 110, :who ":alice"}, "L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   5269.6  INSIDE  microbatch batch 8 task 2 thing "2 out" TAKES OUT "L :on 100 c1 :b1" · read before: {:stamp 110, :who ":alice"} · read after: nil
+   5663.1  OUTSIDE MICROBATCH 2 the row of c1 :b1 was taken out
+   5665.2  OUTSIDE MICROBATCH   the run of c1 now: {"L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   5672.0  OUTSIDE MICROBATCH   every key of the task now: ["L :on 100 c1 :b2" "L :on 100 c2 :b1"]
+   5672.1  OUTSIDE MICROBATCH   pushes since the last line: ["KeyRemoveDiff[L :on 100 c1 :b1]"]
+   5672.7  OUTSIDE MICROBATCH   that key read alone: nil
+   5719.1  INSIDE  microbatch batch 10 task 2 thing "3 out of nothing" TAKES OUT "L :on 100 c1 :never" · read before: nil · read after: nil
+   6113.8  OUTSIDE MICROBATCH 3 a key that never held a row was taken out
+   6115.6  OUTSIDE MICROBATCH   the run of c1 now: {"L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   6116.4  OUTSIDE MICROBATCH   every key of the task now: ["L :on 100 c1 :b2" "L :on 100 c2 :b1"]
+   6116.4  OUTSIDE MICROBATCH   pushes since the last line: ["KeyRemoveDiff[L :on 100 c1 :never]"]
+   6165.5  INSIDE  microbatch batch 12 task 2 thing "4 out and in, one thing" TAKES OUT "L :on 100 c2 :b1" · read before: {:stamp 112, :who ":alice"} · read after: nil
+   6165.9  INSIDE  microbatch batch 12 task 2 thing "4 out and in, one thing" PUTS "L :on 100 c1 :b1" · read before: nil · read after: {:stamp 140, :who ":alice"}
+   6166.1  INSIDE  microbatch batch 12 task 2 thing "4 out and in, one thing" PUTS "L :on 100 c3 :b9" · read before: nil · read after: {:stamp 141, :who ":alice"}
+   6555.9  OUTSIDE MICROBATCH 4 one thing took c2 :b1 out, and put c1 :b1 and c3 :b9
+   6557.7  OUTSIDE MICROBATCH   the run of c1 now: {"L :on 100 c1 :b1" {:stamp 140, :who ":alice"}, "L :on 100 c1 :b2" {:stamp 111, :who ":alice"}}
+   6558.4  OUTSIDE MICROBATCH   every key of the task now: ["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"]
+   6558.5  OUTSIDE MICROBATCH   pushes since the last line: ["KeyDiff[L :on 100 c1 :b1 | NewValueDiff[{:stamp 140, :who \":alice\"}]]"]
+   6611.8  INSIDE  microbatch batch 14 task 2 thing "5 out, then put back later" TAKES OUT "L :on 100 c1 :b2" · read before: {:stamp 111, :who ":alice"} · read after: nil
+   6808.6  INSIDE  microbatch batch 16 task 2 thing "5b" PUTS "L :on 100 c1 :b2" · read before: nil · read after: {:stamp 150, :who ":alice"}
+   7203.9  OUTSIDE MICROBATCH 5 c1 :b2 was taken out by one thing and put again by the next
+   7205.7  OUTSIDE MICROBATCH   the run of c1 now: {"L :on 100 c1 :b1" {:stamp 140, :who ":alice"}, "L :on 100 c1 :b2" {:stamp 150, :who ":alice"}}
+   7206.4  OUTSIDE MICROBATCH   every key of the task now: ["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"]
+   7206.4  OUTSIDE MICROBATCH   pushes since the last line: ["KeyRemoveDiff[L :on 100 c1 :b2]" "KeyDiff[L :on 100 c1 :b2 | NewValueDiff[{:stamp 150, :who \":alice\"}]]"]
+   7206.5  RUN     ---- microbatch: the first attempt of a batch that takes a row out is made to fail ----
+   7207.3  OUTSIDE MICROBATCH 7 before the batch, the task holds: ["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"]
+   7208.4  OUTSIDE MICROBATCH   a select of the task's keys now gives ["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"]
+   7258.4  INSIDE  microbatch batch 18 task 2 thing "7 out c1 :b1, in c4 :b1" TAKES OUT "L :on 100 c1 :b1" · read before: {:stamp 140, :who ":alice"} · read after: nil
+   7258.6  INSIDE  microbatch batch 18 task 2 thing "7 out c1 :b1, in c4 :b1" PUTS "L :on 100 c4 :b1" · read before: nil · read after: {:stamp 170, :who ":alice"}
+   7284.3  INSIDE  microbatch batch 18 task 0 : the last step THROWS on purpose, after the writes of this attempt
+   7463.8  OUTSIDE MICROBATCH   a select of the task's keys now gives [:read-threw "CallbackException: Callback failure"]
+   7710.8  INSIDE  stream  task 0 thing "1 put" PUTS "L :on 100 c1 :b1" · read before: {:stamp 140, :who ":alice"} · read after: {:stamp 110, :who ":alice"}
+   7711.1  INSIDE  stream  task 0 thing "1 put" PUTS "L :on 100 c1 :b2" · read before: {:stamp 150, :who ":alice"} · read after: {:stamp 111, :who ":alice"}
+   7711.2  INSIDE  stream  task 0 thing "1 put" PUTS "L :on 100 c2 :b1" · read before: nil · read after: {:stamp 112, :who ":alice"}
+   7711.3  INSIDE  stream  task 0 thing "2 out" TAKES OUT "L :on 100 c1 :b1" · read before: {:stamp 110, :who ":alice"} · read after: nil
+   7711.4  INSIDE  stream  task 0 thing "3 out of nothing" TAKES OUT "L :on 100 c1 :never" · read before: nil · read after: nil
+   7711.5  INSIDE  stream  task 0 thing "4 out and in, one thing" TAKES OUT "L :on 100 c2 :b1" · read before: {:stamp 112, :who ":alice"} · read after: nil
+   7711.6  INSIDE  stream  task 0 thing "4 out and in, one thing" PUTS "L :on 100 c1 :b1" · read before: nil · read after: {:stamp 140, :who ":alice"}
+   7711.7  INSIDE  stream  task 0 thing "4 out and in, one thing" PUTS "L :on 100 c3 :b9" · read before: {:stamp 141, :who ":alice"} · read after: {:stamp 141, :who ":alice"}
+   7711.8  INSIDE  stream  task 0 thing "5 out, then put back later" TAKES OUT "L :on 100 c1 :b2" · read before: {:stamp 111, :who ":alice"} · read after: nil
+   7711.9  INSIDE  stream  task 0 thing "5b" PUTS "L :on 100 c1 :b2" · read before: nil · read after: {:stamp 150, :who ":alice"}
+   7712.0  INSIDE  stream  task 0 thing "6 out then in, one key, one event" TAKES OUT "L :on 100 c1 :b7" · read before: {:stamp 160, :who ":alice"} · read after: nil
+   7712.1  INSIDE  stream  task 0 thing "6 out then in, one key, one event" PUTS "L :on 100 c1 :b7" · read before: nil · read after: {:stamp 160, :who ":alice"}
+   7712.2  INSIDE  stream  task 0 thing "6b in then out, one key, one event" PUTS "L :on 100 c1 :b8" · read before: nil · read after: {:stamp 161, :who ":alice"}
+   7712.3  INSIDE  stream  task 0 thing "6b in then out, one key, one event" TAKES OUT "L :on 100 c1 :b8" · read before: {:stamp 161, :who ":alice"} · read after: nil
+   7735.4  INSIDE  microbatch batch 18 task 2 thing "7 out c1 :b1, in c4 :b1" TAKES OUT "L :on 100 c1 :b1" · read before: {:stamp 140, :who ":alice"} · read after: nil
+   7735.6  INSIDE  microbatch batch 18 task 2 thing "7 out c1 :b1, in c4 :b1" PUTS "L :on 100 c4 :b1" · read before: nil · read after: {:stamp 170, :who ":alice"}
+   7892.0  OUTSIDE MICROBATCH   a select of the task's keys now gives ["L :on 100 c1 :b2" "L :on 100 c3 :b9" "L :on 100 c4 :b1"]
+   7892.0  OUTSIDE MICROBATCH 7 the task came to hold c4 :b1 and not c1 :b1: true
+   8692.5  OUTSIDE MICROBATCH 7 what a select of the task's keys was given, in order: [["L :on 100 c1 :b1" "L :on 100 c1 :b2" "L :on 100 c3 :b9"] [:read-threw "CallbackException: Callback failure"] ["L :on 100 c1 :b2" "L :on 100 c3 :b9" "L :on 100 c4 :b1"]]
+   8692.7  OUTSIDE MICROBATCH 7 writes that the attempts of each batch made, by batch id: {6 3, 8 1, 10 1, 12 3, 14 1, 16 1, 18 4}
+   8692.7  RUN     END

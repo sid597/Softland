@@ -1,0 +1,16 @@
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {;; R: the removal of a row at a top-level key of a PState, in a stream
+           ;; topology and in a microbatch topology. From this folder:
+           ;;   clojure -M:remove
+           :remove {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.remove"]}}}
+;; The check session ran it from the repository root, with no change of
+;; directory, on the same Clojure and Rama as this file names (the root's
+;; alias :store-module holds both and nothing else of the root):
+;;   clojure -Sdeps '{:aliases {:check-probe {:extra-paths ["src/proposal/backend-on-rama-2026-10-02/reads/plan-check-probes-what-the-gates-keep/src"]}}}' \
+;;           -M:store-module:check-probe -m probe.remove \
+;;           src/proposal/backend-on-rama-2026-10-02/reads/plan-check-probes-what-the-gates-keep/logs/remove.log
+;; The probe requires nothing of the store's tree; the store's paths are on
+;; that classpath and are not loaded.
