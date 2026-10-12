@@ -21,7 +21,21 @@ All of 12 October 2026, in the build session's chat, as he typed them.
 - "you have access to 2 other sessions namely session 1 and session 2 when you start to degrade your
   context window the best way is to switch over to the parallel sesions htey can continue your work"
 
-How the build session reads the second and the third line together. His open questions stay open:
+On the morning of 12 October, when he found two builds still running:
+
+- "why you have to do the judging when its already done and being done???"
+- "the 2 parts were waiting on the permissions which i explicitly said not to have them nd they were
+  just waiting for it ... when to pass to a new session should we pass to a new session?"
+
+What follows from those two lines, for whoever holds the build. A build is not judged a second time
+by the build session: the build stage makes its own validation and its own final runs, and one fresh
+review of the whole follows. So from the build of `base-for-a-reader` on, the build session takes a
+build's verdict from the build's own papers and final outputs, commits, and goes on. And a fresh
+agent that waits for a permission sends its parent nothing: the two last builds stood still for
+about three hours that way, and the build session did not see it. Whoever starts an agent for this
+build first makes sure that the session cannot be asked for a permission.
+
+How the build session reads the second and the third line of the first list together. His open questions stay open:
 the queue, and the contract's list "Not decided — kept only so that the build can run". Each is built
 to the kept answer, so that the other answer is a small change, and is decided by nobody. Where the
 build meets a new thing that only he can decide, the build session picks a working answer so that the
@@ -83,9 +97,9 @@ it adapts the skill's template.
 | the check of the plan of `base-for-a-reader`; rulings 56 to 59 | done. Verdict minor-fail: nine faults, each fixed in the plan by the check; it applied ruling 49 and ran three clusters in one JVM (`plan-check-probes-base-for-a-reader/`) | in the commit after `794bc2fd` |
 | the check of the plan of `read-path`; rulings 74 to 80 | done. Verdict minor-fail: fifteen faults, each fixed in the plan by the check; it broke and repaired the plan's argument for "what points at", applied ruling 64, and ran nine things on Rama's client (`plan-check-probes-read-path/`) | in the commit after `ffc10f29` |
 | the build of `what-the-gates-keep` (first, by ruling 53); rulings 71 to 73 | done. The build stage's verdict is pass. The build session ran the four proofs itself: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 17, :pass 671, :fail 0, :error 0}`, module `{:test 31, :pass 333, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, each with exit 0 | `371c6d2f` the code with its proofs; `ffc10f29` the papers |
-| the build of `base-for-a-reader` | running, on the tree at `371c6d2f` | — |
-| the build of `read-path` | running, beside the build above (ruling 38), on files of its own until that build has ended | — |
-| one fresh review of the whole against the contract | — | — |
+| the build of `base-for-a-reader`; rulings 81 to 84 | done. The build stage's verdict is pass, taken from its own final runs: act 160, pure 686, module 354, door 199, each with exit 0. The run of ruling 17 (d) holds | `fd92e6e9`; `record/rows.clj`, `module.clj`, `module/door_reads.clj` and the maps in it also hold lines of the read path's build, which ran in the same tree |
+| the build of `read-path`; rulings 85 to 90 | done. The build stage's verdict is pass for the suite, taken from its own final runs: read path pure 149, read path on the cluster 445, and the four others as above. Its measures found two things, which rulings 86 and 87 send to the review to repair | `16ced230` |
+| one fresh review of the whole against the contract; it first makes the repairs of rulings 84, 86, 87 and 89 | not started: it waits for a session that cannot be asked for a permission | — |
 | the measures of the contract's section C | — | — |
 | the receipt to Sid | — | — |
 
@@ -605,6 +619,92 @@ order holds is still found only through the nearer layer's own order; a run acro
 base costs one seek on each task, so it grows with the cluster; a live read across entities of the
 base would not notice a change in the number of tasks, which never changes.
 
+### On the build of `base-for-a-reader`
+
+81. **The build's verdict is pass, and it is taken from the build's own papers and final runs**, at
+    Sid's word of that morning. The build's final runs, each with exit 0: act
+    `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 18, :pass 686, :fail 0, :error 0}`, module
+    `{:test 33, :pass 354, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`. The
+    build session did not run them again.
+82. **Ruling 17 (d): the run holds, and the stop is not met.** On the store's own module a real batch
+    of 18 acts was made to run a second time, with no hook in the module's source. Both attempts used
+    one clock, the kept one. 52 keys were compared across the two attempts and none differs: 18
+    answers, 14 facts, 4 rows of the facts by value (2 in, 2 out), 7 lock rows, 7 rows at a lock's
+    home, 2 keys of new locks; every field, the stamp too. An act at the edge of the 10 seconds was
+    refused on both attempts. The check can fail: with the gate changed for one run so that a later
+    attempt reads the clock anew, 35 keys differed and 4 of 13 checks failed; the gate was put back
+    before any other run. So the repair stands, "the row before" is not built, and the pass of the
+    check of `what-the-gates-keep` holds (ruling 33). The batch also held that part's new rows, as
+    ruling 53 asked.
+83. **Six small places where the plan was not met as written are taken as built**: `clock-record`
+    gives nil for a number that is no integer, so that it never throws; a var of the dataflow is
+    renamed for what it now holds; three checks more than the plan listed; one snapshot and one note
+    of the proof moved. The build's paper lists each.
+84. **Two lines of `door.clj` still say "the two depots of the module".** The module now has a third
+    depot, which takes no act and which the door does not open. The review of the whole replaces the
+    two lines.
+
+For the receipt, from this build: one batch with things pays 3 reads, 1 depot record, 1 row write and
+the wait for the ack more, all on the gate's task, 4 to 14 ms as seen and not measured; a later
+attempt pays 1 read; a run with nothing pays nothing. No check reaches: a reader across a second
+attempt, since the first attempt's rows never reached a table in that run; a commit that fails after
+one task has shown its part; the gate's own throw inside the gate; two failures in a row; a module
+update between two attempts; a killed process, a move of a leader, a real cluster.
+
+### On the build of `read-path`, and two things that its measures found
+
+85. **The build's verdict is pass for the suite, and it is taken from the build's own final runs.**
+    Each with exit 0: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure
+    `{:test 18, :pass 686, :fail 0, :error 0}`, module `{:test 33, :pass 354, :fail 0, :error 0}`, door
+    `{:test 27, :pass 199, :fail 0, :error 0}`, the read path's pure proof
+    `{:test 12, :pass 149, :fail 0, :error 0}`, the read path's proof on the cluster
+    `{:test 26, :pass 445, :fail 0, :error 0}`. The build session did not run them again. The build
+    kept nothing between two changes beyond what rulings 26 and 76 allow, so it did not stop for R2.
+    Rulings 78 and 80 are built.
+86. **A live read of a fact's row is told a change about a second late, in a streaming layer too. The
+    row's form is repaired.** The measure, from a depot's ack to the call of the asker's function: a
+    place of the facts table, middle 1,000 ms, and only 26 of 500 acts were told by a call of their
+    own; a place of the facts by value under the same load, 0.15 ms, 500 of 500. The cause was run
+    (`runs/raw-rp-probe-bytes.txt`): Rama sends a push on rows that hold a byte array the whole value
+    anew, about once a second, where the same rows with a String, or with no value, get one change
+    for each write. Why Rama does so was not found; it is a question for Rama's team. The fact's row
+    holds its value as a byte array, which is the form that `what-the-gates-keep` gave it and that the
+    table had before this build too; the push probe of 11 October used small values that were
+    Strings, so nothing had run a push on the store's own rows. The repair, to be made first by the
+    review of the whole: **`:value` of a fact's row is a String and no byte array.** It is the value's
+    text itself when the plain bytes are text, which is every value that came through the door; and
+    a marked form that loses nothing for bytes that are no text, so that A1's "keeps those plain
+    bytes" and ruling 14 still hold. The digest of a value stays the digest of its bytes. One pair of
+    functions in `record/rows.clj` goes from bytes to that String and back, and nothing else knows
+    the form. The rows of the answers and of the locks keep their byte arrays: no read reads them
+    live. After the repair the measure of lateness is run again, and the receipt gives both numbers.
+87. **Rama opens 1,000 pushes on one table on one task, and the canvas of the plan's worked case
+    passes it.** Run: 998 of 1,000 live reads of places opened; a canvas of 5,000 kept live through
+    three layers asks for about 10,000 pushes under ruling 12, and was turned away with a word after
+    9.3 s. Asked once, the same canvas through three layers took 83 ms. Kept live in one layer it
+    needs no check. So the way of ruling 12 that is built cannot keep a large canvas live through
+    layers. Two things are repaired by the review of the whole. The read path counts the pushes that
+    it holds on each table and task, and turns away a read that would pass its own bound, set under
+    Rama's, at once and before it opens any push. And the number that bounds the checks of one live
+    read comes down from 40,000 to 250. Both numbers are kept and not decided. Ruling 79's reasons
+    stand, and its cheaper way is now more than a saving: with what "what points at" means through
+    layers (P12) it is the first row for Sid from this build. Whether Rama's bound can be set was not
+    found; a question for Rama's team.
+88. **Four places where the plan was not met as written are taken as built.** A value that Rama sends
+    anew is handled as the rows that differ and not as a whole answer, since on the store's tables
+    every change of a fact arrived so; with ruling 86 that becomes rare. A run whose end holds a
+    letter from U+E000 on is turned away with a word of its own: in two runs of the proof such a run
+    gave fewer places than the table holds. The cause was not found. It looks like the difference
+    between Java's order of Strings and the order of their UTF-8 bytes, which is not verified. A live
+    read from a "members" start layer takes 6 rounds, not 5. Two shapes of the measures changed.
+89. **A read asked once reads the table and takes no open push's value.** The build let a read asked
+    once take the value of a push that was open on the same thing; straight after an ack that gave
+    the new value for 186 to 192 of 200 places. A read asked once gives what the tables hold. One
+    function switches it; the review of the whole switches it off, and it costs the round trip that a
+    read asked once costs when no push is open.
+90. **A file of 1.0 GB is in the folder and is not committed**: `runs/raw-rp-measures-full.txt`,
+    Rama's log of 98,794 openings that it refused. Nobody deletes it without Sid's word.
+
 ## For the receipt: what Sid should know, as found so far
 
 1. **A slip of the build session, undone.** Its first commit took another session's staged rename
@@ -624,8 +724,69 @@ is not decided, proposed as rows for the queue and decided by nobody; `git statu
 
 ## For a session that takes this build over
 
-Read the list above in its order, then the table of the stages: the first row that is not "done" is
-where the build stands. A stage that is "running" was given to a fresh agent by the session before
-you; if no paper of that stage is in this folder, run the stage again from its start. Rule on a paper
-before the next stage starts. Keep this page true at each stage, and commit it with the stage's
-paper.
+Written at the hand-over of 12 October 2026, about 08:40 IST. Sid's word that morning was to pass the
+build to a new session once the two last builds had landed.
+
+**Where the build stands.** All three parts are planned, checked, built and committed. Nothing is
+running. The head is the commit that holds this page. The parts' commits: `371c6d2f` what the gates
+keep; `fd92e6e9` the base for a reader; `16ced230` the read path. The six proofs passed in the last
+build's own final runs, each with exit 0: act 160, pure 686, module 354, door 199, the read path's
+pure proof 149, the read path's proof on the cluster 445. How to run each is in
+`test-store/softland/store/README.md`.
+
+**First, before any agent is started:** make sure that this session cannot be asked for a permission.
+A fresh agent that waits for one sends its parent nothing, and the two last builds stood still for
+about three hours that way. If you cannot be sure, do the work yourself and start no agent.
+
+**What is left, in this order.**
+
+1. **The review of the whole**, the skill's last stage (`.claude/skills/rama/references/
+   phase-full-spec-review.md`): one fresh session (model Opus 5.5, effort xhigh) that audits the
+   whole of this build and its proofs against `../BUILD-reads.md`, fixes what it finds in place, and
+   writes `FULL_SPEC_REVIEW.md` in this folder. It reads this page whole; rulings 1 to 90 bind it.
+   Before it audits, it makes four repairs that the build session has already ruled, and says in its
+   paper what each changed:
+   - ruling 86: `:value` of a fact's row becomes a String, so that Rama's push sends each change;
+     then it runs the measure of lateness again;
+   - ruling 87: the read path counts its pushes on each table and task and turns a read away at once
+     under a bound of its own; the checks of one live read are bounded by 250;
+   - ruling 89: a read asked once reads the table;
+   - ruling 84: the two lines of `door.clj` that say "the two depots of the module".
+   The six proofs must pass at its end; no check is removed, and one that a repair makes untrue is
+   written again for the new truth (ruling 1).
+2. **Take the review's verdict from its paper** and rule only on what it leaves open. Sid's word of
+   that morning: a build is not judged a second time. Commit by named paths: the code with its
+   proofs; then the papers.
+3. **The measures of C.** Run the measures once on the final tree, with the command that the proofs'
+   map gives, and keep what they print in `runs/measures-final.txt`. `runs/measures-read-path.txt` is
+   the last build's run, from before the repairs.
+4. **The receipt to Sid**, in the chat and as `RECEIPT.md` in this folder. Its parts are the
+   contract's list (`../BUILD-reads.md`, "Commits and the receipt"). Where each is on this page:
+   - the line "proven by a hand-played asker, used by no inhabitant yet";
+   - the commit hashes: the table of the stages;
+   - the proofs' count lines before (the starting point) and after (the final tree), with the cut
+     outputs in `runs/after-*.txt`;
+   - the measures: `runs/measures-final.txt`, with the two numbers of ruling 86, before the repair
+     and after;
+   - every provisional choice: each ruling marked "builder's" or "provisional, for Sid", and the
+     "provisional choices" lists in the three `IMPLEMENTATION_VALIDATION-*.md`;
+   - every not-decided thing as it was built: rulings 4 to 13 and 65, with the one function that
+     holds each, from the plans' tables "Not decided: how each is built";
+   - every place where the contract could not be met as written: ruling 16 (1) on A7's first
+     sentence; ruling 53 on the order; ruling 79 against the skill's rule on a cheaper design;
+     rulings 86 and 87; and each "Where the plan could not be met" of the three builds;
+   - the rows proposed for the queue, decided by nobody: the implied spec's table (P4 to P13), and
+     those that rulings 50, 55, 62, 65, 70, 79, 86 and 87 add;
+   - what was run where, and what was not: each "For the receipt" paragraph above;
+   - the build session's own slips: the first item of the list below, and the three hours that the
+     last two builds stood still for a permission;
+   - `git status --short`, and the scratch that is not committed and waits for Sid's word: the raw
+     files under `runs/` (one of them 1.0 GB, ruling 90) and four raw logs under
+     `plan-probes-read-path/logs/`.
+5. **No push.** Nothing is written into `decisions/OPEN-QUESTIONS.md`: the rows are proposed in the
+   receipt, and Sid decides whether they go into the queue.
+
+Another session's files are still in the tree and are not this build's: the staged rename
+`decisions/groups/g-reads.txt -> g-reads-first.txt`, the untracked `decisions/groups/g-reads.txt` and
+`g-check.txt`, `docs/.obsidian/`, `docs/Untitled.md`, and the change of `src/app/server/README.md`.
+Each commit of this build names its own paths in the commit itself.
