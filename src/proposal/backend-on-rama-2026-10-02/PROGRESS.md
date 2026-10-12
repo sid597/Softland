@@ -3,10 +3,75 @@
 Read this page first. It says where the work stands, what is written down, how
 firm each part is, and what is open. It is not a ruling. Only Sid decides.
 
+## Now (12 October 2026)
+
+This section says where the work stands today, and what to read to work on it.
+
+The store that is built to stay is in `src-store/`, with its checks in
+`test-store/`. No form, no name and no call shape in it comes from the rig, the
+server or Inland.
+
+| Part | State | Where |
+|---|---|---|
+| The act: the one form of what a maker gives to the store | built, 6 October | `src-store/softland/store/act.clj` |
+| The store's module: the depots, the two gates, the record, the reads by act-id | built and reviewed, 8 October | `src-store/softland/store/` |
+| The door: the code that takes an act from a maker into the store | built, with a proof of its own | `src-store/softland/store/door.clj`; its papers in `door/` |
+| The reads: the way out, and what the gates keep for a read | built and reviewed, 12 October. Its receipt says "proven by a hand-played asker, used by no inhabitant yet" | `src-store/softland/store/read_path.clj`; `reads/RECEIPT.md` |
+| Before real data is kept: the plain end, the gates' answers in a log, the tables made again | not built. Sid answered its sheet on 11 and 12 October. Its contract is `BUILD-before-real-data.md` | — |
+| Sign-in, and all that is above the act | not built | — |
+
+The six proofs ran on 12 October with no failure, at the end of the read build:
+act 160 passes, pure 690, module 354, door 199, the read path's pure proof 152,
+the read path on the cluster 482 (`reads/RECEIPT.md`, section 3).
+
+What to read, in this order:
+
+1. `src-store/README.md` — Sid's decisions of 6 to 12 October, in his words. It
+   wins over every contract and over every page of this folder.
+2. `reads/RECEIPT.md` — what the read build left: what is true now, what it
+   chose as provisional, what is not decided, and the rows that it proposes
+   for the queue (section 10).
+3. `BUILD-before-real-data.md` — the contract of the build that comes next.
+4. `decisions/OPEN-QUESTIONS.md` — what is not decided, once each. And
+   `decisions/METHOD.md` — how a question reaches Sid, and how an answer
+   reaches disk.
+5. `decisions/groups/` — the text of each sheet of questions. The printed PDFs
+   are in the research depot, `/mnt/data/projects/research/softland/`.
+
+The build of `BUILD-before-real-data.md` comes next. Sid, 12 October, of the
+sheet "Before real data is kept": "all the Z phase can be done after this one
+imo"; and the same day, when the read build was done and the sheet answered:
+"land all what left". A build starts from its contract in a fresh session, by
+the Rama skill's stages, as the three builds before it did.
+
+What his answers of 12 October leave beside that build, and what each waits
+for:
+
+- **A session's work, on his yes** (entry 6 of 12 October, the eight of Z5).
+  One pass over the decisions page and over the rulings file of September,
+  which marks each entry as his, as a fact, or as a session's. "Freezes" goes
+  from the papers. Three lines for the method. The check's six reports, and a
+  row in the queue for each thing on the last page of the sheet, go into the
+  repository; the rows that the read build's receipt proposes are not in the
+  queue either. Rama's docs for 1.6.0. One page that lists what must be true before
+  real data is kept.
+- **The day a real cluster starts.** Three machines, three copies and Rama's
+  own backups (entry 5), one restore from a backup, the number of tasks, who
+  may reach Rama's ports, and the proofs on two real nodes.
+- **Sign-in.** Whose reads are kept is decided (entry 4) and is built when the
+  store can tell a model from a person. The sheet's last page lists six more
+  things that wait for sign-in.
+- **Sid's thoughts of 12 October, not built and not designed.** A depot of its
+  own for an organisation. Locks that their owners hold, or that we host for a
+  charge and also hand to them.
+- **Not yet asked.** What a key is (the queue's K5). By which road the first
+  real data comes onto this store: no view, no screen, no tool and no agent
+  uses it yet.
+
 ## Now (9 October 2026)
 
-The sections below this one are the record of 2 to 5 October. This section says
-where the work stands today, and what to read to work on it.
+This section is the state of 9 October. For today's, see "Now (12 October
+2026)" at the top. The sections below it are the record of 2 to 5 October.
 
 The store that is built to stay is in `src-store/`, with its checks in
 `test-store/`. No form, no name and no call shape in it comes from the rig, the
@@ -56,8 +121,13 @@ the same day. Older papers of this folder say "class" for "depot".
 | `LADDER-FILLED.md` | The detail under the ladder: who writes each row, what each source would be on it, and each row with a mark for where every line comes from. |
 | `CONTRACT-above-the-act.md` | Not in use. Sid declined that test on 3 October. |
 | `BUILD-store-module.md` | The contract that the store's module was built from, amended to Sid's answers of 8 October. `src-store/README.md` wins over it. |
+| `BUILD-door.md` | The contract that the door was built from. |
+| `BUILD-reads.md` | The contract that the reads were built from. |
+| `BUILD-before-real-data.md` | The contract of the build that comes next, cut on 12 October. |
 | `decisions/` | How a question reaches Sid (`METHOD.md`), the queue of open questions (`OPEN-QUESTIONS.md`), and the text of each sheet (`groups/`). |
 | `store-module/` | The papers of the build of the store's module, and the build's page, `store-module/PROGRESS.md`. |
+| `door/` | The papers of the door's build, and the build's page, `door/PROGRESS.md`. |
+| `reads/` | The papers of the read build, its probes and runs, the build's page, `reads/PROGRESS.md`, and its receipt, `reads/RECEIPT.md`. |
 
 The printed sheets are outside the repo, at
 `/mnt/data/projects/research/softland/architecture-print-2026-10-05/`. That folder
