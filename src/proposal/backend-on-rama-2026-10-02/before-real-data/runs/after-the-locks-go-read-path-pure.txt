@@ -1,0 +1,30 @@
+The proof "read-path-pure", on the tree "after-the-locks-go" (2026-10-12T19:31Z, head 0d9ed0a6), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store -m softland.store.read-path-pure-proof
+The whole output is raw-after-the-locks-go-read-path-pure.txt beside this file, and is not committed. The run took 4 seconds.
+
+THE PROOF, IN ONE PLACE
+SHOWN the form of a query: 8 queries are taken, one for each word and each kind of end; 37 faults are each turned away with a word and the part, 18 different words, every word that the declaration holds: (:asker-is-no-id :asks-no-word-known :entity-not-named :from-layer-is-no-layer :id-over-the-limit :layers-not-a-list-of-layers :layers-not-named-one-way :no-one-asker :not-a-query :part-not-known :part-of-a-row-not-known :place-not-named :points-at-not-named :run-end-not-ordered :run-ends-out-of-order :run-not-named :store-key-not-asked-for :too-many-layers)
+SHOWN the check never throws: a thing that throws when it is read gives :not-a-query, and a list of layers with no end gives :too-many-layers after 66 are counted
+SHOWN a word of a query is declared in three maps or in none: (:entity :place :points-at :run)
+SHOWN the layers: a list gives each layer once at its first place; from a layer the read looks in the layer and then in the layers of its own fact, and no further; a start layer that she may not see gives itself alone
+SHOWN the standing: the seven lines of its table hold; a layer with no setting reads as members, the base as everyone; a row that is written again with the same word, and a list or a mark of a layer that she may not see, mean the same before and after
+SHOWN the sources of each word in a streaming layer and in the base hold the table, the routing id and the path that the record's page gives: the layer for a streaming layer; in the base the entity for a place and an entity, one source for each task for a run across entities, the value's digest for what points at a thing
+SHOWN two askers of one thing who ask for different parts of a row have equal sources, so they share each push; a check of a nearer layer at a place is the source of that place
+SHOWN the loop ends: asked once, a place is 1 round (1 call in one layer, 3 through three layers), from a layer 2 rounds (1 call, then 2), what points at a thing 3 rounds, from a layer 4; kept live, a place opens in 2 or 3 rounds, what points at a thing through a given list in 4, and from a start layer that is members in 6; none takes more than 6
+SHOWN a read asked once wants the place in the same round as the rights, a live read only when she may see the layer; with before-standing? giving false the read asked once takes the rights first, 2 rounds of 3 calls, and gives the same answer
+SHOWN the checks of nearer layers: one in each layer nearer than the nearest order that holds a place, and in no other; none in a layer between two orders that both hold it; with the one function put aside the runs are joined; past the build's number none is wanted and the read is too large
+SHOWN the nearest row wins, and the place is given from it exactly when it holds the thing: a nearer row with another thing, or a retract, hides the place; a nearer row with the asked thing gives it, from the nearer layer
+SHOWN what a read gives: the four things that a place can hold are told apart; the nearest layer that holds a fact wins, also with nothing here; each place of a run comes from the nearest layer that holds it; a layer that is left out is named with why and nothing of it is given
+SHOWN a place-answer holds no writer and no permission unless asked; the store's own facts are in no answer that did not ask for them; a row that every task of the base holds is given once, the latest
+SHOWN which changes reach an asker: a change in the layer that wins the place; not one under a nearer row, not one in a layer that she may not see, and one of a store key's row only when she asked for the store's own facts
+SHOWN a step that joins or leaves a source that is no check owes the whole answer: a fact's step that joins her permission tells nothing and owes, and the arrival of her permission gives the answer with the fact; a step that leaves an order gives the answer anew with :not-marked
+SHOWN every order of the callbacks, played on the functions that the read path calls: the thirteen scenarios of what points at a thing, through two, three and four layers, 1755 states and 13 ends; every list of up to three writes on one place in two layers, 672 lists and 22698 states; in each end the asker's screen is what a read asked once gives from the tables
+SHOWN the same for a place through a layer whose setting and permission change, 620 lists and 21223 states; for an entity, 120 lists and 1397 states; and for a place, an entity and a whole layer while the start layer's list drops a layer and takes it back, 1637 states
+SHOWN the player can fail: with the mark dropped the scenarios ["9" "10" "13"] end wrong; with told-by? counting a check that the step has just left, the scenarios ["1" "2" "8" "11"] and 118 of the 672 small lists end wrong
+SHOWN that Rama's client delivers in these ways and no other is not shown here: the probes of this build ran it, in-process
+SHOWN the size rule of a run: a full bounded walk whose last key is still before the run's end is too large, and no other; the order that a run's two ends are held to is by code point, which is Rama's order of String keys and not Java's
+SHOWN a row that is written again with the same fields is no change, and neither is the removal of a place that a run never held
+SHOWN the read path's eight words are declared, each with what it says: (:find-the-module :get-an-answer-within-its-wait :keep-more-reads-live :keep-the-read-live :reach-the-store :read-inside-an-askers-function :read-the-query :serve-a-read-that-large) | none is a gate's reason or a word of a stray; one, :find-the-module, is spelled as the door's word for its own opening
+{:test 12, :pass 152, :fail 0, :error 0}
+
+exit status: 0

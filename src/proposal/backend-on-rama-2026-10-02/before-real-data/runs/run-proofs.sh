@@ -16,13 +16,16 @@
 # sessions never run two clusters at once. The time that the cut gives for a run holds that wait.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-root="$(cd "$here/../../../../.." && pwd)"
+root="${PROOF_ROOT:-$(cd "$here/../../../../.." && pwd)}"
+# PROOF_ROOT names another checkout of the repository to prove, a detached worktree of a commit for
+# one. The outputs and the lock stay in this folder, so that every run of the build waits for the
+# one lock.
 label="${1:?a label for the tree: before, after-<part>, final}"
 shift
 
 alias_of() {
   case "$1" in
-    act|pure|read-path-pure) echo store ;;
+    act|pure|read-path-pure|rebuild-pure) echo store ;;
     *) echo store-module ;;
   esac
 }
@@ -30,6 +33,7 @@ alias_of() {
 proofs=("$@")
 if [ "${#proofs[@]}" -eq 0 ]; then
   proofs=(act pure module door read-path-pure read-path)
+  [ -f "$root/test-store/softland/store/rebuild_pure_proof.clj" ] && proofs+=(rebuild-pure)
   [ -f "$root/test-store/softland/store/rebuild_proof.clj" ] && proofs+=(rebuild)
 fi
 

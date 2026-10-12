@@ -50,6 +50,25 @@ what is built is the run on Rama, which the contract asks for.
 The path that the build session told him it takes from there, "unless you say otherwise". He did not
 strike it. It is the build session's, and no decision of his; ruling 31 holds it.
 
+## The night of 13 October
+
+Sid, before he went to sleep: "i will be going to sleep and these will have to work at night so i
+don't want them to ask me for permissions so they should be working in the current project and make
+decisions that if needed be i review in morning but not be blocked for my permission".
+
+What the build does with it.
+
+- **No command that asks him.** His settings ask before `rm`, `rmdir`, `unlink`, `git checkout`,
+  `git restore`, `git reset`, `git clean`, `git stash drop`, `git branch -d` and `git push`. No
+  session of this build runs one. A tracked file that a plan takes out whole goes by `git rm`; an
+  edit is undone by hand. Each running session was told so. No setting was changed.
+- **Decisions are made, and marked.** Where a thing would need his word, the session picks the
+  reading that keeps more and changes less, marks it "provisional, for Sid", and goes on. Each is
+  listed under "For the receipt".
+- **Nothing stands still unseen.** The build session starts a timer of 45 minutes beside each wave
+  of builders, and looks at what stands when it ends.
+- **Everything stays in this repository.** No push.
+
 ## What to read, in this order
 
 1. `../BUILD-before-real-data.md` — the contract. It is the full spec, and it names what is not
@@ -105,9 +124,9 @@ adapts the skill's template.
 | the split into parts: three, `the-locks-go`, `answers-in-a-log`, `the-rebuild`; rulings 21 to 26 on its notes | done; judged sound | in the commit after `ba29f4cb` |
 | the plan of `the-locks-go`, with its run of ruling 19's condition (`plan-probes-the-locks-go/`); ruling 34 on its nine points | done | — |
 | the plan of `answers-in-a-log`, with three runs of its own (`plan-probes-answers-in-a-log/`); ruling 32 on its six points | done | — |
-| the build of `the-locks-go`, straight from its plan, by six sessions at once, each with files of its own (ruling 33) | running | — |
-| the build of `answers-in-a-log`, straight from its plan; it takes D's first numbers before it changes the module (ruling 23) | — | — |
-| the build of `the-rebuild`, with no plan of its own: its proof compares what it made with what the gates wrote, row by row | — | — |
+| the build of `the-locks-go`, straight from its plan, by six sessions at once, each with files of its own (rulings 33, 35) | done. Each proof passed in the hands of the session that owns it, on the settled source: act `{:test 8, :pass 162, :fail 0, :error 0}`, pure `{:test 19, :pass 651, :fail 0, :error 0}`, module `{:test 35, :pass 350, :fail 0, :error 0}`, door `{:test 20, :pass 239, :fail 0, :error 0}`, read path pure `{:test 12, :pass 152, :fail 0, :error 0}`, read path on the cluster `{:test 27, :pass 480, :fail 0, :error 0}`. The six on a clean checkout of the commit: `runs/after-the-locks-go-<proof>.txt` | `0d9ed0a6` |
+| the build of `answers-in-a-log`, straight from its plan, by sessions with files of their own: the streaming gate; the microbatch gate with the shared pure code and the module; the module's proof; the pure proof; the code that measures (`gate_measures.clj`) | running | — |
+| the build of `the-rebuild`, with no plan of its own: its proof compares what it made with what the gates wrote, row by row | the pure core and its proof are written, on hand-made logs: `{:test 5, :pass 24, :fail 0, :error 0}`. The reader of the logs and the comparison on the cluster are being written | — |
 | the review of the whole against the contract | — | — |
 | the measures of the contract's section D, on the final tree | — | — |
 | the receipt to Sid | — | — |
@@ -495,6 +514,16 @@ plans stand on, each run and not read:
     most, with the word `:value-too-large`; a permission is 32 deep at most on both roads; an act
     writes 18,874,368 bytes of text at most into its facts' rows, with the word `:act-too-large`.
 
+35. **How the first part was committed — builder's.** Its source compiled at the first load, and the
+    three proofs on the cluster passed while the proof of the pure code was still being written.
+    So that the next part did not wait for that one file, the build session staged the proven state
+    of every file of the first part, let the sessions of the next part start on the gates, and
+    committed the first part from the index when the last proof passed (`0d9ed0a6`). Three files of
+    that commit also hold, unused there, pure functions and two fields of the next part; the
+    commit's message says so. What makes the commit trustworthy is not the index: the six proofs
+    are run again on a detached checkout of the commit itself, and D's first numbers are taken on
+    that checkout, with the code that measures copied in beside it.
+
 ## For the receipt
 
 What the contract's last section asks the receipt to hold, gathered as the build goes.
@@ -533,3 +562,25 @@ What the contract's last section asks the receipt to hold, gathered as the build
   the whole worker again, and every record since the last written progress runs again (ruling 29).
 - Other sessions wrote in this tree while the build ran. See "Other sessions in this tree", above
   the rulings.
+- **Provisional, for Sid, from the sessions that built the first part.** Each chose so as not to
+  stop, and each is a small change to turn.
+  - The proof that no code of the store names a lock tests whether a word of a name begins with
+    lock, seal or stock. The plan's literal rule, a name that holds those letters, would fail on
+    `clock-record` and `$$batch-clock`. It found none in 15,063 names.
+  - A `:who` that throws when it is hashed ends at the door, with the door's word for an append that
+    Rama's client could not write, and not in a gate's refusal.
+  - The door's proof still sends `:sealed`, `:lock-id` and `:softland.store/lock-request`, as parts
+    that the form refuses.
+  - A check of the read path's proof has a new name, "the three things that a gate's write leaves at
+    a place", where it said four.
+  - The store's page and the door's page keep the numbers of three rules of the earlier contracts
+    that were about a lock (5, 21 and D3), each with one sentence, so that the numbering holds.
+  - The module's proof keeps one helper that the plan listed as going, rewritten for a maker's act.
+- **Provisional, for Sid, from the rebuild's session.** Two entries under one act-id that differ
+  give no row at all for that act-id, and the rebuild names it. A streaming task's last stamp
+  counts every entry on its partition, the named ones too. Where the plan's rule for a marked key
+  would miss a mark that was taken off earlier in a fact's own batch, the rebuild decides every act
+  of a batch with the marks as the batch began, as the gate does.
+- **Provisional, for Sid, from the session that wrote the measures.** "One by one" is a send and
+  then the wait for its answer. A second send goes through the door with its act-id given back. A
+  sender at a rate holds 2,000 sends at most.
