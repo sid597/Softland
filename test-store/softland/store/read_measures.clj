@@ -71,7 +71,11 @@
   {:full  {:acts 3000 :warm 500 :reads [1 100 1000] :canvas 5000 :runs 7 :dropped 2 :late-acts 500 :late-warm 20}
    :small {:acts 200 :warm 50 :reads [1 10 50] :canvas 600 :runs 3 :dropped 1 :late-acts 40 :late-warm 5}})
 
-(defonce ^:private round (atom nil))
+(defonce ^{:private true
+           :doc "What the run holds of its cluster, set once in `-main`: the door,
+  and the two read paths, `:read-path` and `:patient`, the second with a
+  wait of 120 s."}
+  round (atom nil))
 
 (defn- measured
   "Prints one line of what was measured."

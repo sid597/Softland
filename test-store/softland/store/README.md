@@ -9,7 +9,7 @@
 | [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the three reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts three functions of its own into the vars of three functions of the gate's pure code, and puts the store's back when that cluster is closed. Eleven atoms: the lines shown, the things sent to each depot, the first answers of each gate, the locks in hand, the bytes of each lock read, what later checks come back to, and, for the second cluster, the note of each attempt of a batch, the wish for a throw and each throw made. |
 | [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's six calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens five doors on the module. Four atoms: the lines shown, each result that a door gave, what later checks come back to, and the locks that the proof itself left outside every stock. |
 | [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) five pure namespaces: the form of a query and its check, the layers, the sources, the answer and the steps of a live read, the words; and the six functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
-| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts three functions of its own into the vars of three functions of the gate's pure code, and puts the store's back. It opens one door and four read paths on each. Seven atoms: the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of each attempt of a batch, whether a throw is asked, and how many were made. |
+| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts three functions of its own into the vars of three functions of the gate's pure code, and puts the store's back. It opens one door and four read paths on each; and on the first, two read paths more, each with one small number, for the group of the read path's own bound. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of each attempt of a batch, whether a throw is asked, and how many were made. |
 | [read_measures.clj](read_measures.clj) | Nothing: it is a run that is no proof. It measures the gates under acts, with and without live reads, the opening of a canvas, and how late a push is, and holds nothing to a number. | It starts one cluster in its own JVM and closes it. It opens one door and two read paths. It reads the clock and the heap. |
 
 ## The act's proof
@@ -931,7 +931,7 @@ clojure -M:store -m softland.store.read-path-pure-proof
 ```
 
 It runs on the alias that holds Clojure alone, so a pass also holds that the read
-path's five pure namespaces load with no Rama. It takes about a minute.
+path's five pure namespaces load with no Rama. It takes a few seconds.
 
 The tables are a value in this proof: a map from a gate and a table to a sorted
 map from a row's key to the row. A small function of the proof's own stands for a
@@ -1025,7 +1025,7 @@ Run it from the repository root:
 clojure -M:store-module -m softland.store.read-path-proof
 ```
 
-It takes about four minutes. The proof is the read path's one asker, played by
+It takes about a minute and a half. The proof is the read path's one asker, played by
 hand: no view, no screen, no tool and no agent asks. Each act goes in through the
 door, and each read goes through the read path's five calls. The checks run in
 one order on one cluster, and later checks build on the layers that earlier ones
@@ -1046,7 +1046,9 @@ What it checks, group by group:
    holds the value that an accepted act wrote, the layer, the fact id that the
    door's act-id and the fact's index make, and the stamp of the door's answer.
 4. The four things that a place can hold: no fact, a retract, a value as its
-   maker gave it, and bytes that are no value.
+   maker gave it, and bytes that are no value: once as text that is no form, and
+   once as bytes that are no text, which the gate keeps as U+0000 and a character
+   for each byte; the second also kept live.
 5. A part of a row is handed over only when the query asks: neither, the writer,
    both. For the system's making of a personal layer the two differ.
 6. The store's own facts are in no answer that did not ask for them. A place
@@ -1070,8 +1072,9 @@ What it checks, group by group:
     300 paths, whose values come in the paths' order.
 12. A very large run, on a read path that was opened with small numbers: a run of
     3, of 8 and of 12 places by its calls; a layer that she may not see; a whole
-    layer; a read that needs more checks than one read may; a source of a kind
-    that the read path builds no path for.
+    layer; a read that needs more checks than one read may; a run of 8 places
+    that is kept live and then grows past the number, which ends the read with
+    its word and why; a source of a kind that the read path builds no path for.
 13. A run across entities of the base, once and kept live: one push for each task;
     one write gives one change; a row that every task holds is given once.
 14. Each word kept live, for each gate: the answer now; an act inside gives one
@@ -1101,13 +1104,19 @@ What it checks, group by group:
     under the layer and a place under its entity. At each of these moments the
     read path's counts are the counts of its map's entries. And where one read
     kept live may need 1 check, a read that needs 2 is turned away before a
-    check is opened, and asked once it is given whole.
+    check is opened, and asked once it is given whole; and an open read that
+    comes to need 2 ends with its word and why.
 18. Nothing is shown that is not in the tables: a refused act at a watched place
     gives the asker nothing; each value that she was given is of an accepted act.
     When every asker has left, the read path's three maps are empty.
 19. Reads that fail: a select that throws, and one that does not come back; under
     an open read, an opening of a push that throws, and one that does not come
-    back; Rama ending a push; a function that throws. And 40 times, Rama's ending
+    back; Rama ending a push; a function that throws, and a thing that is no
+    function; `leave` of a thing that is no handle of this read path, and of
+    the handle of another read path's read. A value that Rama sends
+    anew after the first callback of a push: with the rows as they are the asker
+    is told nothing, and with one row that differs she is told that one place.
+    And 40 times, Rama's ending
     of a push while a read opens: either the read was not opened yet, `read-live`
     gives a word and the function is not called at all, or it was opened and the
     function is given the whole answer and then `{:ended}`; never `{:ended}`
@@ -1153,17 +1162,20 @@ close, for a while: to count the calls of a read (groups 2, 6, 11, 12, 16, 17, 2
 to keep each push that a read opened, and its callback (groups 16, 19); to make a
 select throw, and to make one never come back (group 19); to make the opening of
 a push throw, and to make one never come back (group 19). In group 19 the proof
-makes a diff of Rama's own class, the one with which Rama ends a push, and hands
-it to a push's callback: Rama itself ended no push in a run. It also puts a
+makes two diffs of Rama's own classes, the one with which Rama ends a push and
+the one with which it sends a value anew, and hands each to a push's callback:
+Rama itself ended no push in a run, and since a fact's row holds a String it
+sends a change as a diff of its own, so no check meets a value sent anew by
+Rama after the first callback. It also puts a
 function in the place of the read path's own function that makes the calls of one
 round, to count the rounds (group 11), and calls two private functions of the
 read path (group 12).
 
 ### What it changes outside the read path
 
-It appends to both depots through the door, and two things by its own hand in
-group 4: a request for one lock, and an act whose sealed bytes are no value of
-the form, since the door seals only a value. It selects one row with a handle of
+It appends to both depots through the door, and three things by its own hand in
+group 4: a request for two locks, and two acts whose sealed bytes are no value
+of the form, since the door seals only a value. It selects one row with a handle of
 its own in group 22, to find the task of a layer. It writes the base's setting to
 "members" and back in group 15. It starts the module again once, in group 26. It
 opens two more read paths in group 17, each with one small number. For
@@ -1174,8 +1186,10 @@ module's proof does, and puts them back.
 
 - A cluster of several machines, a network between the runtime and Rama, a move
   of a task's leader, a killed process, a restart of the runtime;
-- Rama ending a push by itself, and Rama leaving a reader out of a change: group
-  19 hands the read path the diff that Rama's pages name;
+- Rama ending a push by itself, and Rama leaving a reader out of a change and
+  sending the value anew: group 19 hands the read path the diff that Rama's
+  pages name for each. The value that it hands in with the second is the
+  proof's own, and the push's value stays what Rama holds;
 - the order in which two pushes call back: no check can force it on Rama. The
   pure proof plays every order on the pure functions; groups 14, 16 and 24 only
   make a crossing likely;

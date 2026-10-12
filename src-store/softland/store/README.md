@@ -74,7 +74,7 @@ The streaming gate takes the thing there, in one event:
    reads its shapes with [act.clj](act.clj)'s engine.
 4. [decision.clj](gate/decision.clj) checks the act against rows that the gate reads
    for it: its standing ([first_act.clj](gate/first_act.clj) knows the form of a making
-   act), which now also asks what the act's permission allows; its places; its
+   act), which also asks what the act's permission allows; its places; its
    seals ([seal.clj](door/seal.clj) opens each sealed value, and the plain bytes
    are kept for the fact's row).
 5. Only for an act that no check refused, and only when it holds a fact under a
@@ -361,7 +361,7 @@ lists its entries again, by file.
 | 5 | The tables keep a value plain | `opened` in [decision.clj](gate/decision.clj) gives the plain bytes that each lock opened; `fact-row` in [rows.clj](record/rows.clj) keeps them, as a String that gives the bytes back (`held-value`, `plain-bytes`), and names no lock. The act in the depot's log is as the door sent it, sealed |
 | 6 | For the keys that a layer marks, the gates keep the facts in one more order, by value | The store key `:softland.store/marked-keys`; `facts-by-value` in [tables.clj](record/tables.clj) and the PState that each gate declares with it; the key of that order, the two ends of a run and the value digest in [rows.clj](record/rows.clj); `writes` in [decision.clj](gate/decision.clj). For a read: the four words of a query in [query.clj](read_path/query.clj), and what each reads in one layer in [sources.clj](read_path/sources.clj) |
 | 7 | From a fact, a read can get who wrote it, and under which permission | The fields `:who` and `:permission` of a fact's row, and of a row of the facts by value, in [rows.clj](record/rows.clj). For a read: `place-answer` in [answer.clj](read_path/answer.clj) puts either in only when the query asked |
-| 8 | The base's second is fine. The base stays a microbatch layer | The base is decided in batches, as before. What the read build does with that is a session's reading, which he did not strike: a row of the base that a task shows is the row that every attempt of its batch makes, because each batch's clock is kept across its attempts ("The clock of a batch", below); and a place holds one row, its current fact, so a select of a place that holds a fact never gives nothing. The read path reads a row of the base straight, as it reads a row of a streaming layer |
+| 8 | The base's second is fine. The base stays a microbatch layer | The base is decided in batches, by the microbatch gate. What the read build does with that is a session's reading, which he did not strike: a row of the base that a task shows is the row that every attempt of its batch makes, because each batch's clock is kept across its attempts ("The clock of a batch", below); and a place holds one row, its current fact, so a select of a place that holds a fact never gives nothing. The read path reads a row of the base straight, as it reads a row of a streaming layer |
 
 ## Engineering choices
 
@@ -371,9 +371,10 @@ Each is the builder's, with its reason. None is a decision of Sid's.
 `softland.store.module`. It has its own alias, `:store-module`; the reason is in
 [the store source entry](../../README.md).
 
-**The one change of `act.clj`.** Its engine takes the map of shapes, and
-`as-shape` gives the engine to another namespace. So the door's declaration is
-data that the same engine reads. The leaves and the nesting limits stay
+**`act.clj` gives its engine to other namespaces.** Its engine takes the map of
+shapes, and `as-shape` gives the engine to another namespace. So the door's
+declaration, and the check of a query in the read path, are data that the same
+engine reads. The leaves and the nesting limits stay
 `act.clj`'s own. No leaf fits a run of bytes, so a fact's `:sealed` is set aside
 from the engine's pass and held by two rules in code.
 
@@ -400,8 +401,8 @@ layer's marked keys, is paid by every accepted act with a fact under a plain
 key, also in a layer that marks no key: a gate must know whether the key is
 marked where it writes the fact, and no row that such an act already reads is
 the layer's. An act with no fact under a plain key, a request for locks, a
-give, a setting or a list, reads what it read before. A refused act reads
-nothing more: no check reads the marked keys. Keeping the marks in memory
+give, a setting or a list, reads no marked keys. A refused act reads none
+either: no check reads the marked keys. Keeping the marks in memory
 between two events would be a cache, which the project's rule sends to its own
 examination. A form that would give 4 reads again was found and not taken: one
 row for each streaming layer that holds the layer's last stamp and its marks. It
@@ -418,7 +419,8 @@ one rule of the declaration and the key that the gate reads.
 `allows` is `:see` or `:see-and-act`; a first permission has no slot. Without the
 slot a permission reads as "see and act" (`allows` in [act.clj](act.clj)). The
 row of a permission holds the text of the whole permission, slot and all, and
-check (d) stays one read and a comparison of bytes: so nobody raises her right
+check (d) stays one read and one comparison, of that text with the text of the
+permission that the act names: so nobody raises her right
 by naming it, and each act in the log says under which right it was made. The
 check stands with the standing, before any place is read. A making act names a
 first permission, so one whose permission has the slot is no making act and is
@@ -639,7 +641,7 @@ So the clock is kept before the first stamp is made from it, and before any task
 can show a row of the batch. Why the row is not in the gate's own PStates: Rama
 sets those back when an attempt fails. Why it is not in the memory of a process:
 a restart of a worker is one cause of a second attempt. Why a topology of its
-own, where the module had one stream topology: as a second source of the
+own, beside the streaming gate's: as a second source of the
 streaming gate, every batch of the base would wait in that gate's queue on one
 task, and a streaming layer that is stuck there would stop the base. The depot
 and its one used partition, the row and the topology's event are all on the
@@ -692,7 +694,7 @@ home, where the row names the fact. When the home is also the value's task, the
 two rows have one key and the whole row is the one that stays: a task writes
 each home's row before any row with bytes. **Sid should know three things.**
 `locks-of-request` gives a lock of a microbatch layer with its bytes only while
-it seals nothing. The fact's row no longer gives the key of its lock: the whole
+it seals nothing. The fact's row gives no key of its lock: the whole
 row of a lock that seals a value is found from the act in the depot, which holds
 the fact's lock id and the fact's entity. And the home's row still costs about
 105 bytes for each used lock.
@@ -822,7 +824,11 @@ check that examines facts takes them in the act's order.
     read build: a layer builds on 64 layers at most, and marks 32 keys at most.
 21. The aims: 1,000 acts a second on one task; 20 ms from the door's append to the
     answer in the door's hand; 110 bytes of lock or fewer for each value. None is
-    measured. By the cost of a cold read, the 5 reads of one accepted act give
+    measured on a cluster with a disk and a network. The measures of the read
+    build time a gate under 100 acts a second on the in-process cluster, with
+    every row in memory ([the proofs' map](../../../test-store/softland/store/README.md),
+    "The measures"); that is a floor for a round trip and no measure of an aim.
+    By the cost of a cold read, the 5 reads of one accepted act give
     384 to 616 acts a second on one task, and the 6 of an act under a marked key
     320 to 513; the first aim is met only when the rows are read from memory. With
     a lock of 32 bytes for each value, the third does not hold for values that

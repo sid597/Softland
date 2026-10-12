@@ -55,9 +55,9 @@
   reads one; it reads `rules` too. `softland.store.door.text` asks
   `readable-keyword?`. The proof's hand, which plays the door, asks
   `normal-value`. The door's additions (`softland.store.door.additions`) ask
-  `value?` and `normal-value`. The gates' checks
-  (`softland.store.gate.decision`, `softland.store.gate.batch`) ask `allows`
-  of the permission that an act names, and the record's rows
+  `value?` and `normal-value`. The standing of an act
+  (`softland.store.gate.decision/standing`, which both gates call) asks
+  `allows` of the permission that the act names, and the record's rows
   (`softland.store.record.rows`) ask `value?`, `normal-value` and
   `has-shape?` when they read a row back.
 
@@ -480,8 +480,9 @@
   `:see-and-act` for a permission with three or four slots. So a permission
   that was given before the slot existed reads as \"see and act\", and this
   is the one place where that is code. A gate refuses an act under a
-  permission that allows `:see`; a read asks this of the permission of
-  whoever asks.
+  permission that allows `:see`. The read path does not ask it: any
+  permission that is there allows seeing
+  (`softland.store.read-path.layers/standing`).
 
   What must hold: the thing has the shape `:permission-id`. It never throws:
   anything that is no vector of five slots gives `:see-and-act`, so a caller

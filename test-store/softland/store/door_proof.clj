@@ -90,7 +90,10 @@
            [java.util.concurrent Semaphore]
            [softland.store.door Door]))
 
-(defonce ^:private shown-lines (atom []))
+(defonce ^{:private true
+           :doc "The lines that the proof has printed with SHOWN, in order, for the
+  recap that `-main` prints at the end."}
+  shown-lines (atom []))
 
 (defn- shown
   "Prints one line of what the proof observed, and keeps it for the recap
@@ -121,9 +124,20 @@
 
 (defrecord Thing [e k])
 
-(defonce ^:private results (atom []))
-(defonce ^:private kept (atom {}))
-(defonce ^:private outside-the-stocks (atom []))
+(defonce ^{:private true
+           :doc "Each result that a call of the door gave the proof, in order: what
+  the check over the whole run goes through."}
+  results (atom []))
+
+(defonce ^{:private true
+           :doc "What one group of checks hands to a later one, by name."}
+  kept (atom {}))
+
+(defonce ^{:private true
+           :doc "The locks that the store made and that are in no stock of the
+  door's, each count with why: what the count of every lock over the whole
+  run adds to the stocks' own."}
+  outside-the-stocks (atom []))
 
 (defn- noted
   "Keeps a result that a door gave the proof, for the check that no result

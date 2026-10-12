@@ -465,8 +465,8 @@
   it, since `check` stops at the first that is broken.
 
   The maker's rule is written here a second time, one line: its code is
-  private to `act.clj`, which this build changes in one place only. Its name
-  and its word are read from `softland.store.act/rules`."
+  private to `act.clj`. Its name and its word are read from
+  `softland.store.act/rules`."
   {:permission-is-in-the-acts-layer
    (fn [act] (= (:layer act) (nth (:permission act) 1)))
 

@@ -83,8 +83,9 @@
   costs 4 reads at most, whatever it carries, and an act into the base on
   this depot 6 at most. One accepted act with one sealed value costs 5 reads
   and 4 row writes: the answer, the permission, the lock, the marked keys,
-  the last stamp. That is one read more than before the facts by value were
-  kept, also in a layer that marks no key. When the fact's key is marked it
+  the last stamp. The read of the marked keys is paid by every accepted act
+  that holds a fact under a plain key, also in a layer that marks no key.
+  When the fact's key is marked it
   costs 6 reads, and with them the row before, and 5 row writes, or 6 when
   the entry of a value before goes out. An act with no fact under a plain
   key, a request for locks, a give, a setting or a list, reads no marked

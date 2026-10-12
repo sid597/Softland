@@ -68,9 +68,11 @@ words. The read path stands on the section of 11 and 12 October 2026, by entry:
 | 2 | A layer says which layers it builds on; a view may give another list; the nearest layer that holds a fact wins, also with "nothing here" | The order of the layers, in [layers.clj](layers.clj); the walk of a place, in [answer.clj](answer.clj) |
 | 3 | A read is done in the runtime, straight from the tables, with Rama's push, and the pushed value is no cache | [read_path.clj](../read_path.clj): it reads the gates' tables with a select or a push, shares one push among those who look at the same thing, and holds no value of its own |
 | 4 | Only programs on machines that Sid runs may reach Rama's ports | The read path is trusted with the whole store: Rama sends it whole rows, and it hands a caller only what she may see and asked for |
+| 5 | The tables keep a value plain | The read path reads a value from its row and opens no lock: it holds no handle of the locks, and no query of the door's |
 | 6 | A query is written as data and made of a few words; one more order for the keys that a layer marks | The four words, in [query.clj](query.clj); "what points at a thing" reads the facts by value, in [sources.clj](sources.clj) |
 | 7 | From a fact, a read can get who wrote it, and under which permission | A place-answer holds either only when the query asked, in [answer.clj](answer.clj) |
 | 8 | The base's second is fine | A row of the base is read straight, as a row of a streaming layer is |
+| 9 | The other sheet comes after this build | The read path keeps no record of who read what, and nothing of a read |
 
 The rest by pointer: the store's keys and their namespace (8 and 9 October),
 the depot that a layer starts with (7 October), and the form of an id and of a
@@ -325,6 +327,7 @@ others are.
 | `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |
 | `:reads`, with `:query`, `:tell`, `:turn`, `:sources`, `:opened?`, `:owed?`, `:task-routing-ids` | What the read path holds for each live read: its query, its function, its turn, the sources that it holds, whether it is opened, whether the whole answer is owed, and the routing ids of the tasks as they were when it opened |
 | `:whole`, `:first`, `:count`, `:size` | The step of a read for which a path is made: the row or the run itself; the first read of a run; its count; its size |
+| `:ok`, `:refuse` | What the check of a query gives: the query in its one form, or the word with which it is turned away, beside `:at`. The form is that of the act's check |
 | `:put`, `:out`, `:all` | What a diff names: a key that was put, a key that went out, or no key |
 | `:own-close`, `:ended-by-the-store`, `:anew`, `:change` | The kind of a diff: the last call of a push that the read path closed; Rama ending a push; a whole value sent anew; a change |
 | `:push`, `:word`; `:late`, `:no-path`; `:returned`, `:threw` | What an opening ended in; two outcomes of a wait and of a call that was not made; and whether an asker's function returned or threw |

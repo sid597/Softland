@@ -344,8 +344,8 @@
   the row at `marked-keys-place`: the act holds a fact under a plain key,
   which may be a marked one, or a fact under `:softland.store/marked-keys`,
   whose row before gives the stamps that its keys keep. False for a request
-  for locks, a give, a making act, a setting and a list, which read nothing
-  more than before."
+  for locks, a give, a making act, a setting and a list: none of them reads
+  the marked keys."
   [act]
   (boolean (some (fn [fact]
                    (or (= :softland.store/marked-keys (:k fact))

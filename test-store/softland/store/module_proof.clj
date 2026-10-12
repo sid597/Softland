@@ -96,7 +96,10 @@
             [softland.store.door.text :as text])
   (:import [java.util UUID]))
 
-(defonce ^:private shown-lines (atom []))
+(defonce ^{:private true
+           :doc "The lines that the proof has printed with SHOWN, in order, for the
+  recap that `-main` prints at the end."}
+  shown-lines (atom []))
 
 (defn- shown
   "Prints one line of what the proof observed, and keeps it for the recap
@@ -134,13 +137,44 @@
   `-main` binds it for the run on each cluster."
   nil)
 
-(defonce ^:private things-sent (atom []))
-(defonce ^:private first-answers (atom []))
-(defonce ^:private locks-in-hand (atom {}))
-(defonce ^:private kept (atom {}))
-(defonce ^:private base-things-sent (atom []))
-(defonce ^:private base-answers (atom []))
-(defonce ^:private lock-bytes-read (atom #{}))
+(defonce ^{:private true
+           :doc "Each thing that the hand appended to the streaming depot, in the
+  order sent: what the depot's log is held against."}
+  things-sent (atom []))
+
+(defonce ^{:private true
+           :doc "The first answer that the hand read for each act-id of a streaming
+  layer, in the order sent, with its layer and its stamp: what the check of
+  the stamps goes through."}
+  first-answers (atom []))
+
+(defonce ^{:private true
+           :doc "The locks that the hand has read and not yet used, by layer, each
+  with its lock id."}
+  locks-in-hand (atom {}))
+
+(defonce ^{:private true
+           :doc "What one group of checks hands to a later one, by name: rows and
+  answers as they were before the module is started again, and the pairs
+  that the reads of the base are held to."}
+  kept (atom {}))
+
+(defonce ^{:private true
+           :doc "Each thing that the hand appended to the microbatch depot, in the
+  order sent: its count is what the wait for a batch waits for, and the
+  depot's log is held against it."}
+  base-things-sent (atom []))
+
+(defonce ^{:private true
+           :doc "The answers that the hand read in the base, in groups, each group
+  the acts whose answers were read together."}
+  base-answers (atom []))
+
+(defonce ^{:private true
+           :doc "The bytes of each lock that a read of locks gave the hand, as hex:
+  what the depots' logs are searched for, to hold that no lock's bytes are
+  on a depot."}
+  lock-bytes-read (atom #{}))
 
 (defn- open-hand
   "Takes the cluster. Gives the handles that the hand works with."

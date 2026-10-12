@@ -14,8 +14,8 @@
   screen, no tool and no agent asks. Each read of this proof goes through
   the read path's five calls, and each act goes in through the door, with
   one exception: for the bytes that are no value of the form, the proof's
-  own hand asks for a lock, seals the bytes and appends the thing itself,
-  since the door seals only a value.
+  own hand asks for two locks, seals the bytes and appends each thing
+  itself, since the door seals only a value.
 
   What it reads round the read path. For what no call shows, the proof reads
   the read path's own memory, its three maps, from the field of its type: to
@@ -64,7 +64,10 @@
   read paths on the module: the read path of most checks; one with small
   numbers, for the checks of a run's size; one whose wait is 300 ms; and one
   for the checks that count pushes, so that no other check's push is in its
-  maps. It owns atoms: the lines that it showed, each permission that it
+  maps. The group of the read path's own bound opens two more, each with
+  one small number: one that may hold 3 pushes on one table under one
+  routing id, and one whose live reads may need 1 check. It owns atoms: what
+  it holds of the cluster, the lines that it showed, each permission that it
   made, each thing that the door sent, and each live read that it opened.
   Near the end it starts the module again in the cluster, by Rama's module
   update with the unchanged module; Rama then prints some lines of its own
@@ -86,12 +89,15 @@
             [softland.store.read-path.query :as query]
             [softland.store.read-path.sources :as sources]
             [softland.store.record.rows :as rows])
-  (:import [com.rpl.rama.diffs UngracefulTerminationDiff]
+  (:import [com.rpl.rama.diffs ResyncDiff UngracefulTerminationDiff]
            [java.util UUID]
            [java.util.concurrent CompletableFuture CountDownLatch]
            [softland.store.read_path ReadPath]))
 
-(defonce ^:private shown-lines (atom []))
+(defonce ^{:private true
+           :doc "The lines that the proof has printed with SHOWN, in order, for the
+  recap that `-main` prints at the end."}
+  shown-lines (atom []))
 
 (defn- shown
   "Prints one line of what the proof observed, and keeps it for the recap
@@ -112,12 +118,28 @@
 
 (def ^:private tasks "The number of tasks of the proof's cluster." 4)
 
-(defonce ^:private round
+(defonce ^{:private true
+           :doc "What the proof holds of the cluster that it runs on, set by
+  `open-round!`: the cluster, the module's name, the door, the proof's read
+  paths, and the three handles of the proof's own hand."}
+  round
   (atom nil))
 
-(defonce ^:private permissions (atom {}))
-(defonce ^:private sent-things (atom {}))
-(defonce ^:private live-reads (atom []))
+(defonce ^{:private true
+           :doc "The permission that the proof made for each who in each layer, by
+  [who layer]: what `act!` sends an act under."}
+  permissions (atom {}))
+
+(defonce ^{:private true
+           :doc "What the door gave for each act that the proof sent, by act-id: the
+  digest with which the door's answer is read again."}
+  sent-things (atom {}))
+
+(defonce ^{:private true
+           :doc "Every live read that the proof opened with `live`, in order, each
+  with the notes of its function's calls: what the check of the first thing
+  that a function is given goes through."}
+  live-reads (atom []))
 
 (defn- open-round!
   "Takes the cluster. Opens the door and the read paths of the proof, and
@@ -519,9 +541,10 @@
         hand {:version 1 :who :alice :layer :main :permission (perm :alice :main) :session :read-path-proof}
         _ (rama/foreign-append! (:streaming-depot @round)
                                 (merge hand {:act-id request-id :depot :streaming
-                                             :facts [{:e (nth request-id 2) :k :softland.store/lock-request :v 1}]})
+                                             :facts [{:e (nth request-id 2) :k :softland.store/lock-request :v 2}]})
                                 :ack)
-        lock (get (rama/foreign-invoke-query (:locks @round) (rows/routing-id request-id) request-id 0 0) 0)
+        locks (rama/foreign-invoke-query (:locks @round) (rows/routing-id request-id) request-id 0 1)
+        lock (get locks 0)
         raw-id [:main :streaming (UUID/randomUUID)]
         _ (rama/foreign-append! (:streaming-depot @round)
                                 (merge hand {:act-id raw-id :depot :streaming
@@ -529,7 +552,19 @@
                                                       :sealed (seal/seal lock [:main :raw :text] (.getBytes "(no value of the form" "UTF-8"))
                                                       :lock-id [request-id 0]}]})
                                 :ack)
-        place (fn [e] (:place (ask {:asks [:place e :text] :asker :alice :layers [:main]})))]
+        ;; and bytes that are no text at all: a gate keeps them as U+0000 and a character for each byte
+        no-text (byte-array [(byte -1) (byte -2) (byte 0) (byte 65)])
+        no-text-id [:main :streaming (UUID/randomUUID)]
+        _ (rama/foreign-append! (:streaming-depot @round)
+                                (merge hand {:act-id no-text-id :depot :streaming
+                                             :facts [{:e :raw-bytes :k :text
+                                                      :sealed (seal/seal (get locks 1) [:main :raw-bytes :text] no-text)
+                                                      :lock-id [request-id 1]}]})
+                                :ack)
+        place (fn [e] (:place (ask {:asks [:place e :text] :asker :alice :layers [:main]})))
+        no-text-live (live {:asks [:place :raw-bytes :text] :asker :alice :layers [:main]})
+        no-text-now (:place (:now no-text-live))
+        _ (leave! no-text-live)]
     (check "a place with no fact" {:holds :no-fact} (place :nobody))
     (check "a place whose current fact is a retract: nothing here, with the layer, the fact and the stamp of the retract"
            {:holds :nothing-here :layer :main :fact [(:act-id retract) 0] :stamp (:stamp retract)} (place :gone))
@@ -537,6 +572,9 @@
            values (into {} (for [e (keys values)] [e (:value (place e))])))
     (check "bytes that are no value of the form, which the proof's own hand sealed and appended: the place says so, and the read does not throw"
            [:not-a-value :main [raw-id 0]] ((juxt :holds :layer :fact) (place :raw)))
+    (check "bytes that are no text at all, sealed and appended by the same hand, which the gate keeps as U+0000 and a character for each byte: asked once and kept live the place says that they are no value, with its layer and its fact, and holds no :value; no read throws"
+           [[:not-a-value :main [no-text-id 0] false] [:not-a-value :main [no-text-id 0] false]]
+           (mapv (fn [a] [(:holds a) (:layer a) (:fact a) (contains? a :value)]) [(place :raw-bytes) no-text-now]))
     (shown "the four things that a place can hold are told apart: no fact" (pr-str (place :nobody))
            "| a retract" (pr-str (:holds (place :gone))) "| a value as its maker gave it, of four kinds, the longest of 60,000 characters"
            "| bytes that are no value" (pr-str (:holds (place :raw))) "(appended by the proof's own hand; the door seals only a value)")))
@@ -792,6 +830,12 @@
         _ (put! :alice :c12f (mapv #(fact (keyword (str "c-" %)) :parent :canvas-1) (range 7)))
         seven (counted {:asks [:points-at :parent :canvas-1] :asker :alice :layers [:c12n :c12f]})
         live-large (read-path/read-live small {:asks [:entity :r12] :asker :alice :layers [:sized]} (fn [_] nil))
+        ;; a run of 8 places opens, and then grows to 11 under the open read
+        grows (live small {:asks [:entity :r08] :asker :alice :layers [:sized]})
+        opened-with (count (:places (:now grows)))
+        _ (put! :alice :sized (mapv #(fact :r08 (keyword (format "g%02d" %)) %) (range 3)))
+        grew (wait-until #(some :ended (changes grows)))
+        after-it-grew [(read-path/open-count small) (leave! grows)]
         unknown {:gate :streaming :table :facts :layer :sized :routing-id :sized :path [:whole-table]}
         no-path (counting (fn [] [(#'read-path/path-of unknown (query/numbers nil) :whole)
                                   (#'read-path/select-async small unknown (#'read-path/path-of unknown (query/numbers nil) :whole))
@@ -811,6 +855,10 @@
     (check "kept live, the same run of 12 places ends in the word and holds no push"
            [{:could-not :serve-a-read-that-large :what :places-of-one-run :most 10} {:live-reads 0 :pushes 0}]
            [(select-keys live-large [:could-not :what :most]) (read-path/open-count small)])
+    (check "a run of 8 places is kept live, and then an act takes it to 11, one more than one read may hold: the read ends with the word and why, and holds nothing"
+           [8 {:ended {:could-not :keep-the-read-live :because :a-run-grew-too-large :what :places-of-one-run :most 10}}
+            [{:live-reads 0 :pushes 0} :not-open]]
+           [opened-with (when grew (last (changes grows))) after-it-grew])
     (check "a source of a kind that the read path builds no path for, and a step that it does not know: no path, and no call is made"
            [[nil [:no-path] nil] 0] [(:result no-path) (:selects no-path)])
     (shown "a run is bounded before it is read whole, by the calls of Rama's select: a run of 3 places" (first run-3) "call; of 8 places" (first run-8)
@@ -1201,7 +1249,16 @@
         ;; the checks of one read that is kept live
         one-check (read-path/open ipc m {:max-checks-of-one-live-read 1})
         asked-once (ask one-check points)
-        kept-live (counting #(read-path/read-live one-check points (fn [_] nil)))]
+        kept-live (counting #(read-path/read-live one-check points (fn [_] nil)))
+        ;; an open read whose checks come to be more than one live read may need
+        _ (doseq [layer [:n88 :f88]] (make! layer :alice))
+        _ (mark! :f88 :alice #{:parent})
+        _ (put! :alice :f88 [(fact :block-1 :parent :canvas-88)])
+        outgrows (live one-check {:asks [:points-at :parent :canvas-88] :asker :alice :layers [:n88 :f88]})
+        opened-with (count (:places (:now outgrows)))
+        _ (put! :alice :f88 [(fact :block-2 :parent :canvas-88)])
+        outgrown (wait-until #(some :ended (changes outgrows)))
+        after-outgrown [(read-path/open-count one-check) (held one-check) (leave! outgrows)]]
     (check "a read path that may hold 3 pushes on one table under one routing id: one live read of a place in a members layer holds 3 there, the layer's own rows, her permission and the place; the count is the count of the map's entries"
            [{:live-reads 1 :pushes 3} {[:streaming :facts :p87] 3} true] full)
     (check "a live read of another place of that layer needs one push more: it is turned away at once with the read path's own word, which carries what was too many and the bound; no push was opened for it and none closed"
@@ -1234,6 +1291,10 @@
     (check "the checks of one read that is kept live have a number of their own: where one such read may need 1 check, what points at a thing with two places in the farther order is given whole when asked once, and kept live it is turned away with the word; 5 pushes were opened, for the rights of the two layers and the one order, none for a check, and each was closed"
            [2 {:could-not :serve-a-read-that-large :what :checks-of-one-read :most 1} 5 5 {:live-reads 0 :pushes 0}]
            [(count (:places asked-once)) (:result kept-live) (:opens kept-live) (:closes kept-live) (read-path/open-count one-check)])
+    (check "where one read kept live may need 1 check: a read of what points at a thing opens with one place in the farther order, so with one check; a second place comes into that order, so it comes to need two: the read ends with the word and why, and holds nothing"
+           [1 {:ended {:could-not :keep-the-read-live :because :a-run-grew-too-large :what :checks-of-one-read :most 1}}
+            [{:live-reads 0 :pushes 0} {:pushes {} :counts {} :reads {}} :not-open]]
+           [opened-with (when outgrown (last (changes outgrows))) after-outgrown])
     (shown "the read path's own bound on its pushes, with 3 for one table under one routing id: a read that needs one more is turned away with"
            (pr-str (:result turned-away)) "after" (:opens turned-away) "openings of a push; a read asked once of the same place still answers; a second reader of an open thing is not counted again"
            "| eight threads at once, 20 times: each time one opened and seven were turned away"
@@ -1292,6 +1353,28 @@
         _ ((:callback-fn (:options (last (:opened kept)))) nil (UngracefulTerminationDiff. (ex-info "the proof made this diff" {})) nil)
         store-ended (wait-until #(some :ended (changes ended-read)))
         after-store-ended [(read-path/open-count (the-rp)) (leave! ended-read)]
+        ;; a value that Rama sends anew, after the first callback of a push: the proof makes Rama's own
+        ;; diff for it and hands it to the callback of a run's push, once with the rows as they are and
+        ;; once with one row that differs
+        _ (put! :alice :l19 [(fact :sheet :a 1) (fact :sheet :b 2)])
+        kept-anew (keeping-pushes #(live {:asks [:entity :sheet] :asker :alice :layers [:l19]}))
+        anew-read (:result kept-anew)
+        key-a (rows/place-key :l19 :sheet :a)
+        run-push (first (filter (fn [{:keys [push]}]
+                                  (let [value @(.get ^CompletableFuture push)]
+                                    (and (map? value) (contains? value key-a))))
+                                (:opened kept-anew)))
+        run-value (when run-push @(.get ^CompletableFuture (:push run-push)))
+        sent-anew (when run-push
+                    (let [callback (:callback-fn (:options run-push))
+                          before (count (later anew-read))
+                          _ (callback run-value (ResyncDiff.) run-value)
+                          after-the-same (count (later anew-read))
+                          differs (update run-value key-a update :stamp inc)
+                          _ (callback differs (ResyncDiff.) run-value)
+                          told (subvec (later anew-read) after-the-same)]
+                      {:before before :after-the-same after-the-same :told told}))
+        _ (leave! anew-read)
         ;; Rama ends a push of a read while the read opens, 40 times. The proof hands the ending diff to the
         ;; callback of the read's first push on a thread of its own, some moments after that push was opened,
         ;; as Rama would: never from inside a call of the read path.
@@ -1331,7 +1414,16 @@
         after-thrown [(read-path/open-count (the-rp)) (read-path/leave (the-rp) (:leave-with thrower))]
         first-call-throws (read-path/read-live (the-rp) query (fn [_] (throw (ex-info "the proof's function throws at once" {}))))
         after-first [(some? (:now first-call-throws)) (read-path/leave (the-rp) (:leave-with first-call-throws))
-                     (read-path/open-count (the-rp))]]
+                     (read-path/open-count (the-rp))]
+        ;; a thing that is no function, where a function is taken; and a thing that is no handle of this read path
+        no-function (mapv (fn [thing]
+                            (let [got (read-path/read-live (the-rp) query thing)]
+                              [(= (ask query) (:now got)) (read-path/leave (the-rp) (:leave-with got)) (read-path/open-count (the-rp))]))
+                          [nil 5 "a function"])
+        elsewhere (live (:short @round) query)
+        no-handle (mapv #(read-path/leave (the-rp) %) [nil 5 "a handle" {:leave-with 1} (:leave-with elsewhere)])
+        still-open-elsewhere (read-path/open-count (:short @round))
+        left-elsewhere (leave! elsewhere)]
     (check "a select that throws: the word :reach-the-store, with what Rama's client threw; the call does not throw"
            [:reach-the-store "clojure.lang.ExceptionInfo"] ((juxt :could-not :threw) threw))
     (check "a select that does not come back within a wait of 300 ms: the word, and the call returns after about that long"
@@ -1347,6 +1439,12 @@
     (check "Rama ends a push, by the diff that its pages name, handed to the push's callback by the proof: each read on it ends with the word and why"
            [[:keep-the-read-live :the-store-ended-a-push] [{:live-reads 0 :pushes 0} :not-open] true]
            [((juxt :could-not :because) store-ended) after-store-ended (some? place-push)])
+    (check "a value that Rama sends anew after the first callback of a push, by Rama's own diff for it, made by the proof and handed to the callback of a run's push that holds two places: with the rows as they are, the asker is told nothing; with one row that differs, she is told that one place, with what the read gives there, and not the other, and no whole answer"
+           [true [0 0] [[[:sheet :a]]] [1]]
+           [(some? run-push)
+            [(:before sent-anew) (:after-the-same sent-anew)]
+            (mapv (comp vec keys :changed) (:told sent-anew))
+            (mapv (fn [change] (get-in change [:changed [:sheet :a] :value])) (:told sent-anew))])
     (check "40 times, Rama's ending diff is handed to the callback of a read's first push while the read opens, on another thread. Each time one of two things holds, and no other: the read was not opened yet, read-live gives a word, and the function was not called at all; or the read was opened, the function was given the whole answer first and then {:ended}. Never {:ended} before the answer, and never {:ended} alone. Nothing is held afterwards"
            (repeat 40 true)
            (map (fn [{:keys [opened? word calls first-is-the-answer? because held]}]
@@ -1360,11 +1458,17 @@
            [((juxt :could-not :because) thrown) after-thrown])
     (check "a function that throws at its first call: read-live still gives the answer, the read is ended, and its handle is not open"
            [true :not-open {:live-reads 0 :pushes 0}] after-first)
+    (check "a thing that is no function, where read-live takes a function, is as a function that throws at its first call, for nil, a number and a string: read-live gives the answer, the handle is not open, nothing is held, and no call throws"
+           (repeat 3 [true :not-open {:live-reads 0 :pushes 0}]) no-function)
+    (check "leave of a thing that is no handle of this read path gives :not-open and does not throw: nil, a number, a string, a map, and the handle of a read of another read path, which stays open there until it is left there"
+           [(repeat 5 :not-open) 1 :left] [no-handle (:live-reads still-open-elsewhere) left-elsewhere])
     (shown "reads that fail, each with a function of the proof's in the place of a call of Rama's client: a select that throws gives" (pr-str (:could-not threw))
            "| one that never comes back gives" (pr-str (first late)) "after" (second late) "ms")
     (shown "under an open read: an opening that throws ends the read with" (pr-str (select-keys (first open-threw) [:could-not :because]))
            "| one that never comes back ends it after its wait, on the thread" (nth open-late 3)
            "| an UngracefulTerminationDiff of Rama's class, made by the proof and handed to the callback, ends it with" (pr-str (:because store-ended))
+           "| a ResyncDiff of Rama's class, made by the proof and handed to the callback of a run's push: with the same rows the asker was told"
+           (- (:after-the-same sent-anew) (:before sent-anew)) "things, with one row that differs" (count (:told sent-anew)) "change, of the places" (pr-str (mapv (comp vec keys :changed) (:told sent-anew)))
            "| the same diff while a read opened, 40 times:" (count (remove :opened? crossings)) "times the read was not opened yet, read-live gave a word and the function was not called;"
            (count (filter :opened? crossings)) "times it was opened, and the function was given the answer and then {:ended}"
            "| a function that throws ends it with" (pr-str (:because thrown)) "| no call threw, and after each the read path held no push")))

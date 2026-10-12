@@ -38,8 +38,10 @@
 
   An answer is a plain map (`softland.store.read-path.answer`). A word is
   one of the read path's own eight (`softland.store.read-path.words`): a
-  map that holds `:could-not`. No call throws for what a caller gave or for
-  what Rama did, and a read that failed has never said \"no fact\". Every
+  map that holds `:could-not`. No call throws for a query, a function or a
+  handle that a caller gave, or for what Rama did, and a read that failed
+  has never said \"no fact\". What must hold: the first thing that a call
+  is given is a read path that `open` gave. Every
   wait for Rama has the read path's own bound, `:wait-ms`. The read path
   tries nothing a second time by itself: the caller asks again.
 
@@ -1375,7 +1377,9 @@
 
   What the function must not do, and what a slow function holds back, is
   in the namespace docstring. It must return at once. It may call `leave`.
-  A call of `read-once` or `read-live` from inside it is turned away.
+  A call of `read-once` or `read-live` from inside it is turned away. A
+  thing that is no function is as a function that throws at its first
+  call.
 
   What it follows. Every fact that shapes the read, each by a push that
   those who need it share: the layer's own rows (whether it is made, who

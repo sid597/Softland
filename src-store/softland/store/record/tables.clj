@@ -72,8 +72,8 @@
   Why flat maps and not one PState keyed by the layer. An answer is found
   by an act's uuid, a fact by its place, a lock by its id: they share no
   key. With the layer as the top-level key and three subindexed maps
-  under it, each row would cost two seeks to read and one more to write;
-  the decision of one common act would cost 6 to 8 seeks, against 4 here.
+  under it, each row would cost two seeks to read and one more to write,
+  where each costs one here.
   A row is placed by the task on which its gate writes it, not by a hash of
   its whole key. So nothing may route by a whole key. The streaming gate
   writes each row of a layer on the layer's task, and each read of a

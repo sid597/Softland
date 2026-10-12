@@ -74,7 +74,10 @@
            [java.security MessageDigest]
            [java.util UUID]))
 
-(defonce ^:private shown-lines (atom []))
+(defonce ^{:private true
+           :doc "The lines that the proof has printed with SHOWN, in order, for the
+  recap that `-main` prints at the end."}
+  shown-lines (atom []))
 
 (defn- shown
   "Prints one line of what the proof observed, and keeps it for the recap
