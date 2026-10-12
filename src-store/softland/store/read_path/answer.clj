@@ -38,9 +38,13 @@
     {:holds :value :value v :layer l :fact f :stamp s} the nearest fact, with
                                                        its value as its
                                                        maker gave it
-    {:holds :not-a-value :layer l :fact f :stamp s}    the nearest fact's
-                                                       bytes are no value of
-                                                       the form
+    {:holds :not-a-value :layer l :fact f :stamp s}    the nearest row's
+                                                       String is the text of
+                                                       no value of the form
+
+  No write of a gate gives a row that earns the fourth
+  (`softland.store.record.rows/read-value`); it is there so that a read
+  never throws on what a row holds.
 
   `:fact` is the fact id `[[layer depot uuid] index]`, which a writer names
   in `:replaces`; `:stamp` is the stamp of that fact's decision, which a

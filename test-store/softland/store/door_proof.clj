@@ -708,8 +708,11 @@
         decided-of (fn [what] (some (fn [[w decided]] (when (= what w) decided)) gone-in))
         one-fact-map (record-of (:act-id (:sent (decided-of ":facts that is one fact map"))))
         no-id-entity (record-of (:act-id (:sent (decided-of "a value fact whose :e is no id"))))
-        places-named [:plain-1 :n-record :n-ratio :n-list :n-nan :by-a-sorted-map :by-a-map :forged :n-sealed :asked :m-1 :m-2 :e0 :e299]
-        rows-left (vec (mapcat (fn [e] (rows-at :alice e :text)) places-named))
+        ;; each place that one of the refused things named, by its own key: one is under a key of the store's namespace
+        places-named (conj (mapv (fn [e] [e :text])
+                                 [:plain-1 :n-record :n-ratio :n-list :n-nan :by-a-sorted-map :by-a-map :forged :n-sealed :m-1 :m-2 :e0 :e299])
+                           [:asked :softland.store/lock-request])
+        rows-left (vec (mapcat (fn [[e k]] (rows-at :alice e k)) places-named))
         ;; the edge of one value is a gate's
         inside-the-bound (decide! d (alice [(value :edge-1 (apply str (repeat 65507 "a")))]))
         at-the-bound (decide! d (alice [(value :edge-2 (apply str (repeat 65534 "a")))]))

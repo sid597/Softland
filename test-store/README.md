@@ -50,8 +50,8 @@ selected straight from its tables. The third plays the door by hand, so the
 store stays proven without the door. It also plays a reader of the tables by
 hand, so the gates stay proven without the read path. A pass of the fourth shows the door in one
 process: acts that a maker gave it, which went through each depot and its gate,
-and whose answers the door read back. The proof is the door's one maker; no
-other maker uses the door yet. A pass of the fifth shows the read path's pure
+and whose answers the door read back. The proof plays the door's maker; beside
+the proofs and the measures of this tree, no maker uses the door yet. A pass of the fifth shows the read path's pure
 code on values of one process, the steps of a live read in every order of the
 callbacks among them. A pass of the sixth shows the read path in one process:
 facts that went in through the door and came back out through the read path,
@@ -80,7 +80,7 @@ clojure -M:store-module -m softland.store.gate-measures
 
 The first measures, on the same in-process cluster, a gate under 100 acts a
 second,
-the same with live reads open, the opening of a canvas of 5,000 facts, and how
+the streaming gate again with live reads open, the opening of a canvas of 5,000 facts, and how
 late a push is. The second measures an act through the door and each gate with
 no live read open, on whichever tree it is run. Each prints each number on a
 line that starts with `MEASURED`,

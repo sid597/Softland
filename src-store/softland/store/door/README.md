@@ -19,7 +19,7 @@ and the gate is the authority: anything can append to a depot without the door.
 |---|---|---|
 | [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the test for a stray; the check, whose last step makes the one text of each value and holds the bound on one value and the bound on one act. | None. |
 | [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
-| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text. The door and the gates share it. | None. |
+| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text. The door, the gates and the rebuild share it. | None. |
 
 **The door's own pure parts.** No gate requires these three. They are the rules
 of the door that need no cluster, split from [door.clj](../door.clj) so that the
@@ -76,7 +76,7 @@ four, of 9 October, by row:
 | Row | Decision | Where it shows in the door |
 |---|---|---|
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | The door makes no person and no id for one. It carries `:who` as given. An act-id's uuid is random, made from nothing of the person |
-| H1 A | One lock seals one value | Nowhere: entry 2 of 12 October sets it aside, and the source entry says what became of its code |
+| H1 A | One lock seals one value | Nowhere: entry 2 of 12 October sets it aside, and the source entry says where the code of the locks is |
 | K3 A | The system can hold many layers | The door treats `:system` as a who like any other and checks nothing about it |
 | K4 B | The store's own keys carry the namespace `softland.store` | The door reads no key of a fact: it appends a fact under a store key as it appends any other. The table of the store keys is `store-keys` in [declaration.clj](declaration.clj), which a gate's check reads, and which also says which of them take a second write |
 

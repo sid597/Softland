@@ -224,8 +224,8 @@
   the batch has something to keep, so a stray never waits for a later batch
   with a stamp. A batch whose things were all repeats made a stamp and
   wrote no answer: its closing appends one record, the batch's clock and
-  last stamp. A run that closes nothing reads its two fields on the gate's
-  task, as it did before the keeping, and appends nothing.
+  last stamp. A run that closes nothing reads two fields on the gate's
+  task, the gate's last stamp and `:to-close`, and appends nothing.
 
   What a failure leaves in the depot. An attempt of a batch that fails
   leaves nothing of that batch. An attempt of the run that closes a batch,

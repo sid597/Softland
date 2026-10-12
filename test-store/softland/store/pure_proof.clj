@@ -5,8 +5,10 @@
   microbatch gate, and what a gate's depot of answers holds. And of the
   door's pure namespaces: its words, what it
   makes of one act, and the numbers of a maker's wait. And of the source
-  under `src-store/`: that no code of it names a lock. It needs no cluster
-  and no Rama. One command, from the repository root:
+  under `src-store/`: that no code of it names a lock; and of the proofs
+  under `test-store/`: that their code names one only where a proof means
+  it. It needs no cluster and no Rama. One command, from the repository
+  root:
 
     clojure -M:store -m softland.store.pure-proof
 
@@ -50,7 +52,7 @@
 
   The order by value. Its cases decide one act at a time against a record in
   memory with a function of the proof's own, `streaming-step`, which makes
-  the reads and the writes of steps 6b and 7 of the streaming gate over the
+  the reads and the writes of steps 6 and 7 of the streaming gate over the
   pure functions. Each act goes through the declaration's check first,
   which gives each value its text.
 
@@ -59,7 +61,7 @@
   source with a fixed seed, so each run draws the same. One check reads
   files and writes none: `no-code-of-the-store-names-a-lock` reads each
   `.clj` file under the directory that holds `softland/store/act.clj` on
-  the classpath.
+  the classpath, and each under the directory that holds this proof.
 
   The door. The cases of its three pure namespaces hold each rule of the
   door that needs no cluster: each kind of thing that is no act, the thing
@@ -563,9 +565,11 @@
 
 (def ^:private tools-own-keys
   "Keys that are a tool's own, though each looks like one of the store's: the
-  bare words that the store's keys were before they took the namespace
-  `softland.store`, the bare word depot, the store's words in another
-  namespace, and a namespace that only begins with the store's."
+  bare words depot and permission, which are store keys in the namespace
+  `softland.store` alone; the bare words class and lock-request, which are
+  store keys in no namespace, and which a gate refuses in the store's own
+  as keys that the store does not know; the store's words in another
+  namespace; and a namespace that only begins with the store's."
   [:class :depot :permission :lock-request
    :tool/depot :tool/permission :tool/lock-request
    :softland/depot :softland.store.tool/depot])
@@ -623,7 +627,7 @@
    ["the text of a set under a store key is sorted: the marked keys, with the set beside it"
     (fn [] ((juxt :v :text) (first (:facts (act-of (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent :b :a}}))))))
     [#{:on :tool/parent :b :a} "#{:a :b :on :tool/parent}"]]
-   ["the values that the three new keys take: each word of who may see; a list of layers that is empty, names the layer itself, names a layer twice or names a layer that nobody made; a set of keys that is empty"
+   ["the values that the three keys of a second write take: each word of who may see; a list of layers that is empty, names the layer itself, names a layer twice or names a layer that nobody made; a set of keys that is empty"
     (fn [] (mapv (fn [[k v]] (verdict (declaration/check (arrived 1 {:e :alice :k k :v v}))))
                  [[:softland.store/who-may-see :members] [:softland.store/who-may-see :everyone]
                   [:softland.store/builds-on []] [:softland.store/builds-on [:alice]]
@@ -633,7 +637,7 @@
    ["a mark of a key in a namespace that only begins with the store's is a mark of a plain key: the store's namespace is taken exactly"
     (fn [] (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:softland.store.tool/on :softland/on}}))))
     :ok]
-   ["a fact with no value under each of the three new keys passes the declaration, as under the others: a gate refuses the retract"
+   ["a fact with no value under each of the three keys of a second write passes the declaration, as under the others: a gate refuses the retract"
     (fn [] (mapv (fn [k] (verdict (declaration/check (arrived 1 {:e :alice :k k}))))
                  [:softland.store/who-may-see :softland.store/builds-on :softland.store/marked-keys]))
     [:ok :ok :ok]]
@@ -1631,7 +1635,7 @@
 
 (defn- streaming-step
   "Decides one accepted act of Alice's in her streaming layer against a
-  record in memory, as steps 6b and 7 of the streaming gate do: the row at
+  record in memory, as steps 6 and 7 of the streaming gate do: the row at
   the layer's marked-keys place when the act needs it, the stamp of each of
   its places under a marked key, the row before of each such place, then
   `softland.store.gate.decision/writes` with the act's stamp as the stamp of
@@ -3698,7 +3702,7 @@
     (fn [] (mapv wait/numbers [7 "numbers" [200] (sorted-map "a" 1) (throwing)]))
     (vec (repeat 5 {:read-every-ms 200}))]
    ["any other name in what an opener gave is not read: the numbers hold the one name"
-    (fn [] (wait/numbers {:read-every-ms 400 :request-wait-ms 400 :fewest-at-once 2 :most-at-once-streaming 16 :other 1}))
+    (fn [] (wait/numbers {:read-every-ms 400 :no-number-of-the-door 400 :another-name 2 :read-every 16 :other 1}))
     {:read-every-ms 400}]
    ["a number that the opener gives is cut to the longest wait that the door counts, 2,305,843,009,213 ms; that many milliseconds, as nanoseconds and four times over, stay in the range of a long, and one more does not; it is longer than 70 years"
     (fn [] [(wait/numbers {:read-every-ms Long/MAX_VALUE})
@@ -3753,33 +3757,48 @@
               forms
               (recur (conj forms form)))))))))
 
-(defn- source-files
-  "The `.clj` files of the store's source: each one under the directory of
-  the classpath that holds `softland/store/act.clj`, as [its path from that
-  directory, the file], in the order of the paths. The proofs are in
-  another directory and are not among them."
-  []
-  (let [root (-> (io/resource "softland/store/act.clj") io/file .getParentFile .getParentFile .getParentFile)
+(defn- clj-files-of
+  "The `.clj` files of one directory of the classpath: the directory that
+  holds the resource named, which sits two folders deep in it. Gives each
+  file under it as [its path from that directory, the file], in the order
+  of the paths."
+  [resource-name]
+  (let [root (-> (io/resource resource-name) io/file .getParentFile .getParentFile .getParentFile)
         from-root (fn [^java.io.File f] (str (.relativize (.toPath ^java.io.File root) (.toPath f))))]
     (->> (file-seq root)
          (filter (fn [^java.io.File f] (and (.isFile f) (str/ends-with? (.getName f) ".clj"))))
          (map (fn [f] [(from-root f) f]))
          (sort-by first))))
 
-(defn- lock-names-in-the-source
-  "Reads each file of `source-files` as data. Gives {:files how many were
-  read, :names how many symbols and keywords they hold, :saw-act? whether
-  the namespace of the act was among the names, :found a vector of [file
-  name] for each name that names a lock, and of [file :not-read class] for
-  a file that the reader could not read}."
+(defn- source-files
+  "The `.clj` files of the store's source: each one under the directory of
+  the classpath that holds `softland/store/act.clj` (`clj-files-of`). The
+  proofs are in another directory and are not among them."
   []
+  (clj-files-of "softland/store/act.clj"))
+
+(defn- proof-files
+  "The `.clj` files of the proofs: each one under the directory of the
+  classpath that holds this proof (`clj-files-of`). The source is in another
+  directory and is not among them."
+  []
+  (clj-files-of "softland/store/pure_proof.clj"))
+
+(defn- lock-names-in
+  "Reads each of the files given as data. Takes files as `clj-files-of`
+  gives them, and a symbol that one of them must hold as a name. Gives
+  {:files how many were read, :names how many symbols and keywords they
+  hold, :saw? whether that symbol was among the names, :found a vector of
+  [file name] for each name that names a lock, and of [file :not-read
+  class] for a file that the reader could not read}."
+  [clj-files must-hold]
   (let [read-one (fn [[path file]]
                    (try {:file path :names (vec (mapcat names-in (forms-of file)))}
                         (catch Throwable t {:file path :not-read (.getSimpleName (class t))})))
-        files (mapv read-one (source-files))]
+        files (mapv read-one clj-files)]
     {:files (count files)
      :names (reduce + (map (comp count :names) files))
-     :saw-act? (boolean (some (fn [{:keys [names]}] (some #{'softland.store.act} names)) files))
+     :saw? (boolean (some (fn [{:keys [names]}] (some #{must-hold} names)) files))
      :found (vec (distinct
                   (mapcat (fn [{:keys [file names not-read]}]
                             (if not-read
@@ -3787,13 +3806,49 @@
                               (map (fn [x] [file x]) (filter names-a-lock? names))))
                           files)))}))
 
+(def ^:private names-that-the-proofs-mean
+  "The names in the code of the proofs that name a lock, a seal or a stock
+  and are meant, by where they may stand. The store keeps no lock, and a
+  check that it keeps none must name what it looks for.
+
+    :in-any-proof   the two parts of a sealed fact and the key of a request
+                    for locks, in the store's namespace, bare and in a
+                    tool's: a proof sends them so that a gate refuses them
+                    or takes the word as a tool's own key. The entities of
+                    those facts. And the names of the checks, and of their
+                    helpers, that hold that the store keeps no lock
+    :in-this-proof  the names that `lock-name-cases` writes out as examples
+                    of a name that names a lock, in this file alone
+
+  Any other such name in the code of a proof is a check of a lock or of the
+  seal that stayed behind what it checked."
+  {:in-any-proof '#{:sealed :lock-id :softland.store/lock-request :lock-request :tool/lock-request
+                    :n-sealed :no-lock-0 :no-lock-1 :no-lock-2 :no-lock-3
+                    the-module-keeps-no-lock no-code-of-the-store-names-a-lock
+                    names-a-lock? lock-names-in lock-name-cases}
+   :in-this-proof '#{lock-key seal/open stock/take-locks softland.store.door.seal softland.store.door.stock
+                     $$streaming-locks locks-of-request java.util.concurrent.locks.ReentrantLock ReentrantLock
+                     unsealed max-sealed-bytes with-locks-read *lock-rows Lock stock}})
+
+(defn- not-meant
+  "Takes what `lock-names-in` found in the proofs, each [file name] or
+  [file :not-read class]. Gives those that `names-that-the-proofs-mean`
+  does not hold for their file: an empty vector when each name that names a
+  lock is meant where it stands, and each file was read."
+  [found]
+  (vec (remove (fn [[file x]]
+                 (or (contains? (:in-any-proof names-that-the-proofs-mean) x)
+                     (and (= "softland/store/pure_proof.clj" file)
+                          (contains? (:in-this-proof names-that-the-proofs-mean) x))))
+               found)))
+
 (def ^:private lock-name-cases
   "The cases of the test of a name and of the walk of a form, on names and
   forms that the proof writes out: so that the reading of the source can
   find a lock's name if there is one. The reading does not reach a string or
-  a comment, a name that code makes while it runs, a file that is no `.clj`
-  file, or anything outside the source: the proofs and the pages are not
-  read."
+  a comment, a name that code makes while it runs, or a file that is no
+  `.clj` file. So of a proof it reaches the names in its code and not the
+  words of a check's text; and the pages are not read."
   [["names that name a lock: a lock's key, the seal's parts, a stock, the store key of a request, a table of locks, a Java lock, a fact's two parts"
     (fn [] (mapv names-a-lock? ['lock-key 'seal/open 'stock/take-locks 'softland.store.door.seal 'softland.store.door.stock
                                 :softland.store/lock-request '$$streaming-locks 'locks-of-request
@@ -3957,7 +4012,7 @@
          (pr-str (record/read-value (nth (first (decision/writes (act-id 1) (act-of (arrived 1 (value-at :note-1 :text (array-map :b 1.50M :a [1 2N]))))
                                                                  nil 5 (digest/digest good) {}))
                                          2))))
-  (shown "the order by value," (count by-value-cases) "cases, each act decided as steps 6b and 7 of the streaming gate decide it: a key of that order is"
+  (shown "the order by value," (count by-value-cases) "cases, each act decided as steps 6 and 7 of the streaming gate decide it: a key of that order is"
          (pr-str (entry-key 100 :c1 :b1))
          "| a mark at stamp 100, a fact, the mark off, the fact replaced, the mark again at 140, the fact replaced twice: the rows after each act are those of the plan's table, and the row of the first marking stays under 100 where no read names it"))
 
@@ -4009,6 +4064,9 @@
         rows-under (fn [table k] (keep (fn [[task rows]] (when-let [row (get rows k)] [task row])) (get record table)))
         words-of (fn [& ns] (set (map words ns)))
         facts-of (fn [n] (:facts (first (filter #(= (base-id n) (:act-id %)) (:things batch-fixture)))))
+        ;; the turn that the batch gives the thing under `(base-id n)`, by the proof's own count
+        turn-of (fn [n] (first (keep (fn [[turn _ _ thing]] (when (= (base-id n) (:act-id thing)) turn))
+                                     (turns-of (:things batch-fixture)))))
         rows-of-fact (fn [fact] (rows-under :facts (record/place-key :base (:e fact) (:k fact))))]
     (is (= [0 nil] [(:differ made) (:first made)])
         "a batch into a base that is made: in each order of arrival the record is the record of deciding one at a time")
@@ -4050,8 +4108,9 @@
             (count (set (map (fn [fact] (task-of (:e fact))) (facts-of 23))))
             (vec (filter (fn [[_ row]] (= (uuid 23) (:by-act row))) (mapcat rows-of-fact (facts-of 23))))])
         "refused whole: the act has three facts on three tasks, and no row of it is on any task")
-    (is (= [:accepted true] [(words 25) (contains? #{:accepted :replaced-fact-not-current} (words 26))])
-        "one act writes a place and names nothing, another replaces the fact that was there before: the order of the turns says whether the second is stale")
+    (is (= [true :accepted (if (and (turn-of 25) (turn-of 26) (< (turn-of 25) (turn-of 26))) :replaced-fact-not-current :accepted)]
+           [(boolean (and (turn-of 25) (turn-of 26) (not= (turn-of 25) (turn-of 26)))) (words 25) (words 26)])
+        "one act writes a place and names nothing, another replaces the fact that was there before: the order of the turns says whether the second is stale. The first is accepted; the second is stale when the first has the earlier turn, by the proof's own count of the turns, and accepted when it has the later")
     (is (= #{:accepted :permission-fact-not-beneath-the-acts-own} (set (map (:words making) [31 32])))
         "two making acts of the base in one batch: one is accepted")
     (shown "the decisions of a batch of" (count (:things batch-fixture)) "things, run in memory in" orders
@@ -4091,9 +4150,9 @@
     (is (= [(uuid 42) true] (let [[_ _ row] (first (filter #(= (entry :on since :c0 q1) (first %)) placed))]
                               [(:by-act row) (< since (:stamp row))]))
         "the same value again: the entry is written over with the new fact")
-    (is (= [(sort [(entry :on since :c2 p1) (entry :on since :c2 q2)]) 1 true]
+    (is (= [(sort [(entry :on since :c2 p1) (entry :on since :c2 q2)]) #{(task-of (record/value-digest-of :c2))} true]
            [(run-of :on since :c2)
-            (count (set (map second (filter #(= (record/value-digest-of :c2) (record/by-value-route (first %))) placed))))
+            (set (map second (filter #(= (record/value-digest-of :c2) (record/by-value-route (first %))) placed)))
             (not= (task-of p1) (task-of q2))])
         "two places on two tasks that hold one value: their rows are neighbours in one run, on one task, the task of the value's digest")
     (is (= [:accepted :accepted :accepted :accepted] (mapv words [45 46 47 59])) "a mark, a fact under the new key, a second write of the marks and a fact under the key whose mark went are all accepted")
@@ -4106,7 +4165,7 @@
         "two writes of the marks in one batch: every task holds the later one's row; a key from before keeps its stamp, and a key that both acts newly hold has one stamp, the last stamp that the batch can hold")
     (is (= [true true] (let [in-fact (get-in record [:facts (task-of p2) (record/place-key :base p2 :in)])]
                          [(<= (:stamp in-fact) batch-end) (< since (:stamp in-fact))]))
-        "the fact under the newly marked key has a stamp that is not later than the key's stamp: every fact with a later stamp is in the order, and no other")
+        "the fact under the newly marked key has a stamp that is not later than the key's stamp, the last stamp that the batch can hold, and later than the stamp of the key that was marked before the batch")
     (is (= [:accepted :accepted 1 true]
            [(words 48) (words 49) (count (set (map comparable see-rows)))
             (contains? #{[:value :members] [:value :everyone]} (record/read-value (first see-rows)))])
@@ -4291,7 +4350,7 @@
     (is (= [[[(task-of first-batch) 0 4]] true]
            [(mapv (fn [[task _ value]] [task (count (:answers value)) (count (:strays value))]) (:kept s))
             (not= 2 (task-of first-batch))])
-        "it hands its four strays to be kept, in one value on its keeping task, which is another task than the one on which that stray arrived")
+        "it hands its four strays to be kept, in one value on its keeping task, with no answer; and the keeping task is another task than task 2, on which the one stray with a first entity arrived")
     (is (= [[[:batch :strays]] [first-batch]
             {{:stray :no-act-id :digest (sha-256 (utf8 "5")) :task (task-of nil)} 2
              {:stray :no-act-id :digest (sha-256 (utf8 "\"a stray\"")) :task (task-of nil)} 1
@@ -4369,20 +4428,39 @@
   (let [n (holds wait-cases)]
     (shown "the numbers of a maker's wait," n "cases: the door's one number is" (pr-str wait/default-numbers)
            "; an opener's number is taken when it is a fixed-width integer of 1 or more, and no other name is read:"
-           (pr-str (wait/numbers {:read-every-ms 50 :request-wait-ms 400}))
+           (pr-str (wait/numbers {:read-every-ms 50 :no-number-of-the-door 400}))
            "| the longest wait that the door counts is" wait/longest-wait-ms "ms, and a greater number is cut to it:"
            (pr-str (wait/numbers {:read-every-ms Long/MAX_VALUE})))))
 
 (deftest no-code-of-the-store-names-a-lock
   (let [n (holds lock-name-cases)
-        {:keys [files names saw-act? found]} (lock-names-in-the-source)]
+        {:keys [files names found] saw-act? :saw?} (lock-names-in (source-files) 'softland.store.act)
+        of-the-proofs (lock-names-in (proof-files) 'softland.store.pure-proof)
+        meant-there (remove (fn [[_ x]] (= :not-read x)) (:found of-the-proofs))]
     (is (= [] found)
         "no symbol and no keyword in the code of the store's source has a word that begins with lock, seal or stock, but Clojure's locking; a string and a comment are not code")
     (is (= [true true true] [(<= 20 files) (<= 5000 names) saw-act?])
         "the reading of the source read 20 files or more, 5,000 names or more, and the namespace of the act among them: it did not pass for having read nothing")
+    (is (= [] (not-meant (:found of-the-proofs)))
+        "the checks of the locks and of the seal went with what they checked: in the code of the proofs no symbol and no keyword names a lock, a seal or a stock but those that a proof means, where it means them: a seal's part or a request for locks that is sent to be refused or to pass as a tool's own key, the entity of such a fact, the names of the checks that the store keeps no lock, and in this proof the examples that its own cases write out")
+    (is (= [true true true true]
+           [(<= 8 (:files of-the-proofs)) (<= 5000 (:names of-the-proofs)) (:saw? of-the-proofs) (<= 20 (count meant-there))])
+        "the reading of the proofs read 8 files or more, 5,000 names or more, this proof's namespace among them, and found 20 names or more that name a lock: it did not pass for having read nothing, or for a test of a name that finds none")
+    (is (= [[["softland/store/some_proof.clj" 'seal/open] ["softland/store/some_proof.clj" 'with-locks-read]
+             ["softland/store/some_proof.clj" :not-read "Exception"]]
+            []]
+           [(not-meant [["softland/store/some_proof.clj" :sealed] ["softland/store/some_proof.clj" 'seal/open]
+                        ["softland/store/pure_proof.clj" 'seal/open] ["softland/store/some_proof.clj" 'with-locks-read]
+                        ["softland/store/some_proof.clj" :not-read "Exception"]])
+            (not-meant [])])
+        "the test of what is meant can fail: a seal's part that is sent to be refused is meant in any proof; an example of this proof's cases is meant in this proof and in no other, a call of the seal's code and a read of a lock's rows among them; and a file that could not be read is not meant")
     (shown "no code of the store names a lock," n "cases of the test of a name, then the source read as data:" files
            "files under the directory that holds softland/store/act.clj," names
-           "symbols and keywords, of which" (count found) "name a lock, a seal or a stock" (pr-str found))))
+           "symbols and keywords, of which" (count found) "name a lock, a seal or a stock" (pr-str found))
+    (shown "the proofs read the same way:" (:files of-the-proofs) "files under the directory that holds this proof," (:names of-the-proofs)
+           "symbols and keywords, of which" (count meant-there) "name a lock, a seal or a stock, each of them meant where it stands; not meant:"
+           (pr-str (not-meant (:found of-the-proofs))) "| by file:"
+           (pr-str (into (sorted-map) (map (fn [[file found-there]] [file (count found-there)])) (group-by first meant-there))))))
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them."

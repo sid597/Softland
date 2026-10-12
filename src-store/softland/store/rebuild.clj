@@ -7,11 +7,13 @@
   made again from the logs (src-store/README.md, the decisions of that day,
   entry 1). Each gate appends what it decided to a log of answers, and this
   namespace applies those answers to the acts. It decides nothing: it runs
-  no check of a gate, no test for a stray, and reads no clock. A gate whose
-  rules changed after an act was decided gives that act no new answer, so
-  the answer that the log holds is the one applied, also where the gate of
-  today would give another. Giving a thing its one form is not deciding;
-  refusing it is.
+  no test for a stray and reads no clock. Of the functions that a gate
+  judges with it calls one, `softland.store.door.declaration/check`, for
+  the one form of a thing that the log says was accepted; what that check
+  refuses changes no answer. A gate whose rules changed after an act was
+  decided gives that act no new answer, so the answer that the log holds is
+  the one applied, also where the gate of today would give another. Giving
+  a thing its one form is not deciding; refusing it is.
 
   What it takes. `from-logs` takes one map:
 
@@ -110,10 +112,17 @@
   map, and merge the partitions' entries by stamp where this core sorts
   them; for a gate whose every decision is made in an event of its own it
   could run one task at a time, since no row of one task is read for
-  another. None of that is built.
+  another. The placing is asked once for each route: the uuid of every act
+  of a batch, every entity of a fact whose row is on one task, and every
+  value digest under a marked key. `softland.store.rebuild.placing` pays
+  one call to the cluster for each, so a large store needs the task of many
+  routes in one call. None of that is built.
 
-  A store that is not at rest. A thing with no entry gives no row, as the
-  tables hold none for it. `:closed-through` is made as the gate's last
+  A store that is not at rest. A thing with no entry gives no row. The
+  tables can hold rows of such a thing: a gate appends an entry behind the
+  commit of the rows that it copies, at the end of the same event for a
+  decision made in an event of its own, and in the gate's next run for a
+  decision of a batch. `:closed-through` is made as the gate's last
   stamp, which a store at rest holds and a running one reaches one run
   later. What this gives of a store that is not at rest is what falls out;
   no proof holds it equal to the tables.
@@ -566,8 +575,8 @@
   that `from-logs` hands `:task-of-route` for these logs: the home of each
   row of a batch, and the word of each gate that holds a batch with a clock
   or a last stamp. A caller that gets the task of a route from a cluster
-  asks for all of them in few calls, and then hands `from-logs` the map
-  that came back.
+  asks for all of them before the rebuild, and then hands `from-logs` the
+  map that came back.
 
   It walks the logs as `from-logs` does, with a placing that puts every row
   on task 0 and keeps each route in an atom of this call. The routes do not

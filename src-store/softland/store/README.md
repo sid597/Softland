@@ -94,10 +94,10 @@ The streaming gate takes the thing there, in one event:
 
 1. [declaration.clj](door/declaration.clj) tests it for a stray. A stray gets no
    answer; the gate keeps its digest, and the event goes to step 7 with the
-   stray's entry.
+   stray's word, its digest and its task.
 2. The gate reads the answer under the thing's act-id. If one is there, the event
-   decides nothing, writes no row, and goes to step 7 with a copy of that
-   answer's entry. A repeat is answered, not decided twice.
+   decides nothing, writes no row, and goes to step 7 with the row that it
+   read. A repeat is answered, not decided twice.
 3. [digest.clj](door/digest.clj) takes the digest of the thing, over its one text
    ([text.clj](door/text.clj)). [declaration.clj](door/declaration.clj) checks the thing; it
    reads its shapes with [act.clj](act.clj)'s engine, and in its last step makes
@@ -114,10 +114,15 @@ The streaming gate takes the thing there, in one event:
    holds the text of its value, who wrote it and the permission that the act named. For
    a fact under a marked key the gate also writes its row in the facts by value,
    and takes the row of the value before out.
-7. Behind a commit of those writes, the gate appends one record to its depot of
-   answers: the entry of the answer, which [rows.clj](record/rows.clj) makes of
-   the act-id and the answer's row; or, for a stray, the stray's entry. It is
+7. Behind a commit of those writes, the gate makes one entry and appends one
+   record that holds it to its depot of answers: the entry of the answer, which
+   [rows.clj](record/rows.clj) makes of the act-id and the answer's row, the row
+   that step 6 wrote or step 2 read; or, for a stray, the stray's entry. It is
    the event's last step.
+
+The gate's own docstring walks the same event in ten steps, numbered 0 to 9
+([streaming_gate.clj](module/streaming_gate.clj)). A proof that names a step
+of this gate names it by that numbering.
 
 **A thing for a microbatch layer** is appended to the microbatch depot, which
 puts it on the task of the entity of its first fact
@@ -364,8 +369,8 @@ The store's module (7 October):
 
 | Row | Decision | Where it shows |
 |---|---|---|
-| F6 A, Q7 a | Two depots, one for each gate: the streaming depot and the microbatch depot | [module.clj](module.clj) declares `*streaming-depot` and `*microbatch-depot`. It declares a third depot, `*batch-clock-depot`, which takes no act and from which no gate decides |
-| F2 A | The record is in the gates' PStates | Each gate owns the PStates of its record, and they are the record that is read; no depot is ever trimmed. That the acts depots are the replay log is a session's sentence, and no decision of his. What a gate decided is also in its depot of answers (entry 1 of 12 October), from which, with the depot of acts, the tables can be made again. What no log gives is under rule 19 |
+| F6 A, Q7 a | Two depots, one for each gate: the streaming depot and the microbatch depot | [module.clj](module.clj) declares `*streaming-depot` and `*microbatch-depot`. It declares one more, `*batch-clock-depot`, and each gate declares its depot of answers; none of the three takes an act, and no gate decides from one |
+| F2 A | The record is in the gates' PStates | Each gate owns the PStates of its record, and they are the record that is read; no depot is ever trimmed. What a gate decided is also in its depot of answers (entry 1 of 12 October), from which, with the depot of acts, the tables can be made again. What no log gives is under rule 19 |
 | F1 A | The depot of a layer is a fact on the layer | The row at the layer's own entity under `:softland.store/depot` ([rows.clj](record/rows.clj)) |
 | F4 C | The base is a microbatch layer; every other layer starts streaming | `depot-at-making` in [first_act.clj](gate/first_act.clj) |
 | F5 A | A gate reads on its own task | The streaming gate's event has no hop. In a microbatch layer five rows are on every task: the layer's depot fact, each permission, who may see the layer, what it builds on, and its marked keys (`on-every-task?` in [batch.clj](gate/batch.clj)). So an act finds its permission where it arrives, and the home task of a place finds the marked keys where it reads the place. A layer holds facts under its own entity |
@@ -382,7 +387,7 @@ Who acts, and what the store reads (8 October):
 | K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
 | E4 A, E2 A; and E3·H7 B, which is a session's reading and not his answer | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj). Since the read build a holder of a permission that says `:see` cannot give: her give is an act, and is refused `:permission-does-not-allow-acting` |
 | H2 A | A stamp holds the clock time and a counter | [stamp.clj](gate/stamp.clj) |
-| K1 A | The store's keys of that day are the depot and a permission. The third of his list, the door's request for locks, left the store's own keys with entry 2 of 12 October | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those two and the three of the decisions of 11 and 12 October: who may see a layer, what it builds on, its marked keys |
+| K1 A | The store's keys of that day are the depot and a permission. The third of his list, the door's request for locks, is none of the store's keys, by entry 2 of 12 October | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those two and the three of the decisions of 11 and 12 October: who may see a layer, what it builds on, its marked keys |
 
 The door's four questions (9 October):
 
@@ -691,7 +696,7 @@ holds the clock; so a second attempt that read the clock again would change each
 row that a task had shown. The gate therefore keeps each batch's clock across its
 attempts. Three things do it.
 
-- A third depot, `*batch-clock-depot`, which no client can append to. A record is
+- A depot of its own, `*batch-clock-depot`, which no client can append to. A record is
   `{:batch :clock}`: the microbatch id of a run and a reading of the clock. It
   holds no act, and no gate decides from it.
 - A stream topology of its own, `batch-clock`
@@ -1070,6 +1075,8 @@ Each is a session's. None comes from the rig's code.
 | `:answers`, `:strays`, `:batch`, `:clock`, `:last-stamp` | The parts of a record of a depot of answers: `log-record` in [rows.clj](record/rows.clj) makes the first two, and `records-of-closing` in [batch.clj](gate/batch.clj) adds the other three for a batch. `:stray` and `:task` are the two parts of a stray's entry that no row names |
 | copy | A second entry of one answer. Every entry under one act-id is a copy of the others |
 | to keep, `:to-keep` | What a batch decided and the log does not hold yet; and the field of `$$microbatch-task` that holds it |
+| `:batch`, `:answers`, `:strays`, with `:layer` and `:uuid` | The parts of one value of `:to-keep`: the batch's id, the answers that one task sent to keep and the strays' entries. An answer there holds its act-id as `:layer`, the text of the layer, and `:uuid`, beside its stamp, its digest and the word of a refusal |
+| `:stray-sent`, with `:sent` | In step 1 of a batch: the word that each arrival of a stray sends to the gate's task, so that a batch of strays alone leaves something to close |
 | `:to-close` | The batch that the next run of the gate closes: its id, and its clock when it made a stamp. A field of `$$microbatch-task`, on the gate's task |
 | keeping task | The task that keeps what one batch decided until the next run appends it: the task that the hash of the batch's id gives |
 | the run that closes a batch | The next run of the gate after a batch. It appends what the batch left to keep, and then every task writes `:closed-through` |
@@ -1133,7 +1140,7 @@ first. "Batch", "attempt" and "microbatch id" are Rama's.
 | `$$batch-clock` | The clock that is kept for the newest batch that had things: one row, under the depot word `:microbatch` |
 | `answer-by-act-id` | The query: act-id → the recorded answer, or nothing |
 | `depot-of-layer` | The query: layer → its depot, or nothing |
-| `Placing`, with `task-of-route` | The module of one query that the rebuild launches beside the store, and its query: a route → the task that Rama's hash gives it. No part of the module `Store` |
+| `Placing`, with `task-of-route` | The module of one query that a caller of the rebuild launches beside the store, and its query: a route → the task that Rama's hash gives it. No part of the module `Store` |
 
 **Folders and namespaces.** Six folders: `door`, `read_path`, `gate`, `record`,
 `module`, `rebuild`.

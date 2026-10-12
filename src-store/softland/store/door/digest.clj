@@ -8,7 +8,9 @@
   what it sent, as hex text, and compares that text with the answer's: it
   keeps no thing. So a maker tells its own act's answer from the answer of
   another act under the same act-id. A gate also keeps the digest of each
-  stray.
+  stray. The rebuild (`softland.store.rebuild`) takes the digest of a thing
+  that it read from a log of acts, to find the thing that an answer in the
+  log of answers is of.
 
   Inputs and results, by call:
 

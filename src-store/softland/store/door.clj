@@ -38,10 +38,12 @@
   State. The door owns no state: none that lasts, and none of the process.
   An opened door borrows four handles of Rama's client, the two depots of
   acts and the two queries of the module `Store`; the opener owns the
-  cluster handle, and nothing closes the door. The module has a third
-  depot, of the clocks of batches (`softland.store.module`): it takes no
-  act, and the door does not open it. The door holds one number, fixed at
-  the opening: how long a wait sleeps between two reads
+  cluster handle, and nothing closes the door. The module has three more
+  depots (`softland.store.module`): the depot of batch clocks, and each
+  gate's depot of answers. None of them takes an act, and the door opens
+  none: it reads the answer of an act from the record, by the query, and
+  never from a log. The door holds one number, fixed at the opening: how
+  long a wait sleeps between two reads
   (`softland.store.door.wait`). It keeps nothing between two calls: no
   act-id that it gave, no thing that it sent, no digest, and no layer's
   depot.
@@ -277,8 +279,8 @@
 
 (defn- read-answer-until
   "The wait: reads the answer under one act-id until a read gives one. Takes
-  the door; an act-id; `ends`, the moment of the clock at which the wait
-  ends; and whether to sleep once before the first read. Gives one of:
+  the door; an act-id; and `ends`, the moment of the clock at which the wait
+  ends. Gives one of:
 
     [:answer what the read gave]   a read gave an answer
     [:threw info]                  a read threw; the wait ends at once
@@ -293,19 +295,17 @@
   read that is on its way then takes its own time, up to the time limit of
   a query in Rama (the module's option `topology.query.timeout.millis`).
   The clock is the JVM's `nanoTime`, which never goes back (`after`)."
-  [^Door door act-id ends sleep-first?]
+  [^Door door act-id ends]
   (let [every (* 1000000 (long (:read-every-ms (.-numbers door))))
         nap (fn [] (sleep-for (min every (left ends))))]
-    (if (and sleep-first? (not (nap)))
-      [:nothing]
-      (loop []
-        (let [[outcome got] (read-answer door act-id)]
-          (cond
-            (= :threw outcome) [:threw got]
-            (some? got) [:answer got]
-            (passed? ends) [:nothing]
-            (nap) (recur)
-            :else [:nothing]))))))
+    (loop []
+      (let [[outcome got] (read-answer door act-id)]
+        (cond
+          (= :threw outcome) [:threw got]
+          (some? got) [:answer got]
+          (passed? ends) [:nothing]
+          (nap) (recur)
+          :else [:nothing])))))
 
 ;; ------------------------------------------------------------------ the calls
 
@@ -320,9 +320,10 @@
 
   Four round trips, once for a process and on no act's way: one fetch of a
   client for each of the two depots of acts and the two queries. The
-  module's third depot, of the clocks of batches, takes no act and is not
-  fetched. The door borrows the handles and uses them from every maker's
-  thread; the opener owns the cluster handle, and nothing closes the door.
+  module's three other depots, of batch clocks and of each gate's answers,
+  take no act and are not fetched. The door borrows the handles and uses
+  them from every maker's thread; the opener owns the cluster handle, and
+  nothing closes the door.
 
   A door holds nothing that a call changes, so a process can open one door
   or several, and each serves every maker alike. Opening checks nothing of
@@ -402,8 +403,10 @@
   returns, the door keeps nothing of what it sent; the maker holds the
   act-id and the digest.
 
-  The steps, in their order. A step that ends in a word ends the call, and
-  every test that needs no cluster comes before the first round trip.
+  The steps, in their order. A step that ends in a word ends the call. The
+  tests of step 1 come before the first round trip. The walk of step 3
+  comes after the read of step 2, when the door makes the act-id: the
+  digest is of the thing with its act-id in it.
 
     1. The door reads the thing, with no round trip
        (`softland.store.door.additions/reading`): `:read-the-act`,
@@ -541,7 +544,7 @@
                    (try (long (min bound-ms wait/longest-wait-ms)) (catch Throwable _ 0))
                    0)
            ends (after (System/nanoTime) (* 1000000 bound))
-           [outcome got] (read-answer-until door act-id ends false)]
+           [outcome got] (read-answer-until door act-id ends)]
        (case outcome
          :threw (words/word :read-the-answer (assoc got :act-id act-id))
          :answer (words/answer got digest)

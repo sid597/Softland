@@ -150,9 +150,10 @@
   State and effects. None.
 
   Callers. `softland.store.module.microbatch-gate`; `softland.store.module`
-  for `first-entity`, by which the microbatch depot partitions; and
+  for `first-entity`, by which the microbatch depot partitions;
   `softland.store.module.batch-clock` for `clock-row-to-keep` and
-  `gates-depot`."
+  `gates-depot`; and `softland.store.rebuild` for `routed`, which gives each
+  row that it makes again for a decision of a batch its home."
   (:require [softland.store.gate.decision :as decision]
             [softland.store.door.digest :as digest]
             [softland.store.gate.first-act :as first-act]

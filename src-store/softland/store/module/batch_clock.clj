@@ -66,7 +66,9 @@
 
   What it does not handle. It does not know whether a batch was committed,
   and it keeps no clock of a batch before the newest: the depot holds each
-  record, and nothing reads the old ones. It checks nothing of who appended:
+  record, and no topology reads the old ones; a rebuild
+  (`softland.store.rebuild`) is given the whole log, as a check of the
+  clock that it makes again. It checks nothing of who appended:
   the depot takes no client's append, so only the module's own code can.
 
   The source starts from the beginning of the depot, with Rama's default

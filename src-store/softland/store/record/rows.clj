@@ -140,7 +140,9 @@
   State and effects. None. Each function is pure.
 
   Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the
-  streaming gate, and `softland.store.module.door-reads`. The door (`softland.store.door`) and
+  streaming gate, and `softland.store.module.door-reads`; and
+  `softland.store.rebuild`, which makes an answer's key and its row again
+  with `answer-key` and `answer-row`. The door (`softland.store.door`) and
   the proof's hand call `routing-id` and the `-read` functions to test what
   they pass before they call a query. `read-value`, `who-of`,
   `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,

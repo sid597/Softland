@@ -14,8 +14,9 @@
   NAMED.
 
   What it does, on each of two clusters. It sends things to both depots of
-  acts, through the door (`softland.store.door`) and through no door, by
-  the hand: an append of a thing that the proof built, act-id and all. It
+  acts: on the first cluster through the door (`softland.store.door`) and
+  through no door, by the hand, which is an append of a thing that the
+  proof built, act-id and all; on the second cluster by the hand alone. It
   waits until the store is at rest. It reads the logs with
   `softland.store.rebuild.reader`, asks `softland.store.rebuild.placing` for
   the task of each route that the rebuild needs, and runs the rebuild. It
@@ -31,9 +32,10 @@
   Every appended thing is decided: an append to the streaming depot is made
   with the ack level :ack, which waits for the gate's event, the append of
   its entry in it; for the microbatch depot Rama's test tool waits until
-  the gate has processed as many things as the proof appended, and on the
-  second cluster, where a worker is started again, the proof reads the
-  answer of each act that it sent until each is there. Every batch is
+  the gate has processed as many things as the proof appended; and the
+  proof reads answers until each is there: on the first cluster the answer
+  of each act that went through the door, and on the second, where a
+  worker is started again, of each act that it sent. Every batch is
   closed and the run after the last batch is done: on every task the
   microbatch gate's row holds no `:to-close` and no key under `:to-keep`,
   and its `:closed-through` is the gate's last stamp. And nothing is still
@@ -47,27 +49,32 @@
   functions before the launch, and puts the store's own back when the
   cluster is closed, in a `finally`: each gives what the store's gives, and
   throws once when the proof asked. One makes an event of the streaming
-  gate fail, the other an attempt of a batch. Rama takes the function that
-  a var holds at the launch. Rama then prints lines of its own log, marked
-  ERROR, that are no failed checks.
+  gate fail behind the commit of its rows and before the append of its
+  entry: the answer is in the table with no entry in the log until Rama
+  has run the record again. The proof holds the stamp of the row that the
+  failing run made against the answer that the table holds, so a pass says
+  where the throw stood. The other makes an attempt of a batch fail, behind
+  its decisions. Rama takes the function that a var holds at the launch.
+  Rama then prints lines of its own log, marked ERROR, that are no failed
+  checks.
 
   What is left out of the comparison, by name: `:turns`, `:to-keep` and
   `:to-close` of what the microbatch gate keeps for a task
-  (`softland.store.rebuild/left-out`). The proof reads the last two to know
-  that the store is at rest, and never `:turns`.
+  (`softland.store.rebuild/left-out`, which gives the reason of each; the
+  proof prints them). The proof reads the last two to know that the store
+  is at rest, and never `:turns`.
 
   State. The proof owns six atoms: the lines that it showed; how many
   things it appended to the microbatch depot on the cluster that runs; the
-  acts whose answers the second cluster waits for; the two wishes for a
-  throw; and the throws that were made. `-main` empties all but the shown
+  acts whose answers it reads for before it takes the store to be at rest;
+  the two wishes for a throw; and the throws that were made. `-main` empties all but the shown
   lines between the clusters. A cluster's files are temporary and are
   Rama's.
 
   What a pass does not show. A real cluster, a process that is killed, a
-  leader that moves. A failure of the streaming gate behind its commit and
-  before its append: in this build no function of the store runs there, so
-  the throw that the proof makes is before the commit. A store that is not
-  at rest. A number of tasks other than the one that decided the acts. A
+  leader that moves. A failure of the streaming gate before its commit: it
+  leaves no row and no entry, so a rebuild meets nothing of it; the
+  module's proof makes that failure. A store that is not at rest. A number of tasks other than the one that decided the acts. A
   store larger than memory. That `Placing` gives Rama's task for a route in
   a real cluster: here it is held against the test tool's keys and against
   every row."
@@ -144,7 +151,8 @@
 
 (defonce ^{:private true
            :doc "The act-ids whose answers the proof reads for before it takes the
-  second cluster to be at rest."}
+  store to be at rest: on the first cluster each act that the door
+  appended, on the second each act that the proof sent."}
   to-be-answered (atom []))
 
 (defonce ^{:private true
@@ -158,7 +166,9 @@
   batch-to-fail (atom false))
 
 (defonce ^{:private true
-           :doc "Each throw that the proof's two functions made: {:gate :wall}."}
+           :doc "Each throw that the proof's two functions made: {:gate :wall}, and for
+  the streaming gate's `:stamp`, the stamp of the answer's row that the
+  throwing run was handed."}
   throws-made (atom []))
 
 (defn- open-hand
@@ -200,11 +210,14 @@
 (defn- by-door!
   "Sends a maker's act through the door. Gives what the door gave:
   {:act-id :digest :ack}, or one of the door's words. An act that the door
-  appended to the microbatch depot is counted."
+  appended to the microbatch depot is counted, and the act-id of each act
+  that the door appended is kept among those that the proof reads for."
   [act]
   (let [got (door/send-act (:door *hand*) act)]
     (when (= :microbatch (get-in got [:act-id 1]))
       (swap! appended-to-base inc))
+    (when (:act-id got)
+      (swap! to-be-answered conj (:act-id got)))
     got))
 
 (defn- settle!
@@ -373,6 +386,10 @@
         (alone! 7)
         (alone! of-the-other-gate)
         (alone! of-the-other-gate)
+        ;; a stray in one batch with an act: the stray takes a turn, and the
+        ;; batch leaves one record with an answer, a stray, its clock and its
+        ;; last stamp
+        (in-one-batch! [9 (alice {:e :thing-12 :k :name :v "in a batch with a stray"})])
         ;; an act into a layer of the other gate, and a thing that the declaration refuses
         (alone! (arrived :microbatch :alice :alice alice-own [{:e :note-10 :k :text :v "into the other gate's layer"}]))
         (alone! (dissoc (alice {:e :thing-11 :k :name :v "no session"}) :session))
@@ -561,6 +578,22 @@
   [log]
   (reduce + (map (fn [record] (count (:answers record))) (apply concat log))))
 
+(defn- entries-with-no-row
+  "Takes the logs as the reader gave them, and what the tables hold with
+  each run of bytes as hex text. Gives each answer's entry of a log of
+  answers that is not the row which its gate's table of answers holds under
+  its act-id, as {:gate :entry :row}: an entry without its act-id is the
+  row, word, stamp and digest. None when every entry is a copy of an answer
+  that counted. It does not go through the rebuild."
+  [logs held]
+  (vec (for [[gate log] (:answers logs)
+             entry (rebuild/bytes-as-hex (mapcat :answers (apply concat log)))
+             :let [[layer _ act-uuid] (:act-id entry)
+                   k (record/answer-key layer act-uuid)
+                   row (some (fn [by-key] (get by-key k)) (vals (get-in held [:tables gate :answers])))]
+             :when (not= (dissoc entry :act-id) row)]
+         {:gate gate :entry entry :row row})))
+
 ;; ------------------------------------------------------------------ the checks
 
 (deftest the-placing-is-ramas
@@ -584,8 +617,10 @@
     (shown "sent through the door:" (count by-door-streaming) "acts to the streaming depot and" (count by-door-base)
            "to the microbatch depot, each appended; the rest by the hand, with no door | things in the logs of acts:"
            (pr-str (mapv (fn [{:keys [gate log]}] [gate (records-in log)]) (:acts logs))))
+    (is (= (+ (count by-door-streaming) (count by-door-base)) (count @to-be-answered)))
     (is (= {:answered? true :closed? true :quiet? true} (dissoc rested :waited-ms)))
-    (shown "the store is at rest: the gate processed each of the" @appended-to-base
+    (shown "the store is at rest: each of the" (count @to-be-answered)
+           "acts that went through the door has its answer; the gate processed each of the" @appended-to-base
            "things of the microbatch depot; no task holds a :to-close or a key under :to-keep; :closed-through is the gate's last stamp on every task; no depot grew in"
            quiet-ms "ms | waited" (:waited-ms rested) "ms")
     (is (and (pos? (get (words-of-answers streaming) :accepted 0)) (< 1 (count (words-of-answers streaming)))))
@@ -605,18 +640,23 @@
              (pr-str by-value-of-base)))
     (is (some (fn [row] (seq (:strays row))) (vals (:task streaming))))
     (is (some (fn [row] (seq (:strays row))) (vals (:task base))))
+    (is (some (fn [record] (and (seq (:answers record)) (seq (:strays record)) (:clock record) (:last-stamp record)))
+              (apply concat (get-in logs [:answers :microbatch]))))
+    (shown "a batch of the base that took a stray and an act left one record that holds the answer's entry, the stray's entry, the batch's clock and its last stamp")
     (shown "the rows that the tables hold, over the" tasks "tasks:" (pr-str rows)
            "| a fact of the base under a key that every task holds is on" (on-tasks base :facts ":base :alice :softland.store/permission") "tasks"
            "| the kept clock:" (pr-str (:batch-clock held)))
-    (shown "the logs of answers:" (pr-str (into {} (map (fn [[gate log]] [gate {:records (records-in log) :entries (entries-in log)}])) (:answers logs)))
+    (is (empty? (entries-with-no-row logs held)))
+    (shown "the logs of answers, each entry the row that the table holds under its act-id:"
+           (pr-str (into {} (map (fn [[gate log]] [gate {:records (records-in log) :entries (entries-in log)}])) (:answers logs)))
            "| the log of clocks:" (records-in (:batch-clocks logs)) "records | routes that Rama placed for the rebuild:" routes)
     (is (empty? (:named made)))
     (shown "the rebuild named nothing: every entry has its act, no two entries under one act-id differ, and the check of today gives each accepted thing its form:"
            (pr-str (:named made)))
     (is (empty? apart))
-    (shown "made again from the logs alone and held against the tables, row by row, each table of each gate on each task, and the row of the kept clock: rows that differ:"
+    (shown "made again from the logs, with the task of each of the" routes "routes of a batch's rows asked of Rama, since no log holds the placing, and held against the tables, row by row, each table of each gate on each task, and the row of the kept clock: rows that differ:"
            (count apart))
-    (shown "left out of the comparison, by name, as the rebuild's ruling says:" (pr-str (mapv :part rebuild/left-out)))))
+    (shown "left out of the comparison, each by name with its reason:" (pr-str (mapv (juxt :part :why) rebuild/left-out)))))
 
 ;; ----------------------------------------------- a failed attempt of each gate
 
@@ -633,15 +673,19 @@
   "Stands in for `softland.store.record.rows/answer-record` on the proof's
   second cluster. Takes what it takes and gives what it gives. Once, for
   the act-id whose UUID the proof marked, it throws in its place: the
-  streaming gate calls it in the event of an act, behind the event's writes
-  and before its commit, so that attempt of the event fails and Rama runs
-  the record again. It is public and held by a var, and it closes over
-  nothing: Rama takes the function that the store's var holds at the
-  launch."
+  streaming gate calls it in the last part of the event of an act, behind
+  the commit of the event's rows and before the append of the entry
+  (`softland.store.module.streaming-gate`, step 9). So the answer is
+  committed with no entry, the event fails, and Rama runs the record
+  again: that run finds the answer and appends a copy of its entry. Before
+  it throws it keeps the stamp of the row that it was handed, which the
+  proof holds against the answer in the table. It is public and held by a
+  var, and it closes over nothing: Rama takes the function that the
+  store's var holds at the launch."
   [gate-depot layer act-uuid row]
   (let [marked @uuid-to-fail]
     (when (and marked (= marked act-uuid) (compare-and-set! uuid-to-fail marked nil))
-      (swap! throws-made conj {:gate gate-depot :wall (System/currentTimeMillis)})
+      (swap! throws-made conj {:gate gate-depot :wall (System/currentTimeMillis) :stamp (:stamp row)})
       (throw (ex-info "the rebuild's proof: a forced failure of this event of the streaming gate" {}))))
   (stores-answer-record gate-depot layer act-uuid row))
 
@@ -703,16 +747,30 @@
         rested (at-rest!)
         {:keys [logs made held apart rows]} (compared)
         entries (fn [gate] (entries-in (get-in logs [:answers gate])))
-        answers (fn [gate] (reduce + (map count (vals (get-in held [:tables gate :answers])))))]
+        answers (fn [gate] (reduce + (map count (vals (get-in held [:tables gate :answers])))))
+        ;; where the streaming gate's throw stood: the row that the throwing
+        ;; run made is the row that the table holds, so it was committed
+        stamp-at-the-throw (:stamp (first (filter (fn [thrown] (= :streaming (:gate thrown))) @throws-made)))
+        answer-of-the-failed (some (fn [by-key] (get by-key (record/answer-key :alice (nth (:act-id to-fail) 2))))
+                                   (vals (get-in held [:tables :streaming :answers])))
+        entries-of-the-failed (count (filter (fn [entry] (= (:act-id to-fail) (:act-id entry)))
+                                             (mapcat :answers (apply concat (get-in logs [:answers :streaming])))))]
     (is (= [:streaming :microbatch] (mapv :gate @throws-made)))
-    (shown "a failed attempt of each gate was made: an event of the streaming gate threw behind its writes and before its commit, and an attempt of a batch threw behind its decisions:"
-           (pr-str (mapv :gate @throws-made)) "| the ack of the act whose event failed:" (pr-str ack-of-failed)
+    (is (and (some? stamp-at-the-throw) (= stamp-at-the-throw (:stamp answer-of-the-failed))))
+    (is (pos? entries-of-the-failed))
+    (shown "a failed attempt of each gate was made: an event of the streaming gate threw behind the commit of its rows and before the append of its entry, and an attempt of a batch threw behind its decisions:"
+           (pr-str (mapv :gate @throws-made)) "| the stamp of the row that the throwing run of the streaming gate made:" stamp-at-the-throw
+           "| the stamp of that act's answer in the table:" (:stamp answer-of-the-failed)
+           "| entries of that act in the log, each from a later run of its record:" entries-of-the-failed
+           "| the ack of the act whose event failed:" (pr-str ack-of-failed)
            "| throws when the streaming act was answered:" throws-in-streaming)
     (is (and streaming-answered? base-answered?))
     (is (= {:answered? true :closed? true :quiet? true} (dissoc rested :waited-ms)))
     (shown "each act that was sent has its answer, the acts of the failed attempts too; then the store came to rest: every batch closed, no depot growing | waited"
            (:waited-ms rested) "ms")
-    (shown "entries in the logs of answers against answers in the tables: a second run leaves copies, and no entry of an attempt that did not count | streaming:"
+    (is (empty? (entries-with-no-row logs held)))
+    (is (< (answers :streaming) (entries :streaming)))
+    (shown "each entry of both logs of answers is the row that the table holds under its act-id, so none is of an attempt that did not count; and the streaming log holds more entries than the table holds answers: the second runs of the records left copies | streaming:"
            (entries :streaming) "entries for" (answers :streaming) "answers | microbatch:" (entries :microbatch) "entries for" (answers :microbatch) "answers")
     (is (empty? (:named made)))
     (is (empty? apart))

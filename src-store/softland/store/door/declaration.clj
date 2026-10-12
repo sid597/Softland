@@ -52,8 +52,12 @@
 
   Callers. `softland.store.gate.decision`, `softland.store.record.rows` and the two
   gates (`softland.store.module.streaming-gate`, `softland.store.module.microbatch-gate`).
-  And the door's additions (`softland.store.door.additions`), for the tests
-  of an id and of an act-id.
+  The door's additions (`softland.store.door.additions`), for the tests of
+  an id and of an act-id. The rebuild (`softland.store.rebuild`) asks
+  `check` for the one form of a thing that a log says was accepted: it
+  takes the form, and the answer stays the log's. The read path
+  (`softland.store.read-path.query` and the namespaces beside it) asks the
+  tests and the text of an id, `store-key?` and `max-builds-on`.
   The door sends; it is the gate that checks.
 
   Not here. Whether a thing's permission stands, and whether a fact that it

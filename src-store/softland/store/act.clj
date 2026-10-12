@@ -58,8 +58,11 @@
   act-id, through the declaration. The standing of an act
   (`softland.store.gate.decision/standing`, which both gates call) asks
   `allows` of the permission that the act names, and the record's rows
-  (`softland.store.record.rows`) ask `value?`, `normal-value` and
-  `has-shape?` when they read a row back.
+  (`softland.store.record.rows`) ask `value?`, `normal-value`,
+  `has-shape?` and `readable-keyword?` when they read a row back. The read
+  path's check of a query (`softland.store.read-path.query`) declares its
+  own map of shapes over `shapes`, reads it with `as-shape`, and asks
+  `readable-keyword?`.
 
   Approach. The file has these sections, in this order: the words and the
   limits; the declared shape and the rules; what the declaration says, as
@@ -72,7 +75,7 @@
   is for: the gate's. A replaced fact against the record, the rules of a
   session and the digest of an act: the gates'. The microbatch hash entity:
   the depot derives it. The door is `softland.store.door`; the gate is in its
-  own namespaces beside this one. A stamp, an answer, leases, a read and the
+  own namespaces beside this one. A stamp, an answer, a read and the
   settings of a layer are not here either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more

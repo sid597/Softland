@@ -59,8 +59,9 @@ live reader was told a change a middle of 1,000 ms after the ack
 (`reads/runs/review-probe-held-value.txt`; `reads/PROGRESS.md`, ruling 86).
 
 **Meanwhile.** A fact's row holds its value as a String: the docstring of `facts` in
-[tables.clj](softland/store/record/tables.clj). The rows of the answers and of the locks keep their
-byte arrays, and nothing watches them.
+[tables.clj](softland/store/record/tables.clj). The rows of the answers keep their byte array, and so
+does what the microbatch gate holds of a batch's answers until the next run has appended them;
+nothing watches either.
 
 ## 2. Which task a partitioning key goes to
 

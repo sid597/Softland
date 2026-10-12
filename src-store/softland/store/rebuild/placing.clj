@@ -34,6 +34,12 @@
   State and effects. The module declares no depot and no PState and writes
   nothing. A call reads nothing of the store.
 
+  Limits. `tasks-of-routes` makes one call of the query for each route, and
+  each is one trip to the cluster. A rebuild asks the task of the uuid of
+  every act that a batch decided, of every entity of a fact whose row is on
+  one task, and of every value digest under a marked key, so the calls grow
+  with the store. A query that takes many routes in one call is not built.
+
   Callers. The rebuild's proof."
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.ops :as ops])

@@ -16,16 +16,17 @@
   makes the act-id, with a random UUID; appends the thing, each value plain
   as a maker gives it; reads the answer by act-id; and compares the answer's
   digest with the digest of what it sent. The hand also plays a reader of
-  the tables, since
-  no reader is built in this part: it selects a fact's row, the row of a
+  the tables, and does not use the read path (`softland.store.read-path`),
+  which has a proof of its own: it selects a fact's row, the row of a
   layer's marked keys, and a run of the facts by value, with the keys and
   the partitioning keys that `softland.store.record.rows` gives, and reads a
   row back with that namespace's functions. An error from the append is not an answer. It
   keeps each thing that it sent, so that a repeat is the same thing byte for
   byte.
 
-  The hand also plays a rebuild's reader of the two logs of answers, since
-  no rebuild is built in this part: with Rama's client it reads each
+  The hand also plays a rebuild's reader of the two logs of answers, and
+  does not use the rebuild (`softland.store.rebuild`), which has a proof of
+  its own: with Rama's client it reads each
   partition of `*streaming-answer-depot` and of `*microbatch-answer-depot`
   from its start, and holds each entry against what the read by act-id
   gives and against the tables. No topology of the module reads those two
@@ -90,8 +91,8 @@
   in the cluster, by Rama's module update with the unchanged module, and
   reads both records once more; Rama then prints some lines of its own log,
   marked ERROR, that are no failed checks. So it does on the second cluster
-  for the one throw that the proof makes: Rama says that it treats the throw
-  as fatal for the worker, and starts the worker again.
+  for each of the four throws that the proof makes: Rama says that it treats
+  the throw as fatal for the worker, and starts the worker again.
 
   What it does not reach is in the folder's README."
   (:require [clojure.string :as str]
@@ -1295,7 +1296,8 @@
         looker-acts (decide! (thing :deep :looker-32 sees [{:e :lookers-note :k :text}]))
         slot-at-33 (decide! (thing :deep (holder 32) (at 32)
                                    [{:e :seer-33 :k :softland.store/permission :v [:seer-33 :deep :deep (at 32) :see-and-act]}]))]
-    (check "a layer for these checks is made, and its first permission has depth 1" [:accepted [:alice :deep :deep]] [(:word made) (at 1)])
+    (check "a layer for these checks is made, and its first permission, the first of the proof's chain and of depth 1, sits on its holder"
+           [:accepted [:alice :deep :deep] [:alice :deep :deep]] [(:word made) (at 1) (on-its-holder 1)])
     (check "each holder gives a permission beneath her own, one at each depth from 2 to 32: the 31 gives are each accepted"
            (vec (repeat 31 :accepted)) (mapv :word (pop gives)))
     (check "the permissions of depth 4, 5, 31 and 32 each sit on their holder as they were given"
@@ -1676,7 +1678,8 @@
            [(:word by-another-giver) (= (value-bytes the-row) (value-bytes (fact-row :canvas :bob :softland.store/permission)))])
     (check "a making act whose permission has the slot is no making act: refused as an act into a layer that is not made; the layer is then made by a right act"
            [:layer-not-made :accepted :streaming] [(:word slotted-making) (:word right-making) (depot-of-layer :slotted)])
-    (check "each of those refusals got a stamp of its own on the task, later than the stamp before them" true (< stamp-before (:stamp (:answer acts))))
+    (check "each of her six refusals got a stamp of its own on the task: the stamps go up in the order sent, the first later than the task's last stamp before them"
+           true (apply < stamp-before (map (comp :stamp :answer) [acts names-less names-more gives sends-a-value two-faults])))
     (shown "a permission that says see, as its row holds it:" (pr-str (record/value-of the-row))
            "| its holder acts:" (told acts) "| names it without the slot:" (:word names-less) "| with see and act:" (:word names-more)
            "| gives:" (:word gives) "| sends a value:" (told sends-a-value)
@@ -1774,7 +1777,7 @@
     (check "a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays, though its fact is no longer current, and the new value has no row"
            [true nil [:value :canvas-3]] after-8)
     (check "the key is marked again: it gets a new stamp, later than the first" [{:on s2} true] [marked-2 (< s1 s2)])
-    (check "under the new stamp every run is empty: the row that stayed is under the old stamp, in no run that a read can name, and the fact from before the second mark is not filled in"
+    (check "under the new stamp each of the three runs that the hand reads is empty: the row that stayed is under the old stamp, in no run that a read can name, and the fact from before the second mark is not filled in"
            [[] [] []] after-mark-2)
     (check "a fact written after the second mark, over a fact from before it: its place is in the run of its value, since the new stamp"
            [[:b2] []] after-10)
@@ -2267,8 +2270,8 @@
     (check "each fact's row is on the task of its entity and no other, written by the act, with the stamp of its answer and the text of its value"
            (mapv (fn [[e _] i] [[(task-of-entity e)] act-uuid i stamp (str "\"the body of " (name e) "\"")]) places (range))
            (mapv (fn [rows] (let [row (first (vals rows))] [(vec (keys rows)) (:by-act row) (:by-index row) (:stamp row) (:value row)])) places-after))
-    (check "the one stamp of builder's rule 18: later than the stamp of each row written before on those tasks, and than the refusal's"
-           [true true] [(every? #(< % stamp) earlier-stamps) (< (:stamp (:answer refused)) stamp)])
+    (check "the one stamp of builder's rule 18: rows were written before on those tasks, and the stamp is later than the stamp of each of them, and than the refusal's"
+           [true true true] [(pos? (count earlier-stamps)) (every? #(< % stamp) earlier-stamps) (< (:stamp (:answer refused)) stamp)])
     (check "the gate has one last stamp: it was below the act's stamp before the batch, and is not below it after"
            [true true] [(< last-stamp-before stamp) (<= stamp last-stamp-after)])
     (check "an act alone in its batch replaces the current fact of a place on another task than the one where it arrived: accepted, and the place holds its fact"
@@ -2521,9 +2524,9 @@
     (check "the system gives a person a permission in the base that says see: accepted, and its row is on every task with the whole text, slot and all"
            [:accepted tasks #{[:value erin-sees]}]
            [(:word give-see) (count permission-rows) (set (map record/read-value (vals permission-rows)))])
-    (check "her act in the batch of the give, after it, is decided on the meeting task against the row that the give wrote: refused, an act needs act"
+    (check "her act in the batch of the give, after it, gets the word of a permission that stands and says see, so it was decided against the row that the give wrote in that batch: refused, an act needs act"
            :permission-does-not-allow-acting (:word in-the-same-batch))
-    (check "in a later batch her act is refused for good where it arrives, with the same word, and nothing is written"
+    (check "in a later batch her act is refused with the same word, under its own act-id with the digest of what was sent, and no task holds a row of it"
            [:permission-does-not-allow-acting true {}]
            [(:word acts) (:mine? acts) (rows-by-task :mb-facts-ps (record/place-key :base :erins-doc :note))])
     (check "she names her permission without the slot, and with see and act in it: it does not stand"
@@ -2538,9 +2541,9 @@
             [(entry-of-refusal sends-a-value :permission-does-not-allow-acting)]
             [(entry-of-refusal names-less :permission-does-not-stand)]]
            (mapv (fn [result] (entries-under log (:act-id (:thing result)))) [in-the-same-batch acts sends-a-value names-less]))
-    (check "a second give to her, of see and act, is refused: a permission's place takes one write, and her rows are as they were"
-           [:store-key-takes-one-write (into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows)]
-           [(:word raise) (into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows-after)])
+    (check "a second give to her, of see and act, is refused: a permission's place takes one write, and her row on each task is as it was, in every field"
+           [:store-key-takes-one-write tasks permission-rows]
+           [(:word raise) (count permission-rows-after) permission-rows-after])
     (check "a permission that says see and act, given in the same batch: its holder acts in a later batch" [:accepted :accepted]
            [(:word give-greta) (:word greta-writes)])
     (shown "in the base, a permission that says see:" (pr-str (record/value-of (first (vals permission-rows)))) "on" (count permission-rows) "tasks"
@@ -2623,10 +2626,10 @@
     (check "the key is marked again: every task holds the new stamp, the last stamp of that batch, later than the first"
            [tasks #{{:on s2}} true]
            [(count marked-2) (set (map record/marked-keys-of (vals marked-2))) (< s1 s2)])
-    (check "under the new stamp every run is empty: the row that stayed is under the old stamp, in no run that a read can name"
+    (check "under the new stamp the run of the place's value and the run of the value of the row that stayed are both empty: that row is under the old stamp, in no run that a read can name"
            [[] []] after-mark-2)
-    (check "a fact written after the second mark, over a fact from before it: its place is in the run of its value" [[e2] []] after-10)
-    (check "an act that arrives on another task replaces it: the home task of the place sent the row before in its reply, so the entry of the value before is out, no task holds a row under its key, and the place is in the run of the new value; the row of the first marking is still there"
+    (check "a fact written after the second mark, over a fact from before it: its place is in the run of its value, and the run of the value before is empty" [[e2] []] after-10)
+    (check "an act that arrives on another task than the place's writes over it: the entry of the value before is out, no task holds a row under its key, and the place is in the run of the new value; the row of the first marking is still there, on one task"
            [[] {} [e2] 1] after-11)
     (shown "what points at a thing, in the base. The key :on is marked since" s1 ", the last stamp of the batch that marked it | two places on tasks"
            (task-of-entity e1) "and" (task-of-entity e2) "hold one value: the rows of its run are both on task" (pr-str (first tasks-of-run-1)))
@@ -3733,8 +3736,18 @@
         half (quot (count batch-records) 2)
         clock-then (kept-clock-row)
         last-stamp-then (gates-last-stamp)
-        to-keep-after (to-keep-by-task)
-        to-close-after (to-close-by-task)]
+        ;; The log holds the second run's records before that run commits,
+        ;; and each task commits its part alone. So the hand reads the two
+        ;; fields until both are as a committed closing leaves them, for the
+        ;; hand's time limit at most; the check holds what it read last.
+        nothing-left [(vec (repeat tasks 0)) (vec (repeat tasks nil))]
+        [to-keep-after to-close-after]
+        (let [deadline (+ (System/currentTimeMillis) time-limit-ms)]
+          (loop []
+            (let [seen (try [(to-keep-by-task) (to-close-by-task)] (catch Throwable _ nil))]
+              (if (or (= nothing-left seen) (< deadline (System/currentTimeMillis)))
+                seen
+                (do (Thread/sleep 20) (recur))))))]
     (check "on the second cluster a streaming layer is made, and one batch of the base is sent with a failed closing asked for: two acts that are accepted, one of a maker who may not act, one into the streaming layer, and a stray; each act got its word, with the digest of what was sent"
            [:accepted [:accepted :accepted :permission-does-not-stand :layer-belongs-to-the-other-gate] [true true true true] true]
            [(:word made-streaming) (mapv :word acts) (mapv :mine? acts) answered?])
@@ -3751,7 +3764,7 @@
            [batch-ids (pos? half) (= (subvec batch-records 0 half) (subvec batch-records half))
             (vec (keep (fn [r] (when (contains? r :clock) (select-keys r [:clock :last-stamp]))) batch-records))])
     (check "when the second run of the closing has committed, nothing is left to keep: `:to-keep` holds no key on any task, and `:to-close` is absent on every task"
-           [(vec (repeat tasks 0)) (vec (repeat tasks nil))] [to-keep-after to-close-after])
+           nothing-left [to-keep-after to-close-after])
     (shown "a run of the microbatch gate that closes a batch failed behind its appends and ran again: throws made" (count throws)
            "on the thread" (pr-str (:thread (first throws))) "| all acts answered:" answered? "," waited "ms after the topology went on"
            "| words:" (pr-str (mapv :word acts)))

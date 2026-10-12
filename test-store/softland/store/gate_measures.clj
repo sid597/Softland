@@ -1,7 +1,7 @@
 (ns softland.store.gate-measures
   "The measures of the gates: a run that is no proof. It prints what it
   measured and holds nothing to a number. One command, from the repository
-  root, behind the build's lock:
+  root, while no proof and no other measure runs on the machine:
 
     clojure -M:store-module -m softland.store.gate-measures
 
@@ -633,7 +633,7 @@
                       :else (count (str/split-lines status))))
               "| a depot of answers in the module" (str m ":")
               (if (seq found) (str "yes, " (str/join " and " found)) (str "none, asked for as " (str/join " and " answer-depots))))
-        (said "D1's lines stand beside the M1 lines of reads/runs/measures-final.txt; those sends took their locks from a stock, so a request's round is not in their middle")
+        (said "D1's lines stand beside the M1 lines of reads/runs/measures-final.txt; those are of the tree of the read build, whose door took the locks of a send from a stock that it kept, so a request's round is not in their middle")
         (said "D2 is the difference of D1's two streaming lines, and of the D2 lines, between this run and the run of this file on another tree; one run holds no number of it")
         (set-up! (:door hold))
         (d1-streaming hold load)

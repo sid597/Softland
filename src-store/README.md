@@ -44,12 +44,15 @@ This tree has its own classpath, in two aliases of the root `deps.edn`. Both hol
 `resources`, the rig and the root's other dependencies are on neither, and a
 require of any of them from here fails at load.
 
-- `:store` holds Clojure alone as `:replace-deps`. The pure code and its three
-  proofs run on it, the read path's five pure namespaces and their proof among
-  them. It is the guard that the pure code needs nothing else: a pure
-  namespace that came to require Rama would fail to load here.
+- `:store` holds Clojure alone as `:replace-deps`. The pure code and its four
+  proofs run on it, the read path's five pure namespaces and the rebuild's pure
+  core, each with its proof, among them. It is the guard that the pure code
+  needs nothing else: a pure namespace that came to require Rama would fail to
+  load here.
 - `:store-module` holds Clojure and Rama (`com.rpl/rama` 1.6.0), and the same JVM
-  options. The module and its proof run on it, and so do the door and its proof, and the read path with its proof and its measures. It is a whole alias and not an
+  options. The module and its proof run on it, and so do the door and its proof,
+  the read path with its proof and its measures, the rebuild's reader and its
+  placing with their proof, and the measures of the gates. It is a whole alias and not an
   addition to `:store`: with Rama in `:store`, the guard above would be gone.
   Rama's helper library is left out; the module uses none of it.
 

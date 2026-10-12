@@ -1,0 +1,24 @@
+The proof "rebuild", on the tree "final" (2026-10-12T20:41Z, head f83a4e93), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store-module -m softland.store.rebuild-proof
+The whole output is raw-final-rebuild.txt beside this file, and is not committed. The run took 43 seconds.
+
+THE PROOF, IN ONE PLACE
+SHOWN the query of the module Placing gives each of Rama's own keys for a task the task that Rama made it for: [0 1 2 3]
+SHOWN sent through the door: 13 acts to the streaming depot and 5 to the microbatch depot, each appended; the rest by the hand, with no door | things in the logs of acts: [[:streaming 23] [:microbatch 33]]
+SHOWN the store is at rest: each of the 18 acts that went through the door has its answer; the gate processed each of the 33 things of the microbatch depot; no task holds a :to-close or a key under :to-keep; :closed-through is the gate's last stamp on every task; no depot grew in 1500 ms | waited 1892 ms
+SHOWN what the gates decided, by word | streaming: {:accepted 13, :permission-does-not-stand 1, :no-session 1, :permission-does-not-allow-acting 1, :layer-not-made 1, :layer-belongs-to-the-other-gate 1} | microbatch: {:accepted 22, :permission-does-not-stand 1, :no-session 1, :permission-does-not-allow-acting 1, :layer-belongs-to-the-other-gate 1}
+SHOWN the facts by value of the base, each as the key's stamp and the entity: two markings; the fact of the mark's own batch (the first value of :thing-1) has no row, and the fact of the batch that takes the mark off (:thing-5) has one, under the earlier stamp: (["117429872030908419" ":thing-1"] ["117429872030908419" ":thing-5"] ["117429872443981827" ":thing-1"])
+SHOWN a batch of the base that took a stray and an act left one record that holds the answer's entry, the stray's entry, the batch's clock and its last stamp
+SHOWN the rows that the tables hold, over the 4 tasks: {:streaming {:answers 18, :facts 14, :facts-by-value 3, :task 3}, :microbatch {:answers 26, :facts 34, :facts-by-value 3, :task 7}} | a fact of the base under a key that every task holds is on 4 tasks | the kept clock: {0 {:microbatch {:batch 50, :clock 1791837662213}}, 1 {}, 2 {}, 3 {}}
+SHOWN the logs of answers, each entry the row that the table holds under its act-id: {:streaming {:records 23, :entries 20}, :microbatch {:records 25, :entries 26}} | the log of clocks: 22 records | routes that Rama placed for the rebuild: 42
+SHOWN the rebuild named nothing: every entry has its act, no two entries under one act-id differ, and the check of today gives each accepted thing its form: #{}
+SHOWN made again from the logs, with the task of each of the 42 routes of a batch's rows asked of Rama, since no log holds the placing, and held against the tables, row by row, each table of each gate on each task, and the row of the kept clock: rows that differ: 0
+SHOWN left out of the comparison, each by name with its reason: [[:turns "The working state of one run of the gate. No log holds it, and nothing reads it once its batch is committed."] [:to-keep "The entries that a batch has still to append. On a store at rest it holds no key."] [:to-close "What the next run has to close. On a store at rest it is absent."]]
+SHOWN the query of the module Placing gives each of Rama's own keys for a task the task that Rama made it for: [0 1 2 3]
+SHOWN a failed attempt of each gate was made: an event of the streaming gate threw behind the commit of its rows and before the append of its entry, and an attempt of a batch threw behind its decisions: [:streaming :microbatch] | the stamp of the row that the throwing run of the streaming gate made: 117429873579393024 | the stamp of that act's answer in the table: 117429873579393024 | entries of that act in the log, each from a later run of its record: 1 | the ack of the act whose event failed: [:append-failed "CallbackException"] | throws when the streaming act was answered: 1
+SHOWN each act that was sent has its answer, the acts of the failed attempts too; then the store came to rest: every batch closed, no depot growing | waited 2480 ms
+SHOWN each entry of both logs of answers is the row that the table holds under its act-id, so none is of an attempt that did not count; and the streaming log holds more entries than the table holds answers: the second runs of the records left copies | streaming: 9 entries for 6 answers | microbatch: 6 entries for 6 answers
+SHOWN after the failed attempts, made again from the logs and held against the tables, row by row: {:streaming {:answers 6, :facts 6, :facts-by-value 3, :task 1}, :microbatch {:answers 6, :facts 15, :facts-by-value 3, :task 5}} | rows that differ: 0 | named: #{}
+{:test 4, :pass 29, :fail 0, :error 0}
+
+exit status: 0

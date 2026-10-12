@@ -92,9 +92,12 @@
   that the code is on, so every record is on the one partition of the gate's
   task. The log is what Rama does not set back when an attempt of a batch
   fails; the topology `batch-clock` reads it and keeps the newest batch's
-  clock in one row. Nothing reads its old records. It is never trimmed, as
-  the depots of acts are not; whether a log of the store is ever trimmed is
-  Sid's.
+  clock in one row. No topology reads its old records. A rebuild
+  (`softland.store.rebuild`) is given the log whole, and holds against it
+  the clock that the microbatch gate's depot of answers keeps for a batch.
+  It is never trimmed, as no log of the module is. That the log is kept
+  whole is Sid's decision (src-store/README.md, the decisions of 12 October
+  2026, entry 3); that entry says how it reaches this log too.
 
   The streaming depot partitions by the hash of the thing's `:layer`. The
   acts of one layer depend on each other's order (a give and the first act

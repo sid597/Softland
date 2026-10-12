@@ -3,8 +3,9 @@
 [Parent: store](../README.md) · [Store source entry](../../../README.md).
 
 The rebuild is [rebuild.clj](../rebuild.clj), one folder up: pure code that makes
-every row of every table again from the logs alone, and decides nothing. It takes
-the logs as plain data and requires no Rama. This folder holds the two things
+every row of every table again from the logs, and decides nothing. It takes the
+logs as plain data, with two things that no log holds, the number of tasks and
+the task of each route, and requires no Rama. This folder holds the two things
 that a rebuild of a running module needs from a cluster, and both require Rama.
 
 | File | Responsibility | State and lifetime |
@@ -183,7 +184,8 @@ a record are the words of the build of the logs of answers, on
 | to tie an entry to its thing | To find the thing with the entry's act-id and digest |
 | to name; `:why` | To say of a thing that no row, or not every row, could be made of it, with the reason word |
 | `:entry-with-no-act`, `:entries-differ`, `:form-cannot-be-given`, `:no-last-stamp-of-its-batch`, `:records-of-a-batch-differ`, `:clock-not-in-the-log-of-clocks` | The six reason words of a named thing. The docstring of `from-logs` says what is made in each case |
-| left out, `left-out` | The parts that no log gives and that the rebuild does not make: `:turns`, `:to-keep`, `:to-close` |
+| `:gate`, `:act-id`, `:stamp`, `:digest`, `:refused`, `:word`, `:batch`, `:clock`, `:entries`, `:clocks`, `:last-stamps` | What a named thing carries beside `:why`, by its reason word: the gate, and what the logs hold of the thing. `:word` is the word with which the check of today refuses a thing that the log says was accepted; `:entries`, `:clocks` and `:last-stamps` are the sets of what differs |
+| left out, `left-out` | The parts that no log gives and that the rebuild does not make: `:turns`, `:to-keep`, `:to-close`. Each is a line of `:table`, `:part` and `:why` |
 | `bytes-as-hex` | In [rebuild.clj](../rebuild.clj): a value in a form that `=` compares, for a row that holds a run of bytes |
-| `logs`, `depots` | In [reader.clj](reader.clj): the call that reads the logs off a module, and the depots that it reads, as data |
+| `logs`, `depots`, with `:depot` and `:at-once` | In [reader.clj](reader.clj): the call that reads the logs off a module, and the depots that it reads, as data: each with the name under which the module declares it, and the most records that one read of a partition asks for |
 | `Placing`, `tasks-of-routes` | In [placing.clj](placing.clj): the module of one query, and the client's call that gives the task of each route |

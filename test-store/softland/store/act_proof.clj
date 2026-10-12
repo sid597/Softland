@@ -235,9 +235,9 @@
       (act-of {:e :note-1 :k :note :replaces [earlier-act-id 0]})
       (one-form {:e :note-1 :k :note :v nil :replaces [earlier-act-id 0]})]
      ["three facts, each with a plain value under any key: a text, a map, a UUID"
-      (act-of a-fact {:e :alice-s1 :k :lease :v {:count 1}} {:e :note-2 :k :link :v (uuid 5)})
+      (act-of a-fact {:e :alice-s1 :k :tally :v {:count 1}} {:e :note-2 :k :link :v (uuid 5)})
       (one-form {:e :note-1 :k :note :v "a text" :replaces nil}
-                {:e :alice-s1 :k :lease :v {:count 1} :replaces nil}
+                {:e :alice-s1 :k :tally :v {:count 1} :replaces nil}
                 {:e :note-2 :k :link :v (uuid 5) :replaces nil})]
      ["an act whose ids are UUIDs: who, the layer, the permission, the session, an entity and a subject"
       {:version 1 :who w :layer l :permission [w l l] :session s :subjects #{w}
