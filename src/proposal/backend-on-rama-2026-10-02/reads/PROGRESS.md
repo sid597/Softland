@@ -99,7 +99,7 @@ it adapts the skill's template.
 | the build of `what-the-gates-keep` (first, by ruling 53); rulings 71 to 73 | done. The build stage's verdict is pass. The build session ran the four proofs itself: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 17, :pass 671, :fail 0, :error 0}`, module `{:test 31, :pass 333, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, each with exit 0 | `371c6d2f` the code with its proofs; `ffc10f29` the papers |
 | the build of `base-for-a-reader`; rulings 81 to 84 | done. The build stage's verdict is pass, taken from its own final runs: act 160, pure 686, module 354, door 199, each with exit 0. The run of ruling 17 (d) holds | `fd92e6e9`; `record/rows.clj`, `module.clj`, `module/door_reads.clj` and the maps in it also hold lines of the read path's build, which ran in the same tree |
 | the build of `read-path`; rulings 85 to 90 | done. The build stage's verdict is pass for the suite, taken from its own final runs: read path pure 149, read path on the cluster 445, and the four others as above. Its measures found two things, which rulings 86 and 87 send to the review to repair | `16ced230` |
-| one fresh review of the whole against the contract; it first makes the repairs of rulings 84, 86, 87 and 89 | not started: it waits for a session that cannot be asked for a permission | — |
+| one fresh review of the whole against the contract; it first makes the repairs of rulings 84, 86, 87 and 89 | not started. Nothing moved between 08:30 and 16:15 IST on 12 October: the build session waited at the hand-over. At 16:15 it started this stage in an agent and stopped it two minutes later, with nothing changed in the tree, at Sid's word that he starts it by hand. `STARTER-review.md` is what that session reads | — |
 | the measures of the contract's section C | — | — |
 | the receipt to Sid | — | — |
 
@@ -724,8 +724,9 @@ is not decided, proposed as rows for the queue and decided by nobody; `git statu
 
 ## For a session that takes this build over
 
-Written at the hand-over of 12 October 2026, about 08:40 IST. Sid's word that morning was to pass the
-build to a new session once the two last builds had landed.
+Written at the hand-over of 12 October 2026, about 08:30 IST, and brought up to date at 16:20. Sid
+starts the next session by hand. `STARTER-review.md` in this folder is its starter: it holds what is
+left, in order, with the detail of each repair. This section says where each part of the receipt is.
 
 **Where the build stands.** All three parts are planned, checked, built and committed. Nothing is
 running. The head is the commit that holds this page. The parts' commits: `371c6d2f` what the gates
