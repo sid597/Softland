@@ -1,0 +1,380 @@
+=== Sheet | Before real data is kept — what the check of 10 October leaves to settle
+
+On 10 October six sessions read the store's papers and code for things that nobody had examined. What touches the read build is on the sheet "Reading back out, second sheet". This sheet has the rest. This is its second print: two sessions read the first print against the check on 11 October, and what they found missing is in it now. New on this print: Z6; a fourth choice in Z2, which is answered after a run; a number in place of a time in Z3 B; two more things in Z5; more rows on the last page. Five need your decision (Z1 to Z4, and Z6). Eight need only your yes (Z5). The others are on the last page, each with what it waits for; they are not asked. Nothing here is due in days: no real data is kept, and until it is, each of these is a change of code. Each question ends with what it rests on: your line, a fact with the place where it was checked, or a session's reading. Answer on paper or in the chat ("Z1 A").
+
+```picture 112
+ONE ACT, AND WHAT IS KEPT OF IT          MAKER ─ act ─► DOOR ─► LOG ─► GATE ─► TABLES
+  MAKER — a screen, a converter, an agent: whatever makes an act.      ACT — one or more FACTS that go in together.      FACT — entity · key · value.
+  LAYER — the one place in the store that an act writes to.      DOOR — the code that takes an act into the store.      GATE — the code that accepts or refuses each act.
+
+THE DOOR     seals each value with a LOCK, an encryption key, and appends the act to the log.
+                │
+                ▼
+THE LOG      Rama's depot. It keeps each act as it arrived: its values sealed, all else plain.      ⟦◀ Z2 · sealed or plain in the log⟧
+             By default Rama keeps a log for ever. A setting can trim it.                           ⟦◀ Z3 · the log is kept whole⟧
+                │
+                ▼
+THE GATE     reads the clock, makes the STAMP of the act, and accepts or refuses it.
+             It also makes each lock, from random bytes.
+                │
+                ▼
+THE TABLES   what the gates keep. Rama calls a table a PSTATE.
+             answers    for each act: refused or not · its stamp          in no log                ⟦◀ Z1 · what brings the tables back⟧
+             locks      each lock's bytes                                 in no log
+             facts      for each place, the one fact that is there now    can be worked out again from the log and the answers
+                │
+                ▼
+A READ       Nothing is kept of a read today.                                                       ⟦◀ Z4 · whose reads are kept⟧
+
+BESIDE THE STORE
+             BACKUPS — Rama can copy the log and the tables to other storage. No cluster of this store runs yet, so none is set up.      ⟦◀ Z5⟧
+             COPIES — Rama can keep the log and tables on more than one machine. Free licence: two.      ⟦◀ Z6 · copies, machines, the licence⟧
+             TASKS — Rama divides a store into tasks. Their number is set at launch, for good.           ⟦◀ Z6⟧
+             A SECOND NODE — The check found no run of this store on two.
+```
+
+## Words
+
+- **the tables** — what the gates keep; the sheets before this one say "the record".
+- **forget** — the store destroys a lock; what it sealed in the log can never be opened.
+- **purge** — to cut records out of Rama's log for good.
+- **real data** — work that you do not want to lose. The papers say "the first kept record"; you never wrote that phrase.
+- **the base** — the layer that the whole store shares.
+- **task** — one division of a Rama store. Each task holds its own part of every log and table, and one thread at most works on it.
+- **node** — a machine that runs part of the store.
+- **copy** — Rama can keep each task's logs and tables on more than one node. Rama's word for the number of copies is the replication factor.
+- **read entry** — a fact that says: this asker was given these things, then.
+- **a session suggests** — what the AI session that wrote this sheet would pick, with its reason. It is not a default.
+
+=== Z1 | What brings the tables back
+
+Kind: **system sets**. It corrects the reason that is written under decision 2 of 7 October.
+
+```
+ On 7 October you put the gates' answers in the gates' tables, and not in a log of their own.
+ Your reason was that an answer can be worked out again from the act.
+ The build found that it cannot. The store's own page lists what a second run of the gate
+ over the log would not give again:
+   a lock's bytes        the gate makes them from random bytes; they are in no log
+   a stamp               it holds the gate's clock at the decision
+   some refusals         an act that carries a stamp more than 10 seconds ahead is refused
+   the order of two acts of the base that meet from two partitions
+ Of the last one the page says: "whether it is wanted is Sid's". None of the four was put to
+ you on a sheet.
+ What Rama gives for a lost table: backups, and copies on other nodes when there are any (Z6).
+ Rama never makes a table again by itself. It gives a way to: a new table, or a new store,
+ that reads a log from its start. Rama's docs say that this works only when a second run
+ gives the same result. This build's gate reads a clock and makes random locks; its second
+ run does not.
+```
+
+## What you said
+
+- **7 October.** “f2 - A, note to self- it is recomputable given the version a act was proposed at it will be rejected every time so storing it a new depotdoesn't make sense” {{‹27882354›}}
+- **17 July, vision log**, for the earlier build: “lets go with this durable-ground = a real single-node Rama cluster on your PC + Rama-native backups rsync'd to the Mac vault, boot-time ingest off the startup path. No hand-rolled journal.” {{vision/LOG.md, line 706}}
+- **10 October.** “… its scary as fuck thinking what it means if we loose the data and everyone is locked out …” {{‹4855d498›}}
+
+**If the tables are lost, what brings them back?**
+
+[ ] **A** — Rama's own means: backups, and a second node when there is one. The tables are part of the store.
+If A: backups are set up before real data is kept (Z5, Z6). The reason under decision 2 of 7 October is written again: the gate decides once, and what it decided is kept. Rama's way past the number of tasks by a second run is given up; what is left is a move of the tables by code written for it, with downtime (Z6). The log is then kept for looking back and for tables that are added later (Z3).
+[ ] **B** — the log alone must be able to: a second run of the gate gives every answer again.
+If B: the gate may not read a clock or make a lock. A stamp becomes a count, or is written to a log before it is used. A lock that is written bare in a log cannot be forgotten. So Z2 is "plain"; or "a few locks" (Z2 D), and then those few are the one thing that the log cannot give back. Two acts that meet from two partitions need a log of each batch. One more append for each act.
+
+Today: A in fact, with one node and no backup. The decisions page says B.
+
+A session suggests: **A**. B asks for a gate that reads no clock and makes no lock. That takes back your stamp of 8 October (the clock time and a counter) and the lock for each value of 9 October.
+
+## Rests on
+
+- **Yours:** the line of 7 October. It gives recomputing as a fact, not as a wish.
+- **Checked:** rules 9, 17 and 19 of the store's page (`src-store/softland/store/README.md`); that the gate makes a lock from random bytes (`module/streaming_gate.clj`, `door/seal.clj`); Rama's backups (`22-backups.md`); the two nodes of the free licence (`19-operating-rama.md`); that Rama does not make a table again by itself (the repository's Rama skill, `SKILL.md`); that its way to make one again needs a second run to give the same result (`19-operating-rama.md`, "Task scaling", and `15-pstates.md`, line 45). Rama's pages on copies were read for Z6.
+- **A session's:** what B would take. It is reasoned, not designed.
+- **If it changes later:** the answers that were kept under A stay as they are. Only acts decided after a change to B could be worked out again.
+
+=ANSWER A or B.
+
+=== Z2 | The copy in the log: sealed or plain
+
+Kind: **spectrum** — the store can offer each of four settings; the default is the question. A reopens two decisions of yours, and D one. Answer it after the purge is run on Rama 1.6.0 (last page): the result of the run comes to you first.
+
+```
+ A layer's values can be kept in the log in four ways. The store can offer each of them.
+   plain                    no lock
+   a few locks              one for each person or layer. Each value still has a lock of its
+                            own, but that lock is wrapped under one of the few and is in the log
+   a lock for each value    kept outside the log, so that it can be destroyed. As built
+   the members' locks       the layer's members hold the locks; the store cannot read the layer
+ The fourth cannot be the default: a gate could check nothing in such a layer, and no tool or
+ agent on the store's side could read it. The rulings file allows it for a key whose grammar
+ says so (ruling 6). Your line of 10 October names it: "iff like we directly give to users
+ encryption key its on them".
+ You decided: the door seals each value before the log keeps it (6 October), and one lock
+ seals one value (9 October).
+ What the seal does: when a lock is destroyed, the value in the log can never be opened. That
+ is its one job. It hides nothing from whoever runs the store: the store makes every lock and
+ keeps it, and the gate opens every value. A session told you so on 8 October.
+ What the seal costs:
+   the locks are in a table and in no log, so the log alone cannot bring the store back (Z1)
+   a lock for each value, and one more for each later version of it
+   the door asks the gate for locks before it can write
+   the door seals only a value in a thing of the right form; what a maker gives in any
+   other form is appended as given, plain, and the log keeps it
+ The reason given for the seal was that a log keeps every record for ever. Rama can cut a
+ record out of a log: a migration at a module update. Read in Rama's docs, not run here:
+   writes pause for 2 to 30 seconds at the update
+   the whole log is written again in the background, and needs room for a second copy meanwhile
+ Either way, a forgotten thing stays in old backups until those are gone, and a restore of a
+ backup brings back what was forgotten after it was taken.
+ How a person is forgotten follows from this answer:
+   plain                    each of her rows is removed, and the log is purged
+   a few locks              her lock is destroyed
+   a lock for each value    each of her locks is destroyed
+ No forget is built.
+```
+
+## What you said
+
+- **9 October**, dictated, when you chose one lock for each value: “… I think I was maybe thinking wrong. And this is only about what gets deleted. And when we want to delete, how much control do we have over what gets deleted? … I think my stance is A. Because given A, any tool user layer group can decide by themselves what a log delete means for different kind of values for their tool or layer.” {{‹5ea945a8›}} "Log" is the lock.
+- **23 September.** “any data that is user has not shared with anyone else which is like only personal that gets deleted in some sense like it is not recoverable but then the flip side is if they have their agent and it can read its read their data then the data is already somewhere in whatever agent they were using” {{‹6304b683›}}
+- **10 October.** “Is the lock for encryption reason? I think in notmal products that exist today there is no lock concept and yes its scary as fuck thinking what it means if we loose the data and everyone is locked out iff like we directly give to users encryption key its on them but if we do its like this problem and so mich issue and tension to maintain them” {{‹4855d498›}}
+
+**What is the default for a layer's values in the log?**
+
+[ ] **A** — plain. A forget takes the thing out of every read at once, and a purge cuts it out of the log on a schedule. A layer that needs a forget to reach the log at once asks for sealing.
+If A: no lock for most values, and the log can be read by itself. Until the next purge, whoever runs the store can get a forgotten thing back from the log. Write on the line how long that may be. It reopens your decisions of 6 and 9 October for the layers that do not seal. A log cannot be closed to reads, so the wall around a plain log is your answer to W9 of the read sheet. The plain end is built first.
+[ ] **B** — sealed, as you decided. A layer that wants no locks asks to be plain.
+If B: a forget reaches the log at once. The costs in the box stay for most values. The sealed end stays as built; the plain end is built when a layer asks.
+[ ] **C** — sealed for every layer, with no plain end. As built.
+If C: as B, and no layer can do without locks.
+[ ] **D** — sealed, under a few locks. A layer that needs one value to be forgotten in the log at once asks for a lock for each value.
+If D: to forget a person or a layer reaches the log at once: one lock is destroyed. To forget one value is as in A. The log can be read with the few locks alone, so what must never be lost is small. It reopens your decision of 9 October in one point: one value is not forgotten in the log at once. Not built, not tested.
+
+Today: C. No forget and no purge is built.
+
+A session suggests: **A** or **D**, after the purge is run. What picks between them: when a person says "forget me", must the log be unreadable at that moment (D), or is within days enough (A)? What would make both wrong: a promise to someone that one forgotten value is unreadable in the log the same second.
+
+## Rests on
+
+- **Yours:** the two decisions, and the three lines above. On 9 October you chose the grain of a lock. Whether to seal at all was not asked that day.
+- **Checked:** that the gate makes and keeps every lock and opens every value (`module/streaming_gate.clj`, `gate/decision.clj`); the migration of a log, the pause at an update, the backups (`14-depots.md`, `19-operating-rama.md`, `22-backups.md`). Read, not run. That the door appends as given what it finds no fact in (`door.clj`, its namespace docstring). That the architecture file said on 2 October that a module update can cut a log's records (its correction 9); the seal was asked on 6 October.
+- **A session's:** choice D and the wrapped lock. It is derived from ruling 7 of the rulings file, "wrapped under the locks of the people it is about"; the build left wrapping out. That a restore brings back what was forgotten: it follows from what a backup holds, and was not run. That a purge fits a schedule and not each delete. The docs say that the migration is a function of one record; that the list of what to cut must then be built into the update is a session's reading.
+- **Not asked here:** what a forget takes with it beside the value (last page). How a layer asks for the members' locks is not designed.
+- **If it changes later:** the default can change for acts that are written after. What was written plain stays plain in the log until a purge.
+
+=ANSWER A with a time, B, C or D.
+
+=== Z3 | The log is kept whole
+
+Kind: **system sets** — a rule of how the store is run, until a layer can say how much of its past it keeps.
+
+```
+ By default Rama keeps a log for ever. Trimming is a setting that can be changed while the
+ cluster runs, from Rama's own web page; within ten minutes Rama then deletes the oldest
+ records. The setting is a count: Rama keeps the newest n records of each part of the log.
+ It cannot be set to an age, and it cannot be set for one layer.
+ With Z1 A the log is not what brings the tables back. What rests on a whole log:
+   looking back: a thing as it was on a day
+   a table that is added later and filled from the log (the read sheet, W11 and W12); it
+   also needs the answers, and the locks where values are sealed
+ The store's page and the first reads sheet say "never trimmed". Two other sheets say "until
+ a trim". No line of yours says either. Nobody has priced the disk of a log kept for ever.
+```
+
+## What you said
+
+- **17 September.** “there is some kind of decision that we make not we but the user should make how many times they want an event to be saved and like they will know the cost of cost of it because if they say like save everything then basically their view will become a bit slower” {{‹e624d4e7›}}
+- **23 September.** “what happens when we try to do Time travel kind of thing so let's say in the present time the user has deleted some of their data but there is a UI from using which they can see their past data …” {{‹73d9f8c2›}}
+
+**Is the log kept whole?**
+
+[ ] **A** — yes. Rama's trim setting stays off, and only you change it.
+If A: the past can be read, and a new table can be filled from it. The log's disk grows without end; the read build's measures say how fast. "Only you" holds when nothing else can reach Rama's web page: W9 of the read sheet.
+[ ] **B** — no. Rama keeps only the newest records of each part of the log: write how many.
+If B: a quiet part keeps old records and a busy part loses new ones. What was trimmed cannot be looked back at, and a table that is added later holds only what is left.
+
+Today: Rama's default, whole. Nothing says who may change the setting.
+
+A session suggests: **A**, until a layer can say how much of its past it keeps. That is your line of 17 September, and it is not designed.
+
+## Rests on
+
+- **Yours:** the two lines above. They show that you want the past, and that how much is kept should be the user's choice with its cost in view.
+- **Checked:** Rama's trimming, and that its setting is a count (`14-depots.md`, "Depot trimming"); that such a setting is changed from Rama's web page (`19-operating-rama.md`, line 552); the two wordings in the papers (`g-reads-first.txt`, the store's page; `g-record.txt`, `g-store.txt`).
+- **A session's:** the list of what rests on a whole log.
+- **If it changes later:** a record that was trimmed is gone for good.
+
+=ANSWER A, or B with a number.
+
+=== Z4 | Whose reads are kept
+
+Kind: **spectrum** — the default is the question. It is W6 of the first reads sheet, asked again with one thing in its box changed.
+
+```
+ Not asked here: what an ACT stood on. That is on the act itself (decided, 6 October).
+ Asked here: a read that no act names. The asker is a model or a person:
+   a MODEL       it cannot be run again to the same reply
+   a PERSON      her screen reads as she works
+ The first sheet said that each kept read costs one act. With live reads (the read sheet, W3)
+ one read entry can stand for a whole live read: who, which thing in which layer, from when
+ to when. What was shown can then be worked out from the past, as long as the past is kept
+ (Z3), the thing was not forgotten since, and a table of the past is built: today the
+ tables hold only the fact that is in a place now (the read sheet, W11).
+ Not your word: "always". The rulings file says that a model's or a person's reads are kept
+ "always". Two sessions joined their two readings of your "hybrid" themselves.
+```
+
+## What you said
+
+- **24 September.** “have I not already said like the tools that fire some kind of read if the system is deterministic it will we can just derive what was read at some point so we only need that data right” {{‹f68cf1a3›}}
+- **24 September.** “I don't have to store everything … the entity ID the time and the version are these three not enough to do this Or maybe just time.” {{‹aab30856›}}
+- **24 September**, to the session that then wrote the rulings file: “so its hybrid with pattern as default” {{‹3f24ec27›}} "Pattern": one short line for a whole pattern that a tool read, and not a row for each fact.
+- **17 September**, on pointer moves: “there is some kind of decision that we make not we but the user should make how many times they want an event to be saved and like they will know the cost of cost of it …” {{‹e624d4e7›}}
+- **Not safely yours:** “if they agree to get the data to the system for analysis or something”. It is in a long message of 17 September that the record cannot mark as typed or as pasted. {{‹40a0d810›}}
+
+**Whose reads does the store keep, when nobody has chosen otherwise?**
+
+[ ] **A** — each read of a model, and each read of a person. No switch.
+If A: for each thing it can be told who was given it. A person has no say.
+[ ] **B** — each read of a model. A person's reads too, until she turns that off.
+If B: a person's reads are kept until she says no.
+[ ] **C** — each read of a model. A person's reads only after she turns that on.
+If C: nothing of a person's reads is kept until she says yes.
+[ ] **D** — none.
+If D: what a model was given can be told only from what its acts name in `:based-on`.
+
+Today: nothing is kept for a read.
+
+A session suggests: **C**. The first sheet's session suggested B. Your typed lines give the person the choice; they do not say which way it starts. C starts from her yes.
+
+## Rests on
+
+- **Yours:** the four typed lines above.
+- **Checked:** nothing in the code; no read is built.
+- **A session's:** that one entry can stand for a whole live read, which takes your "pattern" as its form. And one follow-on: the entry is written beside the read, and the reader does not wait for it (W7 of the first sheet). Strike it if it is wrong.
+- **If it changes later:** the default can change any day. A read that was not kept cannot be kept afterwards.
+
+=ANSWER A, B, C or D.
+
+=== Z6 | Copies, machines and the licence
+
+Kind: **system sets** — how the store is run. The copies can change later. The number of tasks cannot.
+
+```
+ Two numbers are given when a cluster is launched.
+   the number of copies    Rama can change it on a running store. Two copies of one task are
+                           always on two nodes. Rama recommends three for production.
+   the number of tasks     Rama cannot change it after launch. It is the most threads that
+                           the store can ever use, and it is a power of two. Rama's advice:
+                           choose it for the growth of "the next couple years"; about 16
+                           tasks for each thread is reasonable.
+ Rama's two ways past the number of tasks, both with downtime:
+   a second run of everything from the logs, which Z1 A gives up
+   a move of the tables by code written for it
+ The licence. Free: two nodes. Paid: more nodes, and Rama's own backups, which run without
+ a stop. With the free licence a backup is made by hand, with the cluster stopped.
+ The rulings file says of the number of tasks "chosen for two years". That is Rama's advice
+ in a session's words; you typed it in no line, and no number was ever chosen.
+```
+
+## What you said
+
+- **17 July, vision log.** “… hosting would cost money and on i have a local pc that is not being used i can hook it up with ups and use as server?? It has 16 gb ram ryzen 5 2600” {{vision/LOG.md, line 702}}
+- **7 October**, on whether two nodes can run: “currently idk about the license part and how many nodes can run once but since we are in dev phase it is fine to punt to later when i go to production” {{‹32f65085›}}
+
+**When real data is kept, how many copies, on how many machines?**
+
+[ ] **A** — one machine, one copy. Backups by hand, and the store stops for each.
+If A: no licence and no second machine. When that machine's disk is lost, the store goes back to the last backup.
+[ ] **B** — two machines, two copies. Backups by hand, as in A.
+If B: the most that the free licence allows. When one machine is lost, the other holds a copy.
+[ ] **C** — three machines, three copies, and Rama's own backups.
+If C: what Rama recommends for production. A paid licence; its price is not in the docs.
+
+Whichever you tick: a session reckons the number of tasks from the machines that you name and from Rama's advice, shows the reckoning, and brings you one number to confirm before a cluster is launched.
+
+Today: no cluster of this store runs. The proofs run inside one process, where Rama holds the copies at one.
+
+A session suggests: **B**. It costs no licence, your line of 17 July names a spare PC, and it is the one free answer in which a lost disk does not take the store's latest work.
+
+## Rests on
+
+- **Yours:** the two lines above. Neither chooses.
+- **Checked:** that the number of tasks cannot change, Rama's advice on it, and the two ways past it (`19-operating-rama.md`, "Task scaling"); that it is a power of two (`07-terminology.md`); that the copies can change on a running store (`19-operating-rama.md`, `scaleExecutors`); two copies on two nodes (`21-replication.md`); three recommended (`07-terminology.md`); the free licence (`19-operating-rama.md`, line 110); backups (`22-backups.md`, line 126). Read, not run. These docs are the extract of Z5, 7.
+- **A session's:** that "chosen for two years" is Rama's advice in a session's words. The record shows it in no line that you typed.
+- **If it changes later:** copies and machines can change on a running store. The number of tasks cannot.
+
+=ANSWER A, B or C.
+
+=== Z5 | Eight things that need only your yes
+
+Kind: **to do**. None is a choice between two ends. A session does each on your word.
+
+[ ] **1** — Backups. Before real data is kept, backups are set up for the store, to storage that is not this machine, and one restore from a backup is run.
+If 1: it is your line of 17 July for the earlier build. Which kind of backup follows from Z6: Rama's own backups need the paid licence; with the free one, each backup stops the store. How long old backups are kept is how long a forgotten thing can still be got back.
+[ ] **2** — One pass over the decisions page, `src-store/README.md`, and over the rulings file of September, `src/proposal/frame-2026-09-15/PROGRESS.md`. Each entry is marked as yours (with the line), as a fact (with where it was checked), or as a session's. A reason that is not yours is taken out of your mouth.
+If 2: the check names them. Among them: "his own reason" under the store's keys, which in your line begins "or like you are saying"; and "the acts depots are the replay log", which a session wrote. The architecture file marks a line "ruled" when the rulings file holds it; the rulings file is a session's writing.
+[ ] **3** — "Freezes" goes. No paper gives "frozen at the first kept record" as a reason. A paper that says a thing is due now says what breaks later.
+If 3: sessions wrote the phrase in about forty texts, and you in none. Rama can write the records of a log and the values of a table again. Three things it cannot change, and a paper names them where they bear: the number of tasks (Z6); the name of a depot or of a table; the keys of a table. The store's tables are keyed by the printed text of ids and of fact keys, so "what a key is" is on the last page under "before real data".
+[ ] **4** — The limit of four on the depth of a permission is lifted; a bound on the size of an act takes its place.
+If 4: the check traced the four to the rig's code. Its cost comes with the end of a permission (last page): a gate does not read the permissions above an act's own today, because nothing ends one. When one can end, a gate reads the chain, one read for each level. Your words of 8 October: “group->group->agents->agents-groups-Agent group->...” {{‹d05a12e6›}}
+[ ] **5** — The method gets three lines. The second reader of a sheet first tries to make each question fall away. A builder's "is Sid's" line goes to the queue the same day. A question whose answer is a fact is not asked.
+[ ] **6** — The check's six reports, and a row in the queue for each thing on the last page of this sheet, go into the repository.
+[ ] **7** — Rama's docs for the version that the store runs. The local copy is an extract of March 2026 with no version on it; its pages name 1.5.0, and the store runs 1.6.0. A session fetches the docs for 1.6.0, or writes on the copy which version it is.
+If 7: each "read, not run" on this sheet is then against the right version.
+[ ] **8** — One page that lists what must be true before real data is kept.
+If 8: the list is this sheet's answers and its runs: the copies and the number of tasks (Z6); who may reach Rama's ports (W9 of the read sheet); a backup and one restore; the proofs on two real nodes; the purge, if Z2 is A or D. The day itself is yours to call; no paper names it.
+
+=ANSWER The numbers that you say yes to.
+
+=== Listed | Not asked — and what each waits for
+
+## Waits for a run. A session tries it; it comes back only if the result needs you
+
+- **The order of acts after a failure.** After a failure the streaming gate can decide a later act of a layer before an earlier one, and keep that order. The store's page names a Rama setting as the cure and says "The choice is Sid's". Nobody ran it.
+- **One layer on one thread.** A streaming layer lives whole on one task, with other people's layers beside it, and its acts are decided in one order. The only measures are the rig's. If one thread is not enough for your canvas with its agents, "does a shared layer need one order" comes to you with numbers.
+- **The purge of Z2**, on Rama 1.6.0. Its result comes to you before Z2 is answered.
+- **Two nodes.** The check found no run on two. The proofs run inside one process, with one copy; they pass on two real nodes before real data is kept (Z5, 8). The rule that refuses a stamp more than 10 seconds ahead needs two machines' clocks to agree.
+- **Every number.** No speed of the built store is measured. The aims on the store's page (1,000 acts a second on one task; 20 ms; 110 bytes of lock for a value) are the build's own.
+- **A restore from a backup** (Z5, 1).
+- **What Rama's push can watch.** Rama's docs say that a push watches one value, and cannot watch a whole table (`15-pstates.md`, lines 438 and 654). The store has three flat tables. Whether a screen can be told of each change of one entity is run before the read build is shaped (the read sheet, W3 and W11).
+- **The base's second** (the read sheet, W13). Part of it is the build's own rule, which holds an answer back until its batch is closed. The build names a repair: to keep each batch's clock (`store-module/PROGRESS.md`, item 24). How much of the second that is, nobody measured.
+
+## Waits for sign-in
+
+- **Who may make a layer, and who may act as the system.** As built, whoever first acts under an unused layer id makes that layer. With the read sheet's W9 A, only our own programs can.
+- **What is at the top of a permission's chain: a person, or her session. And what a session is for.** Your answer to that row on 8 October was “what and why is this question??? no me understand” {{‹d05a12e6›}}. A session read your next answer onto it.
+- **How a permission ends.** Nothing in this build ends one. There is room for it: an end would be a later fact at the permission's place.
+- **Who may change a layer's settings:** its owner, as you said for who may see it, or its members, as decided for its depot.
+- **One permission for each holder in a layer.** As built, a permission sits on its holder, so a holder has one in a layer. The store's page says "Sid should know this one". It meets W1 C of the read sheet: one holder could not hold "see" from one giver and "act" from another.
+- **Under which permission the system makes a person's own layer.** As built, the system acts there under the person's own permission. That is the builder's reading; your decision of 8 October does not say.
+
+## How the store is run
+
+- **Who runs the cluster.** No paper names an operator. Rama never moves work off a lost machine by itself: someone must. To force that for a task whose only copy was on the lost machine loses that task's data (`19-operating-rama.md`, lines 576 and 597).
+
+## Waits for the forget build
+
+- **What a forget takes with it.** As designed it reaches the value of one accepted fact. A person's id, an entity's id, a fact's key, a thing that was refused, and a value in a thing whose form the door did not know, stay plain in the log.
+- **Forgetting a person.** No way is built or designed. Which way it is follows from Z2.
+- **How a lock comes to be**, where a layer seals (Z2). Today the door asks the gate for locks ahead of writing; the build's papers list what that costs. With a few locks (Z2 D) the door could make each value's lock itself and wrap it; that is not designed.
+
+## The builder's numbers. Kept, and not decided
+
+- In the door's declaration: 256 facts in an act · 1,024 entries in `:based-on` · 65,536 sealed bytes in a value · 256 locks in a request · 256 characters in an id.
+- On the decisions page: 256 subjects in an act · a value inside 32 collections at most · a stamp below 2^62. The check traced these three, and the four of Z5, to the rig's code. On 6 October you asked “is 2^62 big enough” {{‹61dbaec7›}}; the record shows no answer.
+- To make a limit wider later refuses nothing that was accepted.
+- A value is kept as the text of its printed form. A value cannot be bytes, such as an image.
+- One large act can hold a layer's thread: up to 256 sealed values, and up to 32,768 rows of locks read for it. The store's page says "Nothing is built against it".
+
+## Before real data, and not yet asked
+
+- **What a key is** (the queue's K5): an id whose word is a fact about it, or a readable word only. The store's tables are keyed by the printed text of ids and of fact keys, and Rama cannot change the keys of a table. After real data a change of this is a new table, filled from the old one.
+
+## Above the act, or later
+
+- **Publishing to the world group:** a copy into a shared layer, or one's own layer opened to everyone. The papers hold both; which one "publishes" means was not asked.
+- **How a grammar's copy reaches a layer. What wakes a tool.**
+- **What the base is**, and whether the world group is the base (the queue's K14). The read sheet's W13 asks only how late the base may answer.
+- **By which road the first real data comes.** Inland and the rig are the only things with a user. How their work comes onto this store is not decided.
+- **W7 and W8 of the first reads sheet.** W7 is the follow-on under Z4. W8 is in the read sheet's W11 and W12.

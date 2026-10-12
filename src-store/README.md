@@ -146,10 +146,14 @@ never live there.
 
 1. **Two depots, one for each gate: the streaming depot and the microbatch
    depot.** Sid decided (F6 A, Q7 a).
-2. **The record is in the gates' PStates.** Sid decided (F2 A). His reason:
-   the record is recomputable from the acts depot — an act proposed at a
-   version is refused the same way every time — so a second depot of
-   decisions adds nothing. The acts depots are the replay log.
+2. **The record is in the gates' PStates.** Sid decided (F2 A). His line:
+   "f2 - A, note to self- it is recomputable given the version a act was
+   proposed at it will be rejected every time so storing it a new
+   depotdoesn't make sense". The build found that a second run of a gate
+   over the acts depots does not give the same record (the store's page,
+   rule 19). On 12 October he decided that what a gate decided also goes
+   into a log (entry 1 of that day). The gates' PStates stay the record
+   that the door and every read use.
 3. **The members of a layer set its class, as a fact on the layer.** Sid
    decided (F1 A). The "third switch" of the 2 October drawing was never his
    agreement; this is.
@@ -494,28 +498,139 @@ changes with them. They shape the read build, whose starter is
    into the base waits that second to see her own fact.
 9. **The other sheet comes after the read build.** Sid, 12 October: "all the Z
    phase can be done after this one imo". The sheet is "Before real data is
-   kept" (`decisions/groups/g-check.txt`). His lines of 11 October on its
-   questions are given here as he typed them. None is recorded as a decision:
-   each wants one more word from him, or waits for a run.
-   - Z2, the copy in the log: "plain we will not store any locks and such by
-     default it is up to the layer, tool, group etc if they want to for their
-     they can and should but not by default and we are providing the
-     spectrum." That is box A. It reopens decision 3 of 6 October and entry 2
-     of 9 October for the layers that do not seal. Box A asks for a time, which
-     he did not give: how long a forgotten thing may stay in the log before it
-     is cut out. The purge is not run.
-   - Z3, the log kept whole: "forever never trim". That is box A. Whether
-     "never" also holds for the purge of a forgotten thing is the same missing
-     word as in Z2.
-   - Z1, what brings the tables back: "can't we just replay the log?? why it
-     says A ?? when its deployed there will be a backup that will run and even
-     if the main gets blown up we should be able to replay log and get to
-     latest". A question. He ticked neither box.
-   - Z4, whose reads are kept: "model as in ai model??? and we have this
-     question because we are saying that models on differnt runs can ask for
-     different reads ?? yeah we should for them store it". His line gives the
-     half that boxes A, B and C share, a model's reads. He did not say for a
-     person's. Until that phase the read build keeps no read.
-   - Z6, copies and machines: "idk but we will do it right as rama team will
-     suggest and  i think that will include backups and all".
-   - Z5: not answered.
+   kept" (`decisions/groups/g-check.txt`). His answers to it, with his lines
+   of 11 October on its questions, are the section of 12 October below.
+
+## Decisions of 12 October 2026 — before real data is kept
+
+Sid answered these in chat on 11 and 12 October 2026, on the sheet "Before
+real data is kept — what the check of 10 October leaves to settle"
+(`src/proposal/backend-on-rama-2026-10-02/decisions/groups/g-check.txt`),
+questions Z1 to Z6. Words in quotation marks are his, as he typed them, with
+their day. The record holds his lines as ‹727f622d› and ‹cad7d6b5› (11
+October) and ‹149ad161› (12 October); his two last lines, on Z4 and "land all
+what left", are in the same chat after that one. Where a session read his
+answer onto a box, the entry says so. What a session drew from an answer is
+marked as a session's, and what stays not decided is named. No code changes
+with them. They shape the build whose starter is
+`src/proposal/backend-on-rama-2026-10-02/BUILD-before-real-data.md`.
+
+1. **Every table can be made again from the logs, and a lost machine is met
+   by copies and backups.** Sid decided (Z1). On 11 October: "can't we just
+   replay the log?? why it says A ?? when its deployed there will be a backup
+   that will run and even if the main gets blown up we should be able to
+   replay log and get to latest ...". A session answered that his sentence
+   holds two losses. A lost machine takes the log with the tables, since both
+   are on its disk; a copy on a second machine or a backup meets it. A table
+   that is wrong, or that needs another form, while the log is whole, is what
+   a replay meets. The session proposed a box that the sheet did not print: a
+   gate decides once, and what it decided also goes into a log, so that a
+   rebuild applies the answers and decides nothing again. On 12 October:
+   "yes I think both are answerign different parts and I covered both and that
+   is the correct answer". A session's reading: his "yes" is to that box. What
+   comes with it:
+   - Decision 2 of 7 October stands: the gates' PStates are the record that
+     the door and every read use. Its reason does not; that entry says so.
+   - The sheet's box B, a gate that reads no clock and makes no lock, is not
+     taken. The stamp of 8 October (entry 4) stays.
+   - A session's, which he was shown and did not strike: a replay that
+     decides again gives another answer on the day that a rule of a gate
+     changes, so an answer is kept and is not worked out again. And the locks
+     of a locked value are in no log by design, since a lock is there to be
+     destroyed; a rebuild takes them as they are.
+   - "Two depots, one for each gate" (decision 1 of 7 October) counted the
+     depots of acts. The module already has a third depot, of the clocks of
+     batches, from which no gate decides (the read build's receipt, section
+     10, row 10), and this decision adds the log of answers. A session's
+     note; nobody put it to him as a question.
+   - Not designed: the form of that log, and of the rebuild. Not run: that
+     the tables made again are the same.
+2. **A value is plain in the log when nobody has chosen a lock for it, and
+   the shared logs are never cut.** Sid decided (Z2: plain, the sheet's box
+   A, without the purge that the box held). On 11 October: "plain we will not
+   store any locks and such by default it is up to the layer, tool, group etc
+   if they want to for their they can and should but not by default and we
+   are providing the spectrum." Asked on 12 October whether a forget may cut
+   a value out of the log: "lets go with simple policy answer by default
+   since this is spectrum. there is cost to be paid for replay .. I think the
+   answer is we will not do the trim, say there is a sensitive organisation
+   we might have a seperate depot for them specifically if that works not
+   sure but i think one group or tool cannot mandate what we do for everyone.
+   They can lock their values if they want add encryption and manage their
+   (or we manage and host but we charge and also give them their local key)".
+   A session's reading, which he was shown and did not strike: nothing is cut
+   out of a shared log, by a trim or for a forget; and "there is cost to be
+   paid for replay" says that a log which can be replayed stays whole. What
+   comes with it:
+   - Decision 3 of 6 October (the door seals) and entry 2 of 9 October (one
+     lock seals one value) hold for whatever is locked. They are no longer
+     what happens to every value.
+   - A session's: where nothing is locked a delete is a retract. The thing is
+     gone from now and stays in the past. A lock is chosen before the first
+     value of its kind is written, since what reached the log plain stays
+     plain there.
+   - The sheet's "time", how long a forgotten thing may stay in a plain log,
+     is asked no more: nothing is cut.
+   - His two other ends, named and not built: a depot of its own for an
+     organisation; and locks that their owners hold, or that we host for a
+     charge and also hand to them. For the first, read in Rama's docs and not
+     run: a depot can be added and destroyed at a module update, trimming can
+     be set for one depot, and a cut is declared on one depot
+     (`reference/rama/docs/19-operating-rama.md`, lines 356, 422 and 424;
+     `14-depots.md`, "Migrations"). It takes a deploy by whoever runs the
+     store, and cannot be made from data. A gatherer's list of 12 October
+     names about twenty places of the store's code that take the depots of
+     acts to be two; no session checked them one by one.
+   - Not decided: the grain at which a lock is chosen, and who may choose. A
+     session's reading of his line of 9 October, "for different kind of
+     values for their tool or layer": by key, as a fact on the layer. He was
+     shown it twice and did not answer it.
+   - The sheet quotes his line of 23 September as "gets deleted in some sense
+     like it is not recoverable". The whole line (‹6304b683›) begins "what
+     happens on delete or something it is dependent on the groups", asks
+     whether it is "by carrying two different logs or uh, maintaining a
+     cryptographic key", and puts the quoted part as "maybe is there a choice
+     that we have". It is no position of his for a cut of the log.
+3. **The log is kept whole.** Sid decided (Z3 A), on 11 October: "forever
+   never trim". Rama's trim setting stays off. A session's: with entries 1
+   and 2 this holds for each log of the module, the two of acts, the clocks
+   of batches and the answers; the read build's receipt asked it of the
+   clocks of batches (section 10, row 11). Nobody has priced the disk.
+4. **Whose reads are kept: a model's, always; a person's, until she turns it
+   off.** Sid decided (Z4 B). On 11 October, of a model's reads: "yeah we
+   should for them store it". Asked on 12 October what holds for a person
+   when nobody has chosen: "yes by default if its not set then we take the
+   side of spectrum that captures more because we are not choosing the
+   destructive side by defualt that can happen even after but the other side
+   cannot." A session had suggested the other box, C; this answer is his. A
+   session's reading: his reason is a rule for a default wherever one end
+   keeps and the other drops. A session's note: with entry 2, what was kept
+   before she turned it off stays in the log. Not built, and not in the next
+   build: nothing in the store says who is a model and who is a person until
+   sign-in, and where such a line lands is not decided. The read path keeps
+   nothing of a read today.
+5. **Three machines, three copies and Rama's own backups, when real data is
+   kept.** Sid decided (Z6 C). On 11 October: "idk but we will do it right as
+   rama team will suggest and  i think that will include backups and all".
+   On 12 October, told what Rama's pricing page shows: "yeah i am fine with
+   $100 and the other hosting costs". What the page showed, fetched that day
+   through a tool that gives a summary of a page, and read in full by no
+   session: the free licence, two nodes, without Rama's own backups;
+   "Bootstrap", three nodes with backups, 100 dollars a month. Not decided:
+   which machines; and the number of tasks, which a session reckons and
+   brings to him as one number before a cluster is launched. A session's,
+   read and not run: with entry 1 the number of tasks can be changed later by
+   a second run from the logs, with downtime
+   (`reference/rama/docs/19-operating-rama.md`, "Task scaling").
+6. **The eight of Z5: yes to each.** Sid, 12 October: "yeah agree", to a
+   session's "I would say yes to all eight". They are: backups to storage
+   that is not this machine, and one restore, before real data is kept; one
+   pass over this page and over the rulings file of September, which marks
+   each entry as his, as a fact, or as a session's; "freezes" goes from the
+   papers; the limit of four on the depth of a permission is lifted, and a
+   bound on the size of an act takes its place; three lines for the method;
+   the check's six reports, and a row in the queue for each thing on the
+   sheet's last page, go into the repository; Rama's docs for the version
+   that the store runs; one page that lists what must be true before real
+   data is kept. The fourth is in the next build. Each of the others is a
+   session's work of its own.
