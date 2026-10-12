@@ -1,18 +1,20 @@
-# Build: before real data is kept — the plain end, the gates' answers in a log, and the tables made again
+# Build: before real data is kept — the locks go, the gates' answers in a log, and the tables made again
 
 Cut by: Sid's session of 12 October 2026, the one that went through the sheet "Before real data is kept"
-with him in chat (Opus 5.5, effort max).
+with him in chat (Opus 5.5, effort max). It is the second cut of that day. The first kept the locks as a
+choice of a layer; that evening Sid decided that the store keeps no locks, and that the door checks
+nothing before it appends.
 For: one build, run by the Rama skill's stages (see "How the build runs").
 Status: a starter. Sid's decisions of 12 October 2026 are the contract, with those of 6 to 12 October
 before them. This page names what is **not decided** and is kept only so that the build can run, and what
 the builder **chooses** and lists as provisional. The build decides none of Sid's open questions. The
 stage that writes the implied spec checks each "as built" line of this page against the code: the cutter
-had the code read by a gatherer, and checked six of its lines against the source (see "What this page
+had the code read by a gatherer, and checked a few of its lines against the source (see "What this page
 rests on").
 Before the first stage: run the six proofs (`test-store/README.md`) and write their count lines on the
 build's page as the "before"; read `git log --oneline -5` and `git status --short`. Files of other
 sessions are in the working tree and not committed: `src/app/server/README.md`, two paths under `docs/`,
-and the read build's scratch under `reads/` (its receipt, section 14). Leave them, and stage your own
+and scratch of the read build under `reads/` (its receipt, section 14). Leave them, and stage your own
 paths by name.
 The decisions, in Sid's words, are in `src-store/README.md`. Everything else a builder chooses is
 engineering, written with its reason in a docstring, never as a decision.
@@ -27,28 +29,29 @@ MAKER ── an act, its values plain ──► DOOR ──► THE LOGS OF ACTS 
                                        │                              │
                                        │                              └──► THE LOG OF ANSWERS    new · part B
                                        │
-                                       └─ seals a value only under a key that the layer has sealed   part A
-                                          today: the door seals every value, and a gate refuses a plain one
+                                       └─ appends each act as the maker gave it                    part A
+                                          today: the door seals every value with a lock, and a gate
+                                          makes each lock and refuses a value that is not sealed
 
-A REBUILD   reads the logs of acts and the log of answers, and makes the tables again.              part B
+A REBUILD   reads the logs, and makes the tables again.                                           part B
             It decides nothing. A proof compares what it made with what the gates wrote.
 ```
 
-- **A. The plain end, and sealing as a choice.** A value goes into the log plain, with no lock, unless a
-  fact on its layer says that its key is sealed.
+- **A. The locks go.** The store keeps no lock. The door seals nothing, and a gate makes and opens none.
 - **B. The gates' answers in a log.** What a gate decided for an act also goes into a log. A rebuild makes
   the tables again from the logs, and decides nothing again.
 - **C. The limit of four on the depth of a permission is lifted.**
 
-When this build passes: a maker's value under a key that no fact of its layer seals is in the log plain,
-and no lock and no request for locks was made for it; a value under a sealed key is sealed as today; each
-answer that a gate gave is in a log; a rebuild makes the tables again from the logs, and a proof shows
-them equal to the tables that the gates wrote, with each exception named and its reason given; a
-permission can be deeper than four. The six proofs of today stay and pass, each changed where this build
-makes one of its lines untrue.
+When this build passes: a maker's value is in the log as she gave it; no code of the store makes, asks
+for, keeps or uses a lock; each answer that a gate gave is in a log; a rebuild makes the tables again from
+the logs alone, and a proof shows them equal to the tables that the gates wrote, with each exception
+named and its reason given; a permission can be deeper than four. The proofs of today stay and pass, each
+changed where this build makes one of its lines untrue. The checks of the locks and of the seal go with
+what they checked.
 
-What this build is not: a record of who read what; a depot of its own for anyone; a cut out of a log; a
-trim; a backup, a second machine or a real cluster; sign-in; a screen, a view or a tool.
+What this build is not: a sealed end of any kind; a forget; a record of who read what; a depot of its own
+for anyone; a cut out of a log; a trim; a bound on what one sender may send; a backup, a second machine or
+a real cluster; sign-in; a screen, a view or a tool.
 
 ## Read first, in this order
 
@@ -56,8 +59,8 @@ trim; a backup, a second machine or a real cluster; sign-in; a screen, a view or
 2. `src-store/README.md` — the tree, and the decisions sections. The last one, of 12 October, is this
    build's own. Read it with the sheet that it answers, `decisions/groups/g-check.txt`: its first page is
    the picture of what is kept of one act. Where the sheet and the section differ, the section is later
-   and is Sid's. The sheet's box A of Z1, its "time" in Z2 and its suggestion for Z4 are not what he
-   decided.
+   and is Sid's. The sheet's box A of Z1, its sealed ends and its "time" in Z2, and its suggestion for Z4
+   are not what he decided. Entry 7 answers a question that the sheet did not ask.
 3. `reads/RECEIPT.md` — what is true of the store today, what the read build chose as provisional, and
    what it left not decided. Its section 10, rows 10 and 11, are met by this build's part B.
 4. `reads/batch-probe/RESULTS.md` — what an append to a depot from inside an attempt of a batch does, as
@@ -90,39 +93,42 @@ All are in `src-store/README.md`. The section of 12 October, by entry:
 | Entry | What Sid decided | Sheet | In this build |
 |---|---|---|---|
 | 1 | Every table can be made again from the logs. A gate decides once, and what it decided also goes into a log. A lost machine is met by copies and backups. | Z1 | part B; the copies and backups are not |
-| 2 | A value is plain in the log when nobody has chosen a lock for it. The shared logs are never cut. | Z2 | part A |
+| 2 | Every value is plain in the log, the store keeps no locks, and the shared logs are never cut. | Z2 | part A |
 | 3 | The log is kept whole: "forever never trim". | Z3 | R2 |
 | 4 | A model's reads are kept, always; a person's, until she turns it off. | Z4 | not built here |
 | 5 | Three machines, three copies and Rama's own backups, when real data is kept. | Z6 | not built here |
 | 6 | The eight of Z5: yes to each. | Z5 | the fourth is part C |
+| 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first. | — | A4 |
 
-Earlier decisions that this build leans on: the act holds plain values, and the door seals (6 October, 3);
-a permission's form (6 October, 8); two depots of acts, one for each gate (7 October, 1); the record is in
-the gates' PStates, and its reason as corrected on 12 October (7 October, 2); the door reads an act's
-answer from the record by act-id, and an ack is a signal (7 October, 6 and 7); a stamp holds the clock
-time and a counter (8 October, 4); one lock seals one value (9 October, 2); the tables keep a value plain
+Earlier decisions that this build leans on: the act holds plain values (6 October, 3; its other half, that
+the door seals, is set aside by entry 2); a permission's form (6 October, 8); two depots of acts, one for
+each gate (7 October, 1); the record is in the gates' PStates, and its reason as corrected on 12 October
+(7 October, 2); the door reads an act's answer from the record by act-id, and an ack is a signal
+(7 October, 6 and 7); a gate is the authority, because anything can append to a depot without the door
+(7 October, 8); a stamp holds the clock time and a counter (8 October, 4); the tables keep a value plain
 (11 and 12 October, 5); a read is done in the runtime with Rama's push, and a pushed value is not a cache
 (11 and 12 October, 3).
 
-Three lines of Sid's hold the whole build:
+Four lines of Sid's hold the whole build:
 
 - 11 October: "can't we just replay the log?? ... even if the main gets blown up we should be able to
   replay log and get to latest".
-- 11 October: "plain we will not store any locks and such by default it is up to the layer, tool, group
-  etc if they want to for their they can and should but not by default and we are providing the
-  spectrum."
+- 12 October: "we are removing all the locks right??", and, when the two builds were laid out to him,
+  "yeah lets remove it".
+- 12 October, of an act that is refused: "why don't we store both? Like the data is useful", and "we are
+  not choosing the destructive choice here."
 - 12 October: "by default if its not set then we take the side of spectrum that captures more because we
   are not choosing the destructive side by defualt that can happen even after but the other side cannot."
 
 ## What the code does today
 
 From a gatherer's report of 12 October, by file and line. The lines marked ✓ were checked against the
-source by the cutter; the others were not. The implied spec checks each.
+source by the cutter; the others were not. The implied spec checks each. Part A takes out what the first
+four say.
 
 - **The door seals each value fact.** A value fact is "a fact that carries a value and whose key is not
   one of the store keys" (`door/additions.clj`, namespace docstring ✓). `entry-of` decides it for each
-  fact; `facts-to-append` seals, and `:v` becomes `:sealed` and `:lock-id`. Nothing in the door or in the
-  declaration makes sealing a choice.
+  fact; `facts-to-append` seals, and `:v` becomes `:sealed` and `:lock-id`.
 - **The door asks for locks ahead.** The request is an act with one fact under
   `:softland.store/lock-request`; the door reads the request's answer and then its locks with the query
   `locks-of-request`, and keeps a stock of unused locks in the memory of its process (`door.clj`,
@@ -152,49 +158,38 @@ source by the cutter; the others were not. The implied spec checks each.
   `:permission-fact-not-a-permission` for the value of a permission fact. No gate tests a depth itself.
 - **About twenty places take the depots of acts to be two**: in the door, the act's form, the
   declaration, both gates, the three reads of the door, and the read path.
+- **How much of the tree names a lock or a seal**, by a count of whole words on 12 October: about 880 of
+  the 11,400 lines of the source, in 19 of its 26 files; about 1,450 of the 13,300 lines of the proofs. The
+  two files that hold nothing else, `door/seal.clj` and `door/stock.clj`, are 561 lines.
 
 ## What the read build's session found for this build
 
 Sid asked the session that finished the read build to pass on what it had found that this build could
 meet. His line to it, 12 October: "tell it if you found more that might be addressed there now because
-that phase is all about fixing things that were wrong assumptions". It sent sixteen things that day,
-after this page was cut. None is a decision. Each is that session's, read or run by it. The cutter
-checked 1, 6, 8 and two of the three numbers of 13 against the source; the implied spec checks each.
+that phase is all about fixing things that were wrong assumptions". It sent sixteen things that day, when
+this page still kept the locks as a choice. None is a decision. Each is that session's, read or run by it.
+The cutter checked 1, 6, 8 and two of the three numbers of 13 against the source; the implied spec checks
+each. They keep that session's numbers. Four fell away when Sid decided that the store keeps no locks, and
+are at the end.
 
 For part A:
 
-1. **Today a maker who may not act is stopped before her value reaches a log, and A2 takes that stop
-   away.** The stop is the door's request for locks. When her stock is empty, a gate refuses the request
-   and "nothing is ever recorded under the act's own act-id" (`door.clj`, "One faulty act has two
-   outcomes"). Under a key that is not sealed the door asks for no lock and appends her plain value, and
-   a gate refuses the act after the log has it. See A7.
-2. A gate's refusal of a plain value reads no row today. With A4 it needs the layer's sealed keys, which
-   is a row. The marks are the precedent and its price: each accepted act with a fact under a plain key
-   pays one read for the marks row, 5 where it paid 4, in a layer that marks nothing too. The sealed keys
-   cost a sixth unless they ride a row that the gate already reads. `reads/PROGRESS.md`, ruling 55, has a
-   cheaper form that was found and not taken.
-3. In the base the new fact must be among `batch/keys-on-every-task`, five today, for a gate or a reader
-   to find it where it looks.
-4. The read path needs no change for the new store key when the key is in the store's namespace on the
-   layer's own entity: `rows/own-rows-run` holds every such key, `answer/counts?` hides it, and
-   `layers/meaning` does not hold it. `first-act/starts-with` is the one function for what a layer reads
-   as with no fact. `declaration/second-write-keys` and `decision/who-may-write-fault` are where "a
-   second write" and "who may write" live.
-5. A key of the store's own namespace must not be sealable, as it is not markable: a gate compares the
-   row of a permission as text.
+1. **Today a maker who may not act is stopped before her value reaches a log.** The stop is the door's
+   request for locks. When her stock is empty, a gate refuses the request and "nothing is ever recorded
+   under the act's own act-id" (`door.clj`, "One faulty act has two outcomes"). With no locks the stop is
+   gone. Sid decided that it goes, and that the door checks nothing first (entry 7): see A4.
 6. The door reads a layer's depot on every send, in one round trip, and keeps no copy (`depot-of`, three
-   call sites in `door.clj`). The sealed keys can come in that round trip. In the base that query is held
-   to closing.
-7. `rows/fact-row` has the branch for a plain `:v` already, used today under store keys only. Its digest
-   is the one that the door seals today, so a fact's place in the order by value does not depend on
-   whether its key is sealed.
+   call sites in `door.clj`). In the base that query is held to closing.
+7. `rows/fact-row` has the branch for a plain `:v` already, used today under store keys only: the row's
+   String is the value's one text. Its digest is the one that the door seals today, so a fact's place in
+   the order by value does not change.
 
 For part B:
 
-8. **A third thing that no act and no answer holds: the last stamp of a batch.**
-   `batch/last-stamp-of-batch` can be later than the stamp of every act of its batch. It is the
-   microbatch gate's last stamp. It is also the `:level-since` that a key gets when it is marked in the
-   base, and each row of the facts by value under that mark holds it.
+8. **The last stamp of a batch is in no act and in no answer.** `batch/last-stamp-of-batch` can be later
+   than the stamp of every act of its batch. It is the microbatch gate's last stamp. It is also the
+   `:level-since` that a key gets when it is marked in the base, and each row of the facts by value under
+   that mark holds it. See B3: a log comes to hold it.
 9. A rebuild applies acts in the order of their stamps, not of a depot. After a failure the streaming
    gate can decide a later record first, and the base's depot holds no order between two partitions.
 10. A gate's last stamp, made again, must not be below any `:level-since`.
@@ -219,45 +214,44 @@ For part D and the whole:
     written row costs the gate at each write there. So a measure is made with no live read open, or says
     that one is.
 16. No table that anything is kept live on may hold a byte array: a push on such rows is sent the whole
-    value anew about once a second (the read build's ruling 86). The answers' `:digest` and the locks'
-    `:bytes` are byte arrays, and nothing watches them today. Where the read path takes the depots to be
-    two, for R6: `read_path.clj`, in the four table fields of `ReadPath`, `open`, `pstate-of` and
-    `task-routing-ids`; `read_path/sources.clj`, `gate-of`; `read_path/answer.clj`, `fact-id`. The read
-    build's review scripts are in `reads/runs/review-scripts/`. When that build changed the class of a
-    field, four checks had been passing for a wrong reason; part A changes what a fact arrives as, so the
-    review looks for the same.
+    value anew about once a second (the read build's ruling 86). The answers' `:digest` is a byte array,
+    and nothing watches it today. Where the read path takes the depots to be two, for R6: `read_path.clj`,
+    in the four table fields of `ReadPath`, `open`, `pstate-of` and `task-routing-ids`;
+    `read_path/sources.clj`, `gate-of`; `read_path/answer.clj`, `fact-id`. The read build's review scripts
+    are in `reads/runs/review-scripts/`. When that build changed the class of a field, four checks had
+    been passing for a wrong reason; part A changes what a fact arrives as, so the review looks for the
+    same.
+
+Fell away with the locks. Each was about a fact on a layer that would say which keys are sealed, and
+there is none: 2, the read that a gate would pay for it at each act; 3, that fact on every task of the
+base; 4, the read path and that key; 5, that a key of the store's own namespace could not be sealed.
 
 ## What to build
 
 The split into parts is the skill's stage to make. This is one reading of the whole.
 
-### A. The plain end, and sealing as a choice
+### A. The locks go
 
-- **A1. A fact on the layer says which keys are sealed** (entry 2). One more store key. A layer with no
-  such fact seals nothing: plain is where every layer starts. It is one of the store's own facts, as a
-  layer's setting, its list and its marks are, and the read path treats it as it treats those. A key of
-  the store's own namespace cannot be sealed (finding 5).
-- **A2. The door seals a value only under a sealed key.** Under any other key it appends the value as the
-  maker gave it: no seal, no lock, and no request for locks. Under a sealed key it does what it does
-  today.
-- **A3. The door knows, before it appends, whether a key is sealed.** A gate's refusal comes after the
-  log has the value, and nothing is ever cut out of a log (entry 2). So a value under a key that the door
-  knows to be sealed never goes to the log plain. The door already learns a layer's depot from the module,
-  by the query `depot-of-layer`; how it learns the sealed keys is the builder's.
-- **A4. A gate refuses a plain value only under a sealed key.** Under a key that is not sealed it accepts
-  the plain value and keeps it in the fact's row, as the read build left that row. Under a sealed key it
-  does what it does today, the opening of the value with its lock too.
-- **A5. The request for locks, the stock and the locks tables stay**, for sealed keys. A door that
-  writes only under keys that are not sealed asks for no lock.
-- **A6. What was written before is not touched.** A value that is sealed in the log stays sealed there,
-  and its lock stays. A value that is plain in the log stays plain there. No log is written again.
-- **A7. A maker who may not act is stopped before her value reaches a log.** This is not decided; it is
-  kept as the store does today, where the request for locks is that stop (finding 1). The door learns
-  whether her permission stands and allows acting, and appends nothing when it does not. How it learns
-  that is the builder's; the door already makes one round trip for the layer's depot on each send
-  (finding 6). A gate stays the one that decides: the door's look is early, and it can be late. The other
-  answer is that the door looks at nothing, the value goes into the log, and a gate refuses the act; then
-  whoever can reach the door can put a plain value into a shared log for ever.
+- **A1. The door appends each act as the maker gave it** (entry 2). It seals no value, asks for no lock
+  and keeps no stock. The door then holds nothing in the memory of its process.
+- **A2. A gate takes a plain value** and keeps it in the fact's row, as the read build left that row. It
+  makes no lock and opens none. The rule that refuses a value that is not sealed goes, and the rules and
+  the words of the seal with it.
+- **A3. The module has no table of locks, no request for locks and no read of a request's locks.** The
+  request leaves the store's own keys.
+- **A4. The door checks nothing of an act before it appends it** (entry 7), as its first rule says
+  already. An act from a maker who may not act is in the log, a gate refuses it, and its answer says so.
+- **A5. Before anything is taken out, the plan lists every job that the locks and the seal did, meant or
+  not, and says where each goes**: it is needed no more, another part does it, or Sid hears of it in the
+  receipt. Three are known. The stop of a maker who may not act goes (entry 7, finding 1). The tie of a
+  sealed value to its place goes with the seal: by the store's rule 16, sealed bytes that are copied to
+  another entity, key or layer do not open. The bound on the bytes of a value moves (A6).
+- **A6. The bound on the bytes of one value stays, counted on the plain value.** It is 65,536 today, on
+  the sealed bytes. It is one of the builder's numbers, kept and decided by nobody.
+- **A7. No log is written again.** Nothing real is in one, and the proofs make their own.
+- **A8. The proofs.** Each check of a lock or of the seal goes with what it checked, and each check that
+  held a sealed value is written again for a plain one. The review looks for a check that passes for a
+  wrong reason (finding 16).
 
 ### B. The gates' answers in a log, and the tables made again
 
@@ -268,17 +262,17 @@ The split into parts is the skill's stage to make. This is one reading of the wh
   act-id, a gate reads its own record before it decides, and the read path reads the tables (7 October,
   2, 6 and 7). Nothing reads the log of answers but a rebuild.
 - **B3. A rebuild makes the tables again and decides nothing.** It reads the logs of acts, the log of
-  answers and the log of the clocks of batches, and no table but the locks tables. From them it makes
-  each table that the gates write. The plan lists every table and every part of a row, and says for each
-  what it is made again from. What cannot be made again is named with its reason, and goes to Sid in the
-  receipt. Three are known. The bytes of a lock are in no log by design. What a gate keeps of a stray
-  rests, by the store's page, on an order that no depot holds (rule 19). And the last stamp of a batch is
-  in no act and in no answer (finding 8): the plan says which log comes to hold it, or names it as not
-  made again. A rebuild applies acts in the order of their stamps (finding 9).
+  answers and the log of the clocks of batches, and no table. From them it makes each table that the
+  gates write. The plan lists every table and every part of a row, and says for each what it is made
+  again from. What cannot be made again is named with its reason, and goes to Sid in the receipt. One is
+  known: what a gate keeps of a stray rests, by the store's page, on an order that no depot holds (rule
+  19); the plan confirms that, or finds a log for it. The last stamp of a batch is in no act and in no
+  answer (finding 8): a log comes to hold it, since Sid's decision is every table. A rebuild applies acts
+  in the order of their stamps (finding 9).
 - **B4. A proof compares.** It sends acts through the door and through no door, on both depots: accepted
-  and refused acts, an act sent twice, a second and different act under a used act-id, a stray, a
-  retract, a fact under a marked key, a value under a sealed key and one under a key that is not. Then it
-  runs the rebuild and compares what it made with what the gates wrote, row by row.
+  and refused acts, an act from a maker who may not act, an act sent twice, a second and different act
+  under a used act-id, a stray, a retract, and a fact under a marked key. Then it runs the rebuild and
+  compares what it made with what the gates wrote, row by row.
 - **B5. An entry of an attempt that did not count does no harm.** Rama's page says that an append to a
   depot from a microbatch topology is not exactly-once across a failed attempt, and the runs of 2 and 12
   October saw such an append stay. The plan says, with a run, what the log of answers holds after a failed
@@ -307,7 +301,8 @@ Sid, 7 October: "idk lets go by whats measured and we will know better when we b
 The build measures, and sets no target. The numbers before it are in `reads/runs/measures-final.txt`, and
 each measure is made with no live read open, or says that one is (finding 15):
 
-- an act through the door under a key that is not sealed, beside one under a sealed key;
+- an act through the door and a gate, beside the numbers before the build: the door asks for no lock,
+  and a gate reads and writes no row of a lock;
 - what the append of an answer adds to an act of the streaming gate, and to a batch of the microbatch
   gate;
 - Rama's setting `topology.stream.max.executing.per.task` at 1, which the store's page names as what
@@ -337,25 +332,23 @@ Each has its source. The plan decides how each is met.
   migration of a depot is written.
 - **R3.** The tables stay the record that is read (B2). The log of answers is no second road to an
   answer for the door, for a gate or for a tool.
-- **R4.** A value under a key that the door knows to be sealed never goes to the log plain (A3). What the
-  store cannot hold to at the moment when a key is being sealed is said plainly on the store's page, under
-  "What the gate does not check, said plainly", and in the receipt.
+- **R4.** The door checks nothing of an act (entry 7). No part of this build puts a look at a permission
+  before the log.
 - **R5.** Nothing is shown before it is in the tables, and the build keeps no store of its own beside
   Rama's push (`CLAUDE.md`, "Systemic repair and caching"; Sid, 11 October, of a pushed value: "i also
-  don't consider it a cache"). If the build finds itself reaching for a cache, for the sealed keys of a
-  layer or for anything else, it stops and says so on its page.
+  don't consider it a cache"). If the build finds itself reaching for a cache, it stops and says so on
+  its page.
 - **R6.** No new code takes the depots of acts to be two. About twenty places do today, and this build
   adds none. A depot of its own for an organisation is Sid's thought of 12 October and is not built.
 - **R7.** A second attempt of an event or of a batch leaves the store as one attempt would. The Rama
   skill: "Duplicate side effects from retried processing are bugs."
 - **R8.** Every word that the build makes is plain, says what the thing is, and is listed for Sid under
-  "Words a session made, Sid's to change". "Lock" is an encryption key and "key" is the key of a fact,
-  never one word for both (`src-store/CLAUDE.md`). No word comes from the rig's code.
+  "Words a session made, Sid's to change". No word comes from the rig's code.
 - **R9.** The earlier handoffs hold where they touch. This build changes these lines. In
-  `BUILD-store-module.md`: item 7 of "What to build", where a gate refuses a plain value under a key that
-  is not a store key; rule 9, since a rebuild picks no winner and reads the answer; rule 19, since a
-  rebuild is built. In `BUILD-door.md`: part 4 of "What to build", since the door seals a value only under
-  a sealed key.
+  `BUILD-store-module.md`: item 7 of "What to build", the locks and the seal, goes whole; rules 5, 15 and
+  16 go with it; rule 9, since a rebuild picks no winner and reads the answer; rule 19, since a rebuild
+  is built; and of rule 20, the limit on the locks of one request. In `BUILD-door.md`: part 3 of "What to
+  build", the locks, goes, and part 4 loses its seal; rules D3 and D6 go with them.
 - **R10.** What is marked not decided below is built so that the other answer is a small change, and its
   docstring says that it is not decided.
 - **R11.** Where the builder must choose a default between keeping a thing and dropping it, the default
@@ -366,30 +359,15 @@ Each has its source. The plan decides how each is met.
 
 The build builds each as written here, and decides none.
 
-- **The grain at which a lock is chosen.** Kept: by key, as a fact on the layer. It is a session's
-  reading of Sid's line of 9 October, dictated, where "log" is the lock: "any tool user layer group can
-  decide by themselves what uh, a log delete means for different kind of values for their tool or layer".
-  He was shown the reading twice and did not answer it. His line of 11 October names "the layer, tool,
-  group etc".
-- **Who may write the fact that seals a key.** Kept: whoever may act in the layer, as for a layer's
-  setting, its list and its marks (the read build's receipt, section 8). With it, any holder of "see and
-  act" in a layer can take the seal off a key, and each value that is written after that is in the log
-  for ever.
-- **Whether the seal can be taken off a key.** Kept: the fact takes a second write, as the three keys of
-  the read build do.
-- **What sealing a key does to the values that were written before.** Kept: nothing (A6).
 - **The order of acts after a failure.** Kept: Rama's default for the setting, as today (D).
-- **Whether the door stops a maker who may not act before her value reaches a log** (A7, finding 1).
-  Kept: it does, as the request for locks does today. Sid's decision of 12 October made the value plain
-  and the log never cut; nobody had told him that the stop went with the locks. The question was put to
-  him in chat on 12 October, after this page was cut.
+- **How deep a permission can be once the 4 is gone.** Kept: as deep as a value may be, 32 today (C3).
+  Sid was told that "lifted" gives about 32 and not a depth without end; he did not answer it.
 
 ## The builder chooses, and lists as provisional
 
 None of these is a decision of Sid's. Each is written with its reason, and named in the receipt.
 
-- The form of the fact that seals keys, and how the door learns it before an append (A3).
-- What a gate does with a sealed value under a key that is not sealed.
+- The form in which a fact is appended, now that nothing is sealed.
 - The log of answers: one depot or one for each gate, how it is partitioned, what an entry holds beside
   the answer's row, and whether a topology reads it.
 - How the rebuild tells an entry that counted from one of an attempt that did not (B5).
@@ -400,13 +378,17 @@ None of these is a decision of Sid's. Each is written with its reason, and named
 
 ## Not in this build, by decision
 
+- **A sealed end of any kind** (entry 2). A value that its owners seal before it reaches the door needs
+  nothing of the store. Locks that we host for a charge and hand to their owners, and a depot of its own
+  for an organisation, are Sid's thoughts of 12 October and are not designed.
+- **A forget.** The store can forget nothing when this build is done. A delete is a retract.
+- **What entry 7 names as not built.** The three uses of a refused attempt: to raise it to the place that
+  it was for, to see what a sender in bad faith does, to give an author back what was refused. And, before
+  a stranger can reach the door: a bound on how much one sender can put into the log, and a way to block a
+  sender.
 - **Whose reads are kept** (entry 4). The decision is recorded. Nothing in the store says who is a model
   and who is a person until sign-in, and where such a line lands is not decided. The read path keeps
   nothing of a read.
-- **The other ends of entry 2**: a depot of its own for an organisation; locks that their owners hold;
-  locks that we host for a charge and also hand to their owners. A layer whose members hold their own
-  locks.
-- **A forget.** Nothing destroys a lock in this build, and nothing is cut out of a log.
 - **Looking back**, and every other word of a query that the read build left out.
 - **Copies, machines, the licence, backups and one restore, the number of tasks, who may reach Rama's
   ports, the proofs on two real nodes** (entries 5 and 6). They belong to the day a real cluster starts.
@@ -420,13 +402,14 @@ Do not build any of these. Where the code must leave room for one, say so in the
 
 `src-store/CLAUDE.md` binds every file. Each namespace and each function has a docstring; each folder a
 README with a parent link; no function lists in READMEs; no history of corrections. Each line of the
-store's page that this build makes untrue is replaced, not amended: among them that the door seals each
-value, that a gate refuses a value that is not sealed, that the acts depots are the replay log, that
-nothing is built for a rebuild, and that the module appends to a depot in one place. The page for the
-rebuild holds "Decisions this build stands on" (the entries of 12 October by number, the rest by
-pointer), "Engineering choices", "Not decided, kept for now", and "Words a session made, Sid's to change".
-The proofs' README gains a row for the rebuild's proof. Sid's answers are in `src-store/README.md` as his,
-never in these files as new text.
+tree's pages that this build makes untrue is replaced, not amended: among them that the door seals each
+value and keeps a stock of locks as the memory of its process, that a gate makes each lock and refuses a
+value that is not sealed, that the acts depots are the replay log, that nothing is built for a rebuild,
+and that the module appends to a depot in one place. The words of the locks and of the seal leave the
+lists of "Words a session made, Sid's to change". The page for the rebuild holds "Decisions this build
+stands on" (the entries of 12 October by number, the rest by pointer), "Engineering choices", "Not
+decided, kept for now", and "Words a session made, Sid's to change". The proofs' README gains a row for
+the rebuild's proof. Sid's answers are in `src-store/README.md` as his, never in these files as new text.
 
 ## How the build runs
 
@@ -459,12 +442,12 @@ stage named paths only: other sessions commit in this tree.
 
 The receipt to Sid: the line "proven by a hand-played maker, used by no inhabitant yet", so that presence,
 tested behaviour and use stay apart; the commit hashes; the proofs' outputs with their count lines before
-and after; the measures of D, and the result on Rama's setting as a question for him; the list of every
-table with what it is made again from, and each thing that is not made again with its reason; what the
-store cannot hold to while a key is being sealed (R4); what a maker who may not act can still leave in a
-log (A7); how deep a permission can be (C3); every provisional choice; every not-decided thing
-as it was built; every place where this page could not be met as written, and why; what the build found
-that is not decided, proposed as rows for the queue and decided by nobody; `git status --short`.
+and after; the measures of D, and the result on Rama's setting as a question for him; the list of the jobs
+that the locks and the seal did, and where each went (A5); the list of every table with what it is made
+again from, and each thing that is not made again with its reason; how deep a permission can be (C3);
+every provisional choice; every not-decided thing as it was built; every place where this page could not
+be met as written, and why; what the build found that is not decided, proposed as rows for the queue and
+decided by nobody; `git status --short`.
 
 Never read `src/app/server/env.clj` or any `.env` file.
 
@@ -475,16 +458,18 @@ Never read `src/app/server/env.clj` or any `.env` file.
   (`reads/batch-probe/RESULTS.md`). The cutter ran nothing.
 - **Read in the code by a gatherer** (a read-only agent on Sonnet, 12 October), by docstring first: each
   line of "What the code does today". The cutter checked six against the source, marked ✓ there. The list
-  of places that take the depots of acts to be two was not checked.
+  of places that take the depots of acts to be two was not checked. The count of lines that name a lock or
+  a seal is the cutter's, by a search for whole words; a line that names a lock is not always a line that
+  goes.
+- **The read build's session's:** the sixteen findings, sent on 12 October at Sid's word to it. That
+  session read or ran each; the cutter checked 1, 6, 8 and two numbers of 13 against the source. A4, A5,
+  C3 and the last stamp of a batch in B3 rest on them.
 - **Read in Rama's docs, not run**, in the extract that names 1.5.0: that a stream topology's writes to
   its tables are dropped when its event fails, and that a record is then processed again
   (`11-stream-topologies.md`, lines 156 to 170); that an append to a depot from a microbatch topology is
   not exactly-once across a failed attempt (`12-microbatch-topologies.md`, line 130; Rama's public page
   said the same on 12 October); that a table can be made again from a log when the processing gives the
   same result on a second run (`15-pstates.md`, line 45; `19-operating-rama.md`, "Task scaling").
-- **The read build's session's:** the sixteen findings, sent on 12 October at Sid's word to it. That
-  session read or ran each; the cutter checked 1, 6, 8 and two numbers of 13 against the source. A7, C3
-  and the third exception of B3 rest on them.
 - **A session's:** the reading of the whole into A to D, each rule's wording, each "kept" line under "Not
   decided", and that a rebuild which applies the answers needs no gate to give the same result twice. The
   last is reasoned, not designed and not run: B4 is its test.

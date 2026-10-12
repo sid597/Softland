@@ -17,7 +17,7 @@ server or Inland.
 | The store's module: the depots, the two gates, the record, the reads by act-id | built and reviewed, 8 October | `src-store/softland/store/` |
 | The door: the code that takes an act from a maker into the store | built, with a proof of its own | `src-store/softland/store/door.clj`; its papers in `door/` |
 | The reads: the way out, and what the gates keep for a read | built and reviewed, 12 October. Its receipt says "proven by a hand-played asker, used by no inhabitant yet" | `src-store/softland/store/read_path.clj`; `reads/RECEIPT.md` |
-| Before real data is kept: the plain end, the gates' answers in a log, the tables made again | not built. Sid answered its sheet on 11 and 12 October. Its contract is `BUILD-before-real-data.md` | — |
+| Before real data is kept: the locks go, the gates' answers in a log, the tables made again | not built. Sid answered its sheet on 11 and 12 October. Its contract is `BUILD-before-real-data.md` | — |
 | Sign-in, and all that is above the act | not built | — |
 
 The six proofs ran on 12 October with no failure, at the end of the read build:
@@ -59,11 +59,16 @@ for:
   own backups (entry 5), one restore from a backup, the number of tasks, who
   may reach Rama's ports, and the proofs on two real nodes.
 - **Sign-in.** Whose reads are kept is decided (entry 4) and is built when the
-  store can tell a model from a person. The sheet's last page lists six more
-  things that wait for sign-in.
+  store can tell a model from a person. Before a stranger can reach the door:
+  a bound on how much one sender can put into the log, and a way to block a
+  sender (entry 7). The sheet's last page lists six more things that wait for
+  sign-in.
 - **Sid's thoughts of 12 October, not built and not designed.** A depot of its
-  own for an organisation. Locks that their owners hold, or that we host for a
-  charge and also hand to them.
+  own for an organisation. Locks that we host for a charge and also hand to
+  their owners; the store keeps no locks after the next build (entry 2). The
+  three uses of an act that was refused: to raise it to the place that it was
+  for, to see what a sender in bad faith does, and to give an author back what
+  was refused (entry 7).
 - **Not yet asked.** What a key is (the queue's K5). By which road the first
   real data comes onto this store: no view, no screen, no tool and no agent
   uses it yet.
