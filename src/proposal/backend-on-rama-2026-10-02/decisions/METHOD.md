@@ -146,3 +146,16 @@ wording is the sheet's ("Before real data is kept", Z5), which a session wrote.
   `src-store/softland/store/record/rows.clj`). So what an id is and what a
   key is bear on the third. The two words for a depot do not: no key holds
   them (`answer-key`, the same file).
+- **The second reader of a sheet first tries to make each question fall
+  away.** It does this before it reads the sheet against this page ("The
+  sheet files and the build", above). What is left goes to Sid.
+- **A builder's "is Sid's" line goes to the queue the same day.** A build's
+  page may say that a choice is his. Until the queue has a row for it, nobody
+  asks him. The check found such lines on the store's page that no row held,
+  among them "The choice is Sid's", of the order of a layer's acts after a
+  failure.
+- **A question whose answer is a fact is not asked.** A session checks it and
+  states it, with where it was checked. On 7 October "Can two nodes run
+  here?" was put to him as a box, and his line was "wtf is "here" which 2
+  nodes ???" (‹27882354›). The answer is a line of Rama's docs
+  (`reference/rama/docs/19-operating-rama.md`, line 110).
