@@ -133,7 +133,9 @@
     step 1  `stray-sends` gives the two messages of a stray: its entry to
             the batch's keeping task, and a word to the gate's task.
     step 2  `to-close-of` gives what the batch leaves for the next run to
-            close: its id, and its clock when it made a stamp. For the
+            close: its id, and its clock when it made a stamp. `closes?`
+            says whether this run closes a batch: whether the run before
+            left one to close. For the
             batch before, on that batch's keeping task: `to-keep-range`
             names the keys to read, `records-of-closing` makes the records
             to append, `max-kept` entries to a record at most, the first
@@ -502,13 +504,17 @@
   (+ (long base) (* (inc (long (:position numbers))) (long tasks)) -1))
 
 (defn closes?
-  "Takes the gate's last stamp as it was before this batch, and the
-  `:closed-through` of the gate's task. Gives true when the tasks must write
-  a new `:closed-through`: there is a last stamp, and it is not the one
-  that is closed. True once after each batch that gave a stamp, and never in
-  a quiet time."
-  [last-stamp closed-through]
-  (boolean (and last-stamp (not= last-stamp closed-through))))
+  "The test of a closing. Takes the `:to-close` that the head of step 2 read
+  on the gate's task: what the run before left to close, {:batch} with
+  `:clock` when that batch made a stamp, or nil. Gives true when this run
+  closes a batch: the thing holds a batch's id. True once after each batch
+  that left something to keep, a batch of strays alone among them, and
+  never in a quiet time: a batch with nothing to keep takes `:to-close`
+  out (`to-close-of`). The gate then appends what the batch left to keep,
+  and the tasks write `:closed-through` when the batch made a stamp. It
+  never throws."
+  [to-close]
+  (some? (as-long (get to-close :batch))))
 
 ;; ------------------------------------------------------ step 2: the replies
 

@@ -1,0 +1,26 @@
+The proof "rebuild-pure", on the tree "after-the-log-and-the-rebuild" (2026-10-12T19:58Z, head 0d14a383), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store -m softland.store.rebuild-pure-proof
+The whole output is raw-after-the-log-and-the-rebuild-rebuild-pure.txt beside this file, and is not committed. The run took 1 seconds.
+
+THE PROOF, IN ONE PLACE
+SHOWN the answers of a gate that decides alone: an accepted act and a refused one each have the row of their entry, on the task of the entry's partition: {":alice 00000000-0000-0000-0000-000000000002" {:stamp 110, :digest "c9d34456cee901e3a21e595f4d82d85dce1c4b6fd135f69af2fc9d26bf4c957f"}, ":alice 00000000-0000-0000-0000-000000000003" {:stamp 120, :digest "e2a2a7fbf6eb8e214fdce2a0ee5870610c90aed8eb0da63dd4c73dae20f995b2", :refused :permission-does-not-stand}}
+SHOWN the facts: the acts were applied in the order of their stamps and not of the log, where the replacing act stands before the act that it replaces: {:by-act #uuid "00000000-0000-0000-0000-000000000009", :by-index 0, :stamp 180, :who ":alice", :permission "[:alice :alice :alice]", :value "\"a third text\""}
+SHOWN a refused act has no fact: nil | a retract is a row with no value: {:by-act #uuid "00000000-0000-0000-0000-000000000006", :by-index 0, :stamp 150, :who ":alice", :permission "[:alice :alice :alice]"}
+SHOWN a repeat with three copies of its entry is one answer, and the second and different thing under its act-id gives no row: nil
+SHOWN the facts by value: the replaced value's row went out, the retracted value's row went out, and after the mark was taken off at 160 and put on again at 170 the row of the earlier marking stays beside the new one: (":alice :text 100 b62de24e6ef9a66ca6c098922441a5de91bf39b18d4f1feef2391b41f78c8f51 :note-1" ":alice :text 170 5fb0300f04b49d0d242b34c5e3105eb55c1df7db4dae3fcfde5ea908b49cdb47 :note-1")
+SHOWN what the gate keeps for a task: a stray that arrived twice is one member of its word's set on its task, and the last stamp is the greatest stamp of the partition's entries: {0 {:strays {:no-act-id #{"f0f3d15d847a5cbf6e24fa3711aeff78f91d607820626ac8c082f94903f469cf"}}}, 1 {:last-stamp 220}}
+SHOWN the answers of a gate that decides in batches are on the task of each act-id's UUID, whatever the partition of the record: {0 4, 1 5}
+SHOWN the facts: the marks row is on every task; of two acts of one batch on one place the row is the later stamp's: {:by-act #uuid "00000000-0000-0000-0000-000000000022", :by-index 0, :stamp 1003, :who ":alice", :permission "[:alice :base :alice]", :value "\"second\""}
+SHOWN the facts by value: the key's stamp is its batch's last stamp, 1007; the fact of the mark's own batch ("x", stamp 1001) has no row; of two acts of one batch on one place under the key the first value ("p") has none; a fact after a mark was taken off in its own batch ("z") is decided with the marks as the batch began: ([":base" ":kind" "1007"] [":base" ":kind" "1007"] [":base" ":kind" "1007"])
+SHOWN what the gate keeps for a task: the last stamp of the newest batch on the gate's task, the same number as :closed-through on every task, and a stray on the task of its entry: {0 {:strays {:act-id-of-the-other-gate #{"24e3f214ef63cc42072d8ba79f436e6445114d27a96f01504877ac1cbc8470b4"}}, :closed-through 3003}, 1 {:last-stamp 3003, :closed-through 3003}}
+SHOWN the kept clock of a batch, from the gate's own log, on the gate's task: {0 {}, 1 {:microbatch {:batch 9, :clock 7000}}}
+SHOWN left out, by ruling: [:turns :to-keep :to-close]
+SHOWN named, and not passed over: an entry with no act, two entries under one act-id that differ, an accepted act whose form the check of today cannot give: ([:entries-differ #uuid "00000000-0000-0000-0000-000000000015"] [:entry-with-no-act #uuid "00000000-0000-0000-0000-000000000014"] [:form-cannot-be-given #uuid "00000000-0000-0000-0000-000000000016"])
+SHOWN no row is made from an answer alone, and none from entries that differ
+SHOWN the check of today refuses a thing with {:refuse :no-session} | the log says accepted | the answer made again is accepted: {:stamp 210} | no fact row, and the act is named
+SHOWN the check of today takes a thing | the log says refused with a word that no check of today gives | the answer made again: {:stamp 220, :refused :a-word-of-another-day} | its fact: nil
+SHOWN with three copies of every record of both logs of answers the rebuild gives the same tables and names the same things: true
+SHOWN with every partition of every log turned back to front it gives the same: true
+{:test 5, :pass 24, :fail 0, :error 0}
+
+exit status: 0

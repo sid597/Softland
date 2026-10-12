@@ -2,11 +2,12 @@
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-base-for-a-reader.md
+;; src/proposal/backend-on-rama-2026-10-02/before-real-data/PLAN-answers-in-a-log.md
 
 (ns softland.store.module.microbatch-gate
   "The microbatch gate: the microbatch topology that decides the things of
-  the microbatch depot, and the four PStates of its record. It requires
-  Rama.
+  the microbatch depot, the four PStates of its record, and its depot of
+  answers. It requires Rama.
 
   What it takes. Each thing that arrives on `*microbatch-depot`, which the
   module declares (`softland.store.module`) and which partitions by the
@@ -25,6 +26,16 @@
   `*batch-clock-depot`, which the module declares, and borrows the PState
   `$$batch-clock` of the topology that keeps that clock
   (`softland.store.module.batch-clock`), to read on the gate's task.
+  It declares one depot, `*microbatch-answer-depot`, its depot of answers,
+  and it alone appends to it: no client can, since the depot is declared
+  :disallow, and no topology has a source on it. A record there holds what
+  a batch decided: an entry for each answer and for each arrival of a
+  stray, and with a batch's first record the batch's clock and its last
+  stamp (`softland.store.gate.batch/records-of-closing`). No value of a
+  fact is in it. The module sets no trimming option, so the depot keeps
+  every record. Two fields of `$$microbatch-task` serve the depot:
+  `:to-keep`, on the keeping task of a batch, and `:to-close`, on the gate's
+  task.
   The gate keeps nothing in the memory of a process: what one step hands to
   the next is in three temporary PStates of Rama, `$$questions`, `$$replies`
   and `$$parcels`, which live for one attempt of one batch; and the row of
@@ -44,9 +55,11 @@
   builds on, which a reader finds on the task where it reads.
 
   Approach. The dataflow reads rows, calls pure functions and writes rows,
-  and does one thing more, for a batch's clock: when none is kept for the
+  and appends in two places. For a batch's clock: when none is kept for the
   batch it reads the clock, appends one record to the depot of batch clocks,
-  and waits for the ack. The pure code of a batch is
+  and waits for the ack. For the keeping: the run that closes a batch
+  appends what that batch left to keep to the depot of answers, and waits
+  for each append. The pure code of a batch is
   `softland.store.gate.batch`'s; the checks are
   `softland.store.door.declaration`'s and `softland.store.gate.decision`'s, the same
   functions that the streaming gate calls. None of them throws, so no thing
@@ -74,7 +87,9 @@
 
     1. arrive and question   On the depot partition's task, each thing in
        the depot's order. Its turn. A stray gets no answer: its digest is
-       added to the set of its reason word, and it ends. Check (b), the
+       added to the set of its reason word, its entry is sent to the
+       batch's keeping task, a word that the batch has something to keep
+       is sent to the gate's task, and it ends. Check (b), the
        door's declaration, whose last step makes the one text of each value
        and holds the bound on one value and the bound on the act: a thing
        that it refuses reads no permission and asks for its answer alone.
@@ -88,8 +103,16 @@
        of this batch; else the task reads the clock, appends the batch's id
        and that reading to `*batch-clock-depot` with the ack level :ack,
        reads the row again, and takes what the row holds, never what it
-       offered. Every task writes
-       `:closed-through`, when it has changed. Each home task first reads,
+       offered. The gate's task then writes `:to-close`, what this batch
+       leaves for the next run to close: the batch's id, with its clock
+       when it made a stamp; for a batch with nothing to keep it takes the
+       key out, when the key was there. Then the closing, only when the
+       gate's task read a `:to-close`: on the keeping task of the batch
+       before, one range read of that batch's keys of `:to-keep`; one
+       append to `*microbatch-answer-depot` for each 256 entries, with the
+       ack level :append-ack, one after the other; and each of those keys
+       taken out. Every task then writes `:closed-through`, when the batch
+       that is closed made a stamp. Each home task first reads,
        from its own copy and once for a layer, the marked keys of each layer
        that a question about a place names. Then it reads each row that was
        asked for, once, and replies; a reply also says whether another act
@@ -111,7 +134,12 @@
        acts that meet, one at a time in the order of their turns, each
        against the rows that earlier acts of the pass wrote, and sends their
        rows: a row under one of the five store keys that every task holds to
-       every task, each other row to its home.
+       every task, each other row to its home. With them goes what is to
+       keep of this batch: the answers among the rows that the task wrote
+       from its parcels and among the rows of its pass, and the strays'
+       entries that step 1 sent to it, 256 to a value at most, each value
+       to the batch's keeping task, which puts it into `:to-keep` under a
+       key of this batch and of the sending task.
 
   Two acts of one batch on one place under a marked key meet, also when
   each has the place as its own. A row of the facts by value is on a third
@@ -162,16 +190,55 @@
   that later changes. So each task
   holds `:closed-through`, and the door's two reads and the streaming
   gate's question about the base give a row only when the row's stamp
-  is not later than it (`softland.store.record.rows/closed?`). Step 2 of each run
-  writes `:closed-through` with the gate's last stamp as it was before the
-  run. That run began only after every task had committed the batch before,
-  so a closed batch is visible on every task and cannot run again. The run
+  is not later than it (`softland.store.record.rows/closed?`). The run after
+  a batch closes it. Step 2 knows that it closes a batch by `:to-close`,
+  which that batch wrote on the gate's task. It appends what the batch left
+  to keep, and then every task writes `:closed-through` with the gate's
+  last stamp as it was before the run, when the batch made a stamp. That
+  run began only after every task had committed the batch before, so a
+  closed batch is visible on every task and cannot run again. And
+  `:closed-through` is written by the attempt that made the appends, and
+  commits only when that attempt does: an answer of the base that the door
+  gives is in the depot of answers. The run
   after a batch with things starts at once, also when it has nothing to
   process, so a batch is closed one short run after it. What closing does
   not give: two tasks do not open at one instant; and a select that goes
   straight to a PState of this gate sees rows of a batch that is not
   closed. A fact's row that such a select sees is the row that stays, by
-  the next paragraph.
+  the paragraph on a batch that runs again.
+
+  The keeping: what the depot of answers holds, and when. No attempt
+  appends what it decided itself. An append from inside an attempt stays
+  when the attempt fails, and the depot would then hold an answer that the
+  tables never held. So step 4 puts each entry into `:to-keep` in the
+  attempt that writes its answer's row. `:to-keep` is a table of this
+  topology, and Rama keeps or drops an attempt's writes on all tasks
+  together: an entry and its row are committed together or not at all. The
+  next run begins only when that batch is committed on every task; its
+  closing reads the entries from committed state, appends them, and takes
+  them out. One task keeps a batch, the task that the hash of the batch's
+  id gives: the closing reads on one task, and the records of the batches
+  do not gather on one partition. The partition of a record says nothing of
+  the acts in it. A batch of strays alone makes no stamp; it writes
+  `:to-close` all the same, because each stray told the gate's task that
+  the batch has something to keep, so a stray never waits for a later batch
+  with a stamp. A batch whose things were all repeats made a stamp and
+  wrote no answer: its closing appends one record, the batch's clock and
+  last stamp. A run that closes nothing reads its two fields on the gate's
+  task, as it did before the keeping, and appends nothing.
+
+  What a failure leaves in the depot. An attempt of a batch that fails
+  leaves nothing of that batch. An attempt of the run that closes a batch,
+  when it fails after its appends, has left the batch's records, and the
+  next attempt appends them again; each entry under one act-id is then a
+  copy of the others, made from the same committed rows. A module that is
+  stopped after a batch commits and before the next run holds answers with
+  no entry until it runs again: both fields are durable, and the first run
+  after the start closes the batch. How far that reaches: that Rama sets a
+  topology's own table back with a failed attempt, and that an append from
+  inside an attempt stays, were run on stand-ins on Rama 1.6.0 in-process,
+  with a throw in the module's code. A failure of the commit itself, an
+  append whose ack does not come, and a killed process were not run.
 
   When Rama runs a batch again. Each attempt takes the same things and
   starts from the PStates as they were after the batch before. The turns,
@@ -185,7 +252,9 @@
   word for a layer of the other gate follows what that gate had made by
   then; the act is refused on each attempt, with the same stamp, and writes
   no fact. Every other row of a second attempt is the row of the first, in
-  every field.
+  every field; so are its values of `:to-keep`, under the same keys, and
+  its `:to-close`. The depot of answers is not set back: a second attempt
+  of a run that closes a batch appends that batch's records once more.
 
   Yielding. Steps 2, 3 and 4 walk a task's keys, acts and rows in loops that
   give the task back when they have run long. What can run in between is a
@@ -196,10 +265,15 @@
   ack. What can run on that task meanwhile: a read of committed rows, an
   event of the streaming gate, and the event of `batch-clock`, which must.
   No event of this batch can: step 1 is done on every task, and step 2 has
-  not yet gone to every task. The three values that step 2 read before the
-  wait are not written in between: `:last-stamp` and `:closed-through` of
+  not yet gone to every task. The values that step 2 read before the
+  wait are not written in between: `:last-stamp` and `:to-close` of
   the gate's task are written by this step, after the wait, and
-  `$$questions` is whole.
+  `$$questions` is whole. The closing gives the keeping task back too: at
+  each of its appends, while it waits for the ack, and in its range read
+  and its loop over the keys when they run long. What can run there
+  meanwhile: a read of committed rows, an event of the streaming gate, an
+  event of `batch-clock`. No event of this batch reads or writes `:to-keep`
+  in step 2: step 1 writes nothing there, and step 4 has not begun.
 
   What the gate rests on. The depot's partitioner and the gate's hash
   partitioner give one task for one id. If they did not, an act would be
@@ -248,16 +322,19 @@
   (:> *all-rows))
 
 (deframafn write-row
-  "Writes one row of a decision on this task: a whole row at a fixed key, or
+  "Writes one row of a batch on this task: a whole row at a fixed key, or
   a fixed key taken out; no read. Takes the answers, the facts and the
-  facts by value PState of the gate, and [which key row] as
-  `softland.store.gate.batch` gives it, of one of three kinds: :fact,
-  :by-value or :answer. A row of the kind :by-value that is
-  nil takes its key out of the facts by value; taking out a key that holds
-  no row changes nothing. A row of any other kind writes nothing. Each
-  write is the same however often it runs. What must hold: the task is the
-  row's home."
-  [$$answers $$facts $$facts-by-value *which *key *row]
+  facts by value PState of the gate and its PState for a task, and
+  [which key row] as `softland.store.gate.batch` gives it, of one of four
+  kinds: :fact, :by-value, :answer or :to-keep. A row of the kind :by-value
+  that is nil takes its key out of the facts by value; taking out a key
+  that holds no row changes nothing. A row of the kind :to-keep is a value
+  of what the batch has to keep, put under its key of `:to-keep`
+  (`softland.store.gate.batch/rows-to-keep`). A row of any other kind
+  writes nothing. Each write is the same however often it runs. What must
+  hold: the task is the row's home, which for a row to keep is the batch's
+  keeping task."
+  [$$answers $$facts $$facts-by-value $$task *which *key *row]
   (<<cond
     (case> (= :fact *which))
     (local-transform> [(keypath *key) (termval *row)] $$facts)
@@ -270,6 +347,9 @@
 
     (case> (= :answer *which))
     (local-transform> [(keypath *key) (termval *row)] $$answers)
+
+    (case> (= :to-keep *which))
+    (local-transform> [(keypath :to-keep *key) (termval *row)] $$task)
 
     (default>)
     (identity nil :> *no-row))
@@ -313,9 +393,15 @@
   kept)
 
 (defn add-to
-  "Adds the microbatch gate to a module. Takes the module's `topologies`.
-  Declares the microbatch topology `microbatch-gate`, its four PStates, and
-  the dataflow of one batch, as the namespace docstring walks it. What must
+  "Adds the microbatch gate to a module. Takes the module's `setup` and
+  `topologies`. Declares the depot `*microbatch-answer-depot`, closed to a
+  client's append and with no trimming option; the microbatch topology
+  `microbatch-gate`; its four PStates; and
+  the dataflow of one batch, as the namespace docstring walks it. Each read
+  and each write of `:to-close` is on the gate's task; the closing's read,
+  its appends and its removals are on the keeping task of the batch that is
+  closed; and a value to keep is put on the keeping task of its own batch.
+  What must
   hold: the module declares the depots `*microbatch-depot` and
   `*batch-clock-depot`; it has the streaming gate, whose `$$streaming-facts`
   step 4 reads; and it has the topology `batch-clock`
@@ -324,7 +410,8 @@
   nothing would write the row, and each batch with things would fail at
   `clock-must-be-kept`; that is read from what the ack level waits for, and
   was not run."
-  [topologies]
+  [setup topologies]
+  (declare-depot setup *microbatch-answer-depot :disallow)
   (let [gate (microbatch-topology topologies "microbatch-gate")]
     (declare-pstate gate $$microbatch-answers (record-pstates/answers))
     (declare-pstate gate $$microbatch-facts (record-pstates/facts))
@@ -349,10 +436,12 @@
         (declaration/stray-reason :microbatch *thing :> *stray)
         (<<if *stray
           ;; A stray gets no answer: its digest goes to the set of its word.
+          ;; Its entry goes to the batch's keeping task, and a word to the
+          ;; gate's task that the batch has something to keep.
           (digest/hex-of *thing :> *stray-digest)
           (local-transform> [(keypath :strays *stray) NONE-ELEM (termval *stray-digest)]
                             $$microbatch-task)
-          (identity [] :> *messages)
+          (batch/stray-sends *batch-id *stray *stray-digest *partition :> *messages)
          (else>)
           ;; Check (b), and the standing from this task's copy of the permissions.
           (declaration/check *thing :> {*act :ok *declarations-reason :refuse})
@@ -374,18 +463,19 @@
         (+compound {*kind {*asked-key (+gathered *payload)}} :> $$questions))
 
       ;; 2. Reply: the batch's clock and the base on the gate's task, the
-      ;; closing, then each home task.
+      ;; closing of the batch before on its keeping task, then each home task.
       (<<batch
         (identity batch/gates-depot :> *gates-route)
         (|hash *gates-route)
+        (ops/current-microbatch-id :> *this-batch)
         (local-select> (keypath :last-stamp) $$microbatch-task :> *last-stamp)
-        (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
+        (local-select> (keypath :to-close) $$microbatch-task :> *to-close)
         (local-select> (keypath :numbers :batch) $$questions :> *numbers)
+        (local-select> (keypath :stray-sent :batch) $$questions :> *stray-sent)
         ;; The batch's clock, only for a batch with numbers: the clock that
         ;; is kept for this batch; or, when none is, a reading that is kept
         ;; first. The clock is taken out of the row, never from the reading.
         (<<if *numbers
-          (ops/current-microbatch-id :> *this-batch)
           (local-select> (keypath *gates-route) $$batch-clock :> *clock-row)
           (batch/kept-clock *clock-row *this-batch :> *clock-found)
           (<<if *clock-found
@@ -404,9 +494,58 @@
           (ops/module-instance-info :> *info-2)
           (batch/last-stamp-of-batch *base *numbers (tasks-of *info-2) :> *new-last-stamp)
           (local-transform> [(keypath :last-stamp) (termval *new-last-stamp)] $$microbatch-task))
-        (batch/closes? *last-stamp *closed-through :> *closes)
-        (|all)
+        ;; What this batch leaves for the next run to close: its id, and its
+        ;; clock when it made a stamp. A batch with nothing to keep takes the
+        ;; key out when it was there, and else writes nothing.
+        (batch/to-close-of *this-batch *batch-clock *stray-sent :> *to-close-now)
+        (<<cond
+          (case> (some? *to-close-now))
+          (local-transform> [(keypath :to-close) (termval *to-close-now)] $$microbatch-task)
+
+          (case> (some? *to-close))
+          (local-transform> [(keypath :to-close) NONE>] $$microbatch-task)
+
+          (default>)
+          (identity nil :> *to-close-as-it-was))
+        ;; The closing, only when the head read a `:to-close`: on the keeping
+        ;; task of the batch before, what that batch left to keep is read,
+        ;; appended to the gate's depot of answers, and taken out. Each
+        ;; append is waited for. The entries are of rows that the batch
+        ;; before committed, so an attempt that runs again appends copies.
+        (batch/closes? *to-close :> *closes)
         (<<if *closes
+          (get *to-close :batch :> *closed-batch)
+          (batch/keeping-route *closed-batch :> *keeping-route)
+          (|hash *keeping-route)
+          (batch/to-keep-range *closed-batch :> [*keep-from *keep-to])
+          (local-select> [(keypath :to-keep) (sorted-map-range *keep-from *keep-to) (subselect ALL)]
+                         $$microbatch-task
+                         {:allow-yield? true}
+                         :> *kept)
+          (batch/records-of-closing *to-close *last-stamp *kept :> *records)
+          (loop<- [*records-left *records
+                   :> *appended]
+            (<<if (empty? *records-left)
+              (:> true)
+             (else>)
+              (first *records-left :> *record)
+              (depot-partition-append! *microbatch-answer-depot *record :append-ack)
+              (continue> (rest *records-left))))
+          (batch/keys-kept *kept :> *kept-keys)
+          (loop<- [*kept-keys-left *kept-keys
+                   :> *taken-out]
+            (yield-if-overtime)
+            (<<if (empty? *kept-keys-left)
+              (:> true)
+             (else>)
+              (first *kept-keys-left :> *kept-key)
+              (local-transform> [(keypath :to-keep *kept-key) NONE>] $$microbatch-task)
+              (continue> (rest *kept-keys-left)))))
+        (|all)
+        ;; A batch that made a stamp is closed on every task, behind the
+        ;; appends of its entries. A batch of strays alone made no stamp,
+        ;; and `:closed-through` holds the gate's last stamp already.
+        (<<if (and> *closes *last-stamp (some? (get *to-close :clock)))
           (local-transform> [(keypath :closed-through) (termval *last-stamp)] $$microbatch-task))
         (local-select> STAY $$questions :> *asked)
         ;; The marked keys of each layer that a question about a place names,
@@ -482,6 +621,7 @@
            (else>)
             (first *rows-left :> [*sent-which *sent-key *sent-row])
             (write-row $$microbatch-answers $$microbatch-facts $$microbatch-facts-by-value
+                       $$microbatch-task
                        *sent-which *sent-key *sent-row
                        :> *sent-written)
             (continue> (rest *rows-left))))
@@ -507,11 +647,22 @@
             (batch/decide-next *pass *met *local-rows *other-depot-row :> *pass-after)
             (continue> (rest *meeting-left) *pass-after)))
         (batch/rows-to-send *pass-done :> *rows-out)
-        (ops/explode *rows-out :> {:keys [*every-task? *home *which *key *row]})
+        ;; What is to keep of this batch: the answers that this task wrote
+        ;; from its parcels or sends from its pass, and the strays' entries
+        ;; that step 1 sent here. It rides the send of the pass's rows, to
+        ;; the batch's keeping task.
+        (local-select> (keypath :stray :batch) $$questions :> *strays-here)
+        (ops/current-microbatch-id :> *batch-of-rows)
+        (ops/current-task-id :> *task-of-rows)
+        (batch/rows-to-keep *batch-of-rows *task-of-rows *rows-here *rows-out *strays-here
+                            :> *rows-to-keep)
+        (into *rows-out *rows-to-keep :> *rows-and-kept)
+        (ops/explode *rows-and-kept :> {:keys [*every-task? *home *which *key *row]})
         (<<if *every-task?
           (|all)
          (else>)
           (|hash *home))
         (write-row $$microbatch-answers $$microbatch-facts $$microbatch-facts-by-value
+                   $$microbatch-task
                    *which *key *row
                    :> *written)))))

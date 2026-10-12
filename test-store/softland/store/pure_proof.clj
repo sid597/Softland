@@ -1,8 +1,9 @@
 (ns softland.store.pure-proof
   "The proof of the gates' pure namespaces: the one text and the digest, the
   door's declaration, the stamp, the first act of a layer, the record's
-  rows, the checks of the decision, and the pure code of a batch of the
-  microbatch gate. And of the door's pure namespaces: its words, what it
+  rows, the checks of the decision, the pure code of a batch of the
+  microbatch gate, and what a gate's depot of answers holds. And of the
+  door's pure namespaces: its words, what it
   makes of one act, and the numbers of a maker's wait. And of the source
   under `src-store/`: that no code of it names a lock. It needs no cluster
   and no Rama. One command, from the repository root:
@@ -39,6 +40,13 @@
   the edge of the 10 seconds gets the other verdict. That is what a kept
   clock gives, as a run of the pure code; that the gate keeps the clock is
   the module's proof's.
+
+  The keeping. The batch in memory also plays what the microbatch gate does
+  so that each answer gets an entry in its depot of answers: a batch hands
+  what it decided to be kept, on one task, and the next run closes it and
+  makes the records. The proof holds the records against the answers' rows
+  in the tables. An append is one step there: a failure in the run that
+  closes, and the streaming gate's append, are the module's proof's.
 
   The order by value. Its cases decide one act at a time against a record in
   memory with a function of the proof's own, `streaming-step`, which makes
@@ -1865,10 +1873,7 @@
                    last-stamp (batch/last-stamp-of-batch base {:carried nil :position 2} 4)]
                [(- (batch/stamp-of-turn base 9) base) (- last-stamp base)
                 (<= (batch/stamp-of-turn base (batch/turn 2 4 3)) last-stamp)]))
-      [9 11 true]]
-     ["the tasks write a new closed-through once after a batch that gave a stamp, and not in a quiet time"
-      (fn [] [(batch/closes? 7 5) (batch/closes? 7 nil) (batch/closes? 7 7) (batch/closes? nil nil)])
-      [true true false false]]]))
+      [9 11 true]]]))
 
 (def ^:private not-a-clock-row
   "Things that are no row of the kept clock and no record of the depot of
@@ -2480,6 +2485,269 @@
               (record/closed? {:stamp 5} nil) (record/closed? nil 9)])
       [true true false false false]]]))
 
+;; ------------------------------------------- what a depot of answers holds
+
+(def ^:private entry-cases
+  "The cases of what a gate's depot of answers holds: the entry of an answer,
+  the entry of a stray, a record, and the two parts of an answer's key, from
+  which the microbatch gate makes an act-id again. They do not reach a
+  depot: that a gate appends these, and when, is the module's proof's."
+  (let [u (uuid 5)
+        digest (digest/digest good)
+        accepted (record/answer-row nil 900 digest)
+        refused (record/answer-row :layer-not-made 901 digest)
+        entry (record/answer-record :microbatch :base u accepted)
+        facts-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a secret\""} u 0 900)
+        stray (record/stray-record :no-act-id "aa" 3)]
+    [["the entry of an accepted answer: the act-id as data, with the gate's depot word in its depot slot, the stamp and the digest; three parts, and no :refused"
+      (fn [] [entry (sort (keys entry))])
+      [{:act-id [:base :microbatch u] :stamp 900 :digest digest} [:act-id :digest :stamp]]]
+     ["the entry of a refused answer holds the word too, and no other part"
+      (fn [] (let [e (record/answer-record :streaming :alice u refused)] [e (sort (keys e))]))
+      [{:act-id [:alice :streaming u] :stamp 901 :digest digest :refused :layer-not-made} [:act-id :digest :refused :stamp]]]
+     ["an entry is the answer's row with the act-id beside it: without the act-id it is the row, accepted or refused, and its digest is the row's own 32 bytes"
+      (fn [] [(= (comparable accepted) (comparable (dissoc entry :act-id)))
+              (= (comparable refused) (comparable (dissoc (record/answer-record :microbatch :base u refused) :act-id)))
+              (identical? digest (:digest entry)) (alength ^bytes (:digest entry))])
+      [true true true 32]]
+     ["no value of a fact is in an entry: handed a fact's row with a digest put on it, in the place of an answer's row, the entry takes the stamp and the digest and leaves the value, who wrote it and the permission"
+      (fn [] (let [e (record/answer-record :streaming :alice u (assoc facts-row :digest digest))]
+               [(:value facts-row) (sort (keys e)) (:stamp e) (boolean (some #{"\"a secret\""} (vals e)))]))
+      ["\"a secret\"" [:act-id :digest :stamp] 900 false]]
+     [":refused is in an entry only when the row holds a word: not for a row with none, with nil or with false"
+      (fn [] (mapv (fn [row] (contains? (record/answer-record :microbatch :base u row) :refused))
+                   [{:stamp 1 :digest digest} {:stamp 1 :digest digest :refused nil} {:stamp 1 :digest digest :refused false}
+                    {:stamp 1 :digest digest :refused :malformed}]))
+      [false false false true]]
+     ["the layer of an entry's act-id is the layer as it was handed: a keyword, a keyword with a namespace, a UUID"
+      (fn [] (mapv (fn [layer] (:act-id (record/answer-record :microbatch layer u accepted))) [:base :tool/layer (uuid 3)]))
+      [[:base :microbatch u] [:tool/layer :microbatch u] [(uuid 3) :microbatch u]]]
+     ["the making of an entry does not throw on what it is handed in the place of a row: nothing, a number, a text, a vector, a thing that throws when it is read; the entry then holds the act-id and nothing of a row"
+      (fn [] (mapv (fn [row] (record/answer-record :microbatch :base u row)) [nil 5 "a row" [1 2] (throwing)]))
+      (vec (repeat 5 {:act-id [:base :microbatch u] :stamp nil :digest nil}))]
+     ["the entry of a stray: its word, the digest of the thing as hex text, and the task on which it arrived, held as a long; three parts"
+      (fn [] [stray (sort (keys stray))
+              (mapv (fn [task] (.getSimpleName (class (:task (record/stray-record :no-act-id "aa" task))))) [3 (int 3) (short 3)])])
+      [{:stray :no-act-id :digest "aa" :task 3} [:digest :stray :task] ["Long" "Long" "Long"]]]
+     ["the entry of the stray 5 on task 2, with the word that the test of a stray gives and the digest that the store takes: the word :no-act-id, and the proof's own SHA-256 of the one character 5"
+      (fn [] (record/stray-record (declaration/stray-reason :microbatch 5) (digest/hex-of 5) 2))
+      {:stray :no-act-id :digest (sha-256 (utf8 "5")) :task 2}]
+     ["the making of a stray's entry does not throw on a word or a digest that is none: nothing, a number and a thing that throws when it is read are held as they came"
+      (fn [] [(record/stray-record nil nil 0) (record/stray-record 5 7 0)
+              (:task (record/stray-record (throwing) (throwing) 2))])
+      [{:stray nil :digest nil :task 0} {:stray 5 :digest 7 :task 0} 2]]
+     ["a record is a map of entries: :answers is there only with an answer's entry, and :strays only with a stray's"
+      (fn [] [(record/log-record [entry] nil) (record/log-record nil [stray]) (record/log-record [entry entry] [stray])
+              (mapv (fn [[answers strays]] (sort (keys (record/log-record answers strays))))
+                    [[nil nil] [[] []] [(list) nil] [[entry] []] [[] [stray]] [[entry] [stray]]])])
+      [{:answers [entry]} {:strays [stray]} {:answers [entry entry] :strays [stray]}
+       [[] [] [] [:answers] [:strays] [:answers :strays]]]]
+     ["each part of a record is a vector, whatever held the entries: a list, a lazy sequence"
+      (fn [] (let [made (record/log-record (list entry) (map identity [stray]))]
+               [(vector? (:answers made)) (vector? (:strays made)) (count (:answers made)) (count (:strays made))]))
+      [true true 1 1]]
+     ["the two parts of an answer's key, from which an act-id is made again: the text of the layer and the uuid; the text gives the layer back, a keyword, a keyword with a namespace, a UUID"
+      (fn [] (mapv (fn [layer] (let [[layer-text act-uuid] (record/answer-key-parts (record/answer-key layer u))]
+                                 [layer-text act-uuid (= layer (record/id-of-text layer-text))]))
+                   [:alice :tool/layer (uuid 3)]))
+      [[":alice" u true] [":tool/layer" u true] ["00000000-0000-0000-0000-000000000003" u true]]]
+     ["a layer whose text is 256 characters comes back from its key too"
+      (fn [] (let [layer (long-id 256)
+                   [layer-text act-uuid] (record/answer-key-parts (record/answer-key layer u))]
+               [(count layer-text) act-uuid (= layer (record/id-of-text layer-text))]))
+      [256 u true]]
+     ["nothing for a text that is no answer's key: a place's key of three parts, one part, a layer with no text, a uuid that is not written as a UUID prints, a uuid in capitals, no character, nothing, a number, a thing that throws; and nothing throws"
+      (fn [] (mapv record/answer-key-parts
+                   [":alice :note-1 :text" ":alice" (str " " u) ":alice 5-5-5-5-5" (str ":alice " (str/upper-case (str (UUID. -1 -1))))
+                    "" nil 5 (throwing)]))
+      (vec (repeat 9 nil))]]))
+
+;; ------------------------------------- the keeping of what a batch decided
+
+(def ^:private keeping-cases
+  "The cases of the pure code by which the microbatch gate keeps what a batch
+  decided: the bound, the keeping task's route, the two sends of a stray,
+  what a batch leaves to close, when a run closes, the key and the range of
+  what is kept, what a task sends to keep, and the records that a closing
+  makes of it. They do not reach a table or a depot: that the gate writes
+  what is to keep with the answers' rows, and appends the records in the
+  next run, is the module's proof's."
+  (let [digest (digest/digest good)
+        answer-at (fn [layer n stamp word] [:answer (record/answer-key layer (uuid n)) (record/answer-row word stamp digest)])
+        answers (fn [n] (mapv (fn [i] (answer-at :base (+ 1000 i) (+ 5000 i) nil)) (range n)))
+        stray (fn [i] (record/stray-record :no-act-id (format "%064x" (long i)) 1))
+        strays (fn [n] (mapv stray (range n)))
+        ;; what the keeping task reads of the rows that were sent to it: [key value], in the order of the keys
+        kept-of (fn [rows] (sort-by first (map (juxt :key :row) rows)))
+        sizes-of (fn [things] (mapv (fn [thing] [(count (:answers thing)) (count (:strays thing))]) things))
+        to-close {:batch 41 :clock now}
+        last-stamp (stamp/pack now 99)
+        closing-of (fn [n] (batch/records-of-closing to-close last-stamp (kept-of (batch/rows-to-keep 41 2 (answers n) [] nil))))]
+    [["the bound of the keeping, written out a second time: 256 entries, answers and strays together, to a value that is kept and to a record of a closing"
+      (fn [] batch/max-kept)
+      256]
+     ["the route of a batch's keeping task is the batch's id, as a long; another batch has another route"
+      (fn [] [(batch/keeping-route 41) (batch/keeping-route (int 41)) (.getSimpleName (class (batch/keeping-route (int 41))))
+              (= (batch/keeping-route 41) (batch/keeping-route 42))])
+      [41 41 "Long" false]]
+     ["the two sends of a stray: its entry to the batch's keeping task, and a word to the gate's task that the batch has something to keep"
+      (fn [] (batch/stray-sends 41 :no-act-id "aa" 3))
+      [[41 :stray :batch [{:stray :no-act-id :digest "aa" :task 3}]]
+       [:microbatch :stray-sent :batch {:sent 1}]]]
+     ["each arrival of a stray sends both, a second arrival of one thing too: gathered, the keeping task holds an entry for each arrival, and the gate's task one small map"
+      (fn [] (let [sends (mapcat (fn [task] (batch/stray-sends 41 :no-act-id "aa" task)) [3 3 1])
+                   gathered-of (fn [kind] (reduce batch/gather nil (keep (fn [[_ k _ payload]] (when (= kind k) payload)) sends)))]
+               [(gathered-of :stray) (gathered-of :stray-sent)]))
+      [[{:stray :no-act-id :digest "aa" :task 3} {:stray :no-act-id :digest "aa" :task 3} {:stray :no-act-id :digest "aa" :task 1}]
+       {:sent 1}]]
+     ["what a batch leaves for the next run to close: its id and its clock when it made a stamp, whether a stray arrived or not; its id alone for a batch of strays alone; nothing for a batch with nothing to keep; each number a long"
+      (fn [] [(batch/to-close-of 41 now nil) (batch/to-close-of 41 now {:sent 1}) (batch/to-close-of 41 nil {:sent 1})
+              (batch/to-close-of 41 nil nil)
+              (mapv (fn [x] (.getSimpleName (class x))) (vals (batch/to-close-of (int 41) (int 7) nil)))])
+      [{:batch 41 :clock now} {:batch 41 :clock now} {:batch 41} nil ["Long" "Long"]]]
+     ["when a run closes: its head read what a batch that made a stamp left; the first batch of all, of the id 0, left the same; a batch of strays alone left its id and no clock. It does not close when its head read nothing: a quiet time, and a store that never decided"
+      (fn [] (mapv batch/closes? [{:batch 41 :clock now} {:batch 0 :clock now} {:batch 41} nil]))
+      [true true true false]]
+     ["a run closes once after each batch that left something to keep: what a batch leaves is what the next head reads, so the run after a batch that made a stamp closes, with a stray or with none, the run after a batch of strays alone closes, and the run after a batch with nothing to keep does not"
+      (fn [] (mapv (fn [[clock stray-sent]] (batch/closes? (batch/to-close-of 41 clock stray-sent)))
+                   [[now nil] [now {:sent 1}] [nil {:sent 1}] [nil nil]]))
+      [true true true false]]
+     ["a thing that is no :to-close closes nothing, and nothing throws: a map with no id, a clock alone, an id that is a text, a number with a fraction or nothing, an id that no long holds, a number, a text, a vector, a thing that throws when it is read"
+      (fn [] (mapv batch/closes? [{} {:clock now} {:batch "41"} {:batch 4.5} {:batch nil} {:batch (bigint "99999999999999999999")}
+                                  5 "41" [41] (throwing)]))
+      (vec (repeat 10 false))]
+     ["the key of a value that is kept: the batch's id in 19 digits, the task in 5 and the part in 5, with a space between; the greatest long fits; a task of six digits prints longer and is a key all the same"
+      (fn [] [(batch/to-keep-key 41 3 0) (batch/to-keep-key Long/MAX_VALUE 127 9) (batch/to-keep-key (int 41) (int 3) (int 12))
+              (batch/to-keep-key 1 123456 0)])
+      ["0000000000000000041 00003 00000" "9223372036854775807 00127 00009" "0000000000000000041 00003 00012"
+       "0000000000000000001 123456 00000"]]
+     ["the keys sort by the batch, then the task, then the part, as the numbers do; and two tasks, or two parts of one task, or two batches, never have one key"
+      (fn [] (let [in-order [[9 3 0] [10 0 0] [10 0 1] [10 0 10] [10 2 0] [10 11 0] [100 0 0] [Long/MAX_VALUE 0 0]]
+                   keys (mapv (fn [[b t p]] (batch/to-keep-key b t p)) in-order)]
+               [(= keys (sort (reverse keys)))
+                (count (set (for [b [41 42] t (range 4) p (range 5)] (batch/to-keep-key b t p))))]))
+      [true 40]]
+     ["the range of one batch's keys: from the id and a space to the id and the character after a space; it holds each key of the batch, and no key of the batch before, of the batch after, or of a batch whose id has the same digits and more"
+      (fn [] (let [[from to] (batch/to-keep-range 41)
+                   in? (fn [k] (and (<= (compare from k) 0) (neg? (compare k to))))]
+               [from to
+                (mapv (fn [[b t p]] (in? (batch/to-keep-key b t p)))
+                      [[41 0 0] [41 127 255] [41 99999 99999] [40 0 0] [42 0 0] [410 0 0] [4 0 0]])]))
+      ["0000000000000000041 " "0000000000000000041!"
+       [true true true false false false false]]]
+     ["a task with no answer and no stray sends nothing to keep: a fact's row and a row of the facts by value are no answers, from a parcel or from a pass"
+      (fn [] [(batch/rows-to-keep 41 2 [] [] nil)
+              (batch/rows-to-keep 41 2
+                                  [[:fact ":base :doc-1 :title" {:value "\"a\"" :stamp 5}] [:by-value "k" {:stamp 5}]]
+                                  [{:which :fact :key ":base :doc-2 :title" :row {:value "\"b\"" :stamp 5} :home :doc-2 :every-task? false}
+                                   {:which :by-value :key "k2" :row nil :home "d" :every-task? false}]
+                                  [])])
+      [[] []]]
+     ["what a task sends to keep: one row of the kind :to-keep, whose home is the batch's keeping route and whose key holds the batch, the task and the part. Its value holds the batch's id; each answer among the rows that the task wrote and among the rows of its pass, by the text of its layer and its uuid, with the word of a refusal, in the order of the answers' keys; and the strays' entries as they came. No row of a fact is in it"
+      (fn [] (batch/rows-to-keep 41 2
+                                 [[:fact ":base :doc-1 :title" {:value "\"a secret\"" :stamp 5}]
+                                  (answer-at :base 7 5007 nil)]
+                                 [{:which :answer :key (record/answer-key (uuid 3) (uuid 6)) :row (record/answer-row :layer-not-made 5006 digest)
+                                   :home (uuid 6) :every-task? false}
+                                  {:which :fact :key ":base :doc-2 :title" :row {:value "\"b\"" :stamp 5} :home :doc-2 :every-task? false}]
+                                 [(stray 1)]))
+      [{:which :to-keep :key "0000000000000000041 00002 00000" :home 41 :every-task? false
+        :row {:batch 41
+              :answers [{:layer "00000000-0000-0000-0000-000000000003" :uuid (uuid 6) :stamp 5006 :digest digest :refused :layer-not-made}
+                        {:layer ":base" :uuid (uuid 7) :stamp 5007 :digest digest}]
+              :strays [(stray 1)]}}]]
+     ["a value holds 256 entries at most, answers and strays together, the answers first, and a part with nothing in it is absent: how many answers and strays each value of a task holds, with its parts, for 1, 256, 257 and 1,000 answers, for 1,000 answers with 30 strays, and for 300 strays alone"
+      (fn [] (mapv (fn [[n s]] (mapv (fn [{:keys [row]}] [(count (:answers row)) (count (:strays row)) (sort (keys row))])
+                                     (batch/rows-to-keep 41 2 (answers n) [] (strays s))))
+                   [[1 0] [256 0] [257 0] [1000 0] [1000 30] [0 300]]))
+      [[[1 0 [:answers :batch]]]
+       [[256 0 [:answers :batch]]]
+       [[256 0 [:answers :batch]] [1 0 [:answers :batch]]]
+       [[256 0 [:answers :batch]] [256 0 [:answers :batch]] [256 0 [:answers :batch]] [232 0 [:answers :batch]]]
+       [[256 0 [:answers :batch]] [256 0 [:answers :batch]] [256 0 [:answers :batch]] [232 24 [:answers :batch :strays]] [0 6 [:batch :strays]]]
+       [[0 256 [:batch :strays]] [0 44 [:batch :strays]]]]]
+     ["the keys of a task's values are its parts from 0, each in the batch's range; the home of each is the batch's keeping route"
+      (fn [] (let [rows (batch/rows-to-keep 41 2 (answers 1000) [] nil)
+                   [from to] (batch/to-keep-range 41)]
+               [(mapv :key rows) (every? (fn [k] (and (<= (compare from k) 0) (neg? (compare k to)))) (map :key rows))
+                (set (map (juxt :which :home :every-task?) rows))]))
+      [["0000000000000000041 00002 00000" "0000000000000000041 00002 00001" "0000000000000000041 00002 00002"
+        "0000000000000000041 00002 00003"]
+       true
+       #{[:to-keep 41 false]}]]
+     ["each answer is in one value, once: the 1,000 answers of a task, half from its parcels and half from its pass, are the 1,000 of its four values"
+      (fn [] (let [[from-parcels from-a-pass] (split-at 500 (answers 1000))
+                   rows (batch/rows-to-keep 41 2 (vec from-parcels)
+                                            (mapv (fn [[which k row]] {:which which :key k :row row}) from-a-pass) nil)
+                   uuids (map :uuid (mapcat (comp :answers :row) rows))]
+               [(count uuids) (count (set uuids)) (= (set uuids) (set (map (fn [i] (uuid (+ 1000 i))) (range 1000))))]))
+      [1000 1000 true]]
+     ["the same rows in another order give the same values under the same keys, which is what a second attempt of a batch sends: the answers are put in the order of their keys, and the strays in an order of their own"
+      (fn [] (let [rows (answers 300)
+                   some-strays (strays 20)]
+               (= (comparable (batch/rows-to-keep 41 2 rows [] some-strays))
+                  (comparable (batch/rows-to-keep 41 2 (vec (reverse rows)) [] (vec (reverse some-strays)))))))
+      true]
+     ["a row of the kind :answer whose key is no answer's key is not kept, and nothing throws"
+      (fn [] (batch/rows-to-keep 41 2 [[:answer "no key of an answer" (record/answer-row nil 5 digest)]] [] nil))
+      []]
+     ["the records of a closing, for a batch that made a stamp and kept two answers and a stray on two tasks: one record with the batch's id, its clock and its last stamp; each answer as the entry of its row, with the act-id made again, its layer a keyword or a UUID; and the stray's entry"
+      (fn [] (batch/records-of-closing
+              to-close last-stamp
+              (kept-of (concat (batch/rows-to-keep 41 1 [(answer-at :base 7 5007 nil)] [] nil)
+                               (batch/rows-to-keep 41 2 [(answer-at (uuid 3) 6 5006 :layer-not-made)] [] [(stray 1)])))))
+      [{:batch 41 :clock now :last-stamp last-stamp
+        :answers [{:act-id [:base :microbatch (uuid 7)] :stamp 5007 :digest digest}
+                  {:act-id [(uuid 3) :microbatch (uuid 6)] :stamp 5006 :digest digest :refused :layer-not-made}]
+        :strays [(stray 1)]}]]
+     ["how many records a closing makes, with the answers and the strays of each: for a batch of 1, of 256, of 257 and of 1,000 answers; and for 1,000 answers with 30 strays that were kept on two tasks, where the closing puts every answer before every stray"
+      (fn [] (conj (mapv (fn [n] (sizes-of (closing-of n))) [1 256 257 1000])
+                   (sizes-of (batch/records-of-closing
+                              to-close last-stamp
+                              (kept-of (concat (batch/rows-to-keep 41 1 (answers 1000) [] (strays 10))
+                                               (batch/rows-to-keep 41 2 [] [] (mapv stray (range 10 30)))))))))
+      [[[1 0]] [[256 0]] [[256 0] [1 0]] [[256 0] [256 0] [256 0] [232 0]]
+       [[256 0] [256 0] [256 0] [232 24] [0 6]]]]
+     ["of the records of a closing, the first and no other holds the batch's clock and its last stamp; every record holds the batch's id; none holds more than the bound; and :answers is the one part beside them where no stray was kept"
+      (fn [] (let [records (closing-of 1000)]
+               [(mapv (fn [r] (select-keys r [:clock :last-stamp])) records)
+                (mapv :batch records)
+                (apply max (map (fn [r] (+ (count (:answers r)) (count (:strays r)))) records))
+                (mapv (fn [r] (sort (keys r))) records)]))
+      [[{:clock now :last-stamp last-stamp} {} {} {}]
+       [41 41 41 41]
+       256
+       [[:answers :batch :clock :last-stamp] [:answers :batch] [:answers :batch] [:answers :batch]]]]
+     ["every answer that was kept is in exactly one record, as the entry of its row: the 1,000 entries are the 1,000 that the proof writes out of the same act-ids, stamps and digest"
+      (fn [] (let [entries (mapcat :answers (closing-of 1000))
+                   own (map (fn [i] {:act-id [:base :microbatch (uuid (+ 1000 i))] :stamp (+ 5000 i) :digest digest}) (range 1000))]
+               [(count entries) (count (set (map :act-id entries))) (= (set (map comparable entries)) (set (map comparable own)))]))
+      [1000 1000 true]]
+     ["a batch of strays alone: its record holds its id and the strays, and neither a clock nor a last stamp, though the gate has a last stamp; 300 strays are two records; with nothing kept such a batch gives no record"
+      (fn [] [(batch/records-of-closing {:batch 41} last-stamp (kept-of (batch/rows-to-keep 41 2 [] [] [(stray 1) (stray 2)])))
+              (mapv (fn [r] [(sort (keys r)) (count (:strays r))])
+                    (batch/records-of-closing {:batch 41} last-stamp (kept-of (batch/rows-to-keep 41 2 [] [] (strays 300)))))
+              (batch/records-of-closing {:batch 41} last-stamp [])])
+      [[{:batch 41 :strays [(stray 1) (stray 2)]}]
+       [[[:batch :strays] 256] [[:batch :strays] 44]]
+       []]]
+     ["a batch that made a stamp and wrote no answer, each of its things a repeat: one record alone, with its id, its clock and its last stamp, and no entry"
+      (fn [] (batch/records-of-closing to-close last-stamp []))
+      [{:batch 41 :clock now :last-stamp last-stamp}]]
+     ["a thing that is no :to-close gives no record, whatever was kept, and nothing throws"
+      (fn [] (mapv (fn [x] (batch/records-of-closing x last-stamp (kept-of (batch/rows-to-keep 41 2 (answers 3) [] nil))))
+                   [nil {} {:clock now} {:batch "41"} 5 (throwing)]))
+      (vec (repeat 6 []))]
+     ["no record of a closing holds a value of a fact: a task wrote a fact's row with a value beside an answer, and the printed records hold the answer's uuid and not the value"
+      (fn [] (let [rows (batch/rows-to-keep 41 2 [[:fact ":base :doc-1 :title" {:value "\"a secret\"" :stamp 5}] (answer-at :base 7 5007 nil)] [] nil)
+                   printed (pr-str (comparable (batch/records-of-closing to-close last-stamp (kept-of rows))))]
+               [(str/includes? printed (str (uuid 7))) (str/includes? printed "a secret")
+                (str/includes? (pr-str (comparable rows)) "a secret")]))
+      [true false false]]
+     ["the keys that a closing takes out behind its appends: each key that it read, in their order; none when it read nothing"
+      (fn [] [(batch/keys-kept (kept-of (batch/rows-to-keep 41 2 (answers 257) [] nil))) (batch/keys-kept [])])
+      [["0000000000000000041 00002 00000" "0000000000000000041 00002 00001"] []]]]))
+
 ;; ------------------------------------- a batch run in memory, and one at a time
 
 (def ^:private sim-tasks "The number of tasks of the batch that the proof runs in memory." 4)
@@ -2503,8 +2771,9 @@
   (reduce (fn [m [task path payload]] (update-in m (into [task] path) batch/gather payload)) {} messages))
 
 (defn- write-row
-  "Writes one row of a decision on a task of the record in memory. A row of
-  the facts by value that is nil takes its key out."
+  "Writes one row on a task of the record in memory: a row of a decision, or
+  a value of what the batch has to keep. A row of the facts by value that is
+  nil takes its key out."
   [record task [which k row]]
   (case which
     :fact (assoc-in record [:facts task k] row)
@@ -2512,6 +2781,7 @@
                 (assoc-in record [:by-value task k] row)
                 (update-in record [:by-value task] dissoc k))
     :answer (assoc-in record [:answers task k] row)
+    :to-keep (assoc-in record [:to-keep task k] row)
     record))
 
 (defn- turns-of
@@ -2535,21 +2805,52 @@
   things, in the depot's order; and the clock. Gives the record after the
   batch, with :base. As in the gate, each task reads the layer's marked
   keys from its own copy in step 2, before any row of the batch is
-  written."
+  written.
+
+  The keeping. The record also holds :batch, the id of the batch that runs;
+  :to-close, what the batch before left on the gate's task for this run to
+  close; :to-keep, a map from task to key to a value of what a batch has to
+  keep; and :log, the records that the closings appended, which stands for
+  the gate's depot of answers. A stray sends its two messages in step 1.
+  The head of step 2 writes this batch's :to-close, or takes the key out.
+  When the head read a :to-close, the keeping task of that batch reads the
+  batch's range of :to-keep, the records of the closing go to :log, and the
+  keys are taken out. In step 4 each task sends what it has to keep with
+  the rows of its pass. The model appends in one step: an append that
+  fails, or whose ack does not come, is not played here."
   [record other-facts things clock shuffled]
-  (let [questions (gathered
+  (let [batch-id (:batch record)
+        questions (gathered
                    (shuffled
                     (for [[turn partition position thing] (turns-of things)
-                          :when (nil? (declaration/stray-reason :microbatch thing))
-                          :let [{act :ok reason :refuse} (declaration/check thing)
-                                facts (get-in record [:facts partition])
-                                permission-row (when act (get facts (decision/permission-place act)))
-                                depot-row (when (and act (nil? permission-row)) (get facts (decision/depot-place act)))]
-                          [route kind k payload] (batch/arrive thing act reason turn position permission-row depot-row)]
+                          :let [stray (declaration/stray-reason :microbatch thing)]
+                          [route kind k payload]
+                          (if stray
+                            (batch/stray-sends batch-id stray (digest/hex-of thing) partition)
+                            (let [{act :ok reason :refuse} (declaration/check thing)
+                                  facts (get-in record [:facts partition])
+                                  permission-row (when act (get facts (decision/permission-place act)))
+                                  depot-row (when (and act (nil? permission-row)) (get facts (decision/depot-place act)))]
+                              (batch/arrive thing act reason turn position permission-row depot-row)))]
                       [(task-of route) [kind k] payload])))
-        numbers (get-in questions [(task-of batch/gates-depot) :numbers :batch])
+        gates-task (task-of batch/gates-depot)
+        numbers (get-in questions [gates-task :numbers :batch])
         base (batch/base clock (:last-stamp record) numbers)
         batch-end (batch/batch-end base numbers sim-tasks)
+        ;; the head: what the batch before left to close, and what this batch leaves
+        to-close (:to-close record)
+        to-close-now (batch/to-close-of batch-id (when base clock) (get-in questions [gates-task :stray-sent :batch]))
+        ;; the closing of the batch before, on its keeping task
+        record (if (batch/closes? to-close)
+                 (let [keeping-task (task-of (batch/keeping-route (:batch to-close)))
+                       [from to] (batch/to-keep-range (:batch to-close))
+                       kept (sort-by first (filter (fn [[k _]] (and (<= (compare from k) 0) (neg? (compare k to))))
+                                                   (get-in record [:to-keep keeping-task])))]
+                   (-> record
+                       (update :log into (batch/records-of-closing to-close (:last-stamp record) kept))
+                       (update-in [:to-keep keeping-task] (fn [values] (apply dissoc values (batch/keys-kept kept))))))
+                 record)
+        record (if to-close-now (assoc record :to-close to-close-now) (dissoc record :to-close))
         replies (gathered
                  (shuffled
                   (for [task (range sim-tasks)
@@ -2575,15 +2876,20 @@
         sent (gathered (shuffled parcels))
         [record rows-out]
         (reduce (fn [[record rows-out] task]
-                  (let [record (reduce (fn [record row] (write-row record task row)) record (:rows (get sent task)))
+                  (let [rows-here (:rows (get sent task))
+                        record (reduce (fn [record row] (write-row record task row)) record rows-here)
                         pass (reduce (fn [pass met]
                                        (let [local-rows (into {} (map (fn [k] [k (get-in record [:facts task k])])) (batch/meeting-reads pass met))
                                              other-depot-row (when (batch/reads-other-record? pass met)
                                                                (get other-facts (batch/depot-place-of met)))]
                                          (batch/decide-next pass met local-rows other-depot-row)))
                                      (batch/new-pass)
-                                     (batch/acts-that-meet (get sent task)))]
-                    [record (into rows-out (batch/rows-to-send pass))]))
+                                     (batch/acts-that-meet (get sent task)))
+                        rows-of-pass (batch/rows-to-send pass)
+                        strays-here (get-in questions [task :stray :batch])]
+                    [record (-> rows-out
+                                (into rows-of-pass)
+                                (into (batch/rows-to-keep batch-id task rows-here rows-of-pass strays-here)))]))
                 [record []]
                 (shuffled (range sim-tasks)))
         record (reduce (fn [record {:keys [every-task? home which key row]}]
@@ -2689,16 +2995,22 @@
   [rows]
   (reduce (fn [flat [table _ k row]] (assoc-in flat [table k] row)) {:answers {} :facts {} :by-value {}} rows))
 
+(def ^:private first-batch
+  "The id of the batch that a record of `record-of` runs first."
+  41)
+
 (defn- record-of
   "Takes rows [table route key row] of a record before a batch. Gives the
   record by task: each row on the task of its route, or on every task for
-  the route :every-task."
+  the route :every-task. The record is of a store at rest: nothing is left
+  to close and nothing to keep, and the gate's depot of answers holds no
+  record. The batch that runs on it has the id `first-batch`."
   [rows last-stamp]
   (reduce (fn [record [table route k row]]
             (reduce (fn [record task] (assoc-in record [table task k] row))
                     record
                     (if (= :every-task route) (range sim-tasks) [(task-of route)])))
-          {:answers {} :facts {} :by-value {} :last-stamp last-stamp}
+          {:answers {} :facts {} :by-value {} :last-stamp last-stamp :batch first-batch :to-keep {} :log []}
           rows))
 
 (def ^:private batch-fixture
@@ -2928,6 +3240,62 @@
         (keep (fn [at] (let [fields (fields-that-differ (get rows-a at) (get rows-b at))]
                          (when (seq fields) [at fields]))))
         (distinct (concat (keys rows-a) (keys rows-b)))))
+
+;; ------------------------------------------- what a batch hands to be kept
+
+(defn- closed
+  "Runs the gate once more with no thing, under the next id: the next run of
+  a store at rest, which closes the batch before. Takes a record after
+  `run-batch`. Gives the record after that run; its :log holds what the
+  closing appended."
+  [record]
+  (run-batch (update record :batch inc) {} [] now vec))
+
+(defn- kept-on
+  "Takes a record. Gives what its tasks hold to be kept, as [task key value],
+  in the order of the tasks and of the keys."
+  [record]
+  (vec (for [[task values] (sort-by key (:to-keep record))
+             [k value] (sort-by key values)]
+         [task k value])))
+
+(defn- base-made
+  "The rows of a base that is made and holds nothing else: the depot fact
+  and the system's permission, on every task, with the stamp given."
+  [stamp]
+  [[:facts :every-task ":base :base :softland.store/depot"
+    (fact-row base-writer (arrived-fact :base :softland.store/depot :microbatch) (uuid 800) 0 stamp)]
+   [:facts :every-task ":base :system :softland.store/permission"
+    (fact-row base-writer (arrived-fact :system :softland.store/permission system-own) (uuid 800) 1 stamp)]])
+
+(defn- answers-fixture
+  "A batch of n acts into a base that is made, each with one value on an
+  entity of its own, and the record before it. Each act is accepted."
+  [n]
+  (let [before (stamp/pack (- now 5000) 0)]
+    {:rows (base-made before)
+     :other-facts {}
+     :last-stamp before
+     :things (mapv (fn [i] (base-thing (+ 2000 i) :system system-own (value-at (keyword (str "k" i)) :note i))) (range n))}))
+
+(defn- entries-of-the-tables
+  "The entry that each answer of a batch should have, made by the proof from
+  the tables and from the things, with no function of the keeping. Takes the
+  things of the batch, the record before it and the record after. For each
+  thing that is no stray it takes the thing's own act-id and the row under
+  that act-id's answer key on the task of its uuid, when the batch wrote
+  that row: it is not the row that the record before held. Gives a map from
+  act-id to the row with the act-id beside it, so an act-id under two things
+  gives one entry and a repeat gives none."
+  [things before after]
+  (into {}
+        (for [thing things
+              :when (nil? (declaration/stray-reason :microbatch thing))
+              :let [[layer _ act-uuid :as id] (:act-id thing)
+                    at [:answers (task-of act-uuid) (record/answer-key layer act-uuid)]
+                    row (get-in after at)]
+              :when (and row (not= (comparable row) (comparable (get-in before at))))]
+          [id (assoc row :act-id id)])))
 
 ;; ----------------------------------------------------------- the door's words
 
@@ -3798,6 +4166,177 @@
            "answers and facts that the batch wrote has another stamp, and the act at the edge of the 10 seconds gets the other verdict:"
            (pr-str (get other-word edge-at)))))
 
+(deftest the-entries-of-a-depot-of-answers
+  (let [n (holds entry-cases)
+        digest (digest/digest good)]
+    (shown "what a depot of answers holds," n "cases. The entry of an accepted answer and of a refused one, each the answer's row with the act-id beside it, the digest shown as hex:"
+           (pr-str (mapv (fn [row] (update (record/answer-record :microbatch :base (uuid 5) row) :digest text/hex))
+                         [(record/answer-row nil 900 digest) (record/answer-row :layer-not-made 901 digest)]))
+           "| the entry of the stray 5 on task 2:" (pr-str (record/stray-record (declaration/stray-reason :microbatch 5) (digest/hex-of 5) 2)))
+    (shown "a record is a map of entries, and a part is there only when it holds one: the parts for an answer, for a stray, for both and for neither:"
+           (pr-str (mapv (fn [[answers strays]] (sort (keys (record/log-record answers strays))))
+                         [[[:an-entry] nil] [nil [:an-entry]] [[:an-entry] [:an-entry]] [nil nil]]))
+           "| an act-id's layer and uuid come back from the text of its answer's key, for a layer that is a keyword and one that is a UUID:"
+           (pr-str (mapv (fn [layer] (let [[layer-text act-uuid] (record/answer-key-parts (record/answer-key layer (uuid 5)))]
+                                       [(record/id-of-text layer-text) act-uuid]))
+                         [:alice (uuid 3)])))))
+
+(deftest the-keeping-of-what-a-batch-decided
+  (let [n (holds keeping-cases)
+        digest (digest/digest good)
+        last-stamp (stamp/pack now 99)
+        rows (fn [k] (mapv (fn [i] [:answer (record/answer-key :base (uuid (+ 1000 i))) (record/answer-row nil (+ 5000 i) digest)]) (range k)))
+        records (fn [k] (batch/records-of-closing {:batch 41 :clock now} last-stamp
+                                                  (sort-by first (map (juxt :key :row) (batch/rows-to-keep 41 2 (rows k) [] nil)))))]
+    (shown "the keeping of what a batch decided," n "cases: the bound is" batch/max-kept
+           "entries to a value that is kept and to a record of a closing | the two sends of a stray:" (pr-str (batch/stray-sends 41 :no-act-id "aa" 3)))
+    (shown "when a run closes: what a batch leaves, and whether the next run closes, for a batch that made a stamp, a batch of strays alone, and a batch with nothing to keep:"
+           (pr-str (mapv (fn [[clock stray-sent]] (let [left (batch/to-close-of 41 clock stray-sent)] [left (batch/closes? left)]))
+                         [[now nil] [nil {:sent 1}] [nil nil]])))
+    (shown "the key of what the task 3 keeps of the batch 41 as its first part is" (pr-str (batch/to-keep-key 41 3 0))
+           "and the range of that batch's keys is" (pr-str (batch/to-keep-range 41))
+           "| a task's values for 1, 256, 257 and 1,000 answers, as the answers of each:"
+           (pr-str (mapv (fn [k] (mapv (comp count :answers :row) (batch/rows-to-keep 41 2 (rows k) [] nil))) [1 256 257 1000])))
+    (shown "the records of a closing, as [answers strays] of each, for a batch of 1, 256, 257 and 1,000 answers:"
+           (pr-str (mapv (fn [k] (mapv (fn [r] [(count (:answers r)) (count (:strays r))]) (records k))) [1 256 257 1000]))
+           "| the parts of each record of the batch of 1,000:" (pr-str (mapv (fn [r] (sort (keys r))) (records 1000)))
+           "| a batch that made a stamp and wrote no answer:" (pr-str (batch/records-of-closing {:batch 41 :clock now} last-stamp []))
+           "| a batch of strays alone:"
+           (pr-str (batch/records-of-closing {:batch 41} last-stamp [["a key" {:batch 41 :strays [(record/stray-record :no-act-id "aa" 1)]}]])))))
+
+(deftest a-batch-hands-what-it-decided-to-be-kept
+  (let [before-of (fn [fixture] (record-of (:rows fixture) (:last-stamp fixture)))
+        [from to] (batch/to-keep-range first-batch)
+        in-range? (fn [k] (and (<= (compare from k) 0) (neg? (compare k to))))
+        sizes-of (fn [things] (mapv (fn [thing] [(count (:answers thing)) (count (:strays thing))]) things))
+        run (fn [fixture]
+              (let [before (before-of fixture)
+                    after (attempt-of fixture now)
+                    at-rest (closed after)]
+                {:before before :after after :at-rest at-rest
+                 :kept (kept-on after) :records (:log at-rest)
+                 :own (entries-of-the-tables (:things fixture) before after)}))
+        sized (mapv (comp run answers-fixture) [1 256 257 1000])
+        before (stamp/pack (- now 5000) 0)
+        other-gates {:act-id [:base :streaming (uuid 18)] :depot :streaming :layer :base :facts [{:e (entity-on 2 0) :k :stray}]}
+        strays-alone {:rows (base-made before) :other-facts {} :last-stamp before
+                      :things [5 "a stray" 5 other-gates]}
+        s (run strays-alone)
+        repeat-a (base-thing 801 :system system-own {:e :k1 :k :note})
+        repeat-b (base-thing 802 :system system-own {:e :k2 :k :note})
+        repeats-alone {:rows (into (base-made before)
+                                   [[:answers (uuid 801) (record/answer-key :base (uuid 801)) (record/answer-row nil before (digest/digest repeat-a))]
+                                    [:answers (uuid 802) (record/answer-key :base (uuid 802))
+                                     (record/answer-row :layer-not-made before (digest/digest repeat-b))]])
+                       :other-facts {} :last-stamp before
+                       :things [repeat-a repeat-b repeat-a]}
+        r (run repeats-alone)
+        twice (run twice-fixture)
+        second-attempt (attempt-of twice-fixture now)
+        a-second-later (attempt-of twice-fixture (+ now 1000))
+        orders 50
+        random (java.util.Random. 20261013)
+        shuffled (fn [xs] (let [l (java.util.ArrayList. ^java.util.Collection (vec xs))]
+                            (java.util.Collections/shuffle l random)
+                            (vec l)))
+        kept-in-orders (set (repeatedly orders
+                                        #(comparable (kept-on (run-batch (before-of twice-fixture) (:other-facts twice-fixture)
+                                                                         (:things twice-fixture) now shuffled)))))]
+    ;; a batch of 1, of 256, of 257 and of 1,000 answers
+    (is (= [1 256 257 1000] (mapv (comp count :own) sized))
+        "each act of a batch of 1, of 256, of 257 and of 1,000 acts has an answer's row in the tables")
+    (is (= (repeat 4 {:batch first-batch :clock now}) (map (comp :to-close :after) sized))
+        "each of those batches leaves its id and its clock for the next run to close")
+    (is (= [[1 true true] [256 true true] [257 true true] [1000 true true]]
+           (mapv (fn [{:keys [kept]}]
+                   [(reduce + (map (fn [[_ _ value]] (count (:answers value))) kept))
+                    (every? (fn [[task k value]] (and (= task (task-of first-batch)) (in-range? k) (= first-batch (:batch value)))) kept)
+                    (every? (fn [[_ _ value]] (<= 1 (+ (count (:answers value)) (count (:strays value))) 256)) kept)])
+                 sized))
+        "what the batch hands to be kept: every answer, in values on the batch's keeping task, each under a key of the batch's range and with the batch's id, and none with more than 256 entries")
+    (is (= [[[1 0]] [[256 0]] [[256 0] [1 0]] [[256 0] [256 0] [256 0] [232 0]]]
+           (mapv (comp sizes-of :records) sized))
+        "the run that closes the batch appends 1, 1, 2 and 4 records, and none holds more than 256 entries")
+    (is (= (mapv (fn [{:keys [after records]}] (into [{:clock now :last-stamp (:last-stamp after)}] (repeat (dec (count records)) {}))) sized)
+           (mapv (fn [{:keys [records]}] (mapv (fn [record] (select-keys record [:clock :last-stamp])) records)) sized))
+        "the batch's first record and no other holds its clock and its last stamp, which is the gate's last stamp as the batch left it")
+    (is (= (repeat 4 true)
+           (map (fn [{:keys [after records]}] (every? (fn [entry] (<= (:stamp entry) (:last-stamp after))) (mapcat :answers records))) sized))
+        "and that last stamp is not below the stamp of any entry of the batch")
+    (is (= (repeat 4 #{first-batch}) (map (fn [{:keys [records]}] (set (map :batch records))) sized))
+        "every record holds the batch's id")
+    (is (= [[1 1 true] [256 256 true] [257 257 true] [1000 1000 true]]
+           (mapv (fn [{:keys [records own]}]
+                   (let [entries (mapcat :answers records)]
+                     [(count entries) (count (set (map :act-id entries)))
+                      (= (set (map comparable entries)) (set (map comparable (vals own))))]))
+                 sized))
+        "every answer is in exactly one record, and its entry is its row in the tables with its act-id beside it")
+    (is (= (repeat 4 [[] nil {}])
+           (map (fn [{:keys [after at-rest]}]
+                  [(kept-on at-rest) (:to-close at-rest) (rows-that-differ (rows-by-place after) (rows-by-place at-rest))])
+                sized))
+        "after the run that closes, nothing is left to keep and nothing to close, and no row of the tables differs")
+    (is (= (repeat 4 [true false 0])
+           (map (fn [{:keys [after at-rest]}]
+                  [(batch/closes? (:to-close after)) (batch/closes? (:to-close at-rest))
+                   (- (count (:log (closed at-rest))) (count (:log at-rest)))])
+                sized))
+        "a run closes once: the run after the batch closes it, and the run after that closes nothing and appends nothing")
+    ;; a batch of strays alone
+    (is (= [{:batch first-batch} nil before {}]
+           [(:to-close (:after s)) (:base (:after s)) (:last-stamp (:after s))
+            (rows-that-differ (rows-by-place (:before s)) (rows-by-place (:after s)))])
+        "a batch of strays alone makes no stamp and writes no row, and the gate's last stamp stays; it leaves its id, and no clock, for the next run to close")
+    (is (= [[[(task-of first-batch) 0 4]] true]
+           [(mapv (fn [[task _ value]] [task (count (:answers value)) (count (:strays value))]) (:kept s))
+            (not= 2 (task-of first-batch))])
+        "it hands its four strays to be kept, in one value on its keeping task, which is another task than the one on which that stray arrived")
+    (is (= [[[:batch :strays]] [first-batch]
+            {{:stray :no-act-id :digest (sha-256 (utf8 "5")) :task (task-of nil)} 2
+             {:stray :no-act-id :digest (sha-256 (utf8 "\"a stray\"")) :task (task-of nil)} 1
+             {:stray :act-id-of-the-other-gate :digest (sha-256 (utf8 (text/text other-gates))) :task 2} 1}]
+           [(mapv (comp sort keys) (:records s)) (mapv :batch (:records s)) (frequencies (mapcat :strays (:records s)))])
+        "the run that closes it appends one record, with the batch's id and the strays, and with no clock, no last stamp and no answer: an entry for each arrival, two for the thing that arrived twice, each with its word, the proof's own SHA-256 of the thing's text, and the task on which it arrived, which for the thing with an entity is the entity's task, 2, and not the keeping task")
+    (is (= [[] nil] [(kept-on (:at-rest s)) (:to-close (:at-rest s))])
+        "and after that run nothing of the strays is left to keep or to close: a store at rest holds no stray with no entry")
+    ;; a batch of repeats alone
+    (is (= [{:batch first-batch :clock now} [] {} true]
+           [(:to-close (:after r)) (:kept r) (rows-that-differ (rows-by-place (:before r)) (rows-by-place (:after r)))
+            (< before (:last-stamp (:after r)))])
+        "a batch of repeats alone makes a stamp and writes no row: it leaves its id and its clock to close, and hands nothing to be kept")
+    (is (= [{:batch first-batch :clock now :last-stamp (:last-stamp (:after r))}] (:records r))
+        "the run that closes it appends one record alone: the batch's id, its clock and its last stamp, and no entry")
+    ;; a second attempt
+    (is (= [true true]
+           [(= (comparable (:kept twice)) (comparable (kept-on second-attempt)))
+            (= (:to-close (:after twice)) (:to-close second-attempt))])
+        "a second attempt of a batch, with one clock, hands the same things to be kept, under the same keys on the same task, and leaves the same thing to close")
+    (is (= [true false]
+           [(= (mapv (fn [[task k _]] [task k]) (:kept twice)) (mapv (fn [[task k _]] [task k]) (kept-on a-second-later)))
+            (= (comparable (:kept twice)) (comparable (kept-on a-second-later)))])
+        "the comparison can tell: with a clock one second later the keys are the same and the values are others")
+    (is (= #{(comparable (:kept twice))} kept-in-orders)
+        "in each of 50 orders of arrival the batch hands to be kept what it hands in the depot's order")
+    (is (= [(count (:own twice)) (count (:own twice)) true 2 true]
+           (let [entries (mapcat :answers (:records twice))]
+             [(count entries) (count (set (map :act-id entries)))
+              (= (set (map comparable entries)) (set (map comparable (vals (:own twice)))))
+              (count (mapcat :strays (:records twice)))
+              (< 20 (count (:own twice)))]))
+        "of that batch, each answer that it wrote has one entry in the records of its closing, its row with its act-id, a refusal with its word, whether a task wrote it from a parcel or a pass sent it; the repeat has none; each of the two strays has one; and the answers are more than 20")
+    (shown "what a batch hands to be kept, run in memory. For a batch of 1, 256, 257 and 1,000 acts: how many values the keeping task holds, and the records that the next run appends, as [answers strays] of each:"
+           (pr-str (mapv (fn [{:keys [kept records]}] {:values (count kept) :records (sizes-of records)}) sized)))
+    (shown "the first record of the batch of 1,000, without its entries:" (pr-str (dissoc (first (:records (nth sized 3))) :answers))
+           "| one entry of it, the digest as hex:" (pr-str (update (first (:answers (first (:records (nth sized 3))))) :digest text/hex))
+           "| after the closing the keeping task holds" (count (kept-on (:at-rest (nth sized 3)))) "values and the gate's task has"
+           (pr-str (:to-close (:at-rest (nth sized 3)))) "to close")
+    (shown "a batch of strays alone leaves" (pr-str (:to-close (:after s))) "and its closing appends" (pr-str (:records s)))
+    (shown "a batch of repeats alone leaves" (pr-str (:to-close (:after r))) "and its closing appends" (pr-str (:records r)))
+    (shown "a second attempt of a batch of" (count (:things twice-fixture)) "things with one clock hands the same" (count (:kept twice))
+           "values to be kept, which hold" (count (:own twice)) "answers and" (count (mapcat :strays (:records twice)))
+           "strays; so does each of" orders "orders of arrival")))
+
 (deftest the-doors-words
   (let [n (holds door-words-cases)]
     (shown "the door's words," n "cases. Its own seven, each read after \"the door could not\":"
@@ -3860,9 +4399,12 @@
   (the-records-rows)
   (the-decision)
   (the-batch)
+  (the-entries-of-a-depot-of-answers)
+  (the-keeping-of-what-a-batch-decided)
   (a-batch-is-decided-in-one-order)
   (a-batch-under-marked-keys)
   (a-batch-run-twice-with-one-clock)
+  (a-batch-hands-what-it-decided-to-be-kept)
   (the-doors-words)
   (the-doors-additions)
   (the-doors-wait)

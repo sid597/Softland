@@ -4,16 +4,19 @@ This tree holds the code of the store that is built to stay. The implementation
 lives beneath [softland/](softland/README.md). It holds the act: the one form of
 what a maker gives to the store, and the check of that form. And it holds the
 store's Rama module: the two depots of acts, the streaming gate and the
-microbatch gate, the record that each gate keeps, what keeps the clock of each
+microbatch gate, the record that each gate keeps, the depot of answers to which
+each gate appends what it decided, what keeps the clock of each
 batch of the microbatch gate, and the reads by act-id. And it holds the door:
 the client code that takes a maker's act into a depot and reads its answer back.
 And it holds the read path: the client code by which a fact comes back out to a
-caller, once or kept live.
+caller, once or kept live. And it holds the rebuild: the code that makes every
+row of every table again from the logs, and decides nothing.
 The pure code owns no state. The module's state, the depots, the records and the
 kept clock of a batch, is durable in the cluster that runs it. The door owns no
 state: it borrows four handles of Rama's client and holds one number, fixed at
 its opening. The read path's state is the memory of one process: who looks at
-what, and the pushes that they share.
+what, and the pushes that they share. The rebuild owns no state: it is handed
+the logs and gives rows as data.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
@@ -28,6 +31,7 @@ Start with the question you are carrying:
 | What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and [batch.clj](softland/store/gate/batch.clj) |
 | How does a maker's act get into the store, and how is its answer read? | The namespace docstring of [door.clj](softland/store/door.clj), then [door/](softland/store/door/README.md) for its choices and its words |
 | How does a fact come back out to a tool, once or kept live, and what is it told of a layer that it may not see? | The namespace docstring of [read_path.clj](softland/store/read_path.clj), then [read_path/](softland/store/read_path/README.md) for its choices and its words |
+| How are the tables made again from the logs, what is a rebuild handed, and what does it not make? | The namespace docstring of [rebuild.clj](softland/store/rebuild.clj), then [rebuild/](softland/store/rebuild/README.md) for its choices, what is not decided and its words |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |

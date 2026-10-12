@@ -7,7 +7,7 @@ behavior.
 
 | Immediate child | Responsibility |
 |---|---|
-| [softland/](softland/README.md) | The JVM checks: the act, the gates' pure namespaces and the door's, and the read path's pure namespaces, with no cluster; the store's module, the door and the read path, each on Rama's in-process cluster; and the measures of the read build, a run that is no check. |
+| [softland/](softland/README.md) | The JVM checks: the act, the gates' pure namespaces and the door's, the read path's pure namespaces, and the rebuild's pure core, with no cluster; the store's module, the door, the read path and the rebuild, each on Rama's in-process cluster; and the measures of the read build and of the gates, two runs that are no check. |
 
 Run the checks from the repository root:
 
@@ -18,19 +18,24 @@ clojure -M:store-module -m softland.store.module-proof
 clojure -M:store-module -m softland.store.door-proof
 clojure -M:store -m softland.store.read-path-pure-proof
 clojure -M:store-module -m softland.store.read-path-proof
+clojure -M:store -m softland.store.rebuild-pure-proof
+clojure -M:store-module -m softland.store.rebuild-proof
 ```
 
-The first two and the fifth need local Clojure and nothing else: the alias
+The first two, the fifth and the seventh need local Clojure and nothing else: the alias
 `:store` puts Clojure alone on the classpath. They start no browser, connect to
 no cluster and call no provider.
 
-The third, the fourth and the sixth need Rama, which the alias `:store-module`
+The third, the fourth, the sixth and the eighth need Rama, which the alias
+`:store-module`
 adds. Each starts Rama's in-process cluster inside its own JVM, with four tasks
-and two workers, launches the module in it, and closes it at the end. The third
-and the sixth each start two such clusters, one after the other: the second is
-for the one group that makes a batch of the microbatch gate run a second time,
-and for it alone the proof replaces three functions of the gate's pure code by
-ones that give what the store's give. It connects to
+and two workers, launches the module in it, and closes it at the end. The third,
+the sixth and the eighth each start two such clusters, one after the other: the
+second is
+for the groups that make a gate fail and run again,
+and for it alone the proof puts functions of its own into the vars of a few
+functions of the store's pure code, each of which gives what the store's gives,
+and puts the store's back. Each connects to
 nothing outside its process. The cluster keeps its files in a temporary
 directory of Rama's.
 
@@ -51,22 +56,35 @@ code on values of one process, the steps of a live read in every order of the
 callbacks among them. A pass of the sixth shows the read path in one process:
 facts that went in through the door and came back out through the read path,
 once and kept live, to an asker that the proof plays. No other asker uses the
-read path yet: no view, no screen, no tool and no agent. The third shows one failure of a batch while it
-is processed, made by the proof: the second attempt makes each row as the first
-made it. None shows a cluster of several machines, a failure in the middle
-of an event, a failure while a batch commits, or how fast the module, the
-door or the read path is.
+read path yet: no view, no screen, no tool and no agent. A pass of the seventh
+shows the rebuild's pure core on logs that the proof writes by hand. A pass of
+the eighth shows the rebuild in one process: what it makes from the logs of a
+running module, held row by row against what the gates wrote, on a store at
+rest, once with no failure and once after one failed attempt of each gate. The
+third shows failures that the proof makes: of a batch while it
+is processed, where the second attempt makes each row as the first
+made it; of a run that closes a batch, behind its appends; and of an event of
+the streaming gate, before its commit and behind it. None shows a cluster of
+several machines, a killed process, a failure of the machine or of Rama in the
+middle of an event, a failure while a batch commits, a rebuild of a store whose
+gates are deciding, a gate that goes on from tables that were made again, a
+number of tasks other than the one that decided the acts, or how fast the
+module, the door or the read path is.
 
-One more run is no check:
+Two more runs are no check:
 
 ```sh
 clojure -M:store-module -m softland.store.read-measures
+clojure -M:store-module -m softland.store.gate-measures
 ```
 
-It measures, on the same in-process cluster, a gate under 100 acts a second,
+The first measures, on the same in-process cluster, a gate under 100 acts a
+second,
 the same with live reads open, the opening of a canvas of 5,000 facts, and how
-late a push is. It prints each number on a line that starts with `MEASURED`,
-holds nothing to a number, and takes about ten minutes; with the argument
+late a push is. The second measures an act through the door and each gate with
+no live read open, on whichever tree it is run. Each prints each number on a
+line that starts with `MEASURED`,
+holds nothing to a number, and takes some minutes; with the argument
 `small` it runs each shape with a small load. An in-process number is a floor
 for a round trip and says little of a seek on a disk.
 
