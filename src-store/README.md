@@ -30,6 +30,7 @@ Start with the question you are carrying:
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
+| What does the store rest on in Rama and not know? | [Open questions about Rama](OPEN-QUESTIONS-rama.md) |
 
 "Act" is the word in this tree. The rig's code says "offer" for the same thing.
 
