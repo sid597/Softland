@@ -1,0 +1,52 @@
+The proof "act", on the tree "before" (2026-10-12T17:02Z, head 46c3e5dc), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store -m softland.store.act-proof
+The whole output is raw-before-act.txt beside this file, and is not committed. The run took 1 seconds.
+
+THE PROOF, IN ONE PLACE
+SHOWN the declared shape of an act, part by part, in the order of the checks:
+SHOWN    :version [:enum 1] {:reason :unknown-version}
+SHOWN    :who :id 
+SHOWN    :layer :id 
+SHOWN    :permission :permission-id {:absent :no-permission}
+SHOWN    :session :id {:absent :no-session}
+SHOWN    :based-on [:map-of :fact-id :carried-stamp] {:optional true, :default {}}
+SHOWN    :because-of :act-id {:optional true}
+SHOWN    :claimed-when :int {:optional true}
+SHOWN    :subjects [:set-of :id {:max 256}] {:optional true, :default #{}}
+SHOWN    :facts [:seq-of :fact] {:empty :empty-act}
+SHOWN a fact: [[:e :id] [:k :key] [:v :value {:optional true}] [:replaces :fact-id {:optional true}]]
+SHOWN an act-id: [:tuple :id [:enum :streaming :microbatch] :uuid] | a fact id: [:tuple :act-id [:int {:min 0}]] | a permission id: [:or [:tuple :id :id :id] [:tuple :id :id :id :permission-id] [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]] | a carried stamp: [:int {:min 0, :below 4611686018427387904}]
+SHOWN the rule: [[:permission-is-in-the-acts-layer :permission-not-in-layer]]
+SHOWN read from the declarations: 10 parts on an act, 4 on a fact, 7 reason words | version 1 | limits: [256 32 4611686018427387904 4]
+SHOWN the check reads the declaration: for each of the 10 parts of an act and the 4 parts of a fact, a thing without the part and a thing with a thing of no shape in it get what the declaration gives
+SHOWN 11 checks of acts that pass. Each act, in its one form:
+SHOWN    the least act: version, who, layer, permission, session and one fact: {:claimed-when nil, :who :alice, :permission [:alice :alice :alice], :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :note, :v "a text", :replaces nil}], :version 1, :based-on {}, :session :alice-s1}
+SHOWN    a retract: a fact with no :v: {:claimed-when nil, :who :alice, :permission [:alice :alice :alice], :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :note, :v nil, :replaces [[:alice :streaming #uuid "00000000-0000-0000-0000-000000000002"] 0]}], :version 1, :based-on {}, :session :alice-s1}
+SHOWN    three facts, each with a plain value under any key: a text, a map, a UUID: {:claimed-when nil, :who :alice, :permission [:alice :alice :alice], :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :note, :v "a text", :replaces nil} {:e :alice-s1, :k :lease, :v {:count 1}, :replaces nil} {:e :note-2, :k :link, :v #uuid "00000000-0000-0000-0000-000000000005", :replaces nil}], :version 1, :based-on {}, :session :alice-s1}
+SHOWN    an act whose ids are UUIDs: who, the layer, the permission, the session, an entity and a subject: {:claimed-when nil, :who #uuid "00000000-0000-0000-0000-00000000000b", :permission [#uuid "00000000-0000-0000-0000-00000000000b" #uuid "00000000-0000-0000-0000-00000000000c" #uuid "00000000-0000-0000-0000-00000000000c"], :layer #uuid "00000000-0000-0000-0000-00000000000c", :because-of nil, :subjects #{#uuid "00000000-0000-0000-0000-00000000000b"}, :facts [{:e #uuid "00000000-0000-0000-0000-00000000000e", :k :note, :v 1, :replaces nil}], :version 1, :based-on {}, :session #uuid "00000000-0000-0000-0000-00000000000d"}
+SHOWN    an act under a permission that a parent permission granted: {:claimed-when nil, :who :bob, :permission [:bob :alice :alice [:alice :alice :alice]], :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :note, :v "a text", :replaces nil}], :version 1, :based-on {}, :session :alice-s1}
+SHOWN    an act under a given permission that says what it allows: see: {:claimed-when nil, :who :bob, :permission [:bob :alice :alice [:alice :alice :alice] :see], :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :note, :v "a text", :replaces nil}], :version 1, :based-on {}, :session :alice-s1}
+SHOWN    an act under a given permission that says what it allows: see and act: {:claimed-when nil, :who :bob, :permission [:bob :alice :alice [:alice :alice :alice] :see-and-act], :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :note, :v "a text", :replaces nil}], :version 1, :based-on {}, :session :alice-s1}
+SHOWN    an act that replaces a fact, says what it was based on and what it came from: {:claimed-when nil, :who :alice, :permission [:alice :alice :alice], :layer :alice, :because-of [:alice :streaming #uuid "00000000-0000-0000-0000-000000000003"], :subjects #{}, :facts [{:e :note-1, :k :note, :v "a text", :replaces [[:alice :streaming #uuid "00000000-0000-0000-0000-000000000002"] 0]}], :version 1, :based-on {[[:alice :streaming #uuid "00000000-0000-0000-0000-000000000002"] 0] 41, [[:alice :streaming #uuid "00000000-0000-0000-0000-000000000003"] 1] 7}, :session :alice-s1}
+SHOWN    an act with each optional part, given with subvectors, narrow integers and a list of facts: {:claimed-when 1700000, :who :alice, :permission [:alice :alice :alice [:operator :alice :alice]], :layer :alice, :because-of [:alice :streaming #uuid "00000000-0000-0000-0000-000000000002"], :subjects #{:bob :alice}, :facts [{:e :note-1, :k :note, :v {:count 2, :path [1 2]}, :replaces [[:alice :streaming #uuid "00000000-0000-0000-0000-000000000002"] 0]} {:e :note-2, :k :note, :v nil, :replaces nil}], :version 1, :based-on {[[:alice :streaming #uuid "00000000-0000-0000-0000-000000000002"] 0] 41}, :session :alice-s1}
+SHOWN the one form of the act with each optional part has only plain vectors and longs: true | each one form, parsed again, is the same: true
+SHOWN 54 acts refused, each for one fault. By reason: {:empty-act 1, :malformed 38, :no-permission 1, :no-session 1, :permission-not-in-layer 2, :unknown-part 9, :unknown-version 2}
+SHOWN each of the 7 reason words read from the declarations came from an act that earns it: true
+SHOWN    :empty-act for example: facts with none in it
+SHOWN    :malformed for example: no :who
+SHOWN    :no-permission for example: no permission
+SHOWN    :no-session for example: no session
+SHOWN    :permission-not-in-layer for example: a permission in another layer
+SHOWN    :unknown-part for example: another part
+SHOWN    :unknown-version for example: version 2
+SHOWN the order of the declarations gives the reason, 12 acts with two faults: another part, and version 2: a part that the form does not name, first :unknown-part | version 2, and no permission :unknown-version | a :who that is a string, and no permission :malformed | no permission, and no session :no-permission | no session, and no fact :no-session | 257 subjects, and no fact :malformed | a permission in another layer, and no session: the shape comes before the rule :no-session | a permission in another layer, and no fact: the shape comes before the rule :empty-act | a permission in another layer, and a mark on a fact: the shape comes before the rule :unknown-part | two facts with a fault: the first one's :unknown-part | the same two, the other way round :malformed | in one fact, another part and a key that is a string: the part that the form does not name, first :unknown-part
+SHOWN nothing throws. The check refuses 11 things that are not acts: nil :malformed | a number :malformed | a string :malformed | a vector :malformed | a list :malformed | a record :malformed | an object :malformed | a map whose keys are strings :unknown-part | a sorted map whose keys are strings :unknown-part | a value inside 2000 collections :malformed | facts that throw when they are read :malformed
+SHOWN the test of each of the 6 declared shapes says no to 9 things of no shape, facts that throw when they are read among them, and throws nothing
+SHOWN the limits at their edges: 256 subjects :ok | 257 subjects :malformed | a value inside 32 collections :ok | a value inside 33 collections :malformed | a carried stamp of 2^62 - 1 :ok | a carried stamp of 2^62 :malformed | a carried stamp below zero :malformed | a permission four deep :ok | a permission five deep :malformed | a permission four deep that says what it allows: the slot is a word, and counts for no depth :ok | a permission five deep that says what it allows :malformed
+SHOWN a permission has three forms: [who layer granted-in], a first permission; [who layer granted-in parent], a given one; and [who layer granted-in parent allows], a given one that says :see or :see-and-act. The check takes an act under each: [:ok :ok :ok :ok] | a third word in the slot, and a word in the place of the permission above: [:malformed :malformed]
+SHOWN ids and keys: who as a UUID :ok | the layer as a UUID, with the permission in it :ok | the session as a UUID :ok | a subject as a UUID :ok | an entity as a UUID :ok | who as a string :malformed | an entity as a string :malformed | an id as a keyword that does not read back :malformed | a key as a keyword :ok | a key as a UUID :malformed | a key as a string :malformed | a key as a keyword that does not read back :malformed
+SHOWN a retract, as given with no :v, in its one form: {:e :note-1, :k :note, :v nil, :replaces nil}
+SHOWN each value in its one normal form, with its class: [[7 "Long"] [7 "Long"] [7 "Long"] [7 "Long"] [7 "Long"] [100000000000000000000N "BigInt"] [0.0 "Double"] [1.5M "BigDecimal"] [1E+2M "BigDecimal"] [[1 2] "PersistentVector"] [{:a 1, :b 2} "PersistentArrayMap"] [#{1 3} "PersistentHashSet"]]
+{:test 8, :pass 160, :fail 0, :error 0}
+
+exit status: 0
