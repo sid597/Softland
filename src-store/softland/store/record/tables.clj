@@ -90,9 +90,13 @@
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
   does not have is absent: `:value` in the row of a retract, `:level-since`
-  in every row but the one at a layer's marked-keys place. Who wrote a fact,
-  the permission that its act named and the stamps of the marked keys are
-  each held as a String, the one text of what it is. A row of another class throws at the write, so
+  in every row but the one at a layer's marked-keys place. A fact's value,
+  who wrote it, the permission that its act named and the stamps of the
+  marked keys are each held as a String: the value as
+  `softland.store.record.rows/held-value` gives it for its plain bytes, each
+  other as the one text of what it is. The two tables that a reader is kept
+  live on, the facts and the facts by value, hold no byte array; the answers
+  and the locks do, and no read is kept live on them. A row of another class throws at the write, so
   the rows are made only by `softland.store.record.rows`; the row of the
   kept clock, two numbers, is made only by
   `softland.store.gate.batch/clock-row-to-keep`.
@@ -130,9 +134,15 @@
 
 (defn facts
   "Gives the schema of the current facts: the key of a place to the row of
-  its current fact. No field names a lock: a value is kept plain."
+  its current fact. No field names a lock: a value is kept plain. `:value`
+  is a String and no byte array
+  (`softland.store.record.rows/held-value`): Rama's push on rows that hold a
+  byte array sent the whole value anew about once a second, and the same
+  rows with a String got one change for each write (run on Rama 1.6.0
+  in-process; the cause was not found). So no field of a table that a
+  reader is kept live on is a byte array."
   []
-  {String (fixed-keys-schema {:value       byte-array-class
+  {String (fixed-keys-schema {:value       String
                               :by-act      UUID
                               :by-index    Long
                               :stamp       Long

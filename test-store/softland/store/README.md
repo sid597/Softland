@@ -127,8 +127,14 @@ content. What it checks, group by group:
    acts that have the form of a making act, and one act for each way of not
    having it, a permission with the slot among them.
 10. The record's rows: the keys and their order; each field of each row of
-    its declared class. A fact's row holds the plain bytes that its lock opened,
-    who wrote it and the permission that the act named, and no lock; a retract's
+    its declared class. A fact's row holds its value as a String, the text
+    itself of the plain bytes that its lock opened, and gives those bytes back;
+    who wrote it and the permission that the act named, and no lock. The String
+    of a value's bytes: the text itself for well-formed UTF-8 that does not
+    begin with U+0000, and else U+0000 and one character for each byte; the
+    bytes come back as they were given, for text, for bytes that are no text and
+    for each of the 256 bytes; and two runs of bytes have one String only when
+    they are the same bytes. A retract's
     row holds no value; the row of the marked keys holds the stamps that the
     gate derived. What each row says: the fact that wrote it, whether it holds a
     value, its first form, who and the permission read back, and for a reader
@@ -321,9 +327,10 @@ What it checks, group by group:
    layer.
 3. An act lands. A request for locks, read with one query. One act with a sealed
    value, read back by act-id with the digest of what was sent. Its row holds
-   the plain bytes of the value, who wrote it and the permission that the act
-   named, and names no lock. The lock's row names the fact, and opens the
-   sealed bytes that the hand sent to the row's bytes.
+   the value as a String, the text of its plain bytes, and gives those bytes
+   back; who wrote it and the permission that the act named; and it names no
+   lock. The lock's row names the fact, and opens the sealed bytes that the
+   hand sent to the row's bytes.
 4. Refusals and repeats. A refusal recorded with its reason. A repeat answered
    from the record with the first stamp, and the task's last stamp unchanged. A
    second, different act under a used act-id, which reads an answer that is not of
@@ -348,8 +355,10 @@ What it checks, group by group:
    read of a part of a request's locks.
 7. Strays and limits. One stray for each word, kept once however often it comes,
    with no answer. A thing at and over each limit; a sealed value of 65,536
-   bytes is kept as its 65,508 plain bytes, which here are no value of the
-   form, and a reader is told so. A carried stamp too far ahead,
+   bytes is kept as its 65,508 plain bytes, which here are zeros and no value
+   of the form: the row's String begins with U+0000 and has one character for
+   each byte, and a reader is told that it is no value. A carried stamp too
+   far ahead,
    and one 5 seconds ahead.
 8. The reads take anything: what is no id, no act-id, another layer's act-id or
    the other depot gets nothing.
@@ -419,7 +428,8 @@ group 31 after it, and group 32 last, on the second cluster:
 16. An act lands in the base. Eight acts of one batch on eight entities, whose
     rows are on more than one task. A request for locks, on one task with its
     answer and its locks. One act with a sealed value, read back by act-id; its
-    row holds the plain bytes, who wrote it and the permission, and no lock. One
+    row holds the value as a String that gives the plain bytes back, who wrote
+    it and the permission, and no lock. One
     copy of its lock's bytes: the whole row on the value's task, the home's row
     without bytes, and the bytes open the sealed bytes that were sent to the
     row's value.
@@ -537,7 +547,8 @@ group 31 after it, and group 32 last, on the second cluster:
     record on the depot of batch clocks. Three: the second attempt began later
     than that clock, and made the same base. Four: the rows of the two attempts
     side by side give no key: the same keys, and at each key the same row in
-    every field, the stamp too, a run of bytes compared by its content. Five:
+    every field, the stamp too; a run of bytes, which an answer's and a lock's
+    row hold, is compared by its content. Five:
     each row that the tables hold after the batch, selected on every task, is
     that row, and no task holds a row under a key that went out. Six: each
     answer as `answer-by-act-id` gives it has the verdict, the word and the
@@ -935,7 +946,8 @@ What it checks, group by group:
    word and the part at which the check stopped, and every word that the
    declaration holds is given once. The check never throws: on a thing that
    throws when it is read, on a list of layers with no end, on things that are no
-   map. The read path's numbers take a default for each that is left out.
+   map. The read path's numbers take a default for each that is left out, and
+   the seven defaults are written out a second time.
 2. A word of a query is declared in three maps or in none: what it is, what it
    reads in one layer, how its rows are put together.
 3. The layers. The order of a list, and of the list that a start layer gives;
@@ -956,7 +968,8 @@ What it checks, group by group:
    gives the same answer.
 6. The checks of nearer layers for what points at a thing: one in each layer
    nearer than the nearest order that holds the place, and in no other; none with
-   the one function put aside; none past the build's number. The nearest row
+   the one function put aside; none past the build's number, which is one for a
+   read asked once and another, far smaller, for a read kept live. The nearest row
    wins, and the place is given from it exactly when it holds the thing.
 7. What a read gives: the four things that a place can hold; the nearest layer
    wins, also with "nothing here"; a layer that is left out is named with why; a
@@ -985,8 +998,9 @@ What it checks, group by group:
     ends of a run; when the first read of a run can be made; the keys of a run
     held to its two ends; a lookup in a run whose map misses a key; two rows that
     are the same; which keys a change names.
-12. The words: the read path's seven, what each carries, why a live read ends, why
-    a layer gave nothing; none is a gate's reason or a word of a stray, and one is
+12. The words: the read path's eight, what each carries, why a live read ends, why
+    a layer gave nothing; the word of the read path's own bound on its pushes is
+    given by a read kept live and by no read asked once; none is a gate's reason or a word of a stray, and one is
     spelled as a word of the door.
 
 A pass shows the read path's rules on values of one process.
@@ -1048,10 +1062,12 @@ What it checks, group by group:
     thing, takes it away, moves it back; a nearer layer that does not mark the key
     writes another thing, then the same thing; a nearer fact from before its
     layer's mark; the farther layer moves away; the mark off and on.
-11. The calls of a read asked once, with no live read open, counted: a place
-    through three layers, from a layer, an entity, a run across the tasks of the
-    base, what points at a thing through three layers. And a call of 300 paths,
-    whose values come in the paths' order.
+11. The calls of a read asked once, counted: a place through three layers, from
+    a layer, an entity, a run across the tasks of the base, what points at a
+    thing through three layers. The same place while a live read holds a push
+    open on each of its sources: the same calls and the same answer, since a
+    read asked once reads the tables and takes no value of a push. And a call of
+    300 paths, whose values come in the paths' order.
 12. A very large run, on a read path that was opened with small numbers: a run of
     3, of 8 and of 12 places by its calls; a layer that she may not see; a whole
     layer; a read that needs more checks than one read may; a source of a kind
@@ -1071,31 +1087,49 @@ What it checks, group by group:
     has left. 50 times two threads open the same thing at once; 50 times one joins
     while the last one leaves, and a write follows. The fields of what the read
     path holds for a live read and for a push.
-17. Nothing is shown that is not in the tables: a refused act at a watched place
+17. The read path's own bound on its pushes, on a read path that may hold 3 on
+    one table under one routing id. One live read of a place in a members layer
+    holds 3: the layer's own rows, her permission, the place. A read of another
+    place there is turned away with the read path's word, and no push is opened
+    or closed for it; a read asked once of that place still answers; a second
+    reader of the open thing joins and is not counted again; a read through
+    another layer opens; when the readers have left, the read that was turned
+    away opens. 20 times, eight threads each open a read of another place of
+    the one layer at once: one opens, seven are turned away. The two tables of
+    one layer are counted apart. An open read that comes to need one push more
+    ends with the word and why. In the base a layer's own rows are counted
+    under the layer and a place under its entity. At each of these moments the
+    read path's counts are the counts of its map's entries. And where one read
+    kept live may need 1 check, a read that needs 2 is turned away before a
+    check is opened, and asked once it is given whole.
+18. Nothing is shown that is not in the tables: a refused act at a watched place
     gives the asker nothing; each value that she was given is of an accepted act.
-18. Reads that fail: a select that throws, and one that does not come back; under
+    When every asker has left, the read path's three maps are empty.
+19. Reads that fail: a select that throws, and one that does not come back; under
     an open read, an opening of a push that throws, and one that does not come
     back; Rama ending a push; a function that throws. And 40 times, Rama's ending
     of a push while a read opens: either the read was not opened yet, `read-live`
     gives a word and the function is not called at all, or it was opened and the
     function is given the whole answer and then `{:ended}`; never `{:ended}`
     first or alone.
-19. The function and its threads, under 200 acts from 4 threads: the first call on
+20. The function and its threads, under 200 acts from 4 threads: the first call on
     the caller's thread, the others on a thread of Rama's client, one at a time.
-    And a read asked once while a push is open on its source.
-20. One reader in the source, by a search of the store's source as text.
-21. The order of the table's keys: entities with letters outside ASCII; an entity
+    And straight after the 200 acks a read asked once gives every place, through
+    the read path that holds a push open on that run and through one that holds
+    none.
+21. One reader in the source, by a search of the store's source as text.
+22. The order of the table's keys: entities with letters outside ASCII; an entity
     and a layer whose text is the start of another's; letters from U+E000 on and
     outside the first plane.
-22. A function that leaves its own read, or another, inside its call; two reads
+23. A function that leaves its own read, or another, inside its call; two reads
     that leave each other, 50 times; a function that asks inside its call.
-23. The opening: 50 times a maker writes one place 20 times in quick turn while a
+24. The opening: 50 times a maker writes one place 20 times in quick turn while a
     live read opens on it. And a read of another asker while one asker's function
     stays for 2 seconds.
-24. The first thing that a function is given: of every live read that the proof
+25. The first thing that a function is given: of every live read that the proof
     opened, the first call was the whole answer, on the caller's thread.
-25. The module is started again under an open read.
-26. On the second cluster: a batch of the base runs a second time under an open
+26. The module is started again under an open read.
+27. On the second cluster: a batch of the base runs a second time under an open
     read of a place that it writes. The function is called once for that place,
     with the row that the first attempt made.
 
@@ -1108,17 +1142,17 @@ waits until a witness has that second change: a second live read of the proof's
 that holds the same push and is told every change of it. The changes of one push
 come in order, and one callback is handled for every read that holds the push
 before the next callback begins. So when the witness has the second change, the
-first one has been handled for the asker too. Groups 14, 15, 17 and 26 hold
+first one has been handled for the asker too. Groups 14, 15, 18 and 27 hold
 "nothing" in this way.
 
 ### Where it stands in for a call of Rama's client
 
 The read path's two reading calls are macros of Rama's that end in two functions.
 The proof puts a function of its own in the place of those two, and of Rama's
-close, for a while: to count the calls of a read (groups 2, 6, 11, 12, 16, 22);
-to keep each push that a read opened, and its callback (groups 16, 18); to make a
-select throw, and to make one never come back (group 18); to make the opening of
-a push throw, and to make one never come back (group 18). In group 18 the proof
+close, for a while: to count the calls of a read (groups 2, 6, 11, 12, 16, 17, 23);
+to keep each push that a read opened, and its callback (groups 16, 19); to make a
+select throw, and to make one never come back (group 19); to make the opening of
+a push throw, and to make one never come back (group 19). In group 19 the proof
 makes a diff of Rama's own class, the one with which Rama ends a push, and hands
 it to a push's callback: Rama itself ended no push in a run. It also puts a
 function in the place of the read path's own function that makes the calls of one
@@ -1130,8 +1164,9 @@ read path (group 12).
 It appends to both depots through the door, and two things by its own hand in
 group 4: a request for one lock, and an act whose sealed bytes are no value of
 the form, since the door seals only a value. It selects one row with a handle of
-its own in group 21, to find the task of a layer. It writes the base's setting to
-"members" and back in group 15. It starts the module again once, in group 25. For
+its own in group 22, to find the task of a layer. It writes the base's setting to
+"members" and back in group 15. It starts the module again once, in group 26. It
+opens two more read paths in group 17, each with one small number. For
 its second cluster it replaces three functions of the gate's pure code, as the
 module's proof does, and puts them back.
 
@@ -1140,14 +1175,19 @@ module's proof does, and puts them back.
 - A cluster of several machines, a network between the runtime and Rama, a move
   of a task's leader, a killed process, a restart of the runtime;
 - Rama ending a push by itself, and Rama leaving a reader out of a change: group
-  18 hands the read path the diff that Rama's pages name;
+  19 hands the read path the diff that Rama's pages name;
 - the order in which two pushes call back: no check can force it on Rama. The
-  pure proof plays every order on the pure functions; groups 14, 16 and 23 only
+  pure proof plays every order on the pure functions; groups 14, 16 and 24 only
   make a crossing likely;
 - a number of tasks that changes under an open read;
-- many askers and many pushes at once: groups 16 and 19 run a few threads. No
-  check opens as many pushes as Rama allows on one table on one task, 1,000 as
-  it ships: the measures met that bound, and a probe of the build counted it;
+- many askers and many pushes at once: groups 16, 17 and 20 run a few threads.
+  No check opens as many pushes as the read path's own bound at its default,
+  900, or as Rama allows on one table on one task, 1,000 by default: group 17
+  holds the bound with the number 3, the measures ask for 1,000 reads on one
+  layer, and a probe of the build counted Rama's;
+- that the read path's count stands for Rama's: the read path counts by routing
+  id and one process, Rama by task and every client. Two routing ids on one
+  task, and a second runtime, are not played;
 - a run between two ends that hold a letter from U+E000 on, or one outside the
   first plane: the read path turns it away, because a range of Rama's between
   such ends gave, in runs of this proof, fewer places than the table holds;
@@ -1159,11 +1199,11 @@ module's proof does, and puts them back.
 
 A check that waits for a change waits up to 15 seconds, and up to 30 for a change
 of the base. A check that holds that nothing came waits a quarter of a second
-after its witness has the second change. Group 18 holds that a select which does
+after its witness has the second change. Group 19 holds that a select which does
 not come back, under a wait of 300 ms, returns after 250 ms and before 3 seconds.
 If one fails on a slow machine, read its numbers before the read path.
 
-Group 18's 40 turns hand the ending in after 0 to 9 ms, so that some turns meet a
+Group 19's 40 turns hand the ending in after 0 to 9 ms, so that some turns meet a
 read that is not opened yet and some a read that is. The check holds each turn
 to the one of the two right outcomes that it met, and its line prints how many
 of each came. On a machine where every turn meets an opened read, the check
@@ -1189,9 +1229,13 @@ as its count, its middle, its slowest 1 in 100 and its slowest.
 
 What it measures: a gate under 100 acts a second, the streaming gate with a key
 not marked and marked, and the base; the same with 1, 100 and 1,000 live reads
-open on the layer; the opening of a canvas of 5,000 facts, as a run and as what
-points at the canvas, once and kept live, through one layer and through three;
-and how late a push is, in a streaming layer and in the base.
+asked for on the layer, of which the read path's own bound on its pushes lets
+898 open; the opening of a canvas of 5,000 facts, as a run and as what points at
+the canvas, once and kept live, through one layer and through three, where the
+last, kept live, is turned away by the bound on the checks of one live read;
+what points at a canvas of 100 facts kept live through three layers, which
+opens; and how late a push is, in a streaming layer and in the base, for a place
+of the facts table and for a place of the facts by value.
 
 What a number of it is: the cluster runs in the process of the measure, on one
 machine, with every row in memory and no network. A time is a floor for a round

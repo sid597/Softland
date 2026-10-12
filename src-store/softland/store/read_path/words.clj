@@ -1,6 +1,6 @@
 (ns softland.store.read-path.words
   "Everything that the read path says to a caller in place of an answer,
-  declared as data: its own seven words, the four reasons for which a live
+  declared as data: its own eight words, the five reasons for which a live
   read ends, and the two words for a layer that gave nothing. Pure code. It
   needs no cluster, and it requires nothing outside Clojure.
 
@@ -12,7 +12,7 @@
 
   A word, as a caller gets it, is a map:
 
-    :could-not  the word, one of the seven of `words`. Each reads after
+    :could-not  the word, one of the eight of `words`. Each reads after
                 \"the read path could not\"
     and what the word carries, each under its own name (`carried`)
 
@@ -20,7 +20,7 @@
 
   Inputs and results, by call:
 
-    word  one of the seven, and a map of what it carries -> the word as a
+    word  one of the eight, and a map of what it carries -> the word as a
           caller gets it, or nil for a word that `words` does not hold
 
   State and effects. None. `word` is pure.
@@ -36,7 +36,7 @@
   its own opening, and the read path's is its own.")
 
 (def words
-  "The read path's own seven words. Each has the calls that can give it and
+  "The read path's own eight words. Each has the calls that can give it and
   what it says. `:keep-the-read-live` is given to an asker's function, under
   `:ended`, and by no call."
   {:find-the-module
@@ -63,6 +63,10 @@
    {:from #{:read-once :read-live}
     :says "a run of a layer that the asker may see holds more places than one read may, or the read needs more checks of nearer layers than one read may"}
 
+   :keep-more-reads-live
+   {:from #{:read-live}
+    :says "the read path already holds as many pushes on one table under one routing id as it may, and this read needs one more there; the read opened none of them, and a read asked once is not held to that number"}
+
    :keep-the-read-live
    {:from #{:the-askers-function}
     :says "the live read ended; the function is not called again, and the caller asks again"}})
@@ -76,12 +80,12 @@
    :threw     "the name of the class of what Rama's client threw"
    :said      "the message of what Rama's client threw"
    :waited-ms "how long the call waited, in milliseconds"
-   :what      "what was too large: `:places-of-one-run`, or `:checks-of-one-read`"
-   :most      "the greatest number of them that one read may hold"
+   :what      "what was too many: `:places-of-one-run`, `:checks-of-one-read`, or `:pushes-under-one-routing-id`"
+   :most      "the greatest number of them that one read may hold, or for the pushes that the read path may hold"
    :because   "why a live read ended, one of `because`"})
 
 (def because
-  "The four reasons for which a live read ends, each with what it says. A
+  "The five reasons for which a live read ends, each with what it says. A
   caller gets one under `:because`, in the word `:keep-the-read-live`."
   {:the-store-ended-a-push
    "Rama ended a push that the read holds"
@@ -89,6 +93,8 @@
    "a run of the read came to hold more places than one read may, or the read came to need more checks than one read may; the word carries `:what` and `:most`"
    :a-read-it-came-to-need-failed
    "a push that the open read came to need was not given: its opening threw, or its wait passed; the word carries what that carried"
+   :no-room-for-a-push-it-came-to-need
+   "the open read came to need a push where the read path already holds as many pushes as it may; none was opened, and the word carries `:what` and `:most`"
    :its-function-threw
    "the asker's function threw while it was given a change"})
 
@@ -101,7 +107,7 @@
 
 (defn word
   "Makes one of the read path's own words as a caller gets it. Takes the
-  word, one of the seven, and a map of what it carries, or nil. Gives the
+  word, one of the eight, and a map of what it carries, or nil. Gives the
   map of what is carried with `:could-not` in it. A part of an answer among
   what is carried is left out (`:layers`, `:left-out`, `:place`, `:places`,
   `:orders`), and `:could-not` cannot be given: a word is never an answer.

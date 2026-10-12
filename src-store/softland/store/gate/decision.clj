@@ -497,7 +497,8 @@
 
 (defn- by-value-writes
   "The rows of the facts by value for one fact under a marked key. Takes the
-  act; the fact; the bytes that the fact's row will hold, or nil for a
+  act; the fact; the plain bytes of the value that the fact's row will hold
+  (`softland.store.record.rows/plain-bytes-of`), or nil for a
   retract; the row before at the fact's place, or nil; the stamp since which
   the fact's key is marked; and the entry to put for the fact
   (`softland.store.record.rows/by-value-row`). Gives zero, one or two
@@ -519,7 +520,7 @@
   the bytes of the value before."
   [act fact value-bytes row-before since entry]
   (let [digest-now (when value-bytes (record/value-digest value-bytes))
-        before (:value row-before)
+        before (record/plain-bytes-of row-before)
         digest-before (when (and before (< (long since) (long (:stamp row-before))))
                         (record/value-digest before))
         key-of (fn [digest] (record/by-value-key (:layer act) (:k fact) since digest (:e fact)))]
@@ -556,7 +557,7 @@
                 (concat
                  [[:fact place row]]
                  (when since
-                   (by-value-writes act fact (:value row) (get place-rows place) since
+                   (by-value-writes act fact (record/plain-bytes-of row) (get place-rows place) since
                                     (record/by-value-row act act-uuid index stamp)))
                  (when (:lock-id fact)
                    (let [lock-key (record/lock-key layer request-uuid lock-index)]

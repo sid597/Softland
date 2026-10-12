@@ -34,7 +34,7 @@ proof is its only asker.
 | [act.clj](act.clj) | The declared shape of an act and of what it holds, the rules that a shape cannot say, and the check that reads both. It gives its engine to the door's declaration. | None. |
 | [door.clj](door.clj) | The door: it opens on the module, gives act-ids, asks the store for locks by an act of its own, seals each value, appends, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | Its stocks of unused locks: the memory of one process, empty at each opening. It borrows five handles of Rama's client. |
 | [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the seal, the one text of a thing and its digest. And the door's own pure parts: what it makes of one act, its stock as a value, and its words. | One random source for each process, for the seal. |
-| [read_path.clj](read_path.clj) | The read path: it opens on the module, reads a query once or keeps it live, and says when an asker left. It is a client of the module: it selects and watches the four tables of facts, and reads nothing else. It writes nothing. | Who looks at what, what each asked for, and the pushes that they share: the memory of one process, empty at each opening. It borrows four handles of Rama's client. It holds no row and no value. |
+| [read_path.clj](read_path.clj) | The read path: it opens on the module, reads a query once or keeps it live, and says when an asker left. It is a client of the module: it selects and watches the four tables of facts, and reads nothing else. It writes nothing. | Who looks at what, what each asked for, and the pushes that they share, with a count of them: the memory of one process, empty at each opening. It borrows four handles of Rama's client. It holds no row and no value. |
 | [read_path/](read_path/README.md) | The rules of a read, as pure code: the form of a query and its check, the layers of a read and who may see each, the sources that a read asks of Rama, the answer, and the read path's words. | None. |
 | [gate/](gate/README.md) | What a gate decides with, as pure code that both gates call: the checks of one act against rows of the record, the first act of a layer, the stamp, and the steps of one batch of the microbatch gate. | None. It reads no PState and no clock. |
 | [record/](record/README.md) | What the record is made of: its rows, the keys of its two orders of facts, and the schemas of the PStates that hold them. | None. It holds no record and declares nothing. |
@@ -211,7 +211,8 @@ shape must hold when each fact is wrong.
   The seal is for a forget of the depot's and the disk's copy; it does not hide a
   value from a client of the cluster.
 - **What a lock opens.** The gate checks that the lock opens the sealed bytes,
-  and keeps the plain bytes in the fact's row. It does not check that they are a
+  and keeps the plain bytes in the fact's row, as a String that gives them back.
+  It does not check that they are a
   value of the form: what was appended without the door can leave bytes that are
   none. `read-value` in [rows.clj](record/rows.clj) tells a reader which it is.
 - **Who may write a layer's setting, its list and its marks.** Not decided, and
@@ -357,7 +358,7 @@ lists its entries again, by file.
 | 2 | A layer says which layers it builds on, in order, as a fact on the layer | The store key `:softland.store/builds-on` and its two rules in [declaration.clj](door/declaration.clj). For a read: `in-order` in [layers.clj](read_path/layers.clj) gives the layers of a read, from that fact or from the list that the query gives; the walk of a place in [answer.clj](read_path/answer.clj) lets the nearest layer that holds a fact win |
 | 3 | A read is done in the runtime, straight from the tables, with Rama's push. The pushed value is not a cache | [read_path.clj](read_path.clj): a select for a read asked once, a push for a read kept live, one push for those who look at the same thing, closed when the last one leaves. It holds no value of its own beside the pushes |
 | 4 | Only programs on machines that Sid runs may reach Rama's ports | Nowhere in code: it is a setting of the network. The read path is such a program: Rama sends it whole rows, and it hands a caller only the layers that she may see and the parts that she asked for |
-| 5 | The tables keep a value plain | `opened` in [decision.clj](gate/decision.clj) gives the plain bytes that each lock opened; `fact-row` in [rows.clj](record/rows.clj) keeps them, and names no lock. The act in the depot's log is as the door sent it, sealed |
+| 5 | The tables keep a value plain | `opened` in [decision.clj](gate/decision.clj) gives the plain bytes that each lock opened; `fact-row` in [rows.clj](record/rows.clj) keeps them, as a String that gives the bytes back (`held-value`, `plain-bytes`), and names no lock. The act in the depot's log is as the door sent it, sealed |
 | 6 | For the keys that a layer marks, the gates keep the facts in one more order, by value | The store key `:softland.store/marked-keys`; `facts-by-value` in [tables.clj](record/tables.clj) and the PState that each gate declares with it; the key of that order, the two ends of a run and the value digest in [rows.clj](record/rows.clj); `writes` in [decision.clj](gate/decision.clj). For a read: the four words of a query in [query.clj](read_path/query.clj), and what each reads in one layer in [sources.clj](read_path/sources.clj) |
 | 7 | From a fact, a read can get who wrote it, and under which permission | The fields `:who` and `:permission` of a fact's row, and of a row of the facts by value, in [rows.clj](record/rows.clj). For a read: `place-answer` in [answer.clj](read_path/answer.clj) puts either in only when the query asked |
 | 8 | The base's second is fine. The base stays a microbatch layer | The base is decided in batches, as before. What the read build does with that is a session's reading, which he did not strike: a row of the base that a task shows is the row that every attempt of its batch makes, because each batch's clock is kept across its attempts ("The clock of a batch", below); and a place holds one row, its current fact, so a select of a place that holds a fact never gives nothing. The read path reads a row of the base straight, as it reads a row of a streaming layer |
@@ -427,9 +428,19 @@ check (d) are what it would change. **"See" stays "see"**: a permission's place
 takes one write and nothing ends a permission, so a permission that says `:see`
 cannot be raised. That is kept, and not decided.
 
-**The value in a fact's row is plain.** For a fact under a plain key the row
-holds the bytes that the lock opened, which for a value that came through the
-door are the UTF-8 of its one text. A gate keeps them whatever they are. The
+**The value in a fact's row is plain, and a String.** For a fact under a plain
+key the row holds what the lock opened, which for a value that came through the
+door is the UTF-8 of its one text. A gate keeps it whatever it is. The field is
+a String and no byte array: the text itself when the bytes are well-formed UTF-8
+that does not begin with the character U+0000, and else U+0000 and one character
+for each byte, so that the bytes come back exactly, whatever they are. One pair
+of functions of [rows.clj](record/rows.clj) knows that form. The reason is
+Rama's push. On rows that hold a byte array a push was sent the whole value
+anew, about once a second, and a live reader of a fact was told a change about a
+second late; on the same rows with a String a push got one change for each
+write. That was run on Rama 1.6.0 in-process; its cause was not found, and is a
+question for Rama's team. The answers and the locks keep their byte arrays: no
+read is kept live on them. The
 row names no lock: the lock of a value is found from the act in the depot, which
 holds each fact's lock id, and the lock's own row names the fact that it seals.
 So the tables' copy of a value does not need its lock, and destroying a lock
@@ -473,7 +484,8 @@ marks and has both.
 
 **The facts by value: one more table for each gate.** Its key is
 `"<layer> <key> <since> <value digest> <entity>"`: the layer, the marked key,
-the key's stamp, the SHA-256 of the row's value bytes as 64 hex characters, then
+the key's stamp, the SHA-256 of the plain bytes of the row's value as 64 hex
+characters, then
 the entity. So every place that holds one value under one key is a run of
 neighbouring keys, found with one seek, and no run holds a row of another value.
 A digest and not the value's text: a key then has a bound whatever the value is,
@@ -779,7 +791,8 @@ check that examines facts takes them in the act's order.
     task's last stamp. The sealing function takes a fresh random part at each
     call.
 16. The gate opens each sealed value once with its lock's bytes, in the way that
-    the lock's row names, and keeps the plain bytes in the fact's row. The bytes
+    the lock's row names, and keeps the plain bytes in the fact's row, as a
+    String that gives them back. The bytes
     of a value of a refused act are dropped with the decision. The place is the
     cipher's associated data.
 17. An act that carries a stamp more than 10 seconds ahead of the gate's clock is
@@ -848,7 +861,7 @@ store does not know, and said "yes"; such a fact is refused
 `softland.store.x` is not in it. That reading is a session's.
 
 **The words of the read path** are on [its own page](read_path/README.md): its
-calls, the words of a query, what an answer holds, and its seven words.
+calls, the words of a query, what an answer holds, and its eight words.
 
 **The words of the read build, for what the gates keep.** Each is a session's.
 Two of them are also names in the rig's code, `:by-value` and `value-digest`;
@@ -871,7 +884,8 @@ order, and "digest" is this store's word since its module.
 | `opened` | In [decision.clj](gate/decision.clj): the check of the seals, which gives the plain bytes that each lock opened |
 | `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
 | `marks-places-asked`, `batch-end` | In [batch.clj](gate/batch.clj): the marked-keys places that a task reads in a batch, and the last stamp that a batch can hold |
-| `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether a row's bytes are the text of a value, and the first form that they read as |
+| `held-value`, `plain-bytes`, `plain-bytes-of` | In [rows.clj](record/rows.clj): the String that a fact's row holds for a value's plain bytes; the bytes back from that String; and the plain bytes of a row's value |
+| `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether the plain bytes of a row's value are the text of a value, and the first form that they read as |
 | `read-value`, with `:no-fact`, `:nothing-here`, `:value`, `:not-a-value` | In [rows.clj](record/rows.clj): what a row says of its value, for a reader |
 | `who-of`, `permission-of`, `marked-keys-of` | In [rows.clj](record/rows.clj): a row read back |
 | `with-level-since`, `by-value-key`, `by-value-run`, `by-value-row`, `by-value-route`, `by-value-entity`, `value-digest-of`, `id-of-text`, `place-of-key` | In [rows.clj](record/rows.clj): the keys and the rows of the order by value, and a key back to its parts |
@@ -943,7 +957,7 @@ run that is no proof. The words that the door's build made are in
 | `:refused` | In an answer's row: the reason word. Absent when the act was accepted |
 | `:stamp` | In an answer's row, a fact's row and a row of the facts by value: the stamp of the decision |
 | `:digest` | In an answer's row: the digest of the thing that was decided |
-| `:value` | In a fact's row: the plain bytes of the fact's value. Absent for a retract |
+| `:value` | In a fact's row: the fact's value, plain, as a String: the text of its plain bytes, or, for bytes that are no text, U+0000 and one character for each byte. Absent for a retract |
 | `:by-act`, `:by-index` | In a fact's row, and in a row of the facts by value: the fact that wrote the row, as the uuid of its act and its index |
 | `:who`, `:permission` | In a fact's row, and in a row of the facts by value: who wrote the fact, and the permission that the act named, each as its one text |
 | `:level-since` | In the row at a layer's marked-keys place only: the one text of a map from each marked key to the stamp since which its order by value is level |

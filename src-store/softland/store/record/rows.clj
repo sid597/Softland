@@ -12,10 +12,13 @@
                  :stamp   the stamp of the decision
                  :digest  32 bytes, the digest of the thing that was decided}
     a fact      key \"<layer> <entity> <key>\": the current fact of a place
-                {:value       the value's bytes, plain: for a fact under a
-                              plain key the bytes that its lock opened; for
-                              a fact under a store key the one text of its
-                              value. Absent for a retract
+                {:value       the value, plain, as a String (`held-value`):
+                              the text itself of the value's plain bytes;
+                              for bytes that are no text, U+0000 and one
+                              character for each byte. The plain bytes are,
+                              for a fact under a plain key, what its lock
+                              opened; for a fact under a store key, the one
+                              text of its value. Absent for a retract
                  :by-act      the fact that wrote this row, as the uuid of
                  :by-index    its act and its index in that act
                  :stamp       the stamp of that act's decision
@@ -44,8 +47,11 @@
   \"<layer> <holder> :softland.store/permission\", a request for locks at
   \"<layer> <act uuid> :softland.store/lock-request\", and at the layer's own
   entity who may see it, what it builds on and its marked keys. A value is
-  held as bytes, so the field has one class, and \"is this the permission
-  that the act names\" is a comparison of bytes. No row names a lock: the
+  held as one String for its plain bytes, so the field has one class, a
+  push on the row is told each change of it, and \"is this the permission
+  that the act names\" is a comparison of two Strings that are equal only
+  when the bytes are. Only `held-value` and `plain-bytes` know the form of
+  that String. No row names a lock: the
   lock of a value is found from the act in the depot, which holds each
   fact's lock id, and from the lock's own row, which names the fact that it
   seals.
@@ -55,7 +61,7 @@
   keeps each fact that has a value in this order too, so that every place
   that holds one value under one key is a run of neighbouring keys: the keys
   that begin with \"<layer> <key> <since> <value digest> \" (`by-value-run`).
-  The value digest is the SHA-256 of the row's value bytes, as 64 hex
+  The value digest is the SHA-256 of the plain bytes of the row's value, as 64 hex
   characters: a key then has a bound whatever the value is, a value's text
   may hold a space, and two values share a run only by a collision of the
   hash. <since> is the stamp that the marks row gives for the key
@@ -107,12 +113,16 @@
                                       -> the two ends of a run of places
     before?                           two texts -> whether the first is
                                       before the second in the table's order
+    held-value, plain-bytes           the plain bytes of a value -> the
+                                      String that a fact's row holds, and
+                                      back
     value-digest, value-digest-of     bytes, or a value -> 64 hex characters
     place-of-key, by-value-entity, by-value-route, id-of-text
                                       the text of a key -> its parts
     answer-row, fact-row, with-level-since, by-value-row, lock-row,
     lock-row-sealing, lock-row-without-bytes           -> a row to write
-    answer-of, written-by?, holds-value?, value-of, read-value, who-of,
+    answer-of, written-by?, holds-value?, value-of, read-value,
+    plain-bytes-of, who-of,
     permission-of, marked-keys-of, seals-a-fact?, lock-of, locks-by-index,
     locks-by-index-used-without-bytes, closed?         a row -> what it says
     same-row?, holds-this-value?      a row, and a row or a value
@@ -150,7 +160,8 @@
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text])
-  (:import [java.nio.charset StandardCharsets]
+  (:import [java.nio ByteBuffer]
+           [java.nio.charset CharacterCodingException CodingErrorAction StandardCharsets]
            [java.security MessageDigest]
            [java.util Arrays UUID]))
 
@@ -210,13 +221,72 @@
 
 ;; -------------------------------------------------------------------- facts
 
+(defn held-value
+  "Takes the plain bytes of a value. Gives the String that a fact's row holds
+  for them, one of two forms:
+
+    the text itself   when the bytes are well-formed UTF-8 whose text does
+                      not begin with the character U+0000. Every value that
+                      came through the door is such: its bytes are the UTF-8
+                      of its one text
+    U+0000, then one character for each byte (ISO-8859-1)
+                      for any other bytes: bytes that are no text, and text
+                      that begins with U+0000
+
+  No well-formed text of the first form begins with U+0000, so the two forms
+  never meet, and `plain-bytes` gives back exactly the bytes that were
+  given: nothing is lost for bytes that are no text. Two runs of bytes have
+  one String only when they are the same bytes. This function and
+  `plain-bytes` are the one place that knows the form.
+
+  Why a String and no byte array. Rama's push on rows that hold a byte array
+  sent the whole value anew, about once a second, where the same rows with a
+  String got one change for each write; that was run on Rama 1.6.0
+  in-process, and its cause was not found. A reader that is kept live reads
+  these rows, so the row takes the class that a push can tell a change of.
+
+  Cost: one decoding of the bytes. It never throws."
+  [plain]
+  (let [^bytes plain plain
+        text (try
+               (str (.decode (doto (.newDecoder StandardCharsets/UTF_8)
+                               (.onMalformedInput CodingErrorAction/REPORT)
+                               (.onUnmappableCharacter CodingErrorAction/REPORT))
+                             (ByteBuffer/wrap plain)))
+               (catch CharacterCodingException _ nil))]
+    (if (and text (not (.startsWith ^String text "\u0000")))
+      text
+      (str "\u0000" (String. plain StandardCharsets/ISO_8859_1)))))
+
+(defn plain-bytes
+  "Takes the String that a fact's row holds as its value, as `held-value`
+  made it. Gives the plain bytes of the value, as a new array: the UTF-8 of
+  the text; or, for a String that begins with U+0000, one byte for each
+  character after it. What must hold: the String is `held-value`'s. Cost:
+  one encoding of the String."
+  [held]
+  (let [^String held held]
+    (if (.startsWith held "\u0000")
+      (.getBytes (.substring held 1) StandardCharsets/ISO_8859_1)
+      (.getBytes held StandardCharsets/UTF_8))))
+
+(defn plain-bytes-of
+  "Takes a fact's row or nil. Gives the plain bytes of the row's value
+  (`plain-bytes`), or nil when there is no row or the row holds no value. A
+  gate asks it of a row to take the digest of the row's value."
+  [row]
+  (when-let [held (:value row)]
+    (plain-bytes held)))
+
 (defn fact-row
   "Takes the act in its one form on arrival; one of its facts; the plain
   bytes that the fact's lock opened, or nil for a fact that is not sealed;
   the uuid of the act's act-id; the fact's index in the act; and the stamp
-  of the act's decision. Gives the row of the fact's place. A sealed fact:
-  the plain bytes. A fact with a plain value, which is a fact under a store
-  key: the bytes of the one text of the value. A fact with no value, a
+  of the act's decision. Gives the row of the fact's place. Its `:value` is
+  a String, `held-value` of the value's plain bytes. A sealed fact: of the
+  bytes that its lock opened. A fact with a plain value, which is a fact
+  under a store key: of the bytes of the one text of the value, so the
+  String is that text. A fact with no value, a
   retract: no value; the row is there all the same, so that a later fact can
   replace the retract. Each row holds who wrote it and the permission that
   the act named, each as its one text: a UUID has two texts, and the one
@@ -229,10 +299,10 @@
   (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)
            :who (text/text (:who act)) :permission (text/text (:permission act))}
     (some? plain)
-    (assoc :value plain)
+    (assoc :value (held-value plain))
 
     (and (nil? plain) (some? (:v fact)))
-    (assoc :value (text/utf8 (:v fact)))))
+    (assoc :value (held-value (text/utf8 (:v fact))))))
 
 (defn with-level-since
   "Takes the row of a fact under `:softland.store/marked-keys`, as `fact-row`
@@ -260,13 +330,15 @@
 
 (defn holds-value?
   "Takes a fact's row or nil, and a value in its one normal form. Gives true
-  when the row's bytes are the one text of that value. No decoding. The
-  gates ask it of the row at a permission's place, where only a fact under
-  that store key can be."
+  when the plain bytes of the row's value are the one text of that value.
+  It compares the row's String with `held-value` of that text's bytes, and
+  two runs of bytes have one String only when they are the same bytes; the
+  row's value is not read as a form. The gates ask it of the row at a
+  permission's place, where only a fact under that store key can be."
   [row v]
   (boolean (and row
                 (some? (:value row))
-                (Arrays/equals ^bytes (:value row) ^bytes (text/utf8 v)))))
+                (= (:value row) (held-value (text/utf8 v))))))
 
 (defn- first-form
   "Takes a string. Gives the first EDN form that it holds, or nil when it
@@ -277,14 +349,15 @@
        (catch Throwable _ nil)))
 
 (defn value-of
-  "Takes a fact's row or nil. Gives the first form that the row's bytes read
-  as, or nil when there is no row, the row holds no value, or its bytes do
-  not read. It never throws. `softland.store.module.door-reads` asks it of
-  the row at a depot's place and gets the depot word. It tests nothing of
-  the form that it gives: a reader of a tool's fact calls `read-value`."
+  "Takes a fact's row or nil. Gives the first form that the plain bytes of
+  the row's value read as (`plain-bytes-of`), or nil when there is no row,
+  the row holds no value, or its bytes do not read. It never throws.
+  `softland.store.module.door-reads` asks it of the row at a depot's place
+  and gets the depot word. It tests nothing of the form that it gives: a
+  reader of a tool's fact calls `read-value`."
   [row]
-  (when (and row (some? (:value row)))
-    (first-form (String. ^bytes (:value row) StandardCharsets/UTF_8))))
+  (when-let [plain (plain-bytes-of row)]
+    (first-form (String. ^bytes plain StandardCharsets/UTF_8))))
 
 (defn read-value
   "What a fact's row says of its value, for a reader of the tables. Takes a
@@ -295,6 +368,7 @@
     [:value v]       the value, as its maker gave it
     [:not-a-value]   the row's bytes are no value of the form
 
+  The row's bytes are the plain bytes of its value (`plain-bytes-of`).
   `[:value v]` only when the bytes read as one EDN form `v`, `v` is a value
   that a fact can hold (`softland.store.act/value?`), and the UTF-8 of the
   one text of its normal form is exactly the row's bytes: so nothing stands
@@ -310,7 +384,7 @@
     (nil? (:value row)) [:nothing-here]
     :else
     (try
-      (let [^bytes held (:value row)
+      (let [^bytes held (plain-bytes (:value row))
             v (edn/read-string (String. held StandardCharsets/UTF_8))]
         (if (and (act/value? v)
                  (Arrays/equals held ^bytes (text/utf8 (act/normal-value v))))
@@ -359,7 +433,8 @@
 ;; ------------------------------------------------------- the facts by value
 
 (defn value-digest
-  "Takes the bytes of a value, as a fact's row holds them. Gives the value's
+  "Takes the plain bytes of a value, as `plain-bytes-of` gives them for a
+  fact's row. Gives the value's
   text in the order by value: the SHA-256 of the bytes, as 64 lower-case hex
   characters. Every JVM has the algorithm. Cost: one hash over the bytes,
   65,508 at most for a value that came sealed."
@@ -367,8 +442,8 @@
   (text/hex (.digest (MessageDigest/getInstance "SHA-256") ^bytes value-bytes)))
 
 (defn value-digest-of
-  "Takes a value, as a maker would give it. Gives `value-digest` of the bytes
-  that a row holds for it: the UTF-8 of the one text of its normal form. So
+  "Takes a value, as a maker would give it. Gives `value-digest` of the plain
+  bytes that a row holds for it: the UTF-8 of the one text of its normal form. So
   a UUID is always taken as `#uuid \"...\"`, never as its 36 characters,
   and no caller chooses a text. In a microbatch layer this is also the
   partitioning key of the value's run. What must hold: the thing is a value
@@ -562,28 +637,20 @@
 (defn same-row?
   "Takes two rows, each a row of the facts table or of the facts by value,
   or nil. Gives true when both are nil, or each field of one equals the
-  same field of the other, a run of bytes by its content. False when one is
-  nil, or a field differs or is in one only. It never throws. A reader of
-  the tables asks it of the row before and the row after a change: a row
-  that a second attempt of a batch wrote again is the same row."
+  same field of the other. False when one is nil, or a field differs or is
+  in one only. Each field of such a row is a Long, a UUID or a String, and
+  none a byte array, so the equality of the two maps says it. It never
+  throws. A reader of the tables asks it of the row before and the row
+  after a change: a row that a second attempt of a batch wrote again is the
+  same row."
   [row-a row-b]
   (try
-    (cond
-      (and (nil? row-a) (nil? row-b)) true
-      (or (nil? row-a) (nil? row-b)) false
-      (not (and (map? row-a) (map? row-b))) (= row-a row-b)
-      :else (every? (fn [field]
-                      (let [a (get row-a field)
-                            b (get row-b field)]
-                        (if (and (bytes? a) (bytes? b))
-                          (Arrays/equals ^bytes a ^bytes b)
-                          (= a b))))
-                    (into #{} (concat (keys row-a) (keys row-b)))))
+    (= row-a row-b)
     (catch Throwable _ false)))
 
 (defn holds-this-value?
   "Takes a fact's row or nil, and a value as a maker would give it. Gives
-  true when the row holds bytes and `value-digest` of them is
+  true when the row holds a value and `value-digest` of its plain bytes is
   `value-digest-of` of the value: the test by which a gate puts a fact in
   that value's order by value. False for no row and for a retract. A reader
   asks it of a nearer layer's row at a place that a farther layer's order
@@ -595,7 +662,7 @@
   (try
     (boolean (and row
                   (some? (:value row))
-                  (= (value-digest (:value row)) (value-digest-of v))))
+                  (= (value-digest (plain-bytes (:value row))) (value-digest-of v))))
     (catch Throwable _ false)))
 
 ;; -------------------------------------------------------------------- locks

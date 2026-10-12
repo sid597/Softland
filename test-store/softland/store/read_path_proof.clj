@@ -18,9 +18,10 @@
   since the door seals only a value.
 
   What it reads round the read path. For what no call shows, the proof reads
-  the read path's own memory, its two maps, from the field of its type: to
+  the read path's own memory, its three maps, from the field of its type: to
   see that a push has left the map with its last reader, that no entry is
-  without a reader, and which fields an entry has. To find the task of a
+  without a reader, which fields an entry has, and that the counts of the
+  pushes are the counts of the map's entries. To find the task of a
   layer it selects the layer's depot row with a handle of its own; the line
   that rests on that says so. It reads no table round the read path for a
   thing that it shows.
@@ -271,10 +272,17 @@
   (Thread/sleep 250))
 
 (defn- held
-  "The read path's own two maps, read round it from the field of its type:
-  {:pushes :reads}. No call of the read path shows them."
+  "The read path's own three maps, read round it from the field of its type:
+  {:pushes :counts :reads}. No call of the read path shows them."
   [rp]
   @(.-held ^ReadPath rp))
+
+(defn- counts-of-pushes
+  "How many entries the read path's map of pushes holds under each gate,
+  table and routing id, counted by the proof from the map's keys: what the
+  read path's own map of counts must hold."
+  [rp]
+  (frequencies (map (juxt :gate :table :routing-id) (keys (:pushes (held rp))))))
 
 (defn- no-entry-without-a-reader?
   "True when each entry of the read path's map of pushes has a reader."
@@ -739,9 +747,18 @@
                                   (let [wrote (put! :alice :o11n (mapv #(fact % :parent :canvas-9) part))]
                                     (map-indexed (fn [i block] [[block :parent] [(:act-id wrote) i]]) part)))
                                 (partition-all 150 blocks)))
-        many (counting #(ask {:asks [:points-at :parent :canvas-9] :asker :alice :layers [:o11n :o11f]}))]
-    (check "no live read is open, so no value comes from an open push" {:live-reads 0 :pushes 0} (read-path/open-count (the-rp)))
+        many (counting #(ask {:asks [:points-at :parent :canvas-9] :asker :alice :layers [:o11n :o11f]}))
+        ;; the same place asked once while a live read holds a push open on each of its sources
+        watcher (live {:asks [:place :q7 :text] :asker :alice :layers [:n7 :m7 :f7]})
+        watcher-holds (read-path/open-count (the-rp))
+        beside-a-live-read (counted {:asks [:place :q7 :text] :asker :alice :layers [:n7 :m7 :f7]})
+        same-answer? (= (dissoc (:now watcher) :leave-with) (ask {:asks [:place :q7 :text] :asker :alice :layers [:n7 :m7 :f7]}))
+        _ (leave! watcher)]
     (check "a place through three layers: three calls, in one round" [3 [3] false] place-3)
+    (check "the same place asked once while a live read holds a push open on each of its sources: the same three calls in one round, and the same answer. A read asked once reads the tables and takes no value of a push"
+           [[3 [3] false] 1 true true]
+           [beside-a-live-read (:live-reads watcher-holds) (<= 3 (:pushes watcher-holds)) same-answer?])
+    (check "that live read has left, and none is open" {:live-reads 0 :pushes 0} (read-path/open-count (the-rp)))
     (check "the same from a layer: three calls in two rounds, the start layer's call first" [3 [1 2] false] from)
     (check "an entity of five keys: one call" [1 [1] false] entity)
     (check "a run across entities of the base: one call for each task, in one round, the rights riding in one of them" [tasks [tasks] false] base-run)
@@ -752,8 +769,9 @@
            [(count (:places (:result many)))
             (every? (fn [[place fact-id]] (= fact-id (:fact (get (:places (:result many)) place)))) nearer)
             (:rounds many)])
-    (shown "the calls of a read asked once, counted by functions of the proof's in the place of Rama's select and of the read path's rounds, with no live read open:"
-           "a place through three layers" (pr-str (second place-3)) "| from a layer" (pr-str (second from)) "| an entity" (pr-str (second entity))
+    (shown "the calls of a read asked once, counted by functions of the proof's in the place of Rama's select and of the read path's rounds:"
+           "a place through three layers" (pr-str (second place-3)) "| the same while a live read held" (:pushes watcher-holds) "pushes open on its sources" (pr-str (second beside-a-live-read))
+           "| from a layer" (pr-str (second from)) "| an entity" (pr-str (second entity))
            "| a run across entities of the base" (pr-str (second base-run)) "| what points at a thing through three layers" (pr-str (second points)))
     (shown "a call of 300 paths gives its values in the paths' order: each of 300 places came with the fact of its own nearer row")))
 
@@ -1126,6 +1144,105 @@
            "| 50 times one joined while the last one left, with a write after: the joiner got the write's change each time; openings"
            (:opens crossing) "and closes" (:closes crossing) "| counted by functions of the proof's in the place of Rama's")))
 
+(deftest the-read-paths-own-bound-on-its-pushes
+  (let [ipc (:ipc @round)
+        m (:module @round)
+        ;; a read path that may hold three pushes on one table under one routing id
+        rp (read-path/open ipc m {:max-pushes-under-one-routing-id 3})
+        level? (fn [] (= (:counts (held rp)) (counts-of-pushes rp)))
+        _ (doseq [layer [:p87 :q87]] (make! layer :alice))
+        _ (put! :alice :p87 (into [(fact :a :text "a") (fact :b :text "b")]
+                                  (map #(fact (keyword (str "t" %)) :text %)) (range 8)))
+        _ (put! :alice :q87 [(fact :a :text "a in q")])
+        place (fn [layer e] {:asks [:place e :text] :asker :alice :layers [layer]})
+        ;; one read fills the count of its layer: the layer's own rows, her permission, the place
+        first-read (live rp (place :p87 :a))
+        full [(read-path/open-count rp) (:counts (held rp)) (level?)]
+        turned-away (counting #(read-path/read-live rp (place :p87 :b) (fn [_] nil)))
+        after-turned-away [(read-path/open-count rp) (:counts (held rp)) (level?)]
+        once (ask rp (place :p87 :b))
+        same-thing (live rp (place :p87 :a))
+        shared [(get-in same-thing [:now :place :value]) (read-path/open-count rp) (:counts (held rp)) (level?)]
+        other-layer (live rp (place :q87 :a))
+        apart [(get-in other-layer [:now :place :value]) (:counts (held rp)) (level?)]
+        _ (leave! same-thing)
+        _ (leave! first-read)
+        after-left [(read-path/open-count rp) (:counts (held rp)) (level?)]
+        now-room (live rp (place :p87 :b))
+        with-room [(get-in now-room [:now :place :value]) (:counts (held rp)) (level?)]
+        _ (leave! now-room)
+        _ (leave! other-layer)
+        emptied [(read-path/open-count rp) (held rp)]
+        ;; eight threads, each a read of another place of the one layer, at once: 2 shared pushes and 8 places, where 3 may be held
+        races (vec (for [_ (range 20)]
+                     (let [start (promise)
+                           reads (mapv (fn [i] (future @start (live rp (place :p87 (keyword (str "t" i)))))) (range 8))
+                           _ (deliver start true)
+                           got (mapv deref reads)
+                           opened (filterv :leave-with got)
+                           while-open [(count opened) (frequencies (map :could-not (remove :leave-with got)))
+                                       (:counts (held rp)) (level?)]]
+                       (run! leave! opened)
+                       [while-open (held rp)])))
+        ;; the facts by value are another table; and an open read that comes to need one push more
+        _ (doseq [layer [:n87 :f87]] (make! layer :alice))
+        _ (mark! :f87 :alice #{:parent})
+        _ (put! :alice :f87 [(fact :block-1 :parent :canvas-87)])
+        points {:asks [:points-at :parent :canvas-87] :asker :alice :layers [:n87 :f87]}
+        grows (live rp points)
+        by-table [(count (:places (:now grows))) (:counts (held rp)) (level?)]
+        _ (put! :alice :f87 [(fact :block-2 :parent :canvas-87)])
+        ended (wait-until #(some :ended (changes grows)))
+        after-ended [(read-path/open-count rp) (held rp) (leave! grows)]
+        ;; the base: its own rows under the layer, a place under its entity
+        in-base (live rp {:asks [:place :e-07 :size] :asker :alice :layers [:base]})
+        base-counts [(some? (:now in-base)) (:counts (held rp)) (level?)]
+        _ (leave! in-base)
+        ;; the checks of one read that is kept live
+        one-check (read-path/open ipc m {:max-checks-of-one-live-read 1})
+        asked-once (ask one-check points)
+        kept-live (counting #(read-path/read-live one-check points (fn [_] nil)))]
+    (check "a read path that may hold 3 pushes on one table under one routing id: one live read of a place in a members layer holds 3 there, the layer's own rows, her permission and the place; the count is the count of the map's entries"
+           [{:live-reads 1 :pushes 3} {[:streaming :facts :p87] 3} true] full)
+    (check "a live read of another place of that layer needs one push more: it is turned away at once with the read path's own word, which carries what was too many and the bound; no push was opened for it and none closed"
+           [{:could-not :keep-more-reads-live :what :pushes-under-one-routing-id :most 3} 0 0]
+           [(:result turned-away) (:opens turned-away) (:closes turned-away)])
+    (check "after it was turned away, the read path holds what it held: the first read and its 3 pushes"
+           [{:live-reads 1 :pushes 3} {[:streaming :facts :p87] 3} true] after-turned-away)
+    (check "a read asked once is not held to that bound: it reads the same place" "b" (get-in once [:place :value]))
+    (check "a second live read of the same thing opens: it shares the 3 pushes, and a push that is open already is not counted again"
+           ["a" {:live-reads 2 :pushes 3} {[:streaming :facts :p87] 3} true] shared)
+    (check "the pushes of another layer are under another routing id and are counted apart: a read through it opens while the first layer is full"
+           ["a in q" {[:streaming :facts :p87] 3 [:streaming :facts :q87] 3} true] apart)
+    (check "when the readers of a layer have left, its count is gone, and the read that was turned away opens"
+           [[{:live-reads 1 :pushes 3} {[:streaming :facts :q87] 3} true]
+            ["b" {[:streaming :facts :p87] 3 [:streaming :facts :q87] 3} true]]
+           [after-left with-room])
+    (check "when every reader has left, nothing is held and no count is left" [{:live-reads 0 :pushes 0} {:pushes {} :counts {} :reads {}}] emptied)
+    (check "20 times, eight threads each open a read of another place of one layer at once, where 3 pushes may be held: one opens and seven are turned away with the word, the count stands at the bound, and nothing is held when the one has left"
+           (repeat 20 [[1 {:keep-more-reads-live 7} {[:streaming :facts :p87] 3} true] {:pushes {} :counts {} :reads {}}])
+           races)
+    (check "the two tables of one layer are counted apart: what points at a thing through two layers holds 3 pushes on the nearer layer's facts, its own rows, her permission and the one check; 2 on the farther layer's facts; and 1 on its facts by value, the order"
+           [1 {[:streaming :facts :n87] 3 [:streaming :facts :f87] 2 [:streaming :facts-by-value :f87] 1} true] by-table)
+    (check "a second place comes into the farther order under that open read, so it comes to need a second check, one push more than the read path may hold on the nearer layer's facts: the read ends with the word and why, and holds nothing"
+           [{:ended {:could-not :keep-the-read-live :because :no-room-for-a-push-it-came-to-need
+                     :what :pushes-under-one-routing-id :most 3}}
+            [{:live-reads 0 :pushes 0} {:pushes {} :counts {} :reads {}} :not-open]]
+           [(when ended (last (changes grows))) after-ended])
+    (check "in the base a layer's own rows are counted under the layer and a place under its entity, so two entities of the base are two counts, on one task or not"
+           [true {[:microbatch :facts :base] 1 [:microbatch :facts :e-07] 1} true] base-counts)
+    (check "the checks of one read that is kept live have a number of their own: where one such read may need 1 check, what points at a thing with two places in the farther order is given whole when asked once, and kept live it is turned away with the word; 5 pushes were opened, for the rights of the two layers and the one order, none for a check, and each was closed"
+           [2 {:could-not :serve-a-read-that-large :what :checks-of-one-read :most 1} 5 5 {:live-reads 0 :pushes 0}]
+           [(count (:places asked-once)) (:result kept-live) (:opens kept-live) (:closes kept-live) (read-path/open-count one-check)])
+    (shown "the read path's own bound on its pushes, with 3 for one table under one routing id: a read that needs one more is turned away with"
+           (pr-str (:result turned-away)) "after" (:opens turned-away) "openings of a push; a read asked once of the same place still answers; a second reader of an open thing is not counted again"
+           "| eight threads at once, 20 times: each time one opened and seven were turned away"
+           "| an open read that came to need one push more ended with" (pr-str (:because (:ended (last (changes grows))))))
+    (shown "the counts, read from the read path's own memory: what points at a thing through two layers" (pr-str (nth by-table 1))
+           "| a place of the base" (pr-str (nth base-counts 1)) "| at each moment the counts were the counts of the map's entries")
+    (shown "kept live, a read that needs more checks than one live read may is turned away before a check is opened:" (pr-str (:result kept-live))
+           "after" (:opens kept-live) "openings; asked once the same read gave" (count (:places asked-once)) "places")))
+
 (deftest nothing-is-shown-that-is-not-in-the-tables
   (let [rp (:counted @round)
         _ (give! :t16 :alice :vera :see)
@@ -1142,9 +1259,9 @@
            [((juxt :answer :reason) (:answer refused)) (some? got) (count all) (:fact (first (vals (:changed (first all)))))])
     (check "every value that she was given is of an act that a gate accepted, by the door's answer for the act of its fact"
            [true true] [(pos? (count answers)) (every? #{:accepted} answers)])
-    (check "when every asker has left, the read path holds no reader and no push" {:pushes {} :reads {}} (held rp))
+    (check "when every asker has left, the read path holds no reader, no push and no count of a push" {:pushes {} :counts {} :reads {}} (held rp))
     (shown "nothing is shown before it is in the tables: a refused act at a watched place gave the asker nothing; each of" (count answers)
-           "values that she was given is of an accepted act; after every asker left the read path's two maps are" (pr-str (held rp)))))
+           "values that she was given is of an accepted act; after every asker left the read path's three maps are" (pr-str (held rp)))))
 
 (deftest reads-that-fail
   (let [_ (make! :l19 :alice)
@@ -1261,7 +1378,7 @@
         sent (vec (mapcat deref writers))
         not-accepted (vec (remove :accepted? sent))
         ;; straight after the acks: through the read path that holds the open push, and through one that holds none
-        from-the-push (count (:places (ask {:asks [:entity :busy] :asker :alice :layers [:l20]})))
+        beside-the-push (count (:places (ask {:asks [:entity :busy] :asker :alice :layers [:l20]})))
         by-a-select (count (:places (ask (:counted @round) {:asks [:entity :busy] :asker :alice :layers [:l20]})))
         _ (wait-until 30000 #(= 200 (count (:places (screen read)))))
         once (ask {:asks [:entity :busy] :asker :alice :layers [:l20]})
@@ -1276,10 +1393,10 @@
     (check "the first call of the function is on the caller's own thread; every later call is on another thread, a thread of Rama's client"
            [true true] [(= (:caller read) (:thread (first calls))) (every? #(not= (:caller read) (:thread %)) (rest calls))])
     (check "the calls for one read come one at a time: no call began while another was running" false (boolean (some :overlap? calls)))
-    (check "straight after the 200 acks, a read asked once through a read path that holds no push reads the table and gives every place; through the read path that holds the open push it is given the push's value, which holds no place that the table does not hold"
-           [200 true] [by-a-select (<= from-the-push 200)])
-    (shown "a read asked once is given the value of an open push where one holds its source: straight after the acks of 200 acts it gave" from-the-push
-           "of 200 places, as late as the push was; a read path that holds no push read the table and gave" by-a-select)
+    (check "straight after the 200 acks, a read asked once gives every place, through the read path that holds an open push on that very run and through a read path that holds none: each reads the table, and neither is given the value of a push"
+           [200 200] [beside-the-push by-a-select])
+    (shown "a read asked once reads the table, also where a push is open on its source: straight after the acks of 200 acts it gave" beside-the-push
+           "of 200 places through the read path that holds the push, and" by-a-select "through a read path that holds none")
     (shown "the function of a live read, under 200 acts from 4 threads:" (count calls) "calls, the first on the caller's thread" (.getName ^Thread (:caller read))
            ", the others on" (pr-str threads) "| no two calls for the read overlapped")))
 
@@ -1559,6 +1676,7 @@
   (each-word-kept-live)
   (what-shapes-a-read-changes-under-it)
   (one-push-for-one-thing)
+  (the-read-paths-own-bound-on-its-pushes)
   (nothing-is-shown-that-is-not-in-the-tables)
   (reads-that-fail)
   (the-function-and-its-threads)

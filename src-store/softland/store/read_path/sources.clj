@@ -53,6 +53,7 @@
     before-standing?                    whether a source is read before the
                                         asker's standing is known
     rights-kind, check?                 what kind a source is for a query
+    most-checks                         how many checks one read may need
     nearer-checks                       the checks of nearer layers
     reading                             what a read wants now, and what of
                                         it is missing
@@ -353,17 +354,30 @@
         (when (outside-the-agreed-range? k)
           (some (fn [[key-text row]] (when (= k key-text) row)) run)))))
 
+(defn most-checks
+  "Takes how a read is asked, `:once` or `:live`, and the numbers. Gives how
+  many checks of nearer layers one such read may need:
+  `:max-checks-of-one-read` for a read asked once, where a check is one row
+  of one call; `:max-checks-of-one-live-read` for a read that is kept live,
+  where a check is one push and Rama bounds the pushes on one table on one
+  task."
+  [mode numbers]
+  (if (= :live mode)
+    (:max-checks-of-one-live-read numbers)
+    (:max-checks-of-one-read numbers)))
+
 (defn nearer-checks
   "The checks that a read of what points at a thing wants in nearer layers.
   Takes the query in its one form; the layers of the read, nearest first;
   each layer's standing; what each layer reads (`reading`'s `:by-layer`,
-  for each layer's order by value); `known`; and the numbers. Gives a map
+  for each layer's order by value); `known`; and how many checks the read
+  may need at most (`most-checks`). Gives a map
   from a layer to a map from a place, `[entity key]`, to the check's source:
   for each place that the order of some layer of standing `:yes` holds, one
   check in each layer of standing `:yes` that is nearer than the nearest
   layer whose order holds the place. A layer behind that one cannot win the
   place, so nothing is read there. Gives `:too-many` when the checks are
-  more than `:max-checks-of-one-read`, and an empty map for any other word.
+  more than that number, and an empty map for any other word.
   An entity comes from a row's key and not from a caller, so it is tested
   here and one that is no id within the limit is left out.
 
@@ -377,9 +391,8 @@
   order gives, the nearest layer that holds a row wins. This function is
   the one place where the other answer would be made: left out (an empty
   map), a read finds no nearer row and the runs are joined."
-  [query layers standing by-layer known numbers]
-  (let [[word k] (:asks query)
-        most (:max-checks-of-one-read numbers)]
+  [query layers standing by-layer known most]
+  (let [[word k] (:asks query)]
     (if (not= :points-at word)
       {}
       (loop [todo (filter #(= :yes (get standing %)) layers)
@@ -434,8 +447,8 @@
     :wanted       the set of every source that is wanted
     :missing      the set of those that `known` does not hold
     :too-large    nil, or {:what :checks-of-one-read :most n} when the
-                  read needs more checks than one read may; no check is
-                  then wanted
+                  read needs more checks than one read may, asked as it is
+                  (`most-checks`); no check is then wanted
 
   A source is wanted by these rules and no other.
 
@@ -505,7 +518,7 @@
                                [layer (with-facts layer (if (= layer start) start-rights (rights layer)))]))
                         layer-list)
          standing (into {} (map (fn [[layer told]] [layer (:standing told)])) by-layer)
-         checks (nearer-checks query layer-list standing by-layer known numbers)
+         checks (nearer-checks query layer-list standing by-layer known (most-checks mode numbers))
          too-many? (= :too-many checks)
          by-layer (if too-many?
                     by-layer
@@ -521,7 +534,7 @@
               :wanted      wanted
               :missing     (into #{} (remove #(contains? known %)) wanted)
               :too-large   (when too-many?
-                             {:what :checks-of-one-read :most (:max-checks-of-one-read numbers)})}
+                             {:what :checks-of-one-read :most (most-checks mode numbers)})}
        (= :points-at word) (assoc :digest (rows/value-digest-of thing))))))
 
 (defn moves

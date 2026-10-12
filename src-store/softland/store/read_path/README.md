@@ -17,7 +17,7 @@ All of this folder is pure code and loads with Clojure alone.
 | [layers.clj](layers.clj) | The layers of a read: which layers, in what order; whether a layer is made; whether an asker may see it; what a read says of a layer that it left out; what a layer's own rows mean for one query. | None. |
 | [sources.clj](sources.clj) | The sources of a read, as data: each row or run that the read path asks of Rama, with its table and its routing id; which of them a read wants next; the calls of one round; the size rules of a run; which keys and places a change names. | None. |
 | [answer.clj](answer.clj) | What a read gives: the layers put together, the nearest that holds a fact first; a place-answer; and what a change tells a live asker. | None. |
-| [words.clj](words.clj) | Everything that the read path says in place of an answer, as data: its own seven words, why a live read ended, why a layer gave nothing. | None. |
+| [words.clj](words.clj) | Everything that the read path says in place of an answer, as data: its own eight words, why a live read ended, why a layer gave nothing. | None. |
 
 ## How the files relate
 
@@ -140,14 +140,15 @@ such a letter is read as an entity, whose run cannot lose a place of its own.
 [sources.clj](sources.clj) holds the test and its three uses; the rule of the
 check is in [query.clj](query.clj).
 
-**What Rama sends at a change.** For a push on the facts by value, a diff that
-names the changed key. For a push on the facts table, whose rows hold a
-value's bytes, the whole value anew, at each change: so for a run of the facts
-table Rama sends the whole run again when one place of it changes. Both were
-run on the store's module, and a probe of this build with one thing changed
-showed that the bytes in a row are what makes the difference. The read path
-takes both the same way: it compares the value before with the value after,
-row by row, and tells the places that differ.
+**What Rama sends at a change.** For a push on a run, a diff that names the
+changed key; for a push on one row, the row's new value; and a whole value
+anew at the first callback of a push, and when Rama left a reader out of a
+change. The read path takes the three the same way: among the keys that the
+diff names, or among every key of the value before and after when it names
+none, it tells the places whose rows differ. That each write is told by a diff
+of its own rests on what a row holds: a push on rows that hold a byte array was
+sent the whole value anew about once a second, so a fact's row holds its value
+as a String ([tables.clj](../record/tables.clj) says what was run).
 
 **No value is kept between two changes.** At a change the read path works out
 what the asker is told from the values that the pushes hold at that moment. It
@@ -178,31 +179,34 @@ microbatch layer has one part on each task. The read path names each task with
 one routing id that a class of Rama's own gives. Rama's pages show that class
 for tests; whether it is meant for a client is a question for Rama's team.
 
-**The numbers.** Five that an opener can give, and two more, each kept and not
+**The numbers.** Seven that an opener can give, and two more, each kept and not
 decided: 256 places in the first read of a run; 20,000 places in one run; 40,000
-checks of nearer layers in one read; 2,000 paths in one call; a wait of 10
-seconds; 65 layers in one read; 8 rounds before a read that does not settle
-ends in a word. None bounds the bytes of a run.
+checks of nearer layers in one read that is asked once, and 250 in one that is
+kept live; 900 pushes held on one table under one routing id; 2,000 paths in one
+call; a wait of 10 seconds; 65 layers in one read; 8 rounds before a read that
+does not settle ends in a word. None bounds the bytes of a run.
 
-**How many pushes Rama opens.** Rama bounds the pushes on one table on one task
-by a setting of its own. As run on the store's module, in-process, with the
-setting as Rama ships it: 1,000 opened, the next was refused, and a closed push
-made room for one more. A streaming layer is whole on one task, so every live
-read through it counts toward the one bound. The read path sets none of Rama's
-settings and counts no push against the bound: an opening that Rama refuses
-ends in `:reach-the-store`, the read gives that word, and every push that it
-joined is left. So the count of pushes of a live read of what points at a thing
-through layers, one for each place of a farther order and each nearer layer, is
-bounded by Rama long before the read path's own number of 40,000 checks. Not
-decided here: whether the bound is raised, or fewer pushes are held.
+**The read path bounds its own pushes.** Rama bounds the pushes on one table on
+one task, by a dynamic option of its own whose default is 1,000, and it refuses
+one opening at a time: a read that asked for about 10,000 was turned away only
+after seconds. So the read path counts the pushes that it holds on each table
+under each routing id, and turns a live read away at once, before it opens one
+of the pushes that would pass 900, with a word of its own; an open read that
+comes to need such a push ends. And one live read of what points at a thing may
+need 250 checks of nearer layers, each of them a push. A read asked once opens
+no push and is held to neither. The count is by routing id and not by task,
+because Rama's client does not say which task a routing id is on; and it is of
+one process. What that leaves to Rama's own bound, and that the read path sets
+none of Rama's options, is in the namespace docstring of
+[read_path.clj](../read_path.clj). Not decided here: whether Rama's option is
+raised, or the checks are made with fewer pushes.
 
-**A read asked once takes the value of an open push.** Where a live read holds a
-push on a source, a read asked once is given the value that the push holds, and
-makes no call. That value holds nothing that the tables do not hold, and it can
-be behind them by as long as the push is late: in the proof a read asked once
-straight after the acks of 200 acts gave about 190 places, where a read path that held
-no push gave 200. One function of [read_path.clj](../read_path.clj) takes those
-values; with it giving nothing, every read asked once reads the tables.
+**A read asked once reads the tables.** It makes its own calls also where a live
+read holds a push open on the same source, and takes no value of a push. A push
+holds nothing that the tables do not hold, and it can be behind them by as long
+as the push is late; so a read asked once that took its value could give a
+caller the state before her own act, straight after that act's ack. It costs the
+round trip that a read asked once costs when no push is open.
 
 ## Not decided, kept for now
 
@@ -275,18 +279,19 @@ wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 | `:holds`, `:value`, `:layer`, `:fact`, `:stamp`, `:writer`, `:permission` | The parts of a place-answer. `:no-fact`, `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own |
 | `:could-not` | The name under which a result holds one of the read path's own words |
 
-**The read path's seven words.** Each reads after "the read path could not":
+**The read path's eight words.** Each reads after "the read path could not":
 `:find-the-module`, `:read-the-query`, `:reach-the-store`,
 `:get-an-answer-within-its-wait`, `:read-inside-an-askers-function`,
-`:serve-a-read-that-large`, `:keep-the-read-live`. The first is spelled as the
+`:serve-a-read-that-large`, `:keep-more-reads-live`, `:keep-the-read-live`. The
+first is spelled as the
 door's word for its own opening and is the read path's own.
 [words.clj](words.clj) says what each is.
 
 | Word | What it is |
 |---|---|
-| `:because`, with `:the-store-ended-a-push`, `:a-run-grew-too-large`, `:a-read-it-came-to-need-failed`, `:its-function-threw` | Why a live read ended |
+| `:because`, with `:the-store-ended-a-push`, `:a-run-grew-too-large`, `:a-read-it-came-to-need-failed`, `:no-room-for-a-push-it-came-to-need`, `:its-function-threw` | Why a live read ended |
 | `:why`, `:at`, `:what`, `:most`, `:waited-ms`, `:module`, `:threw`, `:said` | What a word carries |
-| `:places-of-one-run`, `:checks-of-one-read` | What was too large |
+| `:places-of-one-run`, `:checks-of-one-read`, `:pushes-under-one-routing-id` | What was too many: the first two for one read, the third for the read path |
 
 **Words of the explanations and of the code.**
 
@@ -301,7 +306,7 @@ door's word for its own opening and is the read path's own.
 | rank; round | The order in which sources can be wanted; one turn of fetching what is missing |
 | the read's turn | What lets one call of an asker's function run at a time for one read. Never called a lock: a lock is an encryption key in this tree |
 | the whole answer is owed | The one mark that a live read holds between two changes |
-| `:run-start-places`, `:max-places-of-one-run`, `:max-checks-of-one-read`, `:max-paths-in-one-call`, `:wait-ms` | The five numbers that an opener can give |
+| `:run-start-places`, `:max-places-of-one-run`, `:max-checks-of-one-read`, `:max-checks-of-one-live-read`, `:max-pushes-under-one-routing-id`, `:max-paths-in-one-call`, `:wait-ms` | The seven numbers that an opener can give |
 
 **Words inside the code**, which no caller is handed. Each is a session's, as the
 others are.
@@ -316,6 +321,8 @@ others are.
 | `:walk`, `:places`, `:holds?`, `:gives`; `:given`, `:none`, `:waits` | How the rows of one word of a query are put together; and the three outcomes of the walk of one place |
 | `:made?`, `:who-may-see`, `:permission` with `:there`, `:none`, `:not-known-yet`, `:builds-on`, `:marked-since` | What a layer's own rows and an asker's permission row mean for one query |
 | `:pushes`, with `:opening`, `:readers`, `:called` | What the read path holds for each push: the one call that opens it, the live reads that hold it, and a mark that its first callback came |
+| `:counts` | How many pushes the read path holds on each table under each routing id: what its own bound is held to |
+| `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |
 | `:reads`, with `:query`, `:tell`, `:turn`, `:sources`, `:opened?`, `:owed?`, `:task-routing-ids` | What the read path holds for each live read: its query, its function, its turn, the sources that it holds, whether it is opened, whether the whole answer is owed, and the routing ids of the tasks as they were when it opened |
 | `:whole`, `:first`, `:count`, `:size` | The step of a read for which a path is made: the row or the run itself; the first read of a run; its count; its size |
 | `:put`, `:out`, `:all` | What a diff names: a key that was put, a key that went out, or no key |
@@ -323,7 +330,7 @@ others are.
 | `:push`, `:word`; `:late`, `:no-path`; `:returned`, `:threw` | What an opening ended in; two outcomes of a wait and of a call that was not made; and whether an asker's function returned or threw |
 | `:layers-within-the-limit`, `:names-one-asker`, `:names-its-layers-one-way`, `:ids-within-the-limit`, `:run-ends-in-order`, `:run-ends-are-ordered`, `:points-at-names-a-thing`, `:store-key-is-asked-for` | The eight rules of a query, each named for what it holds |
 | `:run-end` | The shape of one end of a run, in the query's map of shapes |
-| `:from`, with `:open`, `:read-once`, `:read-live`, `:the-askers-function`; `:says` | In the table of the seven words: which call gives a word, and what it says |
+| `:from`, with `:open`, `:read-once`, `:read-live`, `:the-askers-function`; `:says` | In the table of the eight words: which call gives a word, and what it says |
 | `:shape`, beside `:reason` | In the table of the four words of a query: the shape that `:asks` must have under that word, and the word when it does not fit |
 | `:too-many` | What the checks of nearer layers give in the place of the checks, past the build's number |
 | `:known`, `:reading` | "Known": each source that is read, with its value. "Reading": what a read wants now. Also two names in a small map inside the opening of a live read |

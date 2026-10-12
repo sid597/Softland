@@ -38,8 +38,10 @@
   own error (`act-ids-for`).
 
   State. The door owns no durable state. An opened door borrows five handles
-  of Rama's client, the two depots and the three queries of the module
-  `Store`; the opener owns the cluster handle, and nothing closes the door.
+  of Rama's client, the two depots of acts and the three queries of the
+  module `Store`; the opener owns the cluster handle, and nothing closes the
+  door. The module has a third depot, of the clocks of batches
+  (`softland.store.module`): it takes no act, and the door does not open it.
   It holds its five numbers, fixed at the opening. Its one memory is its
   stocks of locks, the memory of one process, empty at each opening whatever
   the record holds from a process before. A stock is for one layer, one
@@ -693,7 +695,9 @@
   module under that name; no door is then opened.
 
   Five round trips, once for a process and on no act's way: one fetch of a
-  client for each of the two depots and the three queries. The door borrows
+  client for each of the two depots of acts and the three queries. The
+  module's third depot, of the clocks of batches, takes no act and is not
+  fetched. The door borrows
   the handles and uses them from every maker's thread; the opener owns the
   cluster handle, and nothing closes the door. A door starts with no stock.
 

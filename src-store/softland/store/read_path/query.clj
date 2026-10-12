@@ -59,7 +59,7 @@
 
     check    anything -> {:ok query} in the one form, or
              {:refuse word :at part}
-    numbers  what an opener gave, or nil -> the read path's five numbers
+    numbers  what an opener gave, or nil -> the read path's seven numbers
 
   State and effects. None. Each function is pure, and `check` never throws.
 
@@ -89,7 +89,7 @@
   (inc declaration/max-builds-on))
 
 (def default-numbers
-  "The read path's five numbers, each with its default. Each is the
+  "The read path's seven numbers, each with its default. Each is the
   builder's, kept and not decided, and an opener can give another at
   `softland.store.read-path/open`.
 
@@ -103,13 +103,28 @@
                                      as one push
     :max-checks-of-one-read  40,000  the checks of nearer layers that one
                                      read of what points at a thing may
-                                     need: places times nearer layers. For
-                                     a read asked once each check is one
-                                     row of one call. Kept live, each check
-                                     is one push, and Rama as it ships
-                                     opens 1,000 pushes on one table on one
-                                     task: a live read meets that bound
-                                     long before this number
+                                     need when it is asked once: places
+                                     times nearer layers. Each check is
+                                     one row of one call
+    :max-checks-of-one-live-read
+                             250     the same for a read that is kept
+                                     live, where each check is one push.
+                                     Far fewer, since Rama bounds the
+                                     pushes on one table on one task (the
+                                     next number): three such reads through
+                                     one layer are open under that number
+    :max-pushes-under-one-routing-id
+                             900     the pushes that the read path holds at
+                                     one time on one table under one routing
+                                     id. A read kept live that would take it
+                                     past this is turned away before it
+                                     opens one of those pushes. It stands
+                                     under Rama's own bound of 1,000 pushes
+                                     on one table on one task, the default
+                                     of Rama's option `pstate.proxy.limit`
+                                     (`softland.store.read-path`, \"How many
+                                     pushes\"). A read asked once opens no
+                                     push and is not held to it
     :max-paths-in-one-call   2,000   the paths of one call of Rama's client
     :wait-ms                 10,000  how long a call of the read path waits
                                      for Rama, in all, before it gives a
@@ -117,15 +132,17 @@
 
   None bounds the bytes of a run: no table gives the size of a run's values
   before it is read."
-  {:run-start-places       256
-   :max-places-of-one-run  20000
-   :max-checks-of-one-read 40000
-   :max-paths-in-one-call  2000
-   :wait-ms                10000})
+  {:run-start-places                256
+   :max-places-of-one-run           20000
+   :max-checks-of-one-read          40000
+   :max-checks-of-one-live-read     250
+   :max-pushes-under-one-routing-id 900
+   :max-paths-in-one-call           2000
+   :wait-ms                         10000})
 
 (defn numbers
   "Takes what an opener gave for the read path's numbers: a map, or nil.
-  Gives the five numbers: for each name of `default-numbers` the number
+  Gives the seven numbers: for each name of `default-numbers` the number
   given when it is a fixed-width integer above zero, as a long, and the
   default when it is left out or is none. A name that `default-numbers` does
   not hold is dropped. It never throws: a thing that is no map gives the

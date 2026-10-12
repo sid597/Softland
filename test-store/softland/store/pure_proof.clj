@@ -1004,7 +1004,11 @@
         marks-row (record/with-level-since
                    (record/fact-row writer {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent}} nil u 0 900)
                    {:on 100 :tool/parent 140})
-        row-holding (fn [^String a-text] {:value (utf8 a-text) :by-act u :by-index 0 :stamp 900})
+        row-holding (fn [^String a-text] {:value (record/held-value (utf8 a-text)) :by-act u :by-index 0 :stamp 900})
+        the-bytes (fn [& xs] (byte-array (map unchecked-byte xs)))
+        all-bytes (byte-array (map unchecked-byte (range 256)))
+        random-bytes (let [b (byte-array 65508)] (.nextBytes (java.util.Random. 86) b) b)
+        back (fn [^bytes plain] (java.util.Arrays/equals plain ^bytes (record/plain-bytes (record/held-value plain))))
         d-c1 (digest-of-text ":c1")
         lock (seal/new-lock)
         lock-row (record/lock-row lock)
@@ -1035,13 +1039,43 @@
       [{:verdict :accepted :reason nil :stamp 900 :digest (text/hex digest)}
        {:verdict :refused :reason :not-sealed :stamp 901 :digest (text/hex digest)}
        nil]]
-     ["the row of a sealed fact: the plain bytes that its lock opened, the fact that wrote it, the stamp, who wrote it and the permission that the act named; it names no lock; each field of its declared class"
-      (fn [] [value-row (classes value-row)])
-      [(merge {:value opened :by-act u :by-index 2 :stamp 900} written-by-alice)
-       {:value "byte[]" :by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String"}]]
-     ["the row of a fact under a store key: the bytes of the one text of its value, the fact that wrote it, the stamp, who and the permission, and no other field"
-      (fn [] plain-row)
-      (merge {:value (utf8 ":streaming") :by-act u :by-index 0 :stamp 900} written-by-alice)]
+     ["the row of a sealed fact: its value as a String, the text itself of the plain bytes that its lock opened, and the row gives those bytes back; the fact that wrote it, the stamp, who wrote it and the permission that the act named; it names no lock; each field of its declared class, and none a byte array"
+      (fn [] [value-row (classes value-row) (record/plain-bytes-of value-row)])
+      [(merge {:value "\"a text\"" :by-act u :by-index 2 :stamp 900} written-by-alice)
+       {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String"}
+       opened]]
+     ["the row of a fact under a store key: the one text of its value as a String, whose bytes the row gives back; the fact that wrote it, the stamp, who and the permission, and no other field"
+      (fn [] [plain-row (record/plain-bytes-of plain-row)])
+      [(merge {:value ":streaming" :by-act u :by-index 0 :stamp 900} written-by-alice)
+       (utf8 ":streaming")]]
+     ["the String that a row holds for a value's plain bytes, as whether it begins with U+0000 and how many characters of Java it has: the text itself when the bytes are well-formed UTF-8 that does not begin with U+0000, and a U+0000 inside a text changes nothing; else U+0000 and one character for each byte: bytes that are no text, a lead byte with no tail, a surrogate, an overlong form, and text that begins with U+0000"
+      (fn [] (mapv (fn [plain] (let [held (record/held-value plain)]
+                                 [(.startsWith ^String held "\u0000") (count held)]))
+                   [(utf8 "\"a é ✓ 𝄞\"") (utf8 "\"a\u0000b\"") (byte-array 0)
+                    (the-bytes -1 -2) (the-bytes -61 40) (the-bytes -19 -96 -128) (the-bytes -64 -81)
+                    (utf8 "\u0000\"a\"") (the-bytes 0) all-bytes]))
+      [[false 10] [false 5] [false 0]
+       [true 3] [true 3] [true 4] [true 3]
+       [true 5] [true 2] [true 257]]]
+     ["the bytes come back from that String exactly as they were given, for text and for bytes that are no text, 65,508 random bytes and each of the 256 bytes among them; and a text is held as itself"
+      (fn [] [(mapv back [(utf8 "\"a é ✓ 𝄞\"") (utf8 "\"a\u0000b\"") (byte-array 0) (the-bytes -1 -2) (the-bytes -61 40)
+                          (the-bytes -19 -96 -128) (the-bytes -64 -81) (utf8 "\u0000\"a\"") (the-bytes 0) all-bytes random-bytes])
+              (record/held-value (utf8 "\"a é ✓ 𝄞\""))
+              (record/plain-bytes "\"a text\"")
+              (record/plain-bytes (str "\u0000" (char 255) (char 0) (char 65)))
+              (record/plain-bytes-of nil) (record/plain-bytes-of retract-row)])
+      [(vec (repeat 11 true))
+       "\"a é ✓ 𝄞\""
+       (utf8 "\"a text\"")
+       (the-bytes -1 0 65)
+       nil nil]]
+     ["two runs of bytes have one String only when they are the same bytes: bytes that are no text and the text that Java would read them as, the bytes of a text and the same bytes after U+0000, a zero byte and no byte"
+      (fn [] (let [replaced (utf8 (String. ^bytes (the-bytes -1 -2) StandardCharsets/UTF_8))]
+               [(= (record/held-value (the-bytes -1 -2)) (record/held-value replaced))
+                (= (record/held-value (utf8 "a")) (record/held-value (utf8 "\u0000a")))
+                (= (record/held-value (the-bytes 0)) (record/held-value (byte-array 0)))
+                (count (set (map record/held-value [(the-bytes -1 -2) replaced (utf8 "a") (utf8 "\u0000a") (the-bytes 0) (byte-array 0)])))]))
+      [false false false 6]]
      ["the row of a retract: no value, and the row is there; it holds who retracted and under which permission, and no other field"
       (fn [] retract-row)
       (merge {:by-act u :by-index 1 :stamp 900} written-by-alice)]
@@ -1087,15 +1121,22 @@
       (fn [] (mapv record/read-value
                    [(row-holding "((((") (row-holding ":a :b") (row-holding " :a") (row-holding "{:b 1, :a 2}")
                     (row-holding "(1 2)") (row-holding "sym") (row-holding "#bogus 1")
-                    {:value (byte-array [(byte -1) (byte -2)]) :stamp 1} (row-holding "")]))
+                    {:value (record/held-value (byte-array [(byte -1) (byte -2)])) :stamp 1} (row-holding "")]))
       (vec (repeat 9 [:not-a-value]))]
+     ["a row whose bytes are no text: a reader is told that it is no value of the form, it holds no value that a maker can give, and it is the same row as one with the same bytes only; a row of a text's bytes holds that text's value"
+      (fn [] (let [row (fn [& xs] {:value (record/held-value (apply the-bytes xs)) :by-act u :by-index 0 :stamp 900})]
+               [(record/read-value (row -1 -2))
+                (record/holds-value? (row -1 -2) "a text") (record/holds-this-value? (row -1 -2) "a text")
+                (record/same-row? (row -1 -2) (row -1 -2)) (record/same-row? (row -1 -2) (row -1 -3))
+                (record/holds-this-value? (row 58 99 49) :c1) (record/holds-value? (row 58 99 49) :c1)]))
+      [[:not-a-value] false false true false true true]]
      ["the row at a layer's marked-keys place holds, beside the set that a maker wrote, the stamp of each marked key as one text; it reads back as a map; nothing is marked for no row, for a row without the field and for a text that is no such map"
       (fn [] [(:level-since marks-row) (classes marks-row) (record/marked-keys-of marks-row) (record/value-of marks-row)
               (record/marked-keys-of nil) (record/marked-keys-of plain-row)
               (record/marked-keys-of {:level-since "(((("}) (record/marked-keys-of {:level-since "[:on 100]"})
               (record/marked-keys-of {:level-since "{:on \"100\"}"}) (record/marked-keys-of {:level-since "{\"on\" 100}"})])
       ["{:on 100 :tool/parent 140}"
-       {:value "byte[]" :by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String" :level-since "String"}
+       {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String" :level-since "String"}
        {:on 100 :tool/parent 140} #{:on :tool/parent}
        {} {} {} {} {} {}]]
      ["the value digest: the SHA-256 of a row's value bytes, 64 hex characters; of a value, the digest of the UTF-8 of its one text"
@@ -1539,22 +1580,23 @@
       (fn [] (decision/writes (act-id 1) nil :malformed stamp digest {}))
       [[:answer answer-key {:refused :malformed :stamp stamp :digest digest}]
        [:last-stamp nil stamp]]]
-     ["an accept of one sealed value writes four rows: the fact, with the plain bytes that its lock opened, who wrote it and the permission that the act named, and no lock; its lock again; the answer; the last stamp"
+     ["an accept of one sealed value writes four rows: the fact, with its value as the text of the plain bytes that its lock opened, who wrote it and the permission that the act named, and no lock; its lock again; the answer; the last stamp"
       (fn [] (decision/writes (act-id 1) sealing-act nil stamp digest (in-hand sealing-act rows)))
-      [[:fact ":alice :note-1 :text" (merge {:value (text/utf8 "a text") :by-act (uuid 1) :by-index 0 :stamp stamp} written-by-alice)]
+      [[:fact ":alice :note-1 :text" (merge {:value "\"a text\"" :by-act (uuid 1) :by-index 0 :stamp stamp} written-by-alice)]
        [:lock key-0 {:bytes (:bytes (:lock-0 seal-fixture)) :way 1 :seals-act (uuid 1) :seals-index 0}]
        [:answer answer-key {:stamp stamp :digest digest}]
        [:last-stamp nil stamp]]]
-     ["the fact's row holds exactly what the lock opened: its bytes read back as the value that was sealed, and the row holds no field of a lock"
+     ["the fact's row holds exactly what the lock opened: its value reads back as the value that was sealed, its plain bytes are the bytes of that value's one text and not the sealed bytes, and the row holds no field of a lock"
       (fn [] (let [[[_ _ row]] (decision/writes (act-id 1) sealing-act nil stamp digest (in-hand sealing-act rows))]
                [(record/read-value row) (contains? row :lock-act) (contains? row :lock-index)
-                (= (vec (:value row)) (vec (:sealed seal-fixture)))]))
-      [[:value "a text"] false false false]]
+                (record/plain-bytes-of row)
+                (= (vec (record/plain-bytes-of row)) (vec (:sealed seal-fixture)))]))
+      [[:value "a text"] false false (text/utf8 "a text") false]]
      ["an accept of a request for 3 locks writes its fact, three keys for new locks with no bytes, the answer, the last stamp"
       (fn [] (decision/writes (act-id 1) (act-of (arrived 1 {:e (uuid 1) :k :softland.store/lock-request :v 3})) nil stamp digest
                               {:lock-rows {} :plain [nil]}))
       [[:fact (str ":alice " (uuid 1) " :softland.store/lock-request")
-        (merge {:value (utf8 "3") :by-act (uuid 1) :by-index 0 :stamp stamp} written-by-alice)]
+        (merge {:value "3" :by-act (uuid 1) :by-index 0 :stamp stamp} written-by-alice)]
        [:new-lock (record/lock-key :alice (uuid 1) 0) nil]
        [:new-lock (record/lock-key :alice (uuid 1) 1) nil]
        [:new-lock (record/lock-key :alice (uuid 1) 2) nil]
@@ -1563,9 +1605,9 @@
      ["an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the layer and the permission that the act named"
       (fn [] (decision/writes [:team :streaming (uuid 1)] (making :team :alice :alice) nil stamp digest {:lock-rows {} :plain [nil nil]}))
       [[:fact ":team :team :softland.store/depot"
-        {:value (utf8 ":streaming") :by-act (uuid 1) :by-index 0 :stamp stamp :who ":alice" :permission "[:alice :team :team]"}]
+        {:value ":streaming" :by-act (uuid 1) :by-index 0 :stamp stamp :who ":alice" :permission "[:alice :team :team]"}]
        [:fact ":team :alice :softland.store/permission"
-        {:value (utf8 "[:alice :team :team]") :by-act (uuid 1) :by-index 1 :stamp stamp :who ":alice" :permission "[:alice :team :team]"}]
+        {:value "[:alice :team :team]" :by-act (uuid 1) :by-index 1 :stamp stamp :who ":alice" :permission "[:alice :team :team]"}]
        [:answer (record/answer-key :team (uuid 1)) {:stamp stamp :digest digest}]
        [:last-stamp nil stamp]]]
      ["the system makes a personal layer for its person: the rows hold the system as who, and the person's permission"
@@ -1580,13 +1622,13 @@
                                     nil stamp digest {:lock-rows {} :plain [nil nil]})))
       [[:fact ":alice :note-1 :text" (merge {:by-index 0} written-by-alice)]
        [:fact ":alice :bob :softland.store/permission"
-        (merge {:value (utf8 "[:bob :alice :alice [:alice :alice :alice]]") :by-index 1} written-by-alice)]
+        (merge {:value "[:bob :alice :alice [:alice :alice :alice]]" :by-index 1} written-by-alice)]
        [:answer answer-key {:digest digest}]
        [:last-stamp nil stamp]]]
      ["a give with the slot writes the permission's whole text, slot and all: what the gate later compares with the permission that an act names"
       (fn [] (let [[[_ k row]] (decision/writes (act-id 1) (act-of (arrived 1 {:e :bob :k :softland.store/permission :v bobs-see}))
                                                 nil stamp digest {:lock-rows {} :plain [nil]})]
-               [k (String. ^bytes (:value row) StandardCharsets/UTF_8) (record/holds-value? row bobs-see) (record/holds-value? row bobs)]))
+               [k (:value row) (record/holds-value? row bobs-see) (record/holds-value? row bobs)]))
       [":alice :bob :softland.store/permission" "[:bob :alice :alice [:alice :alice :alice] :see]" true false]]
      ["a write of the marked keys: the row holds the set that the maker wrote and, derived by the gate, the stamp of each key; a newly marked key gets the stamp that the gate hands it"
       (fn [] (let [[[which k row] & more] (decision/writes (act-id 1) (marking #{:on :tool/parent}) nil stamp digest
@@ -1711,12 +1753,12 @@
                    after (streaming-step both 302 110 [(on-fact :b2 0) :c1])]
                [(keys-of both) (stamps-of both) (:stamp (get-in both [:facts ":alice :b1 :on"])) (run-of after 100 :c1)]))
       [#{} {:on 100} 100 [(entry-key 100 :c1 :b2)]]]
-     ["a fact that is replaced, naming what it replaces or naming nothing: the entry of the value before goes out, the new one comes in"
+     ["a fact that is replaced, naming what it replaces or naming nothing: the entry of the value before goes out, the new one comes in, and the rows written are the same either way"
       (fn [] (let [named (streaming-step first-value 203 120 [(assoc (on-fact :b1 0) :replaces [(act-id 202) 0]) :c2])
                    unnamed (streaming-step first-value 203 120 [(on-fact :b1 0) :c2])]
                [(which-keys named) (= (:writes named) (:writes unnamed)) (keys-of named)]))
       [[[:fact ":alice :b1 :on" true] [:by-value (entry-key 100 :c1 :b1) false] [:by-value (entry-key 100 :c2 :b1) true]]
-       false
+       true
        #{(entry-key 100 :c2 :b1)}]]
      ["a fact written again with the same value: one digest, so nothing goes out; the entry is written over, with the new stamp and the new fact"
       (fn [] (let [again (streaming-step first-value 203 120 [(on-fact :b1 0) :c1])]
@@ -3771,9 +3813,9 @@
 (deftest the-records-rows
   (let [n (holds record-cases)]
     (shown "the record's rows," n "cases: the keys" (pr-str [(record/answer-key :alice (uuid 5)) (record/place-key :alice :note-1 :text) (record/lock-key :alice (uuid 5) 7)])
-           "; each field of a row of its declared class; a retract is a row with no value; every value is kept plain, a sealed fact's as the bytes that its lock opened and a store key's as the bytes of its one text; each row of a fact holds who wrote it and the permission that the act named, and names no lock; the heads of the three reads give nothing for what is no id or no act-id")
+           "; each field of a row of its declared class; a retract is a row with no value; every value is kept plain and as a String, a sealed fact's as the text of the bytes that its lock opened and a store key's as its one text, and bytes that are no text as U+0000 and a character for each byte, so that the bytes come back; each row of a fact holds who wrote it and the permission that the act named, and names no lock; the heads of the three reads give nothing for what is no id or no act-id")
     (shown "what a row says of its value, for a reader:"
-           (pr-str (mapv record/read-value [nil {:stamp 1} {:value (utf8 ":canvas-1") :stamp 1} {:value (utf8 "(1 2)") :stamp 1}])))
+           (pr-str (mapv record/read-value [nil {:stamp 1} {:value (record/held-value (utf8 ":canvas-1")) :stamp 1} {:value (record/held-value (utf8 "(1 2)")) :stamp 1}])))
     (shown "the facts by value: a key is" (pr-str (record/by-value-key :alice :on 100 (record/value-digest-of :c1) :b1))
            "| the run of the value :c1 under the key :on since the stamp 100 is" (pr-str (record/by-value-run :alice :on 100 :c1))
            "| a keyword, a UUID, a string with spaces, a number, a map and a value of 65,508 bytes each have one digest of 64 hex characters, and no run holds a key of another value, layer, key or stamp")))

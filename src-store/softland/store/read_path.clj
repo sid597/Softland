@@ -1,6 +1,8 @@
 ;; Before changing this file, read the plan of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-read-path.md
-;; and the two rulings that came after its check, 78 and 80, in
+;; and the rulings that came after its check, which the plan does not hold:
+;; 78 and 80; and 86, 87, 89 and 91, which the review of the whole built
+;; (FULL_SPEC_REVIEW.md beside the plan). They are in
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PROGRESS.md
 
 (ns softland.store.read-path
@@ -35,7 +37,7 @@
     open-count  nothing more -> {:live-reads n :pushes n}
 
   An answer is a plain map (`softland.store.read-path.answer`). A word is
-  one of the read path's own seven (`softland.store.read-path.words`): a
+  one of the read path's own eight (`softland.store.read-path.words`): a
   map that holds `:could-not`. No call throws for what a caller gave or for
   what Rama did, and a read that failed has never said \"no fact\". Every
   wait for Rama has the read path's own bound, `:wait-ms`. The read path
@@ -76,20 +78,24 @@
   appends to no depot and keeps no record of who read what. An opened read
   path borrows four handles of Rama's client, the tables of facts and of
   facts by value of both gates; the opener owns the cluster handle, and
-  nothing closes the read path. It holds its five numbers, fixed at the
-  opening. Its one memory is `held`, an atom of two maps, in the memory of
+  nothing closes the read path. It holds its seven numbers, fixed at the
+  opening. Its one memory is `held`, an atom of three maps, in the memory of
   one process:
 
     :pushes  a source -> {:opening a delay around the one call that opens
              its push, :readers the ids of the live reads that hold it,
              :called a mark that its first callback came}
+    :counts  a gate, a table and a routing id -> how many entries of
+             `:pushes` are under them (`counted-under`): the count that the
+             read path's own bound on its pushes is held to
     :reads   a read's id -> its query, its function, its turn, the set of
              the sources that it holds, whether it is opened, whether the
              whole answer is owed, and the routing ids of the tasks as they
              were read when it opened
 
-  That is who looks at what, what each asked for, the pushes, and one mark
-  for each read. It holds no row, no value, no answer and no place-answer.
+  That is who looks at what, what each asked for, the pushes with a count
+  of them, and one mark for each read. It holds no row, no value, no answer
+  and no place-answer.
   The values are in Rama's pushes and nowhere else: each holds the current
   value of its path, and Rama keeps it level (Sid, 11 October 2026: \"i
   also don't consider it a cache\"). What a live read gives is worked out
@@ -98,8 +104,10 @@
   true or false and no value of the tables: one step sets it when it finds
   that what shapes the read changed, and the step that gives the whole
   answer takes it off. A read asked once holds what it fetched until it
-  returns. Nothing shown to a caller is anything but what the tables held:
-  there is no optimistic value.
+  returns, and it fetches every source from the tables by a select of its
+  own: it takes no value of a push, also where a live read holds one open
+  on the same source (`read-once`). Nothing shown to a caller is anything
+  but what the tables held: there is no optimistic value.
 
   All of `held` is lost when the process ends. Rama clears a push that
   sends no heartbeat (read in Rama's pages, not run). Nothing tells a
@@ -143,37 +151,58 @@
   answer. The read path turns such a call away at once, with the word
   `:read-inside-an-askers-function` and no call to Rama.
 
-  What Rama sends at a change, as run on the store's own module in-process.
-  For a push on the facts by value, whose rows hold no bytes: a diff that
-  names the changed key, and the other rows stay the objects that they
-  were. For a push on the facts table, whose rows hold a value's bytes: the
-  whole value anew, at each change, every row a new object; so for a run of
-  the facts table, and for a layer's own rows, Rama sends the whole run
-  again when one place of it changes. The read path takes both the same
-  way: it compares the value before with the value after, row by row, a run
-  of bytes by its content, and handles the keys whose rows differ. So an
-  asker is told the places that changed, and not a whole answer, whichever
-  way Rama sent the change. What a value sent anew costs Rama and the
-  runtime is not the read path's to change: it follows from what a row of
-  the facts table holds.
+  What Rama sends at a change, and how the read path takes it. Three kinds
+  of diff reach a callback. A diff that names keys: what a push on a run
+  gets when a row of the run is written or removed, and the other rows stay
+  the objects that they were. A new value that names no key: what a push on
+  one row gets. And a whole value sent anew: the first callback of every
+  push, and what Rama sends a reader that it left out of a change. The read
+  path takes the three the same way: among the keys that the diff names, or
+  among every key of the value before and of the value after when it names
+  none, it handles the keys whose rows differ
+  (`softland.store.read-path.sources/named`). So an asker is told the
+  places that changed, and not a whole answer, whichever way Rama sent the
+  change, and nothing when no row differs. That a push is told each write
+  by a diff of its own rests on what a row holds: no field of the two
+  tables that the read path reads is a byte array
+  (`softland.store.record.tables/facts` says what was run).
 
-  How many pushes Rama opens. Rama bounds the pushes on one table on one
-  task, by a setting of its own that an operator can change
-  (`pstate.proxy.limit`). As run on the store's module, in-process, with
-  that setting as Rama ships it: 1,000 pushes opened on one table on one
-  task, the next one was refused, and a push that was closed made room for
-  one more. A streaming layer is whole on one task, so every live read
-  through it, of every asker, counts toward the one bound, and so do the
-  other layers of that task. The read path sets none of Rama's settings and
-  counts no push against the bound. An opening that Rama refuses ends in
-  the word `:reach-the-store`, as any opening that throws does: `read-live`
-  gives that word and leaves every push that it joined, and an open read
-  that came to need the push ends. So a read of what points at a thing
-  through layers, which holds one push for each place of a farther order
-  and each nearer layer, opens only while those are fewer than Rama's
-  bound; the read path's own number for the checks of one read is far above
-  it. Whether the bound is raised, or fewer pushes are held, is not decided
-  here.
+  How many pushes. Rama bounds the pushes on one table on one task, by a
+  dynamic option of its own, `pstate.proxy.limit`, whose default is 1,000
+  (the name is read in Rama's own message; no run of this build set the
+  option). As run on the store's module, in-process, with the default:
+  1,000 pushes opened on one table on one task, the next one was refused,
+  and a push that was closed made room for one more; and Rama refuses one
+  opening at a time, so a read that asked for about 10,000 pushes was
+  turned away only after seconds. A streaming layer is whole on one task,
+  so every live read through it, of every asker, counts toward that one
+  bound, and so do the other layers of that task.
+
+  So the read path has a bound of its own, under Rama's. It counts the
+  pushes that it holds on each table under each routing id
+  (`counted-under`, `:counts`), and a read kept live whose next pushes
+  would take a count past `:max-pushes-under-one-routing-id`, 900, is
+  turned away at once, with the word `:keep-more-reads-live`: none of the
+  pushes of that round is opened, and the pushes that the read joined in
+  earlier rounds are left. An open read that comes to need such a push
+  ends, with `:no-room-for-a-push-it-came-to-need`. A read asked once
+  opens no push and is not held to the bound. And one read of what points
+  at a thing, kept live, may need 250 checks of nearer layers, each of
+  them a push (`:max-checks-of-one-live-read`); a read that needs more is
+  turned away with `:serve-a-read-that-large` before one check is opened.
+
+  What that bound does not reach. It counts by routing id, since Rama's
+  client does not say which task a routing id is on: two streaming layers
+  that Rama puts on one task, and the entities of the base that share a
+  task, are counted apart. And it counts one process, where Rama's bound
+  holds for every client of the cluster together. Past either, Rama
+  refuses the opening, and the read gets `:reach-the-store`, as any opening
+  that throws does: `read-live` gives that word and leaves every push that
+  it joined, and an open read that came to need the push ends. The read
+  path sets none of Rama's options. Its 900 stands under the default of
+  `pstate.proxy.limit`; to raise that option, and this number with it, is
+  a setting for Sid to weigh. Both numbers are the build's, kept and not
+  decided, and so is the way of the checks that needs a push for each.
 
   A screen is shown the newest state; a caller that must see every act
   cannot rest on this call. The function is not called once for each act:
@@ -266,8 +295,8 @@
              :private true
              :doc "Makes an opened read path, an object of a type of its own.
   `open` is the one caller. A read path holds the module's name; the four
-  handles of Rama's client, borrowed; its five numbers; `held`, an atom of
-  {:pushes :reads} (the namespace docstring says what each holds); and the
+  handles of Rama's client, borrowed; its seven numbers; `held`, an atom of
+  {:pushes :counts :reads} (the namespace docstring says what each holds); and the
   count from which the ids of its live reads are made. It prints as
   `printed` says, by the type's two print methods and its `toString`.")
 
@@ -447,6 +476,13 @@
   (words/word :serve-a-read-that-large
               {:what :places-of-one-run :most (:max-places-of-one-run (.-numbers read-path))}))
 
+(defn- no-room
+  "Takes the read path. Gives what the word of the read path's own bound on
+  its pushes carries: what was too many, and the bound."
+  [^ReadPath read-path]
+  {:what :pushes-under-one-routing-id
+   :most (:max-pushes-under-one-routing-id (.-numbers read-path))})
+
 (defn- gather
   "Waits for selects that were all sent already. Takes the read path, a
   sequence of what `select-async` gave, and the moment at which the call's
@@ -609,8 +645,8 @@
     out))
 
 (defn- held-now
-  "Takes the read path. Gives its two maps as they are now: {:pushes
-  :reads}."
+  "Takes the read path. Gives its three maps as they are now: {:pushes
+  :counts :reads}."
   [^ReadPath read-path]
   @(.-held read-path))
 
@@ -631,16 +667,54 @@
         (when (.isDone future)
           (.getNow future nil))))))
 
+(defn- counted-under
+  "Takes a source. Gives what its push is counted under: the source's gate,
+  its table and its routing id. Rama's client sends one routing id to one
+  task, so every push of one such count is on one task of one table.
+
+  Why by routing id and not by task. Rama bounds the pushes on one table on
+  one task, and its client gives no call that turns a routing id into a
+  task (looked for in `com.rpl.rama`, `PState`, `ProxyState` and `Helpers`
+  of Rama 1.6.0; `Helpers/genHashingIndexKeys` goes the other way only). So
+  the read path counts by what it can know. Two routing ids that Rama puts
+  on one task are counted apart, and their pushes together can pass Rama's
+  bound while each count is under the read path's own: Rama then refuses
+  the opening, and the read gets `:reach-the-store`, as before this count.
+  In a streaming layer the routing id is the layer, so every push of every
+  asker through one layer is one count."
+  [source]
+  [(:gate source) (:table source) (:routing-id source)])
+
+(defn- one-fewer
+  "Takes the counts of `held` and a source whose entry leaves `:pushes`.
+  Gives the counts with one fewer under the source's count; a count that
+  comes to nothing leaves the map."
+  [counts source]
+  (let [under (counted-under source)
+        n (dec (long (get counts under 1)))]
+    (if (pos? n) (assoc counts under n) (dissoc counts under))))
+
 (defn- join!
   "Makes a live read hold sources: one swap of `held` for all of them, so
-  that the two maps never disagree. Takes the read path, the read's id and
+  that its maps never disagree. Takes the read path, the read's id and
   the sources. For a read that `:reads` still holds: where `:pushes` holds
   no entry for a source, the swap puts one in, with a new delay and the read
-  as its one reader; else it adds the read to the entry. The read's own set
+  as its one reader, and counts it (`counted-under`); else it adds the read
+  to the entry. The read's own set
   gets the source as the very object that is the entry's key, so a source
-  is held once however many reads hold it. A read that was left in the
-  meantime joins nothing. After the swap each entry's delay is forced: for
+  is held once however many reads hold it. After the swap each entry's
+  delay is forced: for
   an entry that another read opened, that is no call to Rama.
+
+  The read path's own bound. When the entries that the swap would put in
+  take a count past `:max-pushes-under-one-routing-id`, the swap changes
+  nothing: the read joins none of the sources, also not those that are open
+  already, and no push is opened. The test and the join are one swap, so
+  two reads that join at once cannot pass the bound together. A source that
+  another read holds open is no new push and is not counted again.
+
+  Gives `:joined`; `:past-the-bound`; or nil when there was nothing to
+  join, or the read was left in the meantime and joined nothing.
 
   Two reads that open the same source at once end with one entry that
   holds both, and both force the same delay; a delay runs its body once,
@@ -648,29 +722,45 @@
   nobody forces."
   [^ReadPath read-path id sources]
   (when (seq sources)
-    (let [[_ after]
+    (let [most (:max-pushes-under-one-routing-id (.-numbers read-path))
+          [_ after]
           (swap-vals! (.-held read-path)
                       (fn [held]
                         (if-not (contains? (:reads held) id)
                           held
-                          (reduce (fn [held source]
-                                    (let [pushes (update (:pushes held) source
-                                                         (fn [entry]
-                                                           (if entry
-                                                             (update entry :readers conj id)
-                                                             (let [called (AtomicBoolean. false)]
-                                                               {:opening (delay (open-push read-path source called))
-                                                                :readers #{id}
-                                                                :called called}))))]
-                                      (-> held
-                                          (assoc :pushes pushes)
-                                          (update-in [:reads id :sources] conj (key (find pushes source))))))
-                                  held
-                                  sources))))]
-      (when (contains? (:reads after) id)
-        (doseq [source sources]
-          (when-let [entry (get-in after [:pushes source])]
-            (force (:opening entry))))))))
+                          (let [to-open (remove #(contains? (:pushes held) %) sources)
+                                counts (reduce (fn [counts source]
+                                                 (update counts (counted-under source) (fnil inc 0)))
+                                               (:counts held)
+                                               to-open)]
+                            (if (some #(< most (get counts (counted-under %))) to-open)
+                              held
+                              (reduce (fn [held source]
+                                        (let [pushes (update (:pushes held) source
+                                                             (fn [entry]
+                                                               (if entry
+                                                                 (update entry :readers conj id)
+                                                                 (let [called (AtomicBoolean. false)]
+                                                                   {:opening (delay (open-push read-path source called))
+                                                                    :readers #{id}
+                                                                    :called called}))))]
+                                          (-> held
+                                              (assoc :pushes pushes)
+                                              (update-in [:reads id :sources] conj (key (find pushes source))))))
+                                      (assoc held :counts counts)
+                                      sources))))))]
+      (cond
+        (not (contains? (:reads after) id))
+        nil
+
+        (not-every? #(contains? (get-in after [:reads id :sources]) %) sources)
+        :past-the-bound
+
+        :else
+        (do (doseq [source sources]
+              (when-let [entry (get-in after [:pushes source])]
+                (force (:opening entry))))
+            :joined)))))
 
 (defn- close-when-given!
   "Takes an entry that a swap took out of `:pushes`. Closes its push: now
@@ -692,7 +782,9 @@
   Takes the read path, the read's id, the sources (or `:all` for every
   source that the read holds), and whether the read itself leaves `:reads`.
   The swap takes the read out of each entry; an entry with no reader left
-  is taken out of the map. After the swap, the push of each entry that this
+  is taken out of the map, and its count goes down by one (`one-fewer`):
+  at once, before Rama has closed the push, which is one reason why the
+  read path's bound stands under Rama's. After the swap, the push of each entry that this
   swap took out is closed (`close-when-given!`). So a push is closed only
   after its entry left the map, and a read that joins meanwhile is never
   handed a push that is closing: it puts a new entry in and opens a new
@@ -704,16 +796,16 @@
                     (fn [held]
                       (if-let [read (get-in held [:reads id])]
                         (let [leaving (if (= :all sources) (:sources read) (filter (:sources read) sources))
-                              pushes (reduce (fn [pushes source]
-                                               (if-let [entry (get pushes source)]
-                                                 (let [readers (disj (:readers entry) id)]
-                                                   (if (empty? readers)
-                                                     (dissoc pushes source)
-                                                     (assoc pushes source (assoc entry :readers readers))))
-                                                 pushes))
-                                             (:pushes held)
-                                             leaving)
-                              held (assoc held :pushes pushes)]
+                              [pushes counts] (reduce (fn [[pushes counts] source]
+                                                        (if-let [entry (get pushes source)]
+                                                          (let [readers (disj (:readers entry) id)]
+                                                            (if (empty? readers)
+                                                              [(dissoc pushes source) (one-fewer counts source)]
+                                                              [(assoc pushes source (assoc entry :readers readers)) counts]))
+                                                          [pushes counts]))
+                                                      [(:pushes held) (:counts held)]
+                                                      leaving)
+                              held (assoc held :pushes pushes :counts counts)]
                           (if whole?
                             (update held :reads dissoc id)
                             (update-in held [:reads id :sources] #(reduce disj % leaving))))
@@ -747,22 +839,6 @@
                (transient {})
                (:sources read))))
     (catch Throwable _ nil)))
-
-(defn- pushed-values
-  "Takes the read path and sources that a read asked once is missing. Gives
-  a map from each of them whose push is open and given, for some live read,
-  to the value that the push holds now: no call to Rama is made for those.
-  A push that throws as it is read is left out, and its source is read by
-  a select."
-  [read-path sources]
-  (let [pushes (:pushes (held-now read-path))]
-    (into {}
-          (keep (fn [source]
-                  (try
-                    (when-let [push (:push (some-> (get pushes source) given))]
-                      [source @push])
-                    (catch Throwable _ nil))))
-          sources)))
 
 ;; ----------------------------------------------------- the steps of a live read
 
@@ -838,7 +914,8 @@
   `known` holds no source that the step left, and a source that the step
   joined only when its push was open already. Gives nil when the step
   stops: the read is gone, a push threw as it was read, or the read came to
-  need more checks than one read may, which ends it."
+  need more checks than one read may, or a push past the read path's own
+  bound (`join!`); each of the last two ends it."
   [^ReadPath read-path id]
   (loop [round 0 joined #{} left #{}]
     (when-let [read (read-of read-path id)]
@@ -855,8 +932,9 @@
 
             :else
             (do (leave-sources! read-path id leave false)
-                (join! read-path id join)
-                (recur (inc round) (into joined join) (into left leave)))))))))
+                (if (= :past-the-bound (join! read-path id join))
+                  (do (end-read! read-path id :no-room-for-a-push-it-came-to-need (no-room read-path)) nil)
+                  (recur (inc round) (into joined join) (into left leave))))))))))
 
 (declare on-arrival)
 
@@ -964,8 +1042,8 @@
   "Takes a diff of Rama's. Gives what kind it is: `:own-close`, the last
   call of a push that the read path closed; `:ended-by-the-store`, Rama
   ending the push after too many errors; `:anew`, a whole value sent anew,
-  which is what the first callback of a push is, and what each change of a
-  push on the facts table is; or `:change`."
+  which is what the first callback of a push is, and what Rama sends a
+  reader that it left out of a change; or `:change`."
   [diff]
   (cond
     (instance? DestroyedDiff diff)             :own-close
@@ -1044,7 +1122,7 @@
                  (rama/foreign-pstate cluster module-name "$$streaming-facts-by-value")
                  (rama/foreign-pstate cluster module-name "$$microbatch-facts-by-value")
                  (query/numbers numbers)
-                 (atom {:pushes {} :reads {}})
+                 (atom {:pushes {} :counts {} :reads {}})
                  (AtomicLong. 0))
      (catch Throwable t
        (words/word :find-the-module (assoc (what-threw t) :module module-name))))))
@@ -1081,8 +1159,10 @@
   (`softland.store.read-path.sources/reading`); the runs whose first read
   was not whole, in the layers that she may see, are read whole
   (`run-now`); when nothing is missing, the answer; else each missing
-  source is taken from an open push that holds it, or read by a select,
-  and round again. A run that has no first read
+  source is read by a select, and round again. It reads `held` nowhere: a
+  source that a live read holds open is selected all the same, so a read
+  asked once gives what the tables held when Rama served its calls, and
+  never a value that a push holds. A run that has no first read
   (`softland.store.read-path.sources/first-read-holds?`) is wanted only in
   a layer that she may see, and is read by its size and then whole."
   [^ReadPath read-path query routing-ids]
@@ -1108,8 +1188,7 @@
           (late read-path)
 
           :else
-          (let [pushed (pushed-values read-path (:missing reading))
-                unread (remove #(contains? pushed %) (:missing reading))
+          (let [unread (:missing reading)
                 no-first-read? (fn [source] (and (= :run (first (:path source)))
                                                  (not (sources/first-read-holds? source))))
                 [outcome got] (select-now read-path
@@ -1124,7 +1203,7 @@
               (= :word outcome-whole) got-whole
               :else
               (recur (inc round)
-                     (merge known pushed got got-whole)
+                     (merge known got got-whole)
                      (into first-reads
                            (filter (fn [source]
                                      (and (= :run (first (:path source)))
@@ -1145,20 +1224,18 @@
   thing, one round for the rights and the marks, one for the orders, and
   one for the checks of nearer layers, each check one seek. A run of more
   than `:run-start-places` places costs two calls more. A run across
-  entities of a microbatch layer is one call for each task. Where a push
-  for a source is open and given, for a live read, the value that the push
-  holds is taken and no call is made for that source. One bound,
-  `:wait-ms`, holds for the whole call.
+  entities of a microbatch layer is one call for each task. One bound,
+  `:wait-ms`, holds for the whole call. No count of pushes bounds it: it
+  opens none.
 
-  What a value from an open push can be. It holds nothing that the tables
-  do not hold, and it can be behind them by as long as the push is late.
-  So a caller who reads once straight after her own act was acked can be
-  given the state before that act, when a live read holds the same source:
-  run in the read path's proof, where such a read gave fewer places than
-  the table held straight after their acks, about 190 of 200, and a read
-  path that held no push gave them all.
-  One function, `pushed-values`, takes those values; with it giving
-  nothing, every read asked once reads the tables.
+  It reads the tables, and takes no value of a push. Where a live read
+  holds a push open on a source that this read wants, the read makes its
+  own call all the same, and pays that round trip. A push holds nothing
+  that the tables do not hold, and it can be behind them by as long as the
+  push is late; a read asked once that took its value could give a caller
+  the state before her own act, straight after that act was acked. So what
+  `read-once` gives is what the tables held when Rama served its calls: an
+  act whose ack a caller has, in a streaming layer, is in it.
 
   What it reads before it knows the asker's right, and what it then drops,
   is in the namespace docstring. The layers are read at moments that
@@ -1200,7 +1277,9 @@
 
   It makes the read's entry, not opened, and goes round: what is wanted,
   join what is missing and leave what is not wanted, wait for the pushes,
-  again. When nothing is missing it takes the read's turn, reads the
+  again. A round whose join would take the read path past its own bound on
+  pushes (`join!`) opens none of that round's pushes, and the read is
+  turned away at once with `:keep-more-reads-live`. When nothing is missing it takes the read's turn, reads the
   pushes' values and asks once more. If a change that came meanwhile made
   a source wanted, it lets the turn go and goes round again. Else, in that
   turn, it makes the answer, marks the read opened, and calls the function
@@ -1245,11 +1324,12 @@
 
             (or (seq join) (seq leave) (seq (:missing reading)))
             (do (leave-sources! read-path id leave false)
-                (join! read-path id join)
-                (let [[outcome word] (wait-for-held! read-path id deadline)]
-                  (if (= :word outcome)
-                    (give-up word)
-                    (recur (inc round)))))
+                (if (= :past-the-bound (join! read-path id join))
+                  (give-up (words/word :keep-more-reads-live (no-room read-path)))
+                  (let [[outcome word] (wait-for-held! read-path id deadline)]
+                    (if (= :word outcome)
+                      (give-up word)
+                      (recur (inc round))))))
 
             :else
             (let [opened (locking turn
@@ -1274,7 +1354,7 @@
   "Reads, and keeps the read live. Takes the read path, a query
   (`softland.store.read-path.query`) and a function of one argument. Gives
   {:now the answer, :leave-with a handle}, or one of the read path's
-  words, those of `read-once`. It never throws.
+  words: those of `read-once`, and `:keep-more-reads-live`. It never throws.
 
   The function is called with one map at a time, as the namespace docstring
   says: first, on the caller's own thread and before `read-live` returns,
@@ -1286,9 +1366,10 @@
   caller that keeps none.
 
   What ends a read: Rama ended a push; a run grew past
-  `:max-places-of-one-run`, or the checks of nearer layers past theirs; a
-  push that the open read came to need was not given; or the function
-  threw. The read path opens nothing again by itself; the caller asks
+  `:max-places-of-one-run`, or the checks of nearer layers past
+  `:max-checks-of-one-live-read`; a push that the open read came to need
+  was not given, or would have taken the read path past its own bound on
+  pushes; or the function threw. The read path opens nothing again by itself; the caller asks
   again. A function that throws at its first call ends the read then:
   `read-live` still gives {:now :leave-with}, and the handle is not open.
 
@@ -1311,10 +1392,12 @@
   which g are \"members\", k + g + k. For what points at a thing, one push
   more for each place of a farther order and each nearer layer. Each open
   push costs its layer's gate at each write. Rama opens a bounded count of
-  pushes on one table on one task, 1,000 as it ships; a read that needs a
-  push past that bound gives `:reach-the-store` (the namespace docstring). Nothing bounds a caller that
-  never leaves but the end of the process: its read and its pushes stay,
-  and `open-count` shows them."
+  pushes on one table on one task, and the read path holds a bound of its
+  own under that: a read whose pushes would pass it is turned away at once,
+  with `:keep-more-reads-live`, and has opened none of them (the namespace
+  docstring, \"How many pushes\"). Nothing bounds how long a caller stays
+  but the end of the process: the read and the pushes of a caller that
+  never leaves stay, count toward that bound, and `open-count` shows them."
   [^ReadPath read-path query f]
   (try
     (let [[outcome query routing-ids] (checked read-path query)]

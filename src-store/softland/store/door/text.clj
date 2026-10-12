@@ -4,10 +4,12 @@
 
   Why it is here. The digest of a thing is taken over this text
   (`softland.store.door.digest`), so that the door and a gate get one digest for
-  one thing. The record keeps a value as the bytes of this text
+  one thing. The record keeps a value by the bytes of this text
   (`softland.store.record.rows`): a value under a store key as a gate writes
   them, and a value under a plain key as the door sealed them and its lock
-  opened them. A fact's row holds who wrote it and the permission that its
+  opened them; a fact's row holds those bytes as a String, which for bytes
+  of this text is the text itself. A fact's row holds who wrote it and the
+  permission that its
   act named as this text too, and the order by value is kept by the digest
   of these bytes. The place that a seal is bound to is the bytes of this
   text (`softland.store.door.seal`).

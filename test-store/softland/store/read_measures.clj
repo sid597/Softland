@@ -25,14 +25,23 @@
         is the streaming depot's ack: once with the key not marked and once
         with it marked. And the base, timed to the moment at which the
         door's wait gives \"accepted\"
-    M2  M1's first shape with 1, 100 and 1,000 live reads open on the
+    M2  M1's first shape with 1, 100 and 1,000 live reads asked for on the
         layer, of one asker who holds a permission in it: each read on
         another place that is not written; and each on another run that
-        holds the written places
+        holds the written places. The read path holds 900 pushes on one
+        table under one routing id, so of 1,000 such reads 898 open and
+        the others are turned away with its own word; the line says how
+        many opened
     M3  the opening of a canvas of 5,000 facts: asked as the run across the
         5,000 entities and as what points at the canvas, once and kept
         live, through one layer and through three; with a streaming layer
-        as the farthest, and with the base as the farthest
+        as the farthest, and with the base as the farthest. Kept live
+        through three layers, what points at the canvas needs a check, and
+        so a push, for each place and each nearer layer: far more than the
+        250 that one live read may need, so that shape measures how soon
+        the read is turned away. One shape more gives the cost of those
+        checks where they are few enough to open: what points at a canvas
+        of 100 facts, kept live through three layers
     M4  how late a push is: one live read of one place, which one maker
         changes 10 times a second; in a streaming layer and in the base;
         and, in a streaming layer, of one place of the facts by value
@@ -220,7 +229,10 @@
   "M2: M1's first shape with live reads open on the layer, in two shapes
   and three counts. The asker holds a permission in the layer, whose
   setting is \"members\", so n reads hold n + 2 pushes: the n fact sources,
-  the layer's own rows and her permission.
+  the layer's own rows and her permission. All of them are on the facts
+  table under the layer's routing id, where the read path holds 900 at
+  most: of 1,000 reads asked for, 898 open, and each other is turned away
+  at once with the read path's word. The line gives the words that came.
 
   In the shape of runs the acts go round 256 places, and not each to a
   place of its own: each run holds every written place, so with places
@@ -231,6 +243,7 @@
           n reads]
     (let [layer (keyword (str "m2-" (name shape) "-" n))
           own (make! layer)
+          opening-began (System/nanoTime)
           asker-permission [:asker layer layer own]
           _ (accepted! :maker layer own [{:e :asker :k :softland.store/permission :v asker-permission}])
           told (atom 0)
@@ -243,7 +256,8 @@
                                   [:run [:p] [(keyword (str "q" (+ 100000 j)))]])
                           :asker :asker :layers [layer]}
                          (fn [change] (when (:changed change) (swap! told inc))))))
-          words (count (filter :could-not opened))
+          opening-took (- (System/nanoTime) opening-began)
+          words (frequencies (keep :could-not opened))
           counts (read-path/open-count rp)
           fact-of (if (= :places shape)
                     another-place
@@ -252,11 +266,12 @@
           began (System/nanoTime)
           _ (run! #(read-path/leave rp (:leave-with %)) (remove :could-not opened))
           left (- (System/nanoTime) began)]
-      (measured "M2 the streaming gate, 100 acts a second, with" n "live reads open on the layer,"
+      (measured "M2 the streaming gate, 100 acts a second, with" n "live reads asked for on the layer,"
                 (if (= :places shape)
                   "each on another place that is not written"
                   "each on another run that holds the written places, which go round 256 places")
-                "|" (pr-str counts) "| reads that did not open:" words
+                "|" (pr-str counts) "| reads that did not open, by the word that came:" (pr-str words)
+                "| asking for them all took" (ms opening-took) "ms"
                 "| from the act's due moment to the return of send-act:" (times (:from-due got)))
       (measured "M2 the same," n "live reads," (name shape) "| from the call of send-act to its return:" (times (:from-call got))
                 "| changes that the askers were told:" @told "| leaving them all took" (ms left) "ms"))))
@@ -350,15 +365,46 @@
                   "| heap in use before" before "MB and after the last opening" (:heap last-turn) "MB"
                   (if live? (str "| leave took " (pr-str (mapv (comp ms :left) counted)) " ms") ""))))))
 
+(defn- m3-small-canvas-live
+  "M3's one shape more: what points at a canvas of 100 facts, kept live
+  through three layers. Its checks of nearer layers are few enough for one
+  live read, so the read opens, with one push for each check: the cost of
+  the way of the checks that is built, where it can be paid. Each time is
+  from the call of `read-live` to its return."
+  [{:keys [runs dropped]}]
+  (let [rp (:patient @round)
+        far-own (make! :s-far)
+        three (canvas! :s-far :maker far-own [:s-near :s-mid] 100)
+        query {:asks [:points-at :parent :canvas-1] :asker :maker :layers three}
+        turns (vec (for [_ (range runs)]
+                     (let [began (System/nanoTime)
+                           counted (counting #(read-path/read-live rp query (fn [_] nil)))
+                           took (- (System/nanoTime) began)
+                           got (:result counted)
+                           held (read-path/open-count rp)
+                           left-began (System/nanoTime)
+                           _ (when (:leave-with got) (read-path/leave rp (:leave-with got)))]
+                       {:took took :left (- (System/nanoTime) left-began) :opens (:opens counted) :pushes (:pushes held)
+                        :places (count (:places (:now got))) :word (:could-not got)})))
+        counted (subvec turns dropped)
+        last-turn (peek turns)]
+    (measured "M3 a canvas of 100 facts in a streaming layer | what points at the canvas kept live through three layers, where the checks of nearer layers are few enough to open"
+              "| from the call to its return:" (times (map :took counted)) "| each time:" (pr-str (mapv (comp ms :took) counted))
+              (if (some :word turns) (str "| a word came in the place of an answer: " (pr-str (distinct (keep :word turns)))) ""))
+    (measured "M3 the same |" (:places last-turn) "places in the answer | pushes that it opened:" (:opens last-turn)
+              "| pushes held:" (:pushes last-turn) "| leave took" (pr-str (mapv (comp ms :left) counted)) "ms")))
+
 (defn- m3
   "M3: the opening of a canvas, with a streaming layer as the farthest and
-  with the base as the farthest."
+  with the base as the farthest; and the one shape more of
+  `m3-small-canvas-live`."
   [load]
   (let [far-own (make! :c-far)
         streaming (canvas! :c-far :maker far-own [:c-near :c-mid] (:canvas load))
         base (canvas! :base :system system-own [:b-near :b-mid] (:canvas load))]
     (m3-shapes "a canvas in a streaming layer" streaming :maker load)
-    (m3-shapes "a canvas in the base" base :maker load)))
+    (m3-shapes "a canvas in the base" base :maker load)
+    (m3-small-canvas-live load)))
 
 ;; ------------------------------------------------------------------------ M4
 
@@ -371,11 +417,12 @@
   have no call of its own.
 
   `table` is `:facts` or `:facts-by-value`. For `:facts` the read is of one
-  place, and each act writes another value there: the push is on a row of
-  the facts table, which holds the value's bytes. For `:facts-by-value` the
-  read is of what points at a thing under a marked key, and each act writes
-  the same thing again at one place: the push is on a run of the facts by
-  value, whose rows hold no bytes, and each act changes the one row of it.
+  place, and each act writes another value there: the push is on one row of
+  the facts table, which holds the value as a String. For `:facts-by-value`
+  the read is of what points at a thing under a marked key, and each act
+  writes the same thing again at one place: the push is on a run of the
+  facts by value, whose rows hold no value, and each act changes the one
+  row of it.
   An act is known in a change by its act-id, which the place-answer's fact
   holds. What must hold for `:facts-by-value`: the layer marks `:late-on`."
   [what table who layer permission {:keys [late-acts late-warm]}]
@@ -421,9 +468,9 @@
 
 (defn- m4
   "M4: a place of the facts table, in a streaming layer and in the base; and
-  a place of the facts by value in a streaming layer, so that a push on rows
-  that hold a value's bytes and a push on rows that hold none are measured
-  under the same load."
+  a place of the facts by value in a streaming layer, so that a push on one
+  row of the facts table and a push on a run of the facts by value are
+  measured under the same load."
   [load]
   (let [own (make! :m4)]
     (accepted! :maker :m4 own [{:e :m4 :k :softland.store/marked-keys :v #{:late-on}}])

@@ -112,8 +112,8 @@
   "Makes the row of a fact as a gate would keep it, and remembers it. Takes
   the layer, who wrote it, the entity, the key, the value (nil for a
   retract) and the stamp. A fact under a store key keeps the one text of
-  its value; any other value is kept as the plain bytes that its lock would
-  open."
+  its value; any other value is kept as the String of the plain bytes that
+  its lock would open (`softland.store.record.rows/held-value`)."
   (memoize
    (fn [layer who e k v stamp]
      (let [act {:who who :permission [who layer layer]}
@@ -190,7 +190,7 @@
                   tables (put tables gate :facts place (fact-row* layer who e k v stamp))
                   order (table tables gate :facts-by-value)
                   order (if (and since before (some? (:value before)))
-                          (dissoc order (rows/by-value-key layer k since (rows/value-digest (:value before)) e))
+                          (dissoc order (rows/by-value-key layer k since (rows/value-digest (rows/plain-bytes-of before)) e))
                           order)
                   order (if (and since (some? v) (< since stamp))
                           (assoc order (rows/by-value-key layer k since (rows/value-digest-of v) e)
@@ -693,10 +693,17 @@
            (refuses (assoc good :layers (map (fn [i] (if (< i 70) (keyword (str "l" i)) (throw (ex-info "read past the bound" {}))))
                                              (iterate inc 0)))))
     (check "the numbers: a default for each that is left out or is none; a number that is given is taken"
-           [query/default-numbers (assoc query/default-numbers :wait-ms 300 :run-start-places 4) query/default-numbers]
+           [query/default-numbers
+            (assoc query/default-numbers :wait-ms 300 :run-start-places 4 :max-pushes-under-one-routing-id 5)
+            query/default-numbers]
            [(query/numbers nil)
-            (query/numbers {:wait-ms 300 :run-start-places 4 :max-places-of-one-run 0 :max-checks-of-one-read "many" :more 1})
+            (query/numbers {:wait-ms 300 :run-start-places 4 :max-places-of-one-run 0 :max-checks-of-one-read "many"
+                            :max-pushes-under-one-routing-id 5 :max-checks-of-one-live-read -1 :more 1})
             (query/numbers 7)])
+    (check "the read path's seven numbers, written out a second time: a read kept live may need 250 checks of nearer layers where one asked once may need 40,000, and the read path holds 900 pushes on one table under one routing id, under the 1,000 that Rama opens on one table on one task"
+           {:run-start-places 256 :max-places-of-one-run 20000 :max-checks-of-one-read 40000 :max-checks-of-one-live-read 250
+            :max-pushes-under-one-routing-id 900 :max-paths-in-one-call 2000 :wait-ms 10000}
+           query/default-numbers)
     (shown "the form of a query:" (count forms) "queries are taken, one for each word and each kind of end;"
            (count faults) "faults are each turned away with a word and the part,"
            (count given) "different words, every word that the declaration holds:" (pr-str (sort given)))
@@ -961,10 +968,17 @@
              (let [joined (play-once traces query)]
                [(into {} (mapcat :checks) (vals (:by-layer (:reading joined))))
                 (set (keys (:places (:answer joined))))])))
-    (check "the checks of one read are bounded: past the number the read wants none of them and says that it is too large"
-           [{:what :checks-of-one-read :most 2} true]
-           (let [r (sources/reading query known task-ids :once (assoc numbers :max-checks-of-one-read 2))]
-             [(:too-large r) (every? nil? (map :checks (vals (:by-layer r))))]))
+    (check "the checks of one read are bounded, by one number when it is asked once and by another when it is kept live: past its own number the read wants none of them and says that it is too large, with that number; the other number does not bound it"
+           [[{:what :checks-of-one-read :most 2} true] [{:what :checks-of-one-read :most 2} true] [nil false] [nil false]]
+           (let [bounded (fn [mode numbers]
+                           (let [r (sources/reading query known task-ids mode numbers)]
+                             [(:too-large r) (every? nil? (map :checks (vals (:by-layer r))))]))]
+             [(bounded :once (assoc numbers :max-checks-of-one-read 2))
+              (bounded :live (assoc numbers :max-checks-of-one-live-read 2))
+              (bounded :once (assoc numbers :max-checks-of-one-live-read 2))
+              (bounded :live (assoc numbers :max-checks-of-one-read 2))]))
+    (check "how many checks one read may need, by how it is asked, at the defaults"
+           [40000 250] [(sources/most-checks :once numbers) (sources/most-checks :live numbers)])
     (check "a check's row that holds another thing hides the place; one that says nothing here hides it; one that holds the asked thing gives the place from the nearer layer's row"
            [{} {} [:l1 :canvas-1 12]]
            [(:places (nearer :canvas-2)) (:places (nearer nil))
@@ -977,7 +991,7 @@
             (rows/holds-this-value? (row uuid) (str uuid))
             (rows/holds-this-value? (row nil) :canvas-1)
             (rows/holds-this-value? nil :canvas-1)
-            (rows/holds-this-value? {:value (.getBytes "(not a value") :stamp 1} :canvas-1)])
+            (rows/holds-this-value? {:value (rows/held-value (.getBytes "(not a value")) :stamp 1} :canvas-1)])
     (shown "the checks of nearer layers: one in each layer nearer than the nearest order that holds a place, and in no other; none in a layer between two orders that both hold it; with the one function put aside the runs are joined; past the build's number none is wanted and the read is too large")
     (shown "the nearest row wins, and the place is given from it exactly when it holds the thing: a nearer row with another thing, or a retract, hides the place; a nearer row with the asked thing gives it, from the nearer layer")))
 
@@ -987,7 +1001,7 @@
                         [:fact :team :bob :note-9 :text "only the team" 713]
                         [:fact :base :system :note-9 :size 9 330]])
         tables (put tables :microbatch :facts (rows/place-key :base :note-9 :raw)
-                    {:value (.getBytes "(not a value") :by-act (UUID. 0 9) :by-index 0 :stamp 331
+                    {:value (rows/held-value (.getBytes "(not a value")) :by-act (UUID. 0 9) :by-index 0 :stamp 331
                      :who ":system" :permission "[:system :base :base]"})
         ask (fn [who asks layers & more]
               (:answer (play-once tables (q (merge {:asks asks :layers layers} (if who {:asker who} {:not-signed-in true})
@@ -1151,9 +1165,9 @@
 
 (deftest the-size-of-a-run-and-the-order-of-its-keys
   (let [small (assoc numbers :max-places-of-one-run 20000)
-        row (fn [bytes stamp] {:value bytes :by-act (UUID. 0 1) :by-index 0 :stamp stamp :who ":a" :permission "[:a :l :l]"})
-        a (.getBytes "\"one\"")
-        b (.getBytes "\"one\"")
+        row (fn [held stamp] {:value held :by-act (UUID. 0 1) :by-index 0 :stamp stamp :who ":a" :permission "[:a :l :l]"})
+        a (rows/held-value (.getBytes "\"one\""))
+        b (rows/held-value (.getBytes "\"one\""))
         run {:gate :streaming :table :facts :layer :l :routing-id :l :path [:run ":l :e " ":l :e!"]}
         one-row {:gate :streaming :table :facts :layer :l :routing-id :l :path [:row ":l :e :k"]}]
     (check "the size of a run, from a bounded walk: a full walk whose last key is before the run's end is too large; a full walk that ran on past the run's end is not; a walk that is not full is not; a walk that holds nothing is not"
@@ -1184,11 +1198,12 @@
            [[":l :e :a" ":l :e :m "] [":l " ":l!"] [":l :e " ":l :f!"] nil nil]
            [(rows/run-of-ends :l [:e :a] [:e :m]) (rows/run-of-ends :l :first :last) (rows/run-of-ends :l [:e] [:f])
             (rows/run-of-ends :l [:f] [:e]) (rows/run-of-ends :l [:e :m] [:e :a])])
-    (check "two rows are the same when each field is equal, a run of bytes by its content: equal bytes that are not one object; nil and nil; a row and nil; rows that differ in one field; a field that one row has not"
-           [true true false false false false]
-           [(rows/same-row? (row a 5) (row b 5)) (rows/same-row? nil nil) (rows/same-row? (row a 5) nil)
-            (rows/same-row? (row a 5) (row a 6)) (rows/same-row? (row a 5) (row (.getBytes "\"two\"") 5))
-            (rows/same-row? (row a 5) (dissoc (row a 5) :value))])
+    (check "two rows are the same when each field is equal: a value that is an equal String and not one object; nil and nil; a row and nil; rows that differ in one field; a field that one row has not; no field of a row is a byte array"
+           [true false true false false false false true]
+           [(rows/same-row? (row a 5) (row b 5)) (identical? a b) (rows/same-row? nil nil) (rows/same-row? (row a 5) nil)
+            (rows/same-row? (row a 5) (row a 6)) (rows/same-row? (row a 5) (row (rows/held-value (.getBytes "\"two\"")) 5))
+            (rows/same-row? (row a 5) (dissoc (row a 5) :value))
+            (not-any? bytes? (vals (row a 5)))])
     (check "which keys a change names: a row that is the same before and after is dropped, also the row that a second attempt wrote again; the removal of a place that the run never held is no change"
            [#{} #{":l :e :k"} #{":l :e :b"} #{} #{":l :e :b"}]
            [(sources/named one-row :all (row a 5) (row b 5))
@@ -1238,19 +1253,22 @@
 (deftest the-words
   (let [each (keys words/words)
         made (words/word :serve-a-read-that-large {:what :places-of-one-run :most 20000 :places {:a 1} :layers [:l]})]
-    (check "the read path's own seven words"
+    (check "the read path's own eight words"
            #{:find-the-module :read-the-query :reach-the-store :get-an-answer-within-its-wait
-             :read-inside-an-askers-function :serve-a-read-that-large :keep-the-read-live}
+             :read-inside-an-askers-function :serve-a-read-that-large :keep-more-reads-live :keep-the-read-live}
            (set each))
+    (check "the word of the read path's own bound on its pushes is given by a read that is kept live, and by no read asked once"
+           #{:read-live} (:from (get words/words :keep-more-reads-live)))
     (check "each word says what it is and which call gives it; a word that is not declared is not made"
            [true nil]
            [(every? (fn [w] (let [entry (get words/words w)] (and (string? (:says entry)) (seq (:from entry))))) each)
             (words/word :no-such-word {})])
     (check "a word holds :could-not and what it carries, and no part of an answer"
            {:could-not :serve-a-read-that-large :what :places-of-one-run :most 20000} made)
-    (check "what a word can carry is declared, and so are the four reasons for which a live read ends and the two words for a layer that is left out"
+    (check "what a word can carry is declared, and so are the five reasons for which a live read ends and the two words for a layer that is left out"
            [#{:module :why :at :threw :said :waited-ms :what :most :because}
-            #{:the-store-ended-a-push :a-run-grew-too-large :a-read-it-came-to-need-failed :its-function-threw}
+            #{:the-store-ended-a-push :a-run-grew-too-large :a-read-it-came-to-need-failed :no-room-for-a-push-it-came-to-need
+              :its-function-threw}
             #{:may-not-see :not-made}]
            [(set (keys words/carried)) (set (keys words/because)) (set (keys words/left-out-words))])
     (check "no word of the read path is a gate's reason, a word of a stray, or a word with which the check of a query turns a thing away"
@@ -1263,7 +1281,7 @@
            [#{} #{} #{}]
            [(set (filter act/reasons query/reasons)) (set (filter declaration/reasons query/reasons))
             (set (filter (set (keys door-words/words)) query/reasons))])
-    (shown "the read path's seven words are declared, each with what it says:" (pr-str (sort each))
+    (shown "the read path's eight words are declared, each with what it says:" (pr-str (sort each))
            "| none is a gate's reason or a word of a stray; one, :find-the-module, is spelled as the door's word for its own opening")))
 
 (defn test-ns-hook
