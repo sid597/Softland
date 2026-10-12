@@ -320,7 +320,7 @@ The store's module (7 October):
 | Row | Decision | Where it shows |
 |---|---|---|
 | F6 A, Q7 a | Two depots, one for each gate: the streaming depot and the microbatch depot | [module.clj](module.clj) declares `*streaming-depot` and `*microbatch-depot`. It declares a third depot, `*batch-clock-depot`, which takes no act and from which no gate decides |
-| F2 A | The record is in the gates' PStates; the acts depots are the replay log | Each gate owns the PStates of its record; no depot is ever trimmed. What a rebuild from the microbatch depot reaches is under rules 9 and 19 |
+| F2 A | The record is in the gates' PStates | Each gate owns the PStates of its record; no depot is ever trimmed. That the acts depots are the replay log is a session's sentence, and no decision of his. What a rebuild from the microbatch depot reaches is under rules 9 and 19 |
 | F1 A | The depot of a layer is a fact on the layer | The row at the layer's own entity under `:softland.store/depot` ([rows.clj](record/rows.clj)) |
 | F4 C | The base is a microbatch layer; every other layer starts streaming | `depot-at-making` in [first_act.clj](gate/first_act.clj) |
 | F5 A | A gate reads on its own task | The streaming gate's event has no hop. In a microbatch layer five rows are on every task: the layer's depot fact, each permission, who may see the layer, what it builds on, and its marked keys (`on-every-task?` in [batch.clj](gate/batch.clj)). So an act finds its permission where it arrives, and the home task of a place finds the marked keys where it reads the place. A layer holds facts under its own entity |
@@ -335,7 +335,7 @@ Who acts, and what the store reads (8 October):
 |---|---|---|
 | E1·H8 A | The system stands at the top of the base's chain | `system` and `base` in [first_act.clj](gate/first_act.clj) |
 | K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
-| E3·H7 B, E4 A, E2 A | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj). Since the read build a holder of a permission that says `:see` cannot give: her give is an act, and is refused `:permission-does-not-allow-acting` |
+| E4 A, E2 A; and E3·H7 B, which is a session's reading and not his answer | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj). Since the read build a holder of a permission that says `:see` cannot give: her give is an act, and is refused `:permission-does-not-allow-acting` |
 | H2 A | A stamp holds the clock time and a counter | [stamp.clj](gate/stamp.clj) |
 | K1 A | The store's keys are three: the depot, a permission, the door's request for locks | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those three and, since the decisions of 11 and 12 October, three more: who may see a layer, what it builds on, its marked keys |
 
@@ -566,8 +566,8 @@ where its places are. The rest is the builder's too.
   the one task that can be found from the lock's id.
 - A layer's depot fact and each permission are on every task. Every act needs the
   permission of its `:who` where it is decided. A copy is bytes and a rare write;
-  a fetch would be a hop between tasks on every act. That is Sid's reason for
-  F5 A, read onto the permissions. A give writes one row on each task.
+  a fetch would be a hop between tasks on every act. That is the reason that a
+  session gave him for F5 A and that he agreed with, read onto the permissions. A give writes one row on each task.
 - Who may see the layer, what it builds on and its marked keys are on every task
   too. A gate reads the marked keys on the home task of each place, and a reader
   finds the setting and the list on the task where it reads. Each is one small
@@ -848,8 +848,9 @@ contract and the decisions, not made here: `:act-id`, `:depot`, `:sealed`,
 `:streaming`, `:microbatch`, `:accepted`, `:refused`; "stray", "place", "holder",
 "making act". "Act-id" is Sid's to change, and each word below that holds it
 follows his word. "Depot" is his word, of 9 October: the contract and his
-decisions before that day say "class" for it. "Members", "everyone", "see" and
-"see and act" are his words, of 10 to 12 October; the keywords made of them are
+decisions before that day say "class" for it. "Members" and "everyone" are his
+words, of 10 October. "See" and "see and act" are a session's; he said "yes"
+on 12 October to a sentence that holds them. The keywords made of the four are
 a session's.
 
 The store keys carry the namespace `softland.store`. The three of 8 October are

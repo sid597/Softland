@@ -66,6 +66,15 @@ so too. In Sid's words, these are high level, and he needs them here at least
 until everything is built out. The words that they use are in the namespace
 docstring of [act.clj](softland/store/act.clj).
 
+Where each answer is in the record. He typed 1 A, 2 A, 3 A, 7 A, "8b-yes",
+10 A and 11 A in one line (‹d4fd70ba›). The same line holds his question on 9,
+"I think i need more explanation around 4,5,6", "for 12 a vs b???", and where
+these go: "write in src-store/readme.md because these are high level and need
+them there atlest we build everything out". His ticks are on three photographs
+of the sheet, on his next line (‹61dbaec7›). The record keeps no image. A
+session read the photographs and wrote down a mark for each question
+(«3d4ee664»); for 4, 5, 6a and 12 that reading is all that the record holds.
+
 1. **The act is the one form and the check of it; nothing else.** Sid decided.
    `act.clj` makes no act-id, and has no stand-in sealed form and no digest.
 2. **The one form is the maker's act.** Sid decided. It is what a converter
@@ -86,8 +95,8 @@ docstring of [act.clj](softland/store/act.clj).
    itself always carries the class. The door makes act-ids. An act-id is
    `[layer class uuid]`: three slots, no scheme word, the last a random UUID.
    Sid asked on 7 October why it was called a name when "act-uuid" would be
-   understood; it holds more than the UUID, so a session wrote act-id — his to
-   change. The act still refers to
+   understood (‹9b8f461f›); it holds more than the UUID, so a session wrote
+   act-id — his to change. The act still refers to
    act-ids, so the shape of an act-id stays declared. Derived from two of his
    rulings (the door makes the act-id; a series gets all its act-ids before its
    first act is sent), not his tick: act-ids are given on request, ahead of
@@ -97,7 +106,10 @@ docstring of [act.clj](softland/store/act.clj).
 6. **A fact is the named slots `{:e :k :v :replaces}`.** Sid decided:
    `:replaces` is optional, a fact id; `:v` is optional; a fact has no mark.
    Proposed by a session for a blank box (6b) and agreed by Sid in chat on
-   6 October: a fact has no layer of its own. Also blank (6c): where a fact that
+   6 October: a fact has no layer of its own. His words to the session's
+   picks: "I think we agree on this" (‹61dbaec7›). When a session then wrote
+   the box down as pending, he asked the same day "how did you come to the
+   conclusion that this is pending?" (‹1aa6cc3b›). Also blank (6c): where a fact that
    names another layer is refused, on the face of the act or in the gate's
    decision; moot while 6b stands. Kept from today's code, not decided:
    a fact with no value is a retract.
@@ -109,14 +121,22 @@ docstring of [act.clj](softland/store/act.clj).
    stays in the form: the permission's layer is the act's layer, else
    `:permission-not-in-layer`. Whether the permission stands is the gate's.
    Kept from today's code, not decided: a permission is 4 levels deep at most.
+   A fact, checked on 12 October: the rig's code holds the same limit of four,
+   and counts it as "root, session, agent, tool"
+   (`src/proposal/rig-2026-09-25/src/rig/store/permit.clj`, line 22). On
+   12 October he said yes to lifting it (entry 6 of that day); the code holds
+   it until that build.
 9. **An id is a readable keyword or a UUID; a key is a readable keyword only.**
    Sid decided the half on an id. The ids are an entity, who, a layer, a
    session, a subject and the layer slot of an act-id. A key is a fact's `:k`.
    The half on a key is a session's (found on 9 October). The question put to
    him was what an id is, and his line was "how can it be a keyword????? we
-   can have10^x no of ids where will we find the keywords for them???". The
-   session that answered wrote "Keywords were the rig's choice" and proposed
-   the split itself, "a key is a keyword"; no line of his takes up that half.
+   can have10^x no of ids where will we find the keywords for them???"
+   (‹d4fd70ba›). The session that answered wrote "Keywords were the rig's
+   choice" and proposed the split itself, "a key is a keyword" («a78296bc»);
+   no line of his takes up that half. On the photographed sheet a session
+   read his tick at A, and beside it a note in his hand, "Keyword + uuid ???"
+   («3d4ee664»).
    The rulings file of September says, in a session's words, "Keys are ids;
    word and grammar are facts about them", and lists "Keys as ids: confirmed"
    among the nine of 24 September. He has not ruled between the two. Until he
@@ -126,18 +146,26 @@ docstring of [act.clj](softland/store/act.clj).
 11. **`:based-on` is a map from a fact id to a carried stamp.** Sid decided.
     Proposed by a session for a blank box (11C) and agreed by Sid in chat on
     6 October: an outside thing is recorded as a fact first, so its basis is
-    that fact. Kept
+    that fact. It rests on the same two lines of his as 6b (entry 6). Kept
     from today's code, not decided: the part is optional, and empty when absent.
 12. **A carried stamp is an integer.** Sid decided. Kept from today's code, not
     decided: a carried stamp is below 2^62, an act names 256 subjects at most,
-    and a value is inside 32 collections at most. Closed by a session on
+    and a value is inside 32 collections at most. A fact, checked on
+    12 October: the rig's code holds the same three numbers
+    (`src/proposal/rig-2026-09-25/src/rig/store/envelope.clj`, lines 74 to
+    87). He asked on 6 October "is 2^62 big enough" (‹61dbaec7›); the record
+    holds no answer to it. Closed by a session on
     6 October, waiting for his word: a carried stamp is not below zero, because
     no gate gives one.
 
 ## Decisions of 7 October 2026 — the store's module
 
 Sid answered these in chat on 7 October 2026, one by one, on the sheet "The
-store — the questions the gates need". They shape the module built next: the
+store — the questions the gates need". The record holds his answers as three
+lines of that morning: ‹27882354›, ‹32f65085› and ‹9b8f461f›. Words in
+quotation marks are his, as he typed them. A reason that a session gave him
+before he answered is marked as the session's. They shape the module built
+next: the
 depots, the gates and the record. As each part is built, its folder's README
 carries the decision that shapes it and this section points there. What is not
 yet decided is queued in
@@ -145,8 +173,9 @@ yet decided is queued in
 never live there.
 
 1. **Two depots, one for each gate: the streaming depot and the microbatch
-   depot.** Sid decided (F6 A, Q7 a).
-2. **The record is in the gates' PStates.** Sid decided (F2 A). His line:
+   depot.** Sid decided (F6 A, Q7 a; ‹27882354›).
+2. **The record is in the gates' PStates.** Sid decided (F2 A). His line
+   (‹27882354›):
    "f2 - A, note to self- it is recomputable given the version a act was
    proposed at it will be rejected every time so storing it a new
    depotdoesn't make sense". The build found that a second run of a gate
@@ -155,34 +184,58 @@ never live there.
    into a log (entry 1 of that day). The gates' PStates stay the record
    that the door and every read use.
 3. **The members of a layer set its class, as a fact on the layer.** Sid
-   decided (F1 A). The "third switch" of the 2 October drawing was never his
+   decided (F1 A; ‹27882354›). The "third switch" of the 2 October drawing was never his
    agreement; this is.
 4. **The base is a microbatch layer; every other layer starts streaming.** Sid
-   decided (F4 C). His heuristic: work a person engages with directly — an
-   editor, a canvas, 3D, live collaboration — must be interactive, so
-   streaming; data subscribed to from another layer may arrive a batch later,
-   so microbatch. The base, which everyone subscribes to, is the extreme of
-   the second kind.
+   decided (F4 C). Of the other layers: "members choose yes, default is
+   streaming yes" (‹27882354›). Of the base: "Base:: Microbatch I think ...
+   why should it be streaming??? instant vs a few ms", and his heuristic, in
+   his words (‹32f65085›):
+   "i think one heuristic is when I am doing personal work somethign I am
+   engaging with directly and i know it is supposed to be fast like editor,
+   canvas, 3d roaming around, live collaboration .. people expect it to be
+   interactive .. if they are subscribed to something some other layer the data
+   is coming from somewhere else that is not marked as live collaboration is
+   fine to come a little bit delayed wdyt??"
+   A session's, from that: the base, which everyone subscribes to, is the
+   extreme of the second kind. His "a few ms" is not the build's figure; see
+   entry 8 of 11 and 12 October, "The base's second is fine".
 5. **Each layer holds a copy of each grammar it uses; a gate reads on its own
-   task.** Sid decided (F5 A), agreeing with the cost: a copy is bytes and a
-   rare write; a fetch is a cross-task hop on every act.
+   task.** Sid decided (F5 A). He asked "what is the cost of holding a copy vs
+   fetching it from another task??" (‹27882354›), and met a session's answer
+   with "copy .. i agree with your logic here" (‹32f65085›). The logic is the
+   session's: a copy is bytes and a rare write; a fetch is a cross-task hop on
+   every act.
 6. **The door reads a streaming act's answer from the record by act-id; the
-   ack is a signal.** Sid decided (Q22 A): an ack can fail to carry the answer
-   — an error for an act the gate accepted — and a microbatch act never has
-   one.
+   ack is a signal.** Sid decided (Q22 A): "so yeah A it is", after "ahh i
+   understand why", where he says a session's reason back to it, "Because the
+   ack can fail to carry it" (‹9b8f461f›). The session's reason in full: an
+   ack can fail to carry the answer — an error for an act the gate accepted —
+   and a microbatch act never has one.
 7. **A rule for all code: what leaves a decision — an ack, a bell, a
    promotion's second act — is a signal; the truth is the record; read it by
-   act-id.** Sid decided (F7 A). A gate reads its own record by act-id before
-   it decides, so a repeat is answered, not decided twice.
+   act-id.** Sid decided (F7 A), by the same line as Q22. He had asked of the
+   two as one, "q22 & f7:::" (‹32f65085›); a session answered the two under
+   one heading and gave its letters, "Q22 A, F7 A" («a02f36a4»); his "so yeah
+   A it is" (‹9b8f461f›) is one answer to that. A gate reads its own record by
+   act-id before it decides, so a repeat is answered, not decided twice.
 8. **The gate refuses a setting key on an entity that is not the act's layer,
-   as a recorded decision.** Sid decided (F8 C). The door may warn early; the
-   gate is the authority, because anything can append to a depot without the
-   door, and the one form knows no store keys (decision 3 of 6 October).
+   as a recorded decision.** Sid decided (F8 C): "f8 C ok" (‹9b8f461f›), after
+   "f8::: wdyt???" (‹27882354›) and "f8 :: still don't understand"
+   (‹32f65085›). The reason is a session's, which it gave him before he
+   answered («a02f36a4»): the door may warn early; the gate is the authority,
+   because anything can append to a depot without the door, and the one form
+   knows no store keys (decision 3 of 6 October). What can reach a depot is
+   his decision of 12 October (entry 4 of "reading back out").
 9. **The three limits are targets to optimise toward; the rig's measurements
-   are the starting point, not a ceiling.** Sid decided (F9 b, c). Two nodes
-   on one machine is a question for production (F9 a).
+   are the starting point, not a ceiling.** Sid decided (F9 b, c): "The limits
+   are what we should be optimising for what we measured is starting point
+   maybe a better optimised sytem will perform better", and "idk lets go by
+   whats measured and we will know better when we build more and optimise"
+   (‹27882354›). Two nodes on one machine is a question for production (F9 a):
+   "it is fine to punt to later when i go to production" (‹32f65085›).
 10. **The act's id is called act-id.** Sid asked why it was called a name when
-    "act-uuid" would be understood; it holds more than the UUID —
+    "act-uuid" would be understood (‹9b8f461f›); it holds more than the UUID —
     `[layer class uuid]`, the layer and the class route the act and find its
     answer — so a session wrote act-id; the word is his to change. **The word
     "class"** (streaming or microbatch) is borrowed and not accepted; it stays
@@ -194,21 +247,27 @@ never live there.
 Sid answered these in chat on 8 October 2026, against a list of eight that the
 build session put to him: the two questions of its own sheet (K1, K2) and six
 rows of the sheet "The record, and who acts". Words in quotation marks are his,
-of that day unless a date is given. Where a session read his answer onto a
-row, the entry says so; he let those readings stand the same day. They shape
+of that day unless a date is given. The record holds his answers as two lines,
+‹f3f530b8› and ‹751c2af7›; an earlier line, ‹d05a12e6›, holds the first five
+of the eight. Their day in the record is 7 October, by its clock; by his it
+was 8 October. Where a session read his answer onto a row, the entry says so.
+He struck none of those readings that day; for one of them his own words on
+the row were that he did not understand the question (entry 3). They shape
 the gates' check of a permission, the making of a layer, the stamp and the
 seal.
 
 1. **The system stands at the top of the base's chain.** Sid decided (E1·H8
-   A): "system". His line of 6 October names the three that act: a user, a
+   A): "system" (‹f3f530b8›). His line of 6 October (‹ddf13d17›) names the
+   three that act: a user, a
    group, or "the system basically software"; "if it is a system level thing
    like we as the architect of it are trying to do then it comes under that
    part".
 2. **A signed-in user has a personal layer and a permission in it, without
    asking.** Sid decided (K2): "the user already is logged in as a user so
-   they automatically have their personal layer and permissions". A user who
-   is not signed in is "just roaming around on what is open by the system or
-   world group". He agreed to this form of it: the system makes the layer and
+   they automatically have their personal layer and permissions" (‹f3f530b8›).
+   A user who is not signed in is "just roaming around on what is open by the
+   system or world group". He agreed, with "2. ok" (‹751c2af7›), to this form
+   of it, which a session wrote: the system makes the layer and
    the permission at the first sign-in, and the person who creates a group
    makes the group's layer. The builder's part, not his: each layer is made by
    one act, its first, so that the making of a layer is in the acts depot
@@ -220,29 +279,38 @@ seal.
    permission "ties back to a single individual", however deep the groups and
    agents go; to walk back along it comes down to who created the group,
    "invited who, who gave the permission to do xyz in their group". An act in
-   a personal layer comes under the person's own permission. A session read
-   three rows from this, and he let the reading stand: each actor acts under
+   a personal layer comes under the person's own permission (‹f3f530b8›). A
+   session read three rows from this: each actor acts under
    its own permission (E4 A); whoever holds a permission can give one beneath
    it (E2 A; Sid: "I answered this in 4 imo"); the top of a chain is a person,
-   or the system for the base, and never a session (E3·H7 B). On 9 October he
+   or the system for the base, and never a session (E3·H7 B). The third is a
+   session's reading and not his answer. His words on that row were "what and
+   why is this question??? no me understand". A session replied that his
+   fourth answer settles it («c738ecc3»), and his next line answered rows 2
+   and 8 only (‹751c2af7›). The rulings file of September has, in a session's
+   words, "The session is the root". The row waits for sign-in (the sheet
+   "Before real data is kept", last page). On 9 October he
    decided that the system can hold many layers (entry 3 of that day), so
    "for the base" in this reading is no limit.
 4. **A stamp holds the clock time and a counter.** Sid decided (H2 A):
-   "clock-time+counter".
+   "clock-time+counter" (‹f3f530b8›).
 5. **The store's keys in this build are three: the class, a permission, and
    the door's request for locks.** A session proposed the list (K1 A). Sid:
-   "idk what else is missing or could be missing, so lets go". No layer names
-   an owner as a fact. The words are his to change: "class" is borrowed
+   "idk what else is missing or could be missing, so lets go" (‹751c2af7›). No
+   layer names an owner as a fact. The words are his to change: "class" is borrowed
    (decision 10 of 7 October), and the request for locks is written
    `:lock-request`, a session's plain word, because "lease" is the rig's.
 
 ## Decisions of 9 October 2026 — the door's four questions
 
 Sid answered these in chat on 9 October 2026, on the sheet "The door — four
-questions before it is built": "4B and all else A". Words in quotation marks
-are his, of that day unless a date is given; some are dictated, and are given
-as the dictation has them. What a session drew from an answer is marked as a
-session's. No code changes with them: for three the gates already do what he
+questions before it is built": "4B and all else A" (‹15af6243›). Words in
+quotation marks are his, of that day unless a date is given; some are
+dictated, and are given as the dictation has them. The record holds his lines
+of that morning as ‹941a29a5›, ‹85a64cfb›, ‹5ea945a8›, ‹a3dfb1b8›, ‹6d5e8c3c›
+and ‹15af6243›, and two later ones as ‹ccc88e16› and ‹1a5ec25a›. It holds
+‹6d5e8c3c› as a long prompt, where it cannot tell his typing from a paste.
+What a session drew from an answer is marked as a session's. No code changes with them: for three the gates already do what he
 chose, and the fourth waits for two words.
 
 1. **A person's id says nothing: it is a UUID. Her sign-in accounts are joined
@@ -263,7 +331,7 @@ chose, and the fourth waits for two words.
 2. **One lock seals one value.** Sid decided (H1 A): "I think my stance is A.
    Because given A, any tool user layer group can decide by themselves what
    uh, a log delete means for different kind of values for their tool or
-   layer" (dictated; "log" is the lock). His frame: "this is only about what
+   layer" (‹5ea945a8›, dictated; "log" is the lock). His frame: "this is only about what
    gets deleted", and "how much uh, control do we have over what gets
    deleted". The gates already make a lock for each value, and refuse a second
    value under a used lock. A session's, from that:
@@ -278,19 +346,21 @@ chose, and the fourth waits for two words.
      Values that share a lock can still be forgotten one by one: the others
      are written again under new locks and the shared lock is destroyed, and
      the others then lose their earlier versions.
-   - His two cases, which the choice turned on. Against a lock for a sitting: "if everything was
-     written in one session, and then we want to forget something, but keep like ninety nine percent
-     of it, that might not be possible because we have a single log for everything that was done".
-     And the worry he raised against the fine grain: "if we delete a block, we might also want to
-     delete some thing more related to it. For example, some context around it that was added, some
-     relation link, etc.", and "we might forget that, even though the intent would be to delete". A
+   - His two cases, which the choice turned on (‹5ea945a8›). Against a lock for a sitting: "if it's
+     like everything was written in one session, and then we want to forget something, but keep like
+     ninety nine percent of it, that that might not be possible because uh, we have a single log for
+     everything that was done". And the worry he raised against the fine grain: "if we delete a
+     block. We might also want to delete uh, some thing more related to it. For example, some context
+     around it that was added. Some relation link, etc., etc. And we might forget that. Uh, even
+     though the intent would be to delete." A
      session's, from that: what a forget takes with it is chosen when forgetting, not when writing;
      the things around a forgotten value were written in other acts, sittings and layers, so a lock
      for each act or for each sitting would not have taken them either. The store owes the one who
      forgets the means to find them (the queue, K11; W8 of the reads sheet
      names "a forget" as an asker).
 3. **The system can hold many layers.** Sid decided (K3 A): "my preference is
-   a uh, system can have uh, many layers". His picture: "what I will be
+   a uh, system can have uh, many layers" (‹6d5e8c3c›; and "all else A",
+   ‹15af6243›). His picture: "what I will be
    providing in Softland is like code and then like a few layers that are
    built on top of it, kind of libraries", the "converters or importers,
    ingesters", "the default things that I will be making"; "any other person
@@ -314,15 +384,23 @@ chose, and the fourth waits for two words.
    decided (K4 B). He asked what it is for, from the side of those who build
    on Softland: "if someone is building like 50 layers of uh, different tools
    on top of each other then they would have to answer it each time right",
-   and "what are we trying to do here". His own reason for deciding it now, in his words: "I have to
-   decide it right now because then we would be exporting the thinking process and going more of the
-   same question every time for like literally say like billions of times". A session's answer, which he heard
-   before he decided: B asks a builder nothing. It gives the bare words back
+   and "what are we trying to do here" (‹a3dfb1b8›). Between those two the
+   same line has "or like you are saying the that uh, I have to decide it
+   right now because then we would be exporting the thinking process and
+   going more of the same question every time for like literally say like
+   billions of times". That is a session's argument, which he says back to it
+   inside his question. It is not a reason of his, and the record holds none
+   of his for B: his answer is "4B and all else A". A session's answer, which
+   he heard before he decided: B asks a builder nothing. It gives the bare
+   words back
    to the tools; it keeps a tool's own fact from being read as the store's;
    and it leaves the store room for more keys, where a bare word taken later
    would change how old acts are read when the record is built again from the
-   log. He gave the two words the same day: "softland.store" before the
-   slash, and "yes to depot" for "class" (K6). So the store's keys are
+   log. The two words came the same day: "softland.store" before the
+   slash, and "yes to depot" for "class" (K6). They are the last two lines of
+   ‹ccc88e16›. The record holds that line as a paste of a session's text, and
+   those two lines are in no session's text, so it cannot show who typed
+   them. A session reads them as his. So the store's keys are
    `:softland.store/depot`, `:softland.store/permission` and
    `:softland.store/lock-request`, and a layer's depot is `:streaming` or
    `:microbatch`. Two sessions had put options to him; one preferred `store`
@@ -332,13 +410,15 @@ chose, and the fourth waits for two words.
    holds, in a word that the decisions already have (entry 5 of 6 October
    records the two words as "his words for the two kinds of depot"). On
    7 October he had met "gate" with "we are also using the gate order as of
-   now would it not conflict with that", and "pace" with "Naming::: bro you
-   total shit at it ..". The rename was made the same day. The code says
+   now would it not conflict with that" (‹27882354›), and "pace" with
+   "Naming::: bro you total shit at it .." (‹32f65085›). The rename was made
+   the same day. The code says
    "depot", the three keys of facts carry the namespace, and the part of a
    thing as it arrives is `:depot`. The act's own part `:permission` keeps
    its word: only the key of a fact takes the namespace. Asked "Should a gate
    refuse a key in softland.store that the store does not know?", he said
-   "yes". So a gate refuses such a fact with `:store-key-not-known`, a
+   "yes" (‹1a5ec25a›). So a gate refuses such a fact with
+   `:store-key-not-known`, a
    session's word, and a tool's own fact under the bare word `:class` or
    `:permission` is taken like any other. A session's reading, not his: the
    namespace is taken exactly, so a key in `softland.store.x` is not the
@@ -353,16 +433,19 @@ Open, and built to a working answer until Sid decides:
 
 5. **Beside the four: what Sid said on 9 October that no box asked.** Positions in his
    words, kept here because the reads sheet asks about each; none is a tick on a row.
-   - How often a tool writes: "for an editor we do write things into it, so each word typed or each
-     letter that you type, how often do those get synced, these are also the decision that the tool
-     has to make, like how collaborative it is, that is a spectrum, and that is a choice that layers
-     and tools and groups can make". Bears on W4 and W5 of the reads sheet, and on K12.
-   - Undo and redo: "what does undo and redo mean, if it is like per value how much are we undoing,
-     and if we take that as an act then it becomes a little bit easier to think about it, but maybe all
-     this could be tool choice because we cannot make that decision right now".
+   The first three are of one dictated line (‹85a64cfb›).
+   - How often a tool writes: "for an editor we do write things into it so each uh, word type or
+     each letter that you type don't how often do those get synced these are also the decision that
+     the tool has to make like how collaborative it is that that is a spectrum and that is a choice
+     that uh, layers and tools and uh, groups can make". Bears on W4 and W5 of the reads sheet, and
+     on K12.
+   - Undo and redo: "what does undo and redo mean if it is like per value how much are we undoing
+     and because like if we take that as an act then it becomes a little bit easier to think about it
+     but maybe all this could be uh, tool choice because we cannot uh, make that decision right now".
    - The grain of a value and of an act: "the tool is deciding how much of their different actions
      are put together inside a single value or inside a single act".
-   - The word for whatever makes an act: "maker is fine general word for what we are doing imo".
+   - The word for whatever makes an act: "maker is fine general word for what we are doing imo"
+     (‹22f90886›).
 
 ## Decisions of 11 and 12 October 2026 — reading back out
 
@@ -606,8 +689,10 @@ with them. They shape the build whose starter is
      like it is not recoverable". The whole line (‹6304b683›) begins "what
      happens on delete or something it is dependent on the groups", asks
      whether it is "by carrying two different logs or uh, maintaining a
-     cryptographic key", and puts the quoted part as "maybe is there a choice
-     that we have". It is no position of his for a cut of the log.
+     cryptographic key", and puts the quoted part as "maybe is is there a
+     choice that we have". In the line the quoted part is "gets uh, deleted in
+     some sense like uh, it is not recoverable". It is no position of his for
+     a cut of the log.
 3. **The log is kept whole.** Sid decided (Z3 A), on 11 October: "forever
    never trim". Rama's trim setting stays off. A session's: with entries 1
    and 2 this holds for each log of the module, the two of acts, the clocks
