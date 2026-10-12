@@ -61,7 +61,10 @@ makes untrue is written again for the new truth (ruling 1).
   task, and turns away a read that would take it past its own bound, 900, at once and before it
   opens any push, with a plain word of its own. And the number that bounds the checks of ruling 12
   for one live read comes down from 40,000 to 250. Both are numbers of the build, kept and not
-  decided, and are listed as such. A read asked once is not bounded by the count of pushes.
+  decided, and are listed as such. A read asked once is not bounded by the count of pushes. Rama's
+  1,000 is the default of a dynamic option, `pstate.proxy.limit` (ruling 91: read in Rama's own
+  message, not run with another value). Do not set it: say in the docstring that the read path's
+  bound stands under that default, and that raising it is a setting for Sid to weigh.
 - **Ruling 89: a read asked once reads the table**, and takes no open push's value. One function
   switches it. The docstrings and the proof's checks say what is then true.
 - **Ruling 84: two lines of `door.clj`** still say "the two depots of the module" (near lines 41 and

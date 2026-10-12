@@ -702,6 +702,13 @@ update between two attempts; a killed process, a move of a leader, a real cluste
     the new value for 186 to 192 of 200 places. A read asked once gives what the tables hold. One
     function switches it; the review of the whole switches it off, and it costs the round trip that a
     read asked once costs when no push is open.
+91. **Rama's bound on pushes is a dynamic option, `pstate.proxy.limit`.** Ruling 87 said that whether
+    the bound can be set was not found. It is in Rama's own message, 98,794 times in the raw output of
+    the measures: "Number of proxies on PStates exceeds pstate.proxy.limit dynamic option". So the
+    1,000 is a default that a setting can raise. Read in that message; no run of this build set the
+    option, and what a higher value costs a task is not known. The read path's own bound stays under
+    the default until Sid weighs it; the receipt names the option beside ruling 87's row for the
+    queue.
 90. **A file of 1.0 GB is in the folder and is not committed**: `runs/raw-rp-measures-full.txt`,
     Rama's log of 98,794 openings that it refused. Nobody deletes it without Sid's word.
 
