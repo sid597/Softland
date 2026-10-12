@@ -1,0 +1,31 @@
+# What review-probe-held-value.clj printed, 12 October 2026, Rama 1.6.0 in-process, 4 tasks, 2 threads.
+# The lines that the probe prints for a reader; Rama's own log of the run is not kept. Exit status 0.
+PROBE form: all 256 bytes, 0x00 to 0xFF | bytes 256 | held as U+0000 and a character for each byte | characters 257 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: U+0000 and then text | bytes 20 | held as U+0000 and a character for each byte | characters 21 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: one zero byte | bytes 1 | held as U+0000 and a character for each byte | characters 2 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: a lead byte with no tail, C3 28 | bytes 2 | held as U+0000 and a character for each byte | characters 3 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: a surrogate in UTF-8, ED A0 80 | bytes 3 | held as U+0000 and a character for each byte | characters 4 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: an overlong slash, C0 AF | bytes 2 | held as U+0000 and a character for each byte | characters 3 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: 65,508 random bytes | bytes 65508 | held as U+0000 and a character for each byte | characters 65509 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: text of one, two, three and four bytes a letter | bytes 29 | held as the text itself | characters 24 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: text with U+0000 inside and not first | bytes 5 | held as the text itself | characters 5 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE form: no bytes | bytes 0 | held as the text itself | characters 0 | the pair gives the bytes back true | stream: read back the same true , the topology's own read of the row before same | microbatch: read back the same true , the topology's own read of the row before same
+PROBE 20 writes of one row by the stream topology, 100 ms apart; calls of each push by the class of its diff:
+PROBE    stream, rows with a U+0000 String, a run of five rows {"KeyDiff" 20}
+PROBE    stream, rows with a U+0000 String, one row {"NewValueDiff" 20}
+PROBE    stream, rows with a byte array, a run of five rows {"ResyncDiff" 7}
+PROBE    stream, rows with a byte array, one row {"ResyncDiff" 7}
+PROBE 20 writes of one row by the microbatch topology, each a batch of its own:
+PROBE    microbatch, rows with a U+0000 String, a run of five rows {"KeyDiff" 20}
+PROBE    microbatch, rows with a U+0000 String, one row {"NewValueDiff" 20}
+PROBE 100 writes of one row by the stream topology, one straight after the other's ack:
+PROBE    stream, rows with a U+0000 String, a run of five rows {"KeyDiff" 100}
+PROBE    stream, rows with a U+0000 String, one row {"NewValueDiff" 100}
+PROBE    stream, rows with a byte array, a run of five rows {"ResyncDiff" 1}
+PROBE    stream, rows with a byte array, one row {"ResyncDiff" 1}
+PROBE one new row in the run, by each topology:
+PROBE    microbatch, rows with a U+0000 String, a run of five rows {"KeyDiff" 1}
+PROBE    stream, rows with a U+0000 String, a run of five rows {"KeyDiff" 1}
+PROBE    stream, rows with a byte array, a run of five rows {"ResyncDiff" 1}
+PROBE after all writes, the row that each table holds at the one row is the last one written: true true
+PROBE END

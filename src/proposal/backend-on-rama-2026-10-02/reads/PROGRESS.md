@@ -99,9 +99,10 @@ it adapts the skill's template.
 | the build of `what-the-gates-keep` (first, by ruling 53); rulings 71 to 73 | done. The build stage's verdict is pass. The build session ran the four proofs itself: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 17, :pass 671, :fail 0, :error 0}`, module `{:test 31, :pass 333, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, each with exit 0 | `371c6d2f` the code with its proofs; `ffc10f29` the papers |
 | the build of `base-for-a-reader`; rulings 81 to 84 | done. The build stage's verdict is pass, taken from its own final runs: act 160, pure 686, module 354, door 199, each with exit 0. The run of ruling 17 (d) holds | `fd92e6e9`; `record/rows.clj`, `module.clj`, `module/door_reads.clj` and the maps in it also hold lines of the read path's build, which ran in the same tree |
 | the build of `read-path`; rulings 85 to 90 | done. The build stage's verdict is pass for the suite, taken from its own final runs: read path pure 149, read path on the cluster 445, and the four others as above. Its measures found two things, which rulings 86 and 87 send to the review to repair | `16ced230` |
-| one fresh review of the whole against the contract; it first makes the repairs of rulings 84, 86, 87 and 89 | not started. Nothing moved between 08:30 and 16:15 IST on 12 October: the build session waited at the hand-over. At 16:15 it started this stage in an agent and stopped it two minutes later, with nothing changed in the tree, at Sid's word that he starts it by hand. `STARTER-review.md` is what that session reads | — |
-| the measures of the contract's section C | — | — |
-| the receipt to Sid | — | — |
+| the four repairs of rulings 84, 86, 87 and 89, with their proofs and explanations; rulings 92 to 95 | done, by the session "session 1", which Sid started by hand on `STARTER-review.md`. The six proofs passed on that tree, each with exit 0: act 160, pure 690, module 354, door 199, read path pure 152, read path on the cluster 468 | `96f7034d` |
+| the review of the whole against the contract; rulings 97 and 98 | done, by the same session and by no agent. Verdict pass, in `FULL_SPEC_REVIEW.md`, for what it reached; the paper says what it did not. Three passes; seventeen things found beside the repairs, each fixed. The six proofs on the final tree, each with exit 0: act `{:test 8, :pass 160, :fail 0, :error 0}`, pure `{:test 18, :pass 690, :fail 0, :error 0}`, module `{:test 33, :pass 354, :fail 0, :error 0}`, door `{:test 27, :pass 199, :fail 0, :error 0}`, read path pure `{:test 12, :pass 152, :fail 0, :error 0}`, read path on the cluster `{:test 27, :pass 482, :fail 0, :error 0}`. Each cut output is `runs/final-<proof>.txt` | `9541425f`; and `91d21fa5`, one check more, for what the receipt says of a person who is not signed in |
+| the measures of the contract's section C, on the final tree; ruling 96 | done, once, by the command that the proofs' map gives: 558 seconds, exit 0, 61 lines, no opening that Rama refused. What they printed is `runs/measures-final.txt`, whole; Rama's own log of the run was 16 KB and is not kept | in the commit that holds the receipt |
+| the receipt to Sid | done: `RECEIPT.md`, and in the chat of the session that finished the build | the same commit |
 
 How a stage is run: a fresh agent reads the skill's doc for its stage, the contract and its read
 list, and the papers before it; it writes one paper (or the code) and does not commit. This session
@@ -712,6 +713,95 @@ update between two attempts; a killed process, a move of a leader, a real cluste
 90. **A file of 1.0 GB is in the folder and is not committed**: `runs/raw-rp-measures-full.txt`,
     Rama's log of 98,794 openings that it refused. Nobody deletes it without Sid's word.
 
+### On the review of the whole, and its four repairs
+
+These are the rulings of the session that finished the build, "session 1" (Opus 5.5), which Sid
+started by hand on 12 October on `STARTER-review.md`. It made the repairs, audited, fixed and audited
+again itself, and started no agent (ruling 98). Its paper is `FULL_SPEC_REVIEW.md`.
+
+92. **Ruling 86 is built, and the mark is U+0000 — builder's.** Before the form was rested on it was
+    run on the in-process cluster (`runs/review-probe-held-value.clj` and `.txt`): ten runs of
+    bytes, text and no text, all 256 byte values and 65,508 random bytes among them, each written by
+    a stream and by a microbatch topology and read back the same; and a push on one such row and on
+    a run of such rows got one change for each write, 20 of 20 and 100 of 100, where the same rows
+    with a byte array got 7 and 1 whole values anew. So no other mark was needed. The pair is
+    `held-value` and `plain-bytes` in `record/rows.clj`, with `plain-bytes-of` for a row; the three
+    names are a session's and Sid's to change. On the store's own module the lateness of a push on a
+    place of the facts table, from the ack, went from a middle of 1,000 ms to under a millisecond
+    (the receipt gives both runs). **No migration is written — provisional, for Sid's knowledge.**
+    The class of a field of a table changed; no cluster holds data of the store, so nothing is
+    migrated, and a cluster that did hold rows with a byte array would need Rama's migration of a
+    PState's schema.
+93. **Ruling 87 is built by table and routing id, not by table and task — builder's, and a place
+    where the ruling could not be met as written.** Rama bounds the pushes on one table on one
+    task, and its client gives no call from a routing id to a task (looked for in the jar and in the
+    public vars of Rama 1.6.0). So the read path counts the pushes that it holds on each table under
+    each routing id. That reaches the case that the measures met, every push of every asker through
+    one streaming layer, since there the routing id is the layer. It does not reach two streaming
+    layers that Rama puts on one task, the entities of the base that share a task, or a second
+    runtime: past those Rama refuses the opening as before, and the read gets `:reach-the-store`. A
+    bound on the whole of one table would never pass Rama's and was not taken: it would hold one
+    runtime to 900 pushes on a table whatever the number of tasks. The numbers: 900 pushes on one
+    table under one routing id; 250 checks of nearer layers for one read that is kept live, where a
+    read asked once keeps 40,000. Both are kept and not decided. The words: `:keep-more-reads-live`,
+    the read path's eighth word, for a read that is turned away; `:no-room-for-a-push-it-came-to-need`,
+    the fifth reason, for an open read that ends; `:pushes-under-one-routing-id` for what was too
+    many; `:max-pushes-under-one-routing-id` and `:max-checks-of-one-live-read` for the two numbers.
+    Each is a session's and Sid's to change. A row proposed for the queue, and a question for Rama's
+    team: a client call that gives the task of a partitioning key.
+94. **"Before it opens any push" is held for the round, not for the read.** A live read opens in
+    rounds, and the pushes that it needs in a later round are known only when those of the earlier
+    rounds are given. The bound is tested for a whole round, in the one swap that would join it,
+    before one push of that round is opened; a read that is turned away then leaves the pushes of
+    its earlier rounds. The proof counts the openings of a read that is turned away: none, since its
+    earlier pushes were open for another reader.
+95. **Ruling 89 is built by taking the function out — builder's.** The ruling says that one function
+    switches it and that the review switches it off. A read asked once that answers from a value
+    kept in the memory of the process is what the starter's rule names as the thing to stop at; a
+    switch that is always off is code for a behaviour that is not wanted. So `read-once` selects
+    every source and reads the read path's own memory nowhere. The other answer is no longer one
+    function away.
+96. **The measures follow the repairs, with one shape more — builder's.** M2 asks for 1,000 live
+    reads on one layer and now meets the read path's own bound: 898 open. M3's canvas of 5,000, kept
+    live through three layers as what points at it, is turned away by the bound on checks, so that
+    shape measures how soon. One shape is added so that the row for the queue on the checks' cost
+    has a number for a read that is kept live: what points at a canvas of 100, through three layers.
+97. **The review's verdict is in `FULL_SPEC_REVIEW.md`, and it is taken by nobody else**: this
+    session made the review and is the one that holds the build. It found seventeen things and fixed
+    each: twelve in the explanations, of which five were lines that one build wrote and a later
+    build made untrue; and five gaps in the proofs, two of which the repair of ruling 86 itself
+    opened. It found no fault in the gates' or the read path's code beyond the four repairs.
+    What it did not read line by line is named in its paper.
+98. **This session started no agent, against the starter's later head.** Sid's line to this session
+    was "do everything it lists, in its order, yourself, with no subagents". The starter was changed
+    twice after this session had read it (`beb852d5`, `818fd840`); the second says to give the
+    repairs and the review each to a fresh agent, since the whole is more than one context holds. A
+    message from the build session said the same and left it to this session's judgment. This
+    session kept to Sid's line. What that cost: the review read the read path, the record, the
+    decision and the gates' explanations whole, and the microbatch gate's pure code, the door and
+    the four older proofs in part and by search; its paper says which.
+99. **Scratch of this session that is not committed and waits for Sid's word.** Seven files under
+    `runs/` whose names begin `raw-review-before-`: the six proofs' outputs on the tree before the
+    repairs, and one of 343 bytes with no name after the last dash, which is this session's slip:
+    its first command split nothing where it should have split a list, so six proofs "ran" with no
+    name; it was run again rightly. And a second slip, undone in the same minute: the first edit of
+    `record/rows.clj` was made while that first run was still going, so its last two proofs could
+    have loaded a half-made change; they were stopped and run again on a clean copy of the head, in
+    a worktree outside the repository's folder that is still registered and holds nothing of value.
+
+100. **What the final measures found beside the gain: the repair has a cost, and it is on the gate.**
+    Since a fact's row holds a String, each write is told to each push that holds the written row.
+    Measured on the final tree, in-process (`runs/measures-final.txt`): with 898 live reads open on
+    one layer, each on another run that holds the written places, the askers were told 3,142,587
+    changes over 3,500 acts, where the run of before the repair told 21,998; and an act took a
+    middle of 15.5 ms from the call of `send-act` to its return, where it took 4.7 ms, so the maker
+    could not hold 100 acts a second in that one process. With 100 such reads the middle was 4.9 ms;
+    with 898 reads on places that are not written it was 3.8 ms, as with one. So the cost is of the
+    pushes that hold the row that is written, about 13 millionths of a second for each such push
+    and each write as measured there, with the askers' functions in the same process. Those who
+    look at the same thing share one push; those who look at overlapping things do not. Nothing is
+    changed for it: the contract sets no target. A row proposed for the queue.
+
 ## For the receipt: what Sid should know, as found so far
 
 1. **A slip of the build session, undone.** Its first commit took another session's staged rename
@@ -722,6 +812,10 @@ update between two attempts; a killed process, a move of a leader, a real cluste
    this build names its paths in the commit itself.
 2. **The four proofs' checks change.** See ruling 1: the row that A1 changes, and the exact set of
    store keys, are checked by today's proofs.
+3. **Two slips of the session that finished the build**, and the scratch that it left: ruling 99.
+4. **The receipt is written**: `RECEIPT.md` in this folder, by the session that finished the build.
+   It holds each part that the next paragraph lists, and what every "For the receipt" paragraph of
+   this page asked it to hold.
 
 The receipt's parts, as the contract lists them: the line "proven by a hand-played
 asker, used by no inhabitant yet"; the commit hashes; the proofs' outputs with their count lines
@@ -731,68 +825,24 @@ is not decided, proposed as rows for the queue and decided by nobody; `git statu
 
 ## For a session that takes this build over
 
-Written at the hand-over of 12 October 2026, about 08:30 IST, and brought up to date at 16:20. Sid
-starts the next session by hand. `STARTER-review.md` in this folder is its starter: it holds what is
-left, in order, with the detail of each repair. This section says where each part of the receipt is.
+Written on 12 October 2026 by the session that finished the build.
 
-**Where the build stands.** All three parts are planned, checked, built and committed. Nothing is
-running. The head is the commit that holds this page. The parts' commits: `371c6d2f` what the gates
-keep; `fd92e6e9` the base for a reader; `16ced230` the read path. The six proofs passed in the last
-build's own final runs, each with exit 0: act 160, pure 686, module 354, door 199, the read path's
-pure proof 149, the read path's proof on the cluster 445. How to run each is in
-`test-store/softland/store/README.md`.
+**The build is done.** All three parts are planned, checked, built and committed; the four repairs
+that the rulings left open are made; the whole is reviewed against the contract; the six proofs
+pass on the final tree; the measures are run on it; and Sid has one receipt, `RECEIPT.md` in this
+folder, which is where a session that takes the build over starts. Nothing is running, and nothing
+is pushed.
 
-**First, before any agent is started:** make sure that this session cannot be asked for a permission.
-A fresh agent that waits for one sends its parent nothing, and the two last builds stood still for
-about three hours that way. If you cannot be sure, do the work yourself and start no agent.
+**What is open is Sid's, and is in the receipt**: the rows proposed for his queue (its section 10,
+with the first row, what "what points at a thing" means through layers and by which way the nearer
+layers are checked); the questions for Rama's team (section 11); and the scratch that waits for his
+word (section 14). Nothing is written into `decisions/OPEN-QUESTIONS.md`.
 
-**What is left, in this order.**
-
-1. **The review of the whole**, the skill's last stage (`.claude/skills/rama/references/
-   phase-full-spec-review.md`): one fresh session (model Opus 5.5, effort xhigh) that audits the
-   whole of this build and its proofs against `../BUILD-reads.md`, fixes what it finds in place, and
-   writes `FULL_SPEC_REVIEW.md` in this folder. It reads this page whole; rulings 1 to 90 bind it.
-   Before it audits, it makes four repairs that the build session has already ruled, and says in its
-   paper what each changed:
-   - ruling 86: `:value` of a fact's row becomes a String, so that Rama's push sends each change;
-     then it runs the measure of lateness again;
-   - ruling 87: the read path counts its pushes on each table and task and turns a read away at once
-     under a bound of its own; the checks of one live read are bounded by 250;
-   - ruling 89: a read asked once reads the table;
-   - ruling 84: the two lines of `door.clj` that say "the two depots of the module".
-   The six proofs must pass at its end; no check is removed, and one that a repair makes untrue is
-   written again for the new truth (ruling 1).
-2. **Take the review's verdict from its paper** and rule only on what it leaves open. Sid's word of
-   that morning: a build is not judged a second time. Commit by named paths: the code with its
-   proofs; then the papers.
-3. **The measures of C.** Run the measures once on the final tree, with the command that the proofs'
-   map gives, and keep what they print in `runs/measures-final.txt`. `runs/measures-read-path.txt` is
-   the last build's run, from before the repairs.
-4. **The receipt to Sid**, in the chat and as `RECEIPT.md` in this folder. Its parts are the
-   contract's list (`../BUILD-reads.md`, "Commits and the receipt"). Where each is on this page:
-   - the line "proven by a hand-played asker, used by no inhabitant yet";
-   - the commit hashes: the table of the stages;
-   - the proofs' count lines before (the starting point) and after (the final tree), with the cut
-     outputs in `runs/after-*.txt`;
-   - the measures: `runs/measures-final.txt`, with the two numbers of ruling 86, before the repair
-     and after;
-   - every provisional choice: each ruling marked "builder's" or "provisional, for Sid", and the
-     "provisional choices" lists in the three `IMPLEMENTATION_VALIDATION-*.md`;
-   - every not-decided thing as it was built: rulings 4 to 13 and 65, with the one function that
-     holds each, from the plans' tables "Not decided: how each is built";
-   - every place where the contract could not be met as written: ruling 16 (1) on A7's first
-     sentence; ruling 53 on the order; ruling 79 against the skill's rule on a cheaper design;
-     rulings 86 and 87; and each "Where the plan could not be met" of the three builds;
-   - the rows proposed for the queue, decided by nobody: the implied spec's table (P4 to P13), and
-     those that rulings 50, 55, 62, 65, 70, 79, 86 and 87 add;
-   - what was run where, and what was not: each "For the receipt" paragraph above;
-   - the build session's own slips: the first item of the list below, and the three hours that the
-     last two builds stood still for a permission;
-   - `git status --short`, and the scratch that is not committed and waits for Sid's word: the raw
-     files under `runs/` (one of them 1.0 GB, ruling 90) and four raw logs under
-     `plan-probes-read-path/logs/`.
-5. **No push.** Nothing is written into `decisions/OPEN-QUESTIONS.md`: the rows are proposed in the
-   receipt, and Sid decides whether they go into the queue.
+**If the build is taken up again**, read in this order: the receipt; `FULL_SPEC_REVIEW.md`, whose
+last sections say what the review did not read line by line; and rulings 92 to 99 above. The head
+comment of `src-store/softland/store/read_path.clj` names the rulings that came after its plan. The
+commands of the proofs and of the measures are in `test-store/README.md`. No session opens a file
+under `runs/` whose name begins `raw-`: one of them is 1.0 GB.
 
 Another session's files are still in the tree and are not this build's: the staged rename
 `decisions/groups/g-reads.txt -> g-reads-first.txt`, the untracked `decisions/groups/g-reads.txt` and
