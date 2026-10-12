@@ -401,11 +401,12 @@ chose, and the fourth waits for two words.
    to the tools; it keeps a tool's own fact from being read as the store's;
    and it leaves the store room for more keys, where a bare word taken later
    would change how old acts are read when the record is built again from the
-   log. The two words came the same day: "softland.store" before the
+   log. He gave the two words the same day: "softland.store" before the
    slash, and "yes to depot" for "class" (K6). They are the last two lines of
-   ‹ccc88e16›. The record holds that line as a paste of a session's text, and
-   those two lines are in no session's text, so it cannot show who typed
-   them. A session reads them as his. So the store's keys are
+   ‹ccc88e16›, under a paste of a session's text; the record holds the whole
+   line as a paste, and those two lines are in no session's text. Asked on
+   13 October whether he typed them: "oh ok ok yes i did approve that my
+   wording s". So the store's keys are
    `:softland.store/depot`, `:softland.store/permission` and
    `:softland.store/lock-request`, and a layer's depot is `:streaming` or
    `:microbatch`. Two sessions had put options to him; one preferred `store`
