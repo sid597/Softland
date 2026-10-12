@@ -1,0 +1,149 @@
+RUN Clojure 1.12.4 · Java 21.0.12.1 · pure, no cluster
+---- S1: one value, and each walk of it ----
+S1 a string of 65,534 a · bytes of the one text of its normal form: 65536 · the counting walk gives: 65536 · (= row String, (text/text normal)): true
+S1 a string of 65,534 a · microseconds, the middle of 101 runs: 
+     value? (the engine's leaf): 0.2 
+     normal-value (the engine's leaf): 0.3 
+     the bytes counted by building them, (alength (text/utf8 v)): 347.8 
+     the bytes counted by a walk that builds no whole text: 357.9 
+     the row's String made as the plain branch of fact-row makes it today, (held-value (text/utf8 v)): 436.2 
+     the row's String made straight, (text/text v): 359.4 
+     the value digest from the row's String, (value-digest (plain-bytes s)): 48.4 
+     the digest of the thing with the value plain: 396.6 
+     TODAY the digest of the thing with the value sealed: 43.7 
+     TODAY the opening of the seal (seal/open): 471.9 
+     TODAY the row's String from the opened bytes (held-value): 55.7
+S1 a vector of 9,362 longs · bytes of the one text of its normal form: 65535 · the counting walk gives: 65535 · (= row String, (text/text normal)): true
+S1 a vector of 9,362 longs · microseconds, the middle of 101 runs: 
+     value? (the engine's leaf): 142.9 
+     normal-value (the engine's leaf): 101.3 
+     the bytes counted by building them, (alength (text/utf8 v)): 226.0 
+     the bytes counted by a walk that builds no whole text: 234.1 
+     the row's String made as the plain branch of fact-row makes it today, (held-value (text/utf8 v)): 272.9 
+     the row's String made straight, (text/text v): 233.3 
+     the value digest from the row's String, (value-digest (plain-bytes s)): 28.4 
+     the digest of the thing with the value plain: 313.4 
+     TODAY the digest of the thing with the value sealed: 32.1 
+     TODAY the opening of the seal (seal/open): 451.7 
+     TODAY the row's String from the opened bytes (held-value): 34.7
+S1 a map of 520 small maps · bytes of the one text of its normal form: 55941 · the counting walk gives: 55941 · (= row String, (text/text normal)): true
+S1 a map of 520 small maps · microseconds, the middle of 61 runs: 
+     value? (the engine's leaf): 189.7 
+     normal-value (the engine's leaf): 184.3 
+     the bytes counted by building them, (alength (text/utf8 v)): 1288.3 
+     the bytes counted by a walk that builds no whole text: 1271.1 
+     the row's String made as the plain branch of fact-row makes it today, (held-value (text/utf8 v)): 1301.3 
+     the row's String made straight, (text/text v): 1259.3 
+     the value digest from the row's String, (value-digest (plain-bytes s)): 24.4 
+     the digest of the thing with the value plain: 1327.5 
+     TODAY the digest of the thing with the value sealed: 26.8 
+     TODAY the opening of the seal (seal/open): 390.2 
+     TODAY the row's String from the opened bytes (held-value): 29.4
+S1 a string of 21,845 times U+20AC (3 bytes each) · bytes of the one text of its normal form: 65537 · the counting walk gives: 65537 · (= row String, (text/text normal)): true
+S1 a string of 21,845 times U+20AC (3 bytes each) · microseconds, the middle of 101 runs: 
+     value? (the engine's leaf): 0.0 
+     normal-value (the engine's leaf): 0.0 
+     the bytes counted by building them, (alength (text/utf8 v)): 146.0 
+     the bytes counted by a walk that builds no whole text: 355.3 
+     the row's String made as the plain branch of fact-row makes it today, (held-value (text/utf8 v)): 184.1 
+     the row's String made straight, (text/text v): 122.2 
+     the value digest from the row's String, (value-digest (plain-bytes s)): 49.8 
+     the digest of the thing with the value plain: 170.7 
+     TODAY the digest of the thing with the value sealed: 30.7 
+     TODAY the opening of the seal (seal/open): 448.3 
+     TODAY the row's String from the opened bytes (held-value): 37.5
+S1 the string "hello" · bytes of the one text of its normal form: 7 · the counting walk gives: 7 · (= row String, (text/text normal)): true
+S1 the string "hello" · microseconds, the middle of 2001 runs: 
+     value? (the engine's leaf): 0.0 
+     normal-value (the engine's leaf): 0.0 
+     the bytes counted by building them, (alength (text/utf8 v)): 0.1 
+     the bytes counted by a walk that builds no whole text: 0.1 
+     the row's String made as the plain branch of fact-row makes it today, (held-value (text/utf8 v)): 0.4 
+     the row's String made straight, (text/text v): 0.1 
+     the value digest from the row's String, (value-digest (plain-bytes s)): 1.9 
+     the digest of the thing with the value plain: 4.5 
+     TODAY the digest of the thing with the value sealed: 5.1 
+     TODAY the opening of the seal (seal/open): 3.1 
+     TODAY the row's String from the opened bytes (held-value): 0.1
+S1 a small map · bytes of the one text of its normal form: 42 · the counting walk gives: 42 · (= row String, (text/text normal)): true
+S1 a small map · microseconds, the middle of 2001 runs: 
+     value? (the engine's leaf): 0.3 
+     normal-value (the engine's leaf): 0.3 
+     the bytes counted by building them, (alength (text/utf8 v)): 1.5 
+     the bytes counted by a walk that builds no whole text: 1.5 
+     the row's String made as the plain branch of fact-row makes it today, (held-value (text/utf8 v)): 1.6 
+     the row's String made straight, (text/text v): 1.5 
+     the value digest from the row's String, (value-digest (plain-bytes s)): 0.2 
+     the digest of the thing with the value plain: 5.9 
+     TODAY the digest of the thing with the value sealed: 5.2 
+     TODAY the opening of the seal (seal/open): 2.1 
+     TODAY the row's String from the opened bytes (held-value): 0.0
+---- S2: a permission of each depth ----
+S2 act/max-depth: 32 · text/max-depth: 64 · act/max-permission-depth today: 4
+S2 UUID ids · depth 1 · bytes of its text alone: 136 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: true
+S2 UUID ids · depth 4 · bytes of its text alone: 547 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: true
+S2 UUID ids · depth 5 · bytes of its text alone: 684 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 UUID ids · depth 16 · bytes of its text alone: 2191 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 UUID ids · depth 31 · bytes of its text alone: 4246 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 UUID ids · depth 32 · bytes of its text alone: 4383 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 UUID ids · depth 33 · bytes of its text alone: 4520 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: false · has the shape today: false
+S2 UUID ids · depth 61 · bytes of its text alone: 8356 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: false · has the shape today: false
+S2 UUID ids · depth 62 · bytes of its text alone: 8493 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 UUID ids · depth 63 · bytes of its text alone: 8630 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 UUID ids · depth 64 · bytes of its text alone: 8767 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: true · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 UUID ids · depth 65 · bytes of its text alone: 8799 · #too-deep in its text alone: true · in the text of a thing that holds it as the act's own: true · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 ids of 256 characters · depth 1 · bytes of its text alone: 772 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: true
+S2 ids of 256 characters · depth 4 · bytes of its text alone: 3091 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: true
+S2 ids of 256 characters · depth 5 · bytes of its text alone: 3864 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 ids of 256 characters · depth 16 · bytes of its text alone: 12367 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 ids of 256 characters · depth 31 · bytes of its text alone: 23962 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 ids of 256 characters · depth 32 · bytes of its text alone: 24735 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: true · has the shape today: false
+S2 ids of 256 characters · depth 33 · bytes of its text alone: 25508 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: false · has the shape today: false
+S2 ids of 256 characters · depth 61 · bytes of its text alone: 47152 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: false · value?: false · has the shape today: false
+S2 ids of 256 characters · depth 62 · bytes of its text alone: 47925 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 ids of 256 characters · depth 63 · bytes of its text alone: 48698 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: false · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 ids of 256 characters · depth 64 · bytes of its text alone: 49471 · #too-deep in its text alone: false · in the text of a thing that holds it as the act's own: true · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 ids of 256 characters · depth 65 · bytes of its text alone: 49503 · #too-deep in its text alone: true · in the text of a thing that holds it as the act's own: true · in the text of a thing that holds it as a fact's value: true · value?: false · has the shape today: false
+S2 with the shape's number set to 32 for this run (the store's code is not changed):
+S2 an act whose own permission has depth 4 · the act's check: ok · microseconds of the check: 41.4 · of the digest of the act: 15.0
+S2 an act whose own permission has depth 5 · the act's check: ok · microseconds of the check: 18.2 · of the digest of the act: 6.5
+S2 an act whose own permission has depth 31 · the act's check: ok · microseconds of the check: 61.6 · of the digest of the act: 18.2
+S2 an act whose own permission has depth 32 · the act's check: ok · microseconds of the check: 62.0 · of the digest of the act: 18.8
+S2 an act whose own permission has depth 33 · the act's check: :malformed · microseconds of the check: 60.3 · of the digest of the act: 15.6
+S2 an act whose own permission has depth 34 · the act's check: :malformed · microseconds of the check: 60.6 · of the digest of the act: 15.9
+S2 an act whose own permission has depth 64 · the act's check: :malformed · microseconds of the check: 59.8 · of the digest of the act: 95.8
+S2 an act whose own permission has depth 1000 · the act's check: :malformed · microseconds of the check: 55.9 · of the digest of the act: 24.6
+S2 an act whose own permission has depth 100000 · the act's check: :malformed · microseconds of the check: 31.6 · of the digest of the act: 24.8
+S2 a give of a permission of depth 2 by the holder of one of depth 1 · the declaration's check: ok · value? of the given permission: true · microseconds of the check: 41.5
+S2 a give of a permission of depth 5 by the holder of one of depth 4 · the declaration's check: ok · value? of the given permission: true · microseconds of the check: 52.4
+S2 a give of a permission of depth 32 by the holder of one of depth 31 · the declaration's check: ok · value? of the given permission: true · microseconds of the check: 136.3
+S2 a give of a permission of depth 33 by the holder of one of depth 32 · the declaration's check: :malformed · value? of the given permission: false · microseconds of the check: 37.5
+S2 a give of a permission of depth 34 by the holder of one of depth 33 · the declaration's check: :malformed · value? of the given permission: false · microseconds of the check: 29.8
+S2 a permission of depth 32 with the fifth slot · value?: true · has the shape: true
+S2 microseconds of (text/text permission) at depth 32 · UUID ids: 8.2 · ids of 256 characters: 83.2
+S2 microseconds of (text/text permission) at depth 4 · UUID ids: 1.1 · ids of 256 characters: 10.6
+---- S3: what a permission costs each row, and an act of 256 facts ----
+S3 UUID ids · depth 1 · bytes of the text of the permission and of the who, which each fact's row holds: 180 · times 256 facts: 46080 · the most facts for which that product stays within 1,048,576: 256
+S3 UUID ids · depth 4 · bytes of the text of the permission and of the who, which each fact's row holds: 591 · times 256 facts: 151296 · the most facts for which that product stays within 1,048,576: 256
+S3 UUID ids · depth 5 · bytes of the text of the permission and of the who, which each fact's row holds: 728 · times 256 facts: 186368 · the most facts for which that product stays within 1,048,576: 256
+S3 UUID ids · depth 6 · bytes of the text of the permission and of the who, which each fact's row holds: 865 · times 256 facts: 221440 · the most facts for which that product stays within 1,048,576: 256
+S3 UUID ids · depth 8 · bytes of the text of the permission and of the who, which each fact's row holds: 1139 · times 256 facts: 291584 · the most facts for which that product stays within 1,048,576: 256
+S3 UUID ids · depth 16 · bytes of the text of the permission and of the who, which each fact's row holds: 2235 · times 256 facts: 572160 · the most facts for which that product stays within 1,048,576: 256
+S3 UUID ids · depth 32 · bytes of the text of the permission and of the who, which each fact's row holds: 4427 · times 256 facts: 1133312 · the most facts for which that product stays within 1,048,576: 236
+S3 ids of 256 characters · depth 1 · bytes of the text of the permission and of the who, which each fact's row holds: 1028 · times 256 facts: 263168 · the most facts for which that product stays within 1,048,576: 256
+S3 ids of 256 characters · depth 4 · bytes of the text of the permission and of the who, which each fact's row holds: 3347 · times 256 facts: 856832 · the most facts for which that product stays within 1,048,576: 256
+S3 ids of 256 characters · depth 5 · bytes of the text of the permission and of the who, which each fact's row holds: 4120 · times 256 facts: 1054720 · the most facts for which that product stays within 1,048,576: 254
+S3 ids of 256 characters · depth 6 · bytes of the text of the permission and of the who, which each fact's row holds: 4893 · times 256 facts: 1252608 · the most facts for which that product stays within 1,048,576: 214
+S3 ids of 256 characters · depth 8 · bytes of the text of the permission and of the who, which each fact's row holds: 6439 · times 256 facts: 1648384 · the most facts for which that product stays within 1,048,576: 162
+S3 ids of 256 characters · depth 16 · bytes of the text of the permission and of the who, which each fact's row holds: 12623 · times 256 facts: 3231488 · the most facts for which that product stays within 1,048,576: 83
+S3 ids of 256 characters · depth 32 · bytes of the text of the permission and of the who, which each fact's row holds: 24991 · times 256 facts: 6397696 · the most facts for which that product stays within 1,048,576: 41
+---- S4: the largest thing ----
+S4 own permission of depth 4 with ids of 256 characters · bytes of the one text of the whole thing (what the digest is taken of): 17416016 · bytes of its 256 values: 16777216 · bytes of who and permission in each row: 3347 · times 256: 856832 · values plus that product: 17634048 · the whole text plus that product: 18272848
+S4 depth 4 · milliseconds, the middle of 5 runs: the digest of the thing: 94.8 · a count of the bytes of each of its 256 values by a walk: 96.5 · the 256 row Strings made straight: 85.3 · the text of who and permission made 256 times: 2.9
+S4 own permission of depth 32 with ids of 256 characters · bytes of the one text of the whole thing (what the digest is taken of): 17437660 · bytes of its 256 values: 16777216 · bytes of who and permission in each row: 24991 · times 256: 6397696 · values plus that product: 23174912 · the whole text plus that product: 23835356
+S4 depth 32 · milliseconds, the middle of 5 runs: the digest of the thing: 95.0 · a count of the bytes of each of its 256 values by a walk: 96.2 · the 256 row Strings made straight: 85.3 · the text of who and permission made 256 times: 22.1
+---- S5: two things seen on the way ----
+S5 a string with a lone surrogate, a U+D83D b · value?: true · its one text: "a\uD83Db" · the UTF-8 of that text, as hex: 22613f6222 · what today's door seals and a gate keeps, (held-value (text/utf8 s)): "a?b" · its digest equals the digest of the string a ? b: true · the two texts are equal: false
+S5 a map built with the keys 1.0M and 1.00M · (= 1.0M 1.00M): true · entries: 1 · its one text: {1M :b} · entries of its normal form: 1 · the text of the normal form: {1M :b} · a set built of 1.0M, 1.00M, 0.0 and -0.0 has 2 members, and its normal form 2 : #{0.0 1M} -> #{0.0 1M}
+S5 a vector of a big integer and a BigInteger that fit a long · its one text as given: [5N 7N] · the text of its normal form: [5 7]
+RUN END

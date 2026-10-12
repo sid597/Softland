@@ -1,0 +1,40 @@
+    3449.7  RUN     ---- M0 · 7 things and a stray in one batch, no failure ----
+    4132.9  INSIDE  run 2 attempt 1 task 0 : read 4 key(s), of the batches (1) , appended 3 record(s) and took the keys out · 9.92 ms for the appends
+    4362.6  INSIDE  run 3 attempt 1 task 0 : read 2 key(s), of the batches (2) , appended 1 record(s) and took the keys out · 2.79 ms for the appends
+    4770.8  RESULT  A0 · ready: true · the table holds: {:stamp 1000, :batch 1, :attempt 1} · kept answers: 1 [["attempt 1" "p0@2"]] · each holds the table's row: true
+    4771.2  RESULT  A1 · ready: true · the table holds: {:stamp 1000, :batch 1, :attempt 1} · kept answers: 1 [["attempt 1" "p0@1"]] · each holds the table's row: true
+    4771.5  RESULT  A2 · ready: true · the table holds: {:stamp 1000, :batch 1, :attempt 1} · kept answers: 1 [["attempt 1" "p0@0"]] · each holds the table's row: true
+    4771.8  RESULT  A3 · ready: true · the table holds: {:stamp 1000, :batch 1, :attempt 1} · kept answers: 1 [["attempt 1" "p0@0"]] · each holds the table's row: true
+    4771.9  RESULT  A4 · ready: true · the table holds: {:stamp 1001, :batch 1, :attempt 1} · kept answers: 1 [["attempt 1" "p0@2"]] · each holds the table's row: true
+    4772.1  RESULT  A5 · ready: true · the table holds: {:stamp 1001, :batch 1, :attempt 1} · kept answers: 1 [["attempt 1" "p0@1"]] · each holds the table's row: true
+    4772.3  RESULT  A6 · ready: true · the table holds: {:stamp 2000, :batch 2, :attempt 1} · kept answers: 1 [["attempt 1" "p0@3"]] · each holds the table's row: true
+    4772.4  RESULT  stray ["stray-0" 0 3]
+    4772.5  SEEN    A0: its row was first given at 3986.639139 ms and its record was first in the depot at 4134.116178 ms · the record came 147.5 ms after the row
+    4772.6  RUN     ---- M1 · the attempt that writes fails after its writes, and runs again ----
+    5147.6  INSIDE  batch 5 attempt 1 task 3 THROWS on purpose, after the rows were written and what to keep of them was put
+    6325.9  INSIDE  run 6 attempt 1 task 3 : read 3 key(s), of the batches (5) , appended 2 record(s) and took the keys out · 5.91 ms for the appends
+    6734.5  RESULT  B0 · ready: true · the table holds: {:stamp 5000, :batch 5, :attempt 2} · kept answers: 1 [["attempt 2" "p3@0"]] · each holds the table's row: true
+    6734.8  RESULT  FAIL-1 · ready: true · the table holds: {:stamp 5001, :batch 5, :attempt 2} · kept answers: 1 [["attempt 2" "p3@1"]] · each holds the table's row: true
+    6735.2  RESULT  B2 · ready: true · the table holds: {:stamp 5000, :batch 5, :attempt 2} · kept answers: 1 [["attempt 2" "p3@0"]] · each holds the table's row: true
+    6735.3  RESULT  stray ["stray-1" 3 0]
+    6735.3  RUN     ---- M2 · the run that closes a batch fails after its appends, and runs again ----
+    7390.5  INSIDE  run 9 attempt 1 task 3 : read 2 key(s), of the batches (8) , appended 2 record(s) and took the keys out · 5.13 ms for the appends
+    7390.7  INSIDE  run 9 attempt 1 task 3 THROWS on purpose, after its appends
+    8832.6  INSIDE  run 9 attempt 2 task 3 : read 2 key(s), of the batches (8) , appended 2 record(s) and took the keys out · 4.84 ms for the appends
+    9235.8  RESULT  C0 · ready: true · the table holds: {:stamp 8000, :batch 8, :attempt 1} · kept answers: 2 [["attempt 1" "p3@2"] ["attempt 1" "p3@4"]] · each holds the table's row: true
+    9236.2  RESULT  C1 · ready: true · the table holds: {:stamp 8000, :batch 8, :attempt 1} · kept answers: 2 [["attempt 1" "p3@2"] ["attempt 1" "p3@4"]] · each holds the table's row: true
+    9236.4  RESULT  C2 · ready: true · the table holds: {:stamp 8001, :batch 8, :attempt 1} · kept answers: 2 [["attempt 1" "p3@3"] ["attempt 1" "p3@5"]] · each holds the table's row: true
+    9236.5  RUN     ---- M3 · four things of one partition, two to a batch: the run that closes the first two holds a stray and a thing that fails after its writes ----
+    9877.2  INSIDE  run 12 attempt 1 task 3 : read 2 key(s), of the batches (11) , appended 1 record(s) and took the keys out · 2.74 ms for the appends
+    9903.4  INSIDE  batch 12 attempt 1 task 0 THROWS on purpose, after the rows were written and what to keep of them was put
+   10509.6  INSIDE  run 12 attempt 2 task 3 : read 2 key(s), of the batches (11) , appended 1 record(s) and took the keys out · 2.61 ms for the appends
+   10701.8  INSIDE  run 13 attempt 1 task 0 : read 2 key(s), of the batches (12) , appended 1 record(s) and took the keys out · 2.97 ms for the appends
+   11113.8  RESULT  H1a · ready: true · the table holds: {:stamp 11000, :batch 11, :attempt 1} · kept answers: 2 [["attempt 1" "p3@6"] ["attempt 1" "p3@7"]] · each holds the table's row: true
+   11114.2  RESULT  H1b · ready: true · the table holds: {:stamp 11000, :batch 11, :attempt 1} · kept answers: 2 [["attempt 1" "p3@6"] ["attempt 1" "p3@7"]] · each holds the table's row: true
+   11114.4  RESULT  FAIL-2 · ready: true · the table holds: {:stamp 12000, :batch 12, :attempt 2} · kept answers: 1 [["attempt 2" "p0@4"]] · each holds the table's row: true
+   11114.4  RESULT  stray ["stray-3" 0 4]
+   13616.1  QUIET   the end of each partition of the depot: [5 0 0 8] · 2.5 s later, with nothing sent: [5 0 0 8]
+   13619.8  WHOLE   records in the depot: 13 · kept answers: 21 of 16 ids · kept answers that hold another row than the table's: 0 () · rows with no kept answer: () · kept strays: {"stray-0" 1, "stray-3" 1, "stray-1" 1}
+   13620.9  WHOLE   how many ids have 1, 2, 3 ... kept answers: {1 11, 2 5}
+   13621.1  WHOLE   attempts of the batches that had more than one: {5 2, 9 2, 12 2} · forced throws: [{:batch 5, :attempt 1, :where :after-the-writes, :task 3} {:batch 9, :attempt 1, :where :after-the-keeping, :task 3} {:batch 12, :attempt 1, :where :after-the-writes, :task 0}]
+   13621.2  COST    the appends of one task in one closing, [records ms]: [[3 9.92] [1 2.79] [2 5.91] [2 5.13] [2 4.84] [1 2.74] [1 2.61] [1 2.97]]

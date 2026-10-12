@@ -1,0 +1,47 @@
+    2839.3  RUN     ---- S0 · 20 things, no failure: each is decided once ----
+    3304.6  RESULT  Q0 · ready: true · the table holds: {:stamp 5, :by-rid "Q0", :by-attempt 1} · records: 1 [[:decided "row by Q0#1 stamp 5" "appended by Q0#1" "p2@4"]] · every record holds the table's row: true
+    3310.1  RESULT  Q1 · ready: true · the table holds: {:stamp 5, :by-rid "Q1", :by-attempt 1} · records: 1 [[:decided "row by Q1#1 stamp 5" "appended by Q1#1" "p3@4"]] · every record holds the table's row: true
+    3317.2  RESULT  Q2 · ready: true · the table holds: {:stamp 1, :by-rid "Q2", :by-attempt 1} · records: 1 [[:decided "row by Q2#1 stamp 1" "appended by Q2#1" "p2@0"]] · every record holds the table's row: true
+    3322.9  RESULT  Q3 · ready: true · the table holds: {:stamp 1, :by-rid "Q3", :by-attempt 1} · records: 1 [[:decided "row by Q3#1 stamp 1" "appended by Q3#1" "p0@0"]] · every record holds the table's row: true
+    3328.5  RESULT  Q4 · ready: true · the table holds: {:stamp 6, :by-rid "Q4", :by-attempt 1} · records: 1 [[:decided "row by Q4#1 stamp 6" "appended by Q4#1" "p2@5"]] · every record holds the table's row: true
+    3333.3  RESULT  Q5 · ready: true · the table holds: {:stamp 4, :by-rid "Q5", :by-attempt 1} · records: 1 [[:decided "row by Q5#1 stamp 4" "appended by Q5#1" "p3@3"]] · every record holds the table's row: true
+    3338.1  RESULT  Q6 · ready: true · the table holds: {:stamp 7, :by-rid "Q6", :by-attempt 1} · records: 1 [[:decided "row by Q6#1 stamp 7" "appended by Q6#1" "p2@6"]] · every record holds the table's row: true
+    3341.9  RESULT  Q7 · ready: true · the table holds: {:stamp 4, :by-rid "Q7", :by-attempt 1} · records: 1 [[:decided "row by Q7#1 stamp 4" "appended by Q7#1" "p0@3"]] · every record holds the table's row: true
+    3346.0  RESULT  Q8 · ready: true · the table holds: {:stamp 8, :by-rid "Q8", :by-attempt 1} · records: 1 [[:decided "row by Q8#1 stamp 8" "appended by Q8#1" "p2@7"]] · every record holds the table's row: true
+    3350.0  RESULT  Q9 · ready: true · the table holds: {:stamp 1, :by-rid "Q9", :by-attempt 1} · records: 1 [[:decided "row by Q9#1 stamp 1" "appended by Q9#1" "p3@0"]] · every record holds the table's row: true
+    3354.2  RESULT  Q10 · ready: true · the table holds: {:stamp 4, :by-rid "Q10", :by-attempt 1} · records: 1 [[:decided "row by Q10#1 stamp 4" "appended by Q10#1" "p2@3"]] · every record holds the table's row: true
+    3358.6  RESULT  Q11 · ready: true · the table holds: {:stamp 3, :by-rid "Q11", :by-attempt 1} · records: 1 [[:decided "row by Q11#1 stamp 3" "appended by Q11#1" "p0@2"]] · every record holds the table's row: true
+    3362.0  RESULT  Q12 · ready: true · the table holds: {:stamp 9, :by-rid "Q12", :by-attempt 1} · records: 1 [[:decided "row by Q12#1 stamp 9" "appended by Q12#1" "p2@8"]] · every record holds the table's row: true
+    3365.4  RESULT  Q13 · ready: true · the table holds: {:stamp 2, :by-rid "Q13", :by-attempt 1} · records: 1 [[:decided "row by Q13#1 stamp 2" "appended by Q13#1" "p3@1"]] · every record holds the table's row: true
+    3368.9  RESULT  Q14 · ready: true · the table holds: {:stamp 10, :by-rid "Q14", :by-attempt 1} · records: 1 [[:decided "row by Q14#1 stamp 10" "appended by Q14#1" "p2@9"]] · every record holds the table's row: true
+    3372.6  RESULT  Q15 · ready: true · the table holds: {:stamp 5, :by-rid "Q15", :by-attempt 1} · records: 1 [[:decided "row by Q15#1 stamp 5" "appended by Q15#1" "p0@4"]] · every record holds the table's row: true
+    3375.6  RESULT  Q16 · ready: true · the table holds: {:stamp 2, :by-rid "Q16", :by-attempt 1} · records: 1 [[:decided "row by Q16#1 stamp 2" "appended by Q16#1" "p2@1"]] · every record holds the table's row: true
+    3378.7  RESULT  Q17 · ready: true · the table holds: {:stamp 3, :by-rid "Q17", :by-attempt 1} · records: 1 [[:decided "row by Q17#1 stamp 3" "appended by Q17#1" "p3@2"]] · every record holds the table's row: true
+    3382.3  RESULT  Q18 · ready: true · the table holds: {:stamp 3, :by-rid "Q18", :by-attempt 1} · records: 1 [[:decided "row by Q18#1 stamp 3" "appended by Q18#1" "p2@2"]] · every record holds the table's row: true
+    3386.0  RESULT  Q19 · ready: true · the table holds: {:stamp 2, :by-rid "Q19", :by-attempt 1} · records: 1 [[:decided "row by Q19#1 stamp 2" "appended by Q19#1" "p0@1"]] · every record holds the table's row: true
+    3386.0  RUN     ---- S1 · a throw after the writes, before the boundary ----
+    3399.1  INSIDE  F1 attempt 1 THROWS on purpose at after-writes
+    4376.8  CLIENT  an :ack append gave [:threw "CallbackException: Callback failure"]
+    4382.4  RESULT  F1 · ready: true · the table holds: {:stamp 6, :by-rid "F1", :by-attempt 2} · records: 1 [[:decided "row by F1#2 stamp 6" "appended by F1#2" "p0@10"]] · every record holds the table's row: true
+    4382.5  RUN     ---- S2 · a throw after the boundary, before the append: the row is committed and no record is appended ----
+    4592.7  INSIDE  F2 attempt 1 THROWS on purpose at after-boundary
+    6377.0  CLIENT  an :ack append gave [:threw "CallbackException: Callback failure"]
+    6381.9  RESULT  F2 · ready: true · the table holds: {:stamp 7, :by-rid "F2", :by-attempt 1} · records: 1 [[:copy "row by F2#1 stamp 7" "appended by F2#2" "p0@17"]] · every record holds the table's row: true
+    6382.0  RUN     ---- S3 · a throw after the append ----
+    7193.6  INSIDE  F3 attempt 1 THROWS on purpose at after-append
+   12751.6  CLIENT  an :ack append gave [:threw "CallbackException: Callback failure"]
+   12756.1  RESULT  F3 · ready: true · the table holds: {:stamp 8, :by-rid "F3", :by-attempt 1} · records: 2 [[:decided "row by F3#1 stamp 8" "appended by F3#1" "p0@18"] [:copy "row by F3#1 stamp 8" "appended by F3#2" "p0@26"]] · every record holds the table's row: true
+   12756.2  RUN     ---- S4 · two records under one id, sent together ----
+   16283.2  RESULT  E · ready: true · the table holds: {:stamp 9, :by-rid "E-a", :by-attempt 1} · records: 2 [[:decided "row by E-a#1 stamp 9" "appended by E-a#1" "p0@27"] [:copy "row by E-a#1 stamp 9" "appended by E-b#1" "p0@28"]] · every record holds the table's row: true
+   16283.3  RUN     ---- S5 · X and Y sent together; Y throws before its writes ----
+   16295.4  INSIDE  HY attempt 1 THROWS on purpose at before-writes
+   27433.9  CLIENT  an :ack append gave [:threw "CallbackException: Callback failure"]
+   27434.1  CLIENT  an :ack append gave [:threw "CallbackException: Callback failure"]
+   27438.2  RESULT  HX · ready: true · the table holds: {:stamp 11, :by-rid "HX", :by-attempt 1} · records: 1 [[:decided "row by HX#1 stamp 11" "appended by HX#1" "p0@40"]] · every record holds the table's row: true
+   27440.1  RESULT  HY · ready: true · the table holds: {:stamp 10, :by-rid "HY", :by-attempt 2} · records: 1 [[:decided "row by HY#2 stamp 10" "appended by HY#2" "p0@39"]] · every record holds the table's row: true
+   27440.2  RUN     ---- S6 · the thing of S3 sent again, as a second record under its id ----
+   32452.5  RESULT  F3 · ready: true · the table holds: {:stamp 8, :by-rid "F3", :by-attempt 1} · records: 4 [[:decided "row by F3#1 stamp 8" "appended by F3#1" "p0@18"] [:copy "row by F3#1 stamp 8" "appended by F3#2" "p0@26"] [:copy "row by F3#1 stamp 8" "appended by F3#3" "p0@36"] [:copy "row by F3#1 stamp 8" "appended by F3-sent-again#1" "p0@41"]] · every record holds the table's row: true
+   33960.9  WHOLE   ids with a row: 26 of 26 · records in the second depot: 57 · records that hold another row than the table's: 0 () · rows with no record: 0 ()
+   33962.1  WHOLE   how many ids have 1, 2, 3 ... records: {1 17, 3 1, 4 3, 5 5}
+   33962.2  WHOLE   events begun in all: 60 for 28 source records · forced throws: 4
+   33962.3  WHOLE   each forced throw: [{:rid "F1", :attempt 1, :point :after-writes} {:rid "F2", :attempt 1, :point :after-boundary} {:rid "F3", :attempt 1, :point :after-append} {:rid "HY", :attempt 1, :point :before-writes}]

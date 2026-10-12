@@ -1,0 +1,4 @@
+     531.0  SIZE    one record of an accepted act, the layer a keyword of 20 letters: 136 bytes · the layer a UUID: 131 · of a refused act, the word of 25 letters: 172 · of a stray: 110 · the bare answer with no wrapper: 123
+     549.0  SIZE    one record of 256 accepted acts of a batch: 5394 bytes · of 1 accepted act of a batch: 132 · what a batch keeps of itself: 55
+    3139.0  ONE     the module as it is defined · module probe.stream/KeepStream · 400 things for one task, sent at once with :ack: all answered after 219.2 ms · appends that threw: 0 · the most records of one task pending at once: 399 · records in the second depot: 401
+    5828.7  ONE     the same definition, with topology.stream.max.executing.per.task set to 1 at the launch · module probe.stream/KeepStreamAtOne · 400 things for one task, sent at once with :ack: all answered after 1568.3 ms · appends that threw: 0 · the most records of one task pending at once: 1 · records in the second depot: 401

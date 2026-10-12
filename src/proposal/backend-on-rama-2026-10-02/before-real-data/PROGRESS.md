@@ -31,6 +31,25 @@ only he can decide, the build session picks a working answer so that the build d
 it **provisional, for Sid**, and lists it under "For the receipt". A working answer is never written
 as a decision of his, in this page or in the tree.
 
+## The shorter path, from 13 October
+
+After midnight Sid asked why the build took so long, and what the process was. His lines, as he
+typed them: "but this is not a fresh work right??? it is about removing code that is now not
+needed???"; "why do we need to go through 7 steps to remove the code?? and same for the tiny
+one??"; "so why the fuck did we did that and doing that??? this is such a bad design are you pretty
+sure this is a good way to wroK why or why not??"
+
+What the build session answered. The full process of the skill was applied to every part alike, and
+for the taking out of the locks and for the depth of a permission that was too much: the skill's own
+page says that the full process is for work that designs depots, tables and topologies together,
+and that a simpler task takes judgment. The build session had followed "Run it by the Rama skill's
+stages" to the letter and had not told him at the start that a third of the build is a removal.
+Two hours had passed with no line of the store changed. The one thing of those hours that changed
+what is built is the run on Rama, which the contract asks for.
+
+The path that the build session told him it takes from there, "unless you say otherwise". He did not
+strike it. It is the build session's, and no decision of his; ruling 31 holds it.
+
 ## What to read, in this order
 
 1. `../BUILD-before-real-data.md` — the contract. It is the full spec, and it names what is not
@@ -84,15 +103,11 @@ adapts the skill's template.
 | a run on Rama beside the first stage: what an append to a depot from inside an event of a stream topology does (`stream-probe/`), the contract's "Runs before the plan is fixed"; rulings 27 to 30 | done | in the commit after `ba29f4cb` |
 | the implied spec, with the check of each "as built" line of the contract against the code; rulings 1 to 20 on its 22 points | done; judged sound | `ba29f4cb` |
 | the split into parts: three, `the-locks-go`, `answers-in-a-log`, `the-rebuild`; rulings 21 to 26 on its notes | done; judged sound | in the commit after `ba29f4cb` |
-| the plan of `the-locks-go` | — | — |
-| the check of the plan of `the-locks-go` | — | — |
-| the plan of `answers-in-a-log` | — | — |
-| the check of the plan of `answers-in-a-log` | — | — |
-| the plan of `the-rebuild`, before the build of `answers-in-a-log` starts (ruling 21) | — | — |
-| the check of the plan of `the-rebuild` | — | — |
-| the build of `the-locks-go` | — | — |
-| the build of `answers-in-a-log`, which takes D's first numbers before it changes the module (ruling 23) | — | — |
-| the build of `the-rebuild` | — | — |
+| the plan of `the-locks-go`, with its run of ruling 19's condition (`plan-probes-the-locks-go/`); ruling 34 on its nine points | done | — |
+| the plan of `answers-in-a-log`, with three runs of its own (`plan-probes-answers-in-a-log/`); ruling 32 on its six points | done | — |
+| the build of `the-locks-go`, straight from its plan, by six sessions at once, each with files of its own (ruling 33) | running | — |
+| the build of `answers-in-a-log`, straight from its plan; it takes D's first numbers before it changes the module (ruling 23) | — | — |
+| the build of `the-rebuild`, with no plan of its own: its proof compares what it made with what the gates wrote, row by row | — | — |
 | the review of the whole against the contract | — | — |
 | the measures of the contract's section D, on the final tree | — | — |
 | the receipt to Sid | — | — |
@@ -121,6 +136,51 @@ Where the build session placed the contract's runs. The contract says "The plan 
 ... before it chooses a form for the log of answers". They are run by a fresh session of their own,
 beside the first stage, so that no plan waits for them and no plan is written before them. The plan
 stage reads the results and makes more runs where its own questions need them.
+
+## Other sessions in this tree
+
+Three sessions write on `main` in this working tree on 12 October. The build session learned of the
+other two from `git log` and `git status`, and of what Sid asked each from a note that the first
+wrote and Sid pasted into the build session's chat, and from the record of his lines.
+
+- **The paper-work session.** Sid gave it the six jobs of entry 6 of 12 October that are no build's:
+  the pass over the decisions page and over the rulings file of September, "freezes", three lines
+  for the method, the check's six reports with a row in the queue for each thing nobody asked,
+  Rama's docs for 1.6.0, and one page of what must be true before real data is kept. Its limits, in
+  its own note: it changes no code, and does not touch the contract, this folder or `test-store/`.
+  Its commits: `dc4bd12b`, `f82165d2`, `ccf75654`, `3617906f`, `ea96d342`, `57f6d95d`. It has not
+  read this build's contract, implied spec or rulings.
+- **The session that keeps the open questions about Rama** (unnamed, `f55ca548` in the record). On
+  Sid's line of 12 October, "we will not be sending anything right now keep them as open question
+  only ... colocate it with code" (‹bf407e42›), it wrote `src-store/OPEN-QUESTIONS-rama.md` and one
+  row of the table at the top of `src-store/README.md` that links to it. Neither is committed.
+
+Where their work meets this build's, and what the build does:
+
+- `src-store/softland/store/README.md`, the store's page. The paper-work session changed four
+  places in `f82165d2`: the row F2 A of "Decisions this module stands on", where "the acts depots
+  are the replay log" is now marked as a session's sentence; the row of E3·H7 B; the sentence on the
+  reason for F5 A; and "see" and "see and act" under the words. Each part of this build edits that
+  page. Its plans were started on the head after those commits, so they read the new text.
+- `src-store/README.md`, the tree's entry. This build replaces lines of its opening paragraphs and
+  of its table, and no line of a decisions section. The page holds the third session's row, not
+  committed. A commit of this build takes only its own lines of that page: the index is pointed at
+  "HEAD plus this build's edits", and `git diff --cached` and `git diff` are read before the commit.
+- `decisions/OPEN-QUESTIONS.md`, the queue. The paper-work session added rows V1 to V34. This build
+  writes nothing into the queue; the receipt names the rows that the build makes stale (V1, V17,
+  V30, V31 and `act-kept`, by that session's own list) and proposes its new rows from V35.
+- `decisions/METHOD.md`. Its new section names three things that Rama cannot change once data is
+  kept: the number of tasks, the name of a depot or of a table, and the keys of a table. The plan of
+  `answers-in-a-log` names a depot; it was told to mark each such name and each form of a key as
+  cheap to change now and not later. The same section says that a builder's "is Sid's" line goes to
+  the queue the same day, where Sid's word to this build is "one receipt at the end". Put to Sid.
+- `reference/rama/release-notes.md`. The note for 1.6.0 says that the commit and the replication of
+  a microbatch changed. The plan of `answers-in-a-log` was told to read it against each line of the
+  docs that its table of a batch's points of failure leans on.
+- `../PROGRESS.md`, the page of the folder above. The paper-work session edits its section "Now (12
+  October 2026)". This build edits that section when it ends, and reads the page again first.
+- `../WHAT-MUST-BE-TRUE.md`. Three of its lines are what this build delivers: every table made again
+  from the logs, no locks, each log kept whole. Its last section is a session's and binds nobody.
 
 ## Rulings
 
@@ -364,6 +424,77 @@ plans stand on, each run and not read:
     process, a change of leader, a clean restart by a module update, when Rama writes a topology's
     progress, and retry modes other than `:all-after`.
 
+### The shorter path, and the plan of `answers-in-a-log`
+
+31. **The shorter path — builder's, told to Sid on 13 October and not struck.** It replaces ruling 21
+    and the order of ruling 25.
+    - `the-locks-go` is built straight from its plan. Its plan gets no check of its own: the part
+      designs no state, its proofs say whether it holds, and the review of the whole reads it.
+    - `answers-in-a-log` keeps one check of its plan, and is then built. It is the part where a
+      fault stays hidden until the day a rebuild is needed.
+    - `the-rebuild` gets no plan and no check of its own. It is built with its proof, which compares
+      what it made with what the gates wrote, row by row, so a wrong rebuild fails its own proof.
+      What its builder stands on: section E of the plan of `answers-in-a-log`, which says for each
+      part of each row which log gives it; the scope of `the-rebuild` in the split; rulings 9, 10,
+      13, 14, 18 and 22.
+    - One review of the whole follows, then the measures and the receipt.
+    What is given up, and what guards it: a part of a row that the logs cannot give would be found
+    when the rebuild is built, and the gates' code would then change after it was built. So the one
+    check is told to hold section E against every part of every row of section 4 of the implied
+    spec, as its first job.
+32. **The six points of the plan of `answers-in-a-log` — builder's; each is its recommendation.**
+    (1) The kept clock of a batch is made again from the gate's own log of answers, whose first
+    record of a batch holds the clock that the batch read back; the depot of batch clocks is the
+    check. This meets ruling 9's third point by a third road, and every case is then made again.
+    (2) An event of the streaming gate that finds its act-id answered appends a copy of the entry.
+    The gate cannot tell a maker's second send from Rama's second run of a record whose append was
+    lost, and that second run is what leaves no answer without an entry. (3) "The most acts a second
+    that one maker holds" is measured in both readings. (4) One depot of answers for each gate,
+    declared by its gate. Their names, and the two new keys of the microbatch gate's table, cannot be
+    changed by Rama once real data is kept; the receipt puts them before Sid as words to change now.
+    (5) The test of a closing takes what the run before left to close, and its checks are written
+    again. (6) Its facts for the rebuild go to the rebuild's builder.
+    The plan's own runs, on a module of its own: a throw before the boundary leaves nothing; a throw
+    between the commit and the append leaves a row with no entry until the record runs again; a throw
+    after the append leaves two equal entries; a failed attempt of a batch leaves nothing in the log.
+    The design in one line: both gates keep an answer only after its row is committed, so no entry of
+    an attempt that did not count exists, and every entry under one act-id is the same.
+
+33. **No check of a plan at all, and a part is built by several sessions at once — builder's, on
+    Sid's word of 13 October.** His lines: "so start doing that and fuck the testing for every
+    fucking word that is written focus on throughtput think about the process of working itself not
+    blindly following instructiosn". The build session had started the one check that ruling 31
+    kept, beside the build. He quoted its first line back, "adversarial, default-fail mindset ...
+    PLAN_VALIDATION", with "These are the fucking things I am saying". It was stopped after a few
+    minutes and wrote nothing. So ruling 31 stands without its second point: `answers-in-a-log` is
+    built straight from its plan. What then guards the logs: the plan's own three runs on Rama, the
+    proofs of the part, and the rebuild's proof, which fails when a part of a row cannot be made
+    from the logs.
+    How a part is built from here. One plan, several sessions at once, each with files of its own
+    and no file shared; each takes the new shape of another session's forms from the plan and not
+    from the file on disk. None runs a proof while the others write. When all are done, the build
+    session runs the proofs once and sends each failure to the session that owns the file. No paper
+    of validation is written. For `the-locks-go` the six are: the source of the door's side and of
+    the act; the source of the gates, the record, the module and the read path; the proofs of the
+    pure code; the module's proof; the door's proof with the read path's proof and the measures;
+    and the README pages.
+34. **The nine points of the plan of `the-locks-go` — builder's; each is its recommendation.** A
+    string with a lone surrogate arrives with `?` in its place, by Rama's writing of a record, and
+    the two digests still agree; it is left as it falls and said in the receipt. A thing that throws
+    when it is read is told by the door, with its word for a thing that it could not read. The text
+    of a value is made once and carried. The bound on the size of an act counts the text that an
+    accept writes into its facts' rows. A thing that a worker cannot read is said in the receipt,
+    and was not run. An opener gives the two numbers of a wait under one name. `src-store/CLAUDE.md`
+    names the seal in two lines and is edited by no session of this build; the receipt says so. A
+    send with no end is stopped nowhere by the door, and the door's proof drops that case.
+    The plan's run of ruling 19's condition, on Rama 1.6.0 in-process: for 138 things, with a value
+    of each kind and with facts as a vector, a list and a lazy sequence, on depots of both
+    partitioners' shapes, the door's digest was the digest that a topology took of the thing off the
+    depot. So the door changes nothing of what a maker gives, and a list goes as a list.
+    Its three numbers, each the builder's, kept, decided by nobody: one value is 65,536 bytes at
+    most, with the word `:value-too-large`; a permission is 32 deep at most on both roads; an act
+    writes 18,874,368 bytes of text at most into its facts' rows, with the word `:act-too-large`.
+
 ## For the receipt
 
 What the contract's last section asks the receipt to hold, gathered as the build goes.
@@ -381,11 +512,24 @@ What the contract's last section asks the receipt to hold, gathered as the build
   Sid's" line goes to the queue the same day; the contract says that what the build finds is
   "proposed as rows for the queue and decided by nobody" in the receipt. The build follows the
   contract and writes nothing into the queue.
-- Departures from the skill's order, each with its ruling: the first two plans side by side (25);
-  the third plan before the second build (21).
+- Departures from the skill, each with its ruling: the first two plans side by side (25); the
+  shorter path of 13 October (31, 33): no check of any plan, no plan of the third part, no paper of
+  validation, and each part built by several sessions at once.
+- The numbers that this build sets, each the builder's and decided by nobody (ruling 34): 65,536
+  bytes for one value; 32 for the depth of a permission; 18,874,368 bytes of text that one act
+  writes into its facts' rows.
+- `src-store/CLAUDE.md` still names the seal, in its lines on words and on the rig's findings. No
+  session of this build edits that file.
+- A string with a lone surrogate reaches the log with `?` in its place (ruling 34).
+- Names that Rama cannot change once real data is kept, for Sid to change now or keep (ruling 32):
+  the depots `*streaming-answer-depot` and `*microbatch-answer-depot`, and the keys `:to-keep` and
+  `:to-close` of the microbatch gate's table.
+- No log gives two things (ruling 32; the plan of `answers-in-a-log`, D and E): `:turns`, the
+  working state of one run of the gate, which nothing reads once its batch is committed; and the
+  task on which a row of the base is, which rests on the number of tasks and on Rama's hash.
+- A store that is stopped between a row's commit and its entry, and never runs again, holds an
+  answer with no entry: about a millisecond in a streaming layer, one run of the gate in the base.
 - From the stream probe, for Sid as facts of Rama on this machine: a throw in a gate's event starts
   the whole worker again, and every record since the last written progress runs again (ruling 29).
-- Another session committed in this tree while the build ran, on the other items of entry 6: the
-  pass over the decisions page, "freezes", three lines for the method, and Rama's docs for 1.6.0
-  (`dc4bd12b` to `3617906f`). The section of 12 October changed in one quoted line and in no
-  decision. `reference/rama/docs/README.md` now says what the copy is.
+- Other sessions wrote in this tree while the build ran. See "Other sessions in this tree", above
+  the rulings.

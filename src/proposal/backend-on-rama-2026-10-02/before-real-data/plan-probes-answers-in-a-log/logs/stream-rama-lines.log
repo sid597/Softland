@@ -1,0 +1,8 @@
+      4 rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+      4 rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2005 DTT 0 0-queue-consumer}
+      4 rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+      4 rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+      4 rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2005], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated errors {:type :rpl.rama.util.watchable-promise/do-all, :errors 
+      3 rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+      2 rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name probe.stream/KeepStream, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, :supervisor-id 00000000-0000-0000-0000-000000000000, :hostname 00000000-0000-0000-0000-00000000000
+      1 rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-async]}

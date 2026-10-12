@@ -1,0 +1,23 @@
+RUN     Rama 1.6.0, in-process, 4 tasks, 2 threads · -Xss16m on every thread · Java 21.0.12.1
+CASE one value, a string of 1,000,000 characters | :streaming | appended, the call took 118 ms | the topology's row: came · door digest = gate digest: true · text length 1000391 · the act's check: ok
+CASE one value, a string of 1,000,000 characters | :microbatch | appended, the call took 35 ms | the topology's row: came · door digest = gate digest: true · text length 1000393 · the act's check: ok
+CASE 256 facts, each a string whose text is 65,536 bytes (16.8 MB of values) | :streaming | appended, the call took 443 ms | the topology's row: came · door digest = gate digest: true · text length 16794435 · the act's check: ok
+CASE 256 facts, each a string whose text is 65,536 bytes (16.8 MB of values) | :microbatch | appended, the call took 185 ms | the topology's row: came · door digest = gate digest: true · text length 16794437 · the act's check: ok
+CASE one value, a string of 20,000,000 characters | :streaming | appended, the call took 900 ms | the topology's row: came · door digest = gate digest: true · text length 20000391 · the act's check: ok
+CASE one value, a string of 20,000,000 characters | :microbatch | appended, the call took 255 ms | the topology's row: came · door digest = gate digest: true · text length 20000393 · the act's check: ok
+CASE 100,000 facts with no value | :streaming | appended, the call took 426 ms | the topology's row: came · door digest = gate digest: true · text length 6200323 · the act's check: ok
+CASE 100,000 facts with no value | :microbatch | appended, the call took 138 ms | the topology's row: came · door digest = gate digest: true · text length 6200325 · the act's check: ok
+CASE one value, a 1 inside 1,000 vectors | :streaming | appended, the call took 8 ms | the topology's row: came · door digest = gate digest: true · text length 522 · the act's check: :malformed
+CASE one value, a 1 inside 1,000 vectors | :microbatch | appended, the call took 4 ms | the topology's row: came · door digest = gate digest: true · text length 524 · the act's check: :malformed
+CASE one value, a 1 inside 5,000 vectors | :streaming | appended, the call took 9 ms | the topology's row: came · door digest = gate digest: true · text length 522 · the act's check: :malformed
+CASE one value, a 1 inside 5,000 vectors | :microbatch | appended, the call took 8 ms | the topology's row: came · door digest = gate digest: true · text length 524 · the act's check: :malformed
+CASE one value, a 1 inside 20,000 vectors | :streaming | appended, the call took 23 ms | the topology's row: came · door digest = gate digest: true · text length 522 · the act's check: :malformed
+CASE one value, a 1 inside 20,000 vectors | :microbatch | appended, the call took 16 ms | the topology's row: came · door digest = gate digest: true · text length 524 · the act's check: :malformed
+CASE one value, a 1 inside 100,000 vectors | :streaming | NOT APPENDED after 35 ms: rpl.rama.distributed.exceptions.CallbackException: Callback failure | the client's own digest walk: came back
+CASE one value, a 1 inside 100,000 vectors | :microbatch | NOT APPENDED after 19 ms: rpl.rama.distributed.exceptions.CallbackException: Callback failure | the client's own digest walk: came back
+CASE one value, a 1 inside 1,000,000 vectors | :streaming | NOT APPENDED after 23 ms: rpl.rama.distributed.exceptions.CallbackException: Callback failure | the client's own digest walk: came back
+CASE one value, a 1 inside 1,000,000 vectors | :microbatch | NOT APPENDED after 18 ms: rpl.rama.distributed.exceptions.CallbackException: Callback failure | the client's own digest walk: came back
+RUN     a last small thing, to see that both topologies still run:
+CASE a small thing after all of the above | :streaming | appended, the call took 14 ms | the topology's row: came · door digest = gate digest: true · text length 390 · the act's check: ok
+CASE a small thing after all of the above | :microbatch | appended, the call took 2 ms | the topology's row: came · door digest = gate digest: true · text length 392 · the act's check: ok
+RUN     END
