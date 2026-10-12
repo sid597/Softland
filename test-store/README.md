@@ -66,7 +66,7 @@ clojure -M:store-module -m softland.store.read-measures
 It measures, on the same in-process cluster, a gate under 100 acts a second,
 the same with live reads open, the opening of a canvas of 5,000 facts, and how
 late a push is. It prints each number on a line that starts with `MEASURED`,
-holds nothing to a number, and takes about half an hour; with the argument
+holds nothing to a number, and takes about ten minutes; with the argument
 `small` it runs each shape with a small load. An in-process number is a floor
 for a round trip and says little of a seek on a disk.
 

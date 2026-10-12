@@ -1059,7 +1059,9 @@ What it checks, group by group:
 8. A layer that is left out: one that the asker may not see, one that is not
    made, a start layer that she may not see.
 9. Who asks: a person who is not signed in; the system; no asker, both, an asker
-   that is over the limit.
+   that is over the limit. And what the working answer for the store's own facts
+   gives a person who is not signed in: a holder's permission in the base, which
+   is everyone, and nothing in a members layer.
 10. What points at a thing through layers, asked once: a nearer layer moves the
     thing, takes it away, moves it back; a nearer layer that does not mark the key
     writes another thing, then the same thing; a nearer fact from before its
@@ -1237,8 +1239,8 @@ clojure -M:store-module -m softland.store.read-measures
 
 A run that is no proof. It prints each number on a line that starts with
 `MEASURED`, with what it is a number of, holds nothing to a number, and exits 0
-unless it cannot run. It takes about half an hour; with the argument `small` it
-runs each shape with a small load, in a few minutes. A set of times is printed
+unless it cannot run. It takes about ten minutes; with the argument `small` it
+runs each shape with a small load, in a minute and a half. A set of times is printed
 as its count, its middle, its slowest 1 in 100 and its slowest.
 
 What it measures: a gate under 100 acts a second, the streaming gate with a key

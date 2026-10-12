@@ -687,16 +687,27 @@
         turned-away (mapv (fn [thing] ((juxt :could-not :why) (ask thing)))
                           [{:asks [:place :note-41 :text] :layers [:main]}
                            {:asks [:place :note-41 :text] :asker :alice :not-signed-in true :layers [:main]}
-                           {:asks [:place :note-41 :text] :asker (keyword (apply str (repeat 300 "a"))) :layers [:main]}])]
+                           {:asks [:place :note-41 :text] :asker (keyword (apply str (repeat 300 "a"))) :layers [:main]}])
+        ;; the store's own facts, asked for by a person who is not signed in
+        own-in-base (ask {:asks [:place :system :softland.store/permission] :not-signed-in true :layers [:base]
+                          :stores-own-facts true})
+        own-in-main (ask {:asks [:place :alice :softland.store/permission] :not-signed-in true :layers [:main]
+                          :stores-own-facts true})]
     (check "a person who is not signed in sees the base, which is everyone, and nothing of a members layer"
            [[{:layer :main :why :may-not-see}] [:value :base "a note"]]
            [(:left-out not-signed-in) ((juxt :holds :layer :value) (:place not-signed-in))])
+    (check "what the working answer for the store's own facts gives a person who is not signed in, when she asks for them: in the base, which is everyone, a holder's permission; in a members layer nothing, and the layer is left out"
+           [[:value :base [:system :base :base]] [:no-fact [{:layer :main :why :may-not-see}]]]
+           [((juxt :holds :layer :value) (:place own-in-base))
+            [(:holds (:place own-in-main)) (:left-out own-in-main)]])
     (check "the system is a who like any other: it holds no permission in a person's layer, and sees the base"
            [[{:layer :main :why :may-not-see}] :base] [(:left-out system) (:layer (:place system))])
     (check "a query with no asker, with both, and with an asker of 300 characters is turned away with its word"
            [[:read-the-query :no-one-asker] [:read-the-query :no-one-asker] [:read-the-query :id-over-the-limit]] turned-away)
     (shown "who asks is what the caller says: a person who is not signed in sees the base and no members layer," (pr-str (:left-out not-signed-in))
-           "| :system is a who like any other | no asker, both, and an asker of 300 characters:" (pr-str (mapv second turned-away)))))
+           "| :system is a who like any other | no asker, both, and an asker of 300 characters:" (pr-str (mapv second turned-away))
+           "| asked for the store's own facts, a person who is not signed in is given the system's permission in the base," (pr-str (:value (:place own-in-base)))
+           ", and nothing of a permission in a members layer")))
 
 (deftest what-points-at-a-thing-through-layers
   (let [_ (doseq [layer [:near10 :plain10 :late10 :far10]] (make! layer :alice))

@@ -5,8 +5,9 @@
 
     clojure -M:store-module -m softland.store.read-measures
 
-  It takes about half an hour. With the one argument `small` it runs each
-  shape with a small load, in a few minutes, to see that the run works:
+  It takes about ten minutes. With the one argument `small` it runs each
+  shape with a small load, in a minute and a half, to see that the run
+  works:
 
     clojure -M:store-module -m softland.store.read-measures small
 
