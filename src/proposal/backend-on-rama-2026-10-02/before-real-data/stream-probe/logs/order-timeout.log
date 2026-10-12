@@ -1,0 +1,83 @@
+    2827.6  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads, topology.stream.timeout.seconds set to 3 · source {:start-from :beginning :retry-mode :all-after}
+    2841.3  RUN     ---- T1 · write, then append · no boundary · :append-ack · N is T1-wa-p-n0 ----
+    2904.0  CLIENT  the :ack append of T1-wa-p-e gave {} after 62.5 ms
+    2909.0  INSIDE  T1-wa-p-n0 attempt 1 begins on task 1 (worker bb1ad573)
+    2909.7  INSIDE  T1-wa-p-n0 attempt 1 is after the write, before the append
+    2913.9  INSIDE  T1-wa-p-n0 attempt 1 is after the write and the append
+    2914.1  INSIDE  T1-wa-p-n0 attempt 1 waits for its future; the task's thread is free
+    2939.8  OUTSIDE while N waits: row of T1-wa-p-n0: nil · records: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 1]]
+    6412.8  CLIENT  the :ack append of T1-wa-p-n1 gave CallbackException: Callback failure after 3472.8 ms
+    6416.3  OUTSIDE after that append: row of T1-wa-p-n1: nil · records: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 1]]
+    9410.3  INSIDE  T1-wa-p-n1 attempt 1 begins on task 1 (worker bb1ad573)
+    9410.7  INSIDE  T1-wa-p-n1 attempt 1 is after the write, before the append
+    9410.9  INSIDE  T1-wa-p-n0 attempt 2 begins on task 1 (worker bb1ad573)
+    9411.0  INSIDE  T1-wa-p-n0 attempt 2 is after the write, before the append
+    9411.2  INSIDE  T1-wa-p-n1 attempt 2 begins on task 1 (worker bb1ad573)
+    9411.3  INSIDE  T1-wa-p-n1 attempt 2 is after the write, before the append
+    9411.4  INSIDE  T1-wa-p-n2 attempt 1 begins on task 1 (worker bb1ad573)
+    9411.6  INSIDE  T1-wa-p-n2 attempt 1 is after the write, before the append
+    9422.9  INSIDE  T1-wa-p-n1 attempt 1 is after the write and the append
+    9423.0  INSIDE  T1-wa-p-n1 attempt 1 : the event's code is done
+    9423.2  INSIDE  T1-wa-p-n0 attempt 2 is after the write and the append
+    9423.3  INSIDE  T1-wa-p-n0 attempt 2 : the event's code is done
+    9423.4  INSIDE  T1-wa-p-n1 attempt 2 is after the write and the append
+    9423.4  INSIDE  T1-wa-p-n1 attempt 2 : the event's code is done
+    9423.5  INSIDE  T1-wa-p-n2 attempt 1 is after the write and the append
+    9423.5  INSIDE  T1-wa-p-n2 attempt 1 : the event's code is done
+    9427.1  CLIENT  the :ack append of T1-wa-p-n2 gave {} after 3010.7 ms
+    9430.0  OUTSIDE after that append: row of T1-wa-p-n2: {:id "T1-wa-p-n2", :attempt 1, :count 5} · records: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 1] ["T1-wa-p-n1" 1] ["T1-wa-p-n0" 2] ["T1-wa-p-n1" 2] ["T1-wa-p-n2" 1]]
+    9430.4  CLIENT  the :ack append of N gave CallbackException: Callback failure after 6526.3 ms
+    9431.3  SELECT  T1-wa-p-n0 is now given as {:id "T1-wa-p-n0", :attempt 2, :count 3}
+   10930.8  RESULT  from N's first begin to its second: 6501.9 ms · events begun: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 2] ["T1-wa-p-n1" 2] ["T1-wa-p-n2" 1]] · task globals made ready again: 0
+   10932.0  RESULT  the second depot since the scenario began: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 1] ["T1-wa-p-n1" 1] ["T1-wa-p-n0" 2] ["T1-wa-p-n1" 2] ["T1-wa-p-n2" 1]]
+   10932.1  RUN     now the future of N's first attempt is completed
+   12434.5  RESULT  N's first attempt went on behind its wait: false · came to the end of its code: false · row of T1-wa-p-n0: {:id "T1-wa-p-n0", :attempt 2, :count 3} · records: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 1] ["T1-wa-p-n1" 1] ["T1-wa-p-n0" 2] ["T1-wa-p-n1" 2] ["T1-wa-p-n2" 1]]
+   17436.6  RESULT  five seconds later, events begun: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 2] ["T1-wa-p-n1" 2] ["T1-wa-p-n2" 1]] · row of T1-wa-p-n0: {:id "T1-wa-p-n0", :attempt 2, :count 3} · records: [["T1-wa-p-e" 1] ["T1-wa-p-n0" 1] ["T1-wa-p-n1" 1] ["T1-wa-p-n0" 2] ["T1-wa-p-n1" 2] ["T1-wa-p-n2" 1]]
+   17437.0  RUN     ---- T1 · write, then append · boundary before the append · :append-ack · N is T1-waBp-n0 ----
+   17446.5  CLIENT  the :ack append of T1-waBp-e gave {} after 9.4 ms
+   17448.9  INSIDE  T1-waBp-n0 attempt 1 begins on task 1 (worker bb1ad573)
+   17453.9  INSIDE  T1-waBp-n0 attempt 1 is after the write, before the append
+   17455.9  INSIDE  T1-waBp-n0 attempt 1 is after the write and the append
+   17455.9  INSIDE  T1-waBp-n0 attempt 1 waits for its future; the task's thread is free
+   17457.0  OUTSIDE while N waits: row of T1-waBp-n0: {:id "T1-waBp-n0", :attempt 1, :count 7} · records: [["T1-waBp-e" 1] ["T1-waBp-n0" 1]]
+   21411.5  CLIENT  the :ack append of T1-waBp-n1 gave CallbackException: Callback failure after 3954.4 ms
+   21412.8  OUTSIDE after that append: row of T1-waBp-n1: nil · records: [["T1-waBp-e" 1] ["T1-waBp-n0" 1]]
+   24413.3  INSIDE  T1-waBp-n1 attempt 1 begins on task 1 (worker bb1ad573)
+   24413.8  INSIDE  T1-waBp-n0 attempt 2 begins on task 1 (worker bb1ad573)
+   24414.0  INSIDE  T1-waBp-n1 attempt 2 begins on task 1 (worker bb1ad573)
+   24414.2  INSIDE  T1-waBp-n2 attempt 1 begins on task 1 (worker bb1ad573)
+   24425.0  INSIDE  T1-waBp-n0 attempt 3 begins on task 1 (worker bb1ad573)
+   24425.2  INSIDE  T1-waBp-n1 attempt 3 begins on task 1 (worker bb1ad573)
+   24425.4  INSIDE  T1-waBp-n1 attempt 1 is after the write, before the append
+   24425.4  INSIDE  T1-waBp-n0 attempt 2 is after the write, before the append
+   24425.5  INSIDE  T1-waBp-n1 attempt 2 is after the write, before the append
+   24425.5  INSIDE  T1-waBp-n2 attempt 1 is after the write, before the append
+   24427.5  INSIDE  T1-waBp-n1 attempt 1 is after the write and the append
+   24427.6  INSIDE  T1-waBp-n1 attempt 1 : the event's code is done
+   24427.6  INSIDE  T1-waBp-n0 attempt 2 is after the write and the append
+   24427.6  INSIDE  T1-waBp-n0 attempt 2 : the event's code is done
+   24427.7  INSIDE  T1-waBp-n1 attempt 2 is after the write and the append
+   24427.7  INSIDE  T1-waBp-n1 attempt 2 : the event's code is done
+   24427.7  INSIDE  T1-waBp-n2 attempt 1 is after the write and the append
+   24427.8  INSIDE  T1-waBp-n2 attempt 1 : the event's code is done
+   24430.7  INSIDE  T1-waBp-n0 attempt 3 is after the write, before the append
+   24433.0  INSIDE  T1-waBp-n0 attempt 3 is after the write and the append
+   24433.0  INSIDE  T1-waBp-n0 attempt 3 : the event's code is done
+   24433.5  INSIDE  T1-waBp-n2 attempt 2 begins on task 1 (worker bb1ad573)
+   24433.6  INSIDE  T1-waBp-n1 attempt 3 is after the write, before the append
+   24435.4  INSIDE  T1-waBp-n1 attempt 3 is after the write and the append
+   24435.4  INSIDE  T1-waBp-n1 attempt 3 : the event's code is done
+   24437.3  INSIDE  T1-waBp-n2 attempt 2 is after the write, before the append
+   24439.1  INSIDE  T1-waBp-n2 attempt 2 is after the write and the append
+   24439.2  INSIDE  T1-waBp-n2 attempt 2 : the event's code is done
+   24439.8  CLIENT  the :ack append of T1-waBp-n2 gave {} after 3026.9 ms
+   24441.4  OUTSIDE after that append: row of T1-waBp-n2: {:id "T1-waBp-n2", :attempt 2, :count 14} · records: [["T1-waBp-e" 1] ["T1-waBp-n0" 1] ["T1-waBp-n1" 1] ["T1-waBp-n0" 2] ["T1-waBp-n1" 2] ["T1-waBp-n2" 1] ["T1-waBp-n0" 3] ["T1-waBp-n1" 3] ["T1-waBp-n2" 2]]
+   24441.6  CLIENT  the :ack append of N gave CallbackException: Callback failure after 6995.0 ms
+   24442.0  SELECT  T1-waBp-n0 is now given as {:id "T1-waBp-n0", :attempt 3, :count 12}
+   25941.8  RESULT  from N's first begin to its second: 6964.9 ms · events begun: [["T1-waBp-e" 1] ["T1-waBp-n0" 3] ["T1-waBp-n1" 3] ["T1-waBp-n2" 2]] · task globals made ready again: 0
+   25942.9  RESULT  the second depot since the scenario began: [["T1-waBp-e" 1] ["T1-waBp-n0" 1] ["T1-waBp-n1" 1] ["T1-waBp-n0" 2] ["T1-waBp-n1" 2] ["T1-waBp-n2" 1] ["T1-waBp-n0" 3] ["T1-waBp-n1" 3] ["T1-waBp-n2" 2]]
+   25942.9  RUN     now the future of N's first attempt is completed
+   27444.4  RESULT  N's first attempt went on behind its wait: false · came to the end of its code: false · row of T1-waBp-n0: {:id "T1-waBp-n0", :attempt 3, :count 12} · records: [["T1-waBp-e" 1] ["T1-waBp-n0" 1] ["T1-waBp-n1" 1] ["T1-waBp-n0" 2] ["T1-waBp-n1" 2] ["T1-waBp-n2" 1] ["T1-waBp-n0" 3] ["T1-waBp-n1" 3] ["T1-waBp-n2" 2]]
+   32446.0  RESULT  five seconds later, events begun: [["T1-waBp-e" 1] ["T1-waBp-n0" 3] ["T1-waBp-n1" 3] ["T1-waBp-n2" 2]] · row of T1-waBp-n0: {:id "T1-waBp-n0", :attempt 3, :count 12} · records: [["T1-waBp-e" 1] ["T1-waBp-n0" 1] ["T1-waBp-n1" 1] ["T1-waBp-n0" 2] ["T1-waBp-n1" 2] ["T1-waBp-n2" 1] ["T1-waBp-n0" 3] ["T1-waBp-n1" 3] ["T1-waBp-n2" 2]]
+   32446.4  RUN     events begun in all: 15 for 8 source records · records in the second depot's partition 1: 15
+   32446.4  RUN     END

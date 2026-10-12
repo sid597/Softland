@@ -1,0 +1,2 @@
+Rama's own ERROR and WARN lines of the run "order-timeout" (stdout of the JVM, not kept otherwise): each distinct line once, its count in front, the time of day and the thread's name taken off, cut to 300 characters. 2 lines in all.
+      2 ERROR rpl.rama.distributed.topology.streaming - Detected stalled streaming batch. Forcing failure and moving on to next batch. {:time-limit-nanos 3000000000}

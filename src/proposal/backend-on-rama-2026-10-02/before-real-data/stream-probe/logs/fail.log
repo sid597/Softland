@@ -1,0 +1,588 @@
+    2947.8  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads. Every thing goes to task 1, key "key-c" · source {:start-from :beginning :retry-mode :all-after} · the second depot is :disallow and nothing consumes it
+    3024.5  RUN     ---- F1 · write, then append · no boundary · :append-ack ----
+    3030.0  INSIDE  F1-wa-p attempt 1 begins on task 1 (worker bb1ad573)
+    3030.6  INSIDE  F1-wa-p attempt 1 is after the write, before the append
+    3035.0  INSIDE  F1-wa-p attempt 1 is after the write and the append
+    3035.1  INSIDE  F1-wa-p attempt 1 THROWS on purpose after the write and the append
+    3120.9  CLIENT  the :ack append of F1-wa-p gave CallbackException: Callback failure after 96.1 ms · from the call to the event's first begin: 5.4 ms
+    3294.0  INSIDE  the task global of task 0 was made ready again, time 2 : Rama started the worker again
+    3346.4  INSIDE  F1-wa-p attempt 2 begins on task 1 (worker bb1ad573)
+    3346.7  INSIDE  F1-wa-p attempt 2 is after the write, before the append
+    3356.8  INSIDE  F1-wa-p attempt 2 is after the write and the append
+    3356.9  INSIDE  F1-wa-p attempt 2 : the event's code is done
+    3758.0  RESULT  from the throw to the next begin of F1-wa-p : 311.3 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 1 (1 begins)
+    3758.2  RUN     ---- F1 · write, then append · no boundary · :ack ----
+    3970.3  INSIDE  F1-wa-k attempt 1 begins on task 1 (worker bb1ad573)
+    3970.7  INSIDE  F1-wa-k attempt 1 is after the write, before the append
+    3974.3  INSIDE  F1-wa-k attempt 1 is after the write and the append
+    3974.4  INSIDE  F1-wa-k attempt 1 THROWS on purpose after the write and the append
+    4044.6  CLIENT  the :ack append of F1-wa-k gave CallbackException: Callback failure after 286.3 ms · from the call to the event's first begin: 212.1 ms
+    4186.6  INSIDE  the task global of task 0 was made ready again, time 3 : Rama started the worker again
+    4216.5  INSIDE  F1-wa-k attempt 2 begins on task 1 (worker bb1ad573)
+    4216.8  INSIDE  F1-wa-k attempt 2 is after the write, before the append
+    4225.4  INSIDE  F1-wa-k attempt 2 is after the write and the append
+    4225.4  INSIDE  F1-wa-k attempt 2 : the event's code is done
+    4626.5  RESULT  from the throw to the next begin of F1-wa-k : 242.1 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 2 (2 begins)
+    4626.6  RUN     ---- F1 · write, then append · no boundary · no ack ----
+    5437.3  INSIDE  F1-wa-0 attempt 1 begins on task 1 (worker bb1ad573)
+    5437.7  INSIDE  F1-wa-0 attempt 1 is after the write, before the append
+    5437.8  INSIDE  F1-wa-0 attempt 1 is after the write and the append
+    5438.0  INSIDE  F1-wa-0 attempt 1 THROWS on purpose after the write and the append
+    5525.6  CLIENT  the :ack append of F1-wa-0 gave CallbackException: Callback failure after 898.9 ms · from the call to the event's first begin: 810.6 ms
+    5669.0  INSIDE  the task global of task 0 was made ready again, time 4 : Rama started the worker again
+    5696.8  INSIDE  F1-wa-0 attempt 2 begins on task 1 (worker bb1ad573)
+    5697.1  INSIDE  F1-wa-0 attempt 2 is after the write, before the append
+    5697.5  INSIDE  F1-wa-0 attempt 2 is after the write and the append
+    5697.5  INSIDE  F1-wa-0 attempt 2 : the event's code is done
+    6098.5  RESULT  from the throw to the next begin of F1-wa-0 : 258.9 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 3 (3 begins)
+    6098.6  RUN     ---- F1 · write, then append · boundary before the append · :append-ack ----
+   10337.4  INSIDE  F1-waBp attempt 1 begins on task 1 (worker bb1ad573)
+   10343.0  INSIDE  F1-waBp attempt 1 is after the write, before the append
+   10345.0  INSIDE  F1-waBp attempt 1 is after the write and the append
+   10345.1  INSIDE  F1-waBp attempt 1 THROWS on purpose after the write and the append
+   10409.7  CLIENT  the :ack append of F1-waBp gave CallbackException: Callback failure after 4311.0 ms · from the call to the event's first begin: 4238.8 ms
+   10557.0  INSIDE  the task global of task 0 was made ready again, time 5 : Rama started the worker again
+   10608.7  INSIDE  F1-waBp attempt 2 begins on task 1 (worker bb1ad573)
+   10619.9  INSIDE  F1-waBp attempt 2 is after the write, before the append
+   10621.9  INSIDE  F1-waBp attempt 2 is after the write and the append
+   10622.0  INSIDE  F1-waBp attempt 2 : the event's code is done
+   11022.2  RESULT  from the throw to the next begin of F1-waBp : 263.6 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 4 (4 begins)
+   11022.3  RUN     ---- F1 · write, then append · boundary before the append · :ack ----
+   20421.3  INSIDE  F1-waBk attempt 1 begins on task 1 (worker bb1ad573)
+   20424.2  INSIDE  F1-waBk attempt 1 is after the write, before the append
+   20426.3  INSIDE  F1-waBk attempt 1 is after the write and the append
+   20426.3  INSIDE  F1-waBk attempt 1 THROWS on purpose after the write and the append
+   20512.1  CLIENT  the :ack append of F1-waBk gave CallbackException: Callback failure after 9489.7 ms · from the call to the event's first begin: 9399.0 ms
+   20652.0  INSIDE  the task global of task 0 was made ready again, time 6 : Rama started the worker again
+   20678.3  INSIDE  F1-waBk attempt 2 begins on task 1 (worker bb1ad573)
+   20690.5  INSIDE  F1-waBk attempt 2 is after the write, before the append
+   20692.8  INSIDE  F1-waBk attempt 2 is after the write and the append
+   20692.9  INSIDE  F1-waBk attempt 2 : the event's code is done
+   21093.2  RESULT  from the throw to the next begin of F1-waBk : 252.0 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 5 (5 begins)
+   21093.3  RUN     ---- F1 · write, then append · boundary before the append · no ack ----
+   30523.3  INSIDE  F1-waB0 attempt 1 begins on task 1 (worker bb1ad573)
+   30526.2  INSIDE  F1-waB0 attempt 1 is after the write, before the append
+   30526.3  INSIDE  F1-waB0 attempt 1 is after the write and the append
+   30526.3  INSIDE  F1-waB0 attempt 1 THROWS on purpose after the write and the append
+   30605.2  CLIENT  the :ack append of F1-waB0 gave CallbackException: Callback failure after 9511.8 ms · from the call to the event's first begin: 9430.0 ms
+   30742.4  INSIDE  the task global of task 0 was made ready again, time 7 : Rama started the worker again
+   30767.7  INSIDE  F1-waB0 attempt 2 begins on task 1 (worker bb1ad573)
+   30779.5  INSIDE  F1-waB0 attempt 2 is after the write, before the append
+   30779.5  INSIDE  F1-waB0 attempt 2 is after the write and the append
+   30779.6  INSIDE  F1-waB0 attempt 2 : the event's code is done
+   31180.1  RESULT  from the throw to the next begin of F1-waB0 : 241.3 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 6 (6 begins)
+   31180.3  RUN     ---- F1 · append, then write · no boundary · :append-ack ----
+   40614.9  INSIDE  F1-aw-p attempt 1 begins on task 1 (worker bb1ad573)
+   40617.4  INSIDE  F1-aw-p attempt 1 is after the append, before the write
+   40617.7  INSIDE  F1-aw-p attempt 1 is after the write and the append
+   40617.7  INSIDE  F1-aw-p attempt 1 THROWS on purpose after the write and the append
+   40683.2  CLIENT  the :ack append of F1-aw-p gave CallbackException: Callback failure after 9502.9 ms · from the call to the event's first begin: 9434.6 ms
+   40828.0  INSIDE  the task global of task 0 was made ready again, time 8 : Rama started the worker again
+   40853.6  INSIDE  F1-aw-p attempt 2 begins on task 1 (worker bb1ad573)
+   40861.6  INSIDE  F1-aw-p attempt 2 is after the append, before the write
+   40861.9  INSIDE  F1-aw-p attempt 2 is after the write and the append
+   40861.9  INSIDE  F1-aw-p attempt 2 : the event's code is done
+   41262.8  RESULT  from the throw to the next begin of F1-aw-p : 235.8 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 7 (7 begins)
+   41262.9  RUN     ---- F1 · append, then write · no boundary · :ack ----
+   50693.4  INSIDE  F1-aw-k attempt 1 begins on task 1 (worker bb1ad573)
+   50696.1  INSIDE  F1-aw-k attempt 1 is after the append, before the write
+   50696.4  INSIDE  F1-aw-k attempt 1 is after the write and the append
+   50696.4  INSIDE  F1-aw-k attempt 1 THROWS on purpose after the write and the append
+   50770.0  CLIENT  the :ack append of F1-aw-k gave CallbackException: Callback failure after 9507.0 ms · from the call to the event's first begin: 9430.4 ms
+   50905.3  INSIDE  the task global of task 0 was made ready again, time 9 : Rama started the worker again
+   50928.7  INSIDE  F1-aw-k attempt 2 begins on task 1 (worker bb1ad573)
+   50937.4  INSIDE  F1-aw-k attempt 2 is after the append, before the write
+   50937.5  INSIDE  F1-aw-k attempt 2 is after the write and the append
+   50937.5  INSIDE  F1-aw-k attempt 2 : the event's code is done
+   51338.6  RESULT  from the throw to the next begin of F1-aw-k : 232.3 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 8 (8 begins)
+   51338.7  RUN     ---- F1 · append, then write · no boundary · no ack ----
+   60779.7  INSIDE  F1-aw-0 attempt 1 begins on task 1 (worker bb1ad573)
+   60780.0  INSIDE  F1-aw-0 attempt 1 is after the append, before the write
+   60780.1  INSIDE  F1-aw-0 attempt 1 is after the write and the append
+   60780.1  INSIDE  F1-aw-0 attempt 1 THROWS on purpose after the write and the append
+   60850.4  CLIENT  the :ack append of F1-aw-0 gave CallbackException: Callback failure after 9511.7 ms · from the call to the event's first begin: 9441.0 ms
+   60983.9  INSIDE  the task global of task 0 was made ready again, time 10 : Rama started the worker again
+   61008.2  INSIDE  F1-aw-0 attempt 2 begins on task 1 (worker bb1ad573)
+   61008.3  INSIDE  F1-aw-0 attempt 2 is after the append, before the write
+   61008.4  INSIDE  F1-aw-0 attempt 2 is after the write and the append
+   61008.4  INSIDE  F1-aw-0 attempt 2 : the event's code is done
+   61409.3  RESULT  from the throw to the next begin of F1-aw-0 : 228.1 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 9 (9 begins)
+   61409.4  RUN     ---- F1 · append, then write · boundary before the append · :append-ack ----
+   70862.0  INSIDE  F1-awBp attempt 1 begins on task 1 (worker bb1ad573)
+   70864.8  INSIDE  F1-awBp attempt 1 is after the append, before the write
+   70865.0  INSIDE  F1-awBp attempt 1 is after the write and the append
+   70865.0  INSIDE  F1-awBp attempt 1 THROWS on purpose after the write and the append
+   70924.6  CLIENT  the :ack append of F1-awBp gave CallbackException: Callback failure after 9515.1 ms · from the call to the event's first begin: 9452.6 ms
+   71061.5  INSIDE  the task global of task 0 was made ready again, time 11 : Rama started the worker again
+   71083.8  INSIDE  F1-awBp attempt 2 begins on task 1 (worker bb1ad573)
+   71097.2  INSIDE  F1-awBp attempt 2 is after the append, before the write
+   71097.3  INSIDE  F1-awBp attempt 2 is after the write and the append
+   71097.4  INSIDE  F1-awBp attempt 2 : the event's code is done
+   71498.3  RESULT  from the throw to the next begin of F1-awBp : 218.8 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 10 (10 begins)
+   71498.4  RUN     ---- F1 · append, then write · boundary before the append · :ack ----
+   80933.8  INSIDE  F1-awBk attempt 1 begins on task 1 (worker bb1ad573)
+   80936.3  INSIDE  F1-awBk attempt 1 is after the append, before the write
+   80936.5  INSIDE  F1-awBk attempt 1 is after the write and the append
+   80936.5  INSIDE  F1-awBk attempt 1 THROWS on purpose after the write and the append
+   81001.3  CLIENT  the :ack append of F1-awBk gave CallbackException: Callback failure after 9502.8 ms · from the call to the event's first begin: 9435.3 ms
+   81137.4  INSIDE  the task global of task 0 was made ready again, time 12 : Rama started the worker again
+   81160.2  INSIDE  F1-awBk attempt 2 begins on task 1 (worker bb1ad573)
+   81173.9  INSIDE  F1-awBk attempt 2 is after the append, before the write
+   81174.1  INSIDE  F1-awBk attempt 2 is after the write and the append
+   81174.1  INSIDE  F1-awBk attempt 2 : the event's code is done
+   81575.0  RESULT  from the throw to the next begin of F1-awBk : 223.7 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 11 (11 begins)
+   81575.1  RUN     ---- F1 · append, then write · boundary before the append · no ack ----
+   91010.4  INSIDE  F1-awB0 attempt 1 begins on task 1 (worker bb1ad573)
+   91011.2  INSIDE  F1-awB0 attempt 1 is after the append, before the write
+   91011.4  INSIDE  F1-awB0 attempt 1 is after the write and the append
+   91011.4  INSIDE  F1-awB0 attempt 1 THROWS on purpose after the write and the append
+   91079.4  CLIENT  the :ack append of F1-awB0 gave CallbackException: Callback failure after 9504.2 ms · from the call to the event's first begin: 9435.3 ms
+   91213.1  INSIDE  the task global of task 0 was made ready again, time 13 : Rama started the worker again
+   91245.7  INSIDE  F1-awB0 attempt 2 begins on task 1 (worker bb1ad573)
+   91259.4  INSIDE  F1-awB0 attempt 2 is after the append, before the write
+   91259.5  INSIDE  F1-awB0 attempt 2 is after the write and the append
+   91259.6  INSIDE  F1-awB0 attempt 2 : the event's code is done
+   91659.9  RESULT  from the throw to the next begin of F1-awB0 : 234.3 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 12 (12 begins)
+   91660.2  RUN     ---- F2 · write, then append · no boundary · :append-ack ---- (A is F2a-wa-p , the thrower is F2b-wa-p)
+  101353.3  INSIDE  F2a-wa-p attempt 1 begins on task 1 (worker bb1ad573)
+  101353.6  INSIDE  F2a-wa-p attempt 1 is after the write, before the append
+  101353.7  INSIDE  F2b-wa-p attempt 1 begins on task 1 (worker bb1ad573)
+  101353.7  INSIDE  F2b-wa-p attempt 1 is after the write, before the append
+  101355.5  INSIDE  F2a-wa-p attempt 1 is after the write and the append
+  101355.5  INSIDE  F2a-wa-p attempt 1 : the event's code is done
+  101355.5  INSIDE  F2b-wa-p attempt 1 is after the write and the append
+  101355.6  INSIDE  F2b-wa-p attempt 1 THROWS on purpose after the write and the append
+  101458.4  CLIENT  the :ack append of F2a-wa-p gave CallbackException: Callback failure · that of F2b-wa-p gave CallbackException: Callback failure
+  101592.6  INSIDE  the task global of task 0 was made ready again, time 14 : Rama started the worker again
+  101614.4  INSIDE  F2a-wa-p attempt 2 begins on task 1 (worker bb1ad573)
+  101614.5  INSIDE  F2a-wa-p attempt 2 is after the write, before the append
+  101614.6  INSIDE  F2b-wa-p attempt 2 begins on task 1 (worker bb1ad573)
+  101614.7  INSIDE  F2b-wa-p attempt 2 is after the write, before the append
+  101622.5  INSIDE  F2a-wa-p attempt 2 is after the write and the append
+  101622.5  INSIDE  F2a-wa-p attempt 2 : the event's code is done
+  101622.6  INSIDE  F2b-wa-p attempt 2 is after the write and the append
+  101622.6  INSIDE  F2b-wa-p attempt 2 : the event's code is done
+  102023.0  RESULT  A's first attempt came behind its append at 101355.5 · B threw at 101355.6 · A's first attempt came to the end of its code: true
+  102023.2  RESULT  from the throw to the next begin of F2b-wa-p : 259.0 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 13 (13 begins)
+  102023.2  RUN     ---- F2 · write, then append · no boundary · :ack ---- (A is F2a-wa-k , the thrower is F2b-wa-k)
+  111723.3  INSIDE  F2a-wa-k attempt 1 begins on task 1 (worker bb1ad573)
+  111723.5  INSIDE  F2a-wa-k attempt 1 is after the write, before the append
+  111723.6  INSIDE  F2b-wa-k attempt 1 begins on task 1 (worker bb1ad573)
+  111723.7  INSIDE  F2b-wa-k attempt 1 is after the write, before the append
+  111725.4  INSIDE  F2a-wa-k attempt 1 is after the write and the append
+  111725.4  INSIDE  F2a-wa-k attempt 1 : the event's code is done
+  111725.5  INSIDE  F2b-wa-k attempt 1 is after the write and the append
+  111725.5  INSIDE  F2b-wa-k attempt 1 THROWS on purpose after the write and the append
+  111833.1  CLIENT  the :ack append of F2a-wa-k gave CallbackException: Callback failure · that of F2b-wa-k gave CallbackException: Callback failure
+  111966.7  INSIDE  the task global of task 0 was made ready again, time 15 : Rama started the worker again
+  111989.8  INSIDE  F2a-wa-k attempt 2 begins on task 1 (worker bb1ad573)
+  111989.9  INSIDE  F2a-wa-k attempt 2 is after the write, before the append
+  111990.0  INSIDE  F2b-wa-k attempt 2 begins on task 1 (worker bb1ad573)
+  111990.1  INSIDE  F2b-wa-k attempt 2 is after the write, before the append
+  111996.8  INSIDE  F2a-wa-k attempt 2 is after the write and the append
+  111996.8  INSIDE  F2a-wa-k attempt 2 : the event's code is done
+  111996.9  INSIDE  F2b-wa-k attempt 2 is after the write and the append
+  111996.9  INSIDE  F2b-wa-k attempt 2 : the event's code is done
+  112397.2  RESULT  A's first attempt came behind its append at 111725.4 · B threw at 111725.5 · A's first attempt came to the end of its code: true
+  112397.4  RESULT  from the throw to the next begin of F2b-wa-k : 264.5 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 16 (16 begins)
+  112397.4  RUN     ---- F2 · write, then append · no boundary · no ack ---- (A is F2a-wa-0 , the thrower is F2b-wa-0)
+  122104.6  INSIDE  F2a-wa-0 attempt 1 begins on task 1 (worker bb1ad573)
+  122104.8  INSIDE  F2a-wa-0 attempt 1 is after the write, before the append
+  122104.8  INSIDE  F2a-wa-0 attempt 1 is after the write and the append
+  122104.8  INSIDE  F2a-wa-0 attempt 1 : the event's code is done
+  122104.9  INSIDE  F2b-wa-0 attempt 1 begins on task 1 (worker bb1ad573)
+  122105.0  INSIDE  F2b-wa-0 attempt 1 is after the write, before the append
+  122106.6  INSIDE  F2b-wa-0 attempt 1 is after the write and the append
+  122106.7  INSIDE  F2b-wa-0 attempt 1 THROWS on purpose after the write and the append
+  122209.1  CLIENT  the :ack append of F2a-wa-0 gave CallbackException: Callback failure · that of F2b-wa-0 gave CallbackException: Callback failure
+  122346.3  INSIDE  the task global of task 0 was made ready again, time 16 : Rama started the worker again
+  122369.8  INSIDE  F2a-wa-0 attempt 2 begins on task 1 (worker bb1ad573)
+  122370.0  INSIDE  F2a-wa-0 attempt 2 is after the write, before the append
+  122370.0  INSIDE  F2a-wa-0 attempt 2 is after the write and the append
+  122370.0  INSIDE  F2a-wa-0 attempt 2 : the event's code is done
+  122370.1  INSIDE  F2b-wa-0 attempt 2 begins on task 1 (worker bb1ad573)
+  122370.1  INSIDE  F2b-wa-0 attempt 2 is after the write, before the append
+  122377.5  INSIDE  F2b-wa-0 attempt 2 is after the write and the append
+  122377.6  INSIDE  F2b-wa-0 attempt 2 : the event's code is done
+  122777.9  RESULT  A's first attempt came behind its append at 122104.8 · B threw at 122106.7 · A's first attempt came to the end of its code: true
+  122778.1  RESULT  from the throw to the next begin of F2b-wa-0 : 263.4 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 19 (19 begins)
+  122778.1  RUN     ---- F2 · write, then append · boundary before the append · :append-ack ---- (A is F2a-waBp , the thrower is F2b-waBp)
+  132480.1  INSIDE  F2a-waBp attempt 1 begins on task 1 (worker bb1ad573)
+  132480.6  INSIDE  F2b-waBp attempt 1 begins on task 1 (worker bb1ad573)
+  132494.8  INSIDE  F2b-waBp attempt 1 is after the write, before the append
+  132496.6  INSIDE  F2b-waBp attempt 1 is after the write and the append
+  132496.7  INSIDE  F2b-waBp attempt 1 THROWS on purpose after the write and the append
+  132584.1  CLIENT  the :ack append of F2a-waBp gave CallbackException: Callback failure · that of F2b-waBp gave CallbackException: Callback failure
+  132717.6  INSIDE  the task global of task 0 was made ready again, time 17 : Rama started the worker again
+  132740.2  INSIDE  F2a-waBp attempt 2 begins on task 1 (worker bb1ad573)
+  132740.3  INSIDE  F2b-waBp attempt 2 begins on task 1 (worker bb1ad573)
+  132740.3  INSIDE  F2b-waBp attempt 2 is after the write, before the append
+  132747.6  INSIDE  F2b-waBp attempt 2 is after the write and the append
+  132747.7  INSIDE  F2b-waBp attempt 2 : the event's code is done
+  132751.2  INSIDE  F2a-waBp attempt 2 is after the write, before the append
+  132753.2  INSIDE  F2a-waBp attempt 2 is after the write and the append
+  132753.3  INSIDE  F2a-waBp attempt 2 : the event's code is done
+  133153.6  RESULT  A's first attempt came behind its append at — · B threw at 132496.7 · A's first attempt came to the end of its code: false
+  133154.0  RESULT  from the throw to the next begin of F2b-waBp : 243.6 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 22 (22 begins)
+  133154.0  RUN     ---- F2 · write, then append · boundary before the append · :ack ---- (A is F2a-waBk , the thrower is F2b-waBk)
+  142849.4  INSIDE  F2a-waBk attempt 1 begins on task 1 (worker bb1ad573)
+  142849.7  INSIDE  F2b-waBk attempt 1 begins on task 1 (worker bb1ad573)
+  142849.7  INSIDE  F2b-waBk attempt 1 is after the write, before the append
+  142851.3  INSIDE  F2b-waBk attempt 1 is after the write and the append
+  142851.3  INSIDE  F2b-waBk attempt 1 THROWS on purpose after the write and the append
+  142957.3  CLIENT  the :ack append of F2a-waBk gave CallbackException: Callback failure · that of F2b-waBk gave CallbackException: Callback failure
+  143093.7  INSIDE  the task global of task 0 was made ready again, time 18 : Rama started the worker again
+  143122.1  INSIDE  F2a-waBk attempt 2 begins on task 1 (worker bb1ad573)
+  143122.3  INSIDE  F2b-waBk attempt 2 begins on task 1 (worker bb1ad573)
+  143122.4  INSIDE  F2b-waBk attempt 2 is after the write, before the append
+  143130.1  INSIDE  F2b-waBk attempt 2 is after the write and the append
+  143130.2  INSIDE  F2b-waBk attempt 2 : the event's code is done
+  143133.8  INSIDE  F2a-waBk attempt 2 is after the write, before the append
+  143135.9  INSIDE  F2a-waBk attempt 2 is after the write and the append
+  143135.9  INSIDE  F2a-waBk attempt 2 : the event's code is done
+  143536.5  RESULT  A's first attempt came behind its append at — · B threw at 142851.3 · A's first attempt came to the end of its code: false
+  143536.7  RESULT  from the throw to the next begin of F2b-waBk : 271.0 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 25 (25 begins)
+  143536.7  RUN     ---- F2 · write, then append · boundary before the append · no ack ---- (A is F2a-waB0 , the thrower is F2b-waB0)
+  153222.6  INSIDE  F2a-waB0 attempt 1 begins on task 1 (worker bb1ad573)
+  153222.9  INSIDE  F2b-waB0 attempt 1 begins on task 1 (worker bb1ad573)
+  153223.1  INSIDE  F2b-waB0 attempt 1 is after the write, before the append
+  153225.2  INSIDE  F2b-waB0 attempt 1 is after the write and the append
+  153225.2  INSIDE  F2b-waB0 attempt 1 THROWS on purpose after the write and the append
+  153330.8  CLIENT  the :ack append of F2a-waB0 gave CallbackException: Callback failure · that of F2b-waB0 gave CallbackException: Callback failure
+  153463.9  INSIDE  the task global of task 0 was made ready again, time 19 : Rama started the worker again
+  153484.5  INSIDE  F2a-waB0 attempt 2 begins on task 1 (worker bb1ad573)
+  153484.7  INSIDE  F2b-waB0 attempt 2 begins on task 1 (worker bb1ad573)
+  153484.7  INSIDE  F2b-waB0 attempt 2 is after the write, before the append
+  153492.0  INSIDE  F2b-waB0 attempt 2 is after the write and the append
+  153492.0  INSIDE  F2b-waB0 attempt 2 : the event's code is done
+  153495.4  INSIDE  F2a-waB0 attempt 2 is after the write, before the append
+  153495.5  INSIDE  F2a-waB0 attempt 2 is after the write and the append
+  153495.5  INSIDE  F2a-waB0 attempt 2 : the event's code is done
+  153896.1  RESULT  A's first attempt came behind its append at — · B threw at 153225.2 · A's first attempt came to the end of its code: false
+  153896.3  RESULT  from the throw to the next begin of F2b-waB0 : 259.4 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 28 (28 begins)
+  153896.3  RUN     ---- F2 · append, then write · no boundary · :append-ack ---- (A is F2a-aw-p , the thrower is F2b-aw-p)
+  163604.0  INSIDE  F2a-aw-p attempt 1 begins on task 1 (worker bb1ad573)
+  163604.2  INSIDE  F2b-aw-p attempt 1 begins on task 1 (worker bb1ad573)
+  163604.3  INSIDE  F2b-aw-p attempt 1 is after the write, before the append
+  163606.0  INSIDE  F2a-aw-p attempt 1 is after the append, before the write
+  163606.1  INSIDE  F2a-aw-p attempt 1 is after the write and the append
+  163606.1  INSIDE  F2a-aw-p attempt 1 : the event's code is done
+  163606.2  INSIDE  F2b-aw-p attempt 1 is after the write and the append
+  163606.2  INSIDE  F2b-aw-p attempt 1 THROWS on purpose after the write and the append
+  163703.2  CLIENT  the :ack append of F2a-aw-p gave CallbackException: Callback failure · that of F2b-aw-p gave CallbackException: Callback failure
+  163839.3  INSIDE  the task global of task 0 was made ready again, time 20 : Rama started the worker again
+  163863.5  INSIDE  F2a-aw-p attempt 2 begins on task 1 (worker bb1ad573)
+  163863.7  INSIDE  F2b-aw-p attempt 2 begins on task 1 (worker bb1ad573)
+  163863.8  INSIDE  F2b-aw-p attempt 2 is after the write, before the append
+  163871.7  INSIDE  F2a-aw-p attempt 2 is after the append, before the write
+  163871.8  INSIDE  F2a-aw-p attempt 2 is after the write and the append
+  163871.8  INSIDE  F2a-aw-p attempt 2 : the event's code is done
+  163871.9  INSIDE  F2b-aw-p attempt 2 is after the write and the append
+  163871.9  INSIDE  F2b-aw-p attempt 2 : the event's code is done
+  164272.7  RESULT  A's first attempt came behind its append at 163606.1 · B threw at 163606.2 · A's first attempt came to the end of its code: true
+  164272.8  RESULT  from the throw to the next begin of F2b-aw-p : 257.6 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 31 (31 begins)
+  164272.8  RUN     ---- F2 · append, then write · no boundary · :ack ---- (A is F2a-aw-k , the thrower is F2b-aw-k)
+  173967.4  INSIDE  F2a-aw-k attempt 1 begins on task 1 (worker bb1ad573)
+  173967.6  INSIDE  F2b-aw-k attempt 1 begins on task 1 (worker bb1ad573)
+  173967.7  INSIDE  F2b-aw-k attempt 1 is after the write, before the append
+  173969.6  INSIDE  F2a-aw-k attempt 1 is after the append, before the write
+  173969.7  INSIDE  F2a-aw-k attempt 1 is after the write and the append
+  173969.7  INSIDE  F2a-aw-k attempt 1 : the event's code is done
+  173969.8  INSIDE  F2b-aw-k attempt 1 is after the write and the append
+  173969.8  INSIDE  F2b-aw-k attempt 1 THROWS on purpose after the write and the append
+  174083.9  CLIENT  the :ack append of F2a-aw-k gave CallbackException: Callback failure · that of F2b-aw-k gave CallbackException: Callback failure
+  174221.6  INSIDE  the task global of task 0 was made ready again, time 21 : Rama started the worker again
+  174250.1  INSIDE  F2a-aw-k attempt 2 begins on task 1 (worker bb1ad573)
+  174250.2  INSIDE  F2b-aw-k attempt 2 begins on task 1 (worker bb1ad573)
+  174250.3  INSIDE  F2b-aw-k attempt 2 is after the write, before the append
+  174254.2  INSIDE  F2a-aw-k attempt 2 is after the append, before the write
+  174254.2  INSIDE  F2a-aw-k attempt 2 is after the write and the append
+  174254.3  INSIDE  F2a-aw-k attempt 2 : the event's code is done
+  174254.3  INSIDE  F2b-aw-k attempt 2 is after the write and the append
+  174254.3  INSIDE  F2b-aw-k attempt 2 : the event's code is done
+  174655.2  RESULT  A's first attempt came behind its append at 173969.7 · B threw at 173969.8 · A's first attempt came to the end of its code: true
+  174655.5  RESULT  from the throw to the next begin of F2b-aw-k : 280.5 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 34 (34 begins)
+  174655.5  RUN     ---- F2 · append, then write · no boundary · no ack ---- (A is F2a-aw-0 , the thrower is F2b-aw-0)
+  184349.2  INSIDE  F2a-aw-0 attempt 1 begins on task 1 (worker bb1ad573)
+  184349.3  INSIDE  F2a-aw-0 attempt 1 is after the append, before the write
+  184349.4  INSIDE  F2a-aw-0 attempt 1 is after the write and the append
+  184349.4  INSIDE  F2a-aw-0 attempt 1 : the event's code is done
+  184349.5  INSIDE  F2b-aw-0 attempt 1 begins on task 1 (worker bb1ad573)
+  184349.6  INSIDE  F2b-aw-0 attempt 1 is after the write, before the append
+  184351.2  INSIDE  F2b-aw-0 attempt 1 is after the write and the append
+  184351.2  INSIDE  F2b-aw-0 attempt 1 THROWS on purpose after the write and the append
+  184462.2  CLIENT  the :ack append of F2a-aw-0 gave CallbackException: Callback failure · that of F2b-aw-0 gave CallbackException: Callback failure
+  184597.7  INSIDE  the task global of task 0 was made ready again, time 22 : Rama started the worker again
+  184620.2  INSIDE  F2a-aw-0 attempt 2 begins on task 1 (worker bb1ad573)
+  184620.3  INSIDE  F2a-aw-0 attempt 2 is after the append, before the write
+  184620.3  INSIDE  F2a-aw-0 attempt 2 is after the write and the append
+  184620.3  INSIDE  F2a-aw-0 attempt 2 : the event's code is done
+  184620.4  INSIDE  F2b-aw-0 attempt 2 begins on task 1 (worker bb1ad573)
+  184620.4  INSIDE  F2b-aw-0 attempt 2 is after the write, before the append
+  184627.3  INSIDE  F2b-aw-0 attempt 2 is after the write and the append
+  184627.3  INSIDE  F2b-aw-0 attempt 2 : the event's code is done
+  185028.4  RESULT  A's first attempt came behind its append at 184349.4 · B threw at 184351.2 · A's first attempt came to the end of its code: true
+  185028.7  RESULT  from the throw to the next begin of F2b-aw-0 : 269.1 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 37 (37 begins)
+  185028.7  RUN     ---- F2 · append, then write · boundary before the append · :append-ack ---- (A is F2a-awBp , the thrower is F2b-awBp)
+  194725.1  INSIDE  F2a-awBp attempt 1 begins on task 1 (worker bb1ad573)
+  194725.5  INSIDE  F2b-awBp attempt 1 begins on task 1 (worker bb1ad573)
+  194725.6  INSIDE  F2b-awBp attempt 1 is after the write, before the append
+  194727.3  INSIDE  F2b-awBp attempt 1 is after the write and the append
+  194727.4  INSIDE  F2b-awBp attempt 1 THROWS on purpose after the write and the append
+  194838.5  CLIENT  the :ack append of F2a-awBp gave CallbackException: Callback failure · that of F2b-awBp gave CallbackException: Callback failure
+  194976.2  INSIDE  the task global of task 0 was made ready again, time 23 : Rama started the worker again
+  195000.7  INSIDE  F2a-awBp attempt 2 begins on task 1 (worker bb1ad573)
+  195000.9  INSIDE  F2b-awBp attempt 2 begins on task 1 (worker bb1ad573)
+  195001.0  INSIDE  F2b-awBp attempt 2 is after the write, before the append
+  195008.1  INSIDE  F2b-awBp attempt 2 is after the write and the append
+  195008.2  INSIDE  F2b-awBp attempt 2 : the event's code is done
+  195014.0  INSIDE  F2a-awBp attempt 2 is after the append, before the write
+  195014.0  INSIDE  F2a-awBp attempt 2 is after the write and the append
+  195014.0  INSIDE  F2a-awBp attempt 2 : the event's code is done
+  195414.4  RESULT  A's first attempt came behind its append at — · B threw at 194727.4 · A's first attempt came to the end of its code: false
+  195414.5  RESULT  from the throw to the next begin of F2b-awBp : 273.5 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 40 (40 begins)
+  195414.6  RUN     ---- F2 · append, then write · boundary before the append · :ack ---- (A is F2a-awBk , the thrower is F2b-awBk)
+  205111.4  INSIDE  F2a-awBk attempt 1 begins on task 1 (worker bb1ad573)
+  205111.6  INSIDE  F2b-awBk attempt 1 begins on task 1 (worker bb1ad573)
+  205111.6  INSIDE  F2b-awBk attempt 1 is after the write, before the append
+  205113.4  INSIDE  F2b-awBk attempt 1 is after the write and the append
+  205113.4  INSIDE  F2b-awBk attempt 1 THROWS on purpose after the write and the append
+  205215.9  CLIENT  the :ack append of F2a-awBk gave CallbackException: Callback failure · that of F2b-awBk gave CallbackException: Callback failure
+  205348.4  INSIDE  the task global of task 0 was made ready again, time 24 : Rama started the worker again
+  205370.3  INSIDE  F2a-awBk attempt 2 begins on task 1 (worker bb1ad573)
+  205370.4  INSIDE  F2b-awBk attempt 2 begins on task 1 (worker bb1ad573)
+  205370.4  INSIDE  F2b-awBk attempt 2 is after the write, before the append
+  205377.4  INSIDE  F2b-awBk attempt 2 is after the write and the append
+  205377.5  INSIDE  F2b-awBk attempt 2 : the event's code is done
+  205383.4  INSIDE  F2a-awBk attempt 2 is after the append, before the write
+  205383.4  INSIDE  F2a-awBk attempt 2 is after the write and the append
+  205383.5  INSIDE  F2a-awBk attempt 2 : the event's code is done
+  205784.3  RESULT  A's first attempt came behind its append at — · B threw at 205113.4 · A's first attempt came to the end of its code: false
+  205784.5  RESULT  from the throw to the next begin of F2b-awBk : 257.0 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 43 (43 begins)
+  205784.5  RUN     ---- F2 · append, then write · boundary before the append · no ack ---- (A is F2a-awB0 , the thrower is F2b-awB0)
+  215488.5  INSIDE  F2a-awB0 attempt 1 begins on task 1 (worker bb1ad573)
+  215488.8  INSIDE  F2b-awB0 attempt 1 begins on task 1 (worker bb1ad573)
+  215488.9  INSIDE  F2b-awB0 attempt 1 is after the write, before the append
+  215490.6  INSIDE  F2b-awB0 attempt 1 is after the write and the append
+  215490.6  INSIDE  F2b-awB0 attempt 1 THROWS on purpose after the write and the append
+  215591.0  CLIENT  the :ack append of F2a-awB0 gave CallbackException: Callback failure · that of F2b-awB0 gave CallbackException: Callback failure
+  215726.6  INSIDE  the task global of task 0 was made ready again, time 25 : Rama started the worker again
+  215753.2  INSIDE  F2a-awB0 attempt 2 begins on task 1 (worker bb1ad573)
+  215753.3  INSIDE  F2b-awB0 attempt 2 begins on task 1 (worker bb1ad573)
+  215753.4  INSIDE  F2b-awB0 attempt 2 is after the write, before the append
+  215761.9  INSIDE  F2b-awB0 attempt 2 is after the write and the append
+  215761.9  INSIDE  F2b-awB0 attempt 2 : the event's code is done
+  215766.0  INSIDE  F2a-awB0 attempt 2 is after the append, before the write
+  215766.0  INSIDE  F2a-awB0 attempt 2 is after the write and the append
+  215766.0  INSIDE  F2a-awB0 attempt 2 : the event's code is done
+  216166.6  RESULT  A's first attempt came behind its append at — · B threw at 215490.6 · A's first attempt came to the end of its code: false
+  216166.7  RESULT  from the throw to the next begin of F2b-awB0 : 262.7 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 46 (46 begins)
+  216166.8  RUN     ---- F3 · write, then append · no boundary · :append-ack ----
+  225599.2  INSIDE  F3-wa-p attempt 1 begins on task 1 (worker bb1ad573)
+  225599.5  INSIDE  F3-wa-p attempt 1 is after the write, before the append
+  225601.2  INSIDE  F3-wa-p attempt 1 is after the write and the append
+  225603.5  INSIDE  F3-wa-p attempt 1 is in the tree's next event, behind a commit boundary
+  225603.5  INSIDE  F3-wa-p attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  225667.9  CLIENT  the :ack append of F3-wa-p gave CallbackException: Callback failure after 9501.0 ms · from the call to the event's first begin: 9432.4 ms
+  225800.2  INSIDE  the task global of task 0 was made ready again, time 26 : Rama started the worker again
+  225831.4  INSIDE  F3-wa-p attempt 2 begins on task 1 (worker bb1ad573)
+  225831.5  INSIDE  F3-wa-p attempt 2 is after the write, before the append
+  225835.1  INSIDE  F3-wa-p attempt 2 is after the write and the append
+  225838.7  INSIDE  F3-wa-p attempt 2 is in the tree's next event, behind a commit boundary
+  225838.8  INSIDE  F3-wa-p attempt 2 : the event's code is done
+  226239.5  RESULT  from the throw to the next begin of F3-wa-p : 227.8 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 49 (49 begins)
+  226239.6  RUN     ---- F3 · write, then append · no boundary · :ack ----
+  235675.7  INSIDE  F3-wa-k attempt 1 begins on task 1 (worker bb1ad573)
+  235675.9  INSIDE  F3-wa-k attempt 1 is after the write, before the append
+  235678.0  INSIDE  F3-wa-k attempt 1 is after the write and the append
+  235680.0  INSIDE  F3-wa-k attempt 1 is in the tree's next event, behind a commit boundary
+  235680.0  INSIDE  F3-wa-k attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  235746.0  CLIENT  the :ack append of F3-wa-k gave CallbackException: Callback failure after 9506.4 ms · from the call to the event's first begin: 9436.0 ms
+  235882.3  INSIDE  the task global of task 0 was made ready again, time 27 : Rama started the worker again
+  235904.4  INSIDE  F3-wa-k attempt 2 begins on task 1 (worker bb1ad573)
+  235904.5  INSIDE  F3-wa-k attempt 2 is after the write, before the append
+  235911.2  INSIDE  F3-wa-k attempt 2 is after the write and the append
+  235915.1  INSIDE  F3-wa-k attempt 2 is in the tree's next event, behind a commit boundary
+  235915.2  INSIDE  F3-wa-k attempt 2 : the event's code is done
+  236315.4  RESULT  from the throw to the next begin of F3-wa-k : 224.4 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 50 (50 begins)
+  236315.5  RUN     ---- F3 · write, then append · no boundary · no ack ----
+  245754.1  INSIDE  F3-wa-0 attempt 1 begins on task 1 (worker bb1ad573)
+  245754.3  INSIDE  F3-wa-0 attempt 1 is after the write, before the append
+  245754.4  INSIDE  F3-wa-0 attempt 1 is after the write and the append
+  245757.2  INSIDE  F3-wa-0 attempt 1 is in the tree's next event, behind a commit boundary
+  245757.2  INSIDE  F3-wa-0 attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  245833.8  CLIENT  the :ack append of F3-wa-0 gave CallbackException: Callback failure after 9518.2 ms · from the call to the event's first begin: 9438.5 ms
+  245969.9  INSIDE  the task global of task 0 was made ready again, time 28 : Rama started the worker again
+  245996.6  INSIDE  F3-wa-0 attempt 2 begins on task 1 (worker bb1ad573)
+  245996.7  INSIDE  F3-wa-0 attempt 2 is after the write, before the append
+  245996.7  INSIDE  F3-wa-0 attempt 2 is after the write and the append
+  246008.0  INSIDE  F3-wa-0 attempt 2 is in the tree's next event, behind a commit boundary
+  246008.0  INSIDE  F3-wa-0 attempt 2 : the event's code is done
+  246409.1  RESULT  from the throw to the next begin of F3-wa-0 : 239.4 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 51 (51 begins)
+  246409.2  RUN     ---- F3 · write, then append · boundary before the append · :append-ack ----
+  255842.1  INSIDE  F3-waBp attempt 1 begins on task 1 (worker bb1ad573)
+  255844.6  INSIDE  F3-waBp attempt 1 is after the write, before the append
+  255846.3  INSIDE  F3-waBp attempt 1 is after the write and the append
+  255846.5  INSIDE  F3-waBp attempt 1 is in the tree's next event, behind a commit boundary
+  255846.6  INSIDE  F3-waBp attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  255910.0  CLIENT  the :ack append of F3-waBp gave CallbackException: Callback failure after 9500.8 ms · from the call to the event's first begin: 9433.0 ms
+  256042.0  INSIDE  the task global of task 0 was made ready again, time 29 : Rama started the worker again
+  256068.1  INSIDE  F3-waBp attempt 2 begins on task 1 (worker bb1ad573)
+  256074.6  INSIDE  F3-waBp attempt 2 is after the write, before the append
+  256076.4  INSIDE  F3-waBp attempt 2 is after the write and the append
+  256078.1  INSIDE  F3-waBp attempt 2 is in the tree's next event, behind a commit boundary
+  256078.2  INSIDE  F3-waBp attempt 2 : the event's code is done
+  256478.4  RESULT  from the throw to the next begin of F3-waBp : 221.5 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 52 (52 begins)
+  256478.5  RUN     ---- F3 · write, then append · boundary before the append · :ack ----
+  265917.8  INSIDE  F3-waBk attempt 1 begins on task 1 (worker bb1ad573)
+  265920.7  INSIDE  F3-waBk attempt 1 is after the write, before the append
+  265922.5  INSIDE  F3-waBk attempt 1 is after the write and the append
+  265922.9  INSIDE  F3-waBk attempt 1 is in the tree's next event, behind a commit boundary
+  265922.9  INSIDE  F3-waBk attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  265978.5  CLIENT  the :ack append of F3-waBk gave CallbackException: Callback failure after 9500.0 ms · from the call to the event's first begin: 9439.3 ms
+  266112.3  INSIDE  the task global of task 0 was made ready again, time 30 : Rama started the worker again
+  266135.5  INSIDE  F3-waBk attempt 2 begins on task 1 (worker bb1ad573)
+  266146.9  INSIDE  F3-waBk attempt 2 is after the write, before the append
+  266148.9  INSIDE  F3-waBk attempt 2 is after the write and the append
+  266150.8  INSIDE  F3-waBk attempt 2 is in the tree's next event, behind a commit boundary
+  266150.9  INSIDE  F3-waBk attempt 2 : the event's code is done
+  266551.8  RESULT  from the throw to the next begin of F3-waBk : 212.6 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 53 (53 begins)
+  266551.8  RUN     ---- F3 · write, then append · boundary before the append · no ack ----
+  275986.3  INSIDE  F3-waB0 attempt 1 begins on task 1 (worker bb1ad573)
+  275988.7  INSIDE  F3-waB0 attempt 1 is after the write, before the append
+  276000.7  INSIDE  F3-waB0 attempt 1 is after the write and the append
+  276002.6  INSIDE  F3-waB0 attempt 1 is in the tree's next event, behind a commit boundary
+  276002.6  INSIDE  F3-waB0 attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  276050.8  CLIENT  the :ack append of F3-waB0 gave CallbackException: Callback failure after 9498.9 ms · from the call to the event's first begin: 9434.5 ms
+  276181.5  INSIDE  the task global of task 0 was made ready again, time 31 : Rama started the worker again
+  276204.3  INSIDE  F3-waB0 attempt 2 begins on task 1 (worker bb1ad573)
+  276214.4  INSIDE  F3-waB0 attempt 2 is after the write, before the append
+  276214.4  INSIDE  F3-waB0 attempt 2 is after the write and the append
+  276218.7  INSIDE  F3-waB0 attempt 2 is in the tree's next event, behind a commit boundary
+  276218.8  INSIDE  F3-waB0 attempt 2 : the event's code is done
+  276619.1  RESULT  from the throw to the next begin of F3-waB0 : 201.7 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 54 (54 begins)
+  276619.2  RUN     ---- F3 · append, then write · no boundary · :append-ack ----
+  286058.3  INSIDE  F3-aw-p attempt 1 begins on task 1 (worker bb1ad573)
+  286060.2  INSIDE  F3-aw-p attempt 1 is after the append, before the write
+  286060.3  INSIDE  F3-aw-p attempt 1 is after the write and the append
+  286062.2  INSIDE  F3-aw-p attempt 1 is in the tree's next event, behind a commit boundary
+  286062.2  INSIDE  F3-aw-p attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  286120.4  CLIENT  the :ack append of F3-aw-p gave CallbackException: Callback failure after 9501.1 ms · from the call to the event's first begin: 9439.0 ms
+  286252.7  INSIDE  the task global of task 0 was made ready again, time 32 : Rama started the worker again
+  286277.0  INSIDE  F3-aw-p attempt 2 begins on task 1 (worker bb1ad573)
+  286284.0  INSIDE  F3-aw-p attempt 2 is after the append, before the write
+  286284.1  INSIDE  F3-aw-p attempt 2 is after the write and the append
+  286287.3  INSIDE  F3-aw-p attempt 2 is in the tree's next event, behind a commit boundary
+  286287.4  INSIDE  F3-aw-p attempt 2 : the event's code is done
+  286688.0  RESULT  from the throw to the next begin of F3-aw-p : 214.8 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 55 (55 begins)
+  286688.1  RUN     ---- F3 · append, then write · no boundary · :ack ----
+  296128.0  INSIDE  F3-aw-k attempt 1 begins on task 1 (worker bb1ad573)
+  296129.8  INSIDE  F3-aw-k attempt 1 is after the append, before the write
+  296129.9  INSIDE  F3-aw-k attempt 1 is after the write and the append
+  296131.9  INSIDE  F3-aw-k attempt 1 is in the tree's next event, behind a commit boundary
+  296132.0  INSIDE  F3-aw-k attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  296193.4  CLIENT  the :ack append of F3-aw-k gave CallbackException: Callback failure after 9505.2 ms · from the call to the event's first begin: 9439.9 ms
+  296326.7  INSIDE  the task global of task 0 was made ready again, time 33 : Rama started the worker again
+  296350.0  INSIDE  F3-aw-k attempt 2 begins on task 1 (worker bb1ad573)
+  296357.3  INSIDE  F3-aw-k attempt 2 is after the append, before the write
+  296357.4  INSIDE  F3-aw-k attempt 2 is after the write and the append
+  296360.8  INSIDE  F3-aw-k attempt 2 is in the tree's next event, behind a commit boundary
+  296360.8  INSIDE  F3-aw-k attempt 2 : the event's code is done
+  296761.8  RESULT  from the throw to the next begin of F3-aw-k : 218.0 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 56 (56 begins)
+  296761.9  RUN     ---- F3 · append, then write · no boundary · no ack ----
+  306201.2  INSIDE  F3-aw-0 attempt 1 begins on task 1 (worker bb1ad573)
+  306201.4  INSIDE  F3-aw-0 attempt 1 is after the append, before the write
+  306201.5  INSIDE  F3-aw-0 attempt 1 is after the write and the append
+  306204.1  INSIDE  F3-aw-0 attempt 1 is in the tree's next event, behind a commit boundary
+  306204.2  INSIDE  F3-aw-0 attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  306265.7  CLIENT  the :ack append of F3-aw-0 gave CallbackException: Callback failure after 9503.8 ms · from the call to the event's first begin: 9439.3 ms
+  306398.4  INSIDE  the task global of task 0 was made ready again, time 34 : Rama started the worker again
+  306429.7  INSIDE  F3-aw-0 attempt 2 begins on task 1 (worker bb1ad573)
+  306430.0  INSIDE  F3-aw-0 attempt 2 is after the append, before the write
+  306430.0  INSIDE  F3-aw-0 attempt 2 is after the write and the append
+  306444.5  INSIDE  F3-aw-0 attempt 2 is in the tree's next event, behind a commit boundary
+  306444.6  INSIDE  F3-aw-0 attempt 2 : the event's code is done
+  306845.7  RESULT  from the throw to the next begin of F3-aw-0 : 225.5 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 57 (57 begins)
+  306845.9  RUN     ---- F3 · append, then write · boundary before the append · :append-ack ----
+  316274.4  INSIDE  F3-awBp attempt 1 begins on task 1 (worker bb1ad573)
+  316276.8  INSIDE  F3-awBp attempt 1 is after the append, before the write
+  316277.0  INSIDE  F3-awBp attempt 1 is after the write and the append
+  316278.6  INSIDE  F3-awBp attempt 1 is in the tree's next event, behind a commit boundary
+  316278.6  INSIDE  F3-awBp attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  316337.1  CLIENT  the :ack append of F3-awBp gave CallbackException: Callback failure after 9491.2 ms · from the call to the event's first begin: 9428.5 ms
+  316476.0  INSIDE  the task global of task 0 was made ready again, time 35 : Rama started the worker again
+  316500.2  INSIDE  F3-awBp attempt 2 begins on task 1 (worker bb1ad573)
+  316512.4  INSIDE  F3-awBp attempt 2 is after the append, before the write
+  316512.4  INSIDE  F3-awBp attempt 2 is after the write and the append
+  316514.6  INSIDE  F3-awBp attempt 2 is in the tree's next event, behind a commit boundary
+  316514.6  INSIDE  F3-awBp attempt 2 : the event's code is done
+  316915.0  RESULT  from the throw to the next begin of F3-awBp : 221.6 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 58 (58 begins)
+  316915.0  RUN     ---- F3 · append, then write · boundary before the append · :ack ----
+  326345.7  INSIDE  F3-awBk attempt 1 begins on task 1 (worker bb1ad573)
+  326348.1  INSIDE  F3-awBk attempt 1 is after the append, before the write
+  326348.2  INSIDE  F3-awBk attempt 1 is after the write and the append
+  326349.8  INSIDE  F3-awBk attempt 1 is in the tree's next event, behind a commit boundary
+  326349.8  INSIDE  F3-awBk attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  326413.9  CLIENT  the :ack append of F3-awBk gave CallbackException: Callback failure after 9498.8 ms · from the call to the event's first begin: 9430.6 ms
+  326545.7  INSIDE  the task global of task 0 was made ready again, time 36 : Rama started the worker again
+  326566.1  INSIDE  F3-awBk attempt 2 begins on task 1 (worker bb1ad573)
+  326579.2  INSIDE  F3-awBk attempt 2 is after the append, before the write
+  326579.2  INSIDE  F3-awBk attempt 2 is after the write and the append
+  326581.2  INSIDE  F3-awBk attempt 2 is in the tree's next event, behind a commit boundary
+  326581.2  INSIDE  F3-awBk attempt 2 : the event's code is done
+  326982.0  RESULT  from the throw to the next begin of F3-awBk : 216.3 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 59 (59 begins)
+  326982.0  RUN     ---- F3 · append, then write · boundary before the append · no ack ----
+  336421.4  INSIDE  F3-awB0 attempt 1 begins on task 1 (worker bb1ad573)
+  336422.1  INSIDE  F3-awB0 attempt 1 is after the append, before the write
+  336422.2  INSIDE  F3-awB0 attempt 1 is after the write and the append
+  336424.9  INSIDE  F3-awB0 attempt 1 is in the tree's next event, behind a commit boundary
+  336424.9  INSIDE  F3-awB0 attempt 1 THROWS on purpose in the tree's next event, behind a commit boundary
+  336481.6  CLIENT  the :ack append of F3-awB0 gave CallbackException: Callback failure after 9499.5 ms · from the call to the event's first begin: 9439.4 ms
+  336613.1  INSIDE  the task global of task 0 was made ready again, time 37 : Rama started the worker again
+  336657.7  INSIDE  F3-awB0 attempt 2 begins on task 1 (worker bb1ad573)
+  336665.3  INSIDE  F3-awB0 attempt 2 is after the append, before the write
+  336665.4  INSIDE  F3-awB0 attempt 2 is after the write and the append
+  336669.5  INSIDE  F3-awB0 attempt 2 is in the tree's next event, behind a commit boundary
+  336669.5  INSIDE  F3-awB0 attempt 2 : the event's code is done
+  337070.3  RESULT  from the throw to the next begin of F3-awB0 : 232.7 ms · task globals made ready again: 4 · things of earlier scenarios whose event began again: 60 (60 begins)
+  343102.9  TABLE   the second depot's partition 1 holds 963 records. For each scenario, of its thing:
+  343103.0  TABLE   way · the append · records of attempt 1 · records of attempt 2 · the row that attempt 2 found (1: the failed attempt's row had been committed; nil: it was gone) · count carried by attempt 1 and by attempt 2 · throw to retry ms · restarts · the client's :ack append
+  343103.2  TABLE   F1 · write, then append · no boundary · :append-ack · 1 · 1 · nil · 2 3 · 311.3 · 4 · CallbackException: Callback failure after 96.1 ms
+  343103.3  TABLE   F1 · write, then append · no boundary · :ack · 1 · 1 · nil · 4 6 · 242.1 · 4 · CallbackException: Callback failure after 286.3 ms
+  343103.3  TABLE   F1 · write, then append · no boundary · no ack · 0 · 1 · nil · nil 10 · 258.9 · 4 · CallbackException: Callback failure after 898.9 ms
+  343103.3  TABLE   F1 · write, then append · boundary before the append · :append-ack · 1 · 1 · 1 · 11 16 · 263.6 · 4 · CallbackException: Callback failure after 4311.0 ms
+  343103.4  TABLE   F1 · write, then append · boundary before the append · :ack · 1 · 1 · 1 · 17 23 · 252.0 · 4 · CallbackException: Callback failure after 9489.7 ms
+  343103.4  TABLE   F1 · write, then append · boundary before the append · no ack · 0 · 1 · 1 · nil 31 · 241.3 · 4 · CallbackException: Callback failure after 9511.8 ms
+  343103.4  TABLE   F1 · append, then write · no boundary · :append-ack · 1 · 1 · nil · 32 39 · 235.8 · 4 · CallbackException: Callback failure after 9502.9 ms
+  343103.4  TABLE   F1 · append, then write · no boundary · :ack · 1 · 1 · nil · 40 47 · 232.3 · 4 · CallbackException: Callback failure after 9507.0 ms
+  343103.4  TABLE   F1 · append, then write · no boundary · no ack · 0 · 1 · nil · nil 55 · 228.1 · 4 · CallbackException: Callback failure after 9511.7 ms
+  343103.5  TABLE   F1 · append, then write · boundary before the append · :append-ack · 1 · 1 · nil · 56 64 · 218.8 · 4 · CallbackException: Callback failure after 9515.1 ms
+  343103.5  TABLE   F1 · append, then write · boundary before the append · :ack · 1 · 1 · nil · 65 73 · 223.7 · 4 · CallbackException: Callback failure after 9502.8 ms
+  343103.5  TABLE   F1 · append, then write · boundary before the append · no ack · 0 · 1 · nil · nil 82 · 234.3 · 4 · CallbackException: Callback failure after 9504.2 ms
+  343103.5  TABLE   F2 · write, then append · no boundary · :append-ack · 1 · 1 · nil · 84 93 · 259.0 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.5  TABLE   F2 · write, then append · no boundary · :ack · 1 · 1 · nil · 94 106 · 264.5 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.6  TABLE   F2 · write, then append · no boundary · no ack · 1 · 1 · nil · 104 119 · 263.4 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.6  TABLE   F2 · write, then append · boundary before the append · :append-ack · 0 · 1 · nil · nil 132 · 243.6 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.6  TABLE   F2 · write, then append · boundary before the append · :ack · 0 · 1 · nil · nil 145 · 271.0 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.6  TABLE   F2 · write, then append · boundary before the append · no ack · 0 · 1 · nil · nil 158 · 259.4 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.6  TABLE   F2 · append, then write · no boundary · :append-ack · 1 · 1 · nil · 144 171 · 257.6 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.6  TABLE   F2 · append, then write · no boundary · :ack · 1 · 1 · nil · 154 183 · 280.5 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.7  TABLE   F2 · append, then write · no boundary · no ack · 1 · 1 · nil · 164 195 · 269.1 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.7  TABLE   F2 · append, then write · boundary before the append · :append-ack · 0 · 1 · nil · nil 208 · 273.5 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.7  TABLE   F2 · append, then write · boundary before the append · :ack · 0 · 1 · nil · nil 246 · 257.0 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.7  TABLE   F2 · append, then write · boundary before the append · no ack · 0 · 1 · nil · nil 286 · 262.7 · 4 · A: CallbackException: Callback failure · B: CallbackException: Callback failure
+  343103.7  TABLE   F3 · write, then append · no boundary · :append-ack · 1 · 1 · 1 · 285 325 · 227.8 · 4 · CallbackException: Callback failure after 9501.0 ms
+  343103.7  TABLE   F3 · write, then append · no boundary · :ack · 1 · 1 · 1 · 323 364 · 224.4 · 4 · CallbackException: Callback failure after 9506.4 ms
+  343103.7  TABLE   F3 · write, then append · no boundary · no ack · 1 · 1 · 1 · 361 403 · 239.4 · 4 · CallbackException: Callback failure after 9518.2 ms
+  343103.8  TABLE   F3 · write, then append · boundary before the append · :append-ack · 1 · 1 · 1 · 399 442 · 221.5 · 4 · CallbackException: Callback failure after 9500.8 ms
+  343103.8  TABLE   F3 · write, then append · boundary before the append · :ack · 1 · 1 · 1 · 437 481 · 212.6 · 4 · CallbackException: Callback failure after 9500.0 ms
+  343103.8  TABLE   F3 · write, then append · boundary before the append · no ack · 1 · 1 · 1 · 475 520 · 201.7 · 4 · CallbackException: Callback failure after 9498.9 ms
+  343103.8  TABLE   F3 · append, then write · no boundary · :append-ack · 1 · 1 · 1 · 513 559 · 214.8 · 4 · CallbackException: Callback failure after 9501.1 ms
+  343103.8  TABLE   F3 · append, then write · no boundary · :ack · 1 · 1 · 1 · 551 597 · 218.0 · 4 · CallbackException: Callback failure after 9505.2 ms
+  343103.8  TABLE   F3 · append, then write · no boundary · no ack · 1 · 1 · 1 · 589 635 · 225.5 · 4 · CallbackException: Callback failure after 9503.8 ms
+  343103.8  TABLE   F3 · append, then write · boundary before the append · :append-ack · 1 · 1 · 1 · 627 674 · 221.6 · 4 · CallbackException: Callback failure after 9491.2 ms
+  343103.9  TABLE   F3 · append, then write · boundary before the append · :ack · 1 · 1 · 1 · 675 722 · 216.3 · 4 · CallbackException: Callback failure after 9498.8 ms
+  343103.9  TABLE   F3 · append, then write · boundary before the append · no ack · 1 · 1 · 1 · 723 770 · 232.7 · 4 · CallbackException: Callback failure after 9499.5 ms
+  343105.3  TABLE   what the replays added, for four things: [id · times its event began · its records in the second depot] (["warm" 37 37] ["F1-wa-p" 37 37] ["F2a-wa-p" 25 25] ["F3-wa-p" 13 13])
+  343132.9  TABLE   events begun in all: 1207 for 61 source records · records in the second depot: 963 · the row "count", which each event that commits raises by one: 770
+  343133.0  RUN     END

@@ -81,14 +81,20 @@ adapts the skill's template.
 | stage | state | commit |
 |---|---|---|
 | the starting point confirmed | done | — |
-| a run on Rama beside the first stage: what an append to a depot from inside an event of a stream topology does (`stream-probe/`), the contract's "Runs before the plan is fixed" | running | — |
-| the implied spec, with the check of each "as built" line of the contract against the code | running | — |
-| the split into parts | — | — |
-| the plan of each part | — | — |
-| the check of each plan | — | — |
-| the build of each part | — | — |
+| a run on Rama beside the first stage: what an append to a depot from inside an event of a stream topology does (`stream-probe/`), the contract's "Runs before the plan is fixed"; rulings 27 to 30 | done | in the commit after `ba29f4cb` |
+| the implied spec, with the check of each "as built" line of the contract against the code; rulings 1 to 20 on its 22 points | done; judged sound | `ba29f4cb` |
+| the split into parts: three, `the-locks-go`, `answers-in-a-log`, `the-rebuild`; rulings 21 to 26 on its notes | done; judged sound | in the commit after `ba29f4cb` |
+| the plan of `the-locks-go` | — | — |
+| the check of the plan of `the-locks-go` | — | — |
+| the plan of `answers-in-a-log` | — | — |
+| the check of the plan of `answers-in-a-log` | — | — |
+| the plan of `the-rebuild`, before the build of `answers-in-a-log` starts (ruling 21) | — | — |
+| the check of the plan of `the-rebuild` | — | — |
+| the build of `the-locks-go` | — | — |
+| the build of `answers-in-a-log`, which takes D's first numbers before it changes the module (ruling 23) | — | — |
+| the build of `the-rebuild` | — | — |
 | the review of the whole against the contract | — | — |
-| the measures of the contract's section D | — | — |
+| the measures of the contract's section D, on the final tree | — | — |
 | the receipt to Sid | — | — |
 
 How a stage is run: a fresh agent reads the skill's doc for its stage, the contract and its read
@@ -105,8 +111,11 @@ which is refused or would wait for a permission is not waited for: it takes anot
 in its report.
 
 Two things about runs, from the read build. One in-process cluster at a time on this machine: two
-collide on a port. And a proof's JVM loads the source when it starts, so no file under `src-store/`
-or `test-store/` is edited while a sequence of proofs still has one to start.
+collide on a port. So every run of this build that starts a cluster takes one lock first:
+`flock <this folder>/runs/cluster.lock <the command>`. `runs/run-proofs.sh` does it for each proof
+that needs Rama, and each agent is told to do it for a probe's run. And a proof's JVM loads the
+source when it starts, so no file under `src-store/` or `test-store/` is edited while a sequence of
+proofs still has one to start.
 
 Where the build session placed the contract's runs. The contract says "The plan stage makes these
 ... before it chooses a form for the log of answers". They are run by a fresh session of their own,
@@ -279,6 +288,82 @@ Three things of the paper that are no open point and that later stages must hold
 - **The contract cites `15-pstates.md`, line 45, for a condition that is in `19-operating-rama.md`,
   "Task scaling"** (its 1.3, point 10). For the receipt.
 
+### On the split into parts (`DECOMPOSITION.json`), its notes
+
+The split is judged sound. It is not the contract's A, B, C and D, and the contract leaves the split
+to this stage. Three parts, each with one hard part, each leaving the tree whole: `the-locks-go` (A1
+to A8 and C1 to C3), `answers-in-a-log` (B1, B2, B6, the first half of B5, the stray's entry, a
+batch's last stamp, the runs before the plan, and D with the code that measures), `the-rebuild` (B3,
+B4, the second half of B5, R1, and the comparison's proof). Its first entry holds the coverage of
+the contract and of section 9 of the implied spec; it could give nothing to no part.
+
+21. **"The plan" is two plans — builder's.** Each choice of what a log holds, in rulings 8, 9, 11, 12
+    and 15, is made by the plan of `answers-in-a-log`, and `the-rebuild` takes it as made. The split
+    proposed a guard: that the plan of `the-rebuild` be written and checked before the build of
+    `answers-in-a-log` is called passed. The build session rules a stronger one: the plan of
+    `the-rebuild` is written and checked before the build of `answers-in-a-log` starts. Reason: the
+    two are a writer and its one reader. A part of a row that the logs cannot give is then found on
+    paper, and the plan of `answers-in-a-log` is corrected before any code of it is written.
+22. **Rulings 14 and 15 do not meet — builder's.** The proof of ruling 14 hands the rebuild an
+    answer that no gate of today would give. It may hand the rebuild its logs as data; it need not
+    append to a depot. So a log that takes no client's append stays within the proof's reach.
+23. **D's numbers are of two trees — builder's.** The build of `answers-in-a-log` writes the code
+    that measures first, and takes D's first numbers on the tree as `the-locks-go` left it, before it
+    changes the module. The build session runs the measures once more on the final tree, after the
+    review, for the receipt.
+24. **C inside `the-locks-go` — builder's.** Taken as the split made it. C plans no state and changes
+    the forms and the checks that A changes anyway.
+25. **The plans of `the-locks-go` and of `answers-in-a-log` are written side by side — builder's, and
+    a departure from the skill.** The skill has each part planned on the part before it. The one
+    thing that the second plan needs of the first is the form in which a thing is on a log of acts,
+    and ruling 19 gives it. The plan of `answers-in-a-log` takes that form from ruling 19 and says
+    so; if the first plan's run of ruling 19's condition changes the form, the check of the second
+    plan is told. The builds are one after the other, in the split's order. For the receipt.
+26. **One paragraph of the store's page is written three times — builder's.** Number 19 of "How each
+    of the builder's rules is met". Each part replaces what it makes untrue. That is what leaving the
+    tree whole after each part costs.
+
+### On the stream probe (`stream-probe/RESULTS.md`)
+
+The contract's three "Runs before the plan is fixed", and two more that the plans need, run by a
+fresh session on a module of its own, Rama 1.6.0 in-process, one machine, one worker, four tasks.
+Most scenarios ran once, and the paper says where two runs of one thing differed. The build session
+read "The short of it", "Found", "Seen on the way" and "Not settled by these runs" whole. What the
+plans stand on, each run and not read:
+
+- A throw in an event of a stream topology starts the whole worker again, every task of it (36 of
+  36). After the restart Rama runs again every source record since the topology last wrote its
+  progress, the records that had succeeded and been answered too. One thing ran 37 times.
+- With `:append-ack` or `:ack`, a record that a failed attempt appended stays, and the retry adds
+  another. With no ack level an append was sometimes lost and sometimes not.
+- A row and a record are never seen together: with no commit boundary before the append the record
+  is readable first, with one the row is.
+- A step that lets go of the thread between an event's read and its write, an append that waits or
+  a commit boundary, lets other events of the batch read the row first: of 2,000 events that each
+  add one to a row, 3 to 21 distinct numbers came out. Write, then append lost none.
+- An event that waits holds its task's stream topology. An append that waits costs about 1 ms
+  inside the event, and a boundary behind a write about 1 ms more; the client's `:ack` call went
+  from 2.8 to 3.3 to 3.6 ms at 100 a second.
+- A client reads a partition of a depot by its offsets and a range, and is given the values alone,
+  with no offset and no time: 10,000 small records in 19 to 38 ms.
+- `:ack` to a depot that the appending topology itself consumes is a deadlock, as the skill warns.
+
+27. **In the streaming gate, nothing that lets go of the thread stands between an act's reads and
+    its writes — builder's.** So the keeping of an answer, and any commit boundary, comes after the
+    gate's writes. Reason: the probe's fourth point above, and the gate's own rule that "a yield
+    would let another act of the layer in between this act's reads and its writes" (the store's
+    page). This closes one of the two orders that ruling 12 left open, for the streaming gate.
+28. **No part of the store rests on an append with no ack level — builder's.** The probe saw one
+    lost.
+29. **A source record that runs again is the common case and not the rare one — builder's.** After
+    any throw on a worker, each record since the last written progress runs again, on every task.
+    The plan of `answers-in-a-log` says what the log of answers holds after such a replay, with the
+    count for a replay of n records, and shows that the rebuild's answer does not rest on that
+    count.
+30. **What the probe did not reach is said in the receipt — builder's.** A real cluster, a killed
+    process, a change of leader, a clean restart by a module update, when Rama writes a topology's
+    progress, and retry modes other than `:all-after`.
+
 ## For the receipt
 
 What the contract's last section asks the receipt to hold, gathered as the build goes.
@@ -296,6 +381,10 @@ What the contract's last section asks the receipt to hold, gathered as the build
   Sid's" line goes to the queue the same day; the contract says that what the build finds is
   "proposed as rows for the queue and decided by nobody" in the receipt. The build follows the
   contract and writes nothing into the queue.
+- Departures from the skill's order, each with its ruling: the first two plans side by side (25);
+  the third plan before the second build (21).
+- From the stream probe, for Sid as facts of Rama on this machine: a throw in a gate's event starts
+  the whole worker again, and every record since the last written progress runs again (ruling 29).
 - Another session committed in this tree while the build ran, on the other items of entry 6: the
   pass over the decisions page, "freezes", three lines for the method, and Rama's docs for 1.6.0
   (`dc4bd12b` to `3617906f`). The section of 12 October changed in one quoted line and in no

@@ -1,0 +1,57 @@
+    2741.2  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads, topology.stream.timeout.seconds 5 · every thing goes to task 1
+    2741.7  RUN     ---- an append to *side, which another stream topology consumes, with :append-ack ----
+    2774.8  INSIDE  side-append-ack attempt 1 begins; it will append to side with :append-ack
+    2779.9  INSIDE  side-append-ack attempt 1 is behind its append
+    2785.0  INSIDE  the consumer of *side got the record of side-append-ack attempt 1
+    2817.9  CLIENT  the :ack append of side-append-ack gave {} after 76.2 ms · events of side-append-ack begun: 1
+    4318.1  RUN     ---- an append to *side, which another stream topology consumes, with nil ----
+    4324.0  INSIDE  side-no-ack attempt 1 begins; it will append to side with nil
+    4324.1  INSIDE  side-no-ack attempt 1 is behind its append
+    4327.8  INSIDE  the consumer of *side got the record of side-no-ack attempt 1
+    4328.2  CLIENT  the :ack append of side-no-ack gave {} after 10.1 ms · events of side-no-ack begun: 1
+    5828.4  RUN     ---- an append to *side, which another stream topology consumes, with :ack ----
+    5833.6  INSIDE  side-ack attempt 1 begins; it will append to side with :ack
+    5836.0  INSIDE  the consumer of *side got the record of side-ack attempt 1
+    5838.5  INSIDE  side-ack attempt 1 is behind its append
+    5841.5  CLIENT  the :ack append of side-ack gave {} after 13.1 ms · events of side-ack begun: 1
+    7341.7  RUN     ---- an append to *own, which the appending topology consumes, with :append-ack ----
+    7346.5  INSIDE  own-append-ack attempt 1 begins; it will append to own with :append-ack
+    7359.4  INSIDE  own-append-ack attempt 1 is behind its append
+    7362.0  INSIDE  the consumer of *own got the record of own-append-ack attempt 1
+    7362.4  CLIENT  the :ack append of own-append-ack gave {} after 20.7 ms · events of own-append-ack begun: 1
+    8862.5  RUN     ---- an append to *own, which the appending topology consumes, with nil ----
+    8868.3  INSIDE  own-no-ack attempt 1 begins; it will append to own with nil
+    8868.4  INSIDE  own-no-ack attempt 1 is behind its append
+    8872.5  INSIDE  the consumer of *own got the record of own-no-ack attempt 1
+    8872.9  CLIENT  the :ack append of own-no-ack gave {} after 10.4 ms · events of own-no-ack begun: 1
+   10373.0  RUN     ---- an append to *own, which the appending topology consumes, with :ack ----
+   10377.7  INSIDE  own-ack attempt 1 begins; it will append to own with :ack
+   16305.2  CLIENT  the :ack append of own-ack gave CallbackException: Callback failure after 5932.2 ms · events of own-ack begun: 1
+   16703.8  INSIDE  the consumer of *side got the record of side-append-ack attempt 1
+   16704.1  INSIDE  the consumer of *side got the record of side-no-ack attempt 1
+   16704.2  INSIDE  the consumer of *side got the record of side-ack attempt 1
+   16704.4  INSIDE  the consumer of *own got the record of own-append-ack attempt 1
+   16704.5  INSIDE  side-append-ack attempt 2 begins; it will append to side with :append-ack
+   16704.6  INSIDE  the consumer of *own got the record of own-no-ack attempt 1
+   16704.7  INSIDE  side-no-ack attempt 2 begins; it will append to side with :append-ack
+   16704.8  INSIDE  the consumer of *own got the record of own-ack attempt 1
+   16704.8  INSIDE  side-ack attempt 2 begins; it will append to side with :append-ack
+   16704.9  INSIDE  own-append-ack attempt 2 begins; it will append to own with :append-ack
+   16704.9  INSIDE  own-no-ack attempt 2 begins; it will append to own with :append-ack
+   16705.0  INSIDE  own-ack attempt 2 begins; it will append to own with :append-ack
+   16712.6  INSIDE  side-append-ack attempt 2 is behind its append
+   16713.1  INSIDE  side-no-ack attempt 2 is behind its append
+   16714.2  INSIDE  side-ack attempt 2 is behind its append
+   16716.0  INSIDE  the consumer of *side got the record of side-append-ack attempt 2
+   16716.1  INSIDE  the consumer of *side got the record of side-no-ack attempt 2
+   16716.2  INSIDE  the consumer of *side got the record of side-ack attempt 2
+   16716.4  INSIDE  own-append-ack attempt 2 is behind its append
+   16716.8  INSIDE  own-no-ack attempt 2 is behind its append
+   16716.9  INSIDE  own-ack attempt 2 is behind its append
+   16720.6  INSIDE  the consumer of *own got the record of own-append-ack attempt 2
+   16720.8  INSIDE  the consumer of *own got the record of own-no-ack attempt 2
+   16720.9  INSIDE  the consumer of *own got the record of own-ack attempt 2
+   23806.8  RESULT  events begun, by thing: {"own-ack" 2, "own-append-ack" 2, "own-no-ack" 2, "side-ack" 2, "side-append-ack" 2, "side-no-ack" 2}
+   23832.6  RESULT  *side, partition 1: [{:id "side-append-ack", :attempt 1} {:id "side-no-ack", :attempt 1} {:id "side-ack", :attempt 1} {:id "side-append-ack", :attempt 2} {:id "side-no-ack", :attempt 2} {:id "side-ack", :attempt 2}]
+   23834.1  RESULT  *own, partition 1: [{:id "own-append-ack", :attempt 1} {:id "own-no-ack", :attempt 1} {:id "own-ack", :attempt 1} {:id "own-append-ack", :attempt 2} {:id "own-no-ack", :attempt 2} {:id "own-ack", :attempt 2}]
+   23834.1  RUN     END

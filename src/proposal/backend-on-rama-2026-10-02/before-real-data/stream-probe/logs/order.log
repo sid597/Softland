@@ -1,0 +1,184 @@
+    2812.8  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads, Rama's own options · source {:start-from :beginning :retry-mode :all-after} · keys by task: ["key-a" "key-c" "key-j" "key-b"]
+    2813.3  RUN     ---- O1: nine things succeed, then one on task 1 throws ----
+    2886.5  CLIENT  the :ack append of O1-p1 gave {} after 57.3 ms
+    2900.5  CLIENT  the :ack append of O1-p2 gave {} after 13.8 ms
+    2909.7  CLIENT  the :ack append of O1-p3 gave {} after 9.2 ms
+    2918.7  CLIENT  the :ack append of O1-p4 gave {} after 8.8 ms
+    2928.8  CLIENT  the :ack append of O1-p5 gave {} after 10.1 ms
+    2937.1  CLIENT  the :ack append of O1-p6 gave {} after 8.2 ms
+    2949.6  CLIENT  the :ack append of O1-q1 gave {} after 12.4 ms
+    2958.3  CLIENT  the :ack append of O1-q2 gave {} after 8.6 ms
+    2966.7  CLIENT  the :ack append of O1-q3 gave {} after 8.3 ms
+    2989.6  OUTSIDE before the throw. Task 1: row of O1-p6: {:id "O1-p6", :attempt 1, :count 6} · records: [["O1-p1" 1] ["O1-p2" 1] ["O1-p3" 1] ["O1-p4" 1] ["O1-p5" 1] ["O1-p6" 1]]
+    2993.2  OUTSIDE before the throw. Task 2: row of O1-q3: {:id "O1-q3", :attempt 1, :count 3} · records: [["O1-q1" 1] ["O1-q2" 1] ["O1-q3" 1]]
+    3297.9  INSIDE  O1-x attempt 1 begins on task 1 (worker bb1ad573)
+    3298.3  INSIDE  O1-x attempt 1 is after the write, before the append
+    3300.7  INSIDE  O1-x attempt 1 is after the write and the append
+    3300.8  INSIDE  O1-x attempt 1 THROWS on purpose after the write and the append
+    3416.9  CLIENT  the :ack append of O1-x gave CallbackException: Callback failure after 123.3 ms
+    3596.0  INSIDE  the task global of task 0 was made ready again, time 2 : Rama started the worker again
+    3640.9  INSIDE  O1-x attempt 2 begins on task 1 (worker bb1ad573)
+    3641.2  INSIDE  O1-x attempt 2 is after the write, before the append
+    3652.1  INSIDE  O1-x attempt 2 is after the write and the append
+    3652.2  INSIDE  O1-x attempt 2 : the event's code is done
+    3653.4  INSIDE  events begun so far: [["O1-p1" 2] ["O1-p2" 2] ["O1-p3" 2] ["O1-p4" 2] ["O1-p5" 2] ["O1-p6" 2] ["O1-q1" 2] ["O1-q2" 2] ["O1-q3" 2] ["O1-x" 2]] · task globals made ready again: 4 · from the throw to the next begin of O1-x : 340.0 ms
+    3866.2  CLIENT  a thing appended with :append-ack 352.6 ms after the throw: the append gave {} after 209.4 ms · its event began 209.4 ms after the call
+   16367.1  PINGS   row reads sent: 118 · answered within 100 ms: 87 · answered later: 26 · threw: 5
+   16367.4  PINGS   row the reads that took more than 100 ms were sent from 14.3 to 619.8 ms around the throw, and took count 27 · least 102.91 · middle 360.04 · 9 of 10 under 580.36 · most 619.95 ms · by outcome: {:threw 1, :answered 26}
+   16367.5  PINGS   row the first read after the throw that was answered within 100 ms was sent 639.9 ms after the throw and took 99.6 ms
+   16367.7  PINGS   depot reads sent: 118 · answered within 100 ms: 87 · answered later: 26 · threw: 5
+   16367.8  PINGS   depot the reads that took more than 100 ms were sent from 14.3 to 619.8 ms around the throw, and took count 27 · least 101.51 · middle 360.06 · 9 of 10 under 580.44 · most 620.14 ms · by outcome: {:threw 1, :answered 26}
+   16367.8  PINGS   depot the first read after the throw that was answered within 100 ms was sent 640.0 ms after the throw and took 99.6 ms
+   16367.9  RESULT  events begun: [["O1-p1" 2] ["O1-p2" 2] ["O1-p3" 2] ["O1-p4" 2] ["O1-p5" 2] ["O1-p6" 2] ["O1-q1" 2] ["O1-q2" 2] ["O1-q3" 2] ["O1-x" 2] ["O1-after" 1]]
+   16370.1  RESULT  the second depot, task 1, since the scenario began: [["O1-p1" 1] ["O1-p2" 1] ["O1-p3" 1] ["O1-p4" 1] ["O1-p5" 1] ["O1-p6" 1] ["O1-x" 1] ["O1-p1" 2] ["O1-p2" 2] ["O1-p3" 2] ["O1-p4" 2] ["O1-p5" 2] ["O1-p6" 2] ["O1-x" 2] ["O1-after" 1]]
+   16473.2  RESULT  the second depot, task 2, since the scenario began: [["O1-q1" 1] ["O1-q2" 1] ["O1-q3" 1] ["O1-q1" 2] ["O1-q2" 2] ["O1-q3" 2]]
+   16473.3  RUN     ---- O2: 35 seconds with no failure, then the same again ----
+   51491.6  CLIENT  the :ack append of O2-p1 gave {} after 16.4 ms
+   51500.3  CLIENT  the :ack append of O2-p2 gave {} after 8.5 ms
+   51507.3  CLIENT  the :ack append of O2-p3 gave {} after 6.9 ms
+   51515.0  CLIENT  the :ack append of O2-p4 gave {} after 7.6 ms
+   51522.6  CLIENT  the :ack append of O2-p5 gave {} after 7.4 ms
+   51529.7  CLIENT  the :ack append of O2-p6 gave {} after 7.0 ms
+   51841.8  CLIENT  the :ack append of O2-q1 gave {} after 312.0 ms
+   51848.3  CLIENT  the :ack append of O2-q2 gave {} after 6.4 ms
+   51854.3  CLIENT  the :ack append of O2-q3 gave {} after 5.9 ms
+   51855.9  OUTSIDE before the throw. Task 1: row of O2-p6: {:id "O2-p6", :attempt 1, :count 20} · records: [["O2-p1" 1] ["O2-p2" 1] ["O2-p3" 1] ["O2-p4" 1] ["O2-p5" 1] ["O2-p6" 1]]
+   51856.9  OUTSIDE before the throw. Task 2: row of O2-q3: {:id "O2-q3", :attempt 1, :count 9} · records: [["O2-q1" 1] ["O2-q2" 1] ["O2-q3" 1]]
+   52168.9  INSIDE  O2-x attempt 1 begins on task 1 (worker bb1ad573)
+   52169.2  INSIDE  O2-x attempt 1 is after the write, before the append
+   52171.2  INSIDE  O2-x attempt 1 is after the write and the append
+   52171.3  INSIDE  O2-x attempt 1 THROWS on purpose after the write and the append
+   52202.6  CLIENT  the :ack append of O2-x gave CallbackException: Callback failure after 45.5 ms
+   52342.4  INSIDE  the task global of task 0 was made ready again, time 3 : Rama started the worker again
+   52368.3  INSIDE  O2-x attempt 2 begins on task 1 (worker bb1ad573)
+   52368.5  INSIDE  O2-x attempt 2 is after the write, before the append
+   52377.2  INSIDE  O2-x attempt 2 is after the write and the append
+   52377.3  INSIDE  O2-x attempt 2 : the event's code is done
+   52378.4  INSIDE  events begun so far: [["O2-p1" 2] ["O2-p2" 2] ["O2-p3" 2] ["O2-p4" 2] ["O2-p5" 2] ["O2-p6" 2] ["O2-q1" 2] ["O2-q2" 2] ["O2-q3" 2] ["O2-x" 2]] · task globals made ready again: 4 · from the throw to the next begin of O2-x : 197.0 ms
+   53415.6  CLIENT  a thing appended with :append-ack 207.2 ms after the throw: the append gave {} after 1033.8 ms · its event began 1034.0 ms after the call
+   65916.0  PINGS   row reads sent: 152 · answered within 100 ms: 35 · answered later: 115 · threw: 2
+   65916.3  PINGS   row the reads that took more than 100 ms were sent from 47.0 to 2342.7 ms around the throw, and took count 115 · least 103.96 · middle 1250.39 · 9 of 10 under 2174.33 · most 2394.65 ms · by outcome: {:answered 115}
+   65916.3  PINGS   row the first read after the throw that was answered within 100 ms was sent 2362.9 ms after the throw and took 83.8 ms
+   65916.5  PINGS   depot reads sent: 152 · answered within 100 ms: 35 · answered later: 115 · threw: 2
+   65916.6  PINGS   depot the reads that took more than 100 ms were sent from 47.0 to 2342.8 ms around the throw, and took count 115 · least 103.88 · middle 1250.34 · 9 of 10 under 2174.31 · most 2394.59 ms · by outcome: {:answered 115}
+   65916.6  PINGS   depot the first read after the throw that was answered within 100 ms was sent 2362.9 ms after the throw and took 83.8 ms
+   65916.6  RESULT  events begun: [["O2-p1" 2] ["O2-p2" 2] ["O2-p3" 2] ["O2-p4" 2] ["O2-p5" 2] ["O2-p6" 2] ["O2-q1" 2] ["O2-q2" 2] ["O2-q3" 2] ["O2-x" 2] ["O2-after" 1]]
+   65918.3  RESULT  the second depot, task 1, since the scenario began: [["O2-p1" 1] ["O2-p2" 1] ["O2-p3" 1] ["O2-p4" 1] ["O2-p5" 1] ["O2-p6" 1] ["O2-x" 1] ["O2-p1" 2] ["O2-p2" 2] ["O2-p3" 2] ["O2-p4" 2] ["O2-p5" 2] ["O2-p6" 2] ["O2-x" 2] ["O2-after" 1]]
+   66121.2  RESULT  the second depot, task 2, since the scenario began: [["O2-q1" 1] ["O2-q2" 1] ["O2-q3" 1] ["O2-q1" 2] ["O2-q2" 2] ["O2-q3" 2]]
+   66121.8  RUN     ---- O3 · write, then append · no boundary · :append-ack · N is O3-wa-p-n0 ----
+   66391.9  INSIDE  O3-wa-p-n0 attempt 1 begins on task 1 (worker bb1ad573)
+   66392.2  INSIDE  O3-wa-p-n0 attempt 1 is after the write, before the append
+   66392.3  INSIDE  O3-wa-p-n1 attempt 1 begins on task 1 (worker bb1ad573)
+   66392.5  INSIDE  O3-wa-p-n1 attempt 1 is after the write, before the append
+   66392.5  INSIDE  O3-wa-p-n2 attempt 1 begins on task 1 (worker bb1ad573)
+   66392.6  INSIDE  O3-wa-p-n2 attempt 1 is after the write, before the append
+   66394.5  INSIDE  O3-wa-p-n0 attempt 1 is after the write and the append
+   66394.5  INSIDE  O3-wa-p-n0 attempt 1 THROWS on purpose after the write and the append
+   66491.4  CLIENT  the three :ack appends gave: ["CallbackException: Callback failure" "CallbackException: Callback failure" "CallbackException: Callback failure"]
+   66629.7  INSIDE  the task global of task 0 was made ready again, time 4 : Rama started the worker again
+   66654.9  INSIDE  O3-wa-p-n0 attempt 2 begins on task 1 (worker bb1ad573)
+   66655.1  INSIDE  O3-wa-p-n0 attempt 2 is after the write, before the append
+   66655.1  INSIDE  O3-wa-p-n1 attempt 2 begins on task 1 (worker bb1ad573)
+   66655.4  INSIDE  O3-wa-p-n1 attempt 2 is after the write, before the append
+   66655.6  INSIDE  O3-wa-p-n2 attempt 2 begins on task 1 (worker bb1ad573)
+   66655.8  INSIDE  O3-wa-p-n2 attempt 2 is after the write, before the append
+   66663.9  INSIDE  O3-wa-p-n0 attempt 2 is after the write and the append
+   66664.0  INSIDE  O3-wa-p-n0 attempt 2 : the event's code is done
+   66664.0  INSIDE  O3-wa-p-n1 attempt 2 is after the write and the append
+   66664.0  INSIDE  O3-wa-p-n1 attempt 2 : the event's code is done
+   66664.1  INSIDE  O3-wa-p-n2 attempt 2 is after the write and the append
+   66664.1  INSIDE  O3-wa-p-n2 attempt 2 : the event's code is done
+   72666.0  RESULT  events begun: [["O3-wa-p-n0" 2] ["O3-wa-p-n1" 2] ["O3-wa-p-n2" 2]] · task globals made ready again: 4 · events of other things that began again: 12
+   75869.3  RESULT  the second depot, the three things only, in order: [["O3-wa-p-n0" 1] ["O3-wa-p-n1" 1] ["O3-wa-p-n2" 1] ["O3-wa-p-n0" 2] ["O3-wa-p-n1" 2] ["O3-wa-p-n2" 2]]
+   75869.7  RUN     ---- O3 · write, then append · boundary before the append · :append-ack · N is O3-waBp-n0 ----
+   79338.1  INSIDE  O3-waBp-n0 attempt 1 begins on task 1 (worker bb1ad573)
+   79342.0  INSIDE  O3-waBp-n1 attempt 1 begins on task 1 (worker bb1ad573)
+   79342.3  INSIDE  O3-waBp-n2 attempt 1 begins on task 1 (worker bb1ad573)
+   79344.3  INSIDE  O3-waBp-n0 attempt 1 is after the write, before the append
+   79346.0  INSIDE  O3-waBp-n0 attempt 1 is after the write and the append
+   79346.1  INSIDE  O3-waBp-n0 attempt 1 THROWS on purpose after the write and the append
+   79377.2  CLIENT  the three :ack appends gave: ["CallbackException: Callback failure" "CallbackException: Callback failure" "CallbackException: Callback failure"]
+   79516.9  INSIDE  the task global of task 0 was made ready again, time 5 : Rama started the worker again
+   79543.9  INSIDE  O3-waBp-n0 attempt 2 begins on task 1 (worker bb1ad573)
+   79544.1  INSIDE  O3-waBp-n1 attempt 2 begins on task 1 (worker bb1ad573)
+   79544.2  INSIDE  O3-waBp-n2 attempt 2 begins on task 1 (worker bb1ad573)
+   79555.3  INSIDE  O3-waBp-n0 attempt 2 is after the write, before the append
+   79555.3  INSIDE  O3-waBp-n1 attempt 2 is after the write, before the append
+   79555.4  INSIDE  O3-waBp-n2 attempt 2 is after the write, before the append
+   79557.2  INSIDE  O3-waBp-n0 attempt 2 is after the write and the append
+   79557.2  INSIDE  O3-waBp-n0 attempt 2 : the event's code is done
+   79557.2  INSIDE  O3-waBp-n1 attempt 2 is after the write and the append
+   79557.3  INSIDE  O3-waBp-n1 attempt 2 : the event's code is done
+   79557.3  INSIDE  O3-waBp-n2 attempt 2 is after the write and the append
+   79557.3  INSIDE  O3-waBp-n2 attempt 2 : the event's code is done
+   85557.9  RESULT  events begun: [["O3-waBp-n0" 2] ["O3-waBp-n1" 2] ["O3-waBp-n2" 2]] · task globals made ready again: 4 · events of other things that began again: 16
+   90560.9  RESULT  the second depot, the three things only, in order: [["O3-waBp-n0" 1] ["O3-waBp-n0" 2] ["O3-waBp-n1" 2] ["O3-waBp-n2" 2]]
+   90561.5  RUN     ---- O4 · write, then append · no boundary · :append-ack · N is O4-wa-p-n0 ----
+   95574.6  INSIDE  O4-wa-p-n0 attempt 1 begins on task 1 (worker bb1ad573)
+   95575.0  INSIDE  O4-wa-p-n0 attempt 1 is after the write, before the append
+   95591.6  INSIDE  O4-wa-p-n0 attempt 1 is after the write and the append
+   95591.8  INSIDE  O4-wa-p-n0 attempt 1 waits for its future; the task's thread is free
+   95593.8  OUTSIDE while N waits: row of O4-wa-p-n0: nil · records: [["O4-wa-p-n0" 1]]
+  101527.4  CLIENT  the :ack append of O4-wa-p-n1 gave CallbackException: Callback failure after 5933.4 ms
+  101529.0  OUTSIDE after that append: row of O4-wa-p-n1: nil · records: [["O4-wa-p-n0" 1]]
+  106526.7  INSIDE  O4-wa-p-n1 attempt 1 begins on task 1 (worker bb1ad573)
+  106527.2  INSIDE  O4-wa-p-n1 attempt 1 is after the write, before the append
+  106527.3  INSIDE  O4-wa-p-n0 attempt 2 begins on task 1 (worker bb1ad573)
+  106527.4  INSIDE  O4-wa-p-n0 attempt 2 is after the write, before the append
+  106527.5  INSIDE  O4-wa-p-n1 attempt 2 begins on task 1 (worker bb1ad573)
+  106527.5  INSIDE  O4-wa-p-n1 attempt 2 is after the write, before the append
+  106527.6  INSIDE  O4-wa-p-n2 attempt 1 begins on task 1 (worker bb1ad573)
+  106527.6  INSIDE  O4-wa-p-n2 attempt 1 is after the write, before the append
+  106531.1  INSIDE  O4-wa-p-n1 attempt 1 is after the write and the append
+  106531.2  INSIDE  O4-wa-p-n1 attempt 1 : the event's code is done
+  106531.2  INSIDE  O4-wa-p-n0 attempt 2 is after the write and the append
+  106531.2  INSIDE  O4-wa-p-n0 attempt 2 : the event's code is done
+  106531.3  INSIDE  O4-wa-p-n1 attempt 2 is after the write and the append
+  106531.3  INSIDE  O4-wa-p-n1 attempt 2 : the event's code is done
+  106531.3  INSIDE  O4-wa-p-n2 attempt 1 is after the write and the append
+  106531.4  INSIDE  O4-wa-p-n2 attempt 1 : the event's code is done
+  106533.9  CLIENT  the :ack append of O4-wa-p-n2 gave {} after 4992.3 ms
+  106546.7  OUTSIDE after that append: row of O4-wa-p-n2: {:id "O4-wa-p-n2", :attempt 1, :count 65} · records: [["O4-wa-p-n0" 1] ["O4-wa-p-n1" 1] ["O4-wa-p-n0" 2] ["O4-wa-p-n1" 2] ["O4-wa-p-n2" 1]]
+  106547.4  OUTSIDE while N still waits: row of O4-wa-p-n0: {:id "O4-wa-p-n0", :attempt 2, :count 63} · records: [["O4-wa-p-n0" 1] ["O4-wa-p-n1" 1] ["O4-wa-p-n0" 2] ["O4-wa-p-n1" 2] ["O4-wa-p-n2" 1]]
+  106547.5  CLIENT  the :ack append of N gave CallbackException: Callback failure
+  142548.3  RESULT  events begun: [["O4-wa-p-n0" 2] ["O4-wa-p-n1" 2] ["O4-wa-p-n2" 1]] · task globals made ready again: 0 · events of other things that began again: 0
+  142549.8  RESULT  the second depot, the three things only, in order: [["O4-wa-p-n0" 1] ["O4-wa-p-n1" 1] ["O4-wa-p-n0" 2] ["O4-wa-p-n1" 2] ["O4-wa-p-n2" 1]]
+  142551.1  OUTSIDE at the end: row of N: {:id "O4-wa-p-n0", :attempt 2, :count 63} · row of N+1: {:id "O4-wa-p-n1", :attempt 2, :count 64} · row of N+2: {:id "O4-wa-p-n2", :attempt 1, :count 65}
+  142551.5  RUN     ---- O4 · write, then append · boundary before the append · :append-ack · N is O4-waBp-n0 ----
+  142555.0  INSIDE  O4-waBp-n0 attempt 1 begins on task 1 (worker bb1ad573)
+  142557.3  INSIDE  O4-waBp-n0 attempt 1 is after the write, before the append
+  142559.1  INSIDE  O4-waBp-n0 attempt 1 is after the write and the append
+  142559.2  INSIDE  O4-waBp-n0 attempt 1 waits for its future; the task's thread is free
+  142561.2  OUTSIDE while N waits: row of O4-waBp-n0: {:id "O4-waBp-n0", :attempt 1, :count 66} · records: [["O4-waBp-n0" 1]]
+  148552.6  CLIENT  the :ack append of O4-waBp-n1 gave CallbackException: Callback failure after 5991.3 ms
+  148554.3  OUTSIDE after that append: row of O4-waBp-n1: nil · records: [["O4-waBp-n0" 1]]
+  153555.5  INSIDE  O4-waBp-n1 attempt 1 begins on task 1 (worker bb1ad573)
+  153555.9  INSIDE  O4-waBp-n0 attempt 2 begins on task 1 (worker bb1ad573)
+  153556.0  INSIDE  O4-waBp-n1 attempt 2 begins on task 1 (worker bb1ad573)
+  153556.1  INSIDE  O4-waBp-n2 attempt 1 begins on task 1 (worker bb1ad573)
+  153566.9  INSIDE  O4-waBp-n1 attempt 1 is after the write, before the append
+  153567.0  INSIDE  O4-waBp-n0 attempt 2 is after the write, before the append
+  153567.0  INSIDE  O4-waBp-n1 attempt 2 is after the write, before the append
+  153567.0  INSIDE  O4-waBp-n2 attempt 1 is after the write, before the append
+  153569.0  INSIDE  O4-waBp-n1 attempt 1 is after the write and the append
+  153569.0  INSIDE  O4-waBp-n1 attempt 1 : the event's code is done
+  153569.1  INSIDE  O4-waBp-n0 attempt 2 is after the write and the append
+  153569.1  INSIDE  O4-waBp-n0 attempt 2 : the event's code is done
+  153569.1  INSIDE  O4-waBp-n1 attempt 2 is after the write and the append
+  153569.1  INSIDE  O4-waBp-n1 attempt 2 : the event's code is done
+  153569.3  INSIDE  O4-waBp-n2 attempt 1 is after the write and the append
+  153569.3  INSIDE  O4-waBp-n2 attempt 1 : the event's code is done
+  153573.4  INSIDE  O4-waBp-n2 attempt 2 begins on task 1 (worker bb1ad573)
+  153575.1  INSIDE  O4-waBp-n2 attempt 2 is after the write, before the append
+  153576.7  INSIDE  O4-waBp-n2 attempt 2 is after the write and the append
+  153576.8  INSIDE  O4-waBp-n2 attempt 2 : the event's code is done
+  153577.5  CLIENT  the :ack append of O4-waBp-n2 gave {} after 5023.2 ms
+  153578.8  OUTSIDE after that append: row of O4-waBp-n2: {:id "O4-waBp-n2", :attempt 2, :count 73} · records: [["O4-waBp-n0" 1] ["O4-waBp-n1" 1] ["O4-waBp-n0" 2] ["O4-waBp-n1" 2] ["O4-waBp-n2" 1] ["O4-waBp-n0" 3] ["O4-waBp-n1" 3] ["O4-waBp-n2" 2]]
+  153579.6  OUTSIDE while N still waits: row of O4-waBp-n0: {:id "O4-waBp-n0", :attempt 3, :count 71} · records: [["O4-waBp-n0" 1] ["O4-waBp-n1" 1] ["O4-waBp-n0" 2] ["O4-waBp-n1" 2] ["O4-waBp-n2" 1] ["O4-waBp-n0" 3] ["O4-waBp-n1" 3] ["O4-waBp-n2" 2]]
+  153579.7  CLIENT  the :ack append of N gave CallbackException: Callback failure
+  159580.0  RESULT  events begun: [["O4-waBp-n0" 3] ["O4-waBp-n1" 3] ["O4-waBp-n2" 2]] · task globals made ready again: 0 · events of other things that began again: 0
+  159581.3  RESULT  the second depot, the three things only, in order: [["O4-waBp-n0" 1] ["O4-waBp-n1" 1] ["O4-waBp-n0" 2] ["O4-waBp-n1" 2] ["O4-waBp-n2" 1] ["O4-waBp-n0" 3] ["O4-waBp-n1" 3] ["O4-waBp-n2" 2]]
+  159588.7  OUTSIDE at the end: row of N: {:id "O4-waBp-n0", :attempt 3, :count 71} · row of N+1: {:id "O4-waBp-n1", :attempt 3, :count 72} · row of N+2: {:id "O4-waBp-n2", :attempt 2, :count 73}
+  159588.7  RUN     at the end, events begun of O1's things: [["O1-p1" 2] ["O1-p6" 2] ["O1-q1" 2] ["O1-x" 2] ["O1-after" 1]] · of O2's things: [["O2-p1" 4] ["O2-p6" 4] ["O2-q1" 4] ["O2-x" 4] ["O2-after" 3]]
+  160393.2  RUN     events begun in all: 97 for 36 source records · records in the second depot, by partition: [0 72 18 0]
+  160393.3  RUN     END

@@ -11,6 +11,9 @@
 #
 # A proof's JVM loads the source when it starts. So no file under src-store/ or test-store/ is
 # edited while this script still has a proof to start.
+#
+# A proof that starts Rama's in-process cluster waits for runs/cluster.lock (flock), so that two
+# sessions never run two clusters at once. The time that the cut gives for a run holds that wait.
 set -u
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../../../../.." && pwd)"
@@ -38,7 +41,13 @@ for proof in "${proofs[@]}"; do
   raw="$here/raw-$label-$proof.txt"
   cut="$here/$label-$proof.txt"
   start=$(date +%s)
-  clojure -M:"$al" -m "$ns" >"$raw" 2>&1
+  if [ "$al" = store-module ]; then
+    # One in-process cluster at a time on this machine: two collide on a port. Every run of this
+    # build that starts a cluster takes this lock first, a probe's run too.
+    flock "$here/cluster.lock" clojure -M:"$al" -m "$ns" >"$raw" 2>&1
+  else
+    clojure -M:"$al" -m "$ns" >"$raw" 2>&1
+  fi
   code=$?
   end=$(date +%s)
   {

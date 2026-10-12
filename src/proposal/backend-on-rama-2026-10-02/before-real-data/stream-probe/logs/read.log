@@ -1,0 +1,45 @@
+    2821.4  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads
+    2821.8  RUN     ---- R1: the calls ----
+    2823.0  CALLS   the class of a depot client: rpl.rama.java_api.cluster$cluster_depot_impl$reify__497204 · the methods that the interface com.rpl.rama.Depot declares: ("append" "appendAsync" "close" "disallow" "getObjectInfo" "getPartitionInfo" "getPartitionInfoAsync" "hashBy" "random" "read" "readAsync")
+    2823.3  CALLS   (foreign-object-info log) => {:name "*log", :module-name "probe.gate/GateProbe", :num-partitions 4}
+    2835.1  CALLS   (foreign-depot-partition-info log 1), nothing appended yet => {:start-offset 0, :end-offset 0}
+    2841.1  CALLS   (foreign-depot-read log 1 0 0), nothing appended yet => []
+    2841.6  CALLS   (foreign-depot-partition-info log 4), a partition that is not there => [:threw "ExceptionInfo: Invalid partition index"]
+    2841.6  RUN     ---- R2: 10,000 things, then the reads ----
+    4477.8  FILL    10,000 things sent to task 1, 500 at once at a time, each with :ack: done in 1636.1 ms
+    4488.5  READ    (foreign-depot-read log 1 0 3) => [{:id "R2-0", :attempt 1, :count 1, :row-before nil} {:id "R2-1", :attempt 1, :count 2, :row-before nil} {:id "R2-2", :attempt 1, :count 3, :row-before nil}] · the class of the result: clojure.lang.PersistentVector · of one record: clojure.lang.PersistentArrayMap
+    4491.4  READ    (foreign-depot-read things 1 0 1) => [{:place :after, :boundary false, :ack :append-ack, :k "key-c", :id "R2-0"}]
+    4547.3  READ    (foreign-depot-partition-info log 1) => {:start-offset 0, :end-offset 10000} · the call, 200 times: count 200 · least 0.15 · middle 0.24 · 9 of 10 under 0.40 · most 1.28 ms
+    4650.1  READ    the second depot, partition 1 · offsets 0 to 10000 · in reads of 10000 (1 calls) · records got: [10000 10000 10000] · ms of three tries: [37.5 32.6 31.4]
+    4716.0  READ    the second depot, partition 1 · offsets 0 to 10000 · in reads of 1000 (10 calls) · records got: [10000 10000 10000] · ms of three tries: [25.8 21.0 18.8]
+    4790.9  READ    the second depot, partition 1 · offsets 0 to 10000 · in reads of 500 (20 calls) · records got: [10000 10000 10000] · ms of three tries: [29.5 23.8 21.4]
+    5022.2  READ    the second depot, partition 1 · offsets 0 to 10000 · in reads of 100 (100 calls) · records got: [10000 10000 10000] · ms of three tries: [67.9 64.5 98.7]
+    5081.4  READ    the source depot, partition 1 · offsets 0 to 10000 · in reads of 10000 (1 calls) · records got: [10000 10000 10000] · ms of three tries: [19.5 23.7 15.2]
+    5139.4  READ    the source depot, partition 1 · offsets 0 to 10000 · in reads of 1000 (10 calls) · records got: [10000 10000 10000] · ms of three tries: [22.5 18.1 17.2]
+    5204.9  READ    the source depot, partition 1 · offsets 0 to 10000 · in reads of 500 (20 calls) · records got: [10000 10000 10000] · ms of three tries: [21.3 22.0 22.0]
+    5374.1  READ    the source depot, partition 1 · offsets 0 to 10000 · in reads of 100 (100 calls) · records got: [10000 10000 10000] · ms of three tries: [56.1 54.5 58.4]
+    5374.2  RUN     ---- R3: the edges of a read ----
+    5381.4  EDGE    (foreign-depot-read log 1 9995 10005) , five before the end to five past it => threw ExceptionInfo: Log end offset out of range after 6.8 ms
+    5381.7  EDGE    (foreign-depot-read log 1 10000 10000) , the end to the end => 0 records after 0.2 ms
+    5382.3  EDGE    (foreign-depot-read log 1 10000 10001) , the end to one past it => threw ExceptionInfo: Log end offset out of range after 0.6 ms
+    5384.6  EDGE    (foreign-depot-read log 1 10 5) , an end before the start => threw ExceptionInfo: End offset is less than start offset after 2.3 ms
+    5387.5  EDGE    (foreign-depot-read log 1 -1 2) , a start below zero => threw LogStartOffsetOutOfRange: Log start offset out of range after 2.8 ms
+    5387.6  RUN     ---- R4: one read of 50,000 ----
+    9299.5  FILL    40,000 more things: done in 3911.8 ms
+    9384.4  READ    one read of the second depot's partition 1 from 0 to 50000 => 50000 records in 83.8 ms · a read of a row of the same task, sent 5 ms after it, was answered after 77.5 ms
+    9484.6  READ    one read of the second depot's partition 1 from 0 to 50000 => 50000 records in 99.9 ms · a read of a row of the same task, sent 5 ms after it, was answered after 93.5 ms
+    9492.3  READ    the same read of a row with nothing else going on, 50 times: count 50 · least 0.11 · middle 0.12 · 9 of 10 under 0.17 · most 0.72 ms
+    9492.4  RUN     ---- R5: order ----
+    9910.4  ORDER   task 2 · write, then append · boundary before the append · :append-ack · 3000 things at once · appends that failed: 0 · source records: 3000 · records in the second depot: 3000 · every source record has one record: true
+    9911.1  ORDER   task 2 · records at the same place in both partitions: 3000 of 3000 · records at another place: 0 
+    9913.1  ORDER   task 2 · the counts carried by the records: distinct 3000 of 3000 · rising along the second depot's partition: true · records whose count is the offset of their source record plus one: 3000 of 3000 · the row "count" now: 3000
+   10281.5  ORDER   task 3 · write, then append · no boundary · no ack · 3000 things at once · appends that failed: 0 · source records: 3000 · records in the second depot: 3000 · every source record has one record: true
+   10282.1  ORDER   task 3 · records at the same place in both partitions: 3000 of 3000 · records at another place: 0 
+   10283.4  ORDER   task 3 · the counts carried by the records: distinct 3000 of 3000 · rising along the second depot's partition: true · records whose count is the offset of their source record plus one: 3000 of 3000 · the row "count" now: 3000
+   10626.9  ORDER   task 0 · append, then write · no boundary · :append-ack · 3000 things at once · appends that failed: 0 · source records: 3000 · records in the second depot: 3000 · every source record has one record: true
+   10627.3  ORDER   task 0 · records at the same place in both partitions: 3000 of 3000 · records at another place: 0 
+   10627.8  ORDER   task 0 · the counts carried by the records: distinct 31 of 3000 · rising along the second depot's partition: false · records whose count is the offset of their source record plus one: 2 of 3000 · the row "count" now: 31
+   10943.9  ORDER   task 1 · write, then append · no boundary · :append-ack · the 50,000 of R2 and R4, 500 at once at a time · the ids of the two partitions are in the same order: true · every count is the offset of its source record plus one: true
+   11138.4  ORDER   which source partition the records of each partition of the second depot came from, by the id without its number: {0 {"R5-aw-p" 3000}, 1 {"R2" 10000, "R4" 40000}, 2 {"R5-waBp" 3000}, 3 {"R5-wa-0" 3000}}
+   11140.7  RUN     events begun in all: 59000 for 59000 source records · task globals made ready again: 0
+   11140.8  RUN     END
