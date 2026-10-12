@@ -31,14 +31,9 @@
                the act's own (g); who may write a key that takes a second
                write (`who-may-write-fault`); and what a store key does not
                take in this build.
-    seals      `opened`: each sealed value's lock is one that the store made
-               for this layer, seals nothing yet, is of a known way, and
-               opens the value at its place. It gives the plain bytes that
-               each lock opened.
 
-  `places-needed` and `lock-ranges` say which rows the last two need.
-  `stamp-of` gives the stamp of the decision. `writes` gives each row that
-  the decision writes.
+  `places-needed` says which rows `places` needs. `stamp-of` gives the
+  stamp of the decision. `writes` gives each row that the decision writes.
 
   What an accept reads after the last check, for the order by value. No
   check reads a layer's marked keys, so a refused act pays nothing for them.
@@ -71,20 +66,23 @@
   nothing in this build ends a permission. The room for a permission that
   has ended is the place itself: an end would be a later fact on it.
 
-  State and effects. None. `opened` opens each sealed value once and gives
-  the plain bytes to `writes`, which puts them in the fact's row. They are
-  nowhere else: the bytes of a value that was opened before a later fact of
-  its act failed are dropped with the decision.
+  State and effects. None. No function here opens anything or reads a
+  tool's value. The text of each value is in the act's one form, where the
+  declaration's check put it, and `writes` puts it in the fact's row. It is
+  nowhere else: the texts of an act that a check refused are dropped with
+  the decision.
 
   Not here. Check (a), the answer under the act-id, and the test for a
-  stray: the gate makes them before any of these. Whether the other gate's
+  stray: the gate makes them before any of these. The bound on one value
+  and the bound on an act: they are the last step of the declaration's
+  check, and come to `refused-early` as its word. Whether the other gate's
   record holds a layer: the gate reads it and gives the answer to
   `standing`."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
+            [softland.store.door.text :as text]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record]
-            [softland.store.door.seal :as seal]
             [softland.store.gate.stamp :as stamp]))
 
 ;; -------------------------------------------------------------------- early
@@ -277,10 +275,10 @@
   with no value under any other store key; a depot fact in a layer that is
   made, with the other depot (a change of depot is not decided) or with the
   layer's own (its place holds one); a permission fact on a place that holds
-  a row, the same permission or another. A request fact with a value earns
-  none: its place is new by its form. A fact under any other key earns none.
-  What must hold: the layer is made by this gate, so its depot is the
-  gate's.
+  a row, the same permission or another. A fact under any other key earns
+  none. Whether a fact has a value is asked of a fact under a store key
+  alone, whose `:v` the act's one form keeps. What must hold: the layer is
+  made by this gate, so its depot is the gate's.
 
   The line that gives `:store-key-takes-one-write` for a permission is why a
   permission that says `:see` stays `:see`: to raise one, or to end one, is
@@ -343,9 +341,8 @@
   "Takes an act, or nil. Gives true when a gate that accepts the act needs
   the row at `marked-keys-place`: the act holds a fact under a plain key,
   which may be a marked one, or a fact under `:softland.store/marked-keys`,
-  whose row before gives the stamps that its keys keep. False for a request
-  for locks, a give, a making act, a setting and a list: none of them reads
-  the marked keys."
+  whose row before gives the stamps that its keys keep. False for a give, a
+  making act, a setting and a list: none of them reads the marked keys."
   [act]
   (boolean (some (fn [fact]
                    (or (= :softland.store/marked-keys (:k fact))
@@ -380,91 +377,6 @@
   cannot be found without the row."
   [since-by-place place-rows]
   (into [] (remove #(contains? place-rows %)) (sort (keys since-by-place))))
-
-;; -------------------------------------------------------------------- seals
-
-(defn- lock-in-this-record?
-  "Takes the gate's depot, an act and a lock id. Gives true when the lock id
-  names this layer and this depot. Only such a lock can have a row in this
-  gate's record of this layer, so only then is a row read."
-  [gate-depot act lock-id]
-  (let [[lock-layer lock-depot _] (first lock-id)]
-    (and (= (:layer act) lock-layer) (= gate-depot lock-depot))))
-
-(defn lock-ranges
-  "Takes the gate's depot and an act. Gives the ranges of lock rows that
-  `opened` needs, each as [first key, last key], both in the range: one range
-  for each request whose locks the act names, from the least to the greatest
-  index that the act uses. A lock id of another layer or of the other depot
-  gives no range, and so costs no read. Empty for an act with no sealed
-  value."
-  [gate-depot act]
-  (let [layer (:layer act)]
-    (->> (:facts act)
-         (keep :lock-id)
-         (filter #(lock-in-this-record? gate-depot act %))
-         (group-by (fn [[[_ _ request-uuid] _]] request-uuid))
-         (mapv (fn [[request-uuid lock-ids]]
-                 (let [indexes (map second lock-ids)]
-                   [(record/lock-key layer request-uuid (reduce min indexes))
-                    (record/lock-key layer request-uuid (reduce max indexes))]))))))
-
-(defn- opened-fact
-  "The check of the seal for one fact. Gives {:plain bytes}, the plain bytes
-  that the fact's lock opened, or {:plain nil} for a fact that is not
-  sealed; or {:refused word} when the fact is sealed and: its lock is not
-  one that the store made for this layer; the lock already seals an accepted
-  value; the lock's way is not one that the code knows; or the lock does not
-  open the sealed bytes at this fact's place. The four tests are made in
-  that order, and the value is opened once."
-  [gate-depot act lock-rows fact]
-  (if-let [lock-id (:lock-id fact)]
-    (let [layer (:layer act)
-          [[_ _ request-uuid] index] lock-id
-          row (when (lock-in-this-record? gate-depot act lock-id)
-                (get lock-rows (record/lock-key layer request-uuid index)))]
-      (cond
-        (nil? row) {:refused :lock-not-made-for-this-layer}
-        (record/seals-a-fact? row) {:refused :lock-already-seals-a-value}
-        (not (seal/known-way? (:way row))) {:refused :lock-way-not-known}
-        :else (if-let [plain (seal/open (record/lock-of row) [layer (:e fact) (:k fact)] (:sealed fact))]
-                {:plain plain}
-                {:refused :lock-does-not-open-the-value})))
-    {:plain nil}))
-
-(defn opened
-  "The check of the seals, the last and the most costly, and the opening of
-  each sealed value. Takes the gate's depot; an act; and the lock rows that
-  `lock-ranges` named, as a map from a lock's key to its row. Gives
-  {:refused word} for the first sealed fact that fails, in the act's order:
-
-    :lock-not-made-for-this-layer  the lock id names another layer or the
-                                   other depot, or the record holds no such
-                                   lock
-    :lock-already-seals-a-value    the lock's row names a fact
-    :lock-way-not-known            the row's way is not one that the code
-                                   knows. No lock of this build can earn it
-    :lock-does-not-open-the-value  the lock does not open the bytes at this
-                                   fact's place
-
-  or {:plain [...]}, with one entry for each fact in the act's order: the
-  plain bytes of a sealed fact, nil for any other. `writes` hands entry i to
-  the row of fact i, so a gate keeps the plain bytes of each value that it
-  accepts, and each value is opened once for one decision. The bytes of a
-  value that was opened before a later fact failed are dropped here.
-
-  It does not check that what a lock opens is a value of the form: a gate
-  keeps the bytes whatever they are, and
-  `softland.store.record.rows/read-value` tells a reader. What must hold:
-  the act passed the declaration, so no two facts are under one lock."
-  [gate-depot act lock-rows]
-  (reduce (fn [{:keys [plain]} fact]
-            (let [got (opened-fact gate-depot act lock-rows fact)]
-              (if (:refused got)
-                (reduced got)
-                {:plain (conj plain (:plain got))})))
-          {:plain []}
-          (:facts act)))
 
 ;; ------------------------------------------------------ the stamp, the writes
 
@@ -533,23 +445,24 @@
 
 (defn- accept-writes
   "The rows that an accept writes, beside the answer and the last stamp. In
-  the act's order, for each fact: its row, with the plain bytes that its
-  lock opened, who wrote it and the permission that the act named, and for
-  the fact under `:softland.store/marked-keys` the stamps of
-  `level-since-after`; for a fact under a marked key, the rows of
-  `by-value-writes`; for a sealed fact, its lock's row again, with the
-  bytes and the way as read and the fact that it now seals; for a request
-  for n locks, n keys at which a new lock is to be made. `in-hand` is what
-  `writes` takes."
-  [act act-uuid stamp {:keys [lock-rows plain since-by-place place-rows level-from]}]
-  (let [layer (:layer act)]
+  the act's order, for each fact: its row, with the text of its value, who
+  wrote it and the permission that the act named, and for the fact under
+  `:softland.store/marked-keys` the stamps of `level-since-after`; and for
+  a fact under a marked key, the rows of `by-value-writes`. The one text of
+  the act's `:who` and the one text of its permission are made here, once
+  for the act, and handed to each row of a fact and of the facts by value.
+  The text of a value is not made here: each fact holds its own, from the
+  declaration's check. `in-hand` is what `writes` takes."
+  [act act-uuid stamp {:keys [since-by-place place-rows level-from]}]
+  (let [layer (:layer act)
+        who-text (text/text (:who act))
+        permission-text (text/text (:permission act))]
     (into []
           (comp
            (map-indexed
             (fn [index fact]
-              (let [[[_ _ request-uuid] lock-index] (:lock-id fact)
-                    place (record/place-key layer (:e fact) (:k fact))
-                    row (cond-> (record/fact-row act fact (nth plain index nil) act-uuid index stamp)
+              (let [place (record/place-key layer (:e fact) (:k fact))
+                    row (cond-> (record/fact-row fact act-uuid index stamp who-text permission-text)
                           (and (= :softland.store/marked-keys (:k fact)) (some? (:v fact)))
                           (record/with-level-since
                             (level-since-after (get place-rows place) (:v fact) level-from)))
@@ -558,13 +471,7 @@
                  [[:fact place row]]
                  (when since
                    (by-value-writes act fact (record/plain-bytes-of row) (get place-rows place) since
-                                    (record/by-value-row act act-uuid index stamp)))
-                 (when (:lock-id fact)
-                   (let [lock-key (record/lock-key layer request-uuid lock-index)]
-                     [[:lock lock-key (record/lock-row-sealing (get lock-rows lock-key) act-uuid index)]]))
-                 (when (and (= :softland.store/lock-request (:k fact)) (some? (:v fact)))
-                   (map (fn [i] [:new-lock (record/lock-key layer act-uuid i) nil])
-                        (range (:v fact))))))))
+                                    (record/by-value-row who-text permission-text act-uuid index stamp)))))))
            cat)
           (:facts act))))
 
@@ -576,9 +483,6 @@
   and what the gate has in hand for an accept, a map that is not read for a
   refusal:
 
-    :lock-rows       the lock rows that were read
-    :plain           what `opened` gave with those rows: for each fact in
-                     the act's order, the plain bytes of its value, or nil
     :since-by-place  for each place of the act whose key the layer marks,
                      the key's stamp (`since-by-place`); empty or absent
                      when none is
@@ -597,23 +501,19 @@
     [:by-value key row]    a row of the facts by value, for a fact under a
                            marked key. A row that is nil says that the key
                            is to be taken out
-    [:lock key row]        the row of a lock that the act uses, written
-                           again whole, now naming the fact that it seals
-    [:new-lock key nil]    a key at which the gate makes a new lock. The
-                           bytes are made by the gate at the write, never
-                           here and never on a depot
     [:answer key row]      the answer under the act-id
     [:last-stamp nil n]    the task's last stamp
 
-  A refusal writes the answer and the last stamp, and nothing else: a lock
-  that a refused act named stays as it was, free. An accept writes all of
-  them. Every row is whole, at a fixed key, and a key that is taken out is
-  fixed too; so each write needs no read, and a second run of the same
-  decision would write the same keys.
+  A refusal writes the answer and the last stamp, and nothing else. An
+  accept writes all of them. Every row is whole, at a fixed key, and a key
+  that is taken out is fixed too; so each write needs no read. No row holds
+  anything but what the thing, the rows read and the stamp give: a second
+  run of the same decision with the same stamp writes the same rows at the
+  same keys.
 
-  What must hold: the thing is no stray; for an accept, `opened` gave
-  `:plain` with these lock rows, and `:place-rows` holds what the list
-  above says."
+  What must hold: the thing is no stray; for an accept, each check gave nil
+  for the act, each fact of the act holds its `:text` as the declaration's
+  check gave it, and `:place-rows` holds what the list above says."
   [act-id act refused stamp digest in-hand]
   (let [[layer _ act-uuid] act-id]
     (conj (if refused [] (accept-writes act act-uuid stamp in-hand))

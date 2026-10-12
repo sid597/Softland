@@ -12,10 +12,12 @@
 
   The proof is the read path's one asker: a hand-played one. No view, no
   screen, no tool and no agent asks. Each read of this proof goes through
-  the read path's five calls, and each act goes in through the door, with
-  one exception: for the bytes that are no value of the form, the proof's
-  own hand asks for two locks, seals the bytes and appends each thing
-  itself, since the door seals only a value.
+  the read path's five calls, and each act goes in through the door. So
+  every row that this proof reads was written by a gate, and a gate's write
+  leaves one of three things at a place: no fact, a retract, or a value. The
+  fourth thing that a reader can be told, a row that holds no value of the
+  form, is not reached here: the read path's pure proof holds it, on a row
+  that it writes by hand.
 
   What it reads round the read path. For what no call shows, the proof reads
   the read path's own memory, its three maps, from the field of its type: to
@@ -82,7 +84,6 @@
             [com.rpl.rama.path :as path]
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
-            [softland.store.door.seal :as seal]
             [softland.store.gate.batch :as batch]
             [softland.store.module :as module]
             [softland.store.read-path :as read-path]
@@ -121,7 +122,8 @@
 (defonce ^{:private true
            :doc "What the proof holds of the cluster that it runs on, set by
   `open-round!`: the cluster, the module's name, the door, the proof's read
-  paths, and the three handles of the proof's own hand."}
+  paths, and the one handle of the proof's own, of the streaming gate's
+  table of facts."}
   round
   (atom nil))
 
@@ -143,7 +145,7 @@
 
 (defn- open-round!
   "Takes the cluster. Opens the door and the read paths of the proof, and
-  the three handles that the proof's own hand uses."
+  the one handle that the proof itself selects with."
   [ipc]
   (let [m (rama/get-module-name module/Store)]
     (reset! round
@@ -155,8 +157,6 @@
                                                      :max-checks-of-one-read 6})
              :short           (read-path/open ipc m {:wait-ms 300})
              :counted         (read-path/open ipc m)
-             :streaming-depot (rama/foreign-depot ipc m "*streaming-depot")
-             :locks           (rama/foreign-query ipc m "locks-of-request")
              :streaming-facts (rama/foreign-pstate ipc m "$$streaming-facts")})))
 
 (defn- the-rp "The read path of most checks." [] (:read-path @round))
@@ -529,55 +529,28 @@
              "of the door's answer; an entity gives its" entity "places; a run across entities its" run
              "; what points at a thing its" points "places and the stamp since which the order is level"))))
 
-(deftest the-four-things-that-a-place-can-hold
+(deftest the-three-things-that-a-gates-write-leaves-at-a-place
   (let [uuid (UUID/randomUUID)
         long-text (apply str (repeat 60000 "x"))
         values {:spaces "a string with  two spaces" :map {:a 1 :b #{:x "y"} :c [1.5M nil]} :uuid uuid :long long-text}
         _ (put! :alice :main (vec (for [[e v] values] (fact e :text v))))
         _ (put! :alice :main [(fact :gone :text "soon gone")])
         retract (put! :alice :main [{:e :gone :k :text}])
-        ;; by the proof's own hand: bytes that are no value, under a right seal
-        request-id [:main :streaming (UUID/randomUUID)]
-        hand {:version 1 :who :alice :layer :main :permission (perm :alice :main) :session :read-path-proof}
-        _ (rama/foreign-append! (:streaming-depot @round)
-                                (merge hand {:act-id request-id :depot :streaming
-                                             :facts [{:e (nth request-id 2) :k :softland.store/lock-request :v 2}]})
-                                :ack)
-        locks (rama/foreign-invoke-query (:locks @round) (rows/routing-id request-id) request-id 0 1)
-        lock (get locks 0)
-        raw-id [:main :streaming (UUID/randomUUID)]
-        _ (rama/foreign-append! (:streaming-depot @round)
-                                (merge hand {:act-id raw-id :depot :streaming
-                                             :facts [{:e :raw :k :text
-                                                      :sealed (seal/seal lock [:main :raw :text] (.getBytes "(no value of the form" "UTF-8"))
-                                                      :lock-id [request-id 0]}]})
-                                :ack)
-        ;; and bytes that are no text at all: a gate keeps them as U+0000 and a character for each byte
-        no-text (byte-array [(byte -1) (byte -2) (byte 0) (byte 65)])
-        no-text-id [:main :streaming (UUID/randomUUID)]
-        _ (rama/foreign-append! (:streaming-depot @round)
-                                (merge hand {:act-id no-text-id :depot :streaming
-                                             :facts [{:e :raw-bytes :k :text
-                                                      :sealed (seal/seal (get locks 1) [:main :raw-bytes :text] no-text)
-                                                      :lock-id [request-id 1]}]})
-                                :ack)
         place (fn [e] (:place (ask {:asks [:place e :text] :asker :alice :layers [:main]})))
-        no-text-live (live {:asks [:place :raw-bytes :text] :asker :alice :layers [:main]})
-        no-text-now (:place (:now no-text-live))
-        _ (leave! no-text-live)]
+        value-live (live {:asks [:place :map :text] :asker :alice :layers [:main]})
+        value-now (:place (:now value-live))
+        _ (leave! value-live)]
     (check "a place with no fact" {:holds :no-fact} (place :nobody))
     (check "a place whose current fact is a retract: nothing here, with the layer, the fact and the stamp of the retract"
            {:holds :nothing-here :layer :main :fact [(:act-id retract) 0] :stamp (:stamp retract)} (place :gone))
     (check "a value reads back as its maker gave it: a string with spaces, a map, a UUID, a string of 60,000 characters"
            values (into {} (for [e (keys values)] [e (:value (place e))])))
-    (check "bytes that are no value of the form, which the proof's own hand sealed and appended: the place says so, and the read does not throw"
-           [:not-a-value :main [raw-id 0]] ((juxt :holds :layer :fact) (place :raw)))
-    (check "bytes that are no text at all, sealed and appended by the same hand, which the gate keeps as U+0000 and a character for each byte: asked once and kept live the place says that they are no value, with its layer and its fact, and holds no :value; no read throws"
-           [[:not-a-value :main [no-text-id 0] false] [:not-a-value :main [no-text-id 0] false]]
-           (mapv (fn [a] [(:holds a) (:layer a) (:fact a) (contains? a :value)]) [(place :raw-bytes) no-text-now]))
-    (shown "the four things that a place can hold are told apart: no fact" (pr-str (place :nobody))
+    (check "each of those places says that it holds a value, asked once; and one of them, kept live, says the same as it does asked once"
+           [#{:value} (place :map)]
+           [(set (map (comp :holds place) (keys values))) value-now])
+    (shown "the three things that a gate's write leaves at a place are told apart: no fact" (pr-str (place :nobody))
            "| a retract" (pr-str (:holds (place :gone))) "| a value as its maker gave it, of four kinds, the longest of 60,000 characters"
-           "| bytes that are no value" (pr-str (:holds (place :raw))) "(appended by the proof's own hand; the door seals only a value)")))
+           "| not reached here: a row that holds no value of the form, which no gate's write makes; the read path's pure proof holds what a reader is told of one")))
 
 (deftest a-part-of-a-row-is-given-only-when-asked
   (let [place (fn [with] (:place (ask {:asks [:place :note-41 :text] :asker :alice :layers [:main] :with with})))
@@ -614,8 +587,8 @@
     (check "the entity of the layer itself: nothing; with the store's own facts: its depot and its marked keys"
            [{} #{:softland.store/depot :softland.store/marked-keys}]
            [(places [:entity :main] false) (set (map second (keys (places [:entity :main] true))))])
-    (check "a run across the whole layer, after values were written: no permission, setting, mark or request for locks in the answer that did not ask; with the store's own facts each kind is there"
-           [true true #{:softland.store/depot :softland.store/permission :softland.store/marked-keys :softland.store/lock-request}]
+    (check "a run across the whole layer, after values were written: no permission, setting or mark in the answer that did not ask; with the store's own facts the layer's depot, its holder's permission and its marked keys are there, and no fact under any other key of the store"
+           [true true #{:softland.store/depot :softland.store/permission :softland.store/marked-keys}]
            [(pos? (count all)) (not-any? store-key? (keys all)) (set (map second (filter store-key? (keys all-own))))])
     (check "a place under one of the store's own keys, asked without them, is turned away with a word, and no call is made"
            [[:read-the-query :store-key-not-asked-for] 0]
@@ -1713,7 +1686,6 @@
 (deftest a-batch-that-runs-a-second-time
   (let [system-own [:system :base :base]
         _ (make! :base :system)
-        _ (put! :system :base [(fact :stock :text "so that the system's stock holds locks")])
         before (put! :system :base [(fact :twice :text "before")])
         read (live {:asks [:place :twice :text] :asker :system :layers [:base]})
         ipc (:ipc @round)
@@ -1778,7 +1750,7 @@
   (the-read-path-is-opened)
   (a-thing-that-is-no-query)
   (each-word-once-for-each-gate)
-  (the-four-things-that-a-place-can-hold)
+  (the-three-things-that-a-gates-write-leaves-at-a-place)
   (a-part-of-a-row-is-given-only-when-asked)
   (the-stores-own-facts)
   (through-layers)

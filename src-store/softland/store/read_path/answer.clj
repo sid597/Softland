@@ -97,7 +97,7 @@
   for the store's own facts, and true for any other. A row that does not
   count is no row for the read: it wins no place and is in no answer. So
   the run of a holder's entity does not give her permission, and a run
-  across entities gives no request for locks.
+  across entities gives no fact of the store's own.
 
   Not decided. That a tool's read leaves the store's own facts out unless
   it asks, and that any asker who may see the layer may ask, is a working

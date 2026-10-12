@@ -68,7 +68,7 @@ words. The read path stands on the section of 11 and 12 October 2026, by entry:
 | 2 | A layer says which layers it builds on; a view may give another list; the nearest layer that holds a fact wins, also with "nothing here" | The order of the layers, in [layers.clj](layers.clj); the walk of a place, in [answer.clj](answer.clj) |
 | 3 | A read is done in the runtime, straight from the tables, with Rama's push, and the pushed value is no cache | [read_path.clj](../read_path.clj): it reads the gates' tables with a select or a push, shares one push among those who look at the same thing, and holds no value of its own |
 | 4 | Only programs on machines that Sid runs may reach Rama's ports | The read path is trusted with the whole store: Rama sends it whole rows, and it hands a caller only what she may see and asked for |
-| 5 | The tables keep a value plain | The read path reads a value from its row and opens no lock: it holds no handle of the locks, and no query of the door's |
+| 5 | The tables keep a value plain | The read path reads a value from its row, and calls no query of the door's |
 | 6 | A query is written as data and made of a few words; one more order for the keys that a layer marks | The four words, in [query.clj](query.clj); "what points at a thing" reads the facts by value, in [sources.clj](sources.clj) |
 | 7 | From a fact, a read can get who wrote it, and under which permission | A place-answer holds either only when the query asked, in [answer.clj](answer.clj) |
 | 8 | The base's second is fine | A row of the base is read straight, as a row of a streaming layer is |

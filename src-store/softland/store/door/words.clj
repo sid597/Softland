@@ -1,6 +1,6 @@
 (ns softland.store.door.words
   "Everything that the door says to a maker, declared as data: the door's own
-  fourteen words, the four answers, and the two acks. Pure code. It needs no
+  seven words, the four answers, and the two acks. Pure code. It needs no
   cluster, and it requires nothing outside Clojure.
 
   A call of the door gives its result, or one of the door's own words. A word
@@ -10,7 +10,7 @@
 
   A word, as a maker gets it, is a map:
 
-    :could-not  the word, one of the fourteen of `words`. Each reads after
+    :could-not  the word, one of the seven of `words`. Each reads after
                 \"the door could not\"
     :appended   :nothing or :not-known, said of the maker's own act: nothing
                 was appended for it, or the door does not know whether the
@@ -18,13 +18,13 @@
     and what the word carries, each under its own name (`carried`)
 
   No other result of the door holds `:could-not`. A word holds no `:answer`
-  and no `:reason`, so it can never be read as a gate's refusal. The one
-  gate's word that a word can carry is inside `:request-answer`, and it is
-  the answer of the door's own request for locks, never of the maker's act.
+  and no `:reason`, so it can never be read as a gate's refusal. A word
+  carries no word of a gate: a maker learns a gate's reason from the answer
+  of her act, and from nothing else.
 
   Inputs and results, by call:
 
-    word    one of the fourteen, and a map of what it carries -> the word as
+    word    one of the seven, and a map of what it carries -> the word as
             a maker gets it, or nil for a word that `words` does not hold
     answer  what the read by act-id gave, and the digest that the maker gave
             -> one of the four answers
@@ -41,15 +41,15 @@
   namespace is one of them, and the pure proof holds that.")
 
 (def words
-  "The door's own fourteen words. Each has the calls that can give it, what
-  it says, and its `:appended`.
+  "The door's own seven words. Each has the calls that can give it, what it
+  says, and its `:appended`.
 
-  Why fourteen. One word names one thing that the door could not do, and a
-  word about a request for locks says what became of the request, since a
-  request is an act in a depot and in the record whatever becomes of the
-  maker's act. With fewer words a maker would have to read a second word
-  inside the first to learn what to do next. Where in the maker's thing the
-  door stopped is no word of its own: it is carried as data, under `:at`."
+  Why seven. One word names one thing that the door could not do: find the
+  module, make an act-id, read the layer's depot, read the act, add its two
+  parts, append, read the answer. With fewer words a maker would have to
+  read a second word inside the first to learn what to do next. Where in
+  the maker's thing the door stopped is no word of its own: it is carried
+  as data, under `:at`."
   {:find-the-module
    {:from     #{:open}
     :says     "the cluster gave no depot or no query of the module under that name; no door is opened"
@@ -67,47 +67,12 @@
 
    :read-the-act
    {:from     #{:send-act}
-    :says     "the thing is no plain map, or it threw while the door read it"
+    :says     "the thing is no plain map, or it threw while the door read it or took its digest"
     :appended :nothing}
 
    :add-its-parts
    {:from     #{:send-act}
-    :says     "the thing already holds a part that the door adds: :act-id or :depot on the act, :sealed or :lock-id on a fact with a value to seal; the door writes over nothing"
-    :appended :nothing}
-
-   :seal-a-value
-   {:from     #{:send-act}
-    :says     "a value cannot be sealed so that it reads back: it is no value of the form, it is in a fact that is a map and no plain map, its sealed bytes would be over the limit, or the seal gave nothing"
-    :appended :nothing}
-
-   :seal-that-many-values
-   {:from     #{:send-act}
-    :says     "the act holds more values to seal than one act can hold facts; no lock is taken"
-    :appended :nothing}
-
-   :have-its-request-accepted
-   {:from     #{:send-act}
-    :says     "the door asked for locks under the act's who and permission, and the record's answer to that request is no accept; the request is on its depot and its answer is in the record; nothing is recorded under the act's own act-id"
-    :appended :nothing}
-
-   :append-its-request-cleanly
-   {:from     #{:send-act}
-    :says     "the append of the door's request for locks threw; the door does not know whether the depot holds the request, and remembers it as in doubt"
-    :appended :nothing}
-
-   :get-locks-within-its-wait
-   {:from     #{:send-act}
-    :says     "the door's wait for locks passed: its request, or one that an earlier call left, has no answer yet; or another call was still getting locks for this stock; or the wait ended after the door had read an earlier call's request to its end and before it could send its own. The request that the word names stays open and is read at the next need; a word that names none leaves none of this call open"
-    :appended :nothing}
-
-   :read-its-requests-answer
-   {:from     #{:send-act}
-    :says     "the read of the answer of the door's request for locks threw; the request stays open"
-    :appended :nothing}
-
-   :read-its-requests-locks
-   {:from     #{:send-act}
-    :says     "the request was accepted, and the read of its locks threw, or gave fewer locks that can seal than the act needs. After a read that threw, which the word then names by its class, the request stays open and the next call reads its answer again and then its locks; after a read that came back, the request is ended and what it gave is in the stock"
+    :says     "the thing already holds a part that the door adds, :act-id or :depot on the act; the door writes over nothing"
     :appended :nothing}
 
    :append-cleanly
@@ -121,25 +86,20 @@
     :appended :nothing}})
 
 (def carried
-  "What a word can carry, by name, with what each is. A word carries no lock,
-  no run of bytes, no thing that was sent, and nothing that the door read of
-  the record but the one answer of a request for locks."
-  {:at             "the place in the maker's thing where the door stopped, by the thing's own part names: a part of the act, [:facts i], [:facts i part], or :count for the count of a series"
-   :module         "the name of the module that the door was to be opened on"
-   :layer          "the layer whose depot the door could not read"
-   :most           "the greatest number that the door takes: of values to seal in one act, or of bytes in one sealed value"
-   :sealed-bytes   "how many bytes the sealed value would have"
-   :request        "the act-id of the door's request for locks that the word is about"
-   :request-answer "the answer of that request, as `answer-of` gives one, with the gate's reason word"
-   :waited-ms      "how long the call waited for locks, in milliseconds"
-   :act-id         "the act-id of the maker's act, or of the read"
-   :digest         "the digest of the thing whose append threw, as hex text"
-   :threw          "the name of the class of what Rama's client threw"
-   :said           "the message of what Rama's client threw"})
+  "What a word can carry, by name, with what each is. A word carries no run
+  of bytes, no thing that was sent, and nothing that the door read of the
+  record."
+  {:at     "the place in the maker's thing where the door stopped, by the thing's own part names: a part of the act, or :count for the count of a series"
+   :module "the name of the module that the door was to be opened on"
+   :layer  "the layer whose depot the door could not read"
+   :act-id "the act-id of the maker's act, or of the read"
+   :digest "the digest of the thing whose append threw, as hex text"
+   :threw  "the name of the class of what Rama's client threw"
+   :said   "the message of what Rama's client threw"})
 
 (defn word
   "Makes one of the door's own words as a maker gets it. Takes the word, one
-  of the fourteen, and a map of what it carries, or nil. Gives the map of
+  of the seven, and a map of what it carries, or nil. Gives the map of
   what is carried with `:could-not` and the word's `:appended` in it. An
   `:answer` or a `:reason` among what is carried is left out, and
   `:could-not` and `:appended` cannot be given: a word is never one of the

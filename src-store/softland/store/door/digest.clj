@@ -15,11 +15,13 @@
     digest         anything -> 32 bytes
     hex-of         anything -> the digest as hex text, 64 characters
     is-digest-of?  a digest as hex text, and anything -> true or false
+    readable-hex-of  anything -> the digest as hex text, or nil for a thing
+                     that throws while it is read
 
-  What the digest is taken of. The thing as it arrived, with its sealed
-  bytes. The one text of the thing (`softland.store.door.text`) is fed to the
-  hash piece by piece as the thing is walked, so no whole text of a large
-  thing is built. One difference from the text as a string, for speed: a
+  What the digest is taken of. The thing as it arrived, each value plain.
+  The one text of the thing (`softland.store.door.text`) is fed to the hash
+  piece by piece as the thing is walked, so no whole text of a large thing
+  is built. One difference from the text as a string, for speed: a
   run of bytes is fed as `#bytes`, its count, and the bytes themselves, not
   as hex. For a thing that holds no bytes the digest is the SHA-256 of the
   UTF-8 of `text`.
@@ -70,3 +72,20 @@
   (`softland.store.door.words/answer`)."
   [hex thing]
   (= hex (hex-of thing)))
+
+(defn readable-hex-of
+  "The digest that tells a throw. Takes anything. Gives its digest as hex
+  text, the 64 characters that `hex-of` gives; or nil for a thing that
+  throws while it is read, where `hex-of` gives the digest of #unreadable.
+  The door takes the digest of the thing that it is about to append with
+  this, so that it appends no thing that it could not read to its end. It
+  never throws. Cost: one walk of the thing, the walk of `digest`. Limit: a
+  thing with no end does not come back from it."
+  [x]
+  (let [md (sha-256)]
+    (try
+      (text/feed x
+                 (fn [^String s] (.update md (.getBytes s StandardCharsets/UTF_8)))
+                 (fn [b] (.update md ^bytes b)))
+      (text/hex (.digest md))
+      (catch Throwable _ nil))))

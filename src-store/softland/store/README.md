@@ -5,7 +5,7 @@
 This folder holds four things. The act: the one form of what a maker gives to
 the store, and the check of that form. The store's Rama module, `Store`: the two
 depots of acts, the gate of each, the record that each gate keeps, what keeps the
-clock of each batch of the microbatch gate, and the three reads by
+clock of each batch of the microbatch gate, and the two reads by
 which the door reads the module. The door: the client code that takes a
 maker's act into a depot and reads its answer back. And the read path: the
 client code by which a fact comes back out to a caller, once or kept live. An
@@ -32,13 +32,13 @@ proof is its only asker.
 | Part | Responsibility | State and lifetime |
 |---|---|---|
 | [act.clj](act.clj) | The declared shape of an act and of what it holds, the rules that a shape cannot say, and the check that reads both. It gives its engine to the door's declaration. | None. |
-| [door.clj](door.clj) | The door: it opens on the module, gives act-ids, asks the store for locks by an act of its own, seals each value, appends, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | Its stocks of unused locks: the memory of one process, empty at each opening. It borrows five handles of Rama's client. |
-| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the seal, the one text of a thing and its digest. And the door's own pure parts: what it makes of one act, its stock as a value, and its words. | One random source for each process, for the seal. |
+| [door.clj](door.clj) | The door: it opens on the module, gives act-ids, appends each act as its maker gave it, with an act-id and the layer's depot added, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | None: it keeps nothing between two calls. It borrows four handles of Rama's client and holds one number, fixed at its opening. |
+| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the one text of a thing and its digest. And the door's own pure parts: what it makes of one act, the numbers of a wait, and its words. | None. |
 | [read_path.clj](read_path.clj) | The read path: it opens on the module, reads a query once or keeps it live, and says when an asker left. It is a client of the module: it selects and watches the four tables of facts, and reads nothing else. It writes nothing. | Who looks at what, what each asked for, and the pushes that they share, with a count of them: the memory of one process, empty at each opening. It borrows four handles of Rama's client. It holds no row and no value. |
 | [read_path/](read_path/README.md) | The rules of a read, as pure code: the form of a query and its check, the layers of a read and who may see each, the sources that a read asks of Rama, the answer, and the read path's words. | None. |
 | [gate/](gate/README.md) | What a gate decides with, as pure code that both gates call: the checks of one act against rows of the record, the first act of a layer, the stamp, and the steps of one batch of the microbatch gate. | None. It reads no PState and no clock. |
 | [record/](record/README.md) | What the record is made of: its rows, the keys of its two orders of facts, and the schemas of the PStates that hold them. | None. It holds no record and declares nothing. |
-| [module/](module/README.md) | What runs in Rama beside the depots: the two gates' topologies, the topology that keeps a batch's clock, and the three reads. | Each gate owns the PStates of its record, and the topology that keeps a batch's clock owns one PState; all durable in the cluster. |
+| [module/](module/README.md) | What runs in Rama beside the depots: the two gates' topologies, the topology that keeps a batch's clock, and the two reads. | Each gate owns the PStates of its record, and the topology that keeps a batch's clock owns one PState; all durable in the cluster. |
 | [module.clj](module.clj) | The module `Store`: the two depots of acts and the depot of batch clocks, and the calls that add the two gates, the topology that keeps a batch's clock, and the reads. | It owns the three depots, durable in the cluster and never trimmed. |
 
 [act.clj](act.clj), [door/](door/README.md), [read_path/](read_path/README.md),
@@ -55,7 +55,7 @@ check, the decisions and the builders' choices, and the words.
 
 The two gates share the pure code. Both decide with [declaration.clj](door/declaration.clj),
 [digest.clj](door/digest.clj), [decision.clj](gate/decision.clj),
-[first_act.clj](gate/first_act.clj), [stamp.clj](gate/stamp.clj), [seal.clj](door/seal.clj) and
+[first_act.clj](gate/first_act.clj), [stamp.clj](gate/stamp.clj) and
 [rows.clj](record/rows.clj). Where what a function gives depends on the gate, it
 takes the gate's depot: the test for a stray, the form of a making act, each
 check against the record. No check is written twice, and the two records have
@@ -71,28 +71,27 @@ The streaming gate takes the thing there, in one event:
    ends. A repeat is answered, not decided twice.
 3. [digest.clj](door/digest.clj) takes the digest of the thing, over its one text
    ([text.clj](door/text.clj)). [declaration.clj](door/declaration.clj) checks the thing; it
-   reads its shapes with [act.clj](act.clj)'s engine.
+   reads its shapes with [act.clj](act.clj)'s engine, and in its last step makes
+   the one text of each value and holds the bound on one value and on the act.
 4. [decision.clj](gate/decision.clj) checks the act against rows that the gate reads
    for it: its standing ([first_act.clj](gate/first_act.clj) knows the form of a making
-   act), which also asks what the act's permission allows; its places; its
-   seals ([seal.clj](door/seal.clj) opens each sealed value, and the plain bytes
-   are kept for the fact's row).
+   act), which also asks what the act's permission allows; and its places.
 5. Only for an act that no check refused, and only when it holds a fact under a
    plain key or under the layer's marked keys: the gate reads the row of the
    layer's marked keys, and the row before of each place under a marked key.
 6. [stamp.clj](gate/stamp.clj) gives the stamp. [decision.clj](gate/decision.clj) gives the
    rows to write, each made by [rows.clj](record/rows.clj), and the gate writes them
    to the PStates whose schemas [tables.clj](record/tables.clj) gives. A fact's row
-   holds its plain value, who wrote it and the permission that the act named. For
+   holds the text of its value, who wrote it and the permission that the act named. For
    a fact under a marked key the gate also writes its row in the facts by value,
    and takes the row of the value before out.
 
 **A thing for a microbatch layer** is appended to the microbatch depot, which
 puts it on the task of the entity of its first fact
 ([batch.clj](gate/batch.clj) derives it). The rows of a microbatch layer are on
-several tasks: a fact on the task of its entity, an answer on the task of its
-act-id's uuid, a lock on the task of its request's uuid, and a row of the facts
-by value on the task of its value's digest. Five facts are on every task: the
+several tasks, and three kinds of row have a task of their own: a fact on the
+task of its entity, an answer on the task of its act-id's uuid, and a row of
+the facts by value on the task of its value's digest. Five facts are on every task: the
 layer's depot, each permission, who may see the layer, what it builds on, and
 its marked keys. So no one task holds all that an act
 needs, and the microbatch depot holds no order between two partitions. The
@@ -129,7 +128,8 @@ row in the microbatch record. The microbatch gate reads a streaming layer's
 depot row in the streaming record. So an act sent to the wrong depot is refused
 as an act into a layer of the other gate.
 
-**The door reads** through [door_reads.clj](module/door_reads.clj). Each read goes
+**The door reads** through [door_reads.clj](module/door_reads.clj), by two reads: the
+answer under an act-id, and the depot of a layer. Each read goes
 straight to one task: the layer's task for a streaming act-id and for a layer's
 depot, the task of the uuid for a microbatch act-id. A read of a microbatch
 layer gives a row only when its batch is closed; "Engineering choices" says why.
@@ -203,18 +203,22 @@ shape must hold when each fact is wrong.
   so each act waits for the replication of the act before it; that is paid against
   the target of 1,000 acts a second on one task. The module leaves the setting at
   Rama's default. The choice is Sid's.
-- **Who reads a lock.** Any client of the cluster can read a lock's bytes. In the
-  runtime the module has two clients. The door reads only the locks of its own
-  requests and gives a maker no lock. The read path reads no lock: it opens the
-  tables of facts alone, and no row of those names one. A guard of the record is
-  not built (?11 is open).
-  The seal is for a forget of the depot's and the disk's copy; it does not hide a
-  value from a client of the cluster.
-- **What a lock opens.** The gate checks that the lock opens the sealed bytes,
-  and keeps the plain bytes in the fact's row, as a String that gives them back.
-  It does not check that they are a
-  value of the form: what was appended without the door can leave bytes that are
-  none. `read-value` in [rows.clj](record/rows.clj) tells a reader which it is.
+- **Who reads a value.** Any client of the cluster can read every value: in a
+  table, and in a log too, where each value is plain, as its maker gave it. A
+  copy of a log taken alone holds every value. In the runtime the module has
+  two clients, the door and the read path. A guard of the record is not built
+  (?11 is open).
+- **What a fact's row holds for a value.** The gate keeps the one text of a
+  value that passed `value?`, in its normal form. No arrived value is a run of
+  bytes: a value that is no value of the form is refused `:malformed`, and the
+  thing that held it is in the log. `read-value` in [rows.clj](record/rows.clj)
+  tells a reader of a row whose String is the text of no value; no write of a
+  gate gives such a row. One thing a gate cannot see: a string that holds half
+  of a surrogate pair comes off the depot with `?` in the place of the half, by
+  Rama's writing of a record, and is kept so. Its maker reads her answer as her
+  own all the same, because the digest is taken of UTF-8, which makes the same
+  replacement. A probe saw that on Rama 1.6.0 in-process, on a module of its
+  own and not on this one.
 - **Who may write a layer's setting, its list and its marks.** Not decided, and
   kept only so that the read build can run: whoever may act in the layer. So any
   holder of "see and act" in a layer can set that layer to `:everyone`, and any
@@ -238,15 +242,15 @@ shape must hold when each fact is wrong.
 - **One moment for a fact and its row of the order by value, in the base.** The
   two are on two tasks, and Rama shows a batch task by task. In a streaming layer
   they are one event on one task.
-- **A direct read of the tables.** The three reads give a row of a microbatch
+- **A direct read of the tables.** The door's two reads give a row of a microbatch
   layer only when its batch is closed. A select that goes straight to a PState of
   the microbatch gate is not held to that: it sees a batch that is not closed,
   which Rama can still run again. The read path reads so, for every fact that a
   caller is given, and so do the proofs' own hands. A second attempt makes each fact's row, and
   each answer's stamp and verdict, as the first made them: both take the
   batch's kept clock. That holds while one version of the module's code runs
-  both attempts. Two things it can make otherwise, and a direct read sees them:
-  a new lock's bytes, in the locks table; and, in an answer, which of two words
+  both attempts. One thing it can make otherwise, and a direct read sees it:
+  in an answer, which of two words
   an act into a layer of the other gate is refused with. And a direct read is
   given one task's part of a batch: a row that a task shows is the row that
   stays, and that every task shows a batch together is not given. When a commit
@@ -254,12 +258,6 @@ shape must hold when each fact is wrong.
   the second attempt commits; a probe saw 3.4 seconds between them, on a module
   of its own and not on this one. The
   PStates are not declared private. The proof looks at rows that way.
-- **That a lock seals a value, one run early.** A lock's row holds no stamp. The
-  read of locks is held to the closing of the request's batch, and not of a later
-  batch in which an act uses one of the request's locks. So from the moment when
-  that later batch is visible on the lock's home task, the read gives the lock
-  without its bytes: one run before that batch is closed and the act's answer is
-  readable. The bytes that a read gave never change.
 - **One instant for two tasks.** Rama makes a batch visible task by task. The
   reads give nothing of a batch before every task has made it visible; then each
   task opens when it commits the next run of the gate. So for a few milliseconds
@@ -276,33 +274,31 @@ shape must hold when each fact is wrong.
 - **What an act with no permission costs the microbatch gate.** An act in a made
   layer whose `:who` holds no permission there could still come to stand by a give
   of the same batch. So it asks for each of its rows and goes to the layer's task:
-  up to 256 reads of places and 256 ranges of locks, where the streaming gate
-  reads 4 rows at most. The door as built is no guard of it: it checks nothing of
-  an act. As it falls out, a value act of such a who stops at its request for
-  locks when its stock is empty; an act with no value goes through.
+  up to 256 reads of places, where the streaming gate
+  reads 4 rows at most. The door is no guard of it: it stops no act. Each act
+  of such a who reaches the gate and is recorded, refused under its own act-id
+  (entry 7 of 12 October).
 - **How long one act can hold a task of the streaming gate.** The streaming
   gate's event does not give the task back: a yield would let another act of the
-  layer in between this act's reads and its writes. So one act holds its task for
-  all its reads, for the opening of each of its sealed values, and, under marked
-  keys, for the digests and the writes of the order by value. Only the
-  limits of the declaration bound them: up to 256 places, each read once at most,
-  for a check or as the row before; up to 256 sealed
-  values of 65,536 bytes each, and for each request whose locks the act names
-  one range of locks, from the least to the greatest index that it names. An act
-  of 256 sealed facts that names the two ends of 128 requests reads 32,768 lock
-  rows. The greatest case that the order by value adds: an act of 256 facts, each
-  under a marked key, each a value of 65,508 plain bytes over a place that holds
-  such a value written since the mark, none naming something to replace. No
-  check of that act reads a place. For the order by value it reads the row of
-  the marked keys and 256 rows before, about 16.8 MB of rows; takes 512 digests, one of each
-  new value and one of each value before, over about 33.5 MB; and makes 512
-  writes of the order by value beside its 256 fact rows. Such an act needs standing in the layer, and requests that were accepted
-  before. Nothing is built against it: the remedy is a choice of reads or of
-  limits, and no speed is measured. The door's own acts name the locks of few
-  requests, in runs of neighbours: of one, of two where an act falls on the
-  border of two requests, and of more only where a call first read a request
-  that an earlier call had left open. What is appended without the door is not
-  held by it.
+  layer in between this act's reads and its writes. So one act holds its task
+  for its digest, for all its reads, for the making of the text of each of its
+  values, and, under marked keys, for the digests and the writes of the order by
+  value. Only the limits of the declaration bound them: up to 256 places, each
+  read once at most, for a check or as the row before; up to 256 values, the
+  text of each of 65,536 bytes at most; and the bound on the act, 18,874,368
+  bytes of text in the rows of its facts. The greatest case that the order by
+  value adds: an act of 256 facts, each under a marked key, each a value whose
+  text is 65,536 bytes over a place that holds such a value written since the
+  mark, none naming something to replace. No check of that act reads a place.
+  For the order by value it reads the row of the marked keys and 256 rows
+  before, about 16.8 MB of rows; takes 512 digests, one of each new value and
+  one of each value before, over about 33.5 MB; and makes 512 writes of the
+  order by value beside its 256 fact rows. Such an act needs standing in the
+  layer. Nothing is built against it: the remedy is a choice of reads or of
+  limits, and no speed is measured. The door bounds nothing: a thing of any
+  size that Rama's client writes reaches the gate. The gate takes the digest of
+  the whole thing before the declaration's check refuses it, and a value over
+  its bound costs the making of its text, once, before its refusal.
 
 ## Decisions this module stands on
 
@@ -312,7 +308,9 @@ reasons. This lists them by row and says where each shows here.
 The act (6 October): the twelve decisions of "Decisions of 6 October 2026".
 [act.clj](act.clj) is their code. Decision 2 is why
 [declaration.clj](door/declaration.clj) contains the maker's shapes and does not write
-them again. Decision 3 is why a gate, not the form, refuses an unsealed value.
+them again. Decision 3 stands in its first half: the act holds plain values. Its other
+half, that the door seals and a gate refuses an unsealed value, is set aside by
+entry 2 of 12 October.
 Decision 5 is the act-id, `[layer depot uuid]`.
 
 The store's module (7 October):
@@ -337,14 +335,14 @@ Who acts, and what the store reads (8 October):
 | K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
 | E4 A, E2 A; and E3·H7 B, which is a session's reading and not his answer | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj). Since the read build a holder of a permission that says `:see` cannot give: her give is an act, and is refused `:permission-does-not-allow-acting` |
 | H2 A | A stamp holds the clock time and a counter | [stamp.clj](gate/stamp.clj) |
-| K1 A | The store's keys are three: the depot, a permission, the door's request for locks | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those three and, since the decisions of 11 and 12 October, three more: who may see a layer, what it builds on, its marked keys |
+| K1 A | The store's keys of that day are the depot and a permission. The third of his list, the door's request for locks, left the store's own keys with entry 2 of 12 October | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those two and the three of the decisions of 11 and 12 October: who may see a layer, what it builds on, its marked keys |
 
 The door's four questions (9 October):
 
 | Row | Decision | Where it shows |
 |---|---|---|
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | Nowhere yet: no code makes a person. An id can be a UUID in [act.clj](act.clj) |
-| H1 A | One lock seals one value | [seal.clj](door/seal.clj); the lock's row in [rows.clj](record/rows.clj); the refusal `:lock-already-seals-a-value` |
+| H1 A | One lock seals one value | Nowhere: entry 2 of 12 October sets it aside, and [the store source entry](../../README.md) says where the code of the locks is |
 | K3 A | The system can hold many layers | The form of a making act in [first_act.clj](gate/first_act.clj): `system` can be the first holder of any layer |
 | K4 B | The store's own keys carry the namespace `softland.store`, and the word for a layer's kind is "depot". A gate refuses a key in that namespace that the store does not know | `store-namespace`, `store-keys` and the rule `:store-key-is-known` in [declaration.clj](door/declaration.clj); the part `:depot` of what arrives, and "depot" in each name of this tree |
 
@@ -358,10 +356,18 @@ lists its entries again, by file.
 | 2 | A layer says which layers it builds on, in order, as a fact on the layer | The store key `:softland.store/builds-on` and its two rules in [declaration.clj](door/declaration.clj). For a read: `in-order` in [layers.clj](read_path/layers.clj) gives the layers of a read, from that fact or from the list that the query gives; the walk of a place in [answer.clj](read_path/answer.clj) lets the nearest layer that holds a fact win |
 | 3 | A read is done in the runtime, straight from the tables, with Rama's push. The pushed value is not a cache | [read_path.clj](read_path.clj): a select for a read asked once, a push for a read kept live, one push for those who look at the same thing, closed when the last one leaves. It holds no value of its own beside the pushes |
 | 4 | Only programs on machines that Sid runs may reach Rama's ports | Nowhere in code: it is a setting of the network. The read path is such a program: Rama sends it whole rows, and it hands a caller only the layers that she may see and the parts that she asked for |
-| 5 | The tables keep a value plain | `opened` in [decision.clj](gate/decision.clj) gives the plain bytes that each lock opened; `fact-row` in [rows.clj](record/rows.clj) keeps them, as a String that gives the bytes back (`held-value`, `plain-bytes`), and names no lock. The act in the depot's log is as the door sent it, sealed |
+| 5 | The tables keep a value plain | `fact-row` in [rows.clj](record/rows.clj) keeps the one text of the value in its normal form, as a String, as the last step of the check in [declaration.clj](door/declaration.clj) made it; `plain-bytes` gives its UTF-8. The act in the depot's log is as its maker gave it, each value plain, with an act-id and the layer's depot added |
 | 6 | For the keys that a layer marks, the gates keep the facts in one more order, by value | The store key `:softland.store/marked-keys`; `facts-by-value` in [tables.clj](record/tables.clj) and the PState that each gate declares with it; the key of that order, the two ends of a run and the value digest in [rows.clj](record/rows.clj); `writes` in [decision.clj](gate/decision.clj). For a read: the four words of a query in [query.clj](read_path/query.clj), and what each reads in one layer in [sources.clj](read_path/sources.clj) |
 | 7 | From a fact, a read can get who wrote it, and under which permission | The fields `:who` and `:permission` of a fact's row, and of a row of the facts by value, in [rows.clj](record/rows.clj). For a read: `place-answer` in [answer.clj](read_path/answer.clj) puts either in only when the query asked |
 | 8 | The base's second is fine. The base stays a microbatch layer | The base is decided in batches, by the microbatch gate. What the read build does with that is a session's reading, which he did not strike: a row of the base that a task shows is the row that every attempt of its batch makes, because each batch's clock is kept across its attempts ("The clock of a batch", below); and a place holds one row, its current fact, so a select of a place that holds a fact never gives nothing. The read path reads a row of the base straight, as it reads a row of a streaming layer |
+
+Before real data is kept (12 October), the entries that show in code:
+
+| Entry | Decision | Where it shows |
+|---|---|---|
+| 2 | Every value is plain in the log, and the store keeps no locks | [door.clj](door.clj) appends the maker's act with `:act-id` and `:depot` added, and nothing else changed. In [declaration.clj](door/declaration.clj) what arrives as a fact is the maker's fact, and a part that the shape does not name is refused `:unknown-part`. No PState and no query of the module holds a lock |
+| 6, its fourth | The limit of four on the depth of a permission is lifted, and a bound on the size of an act takes its place | `nesting` in [act.clj](act.clj) gives a permission the value's own number, 32. `max-act-bytes` in [declaration.clj](door/declaration.clj), held by the last step of the check with the word `:act-too-large`. "Engineering choices" says what each counts |
+| 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first | The door's three tests and no other, `reading` in [additions.clj](door/additions.clj): each is of what its two additions need. `standing` in [decision.clj](gate/decision.clj) refuses such an act under its own act-id, and no fact of it is in the tables |
 
 ## Engineering choices
 
@@ -375,36 +381,39 @@ Each is the builder's, with its reason. None is a decision of Sid's.
 shapes, and `as-shape` gives the engine to another namespace. So the door's
 declaration, and the check of a query in the read path, are data that the same
 engine reads. The leaves and the nesting limits stay
-`act.clj`'s own. No leaf fits a run of bytes, so a fact's `:sealed` is set aside
-from the engine's pass and held by two rules in code.
+`act.clj`'s own. The limit on the depth of a permission is the value's own
+number, so the two roads of a permission, an act's own and one that a fact
+gives, end at one depth.
 
 **The record: flat PStates with string keys.** An answer is found by an
-act's uuid, a fact by its place, a lock by its id; they share no key. With the
+act's uuid and a fact by its place; they share no key. With the
 layer as the top-level key and maps under it, each row would cost two seeks to
 read and one more to write. A key is a string made of the printed texts of its ids,
 with a space between: one class, and Rama gives the order of string keys, on
-which the range read of a request's locks and the run of one value rest. A row is placed by the task on
+which the run of one value rests. A row is placed by the task on
 which its gate writes it, and none by a hash of its whole key. In a streaming
 layer that is the layer's task for every row.
 
 **What one accepted act costs the streaming gate**, in one event, on one task.
-The act: one sealed value, on one entity, nothing named to replace. Counted from
-the dataflow, not measured.
+The act: one value under a plain key, on one entity, nothing named to replace.
+Counted from the dataflow, not measured.
 
 | | Reads | Row writes |
 |---|---|---|
-| The key not marked, or no key of the layer marked | 5: the answer, the permission, the lock, the marked keys, the task's last stamp | 4: the fact, the lock, the answer, the last stamp |
-| The key marked | 6: and the row before | 5: and the entry in. 6 when the entry of a value before goes out |
+| The key not marked, or no key of the layer marked | 4: the answer, the permission, the marked keys, the task's last stamp | 3: the fact, the answer, the last stamp |
+| The key marked | 5: and the row before | 4: and the entry in. 5 when the entry of a value before goes out |
 
-Without the order by value it would be 4 reads. The one read more, of the
+Without the order by value it would be 3 reads. The one read more, of the
 layer's marked keys, is paid by every accepted act with a fact under a plain
 key, also in a layer that marks no key: a gate must know whether the key is
 marked where it writes the fact, and no row that such an act already reads is
-the layer's. An act with no fact under a plain key, a request for locks, a
+the layer's. An act with no fact under a plain key, a
 give, a setting or a list, reads no marked keys. A refused act reads none
-either: no check reads the marked keys. Keeping the marks in memory
+either: no check reads the marked keys. An act that the declaration refuses, a
+value or an act over its bound among them, costs 2 reads, the answer and the
+last stamp, and 2 row writes. Keeping the marks in memory
 between two events would be a cache, which the project's rule sends to its own
-examination. A form that would give 4 reads again was found and not taken: one
+examination. A form that would give 3 reads again was found and not taken: one
 row for each streaming layer that holds the layer's last stamp and its marks. It
 changes what a stamp is, from "increasing on its task" to "in its layer".
 
@@ -430,23 +439,42 @@ check (d) are what it would change. **"See" stays "see"**: a permission's place
 takes one write and nothing ends a permission, so a permission that says `:see`
 cannot be raised. That is kept, and not decided.
 
-**The value in a fact's row is plain, and a String.** For a fact under a plain
-key the row holds what the lock opened, which for a value that came through the
-door is the UTF-8 of its one text. A gate keeps it whatever it is. The field is
-a String and no byte array: the text itself when the bytes are well-formed UTF-8
-that does not begin with the character U+0000, and else U+0000 and one character
-for each byte, so that the bytes come back exactly, whatever they are. One pair
-of functions of [rows.clj](record/rows.clj) knows that form. The reason is
+**How deep a permission can be is not decided.** Kept: as deep as a value may
+be. A permission can hold 32 permission ids, itself counted, as an act's own
+permission and as one that a fact gives; one deeper is refused `:malformed` on
+either road. The one place for the other answer is `nesting` in
+[act.clj](act.clj). A smaller number there ends both roads. A greater one needs
+the value's own limit too, and must stay under the depth at which the one text
+stops writing a part out. The text of the whole permission is a field of each
+fact's row that is written under it, and of each row of the facts by value;
+that is what the bound on an act counts.
+
+**The value in a fact's row is plain, and a String.** For each fact that has a
+value the row holds the one text of the value in its normal form. The last step
+of the declaration's check makes it once, and the row takes it as it is. The
+field is a String and no byte array. The reason is
 Rama's push. On rows that hold a byte array a push was sent the whole value
 anew, about once a second, and a live reader of a fact was told a change about a
 second late; on the same rows with a String a push got one change for each
 write. That was run on Rama 1.6.0 in-process; its cause was not found, and is a
-question for Rama's team. The answers and the locks keep their byte arrays: no
-read is kept live on them. The
-row names no lock: the lock of a value is found from the act in the depot, which
-holds each fact's lock id, and the lock's own row names the fact that it seals.
-So the tables' copy of a value does not need its lock, and destroying a lock
-forgets the log's copy and not the tables'.
+question for Rama's team. The answers keep their byte array: no
+read is kept live on them.
+
+**The bound on one value, and the bound on one act.** A gate holds both, in the
+last step of the declaration's check, before it reads any row of the act's
+standing, of its places or of the marked keys. A value under a plain key holds
+65,536 bytes at most, counted as the UTF-8 bytes of its one text, which are the
+bytes that the fact's row holds; one over is refused `:value-too-large`. A value
+under a store key keeps its own limits. An accept of one act writes 18,874,368
+bytes of text at most into the rows of its facts: for each fact the text of its
+value, and the texts of the act's who and of its permission, which each fact's
+row holds. One over is refused `:act-too-large`; an act with both faults gets
+the first word. The number is 256 facts, each with 65,536 bytes of value and
+8,192 of who and permission. The bound does not count the rows of the facts by
+value: which keys are marked is read only after every check. The step is the
+last because it is the most costly: it makes the text of each value once, and
+the String that it counted is the String that the row holds. Each number is the
+builder's, kept, and decided by nobody.
 
 **Who wrote a fact, and under which permission, are two fields of its row**,
 each a String, the one text of what it is: a UUID has two texts, and the one
@@ -486,12 +514,12 @@ marks and has both.
 
 **The facts by value: one more table for each gate.** Its key is
 `"<layer> <key> <since> <value digest> <entity>"`: the layer, the marked key,
-the key's stamp, the SHA-256 of the plain bytes of the row's value as 64 hex
+the key's stamp, the SHA-256 of the UTF-8 bytes of the row's value as 64 hex
 characters, then
 the entity. So every place that holds one value under one key is a run of
 neighbouring keys, found with one seek, and no run holds a row of another value.
 A digest and not the value's text: a key then has a bound whatever the value is,
-a text may hold a space, and bytes that are no text have a place too; two values
+and a text may hold a space; two values
 share a run only by a collision of the hash. The stamp is in the key so that a
 mark which is taken off and put on again names other keys: the rows of the
 earlier marking are then in no run that a read names, and need no walk to take
@@ -505,24 +533,11 @@ two are placed by different parts.
 **The gate does not read the permissions above the act's own.** A permission row
 is written only by a right making act or by a give whose own permission stood and
 is exactly the one above, and nothing in this build ends a permission. Reading
-them would cost up to 3 reads on every act to find what cannot be false.
+them would cost up to 31 reads on every act to find what cannot be false.
 
 **The depot of a layer costs no read for a layer that is made here.** A gate's
 record holds rows only for layers of its depot, so a row at the permission's
 place or at the depot's place says that the layer is this gate's.
-
-**How locks are asked for and read.** A request is an act with one fact under
-`:softland.store/lock-request`, on the uuid of its own act, holding a count of 1
-to 256. The id of a lock is `[the request's act-id, index]`, so the door knows
-the ids before it sends, and a retry cannot make locks under other ids. A gate
-makes the bytes at the write. The door reads all the locks of a request with one
-call of `locks-of-request`.
-
-**The cipher.** AES-256-GCM, a random part of 12 bytes for each seal, a tag of 16
-bytes, the place `[layer entity key]` as associated data. A sealed value carries
-no mark of its way of sealing: the lock's row holds the number of its way, 1 in
-this build, and the word for the way lives in [seal.clj](door/seal.clj). So the way can
-change later without a stored value being touched.
 
 **The stamp's packing.** Milliseconds since 1970 × 65,536 + a counter. One
 millisecond holds 65,536 stamps for a task; the packing reaches 2^62 in the year
@@ -533,7 +548,12 @@ examination first.
 
 **The one text and the digest.** One function from anything to a string, blind to
 what a serialiser may change and no check can see. The digest is SHA-256 over it,
-kept whole.
+kept whole. The door takes it of the thing that it appends, and a gate of the
+thing as it comes off its depot, each value plain; nothing between the two gives
+a part another form. That a maker reads her answer as her own rests on Rama's
+writing and reading of a record leaving the one text of a thing as it was;
+[the proofs' map](../../../test-store/softland/store/README.md) says which
+checks hold that.
 
 **The form of a making act.** Exactly two facts, in either order: the depot on
 the layer, and the act's own permission on its holder.
@@ -547,7 +567,7 @@ again or out of order.
 
 **The first argument of a query routes it.** Rama's client hashes the first
 argument and sends the query straight to one task. For `depot-of-layer` it is
-the layer. For `answer-by-act-id` and `locks-of-request` it is the routing id of
+the layer. For `answer-by-act-id` it is the routing id of
 the act-id: the layer of a streaming act-id, the uuid of a microbatch one. The
 caller still needs the act-id alone.
 
@@ -562,8 +582,6 @@ where its places are. The rest is the builder's too.
 - An answer is on the task of its act-id's uuid. A reader has the act-id and
   nothing else, so this is the one placement where the read is one seek with no
   hop and nothing passes through one task.
-- A lock is on the task of its request's uuid, with the request's answer. That is
-  the one task that can be found from the lock's id.
 - A layer's depot fact and each permission are on every task. Every act needs the
   permission of its `:who` where it is decided. A copy is bytes and a rare write;
   a fetch would be a hop between tasks on every act. That is the reason that a
@@ -664,10 +682,10 @@ attempt of a batch: after a module update that changes the code from which a row
 is made, a second attempt writes its rows with the new code.
 
 **Closing.** Rama makes a batch visible task by task, and it can run a batch
-again after one task has shown its part. A second attempt makes other lock bytes,
-and can give an act into a layer of the other gate the other of two words. So a
-reader could see a lock's bytes or a word that later change. Each task therefore
-holds `:closed-through`, and the door's three reads and the streaming gate's
+again after one task has shown its part. A second attempt can give an act into a
+layer of the other gate the other of two words. So a
+reader could see a word that later changes. Each task therefore
+holds `:closed-through`, and the door's two reads and the streaming gate's
 question about the base give a row
 of a microbatch layer only when the row's stamp is not later than it. Each run of
 the gate writes `:closed-through` with the gate's last stamp as it was before the
@@ -678,37 +696,22 @@ batch. The cost: one more read for an answer that is there, and one small write
 on each task for each batch. And one thing that closing leaves to a read of
 facts: a place holds one row, its current fact. So after a batch replaces a
 fact, its place holds no row of a closed batch until that batch is closed, and a
-place that is replaced in every batch never holds one. The door's three reads do
+place that is replaced in every batch never holds one. The door's two reads do
 not meet it: the one fact that they give is the depot of a layer, which is
 written once. The read path is the read that meets a replaced place, and it
 reads the place straight: the row that the task shows, which every attempt of
 its batch makes.
 
-**One copy of a lock's bytes.** A lock is asked for before its value is known, so
-its home cannot be the task of its value. When a lock comes to seal a value, its
-whole row, with the bytes, is written on the task of the value's entity; and the
-row at its home is written again with the fact that it seals and no bytes. The
-bytes are in one row. A later forget destroys one row.
-"A second value under a lock that already seals one" is still decided at the
-home, where the row names the fact. When the home is also the value's task, the
-two rows have one key and the whole row is the one that stays: a task writes
-each home's row before any row with bytes. **Sid should know three things.**
-`locks-of-request` gives a lock of a microbatch layer with its bytes only while
-it seals nothing. The fact's row gives no key of its lock: the whole
-row of a lock that seals a value is found from the act in the depot, which holds
-the fact's lock id and the fact's entity. And the home's row still costs about
-105 bytes for each used lock.
-
-**What one accepted act costs the microbatch gate.** The act: one sealed value,
-on one entity, nothing named to replace, alone in its batch. Counted from the
+**What one accepted act costs the microbatch gate.** The act: one value under a
+plain key, on one entity, nothing named to replace, alone in its batch. Counted from the
 dataflow, not measured; the messages are those between two different tasks.
 
 | | Reads | Row writes | Messages |
 |---|---|---|---|
-| The key not marked | 4: the permission where it arrived, the answer on the uuid's task, the lock at its home, the marked keys on the act's own task | 4: the fact, the lock's whole row on the fact's task, the home's row, the answer | 6 |
-| The key marked | 5: and the row before, at the act's turn on its own task | 5: and the entry in. 6 when the entry of a value before goes out | 7, or 8: each entry to the task of its value's digest |
+| The key not marked | 3: the permission where it arrived, the answer on the uuid's task, the marked keys on the act's own task | 2: the fact, the answer | 3: the question about the answer, its reply, the answer's row |
+| The key marked | 4: and the row before, at the act's turn on its own task | 3: and the entry in. 4 when the entry of a value before goes out | 4, or 5: each entry to the task of its value's digest |
 
-Without the order by value it would be 3 reads. The marked keys cost one read
+Without the order by value it would be 2 reads. The marked keys cost one read
 for a task and a layer in a batch, however many acts the batch holds: for 1,000
 acts of one layer on one task it is one read, and for an act whose facts are on
 several tasks it is one on each. An act with no fact under a plain key reads
@@ -723,12 +726,14 @@ nothing to decide pays none. The attempt waits for the ack of that append,
 which on a real cluster is two rounds of replication to the followers of that
 one task, the record and then the row; on one machine with one copy two probes
 measured 3 to 6 ms, a floor and not a cost. In the microbatch gate a reply carries the whole row before,
-with its value of up to 65,508 bytes, where the decision uses its stamp and the
+with its value of up to 65,536 bytes, where the decision uses its stamp and the
 digest of its value; the same holds of a fact that names something to replace.
 
-**The placing of the checks that the contract does not place.** The 10-second
+**The placing of the checks that the contract does not place.** The making and
+the counting of the values' texts is the last step of the declaration's check:
+it is the most costly. The 10-second
 rule comes after the declaration, before any row is read. What a store key does
-not take comes after check (g). The seal comes last: it is the most costly. A
+not take comes after check (g). A
 check that examines facts takes them in the act's order.
 
 **How each of the builder's rules is met.** The numbers are the contract's.
@@ -743,14 +748,8 @@ check that examines facts takes them in the act's order.
 3. A retract is written as the row of its place, with no value. A later fact that
    names it passes check (e).
 4. The module sets no trimming option on the depot.
-5. A lock's bytes are made by a gate at the write and written only to its locks
-   PState. A request holds a count, and no code appends a lock's bytes to a
-   depot: the one append that the module's code makes is of a batch's id and
-   clock. Each write of
-   a decision is behind check (a), so a second run of an event makes no lock
-   again for a value that is sealed. The microbatch gate makes the bytes in step
-   4, on the lock's home task. A second attempt of a batch makes other bytes; no
-   read gave the first ones, because that batch was not closed.
+5. The module makes no lock. The one append that its code makes is of a
+   batch's id and clock.
 6. The turn gives two acts that replace one fact the same winner on every
    attempt. An act is decided once, on one task, with each row that it needs in
    hand; the rows of an accept go to several tasks inside one attempt, which Rama
@@ -789,14 +788,10 @@ check that examines facts takes them in the act's order.
 14. `granted-in` must be the act's layer, in a first permission and in one given.
     The gate checks nothing more about a holder; see "What the gate does not
     check".
-15. A refusal writes the answer and no lock row; in the streaming gate also the
-    task's last stamp. The sealing function takes a fresh random part at each
-    call.
-16. The gate opens each sealed value once with its lock's bytes, in the way that
-    the lock's row names, and keeps the plain bytes in the fact's row, as a
-    String that gives them back. The bytes
-    of a value of a refused act are dropped with the decision. The place is the
-    cipher's associated data.
+15. A refusal writes the answer and nothing else; in the streaming gate also the
+    task's last stamp.
+16. The gate keeps the one text of each value in the fact's row. The text of a
+    value of a refused act is dropped with the decision.
 17. An act that carries a stamp more than 10 seconds ahead of the gate's clock is
     refused, before any stamp is made. The microbatch gate holds each act of a
     batch to the batch's one clock, on every attempt.
@@ -807,44 +802,41 @@ check that examines facts takes them in the act's order.
     gate gave there; the streaming gate's last stamp of the same task is of
     another record.
 19. Nothing is built for a rebuild of the record from the depot. What a rebuild
-    would not give again: a lock's bytes, which are in no depot; a stamp, which
+    would not give again: a stamp, which
     holds the gate's clock at the decision; a refusal by rule 17; the order
     across a failed batch; and, in either record, which of the two words an act
     sent to the wrong depot got, the word for a layer of the other gate or the
     word for a layer that is not made: that rests on an order between the two
-    depots that no depot holds. For the microbatch record also: rule 9's answer;
+    depots that no depot holds. For the microbatch record also: rule 9's answer; and
     the stamps, although the clock of each batch with things is on the depot of
     batch clocks by the id of its run, because a rebuild cuts other batches
-    (rule 9);
-    and the whole row of a lock that seals a value, which is placed from the act
-    in the depot: the act holds the lock id and the entity of the fact that the
-    lock seals.
-20. Seven numbers in [declaration.clj](door/declaration.clj), each held by a rule or by
-    the test for a stray, before a row key is built from an id. The two of the
-    read build: a layer builds on 64 layers at most, and marks 32 keys at most.
+    (rule 9).
+20. Seven numbers in [declaration.clj](door/declaration.clj). Five are held by a
+    rule or by the test for a stray, before a row key is built from an id. Two
+    are held by the last step of the check: the bound on one value, counted of
+    its text, and the bound on one act. The two of the read build are among the
+    five: a layer builds on 64 layers at most, and marks 32 keys at most.
 21. The aims: 1,000 acts a second on one task; 20 ms from the door's append to the
-    answer in the door's hand; 110 bytes of lock or fewer for each value. None is
+    answer in the door's hand. The contract's third is of the bytes of a lock
+    for each value, and the store keeps no lock. Neither of the two is
     measured on a cluster with a disk and a network. The measures of the read
     build time a gate under 100 acts a second on the in-process cluster, with
     every row in memory ([the proofs' map](../../../test-store/softland/store/README.md),
     "The measures"); that is a floor for a round trip and no measure of an aim.
-    By the cost of a cold read, the 5 reads of one accepted act give
-    384 to 616 acts a second on one task, and the 6 of an act under a marked key
-    320 to 513; the first aim is met only when the rows are read from memory. With
-    a lock of 32 bytes for each value, the third does not hold for values that
-    average under 55 bytes. For the microbatch gate: 1,000 acts a second arriving
-    on one depot partition, which needs a run of the gate inside a second; an
+    By the cost of a cold read, the 4 reads of one accepted act give
+    480 to 770 acts a second on one task, and the 5 of an act under a marked key
+    384 to 616; the first aim is met only when the rows are read from memory.
+    For the microbatch gate: 1,000 acts a second arriving
+    on one depot partition, which needs a run of the gate inside a second; and an
     answer readable within two runs of the gate after the append, its own batch
     and the short one that closes it, not 20 ms, because a microbatch layer is not
-    for what a person does directly; and the third limit is not met for values
-    under about 90 to 123 bytes, because a used lock has a row at its home beside
-    the row with its bytes. None is measured.
+    for what a person does directly. None is measured.
 
 ## Words a session made, Sid's to change
 
 Each says what the thing is. None comes from the rig's code. Carried from the
-contract and the decisions, not made here: `:act-id`, `:depot`, `:sealed`,
-`:lock-id`, the three store keys of 8 October, `:not-sealed`, `:system`, `:base`,
+contract and the decisions, not made here: `:act-id`, `:depot`,
+the two store keys of 8 October, `:system`, `:base`,
 `:streaming`, `:microbatch`, `:accepted`, `:refused`; "stray", "place", "holder",
 "making act". "Act-id" is Sid's to change, and each word below that holds it
 follows his word. "Depot" is his word, of 9 October: the contract and his
@@ -853,15 +845,15 @@ words, of 10 October. "See" and "see and act" are a session's; he said "yes"
 on 12 October to a sentence that holds them. The keywords made of the four are
 a session's.
 
-The store keys carry the namespace `softland.store`. The three of 8 October are
-`:softland.store/depot`, `:softland.store/permission` and
-`:softland.store/lock-request`; the three of the read build are in the table
+The store keys carry the namespace `softland.store`. The two of 8 October are
+`:softland.store/depot` and `:softland.store/permission`; the three of the read
+build are in the table
 below. Sid decided on 9 October that the store's keys
 get a namespace (K4 B), and gave the words: `softland.store` before the slash,
-and "depot". So the bare words are the tools'. A fact of a tool under `:depot`,
-`:permission` or `:lock-request`, or under one of those words in another
-namespace, is a fact under a plain key: its value arrives sealed, and the store
-reads nothing from it. The store owns the whole of its own namespace. He was
+and "depot". So the bare words are the tools'. A fact of a tool under `:depot`
+or `:permission`, or under one of those words in another
+namespace, is a fact under a plain key: the store
+reads nothing from its value. The store owns the whole of its own namespace. He was
 asked that day whether a gate should refuse a key in `softland.store` that the
 store does not know, and said "yes"; such a fact is refused
 `:store-key-not-known`. The namespace is taken exactly: a key in
@@ -888,15 +880,29 @@ order, and "digest" is this store's word since its module.
 | the row before | The row that a place held before a fact was written there |
 | `allows` | In [act.clj](act.clj): a permission → `:see` or `:see-and-act` |
 | `starts-with` | In [first_act.clj](gate/first_act.clj): what a layer reads as under one of the three keys while no fact says it |
-| `opened` | In [decision.clj](gate/decision.clj): the check of the seals, which gives the plain bytes that each lock opened |
 | `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
 | `marks-places-asked`, `batch-end` | In [batch.clj](gate/batch.clj): the marked-keys places that a task reads in a batch, and the last stamp that a batch can hold |
-| `held-value`, `plain-bytes`, `plain-bytes-of` | In [rows.clj](record/rows.clj): the String that a fact's row holds for a value's plain bytes; the bytes back from that String; and the plain bytes of a row's value |
-| `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether the plain bytes of a row's value are the text of a value, and the first form that they read as |
+| `plain-bytes`, `plain-bytes-of` | In [rows.clj](record/rows.clj): the UTF-8 bytes of the String that a fact's row holds for its value; and those bytes of a row's value |
+| `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether a row's value is the one text of a value given, and the first form that a row's value reads as |
 | `read-value`, with `:no-fact`, `:nothing-here`, `:value`, `:not-a-value` | In [rows.clj](record/rows.clj): what a row says of its value, for a reader |
 | `who-of`, `permission-of`, `marked-keys-of` | In [rows.clj](record/rows.clj): a row read back |
 | `with-level-since`, `by-value-key`, `by-value-run`, `by-value-row`, `by-value-route`, `by-value-entity`, `value-digest-of`, `id-of-text`, `place-of-key` | In [rows.clj](record/rows.clj): the keys and the rows of the order by value, and a key back to its parts |
 | `second-write-keys`, `max-builds-on`, `max-marked-keys` | In [declaration.clj](door/declaration.clj): the keys that take a second write, and the two limits, 64 and 32 |
+
+**The words of the build before real data is kept, for a value and its
+bounds.** Each is a session's. None was taken from the rig's code; whether the
+rig's code holds one of them by chance is not known.
+
+| Word | What it is |
+|---|---|
+| `:text` | In a fact of the act's one form, as the declaration's check gives it to a gate: the one text of the fact's value in its normal form, which the fact's row holds. Beside it `:v` holds the value under a store key, and nil under a plain key |
+| `with-texts` | In [declaration.clj](door/declaration.clj), private: the last step of the check, which makes each text once and holds the two bounds |
+| `max-value-bytes` | In [declaration.clj](door/declaration.clj): the most UTF-8 bytes of the one text of a value under a plain key. 65,536 |
+| `max-act-bytes` | In [declaration.clj](door/declaration.clj): the most bytes of text that an accept of one act writes into the rows of its facts. 18,874,368 |
+| `:value-too-large`, `:act-too-large` | The two reason words of that step; each is in the list of the declaration's reason words, below |
+
+The door's words of that build, the namespace `softland.store.door.wait` among
+them, are in [door/README.md](door/README.md).
 
 **The words of the read build, for the clock of a batch.** Each is a session's.
 None is from the rig's code, and none is a name of the probes that ran the way
@@ -923,27 +929,24 @@ first. "Batch", "attempt" and "microbatch id" are Rama's.
 | `$$streaming-answers` | The answer under each act-id of a streaming layer |
 | `$$streaming-facts` | The current fact of each place of each streaming layer |
 | `$$streaming-facts-by-value` | For each marked key of each streaming layer, the same facts in the order of their values |
-| `$$streaming-locks` | Each lock of each streaming layer, and the fact that it seals |
 | `$$streaming-task` | What the streaming gate keeps for one task: its last stamp, its strays |
 | `*microbatch-depot` | The microbatch depot: every thing sent for a microbatch layer |
 | `microbatch-gate` | The microbatch topology that decides the things of the microbatch depot |
 | `$$microbatch-answers` | The answer under each act-id of a microbatch layer |
 | `$$microbatch-facts` | The current fact of each place of each microbatch layer |
 | `$$microbatch-facts-by-value` | For each marked key of each microbatch layer, the same facts in the order of their values |
-| `$$microbatch-locks` | Each lock of each microbatch layer, and the fact that it seals |
 | `$$microbatch-task` | What the microbatch gate keeps for one task |
 | `$$questions`, `$$replies`, `$$parcels` | The three temporary PStates of one attempt of a batch: what step 1 gathered, what step 2 replied, what step 3 sent |
 | `*batch-clock-depot` | The depot of batch clocks: one record for each batch of the microbatch gate that had things to decide. No client can append to it |
 | `batch-clock` | The stream topology that keeps the clock of the newest batch |
 | `$$batch-clock` | The clock that is kept for the newest batch that had things: one row, under the depot word `:microbatch` |
 | `answer-by-act-id` | The query: act-id → the recorded answer, or nothing |
-| `locks-of-request` | The query: a request's act-id and a range of indexes → those locks |
 | `depot-of-layer` | The query: layer → its depot, or nothing |
 
 **Folders and namespaces.** Five folders: `door`, `read_path`, `gate`, `record`,
 `module`.
 Each namespace is `softland.store.`, its folder, and the word: `door.text`,
-`door.digest`, `door.declaration`, `door.seal`, `door.additions`, `door.stock`,
+`door.digest`, `door.declaration`, `door.additions`, `door.wait`,
 `door.words`; `gate.decision`,
 `gate.first-act`, `gate.stamp`, `gate.batch`; `record.rows`, `record.tables`;
 `module.streaming-gate`, `module.microbatch-gate`, `module.batch-clock`,
@@ -964,17 +967,13 @@ run that is no proof. The words that the door's build made are in
 | `:refused` | In an answer's row: the reason word. Absent when the act was accepted |
 | `:stamp` | In an answer's row, a fact's row and a row of the facts by value: the stamp of the decision |
 | `:digest` | In an answer's row: the digest of the thing that was decided |
-| `:value` | In a fact's row: the fact's value, plain, as a String: the text of its plain bytes, or, for bytes that are no text, U+0000 and one character for each byte. Absent for a retract |
+| `:value` | In a fact's row: the fact's value, plain, as a String: the one text of the value in its normal form. Absent for a retract |
 | `:by-act`, `:by-index` | In a fact's row, and in a row of the facts by value: the fact that wrote the row, as the uuid of its act and its index |
 | `:who`, `:permission` | In a fact's row, and in a row of the facts by value: who wrote the fact, and the permission that the act named, each as its one text |
 | `:level-since` | In the row at a layer's marked-keys place only: the one text of a map from each marked key to the stamp since which its order by value is level |
-| `:bytes` | In a lock's row: the lock's 32 bytes |
-| `:way` | In a lock's row, and in a lock as a caller gets it: the number of the way of sealing that the lock is for. 1 in this build |
-| `:aes-256-gcm` | In code only, beside the number 1: the word for the one way of sealing that this build knows |
-| `:seals-act`, `:seals-index` | In a lock's row: the fact that the lock seals, once it seals one |
 | `:last-stamp` | In the task's value: the last stamp that the gate gave on the task. The microbatch gate has one, for the whole gate, on the gate's task |
 | `:strays` | In the task's value: by reason word, the digests of the strays seen |
-| `:closed-through` | In the microbatch gate's task value: the stamp through which this task's rows are of closed batches. The door's three reads and the streaming gate's question about the base give a row only when its stamp is not later |
+| `:closed-through` | In the microbatch gate's task value: the stamp through which this task's rows are of closed batches. The door's two reads and the streaming gate's question about the base give a row only when its stamp is not later |
 | `:turns`, with `:batch` and `:given` | In the microbatch gate's task value: the batch that the count belongs to, as the text of its microbatch id, and how many things of it this task has given a turn |
 | `:verdict`, `:reason` | In an answer as `answer-by-act-id` gives it: `:accepted` or `:refused`, and the reason word |
 
@@ -994,49 +993,37 @@ word.
 | Word | What it is |
 |---|---|
 | `:depot-not-the-act-ids-depot` | `:depot` is absent, is no depot word, or is not the depot slot of the act-id |
-| `:lock-id-malformed` | `:lock-id` is not `[act-id index]` with an index of 0 to 255 |
 | `:too-many-facts` | More than 256 facts in one act |
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
 | `:store-key-not-known` | A fact's key is in the namespace `softland.store` and is not one of the store keys |
-| `:store-key-sealed` | A fact under a store key carries a seal |
 | `:depot-fact-not-a-depot-word` | A `:softland.store/depot` fact's value is not `:streaming` or `:microbatch` |
 | `:permission-fact-not-a-permission` | A `:softland.store/permission` fact's value is not a permission id |
 | `:permission-fact-not-on-its-holder` | A `:softland.store/permission` fact's entity is not the holder that its permission names |
-| `:lock-request-not-a-count` | A `:softland.store/lock-request` fact's value is not an integer of 1 or more |
-| `:too-many-locks-requested` | A request asks for more than 256 locks |
-| `:lock-request-not-on-its-act` | A `:softland.store/lock-request` fact's entity is not the uuid of its act's act-id |
 | `:who-may-see-fact-not-members-or-everyone` | A `:softland.store/who-may-see` fact's value is not `:members` or `:everyone` |
 | `:builds-on-fact-not-a-list-of-layers` | A `:softland.store/builds-on` fact's value is not a vector of ids |
 | `:builds-on-too-many-layers` | A `:softland.store/builds-on` fact names more than 64 layers |
 | `:marked-keys-fact-not-a-set-of-keys` | A `:softland.store/marked-keys` fact's value is not a set of keys |
 | `:too-many-marked-keys` | A `:softland.store/marked-keys` fact holds more than 32 keys |
 | `:marked-key-in-the-stores-namespace` | A `:softland.store/marked-keys` fact marks a key in the namespace `softland.store` |
-| `:sealed-with-a-plain-value` | A fact carries `:sealed` and a plain `:v` |
-| `:seal-incomplete` | A fact carries `:sealed` with no `:lock-id`, or `:lock-id` with no `:sealed` |
-| `:sealed-not-bytes` | `:sealed` is not a run of bytes, or holds none |
-| `:sealed-value-too-large` | `:sealed` holds more than 65,536 bytes |
 | `:place-named-twice` | Two facts of the act are on one entity and key |
 | `:replaces-own-fact` | A fact names a fact of its own act in `:replaces` |
-| `:lock-named-twice` | Two facts of the act are under one lock |
 | `:id-too-long` | An id that the act holds, or a fact's key, prints to more than 256 characters |
+| `:value-too-large` | The one text of a value under a plain key holds more than 65,536 bytes |
+| `:act-too-large` | The texts that an accept of the act would write into the rows of its facts hold more than 18,874,368 bytes |
 
-**The names in the declaration.** Its shapes: `:arrived-act`, `:arrived-fact`,
-`:depot-word`, `:lock-id` (the same word as the part of a fact), `:lock-count`,
-`:who-may-see-word`, `:layer-list`, `:key-set`.
+**The names in the declaration.** Its shapes: `:arrived-act`,
+`:depot-word`, `:who-may-see-word`, `:layer-list`, `:key-set`.
 Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
 `:facts-within-the-limit`, `:based-on-within-the-limit`, `:store-key-is-known`,
-`:store-key-fact-has-no-seal`, `:depot-fact-holds-a-depot-word`,
+`:depot-fact-holds-a-depot-word`,
 `:permission-fact-holds-a-permission`, `:permission-fact-sits-on-its-holder`,
-`:lock-request-holds-a-count`, `:lock-request-within-the-limit`,
-`:lock-request-sits-on-its-act`, `:who-may-see-fact-holds-its-word`,
+`:who-may-see-fact-holds-its-word`,
 `:builds-on-fact-holds-layers`, `:builds-on-within-the-limit`,
 `:marked-keys-fact-holds-keys`, `:marked-keys-within-the-limit`,
-`:marked-keys-are-plain-keys`, `:plain-value-is-sealed`,
-`:sealed-fact-has-no-plain-value`, `:seal-is-whole`, `:sealed-is-bytes`,
-`:sealed-within-the-limit`, `:place-named-once`,
-`:no-fact-replaces-a-fact-of-its-act`, `:lock-named-once`,
+`:marked-keys-are-plain-keys`, `:place-named-once`,
+`:no-fact-replaces-a-fact-of-its-act`,
 `:ids-within-the-limit`. In the table of store keys: `:why`, `:value`,
-`:sits-on`, `:setting`, `:written-again`, and the three words that say where a
+`:sits-on`, `:setting`, `:written-again`, and the two words that say where a
 fact sits.
 
 **The reason words of the gate.**
@@ -1058,15 +1045,11 @@ fact sits.
 | `:changing-a-depot-not-decided` | A `:softland.store/depot` fact, in a layer that is made, with a depot that is not the layer's |
 | `:store-key-takes-one-write` | A permission fact on a place that already holds one, or a depot fact with the layer's own depot after the making. Not earned by the three keys that take a second write |
 | `:store-key-retract-not-built` | A fact with no value under any store key but a permission's |
-| `:lock-not-made-for-this-layer` | A sealed value's lock is not one that the store made for the act's layer |
-| `:lock-already-seals-a-value` | A sealed value's lock already seals an accepted value |
-| `:lock-way-not-known` | The way of sealing that the lock's row names is not one that the code knows. No lock of this build can earn it |
-| `:lock-does-not-open-the-value` | The lock's bytes do not open the sealed bytes at this fact's place |
 
 **Words between the decision and the gate**, for the rows of one decision:
-`:fact`, `:by-value`, `:lock`, `:new-lock`, `:answer`, `:last-stamp`. A row of
+`:fact`, `:by-value`, `:answer`, `:last-stamp`. A row of
 the kind `:by-value` that is nil says that its key is to be taken out. And for
-what a gate hands `writes` for an accept: `:lock-rows`, `:plain`,
+what a gate hands `writes` for an accept:
 `:since-by-place`, `:place-rows`, `:level-from`.
 
 **The words of a batch**, in the explanations and in the data between
@@ -1083,23 +1066,21 @@ lists above. "Batch" and "attempt" are Rama's words.
 | the gate's task | The task that the hash of the depot word `:microbatch` gives. The gate's last stamp is there, and the clock that is kept for the newest batch |
 | to meet; meeting task | Two acts of a batch meet when both need one row and cannot be put in order on one task. The meeting task of a layer is the task of the layer id; acts that meet are decided there, in turn |
 | pass | The walk of a meeting task over the acts that were sent to it |
-| route | An id or a text whose hash gives a task: the uuid of an answer, the entity of a fact, the request's uuid of a lock, the value digest of a row of the facts by value, the layer of an act that meets |
+| route | An id or a text whose hash gives a task: the uuid of an answer, the entity of a fact, the value digest of a row of the facts by value, the layer of an act that meets |
 | entry, `:entry` | What step 1 keeps of a thing for step 3: its turn, the thing, the act in its one form, what was found of its standing |
 | `:standing`, with `:stands`, `:final`, `:open` | In an entry: what step 1 found. The permission is there; the act is refused for good; or the permission's place is empty and a give of the batch could fill it |
-| question, with `:answer`, `:place`, `:locks`, `:new-locks` | What an act sends to the home task of a row that it needs; the four kinds |
+| question, with `:answer`, `:place` | What an act sends to the home task of a row that it needs; the two kinds |
 | `:wanted?`, `:own?` | In a question about a place: the fact names something to replace, so the row is needed; the place is on the act's own deciding task |
 | `:marks-place`, `:k` | In a question about a place: the key of the layer's marked-keys place, and the fact's key |
 | `:since` | In a read of a place and in a reply about one: the stamp of the place's key, when the layer marks it |
 | `:batch-end` | In a reply about an answer, and in an item: the last stamp that the batch can hold, which a newly marked key gets |
 | `:since-by-place` | In an item, and in an act sent to the meeting task: the stamp of each of its places whose key is marked |
-| reply, with `:yours`, `:used`, `:taken-in-this-batch`, `:shared?` | What a home task sends back. For an answer: the act-id is the asker's to use, is used in the record, or goes to an earlier turn of this batch. For a place or a lock: another act of the batch needs it too |
+| reply, with `:yours`, `:used`, `:taken-in-this-batch`, `:shared?` | What a home task sends back. For an answer: the act-id is the asker's to use, is used in the record, or goes to an earlier turn of this batch. For a place: another act of the batch needs it too |
 | `:numbers`, with `:carried` and `:position` | What each task sends the gate's task for the base: the greatest stamp that its things carry, and its greatest position |
 | parcel, with `:rows` and `:meet` | Rows that one task sends to another to write, or an act sent to the meeting task |
-| `:lock-home` | Beside `:fact`, `:by-value`, `:lock`, `:new-lock` and `:answer`, for a row on its way to its home: the home's row of a lock, with no bytes |
 | `:home`, `:every-task?` | In a row on its way: the route of its home; and that every task holds it |
 | closed | A batch is closed when every task has made it visible and the next run of the gate has begun. Rama cannot run it again |
-| routing id | The first argument of `answer-by-act-id` and `locks-of-request`: the layer of a streaming act-id, the uuid of a microbatch act-id |
-| the home's row of a lock | The row of a lock on the task of its request's uuid. Once the lock seals a value it holds the way and the fact, and no bytes |
+| routing id | The first argument of `answer-by-act-id`: the layer of a streaming act-id, the uuid of a microbatch act-id |
 
 **Marks in the one text**: `#bytes`, `#double`, `#keyword`, `#other`,
 `#too-deep`, `#unreadable`. [text.clj](door/text.clj) says what each marks.

@@ -17,7 +17,6 @@
     *batch-clock-depot    the depot of batch clocks. No client can append to
                           it; a client can read its log
     answer-by-act-id      the query: the recorded answer under an act-id
-    locks-of-request      the query: the locks that a request made
     depot-of-layer        the query: the depot of a layer
     $$streaming-task      the PState of the streaming gate's strays, for an
                           operator: select
@@ -54,8 +53,9 @@
   Each depot of acts holds every thing sent for a layer whose depot it is,
   as it was sent, and it is the replay log of those layers. No depot is ever
   trimmed: the module sets no trimming option, and Rama keeps every record
-  by default. So nothing secret goes on a depot: a request for locks carries
-  a count, and no code of the module appends a lock's bytes.
+  by default. Every value is plain on a depot: a client of the cluster that
+  reads a depot of acts, or a copy of its log taken alone, holds every value
+  that was sent.
 
   The depot of batch clocks takes no act, and no gate decides from it: the
   depots of acts are two, one for each gate. It is declared :disallow, so no
@@ -75,7 +75,7 @@
 
   The streaming depot partitions by the hash of the thing's `:layer`. The
   acts of one layer depend on each other's order (a give and the first act
-  under it, a request and the first use of its lock, two acts that replace
+  under it, two acts that replace
   one fact), and one partition for a layer gives them the depot's order.
   That partition is the task on which every row of the layer lives, so the
   gate reaches the record with no hop. The partitioner applies the keyword
@@ -85,8 +85,7 @@
   The microbatch depot partitions by the hash of the entity of the thing's
   first fact (`softland.store.gate.batch/first-entity`). A microbatch layer's
   facts are on the tasks of their entities, so an act on one entity arrives
-  on the task where its places are, and a request for locks arrives where
-  its locks and its answer will be. Five kinds of fact are on every task
+  on the task where its places are. Five kinds of fact are on every task
   instead (`softland.store.gate.batch/on-every-task?`): the layer's depot,
   each permission, who may see the layer, what it builds on and its marked
   keys. And a row of the facts by value is on the task of its value's

@@ -4,20 +4,19 @@
 
   Why it is here. The digest of a thing is taken over this text
   (`softland.store.door.digest`), so that the door and a gate get one digest for
-  one thing. The record keeps a value by the bytes of this text
-  (`softland.store.record.rows`): a value under a store key as a gate writes
-  them, and a value under a plain key as the door sealed them and its lock
-  opened them; a fact's row holds those bytes as a String, which for bytes
-  of this text is the text itself. A fact's row holds who wrote it and the
-  permission that its
-  act named as this text too, and the order by value is kept by the digest
-  of these bytes. The place that a seal is bound to is the bytes of this
-  text (`softland.store.door.seal`).
+  one thing. The record keeps a value by this text
+  (`softland.store.record.rows`): a fact's row holds the text itself, a
+  String, of the value in its normal form. The last step of the
+  declaration's check makes it, once, and counts its bytes
+  (`softland.store.door.declaration`). A fact's row holds who wrote it and
+  the permission that its act named as this text too, and the order by
+  value is kept by the digest of the UTF-8 bytes of this text.
 
   Inputs and results, by call:
 
     text  anything -> its one text, a string
     utf8  anything -> the UTF-8 bytes of its one text
+    utf8-count  a string -> how many bytes its UTF-8 has
     feed  anything, and two functions that take the pieces -> nil
     hex   a run of bytes -> its hex text
 
@@ -170,8 +169,8 @@
 (defn- feed-map
   "Feeds a plain map: its entries sorted by the text of the key. The text of
   a value is built only where two keys have one text, to order those
-  entries; so a large value, such as the sealed bytes of a fact, is fed
-  piece by piece and never built as one string."
+  entries; so a large value is fed piece by piece and never built as one
+  string."
   [m depth take-text take-bytes]
   (let [keyed (map (fn [[k v]] [(text* k (inc depth)) v]) m)
         tied? (and (seq keyed) (not (apply distinct? (map first keyed))))
@@ -233,3 +232,29 @@
   "Takes anything. Gives the UTF-8 bytes of its one text, as a new array."
   [x]
   (.getBytes ^String (text x) StandardCharsets/UTF_8))
+
+(defn utf8-count
+  "Takes a string. Gives how many bytes its UTF-8 has, the length of what
+  `String.getBytes` gives for UTF-8, with no array made: one walk of the
+  characters. A character below U+0080 is 1 byte, one below U+0800 is 2, a
+  pair of surrogates is 4, and any other is 3. Half of a surrogate pair
+  that stands alone counts 1: the JVM writes it as `?`. The declaration's
+  check counts the text of a value with it. What must hold: x is a
+  String."
+  [x]
+  (let [^String s x
+        n (.length s)]
+    (loop [i 0 total 0]
+      (if (>= i n)
+        total
+        (let [c (.charAt s i)
+              code (int c)]
+          (cond
+            (< code 0x80) (recur (inc i) (inc total))
+            (< code 0x800) (recur (inc i) (+ total 2))
+            (Character/isHighSurrogate c)
+            (if (and (< (inc i) n) (Character/isLowSurrogate (.charAt s (inc i))))
+              (recur (+ i 2) (+ total 4))
+              (recur (inc i) (inc total)))
+            (Character/isLowSurrogate c) (recur (inc i) (inc total))
+            :else (recur (inc i) (+ total 3))))))))

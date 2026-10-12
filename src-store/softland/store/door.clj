@@ -6,18 +6,18 @@
 
   A maker is whatever makes an act: a screen, a converter, an agent. A maker
   gives the door its act in the one form (`softland.store.act`), with plain
-  values. The door makes an act-id, asks the store for locks by an act of
-  its own, seals each value with a lock of its own, appends the thing to the
-  depot that the act-id names, and gives the maker the act-id, the digest of
-  what it sent, and the ack as a signal. The maker reads the answer back by
-  the act-id and the digest. A gate is the authority: the door checks
-  nothing of the act's form, and anything can still append to a depot
-  without the door.
+  values. The door makes an act-id, adds the act-id and the depot that it
+  names to the act, appends the thing to that depot, and gives the maker
+  the act-id, the digest of what it sent, and the ack as a signal. The
+  maker reads the answer back by the act-id and the digest. A gate is the
+  authority: the door checks nothing of the act's form, and anything can
+  still append to a depot without the door.
 
   The calls, each of which but `open` takes the door first:
 
     open         a cluster handle, the module's name, and when the opener
-                 wants, a map of the door's five numbers -> a door, or a word
+                 wants, a map with the door's one number -> a door, or a
+                 word
     act-id-for   a layer -> an act-id [layer depot uuid], or a word
     act-ids-for  a layer and a count -> a vector of that many act-ids of
                  the layer, made with one read, or a word
@@ -26,10 +26,8 @@
     answer-of    an act-id, the digest that `send-act` gave, and when the
                  maker wants to wait, a bound in milliseconds -> one of
                  four answers, or a word
-    stock-count  nothing more -> three numbers about the locks that the
-                 door holds
 
-  A word is one of the door's own fourteen (`softland.store.door.words`): a
+  A word is one of the door's own seven (`softland.store.door.words`): a
   map that holds `:could-not`. It says what the door could not do, and
   whether nothing was appended for the act or the door does not know. No
   call throws for what a maker gave. How far that reaches: a thing that has
@@ -37,80 +35,72 @@
   act-ids that the memory of the process does not hold ends in the JVM's
   own error (`act-ids-for`).
 
-  State. The door owns no durable state. An opened door borrows five handles
-  of Rama's client, the two depots of acts and the three queries of the
-  module `Store`; the opener owns the cluster handle, and nothing closes the
-  door. The module has a third depot, of the clocks of batches
-  (`softland.store.module`): it takes no act, and the door does not open it.
-  It holds its five numbers, fixed at the opening. Its one memory is its
-  stocks of locks, the memory of one process, empty at each opening whatever
-  the record holds from a process before. A stock is for one layer, one
-  depot and one who (`softland.store.door.stock`). The door keeps no act-id
-  that it gave, no thing that it sent and no digest once a call returns, and
-  no layer's depot between two calls.
+  State. The door owns no state: none that lasts, and none of the process.
+  An opened door borrows four handles of Rama's client, the two depots of
+  acts and the two queries of the module `Store`; the opener owns the
+  cluster handle, and nothing closes the door. The module has a third
+  depot, of the clocks of batches (`softland.store.module`): it takes no
+  act, and the door does not open it. The door holds one number, fixed at
+  the opening: how long a wait sleeps between two reads
+  (`softland.store.door.wait`). It keeps nothing between two calls: no
+  act-id that it gave, no thing that it sent, no digest, and no layer's
+  depot.
 
-  A process opens one door. Two opened doors are two sets of stocks: each
-  asks for itself and neither uses the other's locks. No row is wrong for
-  it; rows are wasted. In the runtime the module has two clients: the door
-  for the way in, and the read path (`softland.store.read-path`) for the
-  way out. Neither calls the other.
-
-  What the stocks cost. A lock that a stock holds when the process ends is a
-  row of the record that seals nothing, for good: the door reads locks only
-  of requests that it made itself in this process, and it never destroys a
-  lock. The size rule (`softland.store.door.stock/ask-for`) keeps that
-  small for each who. A stock that gave out a lock stays for the life of
-  the process, so the door's memory grows with the whos that wrote a value
-  through it: a few hundred bytes for each, and its unused locks. A stock
-  that holds an open request stays too, until a later call of its who reads
-  that request or forgets it; a who that never comes back leaves it
-  (`locks-for` says which who leaves one for each call). Nothing bounds
-  either but the end of the process.
+  So any opened door serves any maker. An act-id and a digest that one door
+  gave read the answer through another, in this process or a later one. In
+  the runtime the module has two clients: the door for the way in, and the
+  read path (`softland.store.read-path`) for the way out. Neither calls the
+  other.
 
   What it requires outside the door's own folder, and why. Each is a pure
   function that holds one rule that the door needs, so that no rule is
   written a second time. `softland.store.gate.first-act/depot-at-making`:
   the depot that a layer starts with, for a layer that is not made. From
-  `softland.store.record.rows`: `routing-id`, the first argument of two of
-  the queries; and `depot-read`, `answer-read-by-routing-id` and
-  `lock-range-read-by-routing-id`, the tests that the head of each query
-  makes of what a caller passes, which a caller that may hold a thing that
-  is no id makes itself before it calls. The door opens no PState, makes no
-  row and no text of a row.
+  `softland.store.record.rows`: `routing-id`, the first argument of the
+  query of an answer; and `depot-read` and `answer-read-by-routing-id`, the
+  tests that the head of each query makes of what a caller passes, which a
+  caller that may hold a thing that is no id makes itself before it calls.
+  The door opens no PState, makes no row and no text of a row.
 
   The sender. The door takes `:who`, `:session` and `:permission` as the
   maker gives them. It cannot check that the sender is the who that the act
   names, and does not. Neither can a gate. `:system` is a who like any
   other. The door makes no person and no id for one.
 
-  What goes plain into a depot through the door. The door seals the `:v` of
-  a fact under a plain key, when the fact is a plain map in a sequence under
-  `:facts`. Everything else that a maker gives is appended as given, and the
-  depot keeps it for good: a value under a store key, each id, each part
-  that the form does not know, and what a thing holds where the door finds
-  no fact (`softland.store.door.additions`).
+  What goes plain into a depot through the door. Everything. The thing that
+  the door appends is the maker's act as she gave it, with the act-id and
+  the depot added: each value, each id, `:facts` as the vector or the list
+  that it is, and each part that the form does not know
+  (`softland.store.door.additions`). The door gives no value a normal form.
+  A depot keeps the thing for good, whatever a gate decides of it, and any
+  client of the cluster that reads a depot reads each value.
 
-  What the door can cost when it checks nothing. The door as built is no
-  guard of a gate. A refused act sent in a loop leaves one depot record for
-  each try, and one lock that seals nothing for each of its values; with an
-  empty stock it leaves a refused request for each try. An act of 256
-  values, each just under the limit of sealed bytes, is sealed and appended
-  whole. Facts with no end and fewer than 257 values to seal do not come
-  back.
+  One kind of value is not kept as given: a string that holds half of a
+  surrogate pair alone. Rama's writing of a record puts `?` in the place of
+  the half. The digest is taken of UTF-8, which makes the same replacement,
+  so the door's digest is still a gate's and the maker reads her answer as
+  her own; she is not told of the replacement.
+
+  What the door can cost when it checks nothing. The door stops no act: it
+  tests what its two additions need and nothing else. So each of these is
+  appended, is refused by a gate under its own act-id with the gate's word,
+  and leaves no fact in the record: an act of an unknown version; an act
+  with no session; an act under a permission of another layer, under one
+  that does not stand, under one that says see, or under one whose holder
+  is not the act's who; an act into a layer that is not made; and an act
+  whose act-id names the other gate's depot. A refused act sent in a loop
+  leaves one record on a depot for each try, and one answer for each act-id
+  that it is sent under. A value of any size that Rama's client can write is appended
+  whole; a gate refuses a value over its bound, and the log keeps it.
+  Nothing paces a sender.
 
   Room that the door leaves, each an open row of the queue that this code
   decides nothing of:
 
     - a layer whose depot changes (?9): the door reads the layer's depot
-      for each act-id that it makes and remembers none, and a stock is for
-      one depot;
-    - the switch of a layer to one lock for each act, and forget (K11, H10,
-      H11): a lock is asked for under one who in one layer and is used only
-      for values of that who in that layer, so a forget of a person can
-      find her locks by her requests. The door never destroys a lock;
+      for each act-id that it makes and remembers none;
     - sign-in, in front of the door (K7 to K10, Q16): it would refuse a
-      sender before this code runs, and changes none of it. A lock that was
-      asked for in one session can seal a value of the same who in another;
+      sender before this code runs, and changes none of it;
     - who may act as the system (K9): `:system` is treated as any who.
 
   The door reads no fact of the record for a maker, and its wait is one
@@ -119,28 +109,25 @@
   that a fact changed.
 
   Approach. The file has these sections, in this order: the door as a value;
-  the calls of Rama's client; the stocks; the getting of locks; the six
-  calls."
+  the calls of Rama's client; the waits; the five calls."
   (:require [com.rpl.rama :as rama]
             [softland.store.door.additions :as additions]
             [softland.store.door.digest :as digest]
-            [softland.store.door.stock :as stock]
+            [softland.store.door.wait :as wait]
             [softland.store.door.words :as words]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record])
   (:import [java.io Writer]
-           [java.util UUID]
-           [java.util.concurrent Semaphore TimeUnit]))
+           [java.util UUID]))
 
 ;; --------------------------------------------------------- the door as a value
 
 (defn- printed
   "Takes the name of the module that a door is opened on. Gives the text
   that the door prints as: the word \"door\" and that name, and nothing
-  else. No handle, no stock and no lock is in it, whatever prints the door:
-  `str`, `pr`, `println` or a pretty-printer. That is care and no guard:
-  code of the same process can reach a field of any object, and any client
-  of the cluster can read a lock."
+  else. No handle is in it, whatever prints the door: `str`, `pr`,
+  `println` or a pretty-printer. That is care and no guard: code of the
+  same process can reach a field of any object."
   [module]
   (str "#<door " module ">"))
 
@@ -148,10 +135,8 @@
                streaming-depot
                microbatch-depot
                answer-query
-               locks-query
                depot-query
-               numbers
-               stocks]
+               numbers]
   Object
   (toString [_] (printed module)))
 
@@ -164,9 +149,9 @@
 (alter-meta! #'->Door assoc
              :private true
              :doc "Makes an opened door, an object of a type of its own.
-  `open` is the one caller. A door holds the module's name; the five handles
-  of Rama's client, borrowed; its five numbers; and its stocks, an atom of
-  a map from [layer depot who] to {:calls :cell :seat} (`enter!`). It
+  `open` is the one caller. A door holds six things: the module's name; the
+  four handles of Rama's client, borrowed, which are the two depots of acts
+  and the two queries; and its numbers (`softland.store.door.wait`). It
   prints as `printed` says, by the type's two print methods and its
   `toString`.")
 
@@ -234,23 +219,6 @@
       (attempt (fn [] (rama/foreign-invoke-query (.-answer-query door) routing-id act-id)))
       [:ok nil])))
 
-(defn- read-locks
-  "Reads the locks of a request that this door sent: one round trip, the
-  query `locks-of-request`, to the task of the request's answer. Takes the
-  door, the request's act-id, and how many locks the request asked for, n.
-  Gives [:ok a map from index to {:bytes :way}] or [:threw info]. The range
-  is exactly what the request asked for, the indexes 0 to n - 1, so the
-  door knows when a read gave fewer locks than the request made.
-
-  Before it calls, it makes the test that the head of the query makes
-  (`softland.store.record.rows/lock-range-read-by-routing-id`), as
-  `read-answer` does; a request of the door's own making always passes it."
-  [^Door door request-act-id n]
-  (let [routing-id (record/routing-id request-act-id)]
-    (if (record/lock-range-read-by-routing-id routing-id request-act-id 0 (dec n))
-      (attempt (fn [] (rama/foreign-invoke-query (.-locks-query door) routing-id request-act-id 0 (dec n))))
-      [:ok {}])))
-
 (defn- depot-of
   "Reads the depot of a layer: one round trip, the query `depot-of-layer`,
   to the layer's task. Takes the door and a layer that passed
@@ -279,7 +247,7 @@
   moment that is the span later. The clock is the JVM's `nanoTime`: it never
   goes back, its numbers mean something only as differences, and they may
   wrap round the range of a long. So moments are added and compared without
-  the overflow check; a span is `softland.store.door.stock/longest-wait-ms`
+  the overflow check; a span is `softland.store.door.wait/longest-wait-ms`
   at most, which keeps each difference in range."
   [moment span]
   (unchecked-add (long moment) (long span)))
@@ -310,16 +278,10 @@
 (defn- read-answer-until
   "The wait: reads the answer under one act-id until a read gives one. Takes
   the door; an act-id; `ends`, the moment of the clock at which the wait
-  ends; whether to sleep once before the first read; and, for a request of
-  the door's own that is in doubt, that open request, else nil. Gives one
-  of:
+  ends; and whether to sleep once before the first read. Gives one of:
 
     [:answer what the read gave]   a read gave an answer
     [:threw info]                  a read threw; the wait ends at once
-    [:given-up]                    the request is in doubt, and a read that
-                                   began the door's wait or more after its
-                                   moment found nothing
-                                   (`softland.store.door.stock/kept-long-enough?`)
     [:nothing]                     no answer, and the wait is over
 
   It reads; while a read gives nil and `ends` has not passed, it sleeps for
@@ -331,378 +293,40 @@
   read that is on its way then takes its own time, up to the time limit of
   a query in Rama (the module's option `topology.query.timeout.millis`).
   The clock is the JVM's `nanoTime`, which never goes back (`after`)."
-  [^Door door act-id ends sleep-first? in-doubt]
+  [^Door door act-id ends sleep-first?]
   (let [every (* 1000000 (long (:read-every-ms (.-numbers door))))
-        span (* 1000000 (long (:request-wait-ms (.-numbers door))))
-        nap (fn []
-              (sleep-for (cond-> (min every (left ends))
-                           in-doubt (min (left (after (:since in-doubt) span))))))]
+        nap (fn [] (sleep-for (min every (left ends))))]
     (if (and sleep-first? (not (nap)))
       [:nothing]
       (loop []
-        (let [began (System/nanoTime)
-              [outcome got] (read-answer door act-id)]
+        (let [[outcome got] (read-answer door act-id)]
           (cond
             (= :threw outcome) [:threw got]
             (some? got) [:answer got]
-            (and in-doubt (stock/kept-long-enough? in-doubt began span)) [:given-up]
             (passed? ends) [:nothing]
             (nap) (recur)
             :else [:nothing]))))))
-
-;; ----------------------------------------------------------------- the stocks
-
-(defn- enter!
-  "A call counts itself into the stock of [layer depot who], and makes the
-  stock when the door has none for them. One atomic step of the door's map.
-  Gives what the map holds for the stock: `:calls`, how many calls are
-  counted in; `:cell`, an atom of the stock's value
-  (`softland.store.door.stock`); `:seat`, the stock's seat.
-
-  The seat is what lets one call at a time ask for this stock: a semaphore
-  of one permit that gives the permit in the order of arrival, and that a
-  thread can stop waiting for at a time limit. A call that got in must come
-  out through `leave!`.
-
-  It can throw, and then the map is as it was and the call is not counted
-  in: the step compares the three with what the map holds, and a who can be
-  a thing that throws when it is compared. `locks-for` turns the throw into
-  a word. What must hold before the call: the three can be hashed. A small
-  map does not hash what it is given, so a who that cannot be hashed could
-  get in, and a later call of another who would meet the throw when the map
-  grows; `locks-for` tests the hash first."
-  [^Door door triple]
-  (get (swap! (.-stocks door)
-              (fn [stocks]
-                (if-let [held (get stocks triple)]
-                  (assoc stocks triple (update held :calls inc))
-                  (assoc stocks triple {:calls 1
-                                        :cell  (atom stock/nothing)
-                                        :seat  (Semaphore. 1 true)}))))
-       triple))
-
-(defn- leave!
-  "A call counts itself out of the stock of [layer depot who]. One atomic
-  step of the door's map. In that step, when no call is counted in any more
-  and the stock holds nothing at all
-  (`softland.store.door.stock/holds-nothing?`), the stock leaves the map:
-  it is the stock of a who whose every request was refused, and a maker
-  that sends value acts under whos that do not stand then grows no memory
-  in the door.
-
-  Whether the stock holds nothing is read inside the step, after the count
-  has come to none, and never before it. Only a call that is counted in can
-  change a stock. A call that read \"nothing\" first and counted itself out
-  later could take away a stock that another call had filled in between,
-  and its locks would be lost with no word and no count. A stock that holds
-  an open request stays, until a later call of the same layer, depot and
-  who reads that request or forgets it.
-
-  It never throws. The step looks the stock up by its layer, depot and who,
-  and a who can be a thing that throws when it is compared with another who
-  of the map, one that came in after it: two maps whose keys cannot be
-  compared with each other. The step is then not made: the call stays
-  counted in, and its stock stays in the door's memory. No lock is lost by
-  it."
-  [^Door door triple]
-  (try
-    (swap! (.-stocks door)
-           (fn [stocks]
-             (let [held (get stocks triple)
-                   calls (dec (:calls held))]
-               (if (and (zero? calls) (stock/holds-nothing? @(:cell held)))
-                 (dissoc stocks triple)
-                 (assoc stocks triple (assoc held :calls calls))))))
-    (catch Throwable _ nil))
-  nil)
-
-(defn- take!
-  "Takes the locks of one act from a stock's cell, by compare-and-set. Takes
-  the cell and a count, m. Gives the locks, a vector of m, or nil when the
-  stock holds fewer: all m leave the stock together, or none does. It never
-  waits and needs no seat, so two takes at once cannot give one lock twice,
-  and a call whose act the stock can serve never waits behind a call that
-  asks."
-  [cell m]
-  (loop []
-    (let [before @cell]
-      (when-let [[after locks] (stock/take-locks before m)]
-        (if (compare-and-set! cell before after)
-          locks
-          (recur))))))
-
-;; ------------------------------------------------------ the getting of locks
-
-(defn- waited-word
-  "The word `:get-locks-within-its-wait`. Takes the moment at which the
-  call's wait began, and the act-id of the open request that the call read
-  or sent and that stays open, or nil for none: a call that never got the
-  seat, or one that read an earlier call's request to its end."
-  [began request-act-id]
-  (words/word :get-locks-within-its-wait
-              (cond-> {:waited-ms (quot (unchecked-subtract (System/nanoTime) (long began)) 1000000)}
-                request-act-id (assoc :request request-act-id))))
-
-(defn- settle
-  "The call in the seat reads the stock's open request to its end. Takes the
-  door; the stock's cell; the open request, as the cell holds it; the depot
-  word; how many locks the call's act needs, m; the moment at which the
-  call's wait began and the moment at which it ends; and whether this call
-  sent the request itself. Gives one of:
-
-    {:locks the act's locks}   the request's locks were read and the act's
-                               own were taken, in one step
-    {:word a word}             the call ends; the request stays open as it
-                               was
-    {:ended :short}            the locks were read and are in the stock,
-                               which is still short of m; the request is
-                               ended
-    {:ended :no-accept :answer a}  the record's answer to the request is no
-                               accept, a refusal or an answer of another
-                               thing; the request is forgotten
-    {:ended :given-up}         the request was in doubt with no answer for
-                               long enough; it is forgotten
-
-  The order is the contract's: the answer by act-id, with its digest held
-  against the digest of the request as sent, and then the locks, each one
-  round trip. The stock keeps no answer that was read, so after a read of
-  locks that threw, the next call reads the answer again.
-
-  The first read of the answer comes at once, but for a request of a
-  microbatch layer that this call has just sent: its answer is readable
-  only when its batch is closed, so a read at once is a round trip that
-  can find nothing, and the first read comes after one interval.
-
-  No step is started after the call's wait has ended: not the first read of
-  the answer, when the append of the call's own request outlasted the wait,
-  and not the read of the locks. The request then stays open, as it was,
-  for the next call. So the call in the seat outlasts its wait by no more
-  than the one call of Rama's client that was on its way when the wait
-  ended. The words: `:read-its-requests-answer` when a read of the answer
-  threw; `:get-locks-within-its-wait` when the wait ended; and
-  `:read-its-requests-locks`, with the class of the throw and no message,
-  when the read of the locks threw."
-  [^Door door cell open depot m began ends own?]
-  (let [request-act-id (:act-id open)
-        in-doubt (when (= :in-doubt (:state open)) open)
-        [outcome got] (if (passed? ends)
-                        [:nothing]
-                        (read-answer-until door request-act-id ends
-                                           (and own? (= :microbatch depot))
-                                           in-doubt))]
-    (case outcome
-      :threw
-      {:word (words/word :read-its-requests-answer (assoc got :request request-act-id))}
-
-      :nothing
-      {:word (waited-word began request-act-id)}
-
-      :given-up
-      (do (swap! cell stock/without-request)
-          {:ended :given-up})
-
-      :answer
-      (let [answer (words/answer got (:digest open))]
-        (cond
-          (not= :accepted (:answer answer))
-          (do (swap! cell stock/without-request)
-              {:ended :no-accept :answer answer})
-
-          (passed? ends)
-          {:word (waited-word began request-act-id)}
-
-          :else
-          (let [[outcome got] (read-locks door request-act-id (:count open))]
-            (if (= :threw outcome)
-              {:word (words/word :read-its-requests-locks {:request request-act-id
-                                                           :threw (:threw got)})}
-              (loop []
-                (let [before @cell
-                      [after locks] (stock/with-locks-read before request-act-id got m)]
-                  (if (compare-and-set! cell before after)
-                    (if locks {:locks locks} {:ended :short})
-                    (recur)))))))))))
-
-(defn- ask
-  "The call in the seat sends its own request for locks, and reads it to its
-  end. Takes the door, the stock's cell, the reading of the maker's act, the
-  depot word, how many locks the act needs, and the two moments of the
-  call's wait. Gives {:locks the act's locks} or {:word a word}.
-
-  The request is an act (`softland.store.door.additions/request`): under
-  the maker's who and permission, in the act's layer, with an act-id of its
-  own in the depot of the act's act-id, asking for as many locks as the size
-  rule gives (`softland.store.door.stock/ask-for`). It is written into the
-  stock before it is appended, as in doubt. An append that returned makes it
-  sent. An append that threw leaves it in doubt from the moment of the
-  throw, and the call ends in `:append-its-request-cleanly`: the door sends
-  nothing a second time.
-
-  A maker is handed the refusal only of a request that its own call sent,
-  which is this one: `:have-its-request-accepted`, with the request's
-  act-id and the request's answer. The request carries the act's own who,
-  permission, session and version by the way that it is made. When the
-  request's locks were read and the stock is still short, locks of it
-  cannot seal, because it asked for as many as the act needs: the word is
-  `:read-its-requests-locks`, and no second request is sent."
-  [^Door door cell reading depot m began ends]
-  (let [request-act-id [(:layer reading) depot (UUID/randomUUID)]
-        n (stock/ask-for (.-numbers door) depot m (:given-out @cell))
-        request (additions/request reading request-act-id n)]
-    (swap! cell stock/with-request
-           {:act-id request-act-id :digest (digest/hex-of request) :count n}
-           (System/nanoTime))
-    (let [[outcome got] (append! door depot request)]
-      (if (= :threw outcome)
-        (do (swap! cell stock/request-in-doubt-since (System/nanoTime))
-            {:word (words/word :append-its-request-cleanly (assoc got :request request-act-id))})
-        (let [open (:open (swap! cell stock/request-sent))
-              settled (settle door cell open depot m began ends true)]
-          (case (:ended settled)
-            :short
-            {:word (words/word :read-its-requests-locks {:request request-act-id})}
-
-            :no-accept
-            {:word (words/word :have-its-request-accepted {:request request-act-id
-                                                           :request-answer (:answer settled)})}
-
-            settled))))))
-
-(defn- in-the-seat
-  "What the one call in a stock's seat does. Takes what `ask` takes. Gives
-  {:locks the act's locks} or {:word a word}.
-
-  First it takes again: the call that sat here before may have left locks.
-  Then, when the stock holds an open request that an earlier call left, it
-  reads that request to its end (`settle`). Then, when the stock is still
-  short, it sends its own request (`ask`). So one call reads one earlier
-  request at most and sends one request at most, and the four ways in which
-  an earlier request ends without giving this act its locks (refused,
-  another digest, too few locks, in doubt for long enough) all go on to the
-  call's own request. The refusal of an earlier call's request is handed to
-  nobody: that call was told at its own time what the door then knew.
-
-  A step is started only while the call's wait has not ended; when it has,
-  the word is `:get-locks-within-its-wait`. Where the wait ended after the
-  call had read an earlier call's request to its end and before it could
-  send its own, the word names no request: the earlier one is ended, and a
-  word names only a request that stays open."
-  [^Door door cell reading depot m began ends]
-  (if-let [locks (take! cell m)]
-    {:locks locks}
-    (let [earlier (:open @cell)
-          met (when earlier (settle door cell earlier depot m began ends false))]
-      (cond
-        (or (:locks met) (:word met))
-        met
-
-        (passed? ends)
-        {:word (waited-word began nil)}
-
-        :else
-        (ask door cell reading depot m began ends)))))
-
-(defn- locks-for
-  "Gets the locks of one act. Takes the door, the reading of the maker's
-  act, the depot word of the act's act-id, and how many locks the act
-  needs, m, 1 or more. Gives {:locks a vector of m} or {:word a word}.
-
-  The stock is the one of the act's `:layer`, the depot slot of its act-id
-  and its `:who`, each as given. A lock goes only to an act of that layer
-  and that who; a gate holds a lock to its layer and its depot, and not to
-  who asked for it, so the door alone holds this. With the depot in it, an
-  act under an act-id whose depot slot is not the layer's depot finds a
-  stock of its own, which is empty: its request goes to the same wrong
-  depot and is refused, and no lock of the right depot is lost.
-
-  `:who` may be anything. A who that is no id gets a stock that never
-  fills: a gate refuses its request; or, for a who that Rama's client
-  cannot turn into bytes, the request's append throws, no gate sees it, and
-  the stock keeps that request in doubt. A who of that kind that is equal
-  to no other thing, a plain Java object, leaves one such stock for each
-  call, for the life of the process. A `:who` that cannot be hashed, or
-  that throws when it is compared with a who that the door holds a stock
-  for, ends in `:read-the-act`.
-
-  Taking never waits. Only when a take comes back short does the call go
-  for the stock's seat, so the door asks for locks only at need, inside the
-  call of a maker whose act needs them, and one call at a time asks for one
-  stock. If each maker that found the stock short sent its own request, a
-  who that sends many acts into the base in the second that a request takes
-  there would send as many requests, and the stock would have no bound.
-
-  What a call does before it goes for the seat. It walks the parts of the
-  maker's act that a request for locks carries, once
-  (`softland.store.door.additions/reading`, `:carried`). The call in the
-  seat takes the digest of its request, and the request holds those parts
-  as given. A part that does not come back when it is read, a sequence with
-  no end, then holds its own maker's thread here, where no seat is taken,
-  and every other maker of that layer and who goes on getting locks. The
-  seat is held for the door's own steps and for calls of Rama's client, and
-  for nothing whose length a maker's thing sets. How far that reaches: the
-  walk shows that the parts came back once. A part that comes back at one
-  read and not at the next, an object whose read blocks on something
-  outside it, can still hold the seat, in the digest of the request or in
-  Rama's own writing of it.
-
-  How long a maker waits. One time limit for all of a call's getting of
-  locks: the door's `:request-wait-ms`, counted from the moment when the
-  first take came back short. Waiting for the seat, reading an earlier
-  call's request and waiting for its own request's answer all end at that
-  moment, with `:get-locks-within-its-wait`. How far the limit reaches: it
-  says when the door stops waiting for the seat and stops starting a step.
-  A call of Rama's client that is on its way then takes its own time, and
-  only the call in the seat can be in one. So a call that waits for the
-  seat ends at the limit, and the call in the seat can outlast it by the
-  one call of Rama's client that was on its way: an append, or a query. A
-  thread that is interrupted while it waits for the seat ends its wait as
-  if the time had passed, with its mark set again.
-
-  The seat is given up, and the call counts itself out of the stock, on
-  every way out."
-  [^Door door reading depot m]
-  (let [triple [(:layer reading) depot (:who reading)]
-        held (when (try (int? (hash triple)) (catch Throwable _ false))
-               (try (enter! door triple) (catch Throwable _ nil)))]
-    (if-not held
-      {:word (words/word :read-the-act {:at :who})}
-      (let [cell (:cell held)
-            ^Semaphore seat (:seat held)]
-        (try
-          (if-let [locks (take! cell m)]
-            {:locks locks}
-            (let [began (System/nanoTime)
-                  ends (after began (* 1000000 (long (:request-wait-ms (.-numbers door)))))
-                  _ (digest/digest (:carried reading))
-                  seated? (try (.tryAcquire seat (long (max 0 (left ends))) TimeUnit/NANOSECONDS)
-                               (catch InterruptedException _
-                                 (.interrupt (Thread/currentThread))
-                                 false))]
-              (if-not seated?
-                {:word (waited-word began nil)}
-                (try (in-the-seat door cell reading depot m began ends)
-                     (finally (.release seat))))))
-          (finally (leave! door triple)))))))
 
 ;; ------------------------------------------------------------------ the calls
 
 (defn open
   "Opens the door. Takes a cluster handle of Rama's and the name that Rama
-  gives the module `Store`; and, when the opener wants, a map of the door's
-  five numbers (`softland.store.door.stock/default-numbers` says what each
-  is, with its default and its reason). Gives a door, or the word
-  `:find-the-module` when the cluster gave no depot or no query of the
-  module under that name; no door is then opened.
+  gives the module `Store`; and, when the opener wants, a map with the
+  door's one number, `:read-every-ms`
+  (`softland.store.door.wait/default-numbers` says what it is, with its
+  default and its reason). Gives a door, or the word `:find-the-module`
+  when the cluster gave no depot or no query of the module under that name;
+  no door is then opened.
 
-  Five round trips, once for a process and on no act's way: one fetch of a
-  client for each of the two depots of acts and the three queries. The
+  Four round trips, once for a process and on no act's way: one fetch of a
+  client for each of the two depots of acts and the two queries. The
   module's third depot, of the clocks of batches, takes no act and is not
-  fetched. The door borrows
-  the handles and uses them from every maker's thread; the opener owns the
-  cluster handle, and nothing closes the door. A door starts with no stock.
+  fetched. The door borrows the handles and uses them from every maker's
+  thread; the opener owns the cluster handle, and nothing closes the door.
 
-  A process opens one door: two doors are two sets of stocks, and neither
-  uses the other's locks. Opening checks nothing of who opens it."
+  A door holds nothing that a call changes, so a process can open one door
+  or several, and each serves every maker alike. Opening checks nothing of
+  who opens it."
   ([cluster module-name] (open cluster module-name nil))
   ([cluster module-name numbers]
    (try
@@ -710,10 +334,8 @@
              (rama/foreign-depot cluster module-name "*streaming-depot")
              (rama/foreign-depot cluster module-name "*microbatch-depot")
              (rama/foreign-query cluster module-name "answer-by-act-id")
-             (rama/foreign-query cluster module-name "locks-of-request")
              (rama/foreign-query cluster module-name "depot-of-layer")
-             (stock/numbers numbers)
-             (atom {}))
+             (wait/numbers numbers))
      (catch Throwable t
        (words/word :find-the-module (assoc (what-threw t) :module module-name))))))
 
@@ -730,9 +352,8 @@
 
   One round trip, to the layer's task; none for a layer that is no id
   within the limit, which ends in `:make-an-act-id` at `:layer`. A read
-  that threw ends in `:read-the-layers-depot`. It neither reads nor changes
-  a stock. A maker that gives the act-id back to `send-act` pays no second
-  read there."
+  that threw ends in `:read-the-layers-depot`. A maker that gives the
+  act-id back to `send-act` pays no second read there."
   [^Door door layer]
   (if-not (record/depot-read layer)
     (words/word :make-an-act-id {:at :layer})
@@ -781,42 +402,36 @@
   returns, the door keeps nothing of what it sent; the maker holds the
   act-id and the digest.
 
-  The steps, in their order. A step that ends in a word ends the call.
-  Every test that needs no cluster comes before the first round trip, and
-  every step that can fail without a lock comes before the taking of locks,
-  because a lock that is taken never comes back.
+  The steps, in their order. A step that ends in a word ends the call, and
+  every test that needs no cluster comes before the first round trip.
 
-    1-4. The door reads the thing and walks its facts, with no round trip
-         (`softland.store.door.additions/reading`): `:read-the-act`,
-         `:add-its-parts`, `:make-an-act-id`, `:seal-a-value`,
-         `:seal-that-many-values`.
-    5.   The act-id. Given: used as it is, also when its depot slot is not
-         the layer's depot; the thing then goes to the depot that it names
-         and a gate refuses it there. Not given: one read of the layer's
-         depot, and a random uuid: `:read-the-layers-depot`.
-    6.   The locks, one for each value fact, from the stock of the act's
-         layer, the act-id's depot and the act's who (`locks-for`). When the
-         stock holds them, no round trip. When it does not, the door asks:
-         three round trips in a streaming layer, and in a microbatch layer
-         the time until the request's batch is closed. The five words about
-         a request.
-    7.   Each value is sealed with its lock to the place [layer entity key],
-         the thing is built, and its digest is taken: `:seal-a-value`.
-    8.   One append, to the depot that the act-id names. When it throws:
-         `:append-cleanly`, with the act-id and the digest, since the door
-         does not know whether the depot holds the thing. It is the one
-         word of which \"nothing was appended\" cannot be said. The door
-         sends nothing again; the maker reads the record.
+    1. The door reads the thing, with no round trip
+       (`softland.store.door.additions/reading`): `:read-the-act`,
+       `:add-its-parts`, `:make-an-act-id`.
+    2. The act-id. Given: used as it is, also when its depot slot is not
+       the layer's depot; the thing then goes to the depot that it names
+       and a gate refuses it there. Not given: one read of the layer's
+       depot, and a random uuid: `:read-the-layers-depot`.
+    3. The thing is built, the maker's map with `:act-id` and `:depot`
+       added, and its digest is taken by a walk that tells a throw
+       (`softland.store.door.digest/readable-hex-of`). A thing that throws
+       while it is read ends in `:read-the-act`, and nothing is appended.
+    4. One append, to the depot that the act-id names. When it throws:
+       `:append-cleanly`, with the act-id and the digest, since the door
+       does not know whether the depot holds the thing. It is the one
+       word of which \"nothing was appended\" cannot be said. The door
+       sends nothing again; the maker reads the record.
 
-  The door changes the act by its three additions and no more. It fills no
-  missing part, reorders no fact, and names no permission.
+  The door changes the act by its two additions and no more. It fills no
+  missing part, reorders no fact, makes no part a vector, gives no value a
+  normal form, and names no permission. So a second send of one act under
+  one act-id is the same thing, with the same digest; and a maker who gives
+  her facts as a list gets another digest than one who gives the same facts
+  as a vector, since the one text writes the two apart.
 
-  One faulty act has two outcomes, by the state of the stock. Take an act
-  with a value under a permission that does not stand. When its stock holds
-  locks, the act goes in, and its refusal is recorded under its act-id.
-  When its stock is empty, the door's request is refused: the word is
-  `:have-its-request-accepted`, and nothing is ever recorded under the
-  act's own act-id.
+  The door stops no act. An act that a gate will refuse, under a permission
+  that does not stand or into a layer that is not made, goes into its depot
+  like any other, and its refusal is recorded under its own act-id.
 
   The order of two sends. When the call returns, its append is over: it was
   acked or it threw. So two sends that one maker makes one after the other
@@ -825,23 +440,18 @@
   entities have no order in the depot: a maker that needs the first decided
   first reads its answer before it sends the second.
 
-  A second send of one act is another thing when the act has a value: other
-  locks and another random part, so another digest (`answer-of` says how a
-  maker reads that).
-
   The call runs on the maker's thread and holds it until it returns. A
   thread whose interrupt mark is set when a call of Rama's client is made
   gets that call's throw at once, as the word of that call, with its mark
   set again; such an append can have gone through.
 
-  Limits. Facts with no end that hold fewer than 257 value facts do not
-  come back, and neither does a thing that has no end in another part: an
-  entity, a who, a session, a permission, a part that the form does not
-  know. Such a call holds its maker's thread, and it holds no seat of a
-  stock while it does: no other maker waits for it (`locks-for`). It can
-  have taken its locks before it meets the part, and they do not come back.
-  The door has no bound on the count of facts as such; that count is a
-  gate's to judge."
+  Limits. A thing that has no end in any part does not come back: facts
+  with no end, an entity, a who, a session, a permission, a part that the
+  form does not know. The digest's walk goes through the whole thing, and
+  such a call holds its maker's thread there; it holds nothing of the door
+  that another maker waits for. The door has no bound on the count of
+  facts, on the size of a value or on how deep a thing goes: each is a
+  gate's to judge, of a thing that is on its depot by then."
   ([door act] (send-act door act nil))
   ([^Door door act act-id]
    (let [reading (additions/reading act act-id)]
@@ -856,17 +466,15 @@
                                     [:ok [layer got (UUID/randomUUID)]])))]
          (if (= :word outcome)
            act-id
-           (let [depot (nth act-id 1)
-                 m (:values reading)
-                 got (if (pos? m) (locks-for door reading depot m) {:locks []})]
-             (if (:word got)
-               (:word got)
-               (let [built (additions/thing-to-append reading act-id (:locks got))]
-                 (if (:could-not built)
-                   built
-                   (let [thing (:thing built)
-                         digest (digest/hex-of thing)
-                         [outcome threw] (append! door depot thing)]
+           (let [built (additions/thing-to-append reading act-id)]
+             (if (:could-not built)
+               built
+               (let [thing (:thing built)
+                     depot (nth act-id 1)
+                     digest (digest/readable-hex-of thing)]
+                 (if (nil? digest)
+                   (words/word :read-the-act nil)
+                   (let [[outcome threw] (append! door depot thing)]
                      (if (= :threw outcome)
                        (words/word :append-cleanly (assoc threw :act-id act-id :digest digest))
                        {:act-id act-id
@@ -890,9 +498,9 @@
                                               digest; nothing more is said
 
   The door compares two hex texts: it holds no thing to take a digest of.
-  The call needs nothing that the door remembers, so it gives the same for
-  an act-id and a digest that a maker kept from a process before. It reads
-  no stock and writes nothing.
+  The call needs nothing of the door but its handles, so it gives the same
+  for an act-id and a digest that a maker kept from a process before, or
+  got through another door. It writes nothing.
 
   \"Nothing yet\" does not mean refused, and it does not mean that nothing
   is on a depot. It is the answer in states that the door cannot tell
@@ -902,12 +510,12 @@
   is no act-id, for which the door makes no read at all and comes back at
   once.
 
-  A maker's own second send reads \"not mine\". The door keeps nothing, so
-  a second send of one act with a value is another thing. A maker that
-  sends again under one act-id holds each digest that it was given: at most
-  one of them reads an answer that is its own, and each other reads \"not
-  mine\". The door never makes one id twice; it does not refuse a second
-  send.
+  A maker's own second send reads its answer as her own. A second send of
+  one act under one act-id is the same thing, with the same digest
+  (`send-act`): a gate answers the act-id once, and both sends read that
+  one answer. \"Not mine\" is said only of a thing that differs from the
+  one that the answer is of. The door never makes one id twice; it does not
+  refuse a second send.
 
   The wait. It is one question about one act-id, the same for a streaming
   act-id and a microbatch one, and it offers no subscription. With no
@@ -930,25 +538,11 @@
    (if-not (record/answer-read-by-routing-id (record/routing-id act-id) act-id)
      (words/answer nil digest)
      (let [bound (if (and (number? bound-ms) (try (pos? bound-ms) (catch Throwable _ false)))
-                   (try (long (min bound-ms stock/longest-wait-ms)) (catch Throwable _ 0))
+                   (try (long (min bound-ms wait/longest-wait-ms)) (catch Throwable _ 0))
                    0)
            ends (after (System/nanoTime) (* 1000000 bound))
-           [outcome got] (read-answer-until door act-id ends false nil)]
+           [outcome got] (read-answer-until door act-id ends false)]
        (case outcome
          :threw (words/word :read-the-answer (assoc got :act-id act-id))
          :answer (words/answer got digest)
          (words/answer nil digest))))))
-
-(defn stock-count
-  "Says how many locks the door holds. Takes the door. Gives three numbers
-  (`softland.store.door.stock/count-of`): `:unused-locks`, the unused locks
-  in the door's stocks; `:stocks`, how many stocks hold at least one;
-  `:open-requests`, how many requests the door sent and has not read the
-  locks of. Numbers only, never a lock's bytes or an act-id.
-
-  The first number is what an end of the process now would leave in the
-  record as rows that seal nothing, beside the locks of the open requests
-  that a gate accepted. No round trip: it reads the door's memory, each
-  stock at its own moment."
-  [^Door door]
-  (stock/count-of (map (fn [held] @(:cell held)) (vals @(.-stocks door)))))

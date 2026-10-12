@@ -10,9 +10,10 @@ the client code that takes a maker's act into a depot and reads its answer back.
 And it holds the read path: the client code by which a fact comes back out to a
 caller, once or kept live.
 The pure code owns no state. The module's state, the depots, the records and the
-kept clock of a batch, is durable in the cluster that runs it. The door's state, its stocks of unused
-locks, is the memory of one process. So is the read path's: who looks at what,
-and the pushes that they share.
+kept clock of a batch, is durable in the cluster that runs it. The door owns no
+state: it borrows four handles of Rama's client and holds one number, fixed at
+its opening. The read path's state is the memory of one process: who looks at
+what, and the pushes that they share.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.

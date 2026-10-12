@@ -53,6 +53,13 @@
   floor for a round trip and says little of a seek on a disk. A real
   cluster, the base on one, a network and a second node are not measured.
 
+  What a time to the return of `send-act` holds. Each act of the measures
+  is sent with no act-id, so the door makes one. The call is then two round
+  trips and no more, for every act alike: one read of the layer's depot,
+  and one append of the act. In a streaming layer the append comes back
+  when the gate has run; in the base, when the depot holds the thing. The
+  door's proof holds those two counts; the measures count neither.
+
   State. The run starts one in-process cluster, launches the module `Store`
   in it and closes it at the end. It opens one door and two read paths, the
   second with a wait of 120 s for the openings of M3. It stands in for

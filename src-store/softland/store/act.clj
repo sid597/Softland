@@ -46,16 +46,16 @@
     allows        a permission id in its one form -> :see or :see-and-act
 
   State and effects. The namespace owns no state, and each function is pure.
-  Nothing here reads a clock, takes a random id, seals or opens a value,
-  appends, or reads a record.
+  Nothing here reads a clock, takes a random id, appends, or reads a
+  record.
 
   Callers. The proof of this namespace. `softland.store.door.declaration`: the
   door's declaration is a map of shapes in the language of `shapes`, with
   the entries of `shapes` in it, and `as-shape` gives it the engine that
   reads one; it reads `rules` too. `softland.store.door.text` asks
-  `readable-keyword?`. The proof's hand, which plays the door, asks
-  `normal-value`. The door's additions (`softland.store.door.additions`) ask
-  `value?` and `normal-value`. The standing of an act
+  `readable-keyword?`. The door's additions
+  (`softland.store.door.additions`) ask nothing of it but the shape of an
+  act-id, through the declaration. The standing of an act
   (`softland.store.gate.decision/standing`, which both gates call) asks
   `allows` of the permission that the act names, and the record's rows
   (`softland.store.record.rows`) ask `value?`, `normal-value` and
@@ -67,14 +67,13 @@
   that reads a shape; the check.
 
   Not here. Act-ids: the door makes them, on request ahead of sending. The
-  depot: the door adds it, from the layer. The seal: the door's, and a gate
-  refuses a value that is not sealed. The standing of a permission, and
+  depot: the door adds it, from the layer. The standing of a permission, and
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
   session and the digest of an act: the gates'. The microbatch hash entity:
   the depot derives it. The door is `softland.store.door`; the gate is in its
-  own namespaces beside this one. A stamp, an answer, locks, leases, a read and
-  the settings of a layer are not here either.
+  own namespaces beside this one. A stamp, an answer, leases, a read and the
+  settings of a layer are not here either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more
   facts that one maker sends under one act-id. An act-id is
@@ -105,7 +104,8 @@
 
 (def max-depth
   "How many collections a value can be inside. `value?` stops at this depth,
-  so no walk over a value goes deep."
+  so no walk over a value goes deep. `nesting` reads the same number for how
+  deep a permission can be."
   32)
 
 (def max-carried-stamp
@@ -113,10 +113,6 @@
   than each stamp that the act carries, so a carried stamp near the end of
   the long range would stop the clock of a task."
   (bit-shift-left 1 62))
-
-(def max-permission-depth
-  "How many permission ids one permission id can hold, itself counted."
-  4)
 
 ;; ------------------------------------------------------- the declared shape
 
@@ -197,9 +193,31 @@
    [:int {:min 0 :below max-carried-stamp}]})
 
 (def ^:private nesting
-  "How many times a named shape can be inside itself. A name that is not here
-  can be inside itself no times, so no shape goes round."
-  {:permission-id max-permission-depth})
+  "For a named shape, how many times it can be around one place, the place's
+  own counted. A name that is not here has the number 1: it can be inside
+  itself no times, so no shape goes round.
+
+  The one entry is the depth of a permission: how many permission ids one
+  permission id can hold, itself counted. A first permission has depth 1.
+  The engine adds one each time it enters the shape and refuses a thing
+  whose count is over the number, so the number is the greatest depth: 32. A
+  deeper permission is `:malformed`.
+
+  The number is the value's own, `max-depth`, on purpose. A permission is
+  held on two roads: as an act's own `:permission`, which this number
+  bounds, and as the value of a fact that gives a permission, which
+  `value?` bounds first. `value?` takes a collection with fewer than
+  `max-depth` collections around it, and the innermost vector of a
+  permission of depth d has d - 1 around it; so a given permission can have
+  depth 32 too, and the two roads agree because they read one number.
+
+  Not decided. How deep a permission can be is Sid's to say. Kept: as deep
+  as a value can be. This entry is the one place where another answer is
+  made. A smaller number ends both roads there. A greater one needs a
+  greater `max-depth` too, and must stay under 62: the one text of a thing
+  (`softland.store.door.text`) writes a given permission whole to depth 61
+  and no deeper."
+  {:permission-id max-depth})
 
 (def rules
   "What an act that has the shape must also keep, with the reason for each, in
@@ -534,9 +552,9 @@
   a retract. To parse the :ok of a parse gives the same :ok.
 
   It is the check of the maker's act: what a maker gives, before the door
-  adds an act-id and a depot and seals the values. An act that carries an
-  act-id or a depot, and a fact that carries a seal, a lock id, a layer or a
-  mark, are refused :unknown-part: the form names no such part.
+  adds an act-id and a depot. An act that carries an act-id or a depot, and
+  a fact that carries a part that the form does not name, are refused
+  :unknown-part.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
   rule about a session beyond its shape. It examines the shape of a

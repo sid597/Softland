@@ -4,7 +4,7 @@
   record: the record is in a gate's PStates
   (`softland.store.record.tables`), and a gate reads and writes it.
 
-  The record has four kinds of row, each under a string key that begins
+  The record has three kinds of row, each under a string key that begins
   with its layer, and one value for each task.
 
     an answer   key \"<layer> <act uuid>\"
@@ -12,13 +12,12 @@
                  :stamp   the stamp of the decision
                  :digest  32 bytes, the digest of the thing that was decided}
     a fact      key \"<layer> <entity> <key>\": the current fact of a place
-                {:value       the value, plain, as a String (`held-value`):
-                              the text itself of the value's plain bytes;
-                              for bytes that are no text, U+0000 and one
-                              character for each byte. The plain bytes are,
-                              for a fact under a plain key, what its lock
-                              opened; for a fact under a store key, the one
-                              text of its value. Absent for a retract
+                {:value       the value, plain, as a String: the one text of
+                              the value in its normal form
+                              (`softland.store.door.text`), as the
+                              declaration's check made it
+                              (`softland.store.door.declaration/check`).
+                              Absent for a retract
                  :by-act      the fact that wrote this row, as the uuid of
                  :by-index    its act and its index in that act
                  :stamp       the stamp of that act's decision
@@ -29,11 +28,6 @@
                               `:softland.store/marked-keys`: the one text of
                               a map from each marked key to the stamp since
                               which its order by value is level}
-    a lock      key \"<layer> <request uuid> <index, three digits>\"
-                {:bytes       the lock's bytes
-                 :way         the number of the way of sealing it is for
-                 :seals-act   the fact that it seals, once it seals one, as
-                 :seals-index the uuid of that fact's act and its index}
     a fact by value
                 key \"<layer> <key> <since> <value digest> <entity>\": one
                 place under a marked key, in the order of its value
@@ -44,19 +38,17 @@
   Every accepted fact is a row of the second kind, under a store key or a
   plain key: the depot of a layer at
   \"<layer> <layer> :softland.store/depot\", a permission at
-  \"<layer> <holder> :softland.store/permission\", a request for locks at
-  \"<layer> <act uuid> :softland.store/lock-request\", and at the layer's own
+  \"<layer> <holder> :softland.store/permission\", and at the layer's own
   entity who may see it, what it builds on and its marked keys. A value is
-  held as one String for its plain bytes, so the field has one class, a
-  push on the row is told each change of it, and \"is this the permission
-  that the act names\" is a comparison of two Strings that are equal only
-  when the bytes are. Only `held-value` and `plain-bytes` know the form of
-  that String. No row names a lock: the
-  lock of a value is found from the act in the depot, which holds each
-  fact's lock id, and from the lock's own row, which names the fact that it
-  seals.
+  held as one String, its one text, so the field has one class, a push on
+  the row is told each change of it, and \"is this the permission that the
+  act names\" is a comparison of two Strings that are equal only when the
+  values are. `plain-bytes` gives the plain bytes of a value, the UTF-8 of
+  that String, over which the digest of the order by value is taken. Why
+  the field is a String and no byte array is with its schema
+  (`softland.store.record.tables/facts`).
 
-  The fourth kind, the facts by value. A layer marks a key by a fact
+  The third kind, the facts by value. A layer marks a key by a fact
   (`softland.store.door.declaration/store-keys`). For a marked key a gate
   keeps each fact that has a value in this order too, so that every place
   that holds one value under one key is a run of neighbouring keys: the keys
@@ -74,26 +66,19 @@
   Where a row lives. The rows are the same for both gates; the task is not.
   A row of a streaming layer is on the layer's task. A row of a microbatch
   layer is on the task that one part of its key gives: an answer on the task
-  of the act's uuid, a fact on the task of its entity, a lock on the task of
-  its request's uuid, a fact by value on the task of its value digest
-  (`by-value-route`), so that the run of one value is on one task. A fact of
+  of the act's uuid, a fact on the task of its entity, a fact by value on
+  the task of its value digest (`by-value-route`), so that the run of one
+  value is on one task. A fact of
   a microbatch layer under `:softland.store/depot`,
   `:softland.store/permission`, `:softland.store/who-may-see`,
   `:softland.store/builds-on` or `:softland.store/marked-keys` is on every
   task. No row names a task.
 
-  One copy of a lock's bytes. In a streaming layer a lock has one row, and
-  the row keeps its bytes when it comes to seal a fact. In a microbatch
-  layer a lock that seals a fact has two rows under its one key: on the
-  task of the value's entity the whole row, with the bytes; and on the task
-  of its request's uuid the home's row, which holds the way and the fact
-  and no `:bytes` (`lock-row-without-bytes`). When the two tasks are one,
-  the one row is the whole row.
-
   Why the keys are strings. A key is a pair or a triple of ids, and an id is
   a keyword or a UUID: two classes. A string made of the parts' printed
   texts is one class, equal keys are equal strings, and Rama gives the order
-  of string keys, on which the range read of a request's locks rests. No
+  of string keys, on which the run of one value in the facts by value, and
+  each run of places that a read names, rest. No
   printed text of an id holds a space, so one space parts the parts. The
   layer and the depot of an id are in no row: the key says the layer, and
   the gate that owns the PState says the depot.
@@ -103,9 +88,30 @@
   throws in a topology, and a throw there stops the partition. So a gate
   writes no row that these functions did not make.
 
+  What a depot of answers holds. Each gate also appends what it decided to
+  a depot of its own: a log from which, with the depot of acts, the tables
+  can be made again. The form of what such a log holds is made here, for
+  both gates:
+
+    an answer's entry  {:act-id [layer depot uuid] :stamp :digest}, and
+                       `:refused` with the word for a refusal
+                       (`answer-record`): the answer's row with the act-id
+                       beside it, and no value of a fact
+    a stray's entry    {:stray the word, :digest the digest as hex text,
+                       :task the task on which it arrived}
+                       (`stray-record`), one for each arrival
+    a record           a map of entries: `:answers` and `:strays`, each a
+                       vector, each there only when it holds an entry
+                       (`log-record`). The microbatch gate adds what a
+                       batch keeps of itself (`softland.store.gate.batch`)
+
   Inputs and results, by group:
 
-    answer-key, place-key, lock-key, by-value-key      -> the text of a key
+    answer-key, place-key, by-value-key                -> the text of a key
+    answer-record, stray-record, log-record
+                                      an answer's row with its act-id, a
+                                      stray, or entries -> an entry, or a
+                                      record, of a depot of answers
     by-value-run                      a layer, a key, a stamp, a value
                                       -> the two ends of that value's run
     entity-run, own-rows-run, run-of-ends
@@ -113,31 +119,28 @@
                                       -> the two ends of a run of places
     before?                           two texts -> whether the first is
                                       before the second in the table's order
-    held-value, plain-bytes           the plain bytes of a value -> the
-                                      String that a fact's row holds, and
-                                      back
+    plain-bytes                       the String that a fact's row holds for
+                                      its value -> the value's plain bytes
     value-digest, value-digest-of     bytes, or a value -> 64 hex characters
-    place-of-key, by-value-entity, by-value-route, id-of-text
-                                      the text of a key -> its parts
-    answer-row, fact-row, with-level-since, by-value-row, lock-row,
-    lock-row-sealing, lock-row-without-bytes           -> a row to write
+    place-of-key, by-value-entity, by-value-route, id-of-text,
+    answer-key-parts                  the text of a key -> its parts
+    answer-row, fact-row, with-level-since, by-value-row
+                                      -> a row to write
     answer-of, written-by?, holds-value?, value-of, read-value,
     plain-bytes-of, who-of,
-    permission-of, marked-keys-of, seals-a-fact?, lock-of, locks-by-index,
-    locks-by-index-used-without-bytes, closed?         a row -> what it says
+    permission-of, marked-keys-of, closed?             a row -> what it says
     same-row?, holds-this-value?      a row, and a row or a value
                                       -> true or false
     routing-id                        an act-id -> the first argument of a
                                       read by that act-id
-    answer-read, lock-range-read, depot-read,
-    answer-read-by-routing-id, lock-range-read-by-routing-id
+    answer-read, depot-read, answer-read-by-routing-id
                                       what a caller gave a read
                                       -> the keys to read, or nil
 
   State and effects. None. Each function is pure.
 
-  Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the two gates,
-  and `softland.store.module.door-reads`. The door (`softland.store.door`) and
+  Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the
+  streaming gate, and `softland.store.module.door-reads`. The door (`softland.store.door`) and
   the proof's hand call `routing-id` and the `-read` functions to test what
   they pass before they call a query. `read-value`, `who-of`,
   `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,
@@ -160,8 +163,7 @@
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text])
-  (:import [java.nio ByteBuffer]
-           [java.nio.charset CharacterCodingException CodingErrorAction StandardCharsets]
+  (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest]
            [java.util Arrays UUID]))
 
@@ -184,17 +186,6 @@
   three is within the limit."
   [layer entity k]
   (str (declaration/id-text layer) " " (declaration/id-text entity) " " (declaration/id-text k)))
-
-(defn lock-key
-  "Takes a layer id, the uuid of a request's act-id and the index of a lock,
-  0 to 255. Gives the key of that lock:
-  \"<layer> <uuid> <index, three digits>\". Three digits, so that the order
-  of the keys is the order of the indexes and the locks of one request are
-  one range. It uses no locale."
-  [layer request-uuid index]
-  (let [digits (Long/toString (long index))]
-    (str (declaration/id-text layer) " " request-uuid " "
-         (subs "000" (min 3 (count digits))) digits)))
 
 ;; ------------------------------------------------------------------ answers
 
@@ -219,56 +210,66 @@
      :stamp   (:stamp row)
      :digest  (text/hex (:digest row))}))
 
+;; ---------------------------------------------- what a depot of answers holds
+
+(defn answer-record
+  "The entry of one answer in a gate's depot of answers. Takes the depot
+  word of the gate that gave the answer; the layer and the uuid of the
+  act-id under which the thing arrived; and the answer's row, as
+  `answer-row` makes it or as the gate read it. Gives
+  {:act-id [layer depot uuid] :stamp :digest}, and `:refused` with the word
+  when the row holds one: the answer's row with the act-id beside it, and
+  no value of a fact. The digest is the row's, 32 bytes. The act-id is held
+  as data and not as the text of the answer's key, so that a reader of the
+  log makes the key with the `answer-key` of its own day. A gate answers
+  only under an act-id of its own depot, so the gate's depot word is the
+  depot slot of the act-id. Of the row it reads `:stamp`, `:digest` and
+  `:refused`, and nothing else. It never throws. What must hold: the row is
+  an answer's row."
+  [gate-depot layer act-uuid row]
+  (cond-> {:act-id [layer gate-depot act-uuid]
+           :stamp  (:stamp row)
+           :digest (:digest row)}
+    (:refused row) (assoc :refused (:refused row))))
+
+(defn stray-record
+  "The entry of one arrival of a stray in a gate's depot of answers. Takes
+  the stray's word (`softland.store.door.declaration/stray-reason`); the
+  digest of the thing as hex text, as the set of that word holds it
+  (`softland.store.door.digest/hex-of`); and the number of the task on which
+  the stray arrived, which is the task of that set. Gives
+  {:stray :digest :task}, the task as a long. The task is in the entry
+  because the partition of a record need not be the task of the set: the
+  microbatch gate keeps a batch on one task. What must hold: the task is an
+  integer."
+  [word digest-hex task]
+  {:stray word :digest digest-hex :task (long task)})
+
+(defn log-record
+  "A record of a depot of answers: a map of entries. Takes answer records
+  (`answer-record`) and stray records (`stray-record`), each a sequence or
+  nil. Gives a map with `:answers`, a vector, when there is an answer
+  record, and `:strays`, a vector, when there is a stray record. A part
+  with nothing in it is absent, so the record of one answer is
+  {:answers [entry]} and the record of one stray {:strays [entry]}. The
+  streaming gate appends what this gives for one entry. The microbatch gate
+  adds what a batch keeps of itself
+  (`softland.store.gate.batch/records-of-closing`)."
+  [answer-records stray-records]
+  (cond-> {}
+    (seq answer-records) (assoc :answers (vec answer-records))
+    (seq stray-records) (assoc :strays (vec stray-records))))
+
 ;; -------------------------------------------------------------------- facts
 
-(defn held-value
-  "Takes the plain bytes of a value. Gives the String that a fact's row holds
-  for them, one of two forms:
-
-    the text itself   when the bytes are well-formed UTF-8 whose text does
-                      not begin with the character U+0000. Every value that
-                      came through the door is such: its bytes are the UTF-8
-                      of its one text
-    U+0000, then one character for each byte (ISO-8859-1)
-                      for any other bytes: bytes that are no text, and text
-                      that begins with U+0000
-
-  No well-formed text of the first form begins with U+0000, so the two forms
-  never meet, and `plain-bytes` gives back exactly the bytes that were
-  given: nothing is lost for bytes that are no text. Two runs of bytes have
-  one String only when they are the same bytes. This function and
-  `plain-bytes` are the one place that knows the form.
-
-  Why a String and no byte array. Rama's push on rows that hold a byte array
-  sent the whole value anew, about once a second, where the same rows with a
-  String got one change for each write; that was run on Rama 1.6.0
-  in-process, and its cause was not found. A reader that is kept live reads
-  these rows, so the row takes the class that a push can tell a change of.
-
-  Cost: one decoding of the bytes. It never throws."
-  [plain]
-  (let [^bytes plain plain
-        text (try
-               (str (.decode (doto (.newDecoder StandardCharsets/UTF_8)
-                               (.onMalformedInput CodingErrorAction/REPORT)
-                               (.onUnmappableCharacter CodingErrorAction/REPORT))
-                             (ByteBuffer/wrap plain)))
-               (catch CharacterCodingException _ nil))]
-    (if (and text (not (.startsWith ^String text "\u0000")))
-      text
-      (str "\u0000" (String. plain StandardCharsets/ISO_8859_1)))))
-
 (defn plain-bytes
-  "Takes the String that a fact's row holds as its value, as `held-value`
-  made it. Gives the plain bytes of the value, as a new array: the UTF-8 of
-  the text; or, for a String that begins with U+0000, one byte for each
-  character after it. What must hold: the String is `held-value`'s. Cost:
-  one encoding of the String."
+  "Takes the String that a fact's row holds as its value. Gives the plain
+  bytes of the value, as a new array: the UTF-8 of the String. In a row that
+  a gate wrote the String is the one text of the value in its normal form,
+  so these are the bytes of that text. What must hold: the thing is a
+  String. Cost: one encoding of the String."
   [held]
-  (let [^String held held]
-    (if (.startsWith held "\u0000")
-      (.getBytes (.substring held 1) StandardCharsets/ISO_8859_1)
-      (.getBytes held StandardCharsets/UTF_8))))
+  (.getBytes ^String held StandardCharsets/UTF_8))
 
 (defn plain-bytes-of
   "Takes a fact's row or nil. Gives the plain bytes of the row's value
@@ -279,30 +280,28 @@
     (plain-bytes held)))
 
 (defn fact-row
-  "Takes the act in its one form on arrival; one of its facts; the plain
-  bytes that the fact's lock opened, or nil for a fact that is not sealed;
-  the uuid of the act's act-id; the fact's index in the act; and the stamp
-  of the act's decision. Gives the row of the fact's place. Its `:value` is
-  a String, `held-value` of the value's plain bytes. A sealed fact: of the
-  bytes that its lock opened. A fact with a plain value, which is a fact
-  under a store key: of the bytes of the one text of the value, so the
-  String is that text. A fact with no value, a
-  retract: no value; the row is there all the same, so that a later fact can
+  "Takes one fact of an act, in the act's one form on arrival; the uuid of
+  the act's act-id; the fact's index in the act; the stamp of the act's
+  decision; the one text of the act's `:who`; and the one text of the
+  permission that the act named. Gives the row of the fact's place. Its
+  `:value` is the fact's `:text`, a String: the one text of the value in its
+  normal form, as the declaration's check made it
+  (`softland.store.door.declaration/check`), under a plain key and under a
+  store key alike. A fact with no value, a retract, has no `:text`: the row
+  holds no value, and is there all the same, so that a later fact can
   replace the retract. Each row holds who wrote it and the permission that
   the act named, each as its one text: a UUID has two texts, and the one
-  text reads back as a UUID. It names no lock.
+  text reads back as a UUID. The two texts are given, and not made here, so
+  that a caller makes them once for an act and not once for each fact.
 
-  What must hold: the act passed the declaration's check; for a sealed fact
-  the bytes are what its lock opened
-  (`softland.store.gate.decision/opened`)."
-  [act fact plain act-uuid index stamp]
+  What must hold: the act passed the declaration's check, and the two texts
+  are `softland.store.door.text/text` of its `:who` and of its
+  `:permission`."
+  [fact act-uuid index stamp who-text permission-text]
   (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)
-           :who (text/text (:who act)) :permission (text/text (:permission act))}
-    (some? plain)
-    (assoc :value (held-value plain))
-
-    (and (nil? plain) (some? (:v fact)))
-    (assoc :value (held-value (text/utf8 (:v fact))))))
+           :who who-text :permission permission-text}
+    (some? (:text fact))
+    (assoc :value (:text fact))))
 
 (defn with-level-since
   "Takes the row of a fact under `:softland.store/marked-keys`, as `fact-row`
@@ -330,15 +329,15 @@
 
 (defn holds-value?
   "Takes a fact's row or nil, and a value in its one normal form. Gives true
-  when the plain bytes of the row's value are the one text of that value.
-  It compares the row's String with `held-value` of that text's bytes, and
-  two runs of bytes have one String only when they are the same bytes; the
-  row's value is not read as a form. The gates ask it of the row at a
-  permission's place, where only a fact under that store key can be."
+  when the row's value is that value: it compares the row's String with the
+  one text of the value given, and two values of the form have one text
+  only when they are one value. The row's value is not read as a form. The
+  gates ask it of the row at a permission's place, where only a fact under
+  that store key can be. Cost: one making of the value's text."
   [row v]
   (boolean (and row
                 (some? (:value row))
-                (= (:value row) (held-value (text/utf8 v))))))
+                (= (:value row) (text/text v)))))
 
 (defn- first-form
   "Takes a string. Gives the first EDN form that it holds, or nil when it
@@ -372,11 +371,12 @@
   `[:value v]` only when the bytes read as one EDN form `v`, `v` is a value
   that a fact can hold (`softland.store.act/value?`), and the UTF-8 of the
   one text of its normal form is exactly the row's bytes: so nothing stands
-  after the form, and the value was written as the door writes one. A gate
-  keeps what a lock opened, whatever the bytes are, and does not check that
-  they are a value; a thing that was appended without the door can leave
-  bytes that earn the fourth. The bytes of the text `nil` read as the value
-  nil: the door never seals them, since a fact with no value is a retract.
+  after the form, and the row's String is the one text of the value. A gate
+  writes a fact's row only with the text that the declaration's check made
+  of a value of the form, so no write of a gate gives a row that earns the
+  fourth: that answer is for a row that came to the table by another hand.
+  The bytes of the text `nil` read as the value nil; no gate writes that
+  text, since a fact with no value is a retract and its row holds no value.
   It never throws."
   [row]
   (cond
@@ -437,7 +437,8 @@
   fact's row. Gives the value's
   text in the order by value: the SHA-256 of the bytes, as 64 lower-case hex
   characters. Every JVM has the algorithm. Cost: one hash over the bytes,
-  65,508 at most for a value that came sealed."
+  65,536 at most for a value that a gate accepted under a plain key
+  (`softland.store.door.declaration/max-value-bytes`)."
   [value-bytes]
   (text/hex (.digest (MessageDigest/getInstance "SHA-256") ^bytes value-bytes)))
 
@@ -494,15 +495,17 @@
   (nth (parts-of-key k) 3 nil))
 
 (defn by-value-row
-  "Takes the act in its one form on arrival, the uuid of its act-id, the
-  index of one of its facts and the stamp of the act's decision. Gives the
-  row of that fact in the facts by value: the fact's row without its value.
-  A read of a run then gets who wrote each place and under which permission
-  with no second read, and a fact that is written again with the same value
-  changes the row."
-  [act act-uuid index stamp]
+  "Takes the one text of an act's `:who`; the one text of the permission
+  that the act named; the uuid of the act's act-id; the index of one of its
+  facts; and the stamp of the act's decision. Gives the row of that fact in
+  the facts by value: the fact's row without its value. A read of a run
+  then gets who wrote each place and under which permission with no second
+  read, and a fact that is written again with the same value changes the
+  row. What must hold: the two texts are those that the fact's row holds
+  (`fact-row`)."
+  [who-text permission-text act-uuid index stamp]
   {:by-act act-uuid :by-index (long index) :stamp (long stamp)
-   :who (text/text (:who act)) :permission (text/text (:permission act))})
+   :who who-text :permission permission-text})
 
 (defn id-of-text
   "Takes the printed text of an id or of a fact's key
@@ -541,6 +544,22 @@
   (try
     (let [parts (parts-of-key k)]
       (when (= 5 (count parts)) (id-of-text (nth parts 4))))
+    (catch Throwable _ nil)))
+
+(defn answer-key-parts
+  "Takes a key of the answers, as `answer-key` makes it. Gives
+  [layer-text uuid]: the printed text of the layer, and the uuid of the
+  act-id as a UUID; nil for a text that is no such key. It never throws.
+  `id-of-text` of the first gives the layer back, a keyword or a UUID. The
+  microbatch gate holds an answer by these two, each of one class, until
+  its entry is appended (`softland.store.gate.batch/rows-to-keep`)."
+  [answer-key-text]
+  (try
+    (let [parts (parts-of-key answer-key-text)]
+      (when (and (= 2 (count parts)) (seq (nth parts 0)))
+        (let [uuid (UUID/fromString (nth parts 1))]
+          (when (= (nth parts 1) (str uuid))
+            [(nth parts 0) uuid]))))
     (catch Throwable _ nil)))
 
 ;; ------------------------------------------------ the runs that a read names
@@ -665,76 +684,17 @@
                   (= (value-digest (plain-bytes (:value row))) (value-digest-of v))))
     (catch Throwable _ false)))
 
-;; -------------------------------------------------------------------- locks
-
-(defn lock-row
-  "Takes a lock, {:bytes :way}, that seals nothing yet. Gives its row."
-  [lock]
-  {:bytes (:bytes lock) :way (long (:way lock))})
-
-(defn lock-row-sealing
-  "Takes a lock's row as it was read, and the fact that the lock now seals,
-  as the uuid of its act's act-id and its index. Gives the row to write
-  again: the bytes and the way as read, and the fact. The whole row is
-  given, so that the write needs no read."
-  [row act-uuid index]
-  {:bytes (:bytes row) :way (:way row) :seals-act act-uuid :seals-index (long index)})
-
-(defn lock-row-without-bytes
-  "Takes the row of a lock that now seals a fact, as `lock-row-sealing` gives
-  it. Gives the home's row of that lock in a microbatch layer: the way and
-  the fact, and no `:bytes`. The bytes are then in one row only, the whole
-  row beside the value. `seals-a-fact?` is true of it, so a second value
-  under the lock is refused before any bytes are asked of it."
-  [row]
-  {:way (:way row) :seals-act (:seals-act row) :seals-index (:seals-index row)})
-
-(defn seals-a-fact?
-  "Takes a lock's row. Gives true when the lock seals an accepted value."
-  [row]
-  (some? (:seals-act row)))
-
-(defn lock-of
-  "Takes a lock's row. Gives the lock as `softland.store.door.seal` takes one, and
-  as a caller of the read of locks gets one: {:bytes :way}."
-  [row]
-  {:bytes (:bytes row) :way (:way row)})
-
-(defn locks-by-index
-  "Takes rows of locks of one request, as a map or a sequence of pairs from a
-  lock's key to its row. Gives a plain map from each lock's index to the
-  lock, {:bytes :way}. The index is read from the last three characters of
-  the key."
-  [rows]
-  (into {}
-        (map (fn [[k row]]
-               [(Long/parseLong (subs k (- (count k) 3))) (lock-of row)]))
-        rows))
+;; ------------------------------------------------- a row of a closed batch
 
 (defn closed?
   "Takes a row that holds a stamp, an answer's or a fact's, or nil; and the
   `:closed-through` of the row's task, or nil. Gives true when the row is of
   a closed batch of the microbatch gate: its stamp is not later than
   `:closed-through`. False for no row, and before any batch is closed. The
-  door's three reads and the streaming gate's question about the base give
-  such a row of a microbatch layer only when this is true. A
-  lock's row holds no stamp; the read of locks holds its request's answer
-  to this test."
+  door's two reads and the streaming gate's question about the base give
+  such a row of a microbatch layer only when this is true."
   [row closed-through]
   (boolean (and row closed-through (<= (long (:stamp row)) (long closed-through)))))
-
-(defn locks-by-index-used-without-bytes
-  "Takes rows of locks of one request in a microbatch layer, as a map or a
-  sequence of pairs from a lock's key to its row. Gives what
-  `locks-by-index` gives, with one difference: a lock that seals a value is
-  given with its way and with nil for its bytes. On most tasks the home's
-  row of such a lock holds no bytes; where the lock's home is also the task
-  of its value, the one row holds them. The read leaves them out in both
-  cases, so that it gives the same on every cluster: the whole row of such a
-  lock, with its bytes, is on the task of its value."
-  [rows]
-  (locks-by-index
-   (map (fn [[k row]] [k (if (seals-a-fact? row) (lock-row-without-bytes row) row)]) rows)))
 
 ;; ------------------------------------------- what a caller gave a read
 
@@ -749,25 +709,6 @@
              (declaration/act-id-in-layer? layer act-id))
     [(nth act-id 1) (answer-key layer (nth act-id 2))]))
 
-(defn lock-range-read
-  "The test at the head of the read of a request's locks. Takes what a caller
-  gave: a layer, the act-id of a request, and the first and the last index
-  wanted. Gives [depot from-key to-key], both keys in the range; or nil when
-  no read is to be made: the layer or the act-id is not usable, as in
-  `answer-read`, an index is no integer, or the range holds no index. The
-  range is cut to 0 to 255, so one read iterates 256 rows at most. It never
-  throws."
-  [layer request-act-id from to]
-  (when (and (declaration/usable-id? layer)
-             (declaration/act-id-in-layer? layer request-act-id)
-             (int? from)
-             (int? to))
-    (let [from (max 0 (long from))
-          to (min (dec declaration/max-locks-in-request) (long to))
-          uuid (nth request-act-id 2)]
-      (when (<= from to)
-        [(nth request-act-id 1) (lock-key layer uuid from) (lock-key layer uuid to)]))))
-
 (defn depot-read
   "The test at the head of the read of a layer's depot. Takes what a caller
   gave as a layer. Gives the key of the layer's depot fact, the place of the
@@ -779,10 +720,9 @@
 
 (defn routing-id
   "Takes an act-id. Gives its routing id, the first argument of the read by
-  act-id and of the read of a request's locks: the layer of a streaming
-  act-id, the uuid of a microbatch act-id. Rama's client hashes it, so the
-  read goes straight to the task where the answer is. Gives nil for a thing
-  that is no act-id. It never throws."
+  act-id: the layer of a streaming act-id, the uuid of a microbatch act-id.
+  Rama's client hashes it, so the read goes straight to the task where the
+  answer is. Gives nil for a thing that is no act-id. It never throws."
   [act-id]
   (when (and (vector? act-id)
              (declaration/act-id-in-layer? (nth act-id 0 nil) act-id))
@@ -798,15 +738,3 @@
   (let [own (routing-id act-id)]
     (when (and (some? own) (= own given))
       (answer-read (nth act-id 0) act-id))))
-
-(defn lock-range-read-by-routing-id
-  "The test at the head of the query of a request's locks. Takes what a
-  caller gave: a routing id, the act-id of a request, and the first and the
-  last index wanted. Gives what `lock-range-read` gives for the act-id and
-  its own layer slot, [depot from-key to-key]; or nil when no read is to be
-  made, as in `answer-read-by-routing-id` and `lock-range-read`. It never
-  throws."
-  [given request-act-id from to]
-  (let [own (routing-id request-act-id)]
-    (when (and (some? own) (= own given))
-      (lock-range-read (nth request-act-id 0) request-act-id from to))))

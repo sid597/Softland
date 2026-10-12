@@ -9,8 +9,8 @@
   is not zero when a check fails.
 
   The form that it checks is the maker's act, with plain values, as the
-  decisions of 6 October 2026 give it (src-store/README.md). The proof seals
-  nothing, makes no act-id and opens nothing.
+  decisions of 6 October 2026 give it (src-store/README.md). The proof makes
+  no act-id and opens nothing.
 
   Approach. Each check is a case: what it is about, a function of no
   argument that calls the act's code, and what that function must give.
@@ -187,9 +187,12 @@
     (fn [] act/reasons)
     #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
       :permission-not-in-layer}]
-   ["the version that this code knows, and the four limits: subjects, collections, a carried stamp, the depth of a permission"
-    (fn [] [act/version act/max-subjects act/max-depth act/max-carried-stamp act/max-permission-depth])
-    [1 256 32 (bit-shift-left 1 62) 4]]])
+   ["the version that this code knows, and the three limits: subjects, collections, a carried stamp"
+    (fn [] [act/version act/max-subjects act/max-depth act/max-carried-stamp])
+    [1 256 32 (bit-shift-left 1 62)]]
+   ["the one shape with a number of its own for how often it may hold itself is a permission id, and its number is the value's: 32"
+    (fn [] [@#'act/nesting (= act/max-depth (:permission-id @#'act/nesting))])
+    [{:permission-id 32} true]]])
 
 (def ^:private whole
   "An act with each optional part. It is built with subvectors, narrow
@@ -432,12 +435,13 @@
    ["a carried stamp of 2^62 - 1" (assoc good :based-on {[earlier-act-id 0] (dec act/max-carried-stamp)}) :ok]
    ["a carried stamp of 2^62" (assoc good :based-on {[earlier-act-id 0] act/max-carried-stamp}) :malformed]
    ["a carried stamp below zero" (assoc good :based-on {[earlier-act-id 0] -5}) :malformed]
-   ["a permission four deep" (assoc good :permission (deep-permission 4)) :ok]
-   ["a permission five deep" (assoc good :permission (deep-permission 5)) :malformed]
-   ["a permission four deep that says what it allows: the slot is a word, and counts for no depth"
-    (assoc good :permission [:alice :alice :alice (deep-permission 3) :see]) :ok]
-   ["a permission five deep that says what it allows"
-    (assoc good :permission [:alice :alice :alice (deep-permission 4) :see]) :malformed]])
+   ["a permission five deep" (assoc good :permission (deep-permission 5)) :ok]
+   ["a permission 32 deep" (assoc good :permission (deep-permission 32)) :ok]
+   ["a permission 33 deep" (assoc good :permission (deep-permission 33)) :malformed]
+   ["a permission 32 deep that says what it allows: the slot is a word, and counts for no depth"
+    (assoc good :permission [:alice :alice :alice (deep-permission 31) :see]) :ok]
+   ["a permission 33 deep that says what it allows"
+    (assoc good :permission [:alice :alice :alice (deep-permission 32) :see]) :malformed]])
 
 (def ^:private limit-cases "The limit rows as cases." (verdicts limit-rows))
 
@@ -502,11 +506,11 @@
                        [[earlier-act-id 0] [earlier-act-id (int 3)] [earlier-act-id -1] [earlier-act-id 1N]
                         (list earlier-act-id 0) [:alice 0]]))
           [true true false false false false]]
-         ["permission ids: three ids, UUIDs too; with a parent; four deep; not two items, not a list, not five deep"
+         ["permission ids: three ids, UUIDs too; with a parent; five deep; 32 deep; not two items, not a list, not 33 deep"
           (fn [] (mapv #(act/has-shape? :permission-id %)
-                       [alice-own [(uuid 1) (uuid 2) (uuid 2)] (deep-permission 2) (deep-permission 4)
-                        [:alice :alice] '(:alice :alice :alice) (deep-permission 5)]))
-          [true true true true false false false]]
+                       [alice-own [(uuid 1) (uuid 2) (uuid 2)] (deep-permission 2) (deep-permission 5)
+                        (deep-permission 32) [:alice :alice] '(:alice :alice :alice) (deep-permission 33)]))
+          [true true true true true false false false]]
          ["permission ids with the slot that says what one allows: see; see and act; above a permission that has the slot too; not a third word, not a word in the fourth slot, not six items"
           (fn [] (mapv #(act/has-shape? :permission-id %)
                        [[:bob :alice :alice alice-own :see]
@@ -531,7 +535,8 @@
   (shown "the rule:" (pr-str act/rules))
   (shown "read from the declarations:" (count act/act-parts) "parts on an act," (count act/fact-parts)
          "on a fact," (count act/reasons) "reason words | version" act/version
-         "| limits:" (pr-str [act/max-subjects act/max-depth act/max-carried-stamp act/max-permission-depth])))
+         "| limits:" (pr-str [act/max-subjects act/max-depth act/max-carried-stamp])
+         "| how often a shape may hold itself:" (pr-str @#'act/nesting)))
 
 (deftest the-declaration-drives-the-check
   ;; These checks read the declaration and then ask the check, so they hold

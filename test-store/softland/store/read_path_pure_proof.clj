@@ -114,16 +114,17 @@
 (def ^:private fact-row*
   "Makes the row of a fact as a gate would keep it, and remembers it. Takes
   the layer, who wrote it, the entity, the key, the value (nil for a
-  retract) and the stamp. A fact under a store key keeps the one text of
-  its value; any other value is kept as the String of the plain bytes that
-  its lock would open (`softland.store.record.rows/held-value`)."
+  retract) and the stamp. The fact is given to
+  `softland.store.record.rows/fact-row` in its one form on arrival: with the
+  one text of its value in its normal form, which the row keeps, and with
+  the value itself under a store key alone. The row holds the texts of who
+  wrote it and of a first permission of that who in the layer."
   (memoize
    (fn [layer who e k v stamp]
-     (let [act {:who who :permission [who layer layer]}
-           uuid (UUID. 0 (long stamp))]
-       (if (or (declaration/store-key? k) (nil? v))
-         (rows/fact-row act {:e e :k k :v v} nil uuid 0 stamp)
-         (rows/fact-row act {:e e :k k :v nil} (text/utf8 (act/normal-value v)) uuid 0 stamp))))))
+     (let [fact {:e e :k k :replaces nil
+                 :v (when (declaration/store-key? k) v)
+                 :text (when (some? v) (text/text (act/normal-value v)))}]
+       (rows/fact-row fact (UUID. 0 (long stamp)) 0 stamp (text/text who) (text/text [who layer layer]))))))
 
 (def ^:private marks-row*
   "Makes the row of a layer's marked keys, with the stamp since which each
@@ -138,7 +139,7 @@
   "Makes the row of a fact in the order by value, and remembers it."
   (memoize
    (fn [layer who stamp]
-     (rows/by-value-row {:who who :permission [who layer layer]} (UUID. 0 (long stamp)) 0 stamp))))
+     (rows/by-value-row (text/text who) (text/text [who layer layer]) (UUID. 0 (long stamp)) 0 stamp))))
 
 (defn- put
   "Puts a row under a key of one table."
@@ -986,7 +987,7 @@
            [{} {} [:l1 :canvas-1 12]]
            [(:places (nearer :canvas-2)) (:places (nearer nil))
             ((juxt :layer :value :stamp) (get (:places (nearer :canvas-1)) [:p :parent]))])
-    (check "a row holds a thing exactly when its bytes are those of the thing's one text: a UUID, a string with spaces, a decimal with trailing zeros; not another thing, not a retract, not no row, not bytes that are no value"
+    (check "a row holds a thing exactly when its String is the thing's one text: a UUID, a string with spaces, a decimal with trailing zeros; not another thing, not a retract, not no row, not a String that is no value of the form, in a row that the proof writes by hand"
            [true true true false false false false]
            [(rows/holds-this-value? (row uuid) uuid)
             (rows/holds-this-value? (row "a thing with spaces") "a thing with spaces")
@@ -994,7 +995,7 @@
             (rows/holds-this-value? (row uuid) (str uuid))
             (rows/holds-this-value? (row nil) :canvas-1)
             (rows/holds-this-value? nil :canvas-1)
-            (rows/holds-this-value? {:value (rows/held-value (.getBytes "(not a value")) :stamp 1} :canvas-1)])
+            (rows/holds-this-value? {:value "(not a value" :stamp 1} :canvas-1)])
     (shown "the checks of nearer layers: one in each layer nearer than the nearest order that holds a place, and in no other; none in a layer between two orders that both hold it; with the one function put aside the runs are joined; past the build's number none is wanted and the read is too large")
     (shown "the nearest row wins, and the place is given from it exactly when it holds the thing: a nearer row with another thing, or a retract, hides the place; a nearer row with the asked thing gives it, from the nearer layer")))
 
@@ -1004,14 +1005,14 @@
                         [:fact :team :bob :note-9 :text "only the team" 713]
                         [:fact :base :system :note-9 :size 9 330]])
         tables (put tables :microbatch :facts (rows/place-key :base :note-9 :raw)
-                    {:value (rows/held-value (.getBytes "(not a value")) :by-act (UUID. 0 9) :by-index 0 :stamp 331
+                    {:value "(not a value" :by-act (UUID. 0 9) :by-index 0 :stamp 331
                      :who ":system" :permission "[:system :base :base]"})
         ask (fn [who asks layers & more]
               (:answer (play-once tables (q (merge {:asks asks :layers layers} (if who {:asker who} {:not-signed-in true})
                                                    (apply hash-map more))))))
         place (fn [& args] (:place (apply ask args)))
         uuid (fn [stamp] (UUID. 0 (long stamp)))]
-    (check "the four things that a place can hold, told apart: no fact; nothing here; a value as its maker gave it; bytes that are no value"
+    (check "the four things that a place can hold, told apart: no fact; nothing here; a value as its maker gave it; a String that is no value of the form, in a row that the proof puts in the table by hand, since no write of a gate gives one"
            [{:holds :no-fact}
             {:holds :nothing-here :layer :alice-notes :fact [[:alice-notes :streaming (uuid 20)] 0] :stamp 20}
             {:holds :value :value "from the base" :layer :base :fact [[:base :microbatch (uuid 310)] 0] :stamp 310}
@@ -1169,8 +1170,8 @@
 (deftest the-size-of-a-run-and-the-order-of-its-keys
   (let [small (assoc numbers :max-places-of-one-run 20000)
         row (fn [held stamp] {:value held :by-act (UUID. 0 1) :by-index 0 :stamp stamp :who ":a" :permission "[:a :l :l]"})
-        a (rows/held-value (.getBytes "\"one\""))
-        b (rows/held-value (.getBytes "\"one\""))
+        a (String. "\"one\"")
+        b (String. "\"one\"")
         run {:gate :streaming :table :facts :layer :l :routing-id :l :path [:run ":l :e " ":l :e!"]}
         one-row {:gate :streaming :table :facts :layer :l :routing-id :l :path [:row ":l :e :k"]}]
     (check "the size of a run, from a bounded walk: a full walk whose last key is before the run's end is too large; a full walk that ran on past the run's end is not; a walk that is not full is not; a walk that holds nothing is not"
@@ -1204,7 +1205,7 @@
     (check "two rows are the same when each field is equal: a value that is an equal String and not one object; nil and nil; a row and nil; rows that differ in one field; a field that one row has not; no field of a row is a byte array"
            [true false true false false false false true]
            [(rows/same-row? (row a 5) (row b 5)) (identical? a b) (rows/same-row? nil nil) (rows/same-row? (row a 5) nil)
-            (rows/same-row? (row a 5) (row a 6)) (rows/same-row? (row a 5) (row (rows/held-value (.getBytes "\"two\"")) 5))
+            (rows/same-row? (row a 5) (row a 6)) (rows/same-row? (row a 5) (row "\"two\"" 5))
             (rows/same-row? (row a 5) (dissoc (row a 5) :value))
             (not-any? bytes? (vals (row a 5)))])
     (check "which keys a change names: a row that is the same before and after is dropped, also the row that a second attempt wrote again; the removal of a place that the run never held is no change"
