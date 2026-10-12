@@ -2,15 +2,20 @@
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-base-for-a-reader.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-read-path.md
 
 (ns softland.store.module
-  "The Rama module `Store`: its two depots, and the calls that add the two
-  gates and the reads. It requires Rama.
+  "The Rama module `Store`: its two depots of acts and its depot of batch
+  clocks, and the calls that add the two gates, the topology that keeps a
+  batch's clock, and the reads. It requires Rama.
 
   What a client of the module opens, by name:
 
     *streaming-depot      the depot to append a thing for a streaming layer
     *microbatch-depot     the depot to append a thing for a microbatch layer
+    *batch-clock-depot    the depot of batch clocks. No client can append to
+                          it; a client can read its log
     answer-by-act-id      the query: the recorded answer under an act-id
     locks-of-request      the query: the locks that a request made
     depot-of-layer        the query: the depot of a layer
@@ -22,20 +27,51 @@
     $$microbatch-task     the same for the microbatch gate. A stray of that
                           gate is kept on the task where the depot put it,
                           so an operator reads each task
+    $$batch-clock         the clock that is kept for the newest batch of the
+                          microbatch gate that had things to decide, for an
+                          operator: select (keypath :microbatch), which
+                          also routes the select to the gate's task
+    $$streaming-facts     the current facts of the streaming layers, for
+                          the read path (`softland.store.read-path`):
+                          select and push, with a partitioning key
+    $$microbatch-facts    the same for the microbatch layers
+    $$streaming-facts-by-value
+                          the facts of the streaming layers in the order of
+                          their values, for the read path: select and push,
+                          with a partitioning key
+    $$microbatch-facts-by-value
+                          the same for the microbatch layers
 
   The name of the module, for a client, is `(get-module-name Store)`.
 
-  State. The module owns the two depots. Each gate owns the PStates of its
+  State. The module owns the three depots. Each gate owns the PStates of its
   record: the streaming gate (`softland.store.module.streaming-gate`) those of the
   streaming layers, the microbatch gate (`softland.store.module.microbatch-gate`)
-  those of the microbatch layers. The queries (`softland.store.module.door-reads`)
-  own nothing.
+  those of the microbatch layers. The topology that keeps a batch's clock
+  (`softland.store.module.batch-clock`) owns `$$batch-clock`. The queries
+  (`softland.store.module.door-reads`) own nothing.
 
-  Each depot holds every thing sent for a layer whose depot it is, as it was
-  sent, and it is the replay log of those layers. Neither is ever trimmed:
-  the module sets no trimming option, and Rama keeps every record by
-  default. So nothing secret goes on a depot: a request for locks carries a
-  count, and no code of the module appends a lock's bytes.
+  Each depot of acts holds every thing sent for a layer whose depot it is,
+  as it was sent, and it is the replay log of those layers. No depot is ever
+  trimmed: the module sets no trimming option, and Rama keeps every record
+  by default. So nothing secret goes on a depot: a request for locks carries
+  a count, and no code of the module appends a lock's bytes.
+
+  The depot of batch clocks takes no act, and no gate decides from it: the
+  depots of acts are two, one for each gate. It is declared :disallow, so no
+  client can append to it. One place of the module's code appends: step 2 of
+  the microbatch gate, on the gate's task, in an attempt of a batch with
+  things to decide that finds no clock kept for its batch. A record is
+  {:batch :clock}: the microbatch id of the run, and a reading of the clock
+  in milliseconds. So the depot holds one record for each batch that had
+  things, and one more for each later attempt of a batch that found no
+  clock kept. An append from a topology goes to the partition of the task
+  that the code is on, so every record is on the one partition of the gate's
+  task. The log is what Rama does not set back when an attempt of a batch
+  fails; the topology `batch-clock` reads it and keeps the newest batch's
+  clock in one row. Nothing reads its old records. It is never trimmed, as
+  the depots of acts are not; whether a log of the store is ever trimmed is
+  Sid's.
 
   The streaming depot partitions by the hash of the thing's `:layer`. The
   acts of one layer depend on each other's order (a give and the first act
@@ -70,6 +106,7 @@
   the sender reads the answer by act-id until one is there."
   (:require [com.rpl.rama :refer :all]
             [softland.store.gate.batch :as batch]
+            [softland.store.module.batch-clock :as batch-clock]
             [softland.store.module.door-reads :as door-reads]
             [softland.store.module.microbatch-gate :as microbatch-gate]
             [softland.store.module.streaming-gate :as streaming-gate]))
@@ -77,6 +114,8 @@
 (defmodule Store [setup topologies]
   (declare-depot setup *streaming-depot (hash-by :layer))
   (declare-depot setup *microbatch-depot (hash-by batch/first-entity))
+  (declare-depot setup *batch-clock-depot :disallow)
   (streaming-gate/add-to topologies)
+  (batch-clock/add-to topologies)
   (microbatch-gate/add-to topologies)
   (door-reads/add-to topologies))

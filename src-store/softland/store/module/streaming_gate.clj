@@ -1,6 +1,7 @@
 ;; Before changing this file, read the plans of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-base-for-a-reader.md
 
 (ns softland.store.module.streaming-gate
   "The streaming gate: the stream topology that decides each thing of the
@@ -147,8 +148,12 @@
   gate, or nil. Gives whether the other gate's record holds the layer: true
   for a row that is there and is of a closed batch
   (`softland.store.record.rows/closed?`). A row of a batch that is not closed
-  does not count: Rama can run that batch again, and it could then refuse
-  the making. The gate asks only when its own record holds nothing for the
+  does not count. Rama can run that batch again, and the row would be the
+  same on a second attempt: both take the batch's kept clock. The question
+  stays held to closing so that this gate and the read `depot-of-layer` say
+  the same of the base at one moment: if this gate counted the base as made
+  one run earlier, a door could read a refusal that says the layer is made
+  while its own read still says that it is not. The gate asks only when its own record holds nothing for the
   layer and the layer starts with the other gate's depot. An act into such
   a layer is refused :layer-belongs-to-the-other-gate once the layer is
   made, and :layer-not-made before."

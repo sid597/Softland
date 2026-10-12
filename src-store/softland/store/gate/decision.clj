@@ -90,8 +90,10 @@
 ;; -------------------------------------------------------------------- early
 
 (defn refused-early
-  "The checks that read nothing of the record. Takes the gate's clock now, in
-  milliseconds; and what `softland.store.door.declaration/check` gave for the
+  "The checks that read nothing of the record. Takes the gate's clock, in
+  milliseconds: the streaming gate's reading for the decision, or the
+  microbatch gate's clock of the batch, which is the same on every attempt
+  of the batch; and what `softland.store.door.declaration/check` gave for the
   thing, as its two parts: the act, or nil, and the declaration's reason
   word, or nil. Gives the declaration's word when there is one; or
   :carried-stamp-too-far-ahead when a stamp that the act carries is more

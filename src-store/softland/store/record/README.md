@@ -13,8 +13,8 @@ and they are owned in [module/](../module/README.md).
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the run of one value in the facts by value and the digest that its keys hold, the routing id of an act-id, and the test of what a caller gave a read. Pure code; it loads with Clojure alone. | None. It holds no record. |
-| [tables.clj](tables.clj) | The record as PStates: the schemas, written once, and what each gate keeps for a task. It requires Rama. | None. It declares nothing. |
+| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the run of one value in the facts by value and the digest that its keys hold, the routing id of an act-id, and the test of what a caller gave a read. And what only a reader of the tables needs: the two ends of a run of places, the order in which a table keeps its keys, and two tests of one row against another row or a value. Pure code; it loads with Clojure alone. | None. It holds no record. |
+| [tables.clj](tables.clj) | The record as PStates: the schemas, written once, and what each gate keeps for a task. And one schema that is no part of a record: the kept clock of the newest batch of the microbatch gate. It requires Rama. | None. It declares nothing. |
 
 ## How the files relate
 
@@ -22,7 +22,9 @@ and they are owned in [module/](../module/README.md).
 gives the schemas, which take exactly the classes that those rows hold. A row of
 another class throws at the write, and a throw in a topology stops its
 partition; so a gate writes no row that [rows.clj](rows.clj) did not make.
-Neither file requires the other.
+The row of the kept clock is not a gate's: it is two numbers, made in
+[gate/](../gate/README.md) and written by the topology that keeps it, in
+[module/](../module/README.md). Neither file requires the other.
 
 ## What it borrows
 

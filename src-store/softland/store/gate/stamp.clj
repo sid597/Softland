@@ -1,7 +1,9 @@
 (ns softland.store.gate.stamp
   "The stamp: one integer that holds the clock time and a counter. Pure code.
-  It needs no cluster, and it reads no clock: the gate reads the clock once
-  for a decision and gives the number.
+  It needs no cluster, and it reads no clock: a gate gives the number. The
+  streaming gate gives its one reading of the clock for the decision. The
+  microbatch gate gives the batch's clock, the one that is kept for the
+  batch, so an attempt that finds it kept reads none.
 
   A gate gives one stamp to each decision, accepted or refused. A stamp is
   strictly increasing on its task, later than each stamp that the act

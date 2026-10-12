@@ -2,6 +2,8 @@
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-base-for-a-reader.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-read-path.md
 
 (ns softland.store.module.door-reads
   "The three query topologies by which the door reads the module, for layers
@@ -41,8 +43,12 @@
   What a read of a microbatch layer gives. An answer's row or a fact's row
   only when it is of a closed batch: its stamp is not later than the
   `:closed-through` of its task (`softland.store.record.rows/closed?`). Rama can
-  run a batch again after one task has shown its part, with another clock
-  and other lock bytes; a closed batch cannot run again. So an answer, a
+  run a batch again after one task has shown its part, with other lock
+  bytes, and with the other of two words for an act into a layer of the
+  other gate; a closed batch cannot run again. A stamp and a layer's depot
+  would be the same on a second attempt, since each attempt takes the
+  batch's kept clock; the three reads are held to closing all the same, as
+  one rule. So an answer, a
   layer's depot or a lock's bytes that a read gave never changes. A lock's
   row holds no stamp: the read of locks holds the stamp of the request's
   answer, which is on the same task, and gives locks only for an accepted
@@ -72,10 +78,13 @@
   same functions before it calls.
 
   Any client of the cluster can read a lock's bytes. In the runtime the door
-  (`softland.store.door`) is the one client; it reads only the locks of its
-  own requests and gives a maker no lock. A guard of the record is not
-  built (?11 is open). The PStates are not declared private, so a select of
-  one from outside is a second way to a row, and that way is not held to
+  (`softland.store.door`) is the one client of these three queries; it
+  reads only the locks of its own requests and gives a maker no lock. A
+  guard of the record is not built (?11 is open). The PStates are not
+  declared private. The read path (`softland.store.read-path`) selects and
+  watches the tables of facts, and of facts by value, from outside, by
+  design: it is the way by which a fact comes back out to a caller. It
+  reads no lock and no answer, and it reads a row straight, not held to
   `:closed-through`."
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]

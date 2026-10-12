@@ -6,8 +6,11 @@
 |---|---|---|
 | [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, and the check that reads them. It needs no cluster. | One atom: the lines that it showed. |
 | [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the stamp, the seal, the first act of a layer, the record's rows, the checks of the decision, and the pure code of a batch of the microbatch gate. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and its stock of locks. It needs no cluster. | One atom: the lines that it showed. It takes random bytes from the JVM, and orders of arrival from a random source with a fixed seed. |
-| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the three reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts one cluster in its own JVM and closes it. Eight atoms: the lines shown, the things sent to each depot, the first answers of each gate, the locks in hand, the bytes of each lock read, and what later checks come back to. |
+| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the three reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts three functions of its own into the vars of three functions of the gate's pure code, and puts the store's back when that cluster is closed. Eleven atoms: the lines shown, the things sent to each depot, the first answers of each gate, the locks in hand, the bytes of each lock read, what later checks come back to, and, for the second cluster, the note of each attempt of a batch, the wish for a throw and each throw made. |
 | [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's six calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens five doors on the module. Four atoms: the lines shown, each result that a door gave, what later checks come back to, and the locks that the proof itself left outside every stock. |
+| [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) five pure namespaces: the form of a query and its check, the layers, the sources, the answer and the steps of a live read, the words; and the six functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
+| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts three functions of its own into the vars of three functions of the gate's pure code, and puts the store's back. It opens one door and four read paths on each. Seven atoms: the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of each attempt of a batch, whether a throw is asked, and how many were made. |
+| [read_measures.clj](read_measures.clj) | Nothing: it is a run that is no proof. It measures the gates under acts, with and without live reads, the opening of a canvas, and how late a push is, and holds nothing to a number. | It starts one cluster in its own JVM and closes it. It opens one door and two read paths. It reads the clock and the heap. |
 
 ## The act's proof
 
@@ -155,6 +158,12 @@ content. What it checks, group by group:
     keys.
 12. The batch, function by function. What the microbatch depot derives from a
     thing, never throwing. The turn, the base and the stamp of a turn. The
+    clock of a batch: the record that the gate appends; the clock that a kept
+    row gives, only to an attempt of the row's own batch; and the rule by which
+    the row is kept, first write wins, for a record handed over twice, for two
+    records of one batch with two clocks in either order, and for a record of
+    a closed batch that comes late. Each of the three is also given things that
+    are no row and no record, and none throws. The
     standing that step 1 can tell, a permission that says see among them, and
     the questions of an act, which hold the layer's marked-keys place and the
     fact's key; a fact under one of the five keys whose row every task holds
@@ -207,13 +216,21 @@ content. What it checks, group by group:
     that name one fact to replace; a holder of see who acts, who names her
     permission without the slot, and who gives; a retract of the marks; marks on
     another entity.
-15. The door's words. The table of the door's own fourteen words, each with
+15. A batch run as two attempts. The batch of group 13 with one act more, at
+    the edge of the 10 seconds, is run twice in memory from the same record
+    before it. With one clock every row is the same in every field, but the
+    bytes of the two locks that the batch makes, which are drawn at the write.
+    With a clock one second later each answer and each fact that the batch
+    wrote has another stamp, and the act at the edge is accepted where it was
+    refused; each other answer keeps its word. That is what a kept clock gives,
+    as a run of the pure code.
+16. The door's words. The table of the door's own fourteen words, each with
     whether nothing was appended for the act or the door does not know, written
     out a second time. No word is a reason word of the act or of the declaration,
     or a word of a stray. A word as a maker gets it. The four answers from what a
     read by act-id gave: accepted and refused with the stamp, nothing yet, not
     mine for another digest and for no digest. The two acks.
-16. What the door makes of one act. Things that are no act, one kind after the
+17. What the door makes of one act. Things that are no act, one kind after the
     other, from a thing that is no map to an act of 257 facts: each ends in one
     of the door's words, or goes in, and the declaration's check then has the
     gate's word for it. The limit of sealed bytes at
@@ -230,7 +247,7 @@ content. What it checks, group by group:
     again, and the check takes it at
     1 and at 256 locks. Nothing throws for facts that throw when they are read.
     No lock's bytes are in the thing. The count of a series of act-ids.
-17. The door's stock. A stock that holds nothing. A take from one run, two takes
+18. The door's stock. A stock that holds nothing. A take from one run, two takes
     that share no lock, a take across the border of two runs, and a take that is
     short, which changes nothing. The size rule, case by case, and the door's
     five numbers; a wait that the opener gives is cut to the longest that the
@@ -255,7 +272,9 @@ content. What it checks, group by group:
   messages itself. That the microbatch gate's dataflow calls the pure functions
   in that way is the module's proof's to show;
 - a thing after Rama serialised it;
-- a clock: each case gives the time as a number;
+- a clock: each case gives the time as a number. That the microbatch gate
+  keeps a batch's clock, and gives a second attempt the first attempt's, is the
+  module's proof's to show;
 - how long a check takes;
 - of the door: anything that needs a cluster, a clock or a second thread. The
   seat of a stock, the waits, the count of the calls that use a stock, and what
@@ -269,7 +288,16 @@ Run it from the repository root:
 clojure -M:store-module -m softland.store.module-proof
 ```
 
-The checks run in one order on one cluster, and later checks build on the layers,
+The proof starts two clusters, one after the other in one JVM. Every group but
+the last runs on the first, on the functions as the store defines them: nothing
+is replaced in the JVM while that cluster runs. The last group, the batch that
+runs a second time, runs on a cluster of its own, after the first is closed,
+with three functions of [batch.clj](../../../src-store/softland/store/gate/batch.clj)
+replaced by ones that give what the store's give and note it; the store's own
+are put back when that cluster is closed. The count line is one: the counts of
+the two runs, added.
+
+On the first cluster the checks run in one order, and later checks build on the layers,
 the facts and the permissions that earlier ones made. The hand reads each answer
 back through the module's own queries. For a streaming layer it reads after an
 append that waited for the gate. For the base no append waits: it reads in a loop
@@ -381,8 +409,8 @@ What it checks, group by group:
     task, in the order sent. The depot holds each thing sent. The layers are on
     more than one task. No lock's bytes are on the depot.
 
-Then the base and the microbatch gate. Groups 15 to 29 run before group 13, and
-group 30 after it:
+Then the base and the microbatch gate. Groups 15 to 30 run before group 13,
+group 31 after it, and group 32 last, on the second cluster:
 
 15. The base is made. An act into the base before it is made is refused, and so
     is one sent to the streaming depot. Two making acts in one batch, their facts
@@ -463,15 +491,68 @@ group 30 after it:
     under a used lock; a request sent twice; a value whose lock's home is its own
     task, with one row that holds the bytes; a use of a lock in the batch that
     asks for it; a refused request, which makes no lock.
-30. The base after the module is started again: the answer, the depot, the
+30. A place of the base never gives nothing. A fact with a value is written to
+    a place, and an act that names it replaces it. From before that append until
+    the new row shows, the hand selects the place every 2 ms, straight from the
+    facts table on the task of its entity: each select gave a row, the fact
+    before or the fact after, and never nothing; and the row at its first sight
+    is the row that the place holds after the batch is closed. The line also
+    says what the door's read by act-id gave at that first sight, which is not
+    checked: it is nothing when the batch was not closed yet.
+31. The base after the module is started again: the answer, the depot, the
     gate's last stamp, the strays, a permission's rows, the locks, the marked
-    keys on every task, a run of the facts by value and a value kept plain are
-    as they were; and, last of all, the stamps of the microbatch gate's answers go up in
+    keys on every task, a run of the facts by value, a value kept plain and the
+    row of the kept clock of the newest batch are
+    as they were. A batch with things after the start keeps its clock under a
+    later id. The gate's one throw is called by hand: given a kept clock it
+    gives it, and given none it throws and names the batch. And, last of all, the stamps of the microbatch gate's answers go up in
     the order decided, each answer that a read gave was of a closed batch at the
     read, the microbatch depot holds each thing sent, and no lock's bytes are on
-    it. For the third, the hand selects `:closed-through` on the answer's task
+    it. The depot of batch clocks is read too: each record is a map of exactly
+    a batch's id and a clock, two integers, all on one partition, with no
+    lock's bytes; and the kept row is the first record, in the depot's order,
+    of the batch with the greatest id. For the third, the hand selects `:closed-through` on the answer's task
     right after each read that gave an answer; `:closed-through` never goes back,
     so a stamp above it then is a row that was read before its batch was closed.
+32. A batch that runs a second time, on the second cluster. The group first
+    makes the base there, asks for locks, marks a key, and writes a fact to
+    replace, a value under the marked key and a person's permission, each in a
+    batch that runs once. Then it sends 18 things in one batch, every one an
+    act into the base, with a throw asked for: the first attempt fails in step
+    4, after the one call that gives the rows of the acts that meet, when every
+    row of the attempt is noted and nothing is committed; Rama starts the
+    worker again and runs the batch a second time. The batch holds: facts with
+    no value and with sealed values on several entities, one act on two
+    entities, a person's fact, a fact that names what it replaces and a second
+    act on its place, a give and a give with the slot that says see, a request
+    for locks, an act whose permission no act gave, a thing that the
+    declaration refuses, a fact under the marked key over a value that goes
+    out, two acts on one place under that key, a write of the marks, of who may
+    see the base and of what it builds on, and, last, an act that carries a
+    stamp at the edge of the 10 seconds. What it holds, in this order. One: the
+    notes are two attempts of one batch: two notes, one throw between them in a
+    call that gave rows, the same last stamp and the same numbers given to
+    both, and another last stamp given to the batch before. Two: both attempts
+    were given one clock, the clock of the kept row and of the batch's one
+    record on the depot of batch clocks. Three: the second attempt began later
+    than that clock, and made the same base. Four: the rows of the two attempts
+    side by side give no key: the same keys, and at each key the same row in
+    every field, the stamp too, a run of bytes compared by its content. Five:
+    each row that the tables hold after the batch, selected on every task, is
+    that row, and no task holds a row under a key that went out. Six: each
+    answer as `answer-by-act-id` gives it has the verdict, the word and the
+    stamp of that row. Then the rows that the build of what the gates keep
+    added: who wrote a person's fact and under which permission, the row of the
+    marked keys with its derived stamps on every task, the give with its slot,
+    and the runs of the facts by value. The check is shown to fail: the first
+    attempt's note beside itself with one stamp moved, with one fact left out
+    and with a row that goes out left out gives that key each time. Last, the
+    depot of batch clocks: as many records as batches with things since that
+    cluster's launch, which is the attempts noted less one; a quiet time of
+    1.5 s adds none; a later batch adds one, under a later id; and each record
+    is a batch's id and a clock and nothing else. During this group Rama prints
+    lines of its own log that are marked ERROR, for the throw that the proof
+    makes and for the worker that it starts again. They are not failed checks.
 
 Each line that the contract asks for is on a `SHOWN` line in the contract's
 words, with "depot" where the contract says "class".
@@ -488,6 +569,26 @@ value, with the keys and the partitioning keys that
 [rows.clj](../../../src-store/softland/store/record/rows.clj) gives. It opens no
 push. For the base those selects go round `:closed-through` too.
 
+### What in the module's proof rests on a time
+
+Group 32 has three numbers of the proof. None decides whether it passes but the
+second.
+
+- The edge act carries a stamp 10,700 ms after the hand's reading of the clock,
+  which the hand takes right before it appends that act, last. It is at the
+  edge when the first attempt is given a clock less than 700 ms after that
+  reading and the second attempt begins more than 700 ms after it. Then a
+  clock read anew would have accepted the act where the kept clock refuses it.
+  The check holds the act's word to what the 10-second rule gives against the
+  first attempt's clock, whichever that is; its line says whether the act was
+  at the edge in the run. On a machine where it is not, the group still passes
+  and that one line shows nothing about the verdict.
+- The hand reads for the answers of the batch that runs twice for 60 s at
+  most. A second attempt came 1 to 2 s after the first; an attempt that Rama
+  ends by its phase timeout takes about 31 s.
+- A quiet time of 1.5 s, in which no record may come to the depot of batch
+  clocks.
+
 ### What the module's proof does not reach
 
 - an event that Rama runs twice, a batch of streaming events that fails, and a
@@ -498,10 +599,6 @@ push. For the base those selects go round `:closed-through` too.
 - that a streaming layer's fact and its rows in the facts by value have no
   moment between them: it rests on one event with no partitioner, read in the
   code;
-- that each row which the gates now keep, a row of the facts by value and the
-  stamps of the marked keys among them, comes out the same on a second attempt
-  of a batch: the build of the base's kept clock shows it, and this proof makes
-  no batch run twice;
 - a push: the hand selects, once. That an open push on a run is sent the
   removal of a place when a key that holds no row is taken out was run on a
   stand-in table by the check of this part's plan, not on the store's module;
@@ -509,11 +606,29 @@ push. For the base those selects go round `:closed-through` too.
   whose digest another value shares;
 - a reader that asks through layers, and whether an asker may see a layer: no
   read path is built in this part;
-- a second attempt of a batch of the microbatch gate; a commit that fails after
-  one task showed its part; the moment between two tasks' commits. So closing is
-  shown for a batch that ran once: that a read gives nothing of it before the
-  next run of the gate, and not that a second attempt's other stamp or other lock
-  bytes stay unread;
+- a commit that fails after one task showed its part, and the moment between
+  two tasks' commits: a probe ran both on a module of its own
+  (`src/proposal/backend-on-rama-2026-10-02/reads/batch-probe/`), not on the
+  store's. The batch of group 32 fails while it is processed, so no row of its
+  first attempt was ever in a table, and no reader could have been given one:
+  what the group sets side by side is what each attempt made, as the noting
+  functions were handed it, and what the tables hold after the second;
+- that what the notes hold of the first attempt outlasts a worker: they are
+  the memory of the proof's process, and they last through the restart only
+  because the in-process cluster is one JVM;
+- the first attempt's new lock bytes: they are made inside the write and are not
+  learned. So closing is shown for a batch that ran once: that a read gives
+  nothing of it before the next run of the gate, and not that a second attempt's
+  other lock bytes, or the other of two words for an act into a layer of the
+  other gate, stay unread;
+- a failure of a batch before its clock is kept, a record that the topology
+  which keeps the clock fails, and that topology not answering: a probe of the
+  plan ran them on a stand-in walk, not on the store's module. The gate's one
+  throw was never reached in the gate; group 31 calls its function by hand;
+- a module update between two attempts of one batch: the second attempt then
+  runs the new code, and can make other rows with the same clock;
+- a second forced failure in one cluster: the group forces one, because each
+  one takes Rama longer than the last;
 - a layer's depot and a refusal's word read between a batch and its closing: the
   proof catches an answer and a lock there, and the depot read has the same test;
 - a read that gave a row of a batch that closed in the moment between that read
@@ -524,12 +639,15 @@ push. For the base those selects go round `:closed-through` too.
 - a pass long enough to be known to give the task back: 400 acts in one batch is
   the longest;
 - a rebuild of a record from its depot;
-- a worker that stops in the middle of an event, a move of a task's leader, more
-  than one machine, replication;
+- a worker whose process is killed, a worker that stops in the middle of an
+  event, a move of a task's leader, more than one machine, replication, and so
+  more than one copy of the kept clock's row and what the ack of its append
+  waits for there;
 - an append whose ack fails for an act that the gate accepted;
 - a thing that a topology appends to another partition;
 - the three targets of speed and size: the in-process cluster's timings say
-  nothing about them;
+  nothing about them. The measures of the read build ("The measures", below)
+  print in-process numbers for a gate, and prove nothing;
 - a lock whose way of sealing the code does not know: no act can make one. The
   pure proof shows the check on a row built by hand.
 
@@ -719,12 +837,15 @@ starts the module again once. It sets the interrupt mark of three threads of its
 own, and interrupts a fourth while it waits. It holds one thread of its own in
 the read of a maker's act for about 200 ms and then lets it go.
 
-### The door as the module's one client, and two proofs
+### The module's two clients, and three proofs
 
-In the runtime the door is the module's only client. Two proofs are not held to
-that. The module's proof does not use the door at all: its hand appends to the
-depots and reads the queries itself, which is what keeps the store proven without
-the door. The door's proof sends through the door, and beside that it holds
+In the runtime the module has two clients: the door, for the way in, and the read
+path, for the way out. Three proofs are not held to that. The module's proof uses
+neither: its hand appends to the depots, reads the queries and selects the tables
+itself, which is what keeps the store proven without the door and without the
+read path. The read path's proof sends through the door and reads through the
+read path, and beside that its own hand appends two things and selects one row
+("The read path's proof", below). The door's proof sends through the door, and beside that it holds
 handles of its own: it reads the two depots' logs, the answer of a request and the
 locks of a request by the module's queries, each lock's row by a select of the
 gates' PStates, and the strays; and it appends the two things of group 5. A maker
@@ -789,3 +910,290 @@ machine, read its numbers before the door.
   early.
 - A request in doubt in the base, met at once, has no answer at the first read
   (group 22): the request's batch takes most of a second to close.
+
+## The read path's pure proof
+
+Run it from the repository root:
+
+```sh
+clojure -M:store -m softland.store.read-path-pure-proof
+```
+
+It runs on the alias that holds Clojure alone, so a pass also holds that the read
+path's five pure namespaces load with no Rama. It takes about a minute.
+
+The tables are a value in this proof: a map from a gate and a table to a sorted
+map from a row's key to the row. A small function of the proof's own stands for a
+gate: it puts the rows of one accepted act in those maps, and keeps the order by
+value of a marked key as a gate keeps it. No task is played: every part of a run
+across the tasks of a microbatch layer holds the whole run.
+
+What it checks, group by group:
+
+1. The form of a query. Each of the four words, with each kind of end of a run,
+   is taken, and comes out in its one form. Each fault is turned away with its
+   word and the part at which the check stopped, and every word that the
+   declaration holds is given once. The check never throws: on a thing that
+   throws when it is read, on a list of layers with no end, on things that are no
+   map. The read path's numbers take a default for each that is left out.
+2. A word of a query is declared in three maps or in none: what it is, what it
+   reads in one layer, how its rows are put together.
+3. The layers. The order of a list, and of the list that a start layer gives;
+   a start layer with no fact, not known yet, not made, not seen. The seven lines
+   of the table of an asker's standing. What no fact reads as. What a layer's own
+   rows mean for a query: a setting written again with the same word, and a list
+   or a mark written in a layer that she may not see, mean the same; a setting
+   that goes to "members" means another thing also when her standing stays as it
+   was.
+4. The sources of each word in a streaming layer and in the base: the table, the
+   routing id and the path, line by line as the record's page gives them. Two
+   askers of one thing who ask for different parts have equal sources.
+5. The loop ends. It is played on the tables' maps: what is wanted, fetch what is
+   missing, again. The rounds and the calls of each round are held for a place,
+   an entity, a run and what points at a thing, asked once and kept live. A read
+   asked once wants the fact with the rights; a live read does not; with the one
+   predicate of that choice giving false, the read takes the rights first and
+   gives the same answer.
+6. The checks of nearer layers for what points at a thing: one in each layer
+   nearer than the nearest order that holds the place, and in no other; none with
+   the one function put aside; none past the build's number. The nearest row
+   wins, and the place is given from it exactly when it holds the thing.
+7. What a read gives: the four things that a place can hold; the nearest layer
+   wins, also with "nothing here"; a layer that is left out is named with why; a
+   place-answer holds no writer and no permission unless asked; the store's own
+   facts are in no answer that did not ask; a row that several parts of a run hold
+   is given once.
+8. Which changes reach an asker, and which places a change names for a query.
+9. A step that joins or leaves a source that is no check owes the whole answer.
+10. Every order of the callbacks. For a live read the proof holds a world: the
+    tables, the writes that are to come, and for each push the value that it
+    holds, the changes that it has not taken and the callbacks that are not
+    handled. One move changes one thing: a write; a push takes its next value; a
+    callback is handled; a push that the read asked for is served; its arrival is
+    handled. A callback and an arrival are handled by the functions that the read
+    path calls for them. The proof plays every order of the moves and holds, at
+    each end, the asker's screen against what a read asked once gives from the
+    tables as they are then. It plays: thirteen scenarios of what points at a
+    thing through two, three and four layers; every list of up to three writes on
+    one place in two layers, 672 lists; every list of up to three writes of a
+    setting, a permission and two facts for a place through two layers, 620
+    lists, and of up to two for an entity; and a start layer whose list drops a
+    layer and takes it back while facts change. And it shows that the player can
+    fail: with the read's one mark dropped, and with a step that counts a check
+    which it has just left, the scenarios that need each end wrong.
+11. The size rule of a run; the order of a table's keys, by code point; the two
+    ends of a run; when the first read of a run can be made; the keys of a run
+    held to its two ends; a lookup in a run whose map misses a key; two rows that
+    are the same; which keys a change names.
+12. The words: the read path's seven, what each carries, why a live read ends, why
+    a layer gave nothing; none is a gate's reason or a word of a stray, and one is
+    spelled as a word of the door.
+
+A pass shows the read path's rules on values of one process.
+
+### What the read path's pure proof does not reach
+
+- Anything that needs Rama: a select, a push, a callback, a thread;
+- that Rama's client delivers the changes of two pushes in the ways that the
+  player plays, and in no other: the probes of the read build ran that,
+  in-process, on modules of their own
+  (`src/proposal/backend-on-rama-2026-10-02/reads/plan-probes-read-path/` and
+  `plan-check-probes-read-path/`);
+- two live reads that share a push: the player plays one read;
+- the tasks of a microbatch layer;
+- more than four writes in one played world.
+
+## The read path's proof
+
+Run it from the repository root:
+
+```sh
+clojure -M:store-module -m softland.store.read-path-proof
+```
+
+It takes about four minutes. The proof is the read path's one asker, played by
+hand: no view, no screen, no tool and no agent asks. Each act goes in through the
+door, and each read goes through the read path's five calls. The checks run in
+one order on one cluster, and later checks build on the layers that earlier ones
+made. One check has a second cluster, after the first is closed.
+
+A pass shows the read path in one process, with an asker that the proof plays.
+No inhabitant uses the read path yet.
+
+What it checks, group by group:
+
+1. The read path is opened. A name under which no module runs gives its word, by
+   a real throw of Rama's client. A read path prints as its name and nothing
+   else, and a new one holds no live read and no push.
+2. A thing that is no query gives the word `:read-the-query` from `read-once` and
+   from `read-live`, with the check's word, and no call to Rama.
+3. Each word of a query, asked once, for each gate: a place, an entity of five
+   keys, a run across twelve entities, and what points at a thing. The answer
+   holds the value that an accepted act wrote, the layer, the fact id that the
+   door's act-id and the fact's index make, and the stamp of the door's answer.
+4. The four things that a place can hold: no fact, a retract, a value as its
+   maker gave it, and bytes that are no value.
+5. A part of a row is handed over only when the query asks: neither, the writer,
+   both. For the system's making of a personal layer the two differ.
+6. The store's own facts are in no answer that did not ask for them. A place
+   under a store key, asked without them, is turned away with no call.
+7. Through layers: the nearest layer that holds a fact wins, also with "nothing
+   here"; a run that three layers hold in parts; from a layer, with the newest
+   list; a list that names a layer twice.
+8. A layer that is left out: one that the asker may not see, one that is not
+   made, a start layer that she may not see.
+9. Who asks: a person who is not signed in; the system; no asker, both, an asker
+   that is over the limit.
+10. What points at a thing through layers, asked once: a nearer layer moves the
+    thing, takes it away, moves it back; a nearer layer that does not mark the key
+    writes another thing, then the same thing; a nearer fact from before its
+    layer's mark; the farther layer moves away; the mark off and on.
+11. The calls of a read asked once, with no live read open, counted: a place
+    through three layers, from a layer, an entity, a run across the tasks of the
+    base, what points at a thing through three layers. And a call of 300 paths,
+    whose values come in the paths' order.
+12. A very large run, on a read path that was opened with small numbers: a run of
+    3, of 8 and of 12 places by its calls; a layer that she may not see; a whole
+    layer; a read that needs more checks than one read may; a source of a kind
+    that the read path builds no path for.
+13. A run across entities of the base, once and kept live: one push for each task;
+    one write gives one change; a row that every task holds is given once.
+14. Each word kept live, for each gate: the answer now; an act inside gives one
+    change; an act outside gives none; an act in a farther layer under a nearer
+    layer's fact gives none; twenty acts in quick turn end at the last value.
+15. What shapes a read changes under it: a permission given; a setting to
+    "everyone" and back; the start layer's list written again; a key marked, a
+    fact under it, the mark off and on; a list and a mark in a layer that she may
+    not see; a layer that joins over farther orders; the base to "members" and
+    back.
+16. One push for one thing: two askers of one place share its pushes, each is
+    handed the parts that she asked for, and a push is closed when its last reader
+    has left. 50 times two threads open the same thing at once; 50 times one joins
+    while the last one leaves, and a write follows. The fields of what the read
+    path holds for a live read and for a push.
+17. Nothing is shown that is not in the tables: a refused act at a watched place
+    gives the asker nothing; each value that she was given is of an accepted act.
+18. Reads that fail: a select that throws, and one that does not come back; under
+    an open read, an opening of a push that throws, and one that does not come
+    back; Rama ending a push; a function that throws. And 40 times, Rama's ending
+    of a push while a read opens: either the read was not opened yet, `read-live`
+    gives a word and the function is not called at all, or it was opened and the
+    function is given the whole answer and then `{:ended}`; never `{:ended}`
+    first or alone.
+19. The function and its threads, under 200 acts from 4 threads: the first call on
+    the caller's thread, the others on a thread of Rama's client, one at a time.
+    And a read asked once while a push is open on its source.
+20. One reader in the source, by a search of the store's source as text.
+21. The order of the table's keys: entities with letters outside ASCII; an entity
+    and a layer whose text is the start of another's; letters from U+E000 on and
+    outside the first plane.
+22. A function that leaves its own read, or another, inside its call; two reads
+    that leave each other, 50 times; a function that asks inside its call.
+23. The opening: 50 times a maker writes one place 20 times in quick turn while a
+    live read opens on it. And a read of another asker while one asker's function
+    stays for 2 seconds.
+24. The first thing that a function is given: of every live read that the proof
+    opened, the first call was the whole answer, on the caller's thread.
+25. The module is started again under an open read.
+26. On the second cluster: a batch of the base runs a second time under an open
+    read of a place that it writes. The function is called once for that place,
+    with the row that the first attempt made.
+
+### How it shows that nothing came
+
+A check that holds "the asker is given nothing" cannot hold it by looking at
+once: a change that is still on its way would pass as none. So after the act that
+must give nothing, the proof sends a second act that changes the same push, and
+waits until a witness has that second change: a second live read of the proof's
+that holds the same push and is told every change of it. The changes of one push
+come in order, and one callback is handled for every read that holds the push
+before the next callback begins. So when the witness has the second change, the
+first one has been handled for the asker too. Groups 14, 15, 17 and 26 hold
+"nothing" in this way.
+
+### Where it stands in for a call of Rama's client
+
+The read path's two reading calls are macros of Rama's that end in two functions.
+The proof puts a function of its own in the place of those two, and of Rama's
+close, for a while: to count the calls of a read (groups 2, 6, 11, 12, 16, 22);
+to keep each push that a read opened, and its callback (groups 16, 18); to make a
+select throw, and to make one never come back (group 18); to make the opening of
+a push throw, and to make one never come back (group 18). In group 18 the proof
+makes a diff of Rama's own class, the one with which Rama ends a push, and hands
+it to a push's callback: Rama itself ended no push in a run. It also puts a
+function in the place of the read path's own function that makes the calls of one
+round, to count the rounds (group 11), and calls two private functions of the
+read path (group 12).
+
+### What it changes outside the read path
+
+It appends to both depots through the door, and two things by its own hand in
+group 4: a request for one lock, and an act whose sealed bytes are no value of
+the form, since the door seals only a value. It selects one row with a handle of
+its own in group 21, to find the task of a layer. It writes the base's setting to
+"members" and back in group 15. It starts the module again once, in group 25. For
+its second cluster it replaces three functions of the gate's pure code, as the
+module's proof does, and puts them back.
+
+### What the read path's proof does not reach
+
+- A cluster of several machines, a network between the runtime and Rama, a move
+  of a task's leader, a killed process, a restart of the runtime;
+- Rama ending a push by itself, and Rama leaving a reader out of a change: group
+  18 hands the read path the diff that Rama's pages name;
+- the order in which two pushes call back: no check can force it on Rama. The
+  pure proof plays every order on the pure functions; groups 14, 16 and 23 only
+  make a crossing likely;
+- a number of tasks that changes under an open read;
+- many askers and many pushes at once: groups 16 and 19 run a few threads. No
+  check opens as many pushes as Rama allows on one table on one task, 1,000 as
+  it ships: the measures met that bound, and a probe of the build counted it;
+- a run between two ends that hold a letter from U+E000 on, or one outside the
+  first plane: the read path turns it away, because a range of Rama's between
+  such ends gave, in runs of this proof, fewer places than the table holds;
+- a failure of a batch while it commits, with one task seconds before another;
+- a tool, a view, an inhabitant;
+- how fast anything is.
+
+### The checks that rest on a time
+
+A check that waits for a change waits up to 15 seconds, and up to 30 for a change
+of the base. A check that holds that nothing came waits a quarter of a second
+after its witness has the second change. Group 18 holds that a select which does
+not come back, under a wait of 300 ms, returns after 250 ms and before 3 seconds.
+If one fails on a slow machine, read its numbers before the read path.
+
+Group 18's 40 turns hand the ending in after 0 to 9 ms, so that some turns meet a
+read that is not opened yet and some a read that is. The check holds each turn
+to the one of the two right outcomes that it met, and its line prints how many
+of each came. On a machine where every turn meets an opened read, the check
+still passes and that line says 0 for the other: it then did not reach a read
+that was not opened. With the function that ends a read put back as it was
+before it took the read's turn first, the check failed in the turns that met a
+read that was not opened: run once, by a scratch file of the build that changed
+no source.
+
+## The measures
+
+Run them from the repository root:
+
+```sh
+clojure -M:store-module -m softland.store.read-measures
+```
+
+A run that is no proof. It prints each number on a line that starts with
+`MEASURED`, with what it is a number of, holds nothing to a number, and exits 0
+unless it cannot run. It takes about half an hour; with the argument `small` it
+runs each shape with a small load, in a few minutes. A set of times is printed
+as its count, its middle, its slowest 1 in 100 and its slowest.
+
+What it measures: a gate under 100 acts a second, the streaming gate with a key
+not marked and marked, and the base; the same with 1, 100 and 1,000 live reads
+open on the layer; the opening of a canvas of 5,000 facts, as a run and as what
+points at the canvas, once and kept live, through one layer and through three;
+and how late a push is, in a streaming layer and in the base.
+
+What a number of it is: the cluster runs in the process of the measure, on one
+machine, with every row in memory and no network. A time is a floor for a round
+trip and says little of a seek on a disk. A real cluster, the base on one, a
+network and a second node are not measured.

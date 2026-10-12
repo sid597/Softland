@@ -102,6 +102,11 @@
     answer-key, place-key, lock-key, by-value-key      -> the text of a key
     by-value-run                      a layer, a key, a stamp, a value
                                       -> the two ends of that value's run
+    entity-run, own-rows-run, run-of-ends
+                                      a layer, and an entity or two ends
+                                      -> the two ends of a run of places
+    before?                           two texts -> whether the first is
+                                      before the second in the table's order
     value-digest, value-digest-of     bytes, or a value -> 64 hex characters
     place-of-key, by-value-entity, by-value-route, id-of-text
                                       the text of a key -> its parts
@@ -110,6 +115,8 @@
     answer-of, written-by?, holds-value?, value-of, read-value, who-of,
     permission-of, marked-keys-of, seals-a-fact?, lock-of, locks-by-index,
     locks-by-index-used-without-bytes, closed?         a row -> what it says
+    same-row?, holds-this-value?      a row, and a row or a value
+                                      -> true or false
     routing-id                        an act-id -> the first argument of a
                                       read by that act-id
     answer-read, lock-range-read, depot-read,
@@ -125,7 +132,11 @@
   they pass before they call a query. `read-value`, `who-of`,
   `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,
   `place-of-key` and `value-digest-of` are for a reader of the tables; no
-  gate calls `read-value`, `who-of` or `permission-of`.
+  gate calls `read-value`, `who-of` or `permission-of`. The reader is the
+  read path: its pure namespaces under `softland.store.read-path` call
+  those, and six that only a read needs, which no gate calls:
+  `entity-run`, `own-rows-run`, `run-of-ends`, `before?`, `same-row?` and
+  `holds-this-value?`.
 
   What must hold before a key is made. The functions that make a key, or
   the two ends of a run, test nothing of what they are given. A thing that
@@ -457,6 +468,136 @@
       (when (= 5 (count parts)) (id-of-text (nth parts 4))))
     (catch Throwable _ nil)))
 
+;; ------------------------------------------------ the runs that a read names
+
+(defn entity-run
+  "Takes a layer id and an entity id. Gives [from to], the two ends of the
+  run of that entity's places in the facts table: every key from `from` up
+  to `to`, with `to` not in the run, is a place of that entity in that
+  layer. `from` is \"<layer> <entity> \"; `to` is the same text with `!` in
+  the place of its last space. `!` is the character after a space, so the
+  range holds the keys that begin with `from` and no other: not a place of
+  an entity whose text only begins with this entity's text. What must hold:
+  both are ids within the limit."
+  [layer entity]
+  (let [run (str (declaration/id-text layer) " " (declaration/id-text entity))]
+    [(str run " ") (str run "!")]))
+
+(defn own-rows-run
+  "Takes a layer id. Gives [from to], the two ends of the run of the layer's
+  own rows in the facts table: the rows of the layer's own entity under the
+  keys of the store's namespace
+  (`softland.store.door.declaration/store-namespace`), `to` not in the run.
+  Those are the layer's depot, who may see it, what it builds on and its
+  marked keys; and its holder's permission, when the layer's id is also a
+  holder's id. Every key of that namespace prints as `:softland.store/...`,
+  so `from` is \"<layer> <layer> :softland.store/\", and `to` is the same
+  text with `0`, the character after `/`, in the place of its last
+  character. What must hold: the layer is an id within the limit."
+  [layer]
+  (let [run (str (declaration/id-text layer) " " (declaration/id-text layer) " :" declaration/store-namespace)]
+    [(str run "/") (str run "0")]))
+
+(defn before?
+  "Takes two texts. Gives true when the first is before the second in the
+  order in which Rama keeps the String keys of a table: by code point,
+  which is the order of the bytes of UTF-8. A text that is the start of
+  another is before it; a text is not before itself. Not by Java's
+  `compareTo`, which compares UTF-16 units and so puts a letter outside the
+  first plane before U+E000. That a table goes through its keys in this
+  order was run on a probe's table and on the store's own. For a key that
+  holds a letter from U+E000 on, or one outside the first plane, Rama was
+  also seen to use Java's order: at the end of a range, and in the map that
+  its client makes of a run. A reader guards against that where it reads
+  (`softland.store.read-path.sources`). What must hold: both are Strings."
+  [a b]
+  (let [^String a a
+        ^String b b
+        na (.length a)
+        nb (.length b)]
+    (loop [i 0 j 0]
+      (cond
+        (>= j nb) false
+        (>= i na) true
+        :else (let [ca (.codePointAt a i)
+                    cb (.codePointAt b j)]
+                (cond
+                  (< ca cb) true
+                  (> ca cb) false
+                  :else (recur (+ i (Character/charCount ca)) (+ j (Character/charCount cb)))))))))
+
+(defn run-of-ends
+  "Takes a layer id and the two ends of a run of its places, as a query
+  names them. Gives [from to], the two texts between which the run lies in
+  the facts table, `to` not in the run; or nil when the first end is after
+  the last, or an end is none of these:
+
+    as the first end   :first         from the layer's first place
+                       [entity]       from the entity's first place
+                       [entity key]   from that place
+    as the last end    [entity]       to the entity's last place
+                       [entity key]   to that place: the place's key and
+                                      one space, so that the place is in
+                                      the run
+                       :last          to the layer's last place
+
+  Both texts begin with the layer's text and a space or `!`, so a run never
+  leaves its layer. What must hold: each id is within the limit and each
+  key a readable keyword within it."
+  [layer first-end last-end]
+  (let [l (declaration/id-text layer)
+        from (cond
+               (= :first first-end) (str l " ")
+               (and (vector? first-end) (= 1 (count first-end))) (first (entity-run layer (nth first-end 0)))
+               (and (vector? first-end) (= 2 (count first-end))) (place-key layer (nth first-end 0) (nth first-end 1)))
+        to (cond
+             (= :last last-end) (str l "!")
+             (and (vector? last-end) (= 1 (count last-end))) (second (entity-run layer (nth last-end 0)))
+             (and (vector? last-end) (= 2 (count last-end))) (str (place-key layer (nth last-end 0) (nth last-end 1)) " "))]
+    (when (and from to (not (before? to from)))
+      [from to])))
+
+;; ------------------------------------------------- one row against another
+
+(defn same-row?
+  "Takes two rows, each a row of the facts table or of the facts by value,
+  or nil. Gives true when both are nil, or each field of one equals the
+  same field of the other, a run of bytes by its content. False when one is
+  nil, or a field differs or is in one only. It never throws. A reader of
+  the tables asks it of the row before and the row after a change: a row
+  that a second attempt of a batch wrote again is the same row."
+  [row-a row-b]
+  (try
+    (cond
+      (and (nil? row-a) (nil? row-b)) true
+      (or (nil? row-a) (nil? row-b)) false
+      (not (and (map? row-a) (map? row-b))) (= row-a row-b)
+      :else (every? (fn [field]
+                      (let [a (get row-a field)
+                            b (get row-b field)]
+                        (if (and (bytes? a) (bytes? b))
+                          (Arrays/equals ^bytes a ^bytes b)
+                          (= a b))))
+                    (into #{} (concat (keys row-a) (keys row-b)))))
+    (catch Throwable _ false)))
+
+(defn holds-this-value?
+  "Takes a fact's row or nil, and a value as a maker would give it. Gives
+  true when the row holds bytes and `value-digest` of them is
+  `value-digest-of` of the value: the test by which a gate puts a fact in
+  that value's order by value. False for no row and for a retract. A reader
+  asks it of a nearer layer's row at a place that a farther layer's order
+  gives: the place is given from the nearer row exactly when a mark would
+  have put that row in the nearer layer's own order for the value. What
+  must hold: the value passes `softland.store.act/value?`. It never
+  throws."
+  [row v]
+  (try
+    (boolean (and row
+                  (some? (:value row))
+                  (= (value-digest (:value row)) (value-digest-of v))))
+    (catch Throwable _ false)))
+
 ;; -------------------------------------------------------------------- locks
 
 (defn lock-row
@@ -507,8 +648,9 @@
   "Takes a row that holds a stamp, an answer's or a fact's, or nil; and the
   `:closed-through` of the row's task, or nil. Gives true when the row is of
   a closed batch of the microbatch gate: its stamp is not later than
-  `:closed-through`. False for no row, and before any batch is closed. A
-  read gives such a row of a microbatch layer only when this is true. A
+  `:closed-through`. False for no row, and before any batch is closed. The
+  door's three reads and the streaming gate's question about the base give
+  such a row of a microbatch layer only when this is true. A
   lock's row holds no stamp; the read of locks holds its request's answer
   to this test."
   [row closed-through]

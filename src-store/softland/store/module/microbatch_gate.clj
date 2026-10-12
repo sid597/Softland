@@ -1,6 +1,7 @@
 ;; Before changing this file, read the plans of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-microbatch-gate.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
+;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-base-for-a-reader.md
 
 (ns softland.store.module.microbatch-gate
   "The microbatch gate: the microbatch topology that decides the things of
@@ -20,6 +21,10 @@
   and their rows `softland.store.record.rows`'s. They are durable state of
   the cluster. It borrows one PState of the streaming gate to read,
   `$$streaming-facts`, on the meeting task of a layer that starts streaming.
+  And for the clock of a batch it appends one record to the depot
+  `*batch-clock-depot`, which the module declares, and borrows the PState
+  `$$batch-clock` of the topology that keeps that clock
+  (`softland.store.module.batch-clock`), to read on the gate's task.
   The gate keeps nothing in the memory of a process: what one step hands to
   the next is in three temporary PStates of Rama, `$$questions`, `$$replies`
   and `$$parcels`, which live for one attempt of one batch; and the row of
@@ -38,11 +43,18 @@
   home task of each place reads; and who may see the layer and what it
   builds on, which a reader finds on the task where it reads.
 
-  Approach. The dataflow only reads rows, calls pure functions and writes
-  rows. The pure code of a batch is `softland.store.gate.batch`'s; the checks are
+  Approach. The dataflow reads rows, calls pure functions and writes rows,
+  and does one thing more, for a batch's clock: when none is kept for the
+  batch it reads the clock, appends one record to the depot of batch clocks,
+  and waits for the ack. The pure code of a batch is
+  `softland.store.gate.batch`'s; the checks are
   `softland.store.door.declaration`'s and `softland.store.gate.decision`'s, the same
   functions that the streaming gate calls. None of them throws, so no thing
-  can stop the gate: a refusal is data.
+  that arrives can stop the gate: a refusal is data. One function of this
+  namespace throws, `clock-must-be-kept`, and not on what arrived: it fails
+  an attempt whose clock cannot be read back after the append was acked, so
+  that no stamp is made from a clock that is not kept. Its docstring says
+  what that costs.
 
   The one order. The decisions of a batch are those of deciding its acts one
   at a time in the order of their turns. A thing's turn is its position in
@@ -67,8 +79,13 @@
        copy of the layer's permissions. Then the act sends a question to the
        home task of each row that it needs: its answer, the places of its
        facts, its locks.
-    2. reply   The gate's task reads the clock once, gives the batch its
-       base stamp, and writes the gate's last stamp. Every task writes
+    2. reply   The gate's task takes the batch's clock, gives the batch its
+       base stamp, and writes the gate's last stamp. The clock, only for a
+       batch with things to decide: the row of `$$batch-clock` when it is
+       of this batch; else the task reads the clock, appends the batch's id
+       and that reading to `*batch-clock-depot` with the ack level :ack,
+       reads the row again, and takes what the row holds, never what it
+       offered. Every task writes
        `:closed-through`, when it has changed. Each home task first reads,
        from its own copy and once for a layer, the marked keys of each layer
        that a question about a place names. Then it reads each row that was
@@ -99,10 +116,33 @@
   the two are decided in turn, and one row is sent for each key, the last
   (`softland.store.gate.batch`).
 
-  The stamp. One reading of the clock for a batch. An act's stamp is the
+  The stamp. One clock for a batch, kept, the same on every attempt. An
+  act's stamp is the
   base plus its turn: one stamp on its answer and on each of its facts,
   later than every stamp that the gate gave before on any task. The gate has
   one last stamp, on the gate's task.
+
+  The clock of a batch. A batch with things to decide has one clock, and
+  every attempt of the batch takes it from the row of `$$batch-clock`, on
+  the gate's task, when that row is of the batch
+  (`softland.store.gate.batch/kept-clock`). The first attempt finds no such
+  row. It reads the clock of the task, the one reading; appends
+  {:batch :clock} to the partition of `*batch-clock-depot` on this task; and
+  waits, by the ack level :ack, until the topology `batch-clock` has
+  processed the record and its row is durable. Then it reads the row again
+  and uses the clock that the row holds. That is not always the reading
+  that it offered: when an earlier attempt of the batch appended a reading
+  and failed before its ack, the row can hold that reading, and first write
+  wins. So for one batch every attempt that makes a stamp makes it from one
+  clock. The clock is kept before `softland.store.gate.batch/base` makes the
+  first stamp from it, and so before any task can show a row of the batch.
+  A batch with no numbers, one that took no thing or only strays, reads no
+  row and no clock and appends nothing: it has no stamp to make. No later
+  step reads a clock: the base and the reply about each act's answer carry
+  the batch's clock, and the 10-second rule is held against it. What a
+  batch with things pays for it, on the gate's task, in the attempt that
+  keeps the clock: three reads, one record and one row written, and the
+  wait for the ack; a later attempt pays one read.
 
   Whole or nothing. An act is decided once, on one task, with every row
   that it needs in hand. A refusal writes its answer and nothing else. The
@@ -112,10 +152,12 @@
   and Rama shows a batch task by task: a reader of the tables can see one
   before the other.
 
-  Closing: what a read may give. Rama makes a batch visible task by task,
-  and it can run a batch again after one task has shown its part; a second
-  attempt reads the clock again and makes other lock bytes. So each task
-  holds `:closed-through`, and a read gives a row only when the row's stamp
+  Closing: what the door's reads may give. Rama makes a batch visible task
+  by task, and it can run a batch again after one task has shown its part.
+  A second attempt makes other lock bytes, and can give an act into a layer
+  of the other gate the other of two words. So each task
+  holds `:closed-through`, and the door's three reads and the streaming
+  gate's question about the base give a row only when the row's stamp
   is not later than it (`softland.store.record.rows/closed?`). Step 2 of each run
   writes `:closed-through` with the gate's last stamp as it was before the
   run. That run began only after every task had committed the batch before,
@@ -124,20 +166,37 @@
   process, so a batch is closed one short run after it. What closing does
   not give: two tasks do not open at one instant; and a select that goes
   straight to a PState of this gate sees rows of a batch that is not
-  closed.
+  closed. A fact's row that such a select sees is the row that stays, by
+  the next paragraph.
 
   When Rama runs a batch again. Each attempt takes the same things and
   starts from the PStates as they were after the batch before. The turns,
-  which act has an act-id, which acts meet, and the order are the same. The
-  stamps and a new lock's bytes are others; no read gave the first ones.
-  Two words can differ: the 10-second rule reads the clock, and the word for
-  a layer of the other gate follows what that gate had made.
+  which act has an act-id, which acts meet, and the order are the same. So
+  is the batch's clock, and with it each stamp, the verdict of the 10-second
+  rule, and each field of each fact's row and of each row of the facts by
+  value. That holds while one version of the module's code runs every
+  attempt of the batch: after a module update that changes the code from
+  which a row is made, a second attempt makes its rows with the new code.
+  Two things are others on a second attempt. A new lock's bytes, which are
+  drawn at the write; they are in the locks PState and in no fact's row, and
+  only the read of locks gives them, held to closing. And one word: the
+  word for a layer of the other gate follows what that gate had made by
+  then; the act is refused on each attempt, with the same stamp, and writes
+  no fact.
 
   Yielding. Steps 2, 3 and 4 walk a task's keys, acts and rows in loops that
   give the task back when they have run long. What can run in between is a
   read of committed rows, an event of the streaming gate, the gathering of
   the same step, or a write of rows from another meeting task, which are
-  rows of other layers. None writes a row that the walk reads.
+  rows of other layers. None writes a row that the walk reads. The append of
+  a batch's clock also gives the gate's task back, while it waits for the
+  ack. What can run on that task meanwhile: a read of committed rows, an
+  event of the streaming gate, and the event of `batch-clock`, which must.
+  No event of this batch can: step 1 is done on every task, and step 2 has
+  not yet gone to every task. The three values that step 2 read before the
+  wait are not written in between: `:last-stamp` and `:closed-through` of
+  the gate's task are written by this step, after the wait, and
+  `$$questions` is whole.
 
   What the gate rests on. The depot's partitioner and the gate's hash
   partitioner give one task for one id. If they did not, an act would be
@@ -260,12 +319,55 @@
     (identity nil :> *no-row))
   (:> nil))
 
+(defn clock-must-be-kept
+  "The one throw of the module's own code. Takes what
+  `softland.store.gate.batch/kept-clock` gave for the row that step 2 read
+  after its append of the batch's clock was acked, and the microbatch id of
+  the run. Gives that clock. Throws when there is none: the row is then not
+  of this batch, although the topology that keeps the clock has processed
+  this attempt's record.
+
+  What it guards. A stamp from a clock that is not kept is the one thing
+  that the gate must not make: a second attempt of the batch would read
+  another clock, and a fact's row that a task had shown would change. The
+  throw fails the attempt before `softland.store.gate.batch/base` makes the
+  first stamp, and Rama runs the batch again. It is not a throw on what
+  arrived: no thing on the depot can reach it.
+
+  What it costs. On Rama's in-process cluster a throw on a task's thread
+  stops the worker, and Rama starts the worker again. Every task of that
+  worker stops for that time, the streaming gate's and the reads' too.
+  Whether a worker of a real cluster ends its process there was not run.
+  And while the cause stays, the batch throws on each attempt and Rama runs
+  it again for ever: the base decides nothing, the worker goes down and up,
+  and the depot of batch clocks gains one record at each attempt.
+
+  When it is reached. In no case that was traced without a fault of the
+  cluster or of this module. Two causes are known, and neither was seen in a
+  run: an id of a batch that comes again, when the microbatch topology is
+  deleted and declared again under its name while `$$batch-clock` stays, so
+  that the row is of a later batch for every new batch; and an ack that
+  returns although the row was not written. The other choices here are to
+  go on with the clock that was only read, which is the fault that the kept
+  clock closes, or to skip the batch, which loses its things."
+  [kept batch-id]
+  (when (nil? kept)
+    (throw (ex-info "the clock of a batch is not kept after its append was acked; no stamp is made from a clock that is not kept"
+                    {:batch batch-id})))
+  kept)
+
 (defn add-to
   "Adds the microbatch gate to a module. Takes the module's `topologies`.
   Declares the microbatch topology `microbatch-gate`, its five PStates, and
   the dataflow of one batch, as the namespace docstring walks it. What must
-  hold: the module declares the depot `*microbatch-depot`, and has the
-  streaming gate, whose `$$streaming-facts` step 4 reads."
+  hold: the module declares the depots `*microbatch-depot` and
+  `*batch-clock-depot`; it has the streaming gate, whose `$$streaming-facts`
+  step 4 reads; and it has the topology `batch-clock`
+  (`softland.store.module.batch-clock`), whose `$$batch-clock` step 2 reads
+  and which answers the ack of step 2's append. Without that topology
+  nothing would write the row, and each batch with things would fail at
+  `clock-must-be-kept`; that is read from what the ack level waits for, and
+  was not run."
   [topologies]
   (let [gate (microbatch-topology topologies "microbatch-gate")]
     (declare-pstate gate $$microbatch-answers (record-pstates/answers))
@@ -316,15 +418,33 @@
         (|hash *route)
         (+compound {*kind {*asked-key (+gathered *payload)}} :> $$questions))
 
-      ;; 2. Reply: the base on the gate's task, the closing, then each home task.
+      ;; 2. Reply: the batch's clock and the base on the gate's task, the
+      ;; closing, then each home task.
       (<<batch
         (identity batch/gates-depot :> *gates-route)
         (|hash *gates-route)
         (local-select> (keypath :last-stamp) $$microbatch-task :> *last-stamp)
         (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
         (local-select> (keypath :numbers :batch) $$questions :> *numbers)
-        (System/currentTimeMillis :> *now)
-        (batch/base *now *last-stamp *numbers :> *base)
+        ;; The batch's clock, only for a batch with numbers: the clock that
+        ;; is kept for this batch; or, when none is, a reading that is kept
+        ;; first. The clock is taken out of the row, never from the reading.
+        (<<if *numbers
+          (ops/current-microbatch-id :> *this-batch)
+          (local-select> (keypath *gates-route) $$batch-clock :> *clock-row)
+          (batch/kept-clock *clock-row *this-batch :> *clock-found)
+          (<<if *clock-found
+            (identity *clock-found :> *batch-clock)
+           (else>)
+            (System/currentTimeMillis :> *reading)
+            (batch/clock-record *this-batch *reading :> *clock-record)
+            (depot-partition-append! *batch-clock-depot *clock-record :ack)
+            (local-select> (keypath *gates-route) $$batch-clock :> *clock-row-after)
+            (batch/kept-clock *clock-row-after *this-batch :> *clock-after)
+            (clock-must-be-kept *clock-after *this-batch :> *batch-clock))
+         (else>)
+          (identity nil :> *batch-clock))
+        (batch/base *batch-clock *last-stamp *numbers :> *base)
         (<<if *base
           (ops/module-instance-info :> *info-2)
           (batch/last-stamp-of-batch *base *numbers (tasks-of *info-2) :> *new-last-stamp)
@@ -365,7 +485,7 @@
 
               (default>)
               (identity nil :> *found))
-            (batch/replies *read *found *now *base *batch-end :> *more-replies)
+            (batch/replies *read *found *batch-clock *base *batch-end :> *more-replies)
             (continue> (rest *reads-left) (into *replies-so-far *more-replies))))
         (ops/explode *replies :> [*reply-route *reply-turn *reply])
         (|hash *reply-route)

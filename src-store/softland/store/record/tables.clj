@@ -5,7 +5,10 @@
   write it. So \"the same record shape\" for each gate is these functions:
   the answers, the facts, the facts by value and the locks are one schema
   for both gates, and what a gate keeps for a task is `task` for the
-  streaming gate and `microbatch-task` for the microbatch gate.
+  streaming gate and `microbatch-task` for the microbatch gate. One schema
+  more is no part of a record: `batch-clock`, the clock that is kept for the
+  newest batch of the microbatch gate, which the topology of
+  `softland.store.module.batch-clock` declares and writes.
 
   What each schema holds, field by field, is in the namespace docstring of
   `softland.store.record.rows`, which makes and reads the rows. Here is why each
@@ -41,7 +44,8 @@
     microbatch-task
              the same for the microbatch gate, with two fields more and one
              changed. `:closed-through`: each row on the task with a stamp
-             not later than this is of a closed batch, and a read gives no
+             not later than this is of a closed batch, and the door's three
+             reads and the streaming gate's question about the base give no
              other. `:turns`: the text of the microbatch id that the count
              belongs to, and how many things of that batch the task has
              given a turn. It is durable, and not a count in memory, because
@@ -50,6 +54,20 @@
              the count so that the count starts again with each batch.
              `:last-stamp` is one for the whole gate, on the gate's task
              only.
+    batch-clock
+             {Keyword -> a row}, with one key, the depot word of the gate
+             whose clock it is, `:microbatch`, and so one row: the batch
+             that the clock belongs to, as the number of its microbatch id,
+             and the clock in milliseconds. A read is one seek and a write
+             one put. One row and not a row for each batch: a kept clock
+             has one use, a later attempt of the same batch, and Rama
+             starts no batch before the one before is committed on every
+             task; so when a later batch keeps its clock, nothing can read
+             the earlier one again. The depot of batch clocks keeps every
+             record (`softland.store.module`). The row is not in the
+             microbatch gate's own PStates because Rama sets those back
+             when an attempt of a batch fails, and this row is what a
+             second attempt must find.
 
   Why flat maps and not one PState keyed by the layer. An answer is found
   by an act's uuid, a fact by its place, a lock by its id: they share no
@@ -75,7 +93,9 @@
   in every row but the one at a layer's marked-keys place. Who wrote a fact,
   the permission that its act named and the stamps of the marked keys are
   each held as a String, the one text of what it is. A row of another class throws at the write, so
-  the rows are made only by `softland.store.record.rows`.
+  the rows are made only by `softland.store.record.rows`; the row of the
+  kept clock, two numbers, is made only by
+  `softland.store.gate.batch/clock-row-to-keep`.
 
   The strays. The outer map, a reason word to a set, is not subindexed: its
   keys are the words of `softland.store.door.declaration/stray-reasons`, a closed
@@ -157,3 +177,18 @@
                       :closed-through Long
                       :turns          (fixed-keys-schema {:batch String :given Long})
                       :last-stamp     Long}))
+
+(defn batch-clock
+  "Gives the schema of the kept clock of a batch: the depot word of the
+  gate, `:microbatch`, to one row, {:batch :clock}. `:batch` is the batch
+  that the clock belongs to, as the number of its microbatch id; in `:turns`
+  the same id is held as text. `:clock` is the clock time in milliseconds
+  since 1970. What must hold of a row that is written: both are of the class
+  Long, as `softland.store.gate.batch/clock-row-to-keep` makes them; a row of
+  another class throws at the write. The table rests on one thing of Rama's:
+  the id of a batch goes up and never comes again. If a microbatch topology
+  were deleted and declared again under its name, its ids would start anew,
+  the row would be of a later batch for ever, and no attempt could keep a
+  clock (`softland.store.module.microbatch-gate/clock-must-be-kept`)."
+  []
+  {Keyword (fixed-keys-schema {:batch Long :clock Long})})

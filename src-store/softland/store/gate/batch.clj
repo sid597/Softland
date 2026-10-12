@@ -1,11 +1,13 @@
 (ns softland.store.gate.batch
   "The pure code of one batch of the microbatch gate: the turn of a thing,
+  which clock is kept for a batch,
   what an act asks of other tasks, what a task replies, which acts meet, the
   decision of an act, and the home of each row that a decision writes. Pure
   code. It needs no cluster and loads with Clojure alone.
 
-  The gate (`softland.store.module.microbatch-gate`) only reads rows, calls these
-  functions and writes rows. None of them reads a PState, a clock or a
+  The gate (`softland.store.module.microbatch-gate`) reads rows, calls these
+  functions and writes rows; for a batch's clock it also reads the clock and
+  appends one record to a depot. None of them reads a PState, a clock or a
   random source, and none throws on what arrived. They add no check: each
   check is `softland.store.gate.decision`'s, called with the depot :microbatch
   on one act with all its rows. So the same checks serve both gates, and
@@ -25,7 +27,11 @@
                    fact gives. An act that meets no other is decided there
     home task      the task on which a row lives
     the gate's task  the task that the hash of the depot word :microbatch
-                   gives. The gate's last stamp is there
+                   gives. The gate's last stamp is there, and the clock that
+                   is kept for the newest batch
+    the batch's clock  the one clock time from which a batch's base is made
+                   and against which the 10-second rule is held. It is kept
+                   for the batch, so it is the same on every attempt
     to meet        two acts of a batch meet when both need one row and
                    cannot be put in order on one task. They are decided on
                    the meeting task of their layer, the task that the hash
@@ -51,7 +57,12 @@
             of the row asked for; :numbers, what the gate's task needs for
             the base. A question about a place also holds :marks-place, the
             key of its layer's marked-keys place, and :k, the fact's key.
-    step 2  `base` and `last-stamp-of-batch` on the gate's task. On each
+    step 2  On the gate's task, first the batch's clock: `kept-clock` reads
+            it out of the row that is kept for the newest batch;
+            `clock-record` makes the record that the gate appends when none
+            is kept; and `clock-row-to-keep` is the rule of the topology
+            that keeps the row, first write wins. Then `base` and
+            `last-stamp-of-batch`, from that clock. On each
             task `marks-places-asked` names the marked-keys places that the
             task reads from its own copy, once for a layer; `reads-of`
             gives one read for each key that was asked for, with :since for
@@ -106,8 +117,10 @@
 
   State and effects. None.
 
-  Callers. `softland.store.module.microbatch-gate`, and `softland.store.module`
-  for `first-entity`, by which the microbatch depot partitions."
+  Callers. `softland.store.module.microbatch-gate`; `softland.store.module`
+  for `first-entity`, by which the microbatch depot partitions; and
+  `softland.store.module.batch-clock` for `clock-row-to-keep` and
+  `gates-depot`."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.decision :as decision]
             [softland.store.door.digest :as digest]
@@ -384,6 +397,75 @@
             (into (questions act turn to asks-rows?))
             (conj numbers))))))
 
+;; ------------------------------------------------ step 2: the batch's clock
+
+(defn- as-long
+  "Takes anything. Gives it as a long when it is an integer that a long
+  holds, else nil. It never throws."
+  [x]
+  (when (and (integer? x) (<= Long/MIN_VALUE x Long/MAX_VALUE))
+    (long x)))
+
+(defn clock-record
+  "The record that the gate appends to the depot of batch clocks, to keep a
+  batch's clock. Takes the microbatch id of the run, which Rama gives as a
+  Long, and a reading of the clock in milliseconds. Gives
+  {:batch :clock}, both as longs: the two words say what the numbers are, so
+  that a reader of that log needs nothing else to read it. Nothing of an act
+  and no lock's bytes are in it. Gives nil when either is no integer; it
+  never throws. The topology that keeps the clock writes nothing for nil
+  (`clock-row-to-keep`), so the gate then finds no clock kept and fails the
+  attempt, and makes no stamp."
+  [batch-id clock-millis]
+  (let [batch (as-long batch-id)
+        clock (as-long clock-millis)]
+    (when (and batch clock)
+      {:batch batch :clock clock})))
+
+(defn kept-clock
+  "The clock that is kept for a batch. Takes the row that the table of the
+  kept clock holds, {:batch :clock} or nil, and the microbatch id of the
+  run. Gives the row's `:clock` when the row's `:batch` is that id, else
+  nil: for no row, for a row of another batch, and for a thing that is no
+  such row. It never throws. The gate takes a batch's clock out of this
+  function and from nowhere else, so every attempt of a batch that makes a
+  stamp makes it from the one clock that was kept for the batch's id."
+  [row batch-id]
+  (try
+    (let [batch (as-long (get row :batch))
+          clock (as-long (get row :clock))
+          id (as-long batch-id)]
+      (when (and batch clock id (= batch id))
+        clock))
+    (catch Throwable _ nil)))
+
+(defn clock-row-to-keep
+  "The rule of the topology that keeps a batch's clock: first write wins.
+  Takes the row that the table holds, {:batch :clock} or nil, and a record
+  of the depot of batch clocks. Gives the row to write, {:batch :clock} as
+  longs, when the table holds no row or a row of an older batch. Gives nil,
+  and so nothing is written:
+
+    for a record of the row's own batch   the clock that was kept first for
+        a batch stays, however often Rama hands the topology a record, and
+        when two attempts of one batch each appended a reading
+    for a record of an older batch   a record of a closed batch that Rama
+        hands over late never puts the row back
+    for a thing that is no map with two integers under :batch and :clock
+
+  It never throws: a record that throws would be tried again for ever. The
+  rule rests on the id of a batch going up and never coming again; it is
+  the same id on each attempt of a batch. What it writes for one record is
+  the same however often it runs."
+  [held record]
+  (try
+    (let [batch (as-long (get record :batch))
+          clock (as-long (get record :clock))
+          held-batch (as-long (get held :batch))]
+      (when (and (map? record) batch clock (or (nil? held-batch) (< held-batch batch)))
+        {:batch batch :clock clock}))
+    (catch Throwable _ nil)))
+
 ;; ------------------------------------------------------- step 2: the stamp
 
 (def ^:private greatest-counter
@@ -391,10 +473,13 @@
   (dec (bit-shift-left 1 stamp/counter-bits)))
 
 (defn base
-  "The base of a batch: its first stamp. Takes the gate's clock now, in
-  milliseconds, read once for the batch; the gate's last stamp, or nil; and
+  "The base of a batch: its first stamp. Takes the batch's clock, in
+  milliseconds: the one clock that is kept for the batch, the same on every
+  attempt, and nil for a batch with no numbers; the gate's last stamp, or
+  nil; and
   the batch's numbers, {:carried :position}, or nil for a batch that took no
-  thing or only strays. Gives nil for no numbers: such a batch gives no
+  thing or only strays. Gives nil for no numbers, before it looks at the
+  clock: such a batch gives no
   stamp. Else the next stamp after the clock, the last stamp, and the
   greatest carried stamp of the batch, the last held to the greatest stamp
   that the 10-second rule lets pass. So the base is later than each stamp

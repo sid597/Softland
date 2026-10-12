@@ -32,13 +32,32 @@
   a door would. To put several things into one batch it pauses the
   microbatch topology with Rama's test tool, appends, and lets it go on.
 
-  State. The proof starts one in-process cluster with four tasks and two
-  workers, launches the module `Store` in it, and closes it at the end; the
-  cluster's files are temporary and are Rama's. It owns eight atoms: the
-  lines that it showed; the things that it sent to each depot; the first
-  answers of each gate, in the order sent; the locks that it holds and has
-  not used; the bytes of each lock that it read; and what later checks come
-  back to. It reads the clock to make a carried stamp and to time a wait.
+  State. The proof starts two in-process clusters, one after the other in
+  one JVM, each with four tasks and two workers, launches the module `Store`
+  in each, and closes each; a cluster's files are temporary and are Rama's.
+  Every check but one group runs on the first cluster, on the functions as
+  the store defines them: nothing is replaced in the JVM while it runs. The
+  one group that makes a batch of the microbatch gate run a second time runs
+  on the second cluster. For that cluster alone `-main` puts three functions
+  of this namespace into the vars of three functions of
+  `softland.store.gate.batch` that the gate's dataflow calls, `base`,
+  `decide-or-send` and `rows-to-send`, before the launch, and puts the
+  store's own back when the cluster is closed, in a `finally`. Each of the
+  three gives exactly what the store's function gives, and notes it; one of
+  them throws once when the group asked for it. Rama takes the function that
+  a var holds at each launch.
+
+  The proof owns eleven atoms: the lines that it showed; the things that it
+  sent to each depot; the first answers of each gate, in the order sent; the
+  locks that it holds and has not used; the bytes of each lock that it read;
+  what later checks come back to; and, for the second cluster, the note of
+  each attempt of a batch, the wish for a throw, and each throw that was
+  made. `-main` empties all but the shown lines between the two clusters:
+  Rama counts the things that a gate processed from the launch of a
+  cluster. The notes are the memory of this process. They hold a first
+  attempt's rows through the restart of a worker only because the in-process
+  cluster is one JVM. The proof reads the clock to make a carried stamp and
+  to time a wait.
 
   Approach. The checks run in one order on one cluster, and later checks
   build on the layers, the facts and the permissions that earlier ones
@@ -54,7 +73,9 @@
   its batch and the closing. Near the end the proof starts the module again
   in the cluster, by Rama's module update with the unchanged module, and
   reads both records once more; Rama then prints some lines of its own log,
-  marked ERROR, that are no failed checks.
+  marked ERROR, that are no failed checks. So it does on the second cluster
+  for the one throw that the proof makes: Rama says that it treats the throw
+  as fatal for the worker, and starts the worker again.
 
   What it does not reach is in the folder's README."
   (:require [clojure.string :as str]
@@ -65,8 +86,10 @@
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
+            [softland.store.gate.batch :as batch]
             [softland.store.gate.first-act :as first-act]
             [softland.store.module :as module]
+            [softland.store.module.microbatch-gate :as microbatch-gate]
             [softland.store.record.rows :as record]
             [softland.store.door.seal :as seal]
             [softland.store.gate.stamp :as stamp]
@@ -90,14 +113,25 @@
   (is (= expected observed) what)
   observed)
 
+(defn- content
+  "Takes a value. Gives it with each run of bytes as the vector of its
+  bytes, so that two rows are compared by their content."
+  [x]
+  (cond (bytes? x) (vec x)
+        (map? x) (into {} (map (fn [[k v]] [k (content v)])) x)
+        (sequential? x) (mapv content x)
+        :else x))
+
 ;; ------------------------------------------------------------------ the hand
 
 (def ^:private tasks "The number of tasks of the proof's cluster." 4)
 
 (def ^:dynamic ^:private *hand*
-  "What the proof's hand holds of the cluster: the cluster itself, the name
-  of the module, the two depots, the three queries, and the five PStates of
-  each gate. `-main` binds it for the run."
+  "What the proof's hand holds of a cluster: the cluster itself, the name
+  of the module, the two depots of acts, the three queries, the five PStates
+  of each gate, the depot of batch clocks and the PState of the kept clock;
+  and `:checks`, which says which of the proof's two clusters it is.
+  `-main` binds it for the run on each cluster."
   nil)
 
 (defonce ^:private things-sent (atom []))
@@ -128,7 +162,9 @@
      :mb-facts-ps   (rama/foreign-pstate ipc m "$$microbatch-facts")
      :mb-by-value-ps (rama/foreign-pstate ipc m "$$microbatch-facts-by-value")
      :mb-locks-ps   (rama/foreign-pstate ipc m "$$microbatch-locks")
-     :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")}))
+     :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")
+     :clock-depot   (rama/foreign-depot ipc m "*batch-clock-depot")
+     :clock-ps      (rama/foreign-pstate ipc m "$$batch-clock")}))
 
 (defn- depot-of-layer
   "Reads the depot of a layer, or nil for a layer that is not made. The hand
@@ -538,6 +574,31 @@
           :let [{:keys [start-offset end-offset]} (rama/foreign-depot-partition-info depot p)]
           r (rama/foreign-depot-read depot p start-offset end-offset)]
       [p r])))
+
+(defn- kept-clock-row
+  "The row that the module keeps for the newest batch of the microbatch gate
+  that had things to decide, {:batch :clock}, or nil when no batch kept one:
+  one select of `$$batch-clock` on the gate's task, the task of the depot
+  word."
+  []
+  (rama/foreign-select-one (path/keypath :microbatch) (:clock-ps *hand*) {:pkey :microbatch}))
+
+(defn- clock-records
+  "Each record of the log of the depot of batch clocks, read back:
+  [partition record]. A partition that holds nothing is not read."
+  []
+  (let [depot (:clock-depot *hand*)]
+    (vec (for [p (range (:num-partitions (rama/foreign-object-info depot)))
+               :let [{:keys [start-offset end-offset]} (rama/foreign-depot-partition-info depot p)]
+               :when (< start-offset end-offset)
+               r (rama/foreign-depot-read depot p start-offset end-offset)]
+           [p r]))))
+
+(defn- clock-record?
+  "True for a record of the depot of batch clocks as the gate must append
+  it: a map of exactly `:batch` and `:clock`, two integers."
+  [r]
+  (boolean (and (map? r) (= #{:batch :clock} (set (keys r))) (integer? (:batch r)) (integer? (:clock r)))))
 
 ;; ------------------------------------------------------------- the people
 
@@ -2172,12 +2233,13 @@
   again: the answer of the act that landed, the depot, the gate's last
   stamp, the count of strays, a permission's row on each task, the bytes
   of the locks of one request, the marked keys on each task with their
-  stamps, the run of one value in the facts by value, and a value kept
-  plain."
+  stamps, the run of one value in the facts by value, a value kept
+  plain, and the row of the kept clock of the newest batch."
   [request]
   {:answer (answer-of (:act-id (:thing (:base-landed @kept))))
    :depot (depot-of-layer :base)
    :last-stamp (gates-last-stamp)
+   :kept-clock (kept-clock-row)
    :strays (base-strays)
    :permission (into (sorted-map) (map (fn [[task row]] [task (:stamp row)])) (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission)))
    :marked-keys (into (sorted-map) (map (fn [[task row]] [task (record/marked-keys-of row)])) (base-marks-rows))
@@ -2210,7 +2272,7 @@
                              (system-act [(seal-with forged-lock :base :lock-doc :forged "sealed with bytes that the store did not make")])])
         by-stranger (ask-for-base-locks! :mallory alice-in-base 2)
         kept-request (ask-for-base-locks! :system system-own 2)]
-    (swap! kept assoc :base-kept-request (:request kept-request) :base-before (base-snapshot (:request kept-request)))
+    (swap! kept assoc :base-kept-request (:request kept-request))
     (check "a second value under a lock that already seals one is refused, although the lock's row at its home holds no bytes"
            :lock-already-seals-a-value (:word second-value))
     (check "a request sent twice makes no lock again: each lock has the bytes that the first run made"
@@ -2240,6 +2302,46 @@
            "| holds bytes" (contains? the-lock :bytes) "| names the fact" (some? (:seals-act the-lock))
            "| locks-of-request gives it as" (pr-str (get read-after 0)))
     (shown "a request sent twice to the microbatch depot gives the same" (count bytes-after) "locks, byte for byte | a use of a lock in the batch that asks for it:" (:word forged))))
+
+(deftest a-place-of-the-base-never-gives-nothing
+  (let [request (ask-for-base-locks! :system system-own 2)
+        lock (fn [i] {:lock-id [(:request request) i] :lock (get (:locks request) i)})
+        _ (swap! locks-in-hand update :base (fn [held] (vec (remove #(= (:request request) (first (:lock-id %))) held))))
+        e :never-empty-doc
+        written (decide-in-base! (system-act [(seal-with (lock 0) :base e :text "the text before")]))
+        old-uuid (nth (:act-id (:thing written)) 2)
+        replacing (system-act [(assoc (seal-with (lock 1) :base e :text "the text after")
+                                      :replaces [(:act-id (:thing written)) 0])])
+        new-uuid (nth (:act-id replacing) 2)
+        before-the-append (base-fact e :text)
+        ack (append-to-base! replacing)
+        deadline (+ (System/currentTimeMillis) time-limit-ms)
+        seen (loop [seen [before-the-append]]
+               (let [row (base-fact e :text)
+                     seen (conj seen row)]
+                 (if (or (= new-uuid (:by-act row)) (< deadline (System/currentTimeMillis)))
+                   seen
+                   (do (Thread/sleep 2) (recur seen)))))
+        read-at-first-sight (answer-of (:act-id replacing))
+        _ (wait-until-processed!)
+        result (base-result replacing ack)
+        _ (note-base-answers! [result])
+        after-closing (base-fact e :text)]
+    (swap! kept assoc :base-before (base-snapshot (:base-kept-request @kept)))
+    (check "a fact with a value is written to a place of the base, and an act that names it replaces it: both accepted"
+           [:accepted :accepted true] [(:word written) (:word result) (:mine? result)])
+    (check "from before the append of the replacing act until its row shows, each select of the place, straight from the facts table on the task of its entity, gave a row and never nothing"
+           [true true] [(< 2 (count seen)) (every? some? seen)])
+    (check "each row that a select gave was the fact before or the fact after, the first select the one before and the last the one after"
+           [#{old-uuid new-uuid} old-uuid new-uuid]
+           [(set (map :by-act seen)) (:by-act (first seen)) (:by-act (peek seen))])
+    (check "the row that the select gave at its first sight of the new fact is the row that the place holds after the batch is closed, in every field"
+           (content after-closing) (content (peek seen)))
+    (shown "a place of the base that is replaced never gives nothing to a select that goes straight to the table:"
+           (count seen) "selects from before the append until the new row showed," (count (filter #(= old-uuid (:by-act %)) seen))
+           "gave the fact before and" (count (filter #(= new-uuid (:by-act %)) seen)) "the fact after | at the first sight of the new row the door's read by act-id gave"
+           (if read-at-first-sight "its answer: the batch was closed by then" "nothing yet: the batch was not closed")
+           "| the row seen then is the row after the closing")))
 
 (deftest after-the-module-is-started-again
   (let [landed (:landed @kept)
@@ -2307,6 +2409,8 @@
         with-old-lock (decide-in-base! (system-act [(seal-with {:lock-id [request 0] :lock {:bytes (byte-array (get (:locks before) 0)) :way 1}}
                                                                :base :after-doc :text "sealed under a lock from before")]))
         by-alice (decide-in-base! (thing :base :alice alice-in-base [{:e :alices-doc :k :after}]))
+        clock-before (:kept-clock before)
+        clock-after (kept-clock-row)
         {:keys [places locks sent]} (:base-values @kept)
         opened (mapv (fn [[e k] lock fact]
                        (let [value (:value (base-fact e k))
@@ -2314,8 +2418,13 @@
                              plain (seal/open (record/lock-of beside) [:base e k] (:sealed fact))]
                          [(vec value) (and (some? plain) (= (vec plain) (vec value)))]))
                      places locks sent)]
-    (check "the answer, the depot of the base, the gate's last stamp, the strays, a permission's rows, the locks, the marked keys, a run of the facts by value and a value kept plain are as they were"
+    (check "the answer, the depot of the base, the gate's last stamp, the strays, a permission's rows, the locks, the marked keys, a run of the facts by value, a value kept plain and the kept clock of the newest batch are as they were"
            before after)
+    (check "the kept clock is one row of a batch's id and a clock; a batch with things after the start keeps its clock under a later id, and the clock is not earlier"
+           [true true true true]
+           [(clock-record? clock-before) (clock-record? clock-after)
+            (boolean (and clock-before clock-after (< (:batch clock-before) (:batch clock-after))))
+            (boolean (and clock-before clock-after (<= (:clock clock-before) (:clock clock-after))))])
     (check "a repeat after it is answered from the record" (:answer before) answer-after-repeat)
     (check "a lock of the base that was asked for before seals a value after" :accepted (:word with-old-lock))
     (check "the first stamp after is later than the gate's last stamp before" true (< (:last-stamp before) (:stamp (:answer with-old-lock))))
@@ -2323,7 +2432,15 @@
     (check "each value of the act on several tasks is in its row as the plain bytes of what was sent, and the bytes beside it still open the sealed bytes that were sent, to those bytes"
            (mapv (fn [[e _]] [(vec (plain-bytes (str "the body of " (name e)))) true]) places) opened)
     (shown "after the module is started again in the cluster, the base's record is as it was: the same answer, depot" (:depot after)
-           "| the same locks | the gate's last stamp before" (:last-stamp before) "the first stamp after" (:stamp (:answer with-old-lock)))))
+           "| the same locks | the gate's last stamp before" (:last-stamp before) "the first stamp after" (:stamp (:answer with-old-lock)))
+    (check "the gate's one throw, called by hand: given the clock that is kept for a batch it gives that clock; given none it throws and names the batch, so that no stamp is made from a clock that is not kept"
+           [(:clock clock-after) [:threw {:batch 41}]]
+           [(microbatch-gate/clock-must-be-kept (:clock clock-after) (:batch clock-after))
+            (try (microbatch-gate/clock-must-be-kept nil 41)
+                 (catch clojure.lang.ExceptionInfo e [:threw (ex-data e)]))])
+    (shown "the kept clock of the newest batch is as it was after the start:" (pr-str clock-before)
+           "| a batch with things after it kept its clock under a later id:" (pr-str clock-after)
+           "| the gate's one throw, called by hand with no clock kept, throws and names the batch; no run of this proof reached it in the gate")))
 
 (deftest the-stamps-and-the-depot-of-the-base
   (let [records (vec (stored-in-base))
@@ -2332,6 +2449,8 @@
         depot-text (apply str (map (fn [[_ r]] (text/text r)) records))
         lock-texts @lock-bytes-read
         reads (:base-reads @kept)
+        clocks (clock-records)
+        clock-text (apply str (map (fn [[_ r]] (text/text r)) clocks))
         not-closed-at-the-read (remove (fn [{:keys [stamp closed-through-after]}]
                                          (and closed-through-after (<= stamp closed-through-after)))
                                        reads)
@@ -2351,15 +2470,467 @@
     (check "the things of the base are on more than one partition of the depot" true (< 1 (count (set (map first records)))))
     (check "no lock's bytes are on the microbatch depot: the hex of each lock that the door read is in no stored record"
            [true false] [(< 30 (count lock-texts)) (boolean (some #(str/includes? depot-text %) lock-texts))])
+    (check "the depot of batch clocks holds records, each a map of exactly a batch's id and a clock, two integers, all on one partition; and no lock's bytes are on it"
+           [true true 1 false]
+           [(< 30 (count clocks)) (every? (fn [[_ r]] (clock-record? r)) clocks) (count (set (map first clocks)))
+            (boolean (some #(str/includes? clock-text %) lock-texts))])
+    (check "the row of the kept clock is the first record, in the depot's order, of the batch with the greatest id on that depot"
+           (let [newest (reduce max (map (fn [[_ r]] (:batch r)) clocks))]
+             (some (fn [[_ r]] (when (= newest (:batch r)) r)) clocks))
+           (kept-clock-row))
     (shown "the stamps of" (count answers) "answers of the microbatch gate, in" (count groups) "batches, go up in the order decided;"
            "each of" (count reads) "reads that gave an answer gave one of a batch that was closed at the read")
     (shown "the microbatch depot holds all" (count records) "things sent, on" (count (set (map first records)))
-           "partitions | none of" (count lock-texts) "locks' bytes that the door read is on it")))
+           "partitions | none of" (count lock-texts) "locks' bytes that the door read is on it")
+    (shown "the depot of batch clocks holds" (count clocks) "records, each a batch's id and a clock and nothing else, for"
+           (count (set (map (fn [[_ r]] (:batch r)) clocks))) "batches, all on partition" (pr-str (set (map first clocks)))
+           "| none of those locks' bytes is on it | the kept row is the newest batch's:" (pr-str (kept-clock-row)))))
 
-(defn test-ns-hook
-  "Runs the checks in the order in which the proof tells them. Later checks
-  build on what earlier ones made. The checks of the streaming gate come
-  first; the base is made after them."
+;; ------------------------------------- a batch that Rama runs a second time
+
+(def ^:private first-base
+  "`softland.store.gate.batch/base` as the store defines it, taken when this
+  namespace was loaded, before any var is changed."
+  batch/base)
+
+(def ^:private first-decide-or-send
+  "`softland.store.gate.batch/decide-or-send` as the store defines it."
+  batch/decide-or-send)
+
+(def ^:private first-rows-to-send
+  "`softland.store.gate.batch/rows-to-send` as the store defines it."
+  batch/rows-to-send)
+
+(defonce ^{:private true
+           :doc "The note of each attempt of a batch with things on the proof's
+  second cluster, in the order in which the attempts began:
+  {:wall :clock :last-stamp :numbers :base :rows}. `:rows` holds each row that
+  the attempt made, as [which key row], in the order noted."}
+  attempts (atom []))
+
+(defonce ^{:private true
+           :doc "The wish for a throw: true while the next call of
+  `noting-rows-to-send` that gives rows is to throw."}
+  throw-asked (atom false))
+
+(defonce ^{:private true
+           :doc "Each throw that `noting-rows-to-send` made:
+  {:wall :rows :attempts :thread}, where :attempts is how many attempts were
+  noted when it threw."}
+  throws-made (atom []))
+
+(def ^:private edge-ahead-ms
+  "How far ahead of the hand's clock the stamp is that the edge act of the
+  batch that runs twice carries, in milliseconds: the store's 10,000
+  (`softland.store.gate.stamp/max-ahead-millis`) and 700. The act is at the
+  edge when the first attempt takes its clock less than 700 ms after the
+  hand's reading and the second attempt begins more than 700 ms after it;
+  the runs of the plan and of its check gave 122 ms for the first and 1,001
+  to 1,548 ms more for the second. The number changes what the check shows
+  and never whether it passes."
+  10700)
+
+(def ^:private twice-limit-ms
+  "How long the hand reads for the answers of the batch that runs twice, in
+  milliseconds. A second attempt came 1 to 2 seconds after the first in the
+  runs; an attempt that Rama ends by its phase timeout takes about 31."
+  60000)
+
+(def ^:private quiet-ms
+  "How long the proof waits to see that a quiet time adds no record to the
+  depot of batch clocks, in milliseconds."
+  1500)
+
+(defn- note-rows!
+  "Adds rows, each [which key row], to the note of the newest attempt."
+  [rows]
+  (when (seq rows)
+    (swap! attempts (fn [notes]
+                      (if (seq notes)
+                        (update-in notes [(dec (count notes)) :rows] into rows)
+                        notes)))))
+
+(defn noting-base
+  "Stands in for `softland.store.gate.batch/base` on the proof's second
+  cluster. Takes what it takes and gives what it gives. The gate calls it
+  once in each attempt, on the gate's task; for a batch with numbers it
+  begins the note of an attempt: the clock and the last stamp that the gate
+  gave it, the numbers, the base, and the wall time of the call. It is
+  public and held by a var, and it closes over nothing: Rama takes the
+  function that the store's var holds at the launch."
+  [clock last-stamp numbers]
+  (let [base (first-base clock last-stamp numbers)]
+    (when numbers
+      (swap! attempts conj {:wall (System/currentTimeMillis) :clock clock :last-stamp last-stamp
+                            :numbers numbers :base base :rows []}))
+    base))
+
+(defn noting-decide-or-send
+  "Stands in for `softland.store.gate.batch/decide-or-send` on the proof's
+  second cluster. Takes what it takes and gives what it gives, and notes
+  each row that it gave: each fact that the task writes at once, and each
+  row of a parcel of the kind :rows, a row of the kind :by-value that is nil
+  among them."
+  [item own-rows]
+  (let [out (first-decide-or-send item own-rows)]
+    (note-rows! (concat (map (fn [[k row]] [:fact k row]) (:now out))
+                        (mapcat (fn [[_ kind payload]] (when (= :rows kind) payload)) (:parcels out))))
+    out))
+
+(defn noting-rows-to-send
+  "Stands in for `softland.store.gate.batch/rows-to-send` on the proof's
+  second cluster. Takes what it takes and gives what it gives, and notes
+  each row: the rows of the acts that meet. Then, when the proof asked for a
+  throw and this call gave rows, it throws, this once. Step 4 calls it on
+  every task, and only the meeting task of a layer gets rows from it; step 3
+  is done on every task by then. So when every act of a batch is into one
+  layer, the throw comes after the one call that gives rows, and the note of
+  the attempt is whole by the order of the code, wherever the tasks sit."
+  [pass]
+  (let [out (first-rows-to-send pass)]
+    (note-rows! (map (juxt :which :key :row) out))
+    (when (and (seq out) (compare-and-set! throw-asked true false))
+      (swap! throws-made conj {:wall (System/currentTimeMillis) :rows (count out) :attempts (count @attempts)
+                               :thread (.getName (Thread/currentThread))})
+      (throw (ex-info "the module's proof: a forced failure of this attempt of a batch, after its rows were noted" {})))
+    out))
+
+(defn- put-noting-functions!
+  "Puts the three noting functions into the vars of the store's three. What
+  must hold: no cluster of this JVM is launched; a launch takes what the
+  vars hold then."
+  []
+  (alter-var-root #'batch/base (constantly noting-base))
+  (alter-var-root #'batch/decide-or-send (constantly noting-decide-or-send))
+  (alter-var-root #'batch/rows-to-send (constantly noting-rows-to-send)))
+
+(defn- put-the-stores-functions-back!
+  "Puts the store's own three functions back into their vars."
+  []
+  (alter-var-root #'batch/base (constantly first-base))
+  (alter-var-root #'batch/decide-or-send (constantly first-decide-or-send))
+  (alter-var-root #'batch/rows-to-send (constantly first-rows-to-send)))
+
+(defn- empty-the-hand!
+  "Empties each atom of the proof but the shown lines: what the hand keeps
+  of one cluster means nothing on the next, and Rama counts the things that
+  a gate processed from the launch of a cluster."
+  []
+  (reset! things-sent [])
+  (reset! first-answers [])
+  (reset! locks-in-hand {})
+  (reset! kept {})
+  (reset! base-things-sent [])
+  (reset! base-answers [])
+  (reset! lock-bytes-read #{})
+  (reset! attempts [])
+  (reset! throw-asked false)
+  (reset! throws-made []))
+
+(defn- decide-twice!
+  "The hand for a second attempt. Sends things to the microbatch depot so
+  that one batch of the gate takes them all, as `decide-in-one-batch!` does,
+  with a throw asked for: the first attempt of that batch fails in step 4,
+  after the one call of `rows-to-send` that gives rows, and Rama runs the
+  batch again. Takes the things, and a function of no argument that makes
+  the last thing: the hand calls it right before it appends that thing, and
+  lets the topology go on at once, so that the last thing can carry a
+  reading of the clock that is fresh. Gives
+  {:results :answered? :waited :notes :throws :last-thing}: the result of
+  each thing in the order sent, the last thing last; whether each was
+  answered within `twice-limit-ms`; the milliseconds from the topology's
+  going on to the last answer; the notes of the attempts that began since
+  the send; and the throws made since.
+
+  It reads the answers in a loop that takes a read that throws as nothing
+  yet: for about half a second after a worker is started again, a read can
+  throw. What must hold: the hand is on the proof's second cluster, where
+  the noting functions run, and every thing is an act into one layer."
+  [xs make-last]
+  (let [ipc (:ipc *hand*)
+        module-name (:module *hand*)
+        notes-before (count @attempts)
+        throws-before (count @throws-made)]
+    (rtest/pause-microbatch-topology! ipc module-name "microbatch-gate")
+    (let [acks (mapv append-to-base! xs)
+          _ (reset! throw-asked true)
+          last-thing (make-last)
+          last-ack (append-to-base! last-thing)
+          _ (rtest/resume-microbatch-topology! ipc module-name "microbatch-gate")
+          went-on (System/currentTimeMillis)
+          all (conj (vec xs) last-thing)
+          answer-or-nil (fn [x] (try (answer-of (:act-id x)) (catch Throwable _ nil)))
+          answered? (loop []
+                      (cond (every? answer-or-nil all) true
+                            (< (+ went-on twice-limit-ms) (System/currentTimeMillis)) false
+                            :else (do (Thread/sleep 50) (recur))))
+          waited (- (System/currentTimeMillis) went-on)]
+      (reset! throw-asked false)
+      {:results (mapv (fn [x ack]
+                        (let [answer (answer-or-nil x)]
+                          {:thing x :ack ack :answer answer :mine? (digest/is-digest-of? (:digest answer) x)
+                           :word (cond (nil? answer) :nothing-yet
+                                       (= :accepted (:verdict answer)) :accepted
+                                       :else (:reason answer))}))
+                      all (conj acks last-ack))
+       :answered? answered?
+       :waited waited
+       :notes (subvec @attempts notes-before)
+       :throws (subvec @throws-made throws-before)
+       :last-thing last-thing})))
+
+(defn- rows-by-key
+  "Takes the rows that an attempt noted, each [which key row]. Gives a map
+  from [which key] to the rows noted under it, in the order noted, each with
+  its bytes by content. A key that was noted with no row, as the key of a
+  new lock is, and the key of a row of the facts by value that goes out,
+  holds a nil there: it is a key all the same."
+  [rows]
+  (reduce (fn [by-key [which k row]] (update by-key [which k] (fnil conj []) (content row))) {} rows))
+
+(defn- fields-apart
+  "Takes two rows, each a map or nil. Gives the fields that the two do not
+  hold alike; [:row-or-no-row] when one of them is no row."
+  [a b]
+  (cond (= a b) []
+        (or (nil? a) (nil? b)) [:row-or-no-row]
+        :else (remove (fn [field] (= (get a field) (get b field))) (distinct (concat (keys a) (keys b))))))
+
+(defn- rows-side-by-side
+  "Sets the rows of two attempts side by side. Takes the notes of two
+  attempts. Gives one entry for each key, [which key], whose rows are not
+  the same in both: {:key :noted-in :differs}. :noted-in says whether the
+  key is in the first note only, in the second only, or in both; for a key
+  in both, :differs holds the fields in which its rows differ, a run of
+  bytes compared by its content, or :how-many-rows. Gives an empty vector
+  when both attempts made rows under the same keys, and at each key the same
+  rows in every field. A key that was noted with no row is a key all the
+  same, so a row that goes out in one attempt and is not noted in the other
+  is told."
+  [note-1 note-2]
+  (let [first-rows (rows-by-key (:rows note-1))
+        second-rows (rows-by-key (:rows note-2))]
+    (vec (keep (fn [k]
+                 (let [in-first (get first-rows k)
+                       in-second (get second-rows k)]
+                   (cond (nil? in-second) {:key k :noted-in :the-first-attempt-only}
+                         (nil? in-first) {:key k :noted-in :the-second-attempt-only}
+                         (= in-first in-second) nil
+                         (not= (count in-first) (count in-second)) {:key k :noted-in :both :differs #{:how-many-rows}}
+                         :else {:key k :noted-in :both :differs (set (mapcat fields-apart in-first in-second))})))
+               (sort-by pr-str (distinct (concat (keys first-rows) (keys second-rows))))))))
+
+(defn- as-the-tables-hold-it?
+  "Takes a kind and a key as an attempt noted them, and the last row that
+  the attempt noted under them, with its bytes by content. Selects the key
+  on every task, straight from the gate's tables, and gives true when the
+  tables hold that row and no other:
+
+    :fact       one task holds the row, or every task for a row under one
+                of the five store keys that sit on every task, each the same
+    :answer     one task holds the row
+    :by-value   one task holds the row; for a row that went out, no task
+                holds a row under the key
+    :lock       one row under the key is the whole row that was noted
+    :lock-home  each row under the key that holds no bytes is the home's row
+                that was noted; where the lock's home is the value's task
+                the whole row is the one that stays
+    :new-lock   one task holds a row with 32 bytes. Its bytes are drawn at
+                the write, so no attempt noted them"
+  [which k noted]
+  (let [found (fn [pstate] (mapv content (vals (rows-by-task pstate k))))]
+    (case which
+      :fact (let [rows (found :mb-facts-ps)]
+              (and (= (count rows) (if (batch/on-every-task? (nth (record/place-of-key k) 2)) tasks 1))
+                   (every? #(= noted %) rows)))
+      :answer (= [noted] (found :mb-answers-ps))
+      :by-value (= (if noted [noted] []) (found :mb-by-value-ps))
+      :lock (= 1 (count (filter #(= noted %) (found :mb-locks-ps))))
+      :lock-home (let [rows (found :mb-locks-ps)]
+                   (boolean (and (seq rows) (every? #(or (contains? % :bytes) (= noted %)) rows))))
+      :new-lock (= [32] (mapv #(count (:bytes %)) (found :mb-locks-ps)))
+      false)))
+
+(deftest a-batch-runs-a-second-time
+  (let [;; What the batch stands on, each in a batch that runs once: the base,
+        ;; locks, a marked key, a fact to replace, a value under the marked
+        ;; key, and a person's permission.
+        made (decide-in-base! (making :base :system :system))
+        request (ask-for-base-locks! :system system-own 16)
+        marking (decide-in-base! (system-act [{:e :base :k marks :v #{:on}}]))
+        since (gates-last-stamp)
+        [fact-before value-before give-alice]
+        (decide-in-one-batch! [(system-act [(sealed :base :twice-doc :title "the text before")])
+                               (system-act [(sealed :base :twice-pointer :on :canvas-1)])
+                               (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}])])
+        run-before (mapv first (base-entries-of :on since :canvas-1))
+        note-of-the-batch-before (peek @attempts)
+        ;; The batch that runs twice. Every act is into the base.
+        lock-request (system-act [])
+        request-uuid (nth (:act-id lock-request) 2)
+        fact-id [(:act-id (:thing fact-before)) 0]
+        xs [(system-act [{:e :twice-1 :k :note}])
+            (system-act [(sealed :base :twice-2 :text "a sealed value")])
+            (system-act [{:e :twice-3 :k :note} (sealed :base :twice-4 :text "a value on a second entity of one act")])
+            (thing :base :alice alice-in-base [(sealed :base :twice-5 :text "a person's text")])
+            (system-act [(assoc (sealed :base :twice-doc :title "the text after") :replaces fact-id)])
+            (system-act [{:e :twice-doc :k :title}])
+            (system-act [{:e :twice-holder :k :softland.store/permission :v [:twice-holder :base :base system-own]}])
+            (system-act [{:e :twice-seer :k :softland.store/permission :v [:twice-seer :base :base system-own :see]}])
+            (assoc lock-request :facts [{:e request-uuid :k :softland.store/lock-request :v 2}])
+            (thing :base :mallory [:mallory :base :base system-own] [{:e :twice-6 :k :note}])
+            (system-act [{:e :twice-7 :k :plain :v "not sealed"}])
+            (system-act [(sealed :base :twice-pointer :on :canvas-2)])
+            (system-act [(sealed :base :twice-pointer-2 :on :first-of-two)])
+            (system-act [(sealed :base :twice-pointer-2 :on :second-of-two)])
+            (system-act [{:e :base :k marks :v #{:on :in}}])
+            (system-act [{:e :base :k who-may-see :v :members}])
+            (system-act [{:e :base :k builds-on :v [:team]}])]
+        make-edge (fn [] (system-act [{:e :twice-edge :k :note}]
+                                     {:based-on {fact-id (stamp/pack (+ (System/currentTimeMillis) edge-ahead-ms) 0)}}))
+        {:keys [results answered? waited notes throws last-thing]} (decide-twice! xs make-edge)
+        ;; Read at once, before another batch with things keeps its clock.
+        kept-row (kept-clock-row)
+        records (clock-records)
+        notes-then (count @attempts)
+        [note-1 note-2] notes
+        the-throw (first throws)
+        edge-carried (first (vals (:based-on last-thing)))
+        edge-reading (- (stamp/time-of edge-carried) edge-ahead-ms)
+        edge-word (when note-1
+                    (if (stamp/too-far-ahead? (:clock note-1) edge-carried) :carried-stamp-too-far-ahead :accepted))
+        at-the-edge? (boolean (and note-1 note-2
+                                   (stamp/too-far-ahead? (:clock note-1) edge-carried)
+                                   (not (stamp/too-far-ahead? (:wall note-2) edge-carried))))
+        side-by-side (if (= 2 (count notes)) (rows-side-by-side note-1 note-2) :the-notes-are-not-two)
+        noted (rows-by-key (:rows note-2))
+        kinds (frequencies (map first (keys noted)))
+        not-as-noted (vec (keep (fn [[[which k] rows]] (when-not (as-the-tables-hold-it? which k (peek rows)) [which k])) noted))
+        answers-apart (vec (keep (fn [{:keys [thing answer]}]
+                                   (let [[layer _ uuid] (:act-id thing)
+                                         row (peek (get noted [:answer (record/answer-key layer uuid)]))]
+                                     (when-not (and row answer
+                                                    (= [(if (:refused row) :refused :accepted) (:refused row) (:stamp row)]
+                                                       [(:verdict answer) (:reason answer) (:stamp answer)]))
+                                       (:act-id thing))))
+                                 results))
+        task-of-fact (fn [e k] (task-of-row :mb-facts-ps (record/place-key :base e k)))
+        fact-tasks (set (map (fn [[e k]] (task-of-fact e k))
+                             [[:twice-1 :note] [:twice-2 :text] [:twice-3 :note] [:twice-4 :text] [:twice-5 :text] [:twice-doc :title]]))
+        alices-row (base-fact :twice-5 :text)
+        marks-rows (base-marks-rows)
+        batch-end (gates-last-stamp)
+        seer-rows (rows-by-task :mb-facts-ps (record/place-key :base :twice-seer :softland.store/permission))
+        runs-after [(mapv first (base-entries-of :on since :canvas-1)) (base-run-of :on since :canvas-2)
+                    (base-run-of :on since :first-of-two) (base-run-of :on since :second-of-two)]
+        ;; The check must be able to fail: the first note against itself with
+        ;; one stamp moved, with one key left out, and with a removal left out.
+        first-rows (rows-by-key (:rows note-1))
+        a-fact (some (fn [[[which _ :as k] rows]] (when (and (= :fact which) (:stamp (peek rows))) k)) (sort-by pr-str first-rows))
+        a-removal (some (fn [[[which _ :as k] rows]] (when (and (= :by-value which) (nil? (peek rows))) k)) (sort-by pr-str first-rows))
+        with-rows (fn [f] (update note-1 :rows (fn [rows] (vec (keep f rows)))))
+        stamp-moved (with-rows (fn [[which k row]] [which k (if (and (= [which k] a-fact) row) (update row :stamp inc) row)]))
+        fact-left-out (with-rows (fn [[which k row]] (when-not (= [which k] a-fact) [which k row])))
+        removal-left-out (with-rows (fn [[which k row]] (when-not (= [which k] a-removal) [which k row])))
+        ;; Rulings 17 (a) and (b): the records of the depot of batch clocks.
+        of-the-batch (filterv (fn [[_ r]] (= (:batch kept-row) (:batch r))) records)
+        _ (Thread/sleep quiet-ms)
+        records-after-quiet (clock-records)
+        later (decide-in-base! (system-act [{:e :twice-later :k :note}]))
+        kept-later (kept-clock-row)
+        records-later (clock-records)]
+    (check "on a cluster of its own, with three functions of the gate's pure code replaced by ones that give what the store's give: the base is made, locks are asked for, a key is marked, and a fact, a value under the marked key and a person's permission are written, each in a batch that runs once"
+           [:accepted :accepted 16 :accepted :accepted :accepted :accepted [(base-entry-key :on since :canvas-1 :twice-pointer)]]
+           [(:word made) (:word request) (count (:locks request)) (:word marking) (:word fact-before) (:word value-before)
+            (:word give-alice) run-before])
+    (check "1. the notes hold two attempts of one batch: two notes since the send; one throw made between them, in a call of rows-to-send that gave rows; both attempts given the same last stamp and the same numbers; and the batch before was given another last stamp"
+           [2 1 true true true true true]
+           [(count notes) (count throws)
+            (boolean (and the-throw (pos? (:rows the-throw)) (= (dec notes-then) (:attempts the-throw))))
+            (boolean (and note-1 note-2 (some? (:last-stamp note-1)) (= (:last-stamp note-1) (:last-stamp note-2))))
+            (boolean (and note-1 note-2 (= (:numbers note-1) (:numbers note-2))))
+            (boolean (and note-1 note-of-the-batch-before (not= (:last-stamp note-of-the-batch-before) (:last-stamp note-1))))
+            answered?])
+    (check "2. both attempts were given one clock: the clock of the row that the module keeps for the batch, and of the batch's one record on the depot of batch clocks"
+           [true true [(:clock note-1)]]
+           [(boolean (and note-1 note-2 (some? (:clock note-1)) (= (:clock note-1) (:clock note-2))))
+            (= (:clock note-1) (:clock kept-row))
+            (mapv (fn [[_ r]] (:clock r)) of-the-batch)])
+    (check "3. the second attempt began later than the batch's clock, so the one clock is not two readings of one millisecond; and each attempt made the same base from it"
+           [true true]
+           [(boolean (and note-1 note-2 (< (:clock note-1) (:wall note-2))))
+            (boolean (and note-1 note-2 (some? (:base note-1)) (= (:base note-1) (:base note-2))))])
+    (check "4. the rows of the two attempts side by side: both made rows under the same keys, and at each key the same row in every field, the stamp too"
+           [] side-by-side)
+    (check "the batch held what it was sent to hold: rows of each kind were noted, a row of the facts by value that goes out among them; and each thing got the word that it must get, the edge act the word that the 10-second rule gives it against the kept clock"
+           [true true true
+            [:accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted
+             :permission-does-not-stand :not-sealed :accepted :accepted :accepted :accepted :accepted :accepted edge-word]
+            true]
+           [(every? #(pos? (get kinds % 0)) [:fact :answer :by-value :lock :lock-home :new-lock])
+            (boolean (some (fn [[[which _] rows]] (and (= :by-value which) (nil? (peek rows)))) noted))
+            (boolean (some (fn [[[which _] rows]] (and (= :by-value which) (some? (peek rows)))) noted))
+            (mapv :word results)
+            (every? :mine? results)])
+    (check "5. each row that the tables hold after the batch, selected on every task, is the row that both attempts made: each fact on the task of its entity, each row of a give, of the marks, of the setting and of the list on every task, each answer, each row of the facts by value, and no row under a key that went out"
+           [] not-as-noted)
+    (check "6. each answer as answer-by-act-id gives it has the verdict, the word and the stamp of the row that both attempts made"
+           [] answers-apart)
+    (check "the rows that the build of what the gates keep added are among them: a person's fact holds who wrote it and her permission; the row of the marked keys, on every task, keeps the stamp of the key from before and gives the new key the last stamp of this batch; the give with the slot holds it; and in the facts by value the value before went out, the new one came in, and of two acts on one place the later turn's value alone has a row"
+           [[:alice alice-in-base] tasks #{{:on since :in batch-end}} #{[:value [:twice-seer :base :base system-own :see]]}
+            [[] [:twice-pointer] [] [:twice-pointer-2]]]
+           [[(record/who-of alices-row) (record/permission-of alices-row)]
+            (count marks-rows) (set (map record/marked-keys-of (vals marks-rows)))
+            (set (map record/read-value (vals seer-rows)))
+            runs-after])
+    (check "the facts of the batch are on more than one task" true (< 1 (count fact-tasks)))
+    (check "the check can fail: the first attempt's note beside itself with one stamp moved gives that key and the stamp; with one fact left out, that key as noted in one attempt only; and with a row that goes out left out, that key too, so a key noted with no row is told from a key that was not noted"
+           [[{:key a-fact :noted-in :both :differs #{:stamp}}]
+            [{:key a-fact :noted-in :the-first-attempt-only}]
+            [{:key a-removal :noted-in :the-first-attempt-only}]
+            true]
+           [(rows-side-by-side note-1 stamp-moved)
+            (rows-side-by-side note-1 fact-left-out)
+            (rows-side-by-side note-1 removal-left-out)
+            (boolean (and a-fact a-removal))])
+    (check "ruling 17 (a): the depot of batch clocks holds as many records as batches with things since the launch, which is the attempts noted less one, because the second attempt found its clock kept and appended nothing; a quiet time adds none; and a later batch adds one, under a later id"
+           [(dec notes-then) (dec notes-then) notes-then true :accepted]
+           [(count records) (count records-after-quiet) (count records-later)
+            (boolean (and kept-row kept-later (< (:batch kept-row) (:batch kept-later))))
+            (:word later)])
+    (check "ruling 17 (b): each record of that depot, read back, is a map of exactly a batch's id and a clock, two integers; all are on one partition"
+           [true 1]
+           [(every? (fn [[_ r]] (clock-record? r)) records-later) (count (set (map first records-later)))])
+    (shown "a batch of the store's own microbatch gate, of" (count results) "things, was sent with a throw asked for: attempts noted" (count notes)
+           "| throws made" (count throws) ", in a call of rows-to-send that gave" (:rows the-throw) "rows, on the thread" (pr-str (:thread the-throw))
+           "| the last stamps that the attempts were given:" (pr-str (mapv :last-stamp notes)) "and the numbers" (pr-str (mapv :numbers notes))
+           "| all things answered:" answered? "," waited "ms after the topology went on")
+    (shown "the clocks that the attempts were given:" (pr-str (mapv :clock notes))
+           (if (and note-1 note-2 (= (:clock note-1) (:clock note-2))) "| one clock for both" "| NOT one clock")
+           "| the kept row" (pr-str kept-row) "| the clocks of the batch's records on the depot" (pr-str (mapv (fn [[_ r]] (:clock r)) of-the-batch))
+           "| the first attempt called base" (when note-1 (- (:wall note-1) (:clock note-1)))
+           "ms after the clock that it was given: the append, the ack and the read back | the second attempt began"
+           (when (and note-1 note-2) (- (:wall note-2) (:clock note-1)))
+           "ms after the first attempt's clock: a clock read anew would have given each stamp another time")
+    (shown "the two attempts side by side:" (count noted) "keys in the second attempt's note, of the kinds" (pr-str (into (sorted-map) kinds))
+           "| keys whose rows are not the same in both attempts:" (if (vector? side-by-side) (count side-by-side) (pr-str side-by-side))
+           (if (and (vector? side-by-side) (seq side-by-side)) (str "| the first of them: " (pr-str (vec (take 3 side-by-side)))) "")
+           "| rows that the tables do not hold as the second attempt noted them:" (count not-as-noted)
+           "| answers that answer-by-act-id gives otherwise:" (count answers-apart))
+    (shown "the act at the edge of the 10 seconds: its carried stamp is" edge-ahead-ms "ms after the hand's reading; the first attempt was given a clock"
+           (when note-1 (- (:clock note-1) edge-reading)) "ms after that reading and the second attempt began" (when note-2 (- (:wall note-2) edge-reading))
+           "ms after it | the word that the 10-second rule gives it against the first attempt's clock:" edge-word
+           "| the word that it got:" (:word (peek results))
+           (if at-the-edge?
+             "| it was at the edge: an attempt that read the clock anew at the second attempt's start would have accepted it"
+             "| it was not at the edge in this run, so it shows nothing about the verdict"))
+    (shown "the depot of batch clocks on that cluster:" (count records) "records for" notes-then "attempts of" (dec notes-then)
+           "batches with things | after" quiet-ms "ms with nothing sent:" (count records-after-quiet) "| after one more batch:" (count records-later)
+           "| the kept row then:" (pr-str kept-later))))
+
+(defn- the-checks-on-the-store-as-defined
+  "The checks of the proof's first cluster, in their order: each runs on the
+  functions as the store defines them."
   []
   (what-rama-carries)
   (layers-are-made)
@@ -2388,23 +2959,59 @@
   (what-points-at-a-thing-in-the-base)
   (one-batch-under-a-marked-key)
   (the-path-of-a-lock-in-the-base)
+  (a-place-of-the-base-never-gives-nothing)
   (after-the-module-is-started-again)
   (the-base-after-the-module-is-started-again)
   (the-stamps-and-the-depot)
   (the-stamps-and-the-depot-of-the-base))
 
+(defn test-ns-hook
+  "Runs the checks in the order in which the proof tells them. Later checks
+  build on what earlier ones made. On the proof's first cluster: the checks
+  of the streaming gate come first; the base is made after them. On the
+  second cluster: the one group that makes a batch run a second time. The
+  hand says which cluster it is."
+  []
+  (if (= :a-batch-runs-twice (:checks *hand*))
+    (a-batch-runs-a-second-time)
+    (the-checks-on-the-store-as-defined)))
+
+(defn- run-on-a-cluster
+  "Creates an in-process cluster, launches the module `Store` in it with
+  four tasks, two threads and two workers, runs the checks that `checks`
+  names with the hand on that cluster, and closes the cluster. Gives what
+  `run-tests` gives. The launch takes the functions that the vars of the
+  store's code hold at that moment."
+  [checks]
+  (with-open [ipc (rtest/create-ipc)]
+    (rtest/launch-module! ipc module/Store {:tasks tasks :threads 2 :workers 2})
+    (binding [*hand* (assoc (open-hand ipc) :checks checks)]
+      (run-tests 'softland.store.module-proof))))
+
 (defn -main
-  "Starts the cluster, launches the module, runs the proof, closes the
-  cluster and exits: status 0 when each check holds. It takes no argument."
+  "Runs the proof on two clusters, one after the other, and exits: status 0
+  when each check of both runs holds. It takes no argument.
+
+  The first cluster runs every check but one group, on the functions as the
+  store defines them. When it is closed, `-main` empties the hand's atoms,
+  all but the shown lines; puts the three noting functions into the vars of
+  `softland.store.gate.batch`; starts the second cluster, which runs the one
+  group that makes a batch run a second time; and puts the store's functions
+  back when that cluster is closed, in a `finally`. The count line is one:
+  the counts of the two runs, added."
   [& _]
-  (let [result (with-open [ipc (rtest/create-ipc)]
-                 (rtest/launch-module! ipc module/Store {:tasks tasks :threads 2 :workers 2})
-                 (binding [*hand* (open-hand ipc)]
-                   (run-tests 'softland.store.module-proof)))
+  (let [counts #(select-keys % [:test :pass :fail :error])
+        first-run (run-on-a-cluster :the-store-as-defined)
+        _ (empty-the-hand!)
+        second-run (try
+                     (put-noting-functions!)
+                     (run-on-a-cluster :a-batch-runs-twice)
+                     (finally (put-the-stores-functions-back!)))
+        result (merge-with + (counts first-run) (counts second-run))
         {:keys [fail error]} result]
     (println)
     (println "THE PROOF, IN ONE PLACE")
     (run! println @shown-lines)
-    (println (select-keys result [:test :pass :fail :error]))
+    (println result)
     (shutdown-agents)
     (System/exit (if (zero? (+ fail error)) 0 1))))

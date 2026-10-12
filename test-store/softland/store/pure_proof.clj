@@ -27,7 +27,12 @@
   the checks of `softland.store.gate.decision` in their order. One thing in
   that model is not in the order of the turns, as in the gate: each act is
   decided with its layer's marked keys as the record held them before the
-  batch. The record that is compared holds the facts by value too.
+  batch. The record that is compared holds the facts by value too. It also
+  runs one batch as two attempts, from the same record before it: with one
+  clock every row is the same but the bytes of a new lock; with a clock one
+  second later each stamp is another, and an act at the edge of the 10
+  seconds gets the other verdict. That is what a kept clock gives, as a run
+  of the pure code; that the gate keeps the clock is the module's proof's.
 
   The order by value. Its cases decide one act at a time against a record in
   memory with a function of the proof's own, `streaming-step`, which makes
@@ -1863,6 +1868,77 @@
       (fn [] [(batch/closes? 7 5) (batch/closes? 7 nil) (batch/closes? 7 7) (batch/closes? nil nil)])
       [true true false false]]]))
 
+(def ^:private not-a-clock-row
+  "Things that are no row of the kept clock and no record of the depot of
+  batch clocks: each of the three functions of a batch's clock is given
+  them, since none may throw."
+  [nil 5 "a text" [] [41 5] {} {:batch 41} {:clock 5} {:batch "41" :clock 5} {:batch 41 :clock 1.5}
+   {:batch 41 :clock nil} {:batch (bigint "99999999999999999999") :clock 5} (throwing) (->Thing :doc-1 :note)])
+
+(defn- kept-after
+  "Takes records of the depot of batch clocks in the order in which the
+  topology that keeps the clock is handed them. Gives the row that the table
+  holds after them, from an empty table: each record through
+  `batch/clock-row-to-keep`, written when it gives a row."
+  [records]
+  (reduce (fn [held record] (or (batch/clock-row-to-keep held record) held)) nil records))
+
+(def ^:private batch-clock-cases
+  "The cases of the pure code of a batch's clock: the record that the gate
+  appends, the clock that a row holds for a batch, and the rule of the
+  topology that keeps the row."
+  (let [c1 now
+        c2 (+ now 1088)]
+    [["the record of a batch's clock holds the batch's id and the reading, both as longs, and no other part"
+      (fn [] (let [record (batch/clock-record (int 41) c1)]
+               [record (every? #(instance? Long %) (vals record)) (batch/clock-record 41N 7)]))
+      [{:batch 41 :clock c1} true {:batch 41 :clock 7}]]
+     ["an id or a reading that is no integer, or that no long holds, gives no record, and nothing throws"
+      (fn [] [(batch/clock-record nil c1) (batch/clock-record "41" c1) (batch/clock-record 41 nil) (batch/clock-record 41 1.5)
+              (batch/clock-record (bigint "99999999999999999999") c1) (batch/clock-record (throwing) c1)])
+      [nil nil nil nil nil nil]]
+     ["the kept clock of a batch: the clock of the row when the row is of that batch; none for no row, and for a row of an older or of a later batch"
+      (fn [] [(batch/kept-clock {:batch 41 :clock c1} 41) (batch/kept-clock nil 41)
+              (batch/kept-clock {:batch 39 :clock c1} 41) (batch/kept-clock {:batch 43 :clock c1} 41)])
+      [c1 nil nil nil]]
+     ["the kept clock, given a thing that is no row, or an id that is no integer: none, and nothing throws"
+      (fn [] [(mapv #(batch/kept-clock % 41) not-a-clock-row)
+              (mapv #(batch/kept-clock {:batch 41 :clock c1} %) [nil "41" 41.0 (throwing)])])
+      [(vec (repeat (count not-a-clock-row) nil)) [nil nil nil nil]]]
+     ["the row to keep: the record's batch and clock when the table holds no row, or a row of an older batch"
+      (fn [] [(batch/clock-row-to-keep nil {:batch 41 :clock c1})
+              (batch/clock-row-to-keep {:batch 39 :clock 5} {:batch 41 :clock c1})])
+      [{:batch 41 :clock c1} {:batch 41 :clock c1}]]
+     ["nothing to keep for a record of the row's own batch, with the same clock or with another, and for a record of an older batch than the row's"
+      (fn [] [(batch/clock-row-to-keep {:batch 41 :clock c1} {:batch 41 :clock c1})
+              (batch/clock-row-to-keep {:batch 41 :clock c1} {:batch 41 :clock c2})
+              (batch/clock-row-to-keep {:batch 43 :clock c2} {:batch 41 :clock c1})])
+      [nil nil nil]]
+     ["the row to keep holds two longs and no other part of the record"
+      (fn [] (let [row (batch/clock-row-to-keep nil {:batch (int 41) :clock (int 5) :more "of the record"})]
+               [row (every? #(instance? Long %) (vals row))]))
+      [{:batch 41 :clock 5} true]]
+     ["a thing that is no record of the depot is not kept, whatever the table holds, and nothing throws; a held thing that is no row counts as no row"
+      (fn [] [(mapv #(batch/clock-row-to-keep nil %) not-a-clock-row)
+              (mapv #(batch/clock-row-to-keep {:batch 39 :clock 5} %) not-a-clock-row)
+              (batch/clock-row-to-keep 5 {:batch 41 :clock c1})
+              (batch/clock-row-to-keep (throwing) {:batch 41 :clock c1})])
+      [(vec (repeat (count not-a-clock-row) nil)) (vec (repeat (count not-a-clock-row) nil))
+       {:batch 41 :clock c1} {:batch 41 :clock c1}]]
+     ["first write wins: of two records of one batch with two clocks, the one that is processed first stays, in either order; a record handed over twice changes nothing"
+      (fn [] [(kept-after [{:batch 41 :clock c1} {:batch 41 :clock c2}])
+              (kept-after [{:batch 41 :clock c2} {:batch 41 :clock c1}])
+              (kept-after [{:batch 41 :clock c1} {:batch 41 :clock c1} {:batch 41 :clock c1}])])
+      [{:batch 41 :clock c1} {:batch 41 :clock c2} {:batch 41 :clock c1}]]
+     ["a later batch's record replaces the row, and a record of a closed batch that comes late never puts the row back"
+      (fn [] [(kept-after [{:batch 41 :clock c1} {:batch 43 :clock c2}])
+              (kept-after [{:batch 41 :clock c1} {:batch 43 :clock c2} {:batch 41 :clock c1} {:batch 42 :clock c1}])
+              (batch/kept-clock (kept-after [{:batch 41 :clock c1} {:batch 43 :clock c2}]) 41)])
+      [{:batch 43 :clock c2} {:batch 43 :clock c2} nil]]
+     ["a batch with no numbers has no base, also when it was given no clock: nothing is read for it"
+      (fn [] [(batch/base nil 5 nil) (batch/base nil nil nil)])
+      [nil nil]]]))
+
 (def ^:private base-depot-row
   "The row of the depot fact of the base."
   (record/fact-row base-writer {:e :base :k :softland.store/depot :v :microbatch} nil (uuid 800) 0 (stamp/pack (- now 5000) 0)))
@@ -2893,6 +2969,55 @@
      :words (words-by-number (one-at-a-time (flat-of rows) other-facts things now (:base in-depot-order)))
      :record in-depot-order}))
 
+(def ^:private edge-act
+  "An act at the edge of the 10 seconds: it carries a stamp whose time is
+  10,400 ms after the clock `now`. Held to the clock `now` it is refused;
+  held to a clock one second later it is accepted."
+  (assoc (base-thing 70 :system system-own {:e (entity-on 0 2) :k :edge})
+         :based-on {[(base-id 802) 0] (stamp/pack (+ now 10400) 0)}))
+
+(def ^:private twice-fixture
+  "The batch of `batch-fixture` with `edge-act` as its last thing, and the
+  record before it: the batch that the proof runs as two attempts."
+  (update batch-fixture :things conj edge-act))
+
+(defn- attempt-of
+  "Runs a fixture's batch once in memory, in the depot's order, from the
+  record before it, with this clock: one attempt of the batch. Gives the
+  record after."
+  [{:keys [rows other-facts last-stamp things]} clock]
+  (run-batch (record-of rows last-stamp) other-facts things clock vec))
+
+(defn- rows-by-place
+  "Takes a record by task. Gives a map from [table task key] to the row at
+  that key on that task."
+  [record]
+  (into {}
+        (for [table [:answers :facts :by-value :locks]
+              [task rows] (get record table)
+              [k row] rows]
+          [[table task k] row])))
+
+(defn- fields-that-differ
+  "Takes two rows, each a map or nil. Gives the set of the fields that the
+  two do not hold alike, a run of bytes compared by its content; #{:no-row}
+  when one of the two is no row."
+  [a b]
+  (cond (and (nil? a) (nil? b)) #{}
+        (or (nil? a) (nil? b)) #{:no-row}
+        :else (into #{}
+                    (remove (fn [field] (= (comparable (get a field)) (comparable (get b field)))))
+                    (concat (keys a) (keys b)))))
+
+(defn- rows-that-differ
+  "Takes two maps of `rows-by-place`. Gives a map from each place whose row
+  is not the same in both to the fields that differ."
+  [rows-a rows-b]
+  (into {}
+        (keep (fn [at] (let [fields (fields-that-differ (get rows-a at) (get rows-b at))]
+                         (when (seq fields) [at fields]))))
+        (distinct (concat (keys rows-a) (keys rows-b)))))
+
 ;; ----------------------------------------------------------- the door's words
 
 (def ^:private door-words
@@ -3686,6 +3811,7 @@
   (let [n (+ (holds (map (fn [[what x expected]] [(str "what the depot derives: " what) (fn [] (batch/first-entity x)) expected])
                          batch-first-rows))
              (holds batch-turn-cases)
+             (holds batch-clock-cases)
              (holds arrival-cases)
              (holds reply-cases)
              (holds meeting-cases)
@@ -3693,6 +3819,10 @@
              (holds routing-cases))]
     (shown "the pure code of a batch," n "cases: what the depot derives from a thing, never throwing; the turn is position x tasks + partition; the base is later than the gate's last stamp and than each carried stamp, and 10 seconds ahead at most; an act's stamp is the base plus its turn")
     (shown "what the depot derives:" (str/join " | " (map (fn [[what _ e]] (str what " " (pr-str e))) batch-first-rows)))
+    (shown "the clock of a batch," (count batch-clock-cases) "cases: the record that the gate appends is" (pr-str (batch/clock-record 41 now))
+           "; an attempt takes the clock of the kept row only when the row is of its batch; the row is written when the table holds none or one of an older batch, so of two records of one batch the first that is processed stays:"
+           (pr-str (kept-after [{:batch 41 :clock now} {:batch 41 :clock (+ now 1088)}]))
+           "| a record of a closed batch that comes late writes nothing | none of the three throws on a thing that is no row and no record")
     (shown "the standing on arrival:"
            (str/join " | " (map (fn [[what _ _ _ expected]] (str what " " (name (:standing expected)) (when-let [w (:word expected)] (str " " w))))
                                 arrival-rows)))
@@ -3830,6 +3960,38 @@
     (shown "a write of the marks, a fact under the newly marked key and a second write of the marks, in one batch: the marks hold from the batch after, so the fact has no row; the stamps of the marked keys after the batch:"
            (pr-str (record/marked-keys-of (first marks-rows))) "where the key from before keeps" since "and the last stamp of the batch is" batch-end)))
 
+(deftest a-batch-run-twice-with-one-clock
+  (let [before (rows-by-place (record-of (:rows twice-fixture) (:last-stamp twice-fixture)))
+        first-attempt (attempt-of twice-fixture now)
+        second-attempt (attempt-of twice-fixture now)
+        a-second-later (attempt-of twice-fixture (+ now 1000))
+        rows-1 (rows-by-place first-attempt)
+        rows-2 (rows-by-place second-attempt)
+        rows-3 (rows-by-place a-second-later)
+        one-clock (rows-that-differ rows-1 rows-2)
+        new-locks (set (map (fn [i] [:locks (task-of (uuid 12)) (record/lock-key :base (uuid 12) i)]) (range 2)))
+        stamped (filter (fn [at] (and (contains? #{:answers :facts :by-value} (first at))
+                                      (seq (fields-that-differ (get before at) (get rows-1 at)))))
+                        (keys rows-1))
+        same-stamp (filter (fn [at] (= (:stamp (get rows-1 at)) (:stamp (get rows-3 at)))) stamped)
+        edge-at [:answers (task-of (uuid 70)) (record/answer-key :base (uuid 70))]
+        other-word (into {}
+                         (keep (fn [at] (let [words [(:refused (get rows-1 at)) (:refused (get rows-3 at))]]
+                                          (when (and (= :answers (first at)) (apply not= words)) [at words]))))
+                         (distinct (concat (keys rows-1) (keys rows-3))))]
+    (is (= [new-locks #{#{:bytes}}] [(set (keys one-clock)) (set (vals one-clock))])
+        "a batch run as two attempts with one clock gives the same record in every row and every field, but the bytes of the two locks that the batch makes, which are drawn at the write")
+    (is (= [(:base first-attempt) (:last-stamp first-attempt)] [(:base second-attempt) (:last-stamp second-attempt)])
+        "and the same base and the same last stamp of the gate")
+    (is (= [true []] [(< 20 (count stamped)) (vec same-stamp)])
+        "the same batch with a clock one second later: each answer and each fact that the batch wrote has another stamp")
+    (is (= {edge-at [:carried-stamp-too-far-ahead nil]} other-word)
+        "and one act gets the other verdict: the act at the edge of the 10 seconds is refused under the first clock and accepted under the later one; each other answer keeps its word")
+    (shown "a batch of" (count (:things twice-fixture)) "things run in memory as two attempts with one clock: every row is the same in every field, but the bytes of the"
+           (count one-clock) "locks that the batch makes | with a clock one second later, each of the" (count stamped)
+           "answers and facts that the batch wrote has another stamp, and the act at the edge of the 10 seconds gets the other verdict:"
+           (pr-str (get other-word edge-at)))))
+
 (deftest the-doors-words
   (let [n (holds door-words-cases)]
     (shown "the door's words," n "cases. Its own fourteen, each read after \"the door could not\":"
@@ -3883,6 +4045,7 @@
   (the-batch)
   (a-batch-is-decided-in-one-order)
   (a-batch-under-marked-keys)
+  (a-batch-run-twice-with-one-clock)
   (the-doors-words)
   (the-doors-additions)
   (the-doors-stock))
