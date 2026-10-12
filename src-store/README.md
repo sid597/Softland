@@ -144,7 +144,10 @@ session read the photographs and wrote down a mark for each question
    («3d4ee664»).
    The rulings file of September says, in a session's words, "Keys are ids;
    word and grammar are facts about them", and lists "Keys as ids: confirmed"
-   among the nine of 24 September. He has not ruled between the two. Until he
+   among the nine of 24 September. On that day he picked "5 (keys as ids):
+   confirm" on a form of ten questions that a session built; it was the
+   option that the form marked as the session's own lean (the rulings file,
+   its last section). He has not ruled between the two. Until he
    does, the code holds a key to a readable keyword (the queue, K5).
 10. **The microbatch hash entity is no part.** Sid decided. The depot derives
     it.
