@@ -3,12 +3,16 @@
 This tree holds the code of the store that is built to stay. The implementation
 lives beneath [softland/](softland/README.md). It holds the act: the one form of
 what a maker gives to the store, and the check of that form. And it holds the
-store's Rama module: the two depots, the streaming gate and the microbatch gate,
-the record that each gate keeps, and the reads by act-id. And it holds the door:
+store's Rama module: the two depots of acts, the streaming gate and the
+microbatch gate, the record that each gate keeps, what keeps the clock of each
+batch of the microbatch gate, and the reads by act-id. And it holds the door:
 the client code that takes a maker's act into a depot and reads its answer back.
-The pure code owns no state. The module's state, the depots and the records, is
-durable in the cluster that runs it. The door's state, its stocks of unused
-locks, is the memory of one process.
+And it holds the read path: the client code by which a fact comes back out to a
+caller, once or kept live.
+The pure code owns no state. The module's state, the depots, the records and the
+kept clock of a batch, is durable in the cluster that runs it. The door's state, its stocks of unused
+locks, is the memory of one process. So is the read path's: who looks at what,
+and the pushes that they share.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
@@ -22,6 +26,7 @@ Start with the question you are carrying:
 | What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
 | What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and [batch.clj](softland/store/gate/batch.clj) |
 | How does a maker's act get into the store, and how is its answer read? | The namespace docstring of [door.clj](softland/store/door.clj), then [door/](softland/store/door/README.md) for its choices and its words |
+| How does a fact come back out to a tool, once or kept live, and what is it told of a layer that it may not see? | The namespace docstring of [read_path.clj](softland/store/read_path.clj), then [read_path/](softland/store/read_path/README.md) for its choices and its words |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
@@ -33,11 +38,12 @@ This tree has its own classpath, in two aliases of the root `deps.edn`. Both hol
 `resources`, the rig and the root's other dependencies are on neither, and a
 require of any of them from here fails at load.
 
-- `:store` holds Clojure alone as `:replace-deps`. The pure code and its two
-  proofs run on it. It is the guard that the pure code needs nothing else: a pure
+- `:store` holds Clojure alone as `:replace-deps`. The pure code and its three
+  proofs run on it, the read path's five pure namespaces and their proof among
+  them. It is the guard that the pure code needs nothing else: a pure
   namespace that came to require Rama would fail to load here.
 - `:store-module` holds Clojure and Rama (`com.rpl/rama` 1.6.0), and the same JVM
-  options. The module and its proof run on it, and so do the door and its proof. It is a whole alias and not an
+  options. The module and its proof run on it, and so do the door and its proof, and the read path with its proof and its measures. It is a whole alias and not an
   addition to `:store`: with Rama in `:store`, the guard above would be gone.
   Rama's helper library is left out; the module uses none of it.
 

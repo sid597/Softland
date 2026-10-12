@@ -49,7 +49,9 @@
 
   A process opens one door. Two opened doors are two sets of stocks: each
   asks for itself and neither uses the other's locks. No row is wrong for
-  it; rows are wasted. In the runtime the door is the module's only client.
+  it; rows are wasted. In the runtime the module has two clients: the door
+  for the way in, and the read path (`softland.store.read-path`) for the
+  way out. Neither calls the other.
 
   What the stocks cost. A lock that a stock holds when the process ends is a
   row of the record that seals nothing, for good: the door reads locks only
@@ -107,10 +109,12 @@
     - sign-in, in front of the door (K7 to K10, Q16): it would refuse a
       sender before this code runs, and changes none of it. A lock that was
       asked for in one session can seal a value of the same who in another;
-    - who may act as the system (K9): `:system` is treated as any who;
-    - where a read's steps run (W3), and what tells a screen that a fact
-      changed (W4): the door reads no fact of the record for a maker, and
-      its wait is one question about one act-id, with no subscription.
+    - who may act as the system (K9): `:system` is treated as any who.
+
+  The door reads no fact of the record for a maker, and its wait is one
+  question about one act-id, with no subscription. A read's steps run in the
+  read path (`softland.store.read-path`), which is also what tells a caller
+  that a fact changed.
 
   Approach. The file has these sections, in this order: the door as a value;
   the calls of Rama's client; the stocks; the getting of locks; the six

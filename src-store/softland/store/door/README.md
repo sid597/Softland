@@ -220,8 +220,9 @@ contract's.
 6. The door never opens a sealed value, reads no fact of the record for a
    maker, and reads the locks only of requests that it made in this process.
 7. The words are below.
-8. In the runtime the door is the module's one client. The two proofs that
-   read or append round the door say so in
+8. In the runtime the module has two clients: the door, and
+   [the read path](../read_path.clj), which reads the facts back out. Neither
+   calls the other. The proofs that read or append round them say so in
    [their map](../../../../test-store/softland/store/README.md).
 
 ## Words a session made, Sid's to change
