@@ -115,3 +115,34 @@ draft of the reads sheet; they are a session's, not his.
 - **The rulings file is a session's writing.** Where a sheet cites it, say "the
   rulings file lists it as ruled, in a session's words", and give Sid's own line
   of that day when the record has one. His line is often a lean, not a ruling.
+
+## What the check of 10 October taught
+
+On 10 October six sessions read the store's papers and code for what nobody
+had examined. Sid said yes on 12 October to what follows (`src-store/README.md`,
+"Decisions of 12 October 2026 — before real data is kept", entry 6). The
+wording is the sheet's ("Before real data is kept", Z5), which a session wrote.
+
+- **No paper gives "frozen at the first kept record" as a reason.** A paper
+  that says a thing is due now says what breaks later. Sessions wrote that
+  phrase on the sheets of 6 to 10 October, as the measure of how firm a
+  question is. Sid typed it in no line, and this page never had it. Those
+  sheets are kept as they were printed and answered; no later paper takes the
+  phrase from them.
+
+  What holds of Rama, read in its docs and not run. It can write the records
+  of a log again, or take one out, at a module update
+  (`reference/rama/docs/14-depots.md`, line 288). It can write the values of
+  a table again (`15-pstates.md`, line 770). Three things it cannot change,
+  and a paper names the one that bears on its question:
+  - the number of tasks of a module (`19-operating-rama.md`, line 483, "Task
+    scaling": a way past it is a new module that is filled from the logs);
+  - the name of a depot or of a table (`19-operating-rama.md`, line 424);
+  - the keys of a table: a migration is of values (`15-pstates.md`, lines 772
+    to 776 and 897).
+
+  In the store the key of a fact's row is made of the printed texts of its
+  layer's id, its entity's id and its key (`place-key` in
+  `src-store/softland/store/record/rows.clj`). So what an id is and what a
+  key is bear on the third. The two words for a depot do not: no key holds
+  them (`answer-key`, the same file).

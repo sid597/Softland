@@ -101,8 +101,13 @@ session read the photographs and wrote down a mark for each question
    rulings (the door makes the act-id; a series gets all its act-ids before its
    first act is sent), not his tick: act-ids are given on request, ahead of
    sending. The two class words are `:streaming` and `:microbatch`. Sid
-   decided: they are his words for the two kinds of depot, and the class words
-   freeze into every act-id at the first kept record.
+   decided: they are his words for the two kinds of depot, "my streaming and
+   microbatch" (‹12c9bd22›). What a later change of the two words would cost,
+   read and not run: the word is in every act-id, and an act-id is in the
+   log, with its own act and in each act that names it. Rama can write the
+   records of a log again at a module update
+   (`reference/rama/docs/14-depots.md`, line 288). No key of a table holds
+   the word (`answer-key` in `softland/store/record/rows.clj`).
 6. **A fact is the named slots `{:e :k :v :replaces}`.** Sid decided:
    `:replaces` is optional, a fact id; `:v` is optional; a fact has no mark.
    Proposed by a session for a blank box (6b) and agreed by Sid in chat on
