@@ -214,7 +214,8 @@ was written; they stand here so that the faults are one list.
 | 16 | `test-store/softland/store/README.md`, the two sections of the read path's proofs | "Prefer a constraint and its reason to ... a guess of what a run gives" (`src-store/CLAUDE.md`) | "It takes about a minute" of the pure proof and "about four minutes" of the proof on the cluster: in every run of this session they took 4 seconds and 79 to 100 seconds | "a few seconds", "about a minute and a half" | the run times of this session's runs, each printed with its exit status |
 | 17 | `test-store/softland/store/read_path_proof.clj`, the group of who asks | "When claiming that a capability works, show the meaningful action it enables and the evidence for that claim" (`CLAUDE.md`); and R8, for the working answer of ruling 11 | Found while the receipt was written, after the third pass. The receipt tells Sid what the working answer for the store's own facts lets happen: a person who is not signed in can ask for the base's own facts, since the base is "everyone". That followed from two functions as read (`layers/standing`, `answer/counts?`), and no check asked for the store's own facts as a person who is not signed in | A check: such a person asks for a holder's permission in the base, and for one in a members layer | Run: she is given the system's permission in the base, `[:system :base :base]`, and for the members layer `{:holds :no-fact}` with the layer left out as `:may-not-see`. The read path's proof on the cluster, exit 0, 482 |
 
-**What the pass ran over the whole tree, beside reading.**
+**What the pass ran over the whole tree, beside reading.** The scripts are kept in
+`runs/review-scripts/`, with a page that says how to run each.
 
 - Every top-level definition of both trees has a docstring: 967 of 967, by a script that reads each
   file with Clojure's reader.
