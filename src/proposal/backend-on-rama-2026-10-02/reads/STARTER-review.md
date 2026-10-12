@@ -2,9 +2,30 @@
 
 Cut by: the build session "read implementation" (Opus 5.5), 12 October 2026, 16:20 IST, at Sid's word
 "tell me the prompt needed i will start manually".
-For: one session that Sid starts by hand. It does all of this itself and starts no agent: an agent
-that waits for a permission sends its parent nothing, and the last two builds stood still for about
-three hours that way.
+For: one session that Sid starts by hand, in a mode in which it cannot be asked for a permission.
+That matters more than anything else on this page: an agent that waits for a permission sends its
+parent nothing, and the last two builds stood still for about three hours that way.
+
+**The goal.** When this session ends, the read build is done: a live read is told each change at
+once and not a second late; a live read that is too large is turned away at once; the whole build is
+reviewed against the contract and what the review found is fixed; the six proofs pass and the
+measures are run on the final tree; everything is committed; and Sid has one receipt.
+
+**How much there is to read, and so how the session works.** The session itself reads this file, the
+build's page, the contract, Sid's decisions and three pages of the skill: about 150 KB. The whole
+that the review audits is far more: 553 KB of store code in 26 files, 881 KB of proofs in 7 files,
+250 KB of maps, 146 KB of build papers. One context cannot hold that whole. So the session gives the
+two heavy pieces each to one fresh agent (the Agent tool, model Opus 5.5, effort xhigh), one after
+the other and never side by side, since both change the same files: first the four repairs of
+section 1 with their proofs; then the review of the whole of section 2, which also audits the
+repairs. Each agent is given this file, the build's page and the contract to read, the section that
+is its own, and the rules at the end. The session takes each verdict from the agent's paper, as Sid
+said on 12 October: a build is not judged a second time. It runs sections 3 to 5 itself.
+
+**Never open a raw file.** Nothing reads, greps or prints a file under `runs/` whose name begins
+`raw-`. One of them, `runs/raw-rp-measures-full.txt`, is 1.0 GB of Rama's stack traces: about 260
+million tokens, which no context holds. What it had to say is in `runs/measures-read-path.txt` and in
+ruling 91. A search of this folder names its files, and never uses `-r` on `runs/`.
 
 ## Where the build stands
 
