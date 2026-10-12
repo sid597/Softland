@@ -3,8 +3,8 @@
 Rewrite **Now** whenever state changes; keep it short. Append to **Log**; never
 edit it. A fresh session reads Now first, then LEDGER.md's "Where the walk
 stands", then what they point at. Two Claude sessions work this folder in
-parallel; if you change state, rewrite Now and append to Log. A line under
-"Ruled" is Sid's; reopening one is allowed, with a reason, said out loud.
+parallel; if you change state, rewrite Now and append to Log. "Ruled" is a
+session's word here. What stands under each entry is in the last section.
 
 ## Now (25 September 2026)
 
@@ -272,3 +272,155 @@ layer, and the server onto the store core.
   tool), the pointer second as its hand, its walk folded into the next session
   so the one page covers both kinds of tool; edition one waits for the
   pointer's screen run too. Handover: citation-2026-09-27/HANDOFF.md.
+- 2026-10-13. The pass that Sid said yes to on 12 October (the sheet "Before
+  real data is kept", Z5, the second). One sentence of the head changed in
+  place, so that no line moved. The section below is new.
+
+## The standing of each entry (the pass of 13 October 2026)
+
+Sessions wrote this file. Its head said that a line under "Ruled" is Sid's.
+This section says, for each entry of Now, what the record of his own lines
+holds. It is at the end because papers cite this file by line: nothing above
+the Log's last entry moved, and nothing above was changed but that one
+sentence of the head.
+
+It decides nothing and reopens nothing. Where an entry was decided again in
+October, the store's page (`src-store/README.md`) has the decision.
+
+### How it was made
+
+- A gatherer (Opus 5.5, effort xhigh) read whole every line that he sent from
+  22 to 26 September, in every session: 372 lines, by `memtool`. For each
+  entry it brought back his words with their ids, or said that it found none.
+- The session that wrote this section then put 26 of those quotations to the
+  record itself, and found each word for word. It read ‹1088472f›, ‹cbff21a4›,
+  ‹c985696f›, ‹5947d8b0› and ‹0d93dc52› whole, and asked the record who first
+  wrote each phrase that a row below gives as a session's.
+- That no line of his says a thing is the gatherer's finding from the 372
+  lines. It was not checked a second time.
+
+Three things that the record does not hold:
+
+- **His answers to the nine.** They are one paste (‹c985696f›, and the same
+  to the other session as ‹916e087d›). The record keeps its first 140
+  characters. The rest was read from that session's transcript, once by the
+  gatherer and once by the session that wrote this.
+- **Whether a long prompt is typed.** ‹ff11240d›, ‹1225ee72›, ‹73d9f8c2› and
+  ‹d048babc› are long prompts, where the record cannot tell his typing from a
+  paste. They are full of "uh"; they are given below as his, with this said.
+- **A yes that was not typed.** An approval given through a prompt of the
+  tool, or said aloud, is in no record.
+
+### The marks
+
+- **his words** — a line of his states that part.
+- **his pick** — he chose it on the form of 24 September. The label is a
+  session's.
+- **his yes** — a session wrote it, and a line of his assents. The row says
+  to what.
+- **a session's** — the gatherer found no line of his that states it or
+  assents to it.
+
+Most entries are one in part and another in part. The row says which words
+are whose. Times are UTC; his clock is five and a half hours ahead.
+
+### What the pass found, in short
+
+1. No entry is in his words as a whole. Of the 33: his lines state a part of
+   11; 17 are a session's text to which he gave a yes, nine by a pick on a
+   form and eight under one assent; 2 a session wrote into this file on his
+   go to update it; 3 are a session's alone.
+2. **"The nine, ruled 24 September (evening)"** are one paste, sent at 07:40
+   UTC, which is 13:10 on his clock. It is the "Copy answers" text of a page
+   that a session built («fc95362c», "Before the Rig"): ten labels that the
+   session wrote. In each of the ten he picked the option that the page marks
+   "my lean", the session's own. The paste, whole:
+
+       My answers on the rig rulings:
+       1 (gate kind): hybrid: stream for one-owner layers, microbatch for shared
+       2 (placement): hybrid: by layer for one-owner, by entity for shared
+       3 (read entry): hybrid: one entry per firing by default, exact rows on request
+       4 (clock promises): yes
+       5 (keys as ids): confirm
+       6 (who opens values): hybrid: gate by default, opaque per key when a tool needs it
+       7 (where value keys live): hybrid: own entry by default in a person's own and hand-session layers, record elsewhere
+       7b (value about two people): hybrid: survives by default, dies by mark or group rule
+       8 (who a value is about): the slot, filled from owner, grammar and tool
+       9 (default visibility): as proposed, plus group layers
+
+   Each entry above is longer than its label. What is beyond the label is a
+   session's, but for the two lines of his that rows N3 and N7 give.
+3. **"Ruled in chat, 23 and 24 September, store level"** first stands as a
+   list in a session's text, "Ruled so far, in this chat" («a3a890dd»,
+   23 September 12:10). By the gatherer's reading, that session had not
+   heard his answers: he gave them in the other session and pasted both
+   sides across.
+4. **"Sharpenings … ruled 24 and 25 September"** rest on one assent of his,
+   dictated, for all eight (‹cbff21a4›, 24 September 13:45): "I agree with uh,
+   the new addition that you made and your understanding of what we should do
+   on, on each of these uh, that we find uh, and the new thing that you found,
+   I uh, agree with your judgment." It names no reading. At 12:18 he had said
+   "I am driving a car" and that he would listen (‹95c4e1b0›). At 12:32 the
+   same session had written, of a prompt that it gave him to paste: "It says
+   you accept the six readings and my owner line as things to run, not as
+   PROGRESS.md rulings" («1ffd2b3f»).
+5. **"Sid's decisions of the evening"** of 25 September, and **"Still
+   Sid's"**: the gatherer found no line of his for either. A session first
+   wrote "your decisions of the evening" («ee4601ba», 25 September 11:54).
+
+On 6 October he quoted the entry on the envelope and wrote under it: "this
+was written by ai not me i might have given it a yes" (‹d4fd70ba›).
+
+### Each entry
+
+| Lines | Entry | What the record holds of his | What is a session's | Mark |
+|---|---|---|---|---|
+| 7 | "A line under 'Ruled' is Sid's" | — | The sentence. It is changed above. | a session's |
+| 24–40 | Sid's frame for a corner | The five names: "They were Time, Grain, Binding, Source and Uniformity" (‹d500c6f2›). The stance: "we are providing a spectrum and if there are like two outcomes on the spectrum on either end then we are providing the whole spectrum" (‹ff11240d›). Of one of the five: "Source::: idk what this is about and why is it even a dimension" (‹d048babc›). | "Time is the root": he gives time as one of five, and "The root is time" is a session's («fecb9f62»). Exposure, cost as a check, uniformity as the one exception, and "the menu is baked in code, the default lives in the first facts, the pick is a fact". | his words in part |
+| 43–44 | "Never rewritten" is about meaning | "I think it is meaning" (‹6304b683›). | The three clauses after it. | his words in part |
+| 45–47 | One log; erasure by destroying a lock | "I think it should be a key. It should not be two logs. It's just a bad design." (‹1225ee72›). | "This reverses CORNERS.md's C5", and the consequence: "locks are for forgetting, not for hiding from the operator; the gate reads every value it matches on". | his words in part |
+| 48–52 | The envelope | "I think it should be small core plus parts named by the keys with a version yeah versioning is important" (‹73d9f8c2›). | The list of parts, and the gate that refuses a part. "Tools add facts, never envelope parts": the same line of his has "anything else that needs to be added is decided at different layers for the tool". | his words in part; one sentence against his |
+| 53–55 | Acts of any size | "when you say like only one or multiple multiple is possible we will support that" (‹ff11240d›). | Act id and index on every fact; who, when and reads on the act; the thread and its status fact. | his words in part |
+| 56–57 | Every offer names its permission; the session is the root | "should it be named or not and I think the answer to that is yes from my side if I understand this correctly" (‹ff11240d›), then "5. yeah" (‹1088472f›). | "The session is the root; narrower permissions are ordinary facts under it" («a3a890dd»). It is open in the queue as E3. | his words in part |
+| 58 | Names | "7. I think the random names offerer" (‹ff11240d›). | "before the gate", and "scheme-tagged". | his words in part |
+| 59 | Owner is derivable at read time | "that only gets affected at the read or query time because at the write time we are just checking if this user is authorized" (‹1225ee72›). | "from author, layer and permission". | his words in part |
+| 60–62 | Two deletes | A question only: "so I'm not sure what does delete even mean" (‹73d9f8c2›). | The entry. | a session's |
+| 63–64 | Operator trusted at launch | "1. spoken in the door will be left open but yeah I will uh, by default have A" (‹1088472f›), to a session's "(a) for now, with the door left open" («ca29636f»). | "no slot needed", "a later edition can add the part", and the last sentence. | his words in part |
+| 65, 87 | Keys are ids; "Keys as ids: confirmed" | The pick "5 (keys as ids): confirm". | "word and grammar are facts about them". It is open in the queue as K5. | his pick |
+| 68–70 | 1. Gate kind | The pick "1 (gate kind): hybrid: stream for one-owner layers, microbatch for shared". | "two fact stores, each with its own gate", and the sentence on the Rama research file. | his pick |
+| 71–74 | 2. Placement | The pick "2 (placement): hybrid: by layer for one-owner, by entity for shared". | "N, the task count, fixed at launch, chosen for two years": no number was chosen, and the two years are Rama's advice, "the next couple years" (`reference/rama/docs/19-operating-rama.md`, line 485). The class on the offer; the re-class. | his pick |
+| 75–84 | 3. Read entry | The pick "3 (read entry): hybrid: one entry per firing by default, exact rows on request"; and "so its hybrid with pattern as default" (‹3f24ec27›). | The rule by kind of reader, "always"; eager by default; the roles. This file's Log says that a session "rewrote Now; point 3 now states both splits". | his pick, his words in part |
+| 85–86 | 4. Clock promises | The pick "4 (clock promises): yes". | The two promises as worded. | his pick |
+| 88–90 | 6. Who opens values | The pick "6 (who opens values): hybrid: gate by default, opaque per key when a tool needs it". | The cost, and "shown as opaque". | his pick |
+| 91–100 | 7. Where a value's wrapped lock lives | The pick "7 (where value keys live): hybrid: own entry by default in a person's own and hand-session layers, record elsewhere"; "So hybrid as well." (‹251bd61d›); "we can maybe update the per act on the layer itself and the user can decide what to do at that layer" (‹8f386550›). | The mark that overrides, excision, lock rows beside their values, "only values written after the switch", and the subject list. | his pick, his words in part |
+| 101–102 | 7b. A value about two people | The pick "7b (value about two people): hybrid: survives by default, dies by mark or group rule". | — | his pick |
+| 103–104 | 8. Subject slot | The pick "8 (who a value is about): the slot, filled from owner, grammar and tool", with "So it's a the slot right??" (‹c985696f›). | "on the act". | his pick |
+| 105–107 | 9. Default visibility | The pick "9 (default visibility): as proposed, plus group layers". | The three defaults as worded, and "Seed policy facts". | his pick |
+| 109–112 | Layer kinds, four | "Let's update the process progress.md." (‹5947d8b0›): a go to write this file. | The four kinds, and what a group layer is. A session drew them from his ninth pick («24f58a87»). | a session's, written on his go |
+| 114–118 | Two consequences | The same go. | Both consequences. | a session's, written on his go |
+| 127–128 | Sharpening: the layer belongs on the act | The one assent (‹cbff21a4›). | The reading. | his yes, one for eight |
+| 129–135 | Sharpening: names | The one assent. For the name tag: "so what should i say?" (‹47773b5d›), then a session's sentence pasted on, with "no page needed and lets commit" under it (‹3c5d6b60›). | The reading. "It is mine now" is a session's sentence («53ccae78»). "under a scheme reserved to the store" was first written at 18:58 on 24 September («ca262255»), after the assent. | his yes, one for eight |
+| 136–137 | Sharpening: ruling 2, the re-class | The one assent. | The reading. | his yes, one for eight |
+| 138–145 | Sharpening: rulings 7, 7b, 8 | The one assent; "the new addition that you made" is all that he says of the owner's line. | The reading. "dies with Alice and survives Bob" was first written at 18:58 («ca262255»). | his yes, one for eight |
+| 146–149 | Sharpening: forget, time travel | The one assent. | The reading. | his yes, one for eight |
+| 150–158 | Sharpening: promotion in two steps | The one assent. | The reading. "Crossed does not promise done" was first written at 18:58 («ca262255»). | his yes, one for eight |
+| 159–161 | Sharpening: permissions | The one assent. | The reading. "A forget names a permission too" was first written at 18:58 («ca262255»). | his yes, one for eight |
+| 162–165 | "Under all of it, Sid's rule" | "and the new thing that you found, I uh, agree with your judgment" (‹cbff21a4›). | The rule, and its name. A session brought it as its own, under "Two things I would add" («ea856979»). | his yes; the name is a session's |
+| 167–170 | Rig constraints | — | The file says itself that they are not rulings. | a session's |
+| 197–203 | "Sid's decisions of the evening" | No line found. | The rig's code as a candidate; records not kept; no ruling before the third round; the held-back tool. | a session's |
+| 203–209 | "Still Sid's, due before phase 2 and the first kept record" | No line found that says the five are his to decide. | The list, and both phrases. He typed "first kept record" in no line; a session first wrote it on 23 September («5a5ac596»). | a session's |
+
+### Where a line of his pulls against an entry
+
+- **The envelope (48–52).** The entry says that tools never add parts. His
+  line: "what I agree with is like having a small core and then anything else
+  that needs to be added is decided at different layers for the tool"
+  (‹73d9f8c2›).
+- **Sid's frame (24–40).** The entry makes time the root. He lists time as one
+  of five.
+- **"Still Sid's" (203–209).** Late that night, of a run that was to go on
+  while he slept, he wrote: "if you think there are some decision pending on
+  me ... make the best default ones but we need it done when i wakey wakey"
+  (‹0d93dc52›, 25 September 19:52). The line is of that run, and names none of
+  the five.
+- **"evening" (67).** The picks were pasted at 13:10 on his clock.
