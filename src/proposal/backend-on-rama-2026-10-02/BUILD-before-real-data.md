@@ -153,6 +153,80 @@ source by the cutter; the others were not. The implied spec checks each.
 - **About twenty places take the depots of acts to be two**: in the door, the act's form, the
   declaration, both gates, the three reads of the door, and the read path.
 
+## What the read build's session found for this build
+
+Sid asked the session that finished the read build to pass on what it had found that this build could
+meet. His line to it, 12 October: "tell it if you found more that might be addressed there now because
+that phase is all about fixing things that were wrong assumptions". It sent sixteen things that day,
+after this page was cut. None is a decision. Each is that session's, read or run by it. The cutter
+checked 1, 6, 8 and two of the three numbers of 13 against the source; the implied spec checks each.
+
+For part A:
+
+1. **Today a maker who may not act is stopped before her value reaches a log, and A2 takes that stop
+   away.** The stop is the door's request for locks. When her stock is empty, a gate refuses the request
+   and "nothing is ever recorded under the act's own act-id" (`door.clj`, "One faulty act has two
+   outcomes"). Under a key that is not sealed the door asks for no lock and appends her plain value, and
+   a gate refuses the act after the log has it. See A7.
+2. A gate's refusal of a plain value reads no row today. With A4 it needs the layer's sealed keys, which
+   is a row. The marks are the precedent and its price: each accepted act with a fact under a plain key
+   pays one read for the marks row, 5 where it paid 4, in a layer that marks nothing too. The sealed keys
+   cost a sixth unless they ride a row that the gate already reads. `reads/PROGRESS.md`, ruling 55, has a
+   cheaper form that was found and not taken.
+3. In the base the new fact must be among `batch/keys-on-every-task`, five today, for a gate or a reader
+   to find it where it looks.
+4. The read path needs no change for the new store key when the key is in the store's namespace on the
+   layer's own entity: `rows/own-rows-run` holds every such key, `answer/counts?` hides it, and
+   `layers/meaning` does not hold it. `first-act/starts-with` is the one function for what a layer reads
+   as with no fact. `declaration/second-write-keys` and `decision/who-may-write-fault` are where "a
+   second write" and "who may write" live.
+5. A key of the store's own namespace must not be sealable, as it is not markable: a gate compares the
+   row of a permission as text.
+6. The door reads a layer's depot on every send, in one round trip, and keeps no copy (`depot-of`, three
+   call sites in `door.clj`). The sealed keys can come in that round trip. In the base that query is held
+   to closing.
+7. `rows/fact-row` has the branch for a plain `:v` already, used today under store keys only. Its digest
+   is the one that the door seals today, so a fact's place in the order by value does not depend on
+   whether its key is sealed.
+
+For part B:
+
+8. **A third thing that no act and no answer holds: the last stamp of a batch.**
+   `batch/last-stamp-of-batch` can be later than the stamp of every act of its batch. It is the
+   microbatch gate's last stamp. It is also the `:level-since` that a key gets when it is marked in the
+   base, and each row of the facts by value under that mark holds it.
+9. A rebuild applies acts in the order of their stamps, not of a depot. After a failure the streaming
+   gate can decide a later record first, and the base's depot holds no order between two partitions.
+10. A gate's last stamp, made again, must not be below any `:level-since`.
+11. `decision/writes` takes the verdict, the stamp and the digest, and gives each row as data. A rebuild
+    that calls it makes its rows by the functions that the gates call.
+12. The tables hold rows that no read names: the rows by value of an earlier marking stay when a mark is
+    taken off. The comparison of B4 will meet them.
+
+For part C:
+
+13. **Three numbers bound the depth of a permission, not one.** `act/max-permission-depth`, 4.
+    `act/max-depth`, 32: a permission that is given is the value of a fact, and a value is inside 32
+    collections at most. `text/max-depth`, 64: a part that is deeper is written as `#too-deep`. Past it,
+    two permissions that differ only deep inside have one text and one digest, and a gate compares texts.
+    That session read the lines named and not the whole walk.
+14. A permission's whole chain is copied as text into the row of each fact and of each fact by value, and
+    Rama sends whole rows to every push. Depth is paid in each row that is written under it.
+
+For part D and the whole:
+
+15. The numbers before this build are in `reads/runs/measures-final.txt`. Each open push that holds a
+    written row costs the gate at each write there. So a measure is made with no live read open, or says
+    that one is.
+16. No table that anything is kept live on may hold a byte array: a push on such rows is sent the whole
+    value anew about once a second (the read build's ruling 86). The answers' `:digest` and the locks'
+    `:bytes` are byte arrays, and nothing watches them today. Where the read path takes the depots to be
+    two, for R6: `read_path.clj`, in the four table fields of `ReadPath`, `open`, `pstate-of` and
+    `task-routing-ids`; `read_path/sources.clj`, `gate-of`; `read_path/answer.clj`, `fact-id`. The read
+    build's review scripts are in `reads/runs/review-scripts/`. When that build changed the class of a
+    field, four checks had been passing for a wrong reason; part A changes what a fact arrives as, so the
+    review looks for the same.
+
 ## What to build
 
 The split into parts is the skill's stage to make. This is one reading of the whole.
@@ -161,7 +235,8 @@ The split into parts is the skill's stage to make. This is one reading of the wh
 
 - **A1. A fact on the layer says which keys are sealed** (entry 2). One more store key. A layer with no
   such fact seals nothing: plain is where every layer starts. It is one of the store's own facts, as a
-  layer's setting, its list and its marks are, and the read path treats it as it treats those.
+  layer's setting, its list and its marks are, and the read path treats it as it treats those. A key of
+  the store's own namespace cannot be sealed (finding 5).
 - **A2. The door seals a value only under a sealed key.** Under any other key it appends the value as the
   maker gave it: no seal, no lock, and no request for locks. Under a sealed key it does what it does
   today.
@@ -176,6 +251,13 @@ The split into parts is the skill's stage to make. This is one reading of the wh
   writes only under keys that are not sealed asks for no lock.
 - **A6. What was written before is not touched.** A value that is sealed in the log stays sealed there,
   and its lock stays. A value that is plain in the log stays plain there. No log is written again.
+- **A7. A maker who may not act is stopped before her value reaches a log.** This is not decided; it is
+  kept as the store does today, where the request for locks is that stop (finding 1). The door learns
+  whether her permission stands and allows acting, and appends nothing when it does not. How it learns
+  that is the builder's; the door already makes one round trip for the layer's depot on each send
+  (finding 6). A gate stays the one that decides: the door's look is early, and it can be late. The other
+  answer is that the door looks at nothing, the value goes into the log, and a gate refuses the act; then
+  whoever can reach the door can put a plain value into a shared log for ever.
 
 ### B. The gates' answers in a log, and the tables made again
 
@@ -189,9 +271,10 @@ The split into parts is the skill's stage to make. This is one reading of the wh
   answers and the log of the clocks of batches, and no table but the locks tables. From them it makes
   each table that the gates write. The plan lists every table and every part of a row, and says for each
   what it is made again from. What cannot be made again is named with its reason, and goes to Sid in the
-  receipt. Two that the cutter knows: the bytes of a lock, which are in no log by design; and what a gate
-  keeps of a stray, where the store's page says that the word rests on an order that no depot holds
-  (rule 19).
+  receipt. Three are known. The bytes of a lock are in no log by design. What a gate keeps of a stray
+  rests, by the store's page, on an order that no depot holds (rule 19). And the last stamp of a batch is
+  in no act and in no answer (finding 8): the plan says which log comes to hold it, or names it as not
+  made again. A rebuild applies acts in the order of their stamps (finding 9).
 - **B4. A proof compares.** It sends acts through the door and through no door, on both depots: accepted
   and refused acts, an act sent twice, a second and different act under a used act-id, a stray, a
   retract, a fact under a marked key, a value under a sealed key and one under a key that is not. Then it
@@ -208,14 +291,21 @@ The split into parts is the skill's stage to make. This is one reading of the wh
 - **C1.** `max-permission-depth` goes, in the act's form and in the declaration (entry 6, the fourth of
   Z5). Sid, 8 October: "group->group->agents->agents-groups-Agent group->...".
 - **C2. A bound on the size of an act takes its place.** What it counts and its number are the builder's
-  to propose. They are kept with the builder's other numbers, and decided by nobody.
+  to propose. They are kept with the builder's other numbers, and decided by nobody. A permission's whole
+  chain is written into each row under it (finding 14), which the bound can count.
+- **C3. With the 4 gone, two more numbers bound a permission's depth** (finding 13). A permission that is
+  given is a value, and a value is inside 32 collections at most; that number is one of the builder's,
+  kept and not decided. The text of a part stops at 64 collections, and past it two different permissions
+  have one text. So every bound on the depth of a permission stays below the text's, and the receipt says
+  how deep a permission can be when the build is done.
 - Not here: a gate still reads none of the permissions above an act's own. That read comes when a
   permission can end, which is not built.
 
 ### D. The measures
 
 Sid, 7 October: "idk lets go by whats measured and we will know better when we build more and optimise".
-The build measures, and sets no target:
+The build measures, and sets no target. The numbers before it are in `reads/runs/measures-final.txt`, and
+each measure is made with no live read open, or says that one is (finding 15):
 
 - an act through the door under a key that is not sealed, beside one under a sealed key;
 - what the append of an answer adds to an act of the streaming gate, and to a batch of the microbatch
@@ -289,6 +379,10 @@ The build builds each as written here, and decides none.
   the read build do.
 - **What sealing a key does to the values that were written before.** Kept: nothing (A6).
 - **The order of acts after a failure.** Kept: Rama's default for the setting, as today (D).
+- **Whether the door stops a maker who may not act before her value reaches a log** (A7, finding 1).
+  Kept: it does, as the request for locks does today. Sid's decision of 12 October made the value plain
+  and the log never cut; nobody had told him that the stop went with the locks. The question was put to
+  him in chat on 12 October, after this page was cut.
 
 ## The builder chooses, and lists as provisional
 
@@ -367,7 +461,8 @@ The receipt to Sid: the line "proven by a hand-played maker, used by no inhabita
 tested behaviour and use stay apart; the commit hashes; the proofs' outputs with their count lines before
 and after; the measures of D, and the result on Rama's setting as a question for him; the list of every
 table with what it is made again from, and each thing that is not made again with its reason; what the
-store cannot hold to while a key is being sealed (R4); every provisional choice; every not-decided thing
+store cannot hold to while a key is being sealed (R4); what a maker who may not act can still leave in a
+log (A7); how deep a permission can be (C3); every provisional choice; every not-decided thing
 as it was built; every place where this page could not be met as written, and why; what the build found
 that is not decided, proposed as rows for the queue and decided by nobody; `git status --short`.
 
@@ -387,6 +482,9 @@ Never read `src/app/server/env.clj` or any `.env` file.
   not exactly-once across a failed attempt (`12-microbatch-topologies.md`, line 130; Rama's public page
   said the same on 12 October); that a table can be made again from a log when the processing gives the
   same result on a second run (`15-pstates.md`, line 45; `19-operating-rama.md`, "Task scaling").
+- **The read build's session's:** the sixteen findings, sent on 12 October at Sid's word to it. That
+  session read or ran each; the cutter checked 1, 6, 8 and two numbers of 13 against the source. A7, C3
+  and the third exception of B3 rest on them.
 - **A session's:** the reading of the whole into A to D, each rule's wording, each "kept" line under "Not
   decided", and that a rebuild which applies the answers needs no gate to give the same result twice. The
   last is reasoned, not designed and not run: B4 is its test.
