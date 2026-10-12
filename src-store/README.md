@@ -506,10 +506,12 @@ changes with them. They shape the read build, whose starter is
 Sid answered these in chat on 11 and 12 October 2026, on the sheet "Before
 real data is kept — what the check of 10 October leaves to settle"
 (`src/proposal/backend-on-rama-2026-10-02/decisions/groups/g-check.txt`),
-questions Z1 to Z6. Words in quotation marks are his, as he typed them, with
-their day. The record holds his lines as ‹727f622d› and ‹cad7d6b5› (11
-October) and ‹149ad161› (12 October); his two last lines, on Z4 and "land all
-what left", are in the same chat after that one. Where a session read his
+questions Z1 to Z6. Words in quotation marks are his, with their day; some
+are dictated, and are given as the dictation has them. The record holds his
+lines as ‹727f622d› and ‹cad7d6b5› (11 October) and ‹149ad161›, ‹9ba38b70›,
+‹55b56bf3› and ‹071290dc› (12 October); his other lines of that evening are
+in the same chat. Entry 7 answers a question that the sheet did not ask: the
+read build's session found it. Where a session read his
 answer onto a box, the entry says so. What a session drew from an answer is
 marked as a session's, and what stays not decided is named. No code changes
 with them. They shape the build whose starter is
@@ -535,9 +537,11 @@ with them. They shape the build whose starter is
      taken. The stamp of 8 October (entry 4) stays.
    - A session's, which he was shown and did not strike: a replay that
      decides again gives another answer on the day that a rule of a gate
-     changes, so an answer is kept and is not worked out again. And the locks
-     of a locked value are in no log by design, since a lock is there to be
-     destroyed; a rebuild takes them as they are.
+     changes, so an answer is kept and is not worked out again.
+   - With entry 2 the store keeps no locks, so no table is outside the logs
+     on their account. In the base the last stamp of a batch is in no act and
+     in no answer, as the read build's session found; it goes into a log too.
+     He was told so and did not object.
    - "Two depots, one for each gate" (decision 1 of 7 October) counted the
      depots of acts. The module already has a third depot, of the clocks of
      batches, from which no gate decides (the read build's receipt, section
@@ -545,9 +549,10 @@ with them. They shape the build whose starter is
      note; nobody put it to him as a question.
    - Not designed: the form of that log, and of the rebuild. Not run: that
      the tables made again are the same.
-2. **A value is plain in the log when nobody has chosen a lock for it, and
-   the shared logs are never cut.** Sid decided (Z2: plain, the sheet's box
-   A, without the purge that the box held). On 11 October: "plain we will not
+2. **Every value is plain in the log, the store keeps no locks, and the
+   shared logs are never cut.** Sid decided (Z2: plain, the sheet's box A,
+   without the purge that the box held, and with no sealed end beside it). On
+   11 October: "plain we will not
    store any locks and such by default it is up to the layer, tool, group etc
    if they want to for their they can and should but not by default and we
    are providing the spectrum." Asked on 12 October whether a forget may cut
@@ -560,20 +565,36 @@ with them. They shape the build whose starter is
    (or we manage and host but we charge and also give them their local key)".
    A session's reading, which he was shown and did not strike: nothing is cut
    out of a shared log, by a trim or for a forget; and "there is cost to be
-   paid for replay" says that a log which can be replayed stays whole. What
-   comes with it:
-   - Decision 3 of 6 October (the door seals) and entry 2 of 9 October (one
-     lock seals one value) hold for whatever is locked. They are no longer
-     what happens to every value.
-   - A session's: where nothing is locked a delete is a retract. The thing is
-     gone from now and stays in the past. A lock is chosen before the first
-     value of its kind is written, since what reached the log plain stays
-     plain there.
+   paid for replay" says that a log which can be replayed stays whole.
+   A session first read "not by default" as a store that keeps its locks for
+   whoever chooses them, and cut the next build's contract so. That evening
+   he asked: "we are removing all the locks right??" (‹9ba38b70›). The
+   session laid out the two builds, and what keeping the locks would cost: a
+   look for each act at the door and at a gate, in layers that lock nothing
+   too; and code that is not in the form of the ends that he had named. He
+   asked "Is there a harm in keeping it?", named one himself, "whenever we
+   will build some code, it will always come up", and decided: "yeah lets
+   remove it" (‹55b56bf3›). What comes with it:
+   - The door seals nothing, a gate makes and opens no lock, and the store
+     has no table of locks and no request for locks.
+   - Decision 3 of 6 October, in its half "the door seals, and a gate refuses
+     an unsealed value", and entry 2 of 9 October (one lock seals one value)
+     are set aside. They are not reversed: they say how a sealed end is, and
+     the store has none now. The request for locks leaves the store's own
+     keys (entry 5 of 8 October).
+   - The store can forget nothing until a later build. A delete is a
+     retract: the thing is gone from now and stays in the past.
+   - Whoever wants a value that only they can open seals it before it
+     reaches the door, and keeps the lock. A session's, reasoned and not run:
+     the store keeps what they give as any other value, and can check, order
+     and show nothing inside it.
+   - The code of the locks, with its proofs, stays in the repository at
+     commit `13a1d65b`, the end of the read build.
    - The sheet's "time", how long a forgotten thing may stay in a plain log,
      is asked no more: nothing is cut.
-   - His two other ends, named and not built: a depot of its own for an
-     organisation; and locks that their owners hold, or that we host for a
-     charge and also hand to them. For the first, read in Rama's docs and not
+   - His other ends, named and not built: a depot of its own for an
+     organisation; and locks that we host for a charge and also hand to
+     their owners. For the first, read in Rama's docs and not
      run: a depot can be added and destroyed at a module update, trimming can
      be set for one depot, and a cut is declared on one depot
      (`reference/rama/docs/19-operating-rama.md`, lines 356, 422 and 424;
@@ -581,10 +602,6 @@ with them. They shape the build whose starter is
      store, and cannot be made from data. A gatherer's list of 12 October
      names about twenty places of the store's code that take the depots of
      acts to be two; no session checked them one by one.
-   - Not decided: the grain at which a lock is chosen, and who may choose. A
-     session's reading of his line of 9 October, "for different kind of
-     values for their tool or layer": by key, as a fact on the layer. He was
-     shown it twice and did not answer it.
    - The sheet quotes his line of 23 September as "gets deleted in some sense
      like it is not recoverable". The whole line (‹6304b683›) begins "what
      happens on delete or something it is dependent on the groups", asks
@@ -634,3 +651,35 @@ with them. They shape the build whose starter is
    that the store runs; one page that lists what must be true before real
    data is kept. The fourth is in the next build. Each of the others is a
    session's work of its own.
+7. **An act from a maker who may not act is written to the log, and then
+   refused. The door checks nothing first.** Sid decided, 12 October. The
+   read build's session found that the request for locks had been a stop: a
+   maker with no standing got no lock, so the door appended nothing of her
+   act. With no locks (entry 2), either the door looks first and appends
+   nothing for her, or it appends and a gate refuses. A session suggested the
+   first. He asked how she could send at all with no access. A session
+   answered that a polite tool sends nothing, and that a careless tool, a
+   script, or a holder of "see" can: an act names its layer by id and needs no
+   sight of it. His answer, dictated (‹071290dc›): "why don't we store both?
+   Like the data is useful." Of a maker in good faith: "That can be raised to
+   the place that they were trying to write." Of one in bad faith: "we will
+   see like what they are trying to do", and "we have the data to make our
+   systems better, but we also block them." Of what she sent: "this data
+   would not be written down to our actual data, because it is denied." Of an
+   author whose act is refused: "if they have it in the log, we can send them
+   back, hey, this was rejected." And: "we are not choosing the destructive
+   choice here." Then: "Yes, B". The session changed its suggestion to his:
+   a check of a permission keeps neither bad content nor a flood out of a
+   log, since a maker who may act can send both. What comes with it:
+   - What is handed to the door is not lost when it is refused: the act is in
+     the log, its answer says refused, and no fact of it is in the tables.
+   - Not built, his three uses: to raise a refused attempt to the place that
+     it was for; to see what a sender in bad faith does; to give an author
+     back what was refused. Nothing reads a refused act today. A session's
+     question, not yet asked of him: whether the owner of a place sees what a
+     stranger sent, or only that she tried.
+   - Not built, and due before a stranger can reach the door: a bound on how
+     much one sender can put into the log, and a way to block a sender. A
+     session's: a layer is decided on one thread, so a flood of refused acts
+     at a layer slows its own makers; and what is written before a block
+     stays.
