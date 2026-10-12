@@ -1,0 +1,408 @@
+=== Sheet | Reading back out — eight questions on the way out of the store
+
+One read's path, from a screen to the record and back. A word in capitals is defined at that place; more words are under the picture. A mark at the right names the question that asks about that step. The gates and the record are built; the door is not. Of the way out, nothing is built. On 6 October you said: "I will come to the read question when we have built the other system". Each question ends with what an AI session suggests, marked as a session's; a box that you leave blank stays unanswered.
+
+```picture 112
+THE WAY IN.    MAKER ─ act ─► DOOR ─► DEPOT ─► GATE ─► RECORD          The gates and the record are built. The door is not: its sheet is "The door".
+  MAKER — a screen, a converter, an agent: whatever makes an act.     ACT — one or more FACTS that go in together.     FACT — entity · key · value.
+  LAYER — the one place in the store that an act writes to: a person's own, a team's, the base.     DOOR — the code that takes an act into the store.
+  DEPOT — Rama's log; it keeps each act as it arrived.     GATE — the code in the store that accepts or refuses each act, and writes the record.
+  The door SEALS each value: it encrypts it with a LOCK, an encryption key.     A gate gives each fact a STAMP, its time mark.
+
+THE RECORD — the tables that the gates keep. Rama calls a table a PSTATE. The facts table holds, for each PLACE, the one fact that is there now:
+     a PLACE is entity · key, in one layer          :alice-notes    :note-41 · :text    →    the sealed value · the id of its fact · its stamp
+A READ is one look into these tables, for one place or for many, and nothing more. A read never writes them; only a gate writes them.
+
+THE WAY OUT — one read. None of it is built.
+SCREEN — a VIEW shows note 41. A view is a tool that shows things; it says which places it needs.
+          │  "give me  :note-41 · :text"
+          ▼
+THE RUNTIME — the code between everything outside and the store. The door is its way in; this is its way out.
+  1 it knows WHO asks, the ASKER: sign-in tells it (not built)
+  2 it knows the CONTEXT of the read: the layers that the read looks through, nearest first   ⟦◀ W2 · who says which layers, and their order⟧
+       :alice-notes  →  :team  →  the base
+          │  the asker · the context · the places
+          ▼
+THE READ — three steps. Which code does them, the store's or the runtime's, is W3.            ⟦◀ W3 · where the check is made⟧
+  a  may this asker see this layer?                                                           ⟦◀ W1 · who may see a layer⟧
+  b  find the place in each layer of the context. When two layers hold it, the NEAREST layer wins.
+  c  UNSEAL the value: decrypt it with its lock
+          │  the value · the id of its fact · its stamp
+          ▼
+THE RUNTIME gives it to the view, and THE SCREEN paints "buy milk".                           ⟦◀ W6 · whose reads are kept    ◀ W7 · does the reader wait⟧
+
+AFTER THE READ — three things can happen:
+  STAY CURRENT   A gate accepts an act that puts a new fact in that place. The screen must change.   ⟦◀ W4 · what tells the screen    ◀ W5 · how fast⟧
+  STAND ON       Alice writes a reply. Her act names the facts that she read before she made it:
+                 :based-on {the id of that fact → its stamp}       That is how a read meets an act.
+  FIND OUT       Later that fact is replaced. What stood on it is STALE now.                        ⟦◀ W8 · who can ask what stands on a fact⟧
+
+ALREADY SAID OR DECIDED:
+  an act names what it stood on, in :based-on   (decision 11 of 6 October)
+  an ACK (Rama tells the sender that an act arrived) or a BELL (a thing that tells the runtime that something moved) is a signal;
+     the truth is the record; read it by the act's id   (decision 7 of 7 October)
+  the summary of your vision log: "write to Rama and show the committed result, pursuing optimistic updates only if the preferred path proves infeasible"
+```
+
+## More words that the questions use
+
+- **the base** — the layer that the whole store shares. The system is at the top of its chain of permissions (decision 1 of 8 October).
+- **streaming, microbatch** — the two classes of layer ("class" is a borrowed word). A streaming layer's acts are decided one at a time, in milliseconds. A microbatch layer's acts are decided in batches, a moment later. The base is microbatch; every other layer starts streaming (decision 4 of 7 October).
+- **permission** — a fact in a layer that lets its holder act there. It says who holds it, in which layer, where it was given, and which permission is above it.
+- **store key** — a fact key that the store itself acts on.
+- **forget** — the store destroys a lock; what it sealed can never be unsealed.
+- **freezes** — a thing freezes on the day the first record is kept for good: after that day a change of it splits the store into before and after. Until then a change of it costs a change of code.
+- **a session suggests** — what the AI session that wrote this sheet would pick, with its reason. It is not a default.
+- **the rulings file** — the rulings of 23–25 September, as an AI session wrote them down.
+- **the ledger** — a September paper in which a session wrote down what you said.
+
+=== W1 | Who may see a layer
+
+Kind: **system sets** — one form, for every layer. **Freezes.**
+
+```
+ To act in a layer, an act names a permission (decision 8 of 6 October).
+ For seeing, two lines exist:
+   your words of 8 October      a user who is not signed in is "just roaming around on what is open
+                                by the system or world group"
+   the rulings file, 24 Sept    "Default visibility: base open to any authenticated actor; a
+                                person's own and session layers private to that person; group
+                                layers visible to the group's members. Seed policy facts, so a
+                                store can differ."
+ Both say WHO sees. The rulings file adds that this is kept as facts, which a store can change. No
+ line says which facts. That is this question.
+ Your words of 8 October on a permission: it ties back to who "gave the permission to do xyz in
+ their group". A permission of today has no slot for "xyz".
+```
+
+## More of what you have already said
+
+Each question has this part: your own lines on it, each with its date. A dictated line is given without its "uh" and "um"; "…" marks a cut; the mark at the end of a line names it in the record, or in your vision log.
+
+- **About 28 April.** “from the consumer's pov (human user, ai, human guiding ai, other internal modules, api, data gathering bots etc.) the question is basically what am i allowed to query ... this is my mental model .... now this is from an individual pov but we can also have these nested like if a user is part of a group they get access to the group resources etc..” {{vision/LOG.md, line 91}}
+- **17 September.** “anything that is shared in Rama and two accounts are registered for the same space then they can share anything on that it's just like an open internet kind of thing you can comment on any paper … your comments are your comments they, they are always marked so when they enter anyone else's land it's read kind of thing” {{‹f2468e83›}}
+- **23 September.** “if the user has to log into Rama, then it creates a session. They have their session ID, and just by having their session ID, they have different permissions for what they can read and write to Softland. what different groups are they subscribed to, and what can be pushed from them, what they can import, everything.” {{‹73d9f8c2›}}
+- **23 September.** “inside it we can have multiple hierarchies of authorship and granularity but that only gets affected at the read or query time because at the write time we are just checking if this user is authorized to write this data in some place” {{‹1225ee72›}}
+- **24 September.** “what if a user is logged in then by default it means like everything that they have can be read” {{‹b7e33663›}}
+- **2 October.** “an individual is always a part of a groups, a group is part of another group ... world is the open group that every group if make open their data publishes to” {{‹56a55527›}}
+- **Not your typing:** the line of the rulings file in the box. On 23 September one session wrote “I stand on” it, and a second session wrote it as “the reply as I think you'd send it”. On 24 September you pasted a block, “My answers on the rig rulings”, that the record marks as a paste. No line that you typed on those two days is about who may see.
+
+**How does a layer say who may see it?**
+
+[ ] **A** — it does not. Whoever holds a permission in a layer may see it. Nobody else.
+If A: one rule, and nothing more is kept. A person who holds no permission in a layer sees nothing of it. To let someone see is to let them write.
+[ ] **B** — by a setting on the layer: "open to everyone", "open to everyone signed in", or "closed". In a closed layer, whoever holds a permission may see it.
+If B: a layer can be seen by people who hold no permission in it. The setting is one more store key. In a closed layer, to let someone see is to let them write.
+[ ] **C** — by that setting, and by permissions that say what they allow: see, or see and act.
+If C: a guest can see and not write, and a holder can give "see only" beneath their own. The setting is one more store key, and a permission gets one slot more than the form of 6 October has.
+
+Today: nothing checks who sees.
+
+A session suggests: **C**. Your line on a person who is not signed in needs a thing that is "open" to someone who holds no permission: the setting. Your line on a permission says "to do xyz": a slot for what it allows.
+
+=ANSWER A, B or C.
+
+=== W2 | Which layers a read looks through
+
+Kind: **spectrum** — the default is the question. **Freezes in part:** how a layer names what it builds on.
+
+- **starts from** — the layer that a read starts from. For an asker who writes, it is the layer that her acts are written to.
+
+```
+ One place can hold a fact in more than one layer. The nearest layer wins.
+   the base           :fn-resolve · :doc      "resolves a name"
+   :team              :fn-resolve · :doc      "resolves a name; see note 12"
+   :alice-notes       (nothing in this place)
+ Alice's read starts from :alice-notes. A read through   :alice-notes → :team → the base   gives her
+ "resolves a name; see note 12".    A read through the base alone gives "resolves a name".
+ The ledger says that you agreed ("yeah I agree") to a session's reading: "builds-on is facts and a
+ context is derived by walking it; two parents without a stated order is a miss".
+```
+
+## What you have already said
+
+- **17 September.** “I define two groups and both groups are built on some layer but within those groups they have different kind of layers and then I make another layer that is some set of both of those groups and this goes both up and down … so they can be infinitely compositional or is the definition more strict here” {{‹af5a942e›}}
+- **17 September**, your whole answer to the session's reply: “yeah I agree let's do the remaining three at once” {{‹d963e842›}} The reading in the box rests on this line. The reply that you agreed to also said, in a session's words: “Two ways to compose, not one. By context, reading through both, which is free and instant. By promotion, writing facts from both into the composite … A view over both is the first.”
+- **14 September**, on which definition a use of a tool follows: “there can be multiple and since our platform is collaborative everyone can have their own and then there is time travel or version ones” {{‹2952c016›}}
+- **17 September.** “they both can have different versions of their own world like they can have the same base document that they read but have like very distinct things to say about it” {{‹f2468e83›}}
+- **16 September.** “if I ask a general query what was done on this day what does this query resolve to … for this query I only am interested in the notes but not the code and since everything is versioned how do we draw this line” {{‹fc6d106f›}}
+- **2 October.** “a very high level layer can be made of streaming but lower level can be of microbatch how will they resolve?? i am soooo confused” {{‹54cec4f0›}} A session answered then: the nearest layer wins, whatever its kind; in a read the two kinds differ only in time.
+
+**Who says which layers a read looks through, and in what order?**
+
+[ ] **A** — the layer says it. A layer names the layers that it builds on, in order, as a fact on the layer. A read looks through the layer that it starts from, and through all that it builds on.
+If A: each read that starts from one layer gets the same thing, and the order is in the record. No view can look through another list.
+[ ] **B** — the view says it. Each read carries its own list of layers.
+If B: a view can show the base without your changes, or two teams side by side. The order is in no record, and two views of one place can differ.
+[ ] **C** — the layer says it, and a view may ask for another list, of layers that the asker may see.
+If C: the order is in the record, and a view can still look through another list. A read can then differ from what the layer says; it says so.
+
+Today: nothing puts layers together.
+
+A session suggests: **C**. A is the reading in the ledger. B is what a view needs the first time someone asks what a layer changed: it looks through the layer, and through what is under it, apart.
+
+=ANSWER A, B or C.
+
+=== W3 | Where the three steps of a read are done
+
+Kind: **system sets**. Can change later.
+
+```
+ On the way in, the gate is the authority, and not the door (F8 of 7 October). The reason written
+ with that decision, in a session's words: "anything can append to a depot without the door".
+ The way out has the same two places for its three steps (see, find, unseal):
+   in the store       only the store's own code reads the record. Rama can keep a table from every
+                      program outside the store.
+   in the runtime     the runtime reads the tables directly, and gives each asker only what that
+                      asker may see.
+ Neither place can check WHO asks. Sign-in tells the runtime, and the runtime tells the store. So a
+ fault in the runtime that asks in the wrong person's name gets that person's things in both.
+```
+
+## What you have already said
+
+- **14 September.** “if someone wants to read this data where do they have to look? how do we expose that this lives here or there … But does it matter who is asking because from the rama or the place with gives way to this data is only given the data and the metadata involved (what is it why? how is it decided)” {{‹b0dfb991›}}
+- **23 September.** “this calculation of is it allowed or not we have a Rama related module or something for it if I remember correctly” {{‹1225ee72›}} A session answered then that Rama itself does no authorization.
+- **30 September.** “what do I see there that is the data that would be computed or like gathered from Softland … it is stored somewhere here let me grab that code and send all this to the client … then maybe in the same call or next call I'm not sure where we pull the data that those components will be filled with” {{‹f6f7532f›}}
+- **8 October.** “how will encryption work in super nested structure as i discribed above??? who has the key how and where is it stored??” {{‹751c2af7›}} A session answered: “the store, and only the store”. No line of yours takes that up.
+- These are your questions on it. No line of yours takes a side.
+
+**Where are the three steps of a read done?**
+
+[ ] **A** — in the store. No program outside the store can read the record's tables.
+If A: a program that reaches Rama cannot read a table directly, and the check is written once, in the store. The store unseals, and plain values go from the store to the runtime. Rama pushes a change by itself only from a table that outside programs can read: see W4.
+[ ] **B** — in the runtime. The runtime reads the record's tables directly.
+If B: less to build, and Rama pushes each change to the runtime with its value. The runtime holds locks and unseals. Each program that reaches Rama can read every table, so the check is only as good as the runtime's code.
+
+Today: programs outside the store can read the tables. The three reads that are built (an act's answer, a layer's class, a lock) are the store's own code.
+
+A session suggests: **A**. One place for the check, the same place as on the way in. Its price is in W4.
+
+=ANSWER A or B.
+
+=== W4 | What tells a screen that a fact changed
+
+Kind: **system sets**. Can change later.
+
+- **bell** — a thing that tells the runtime that something moved. It carries no value.
+
+```
+ Alice's screen shows 5,000 places of :team. Bob changes one of them.
+ Decided on 7 October (F7): a bell is a signal; the truth is the record.
+ With W3 A, no program outside the store can read the record's tables, and Rama pushes a change by
+ itself only from a table that outside programs can read. So the gates keep one table more for the
+  bells, readable from outside, with no value in it. What a bell says is this question.
+ Your words of 9 October: for an editor, "each word typed or each letter that you type, how often do
+ those get synced, these are also the decision that the tool has to make, like how collaborative it
+ is, that is a spectrum, and that is a choice that layers and tools and groups can make".
+```
+
+## More of what you have already said
+
+- **11 July, vision log.** “I want to write directly to rama and then stream from there that is the best case scenerio that i want to target and only and only and only if that is not feasable i would go for the optimistic update route but never by default” {{vision/LOG.md, line 555}} The summary on the first page leaves out “and then stream from there”.
+- **12 August, vision log.** “the reactive composiion between rama->electric/missionary querying data that needs to be rendered <-> rendering engine taking it and also asking for more <-> user interacting and based on the interaction we add or remove the data needed” {{vision/LOG.md, line 1258}}
+- **10 September**, on caching, data held in memory and optimistic updates: “the proposition is that you don't have to do these the network latency is every small and the diff rendering solves the fine grained reactivity and this is enabled by rama on the server side.” {{‹e347e404›}}
+- **10 September.** “the ui is just a data and manipulation of it changes some other data that gets saved to rama and then reactively pulled and add the new data to old data.” {{‹1f998b6a›}}
+- **29 September.** “there is collaboration there is fine grained reactivity fine grained authorship reactive updates reactive reading and all that” {{‹6b8c2421›}}
+- **7 October**, your yes on F7: “ahh i understand why " Because the ack can fail to carry it" so yeah A it is” {{‹9b8f461f›}} Your reason is about the ack.
+- **Not your words:** that a bell carries no value. Two sessions agreed between themselves on 2 October: “Proxies only ring. Values are read again through resolve.” It was not put to you as a question.
+
+**When a gate accepts a new fact for a place, what does a screen that shows the place get?**
+
+[ ] **A** — a bell that names the place. The screen then reads that one place.
+If A: Alice's screen reads one place. The work follows what changed. The table of bells holds one row for each place.
+[ ] **B** — a bell that names the layer. The screen then reads again all that it shows from that layer.
+If B: Alice's screen reads 5,000 places. The work follows what is shown. The table of bells holds one row for each layer.
+[ ] **C** — no bell: the new fact itself, with its value.
+If C: Alice's screen reads nothing more. It needs W3 B, where Rama pushes from the facts table itself.
+
+Today: nothing tells a screen anything.
+
+A session suggests: **A**. The settled ground for rendering (docs/decisions.md) names B's cost as the cause of each fault of the render path so far. The sentence is a session's, written under what that page calls your push to "solve it systemically, never patch": "the read side paying to rediscover what the write side already knew".
+
+=ANSWER A, B or C.
+
+=== W5 | How fast
+
+Kind: **target**.
+
+```
+ Three waits, each from the moment an act is sent to the moment it is on your screen:
+   1   your own act
+   2   another person's act, in live collaboration with you
+   3   a change in a layer that you only follow, the base among them
+ Your words of 7 October: personal work that you engage with directly is "supposed to be fast like
+ editor, canvas, 3d roaming around, live collaboration"; and "if they are subscribed to something
+ some other layer the data is coming from somewhere else that is not marked as live collaboration
+  is fine to come a little bit delayed".
+ Your words of 9 October: how often a tool writes is "a spectrum, and that is a choice that layers
+ and tools and groups can make".
+ The store's target (F9): at least 100 acts each second for one person, each answered within 20 ms
+ of the door's append, for the slowest 1 in 100.
+ Measured in this build, on one machine: the answer to an act in the base can be read 887 ms after
+ the act is appended. Nothing else of this is measured.
+```
+
+## More of what you have already said
+
+- **7 October**, on the store's three limits (F9): “The limits are what we should be optimising for what we measured is starting point maybe a better optimised sytem will perform better we can take this as the base starting option” and “idk lets go by whats measured and we will know better when we build more and optimise” {{‹27882354›}}
+- **2 October**, of a canvas that you share with your ten agents: “there is very very little personal here the whole graph is shared to everyone in the group anyone at anytime can go to anywhere. But the "own work feels instant" is still needed.” {{‹12fed86b›}}
+- **16 September.** “a user should not be waiting too much to use a tool … From the user point of view while they are working they should not feel any lag in their workflow” {{‹9169ca3c›}}
+- **17 July.** “previously it was 7.6 ms iirc and is this snappy? what is the speed that code editors are expected to have? i am strongly against optimistic updates” {{‹af8cd389›}} and “if i move it to s3 or digital ocean for real it would be certanly so so so bad correct” {{‹13c9bc0c›}} A session's figure of that day, not measured again: 26.6 ms from a key press to the confirmed text on the screen, for the slowest 1 in 20, with Rama on your own PC.
+
+**What is the target for each wait?**
+
+[ ] **A** — 50 ms · 100 ms · 2 s, each for the slowest 1 in 100.
+If A: the plan of the way out aims at these numbers, and a measure tells how near it is.
+[ ] **B** — other numbers: write them on the line.
+If B: the plan aims at your numbers, and a measure tells how near it is.
+[ ] **C** — no numbers now. The first way out is built and measured; then you set them.
+If C: the plan has no number to aim at, and the first measure is where the targets start.
+
+Today: no way out, so no wait is measured.
+
+A session suggests: **A**, as targets. The three numbers are a session's, from nothing measured. Wait 1 is the one that typing feels.
+
+=ANSWER A, B with three numbers, or C.
+
+=== W6 | Whose reads are kept
+
+Kind: **spectrum** — the default is the question. The form of a read entry **freezes** when the first one is kept.
+
+- **read entry** — a fact that says: this asker was given these things, then. One read can ask for many places; its read entry lists them all. Only an act writes a fact, so each read entry costs one act, in a layer of the asker.
+
+```
+ Not asked here: what an ACT stood on. It is on the act itself, in :based-on (decided, 6 October).
+ Asked here: a read that no act names. The asker is a model or a person:
+   a MODEL       it cannot be run again to the same reply.
+   a PERSON      her screen reads as she works.
+ 17 September, your long message (dictated), on a person's signals — where she moved, "over the
+ view that they were at that time": "we cannot predict this without ... storing these signals
+ somehow"; "what I'm also saying is a hypothesis"; "if they agree to get the data to the system
+ for analysis or something". A person's reads are what was on her view. Where she moved is not a
+ read, and is not asked here.
+ 24 September. Of a tool that reads 2,000 tools, you said: "If we do every write for every read
+ ... It's, it's too much data. And it could turn out like everything does not need to have this
+ data because they would not do the reverse ... lookup".
+ Later that day, to a session's "hybrid" by who reads — a tool that can be run again leaves one
+ short entry each time it runs; "Models and people always get what they were shown written down
+ in full" — you wrote: "I am leaning towards hybrid and that is what you are pointing out right".
+ The session said that this was the hybrid it meant. You went on to other points. The rulings
+ file lists it as ruled.
+ 6 October: you put the read question off. So the lean of 24 September is asked again here.
+```
+
+## More of what you have already said
+
+- **24 September.** “have I not already said like the tools that fire some kind of read if the system is deterministic it will we can just derive what was read at some point so we only need that data right” {{‹f68cf1a3›}}
+- **24 September.** “I don't have to store everything … the entity ID the time and the version are these three not enough to do this Or maybe just time.” {{‹aab30856›}}
+- **24 September**, to the session that then wrote the rulings file: “so its hybrid with pattern as default” {{‹3f24ec27›}} “Pattern”: one short line for a whole pattern that a tool read, and not a row for each fact.
+- **17 September**, on pointer moves: “there is some kind of decision that we make not we but the user should make how many times they want an event to be saved and like they will know the cost of cost of it because if they say like save everything then basically their view will become a bit slower” {{‹e624d4e7›}}
+- **Not your word:** “always”. The rulings file says that a model's or a person's reads are kept “always”. Each of the two sessions had its own hybrid that morning, one by kind of read and one by kind of reader; they joined the two themselves.
+
+**Whose reads does the store keep as read entries, when nobody has chosen otherwise?**
+
+[ ] **A** — each read of a model, and each read of a person. No switch.
+If A: for each thing it can be told who was given it. One act is written for each read, of a person as of a model.
+[ ] **B** — each read of a model. A person's reads too, until she turns that off.
+If B: one act for each read of a model, and for each read of a person who has not turned it off.
+[ ] **C** — each read of a model. A person's reads only after she turns that on.
+If C: one act for each read of a model. Nothing of a person's reads is kept until she turns it on.
+[ ] **D** — none.
+If D: no act is written for a read. What a model was given can be told only from what its act names in `:based-on`.
+
+Today: nothing is kept for a read.
+
+A session suggests: **B**. A is your lean of 24 September as it was said ("always"). B keeps the same by default, and gives the person a switch. If "if they agree" means that she must agree before anything is kept, the answer is C.
+
+=ANSWER A, B, C or D.
+
+=== W7 | Whether the reader waits for the read entry
+
+Kind: **system sets**. Can change later. It has no weight if W6 is D.
+
+```
+ A read that is kept costs one act (W6), however many places it asks for. The asker can get the
+ result of the read before a gate accepts that act, or after.
+ A session's proposal of 25 September, not ruled: "Nothing is shown before its entry has been
+ acknowledged."
+ The store's target for one person's act (F9): answered within 20 ms, for the slowest 1 in 100.
+```
+
+## What you have already said
+
+- No line of yours is on this question. The nearest, **2 October**: “btw the no optimisim was strictly for electric or client side runtime ... it might work well for the server side as well but i did not think much about it .” {{‹5efe41a1›}}
+
+**Does an asker get the result of a kept read before its read entry is accepted, or after?**
+
+[ ] **A** — after. The read entry is written first.
+If A: no result is ever given without its read entry. Each kept read waits for one act.
+[ ] **B** — before. The result is given at once, and the read entry is written beside it.
+If B: no read waits. After a crash, the last results that were given can be without a read entry.
+
+Today: nothing is kept for a read.
+
+A session suggests: **B**. Wait 1 of W5 then holds for a person whose reads are kept.
+
+=ANSWER A or B.
+
+=== W8 | Who can ask what stands on a fact
+
+Kind: **system sets**. Can change later.
+
+- **promotion** — a change that goes from a person's own layer into a layer that others share.
+
+```
+ Your words of 24 September: "The question is who read me? ... in the reverse lookup case, we need
+ to have this structure that we can use to answer this reverse lookup question."
+ An act names the facts that it stood on. So for each fact the store can keep the list of the acts
+ that stood on it.
+ Alice's note stood on a fact of the base. That fact is replaced, and the note is stale. Alice
+ finds out when her screen asks, through the layers of her own context.
+ Two askers are not a person who asks through her own context:
+      a forget        must it reach a thing that only stood on the forgotten value, in a layer that
+                   the one who forgets cannot see? Your words of 9 October: "if we delete a block, we
+                   might also want to delete some thing more related to it. For example, some context
+                   around it that was added, some relation link, etc.", and "we might forget that, even
+                   though the intent would be to delete".
+   a promotion     how many things, in all layers, stand on what it replaces?
+ Whichever you tick: each act keeps its :based-on in the depot, the depots are never trimmed, and
+ the record keeps the answer to each act. So a list over all layers can be built from the two on a
+ later day. No code for that is built.
+```
+
+## More of what you have already said
+
+- **23 September.** “we are looking at what happens when the pointed-at thing moves, deletes or something .. this is a chain of dependency that is filled out by the user and user in this case is not a single user only but there can be group of users (humans, agents included) and those groups can be part of bigger groups ... different groups have different rules for what happens in each case and what you are signing up for by being part of a group. So what we have to provide for this dimension is a default AND proof/compute that the dependency chain will be done. Note that the actions not only involve move/delete it can be notification, recompute my layer over something etc.” {{‹d048babc›}}
+- **23 September.** “any data that is user has not shared with anyone else which is like only personal that gets deleted in some sense like it is not recoverable but then the flip side is if they have their agent and it can read its read their data then the data is already somewhere in whatever agent they were using” {{‹6304b683›}}
+- **Asked before:** on 3 October a session put this question to you in “opus-build-on-top”, in these words: “must the store ever answer "what stands on this" beyond the asker's own context?” No line of yours answers it.
+
+**Must the store answer "what stands on this fact" beyond the layers that the asker can see?**
+
+[ ] **A** — no. It is asked by an asker, through that asker's own context.
+If A: each layer keeps the list for its own acts. A forget and a promotion do not ask across layers until the list over all layers is built.
+[ ] **B** — yes, from the start: a forget and a promotion can ask across all layers.
+If B: the gates keep one list more, over all layers, from the first day.
+
+Today: no list is kept. The question is item ?14 of OPEN-QUESTIONS.md, not answered.
+
+A session suggests: **A**. The depots and the record keep what B needs, so B can be built on the day that a forget or a promotion asks for it.
+
+=ANSWER A or B.
+
+=== Listed | Listed, not asked
+
+- **Which setting each layer starts with** (W1): for the base, "open to everyone" or "open to everyone signed in". A setting is a fact, so it can be changed later. With sign-in.
+- **Which code unseals a value on the way out.** The code that W3 names.
+- **One moment for all layers of one read.** Nothing here freezes: an act carries the stamp of each fact that it stood on. The builder's, under W5.
+- **Looking back: "as of a day", and what changed.** The facts table holds only the fact that is in a place now. The depots keep each act; the record keeps each answer with its stamp, and each lock that is not forgotten. So the past can be built from the two later, but for forgotten values. No code for that is built. After the first way out.
+- **Finding things by a pattern, and following a link backwards** ("all that points at this"). It goes with how a tool is woken, which is above the act. Its tables can be built later, from the depots and the record.
+- **Who writes on a stale thing that it is stale.** A tool, above the act. W8 asks only who can ask.
+- **A place of the base, just after a change.** For about one run of the base's gate, near a second in this build, a place whose fact was replaced has no row that a read may give. The build found this; it is the builder's.
+- **One query for a whole context, or one for each layer.** The builder's, under W2 and W5.
+- **A forget, and what was already read.** With forget.
+- **The door.** It has its own sheet, "The door — four questions before it is built", of 8 October.
+
+## Your words on one of these
+
+- **Looking back**, 23 September: “what happens when we try to do Time travel kind of thing so let's say in the present time the user has deleted some of their data but there is a UI from using which they can see their past data but the, since the key is deleted would they be able to watch their past data and would they be able to recover it yeah because in many apps it is possible to do it so I'm not sure what does delete even mean” {{‹73d9f8c2›}} The rulings file answers with two deletes, retract and forget, in a session's words.
