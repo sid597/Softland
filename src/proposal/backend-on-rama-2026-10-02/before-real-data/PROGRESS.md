@@ -125,11 +125,11 @@ adapts the skill's template.
 | the plan of `the-locks-go`, with its run of ruling 19's condition (`plan-probes-the-locks-go/`); ruling 34 on its nine points | done | — |
 | the plan of `answers-in-a-log`, with three runs of its own (`plan-probes-answers-in-a-log/`); ruling 32 on its six points | done | — |
 | the build of `the-locks-go`, straight from its plan, by six sessions at once, each with files of its own (rulings 33, 35) | done. Each proof passed in the hands of the session that owns it, on the settled source: act `{:test 8, :pass 162, :fail 0, :error 0}`, pure `{:test 19, :pass 651, :fail 0, :error 0}`, module `{:test 35, :pass 350, :fail 0, :error 0}`, door `{:test 20, :pass 239, :fail 0, :error 0}`, read path pure `{:test 12, :pass 152, :fail 0, :error 0}`, read path on the cluster `{:test 27, :pass 480, :fail 0, :error 0}`. The six on a clean checkout of the commit: `runs/after-the-locks-go-<proof>.txt` | `0d9ed0a6` |
-| the build of `answers-in-a-log`, straight from its plan, by sessions with files of their own: the streaming gate; the microbatch gate with the shared pure code and the module; the module's proof; the pure proof; the code that measures (`gate_measures.clj`) | running | — |
-| the build of `the-rebuild`, with no plan of its own: its proof compares what it made with what the gates wrote, row by row | the pure core and its proof are written, on hand-made logs: `{:test 5, :pass 24, :fail 0, :error 0}`. The reader of the logs and the comparison on the cluster are being written | — |
-| the review of the whole against the contract | — | — |
-| the measures of the contract's section D, on the final tree | — | — |
-| the receipt to Sid | — | — |
+| the build of `answers-in-a-log`, straight from its plan, by sessions with files of their own: the streaming gate; the microbatch gate with the shared pure code and the module; the module's proof; the pure proof; the code that measures (`gate_measures.clj`) | done. The session of the module's proof found that the streaming gate made its record before the commit boundary, where the plan has it behind; the gate's session moved it. Then pure `{:test 22, :pass 712, :fail 0, :error 0}`, module `{:test 38, :pass 398, :fail 0, :error 0}` | `f83a4e93`; the code that measures and its first run, `0d14a383` |
+| the build of `the-rebuild`, with no plan of its own: its proof compares what it made with what the gates wrote, row by row | done. Its pure proof on hand-made logs `{:test 5, :pass 24, :fail 0, :error 0}`; its proof on the cluster `{:test 4, :pass 22, :fail 0, :error 0}`: no row differs on any task, also on a second cluster after one failed attempt of each gate. All eight proofs on that tree: `runs/after-the-log-and-the-rebuild-<proof>.txt` | `f83a4e93` |
+| the review of the whole against the contract, by four fresh sessions at once, each with an area and its files: the way in; the gates and the logs; the rebuild; the pages and the whole tree (ruling 36) | done. Each area passes: `REVIEW-<area>.md`. No fault in either gate's dataflow or in the code that makes a row again; what the logs hold did not change. Three checks were tested by breaking the store for one run, and each failed as it should. The eight proofs on the final tree, each with exit 0: act `{:test 8, :pass 162, :fail 0, :error 0}`, pure `{:test 22, :pass 715, :fail 0, :error 0}`, module `{:test 38, :pass 398, :fail 0, :error 0}`, door `{:test 20, :pass 239, :fail 0, :error 0}`, read path pure `{:test 12, :pass 152, :fail 0, :error 0}`, read path on the cluster `{:test 27, :pass 480, :fail 0, :error 0}`, the rebuild's pure proof `{:test 6, :pass 37, :fail 0, :error 0}`, the rebuild on the cluster `{:test 4, :pass 29, :fail 0, :error 0}`. Each cut output is `runs/final-<proof>.txt` | `8fb2b682` |
+| the measures of the contract's section D | done, three times, by `clojure -M:store-module -m softland.store.gate-measures`: with the locks gone (`runs/measures-after-the-locks-go.txt`, of `0d9ed0a6`), with the logs of answers (`runs/measures-after-the-log.txt`, of `f83a4e93`), and on the final tree (`runs/measures-final.txt`) | `0d14a383`, `8fb2b682` |
+| the receipt to Sid | done: `RECEIPT.md`, and in the build session's chat | the commit that holds it |
 
 How a stage is run: a fresh agent reads the skill's doc for its stage, the contract and its read
 list, and the papers before it; it writes one paper (or the code) and does not commit. The build
@@ -523,6 +523,17 @@ plans stand on, each run and not read:
     commit's message says so. What makes the commit trustworthy is not the index: the six proofs
     are run again on a detached checkout of the commit itself, and D's first numbers are taken on
     that checkout, with the code that measures copied in beside it.
+
+36. **Part B is one commit, and the review is four reviewers at once — builder's.** The gates'
+    answers in a log and the rebuild that reads them are the two halves of one decision of Sid's
+    (entry 1 of 12 October) and of the contract's one part B, and one set of pages explains both; so
+    they are one commit, `f83a4e93`. The split into two parts was for the building. The review of
+    the whole is one pass by four fresh sessions with no stake in the code, each with an area whose
+    files only it edits, so that they can fix at the same time: the way in; the gates and the logs;
+    the rebuild; the pages, the read path and the tree as a whole. Each finds faults and fixes them,
+    and writes one short table, `REVIEW-<area>.md`; a fault in another's file comes to the build
+    session, which sends it on. The rebuild's reviewer first tests its proof: it breaks the rebuild
+    in three small ways and sees whether the comparison fails.
 
 ## For the receipt
 
