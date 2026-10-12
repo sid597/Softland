@@ -47,17 +47,31 @@ the Rama skill's stages, as the three builds before it did.
 What his answers of 12 October leave beside that build, and what each waits
 for:
 
-- **A session's work, on his yes** (entry 6 of 12 October, the eight of Z5).
-  One pass over the decisions page and over the rulings file of September,
-  which marks each entry as his, as a fact, or as a session's. "Freezes" goes
-  from the papers. Three lines for the method. The check's six reports, and a
-  row in the queue for each thing on the last page of the sheet, go into the
-  repository; the rows that the read build's receipt proposes are not in the
-  queue either. Rama's docs for 1.6.0. One page that lists what must be true before
-  real data is kept.
+- **A session's work, on his yes** (entry 6 of 12 October, the eight of Z5):
+  done on 12 and 13 October, but for the first of the eight, which waits for
+  a real cluster, and the fourth, which is in the build.
+  - The pass. Each entry of the decisions page names the line of his that it
+    rests on, and a reason that was a session's is marked as a session's
+    (`src-store/README.md`). The rulings file of September has a section at
+    its end that says what stands under each entry
+    (`../frame-2026-09-15/PROGRESS.md`): no entry is in his words as a whole.
+    `decisions/check_quotes.py` puts a page's quotations to the record.
+  - "Freezes" is gone from the papers that are in use, and the method forbids
+    it. The sheets that he answered keep it, as printed.
+  - The method has its three lines (`decisions/METHOD.md`, "What the check of
+    10 October taught").
+  - The check's six reports are in `check-2026-10-10/`. The queue has a row
+    for each thing on the sheet's last page and for each that the read
+    build's receipt proposed: V1 to V34.
+  - Rama's docs: the copy is, word for word, the docs of 1.6.0, and says so
+    (`reference/rama/docs/README.md`). The release notes are new,
+    `reference/rama/release-notes.md`.
+  - What must be true before real data is kept is one page,
+    `WHAT-MUST-BE-TRUE.md`.
 - **The day a real cluster starts.** Three machines, three copies and Rama's
   own backups (entry 5), one restore from a backup, the number of tasks, who
-  may reach Rama's ports, and the proofs on two real nodes.
+  may reach Rama's ports, and the proofs on two real nodes. Each is a line of
+  `WHAT-MUST-BE-TRUE.md`, with whose word it is.
 - **Sign-in.** Whose reads are kept is decided (entry 4) and is built when the
   store can tell a model from a person. Before a stranger can reach the door:
   a bound on how much one sender can put into the log, and a way to block a
@@ -129,6 +143,8 @@ the same day. Older papers of this folder say "class" for "depot".
 | `BUILD-door.md` | The contract that the door was built from. |
 | `BUILD-reads.md` | The contract that the reads were built from. |
 | `BUILD-before-real-data.md` | The contract of the build that comes next, cut on 12 October. |
+| `WHAT-MUST-BE-TRUE.md` | One page of what must be true before real data is kept, each line with whose word it is. It decides nothing. |
+| `check-2026-10-10/` | The six reports of the check of 10 October, as their sessions wrote them. The findings are the sessions'. |
 | `decisions/` | How a question reaches Sid (`METHOD.md`), the queue of open questions (`OPEN-QUESTIONS.md`), and the text of each sheet (`groups/`). |
 | `store-module/` | The papers of the build of the store's module, and the build's page, `store-module/PROGRESS.md`. |
 | `door/` | The papers of the door's build, and the build's page, `door/PROGRESS.md`. |
