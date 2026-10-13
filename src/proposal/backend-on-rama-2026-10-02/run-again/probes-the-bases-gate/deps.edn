@@ -1,0 +1,33 @@
+;; Probes of 13 October 2026 for one question: a gate that decides every act of
+;; a layer on ONE task, in the order of the layer's one depot partition, and
+;; then copies each written row to EVERY task. Which of its Rama claims hold
+;; when they are run? Rama 1.6.0, in-process cluster. They require nothing of
+;; the store's tree. A probe is not a design.
+;;
+;; Run from this folder, one at a time, each behind the lock that the store's
+;; proofs wait on, with the whole stdout sent to a file under logs/:
+;;   flock ../../before-real-data/runs/cluster.lock clojure -M:order > logs/order-stdout.txt 2>&1
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {;; C1, C2: the order inside a batch, and the order of the copies on every task
+           :order       {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.order"]}
+           ;; C2 again, closer: what a yield in the deciding walk does to the order of the decisions
+           :yield       {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.yield"]}
+           ;; C2 and C3 with one microbatch of 20,000 records (one depot option set at launch)
+           :long-batch  {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.long-batch"]}
+           ;; C3: the same without the skip, so the deciding task writes its own copies too
+           :own-copy    {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.own-copy"]}
+           ;; C4: six layers, sent interleaved from three threads
+           :layers      {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.layers"]}
+           ;; C5: the gate throws once in the middle of a batch. It names log4j2-info.xml, so that
+           ;; what Rama logs around the throw is in the run's stdout file, behind the word RAMA
+           :failed      {:jvm-opts ["-Xss16m" "-Xmx4g" "-Dlog4j2.configurationFile=log4j2-info.xml"]
+                         :main-opts ["-m" "probe.failed"]}
+           ;; C6: a second module mirrors the depot and runs the gate again, same number of tasks
+           :again       {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.again"]}
+           ;; C7, C8: the run again, and a fresh module fed the same records, with another number of tasks
+           :other-tasks {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.other-tasks"]}
+           ;; C9: the time from an append to the row being readable
+           :cost        {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.cost"]}}}

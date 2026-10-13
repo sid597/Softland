@@ -1,0 +1,14 @@
+Rama 1.6.0, in-process cluster. One module, 4 tasks, 2 task threads, 2 workers. No option of Rama is set.
+The six layers, found by where their names land: layer06, layer20, layer00, layer08, layer05, layer12
+  C4 layer06: depot partition [0], decided on task [0]. Accepted 500 of 500, refused 0. Its numbers are 1 to 500 with no gap: yes, and in the depot's order: yes. `$$last`: [[0 500]].
+  C4 layer20: depot partition [0], decided on task [0]. Accepted 500 of 500, refused 0. Its numbers are 1 to 500 with no gap: yes, and in the depot's order: yes. `$$last`: [[0 500]].
+  C4 layer00: depot partition [1], decided on task [1]. Accepted 500 of 500, refused 0. Its numbers are 1 to 500 with no gap: yes, and in the depot's order: yes. `$$last`: [[1 500]].
+  C4 layer08: depot partition [2], decided on task [2]. Accepted 500 of 500, refused 0. Its numbers are 1 to 500 with no gap: yes, and in the depot's order: yes. `$$last`: [[2 500]].
+  C4 layer05: depot partition [3], decided on task [3]. Accepted 500 of 500, refused 0. Its numbers are 1 to 500 with no gap: yes, and in the depot's order: yes. `$$last`: [[3 500]].
+  C4 layer12: depot partition [3], decided on task [3]. Accepted 500 of 500, refused 0. Its numbers are 1 to 500 with no gap: yes, and in the depot's order: yes. `$$last`: [[3 500]].
+  C4 task 0: keys of the six layers that hold the last row of their chain, with the deciding task's number: 60 of 60. Another row: 0. No row: 0.
+  C4 task 1: keys of the six layers that hold the last row of their chain, with the deciding task's number: 60 of 60. Another row: 0. No row: 0.
+  C4 task 2: keys of the six layers that hold the last row of their chain, with the deciding task's number: 60 of 60. Another row: 0. No row: 0.
+  C4 task 3: keys of the six layers that hold the last row of their chain, with the deciding task's number: 60 of 60. Another row: 0. No row: 0.
+  C4 microbatches: 42.
+C4 VERDICT: every record of every layer accepted, each layer numbered 1 to 500 in its depot order, and every task holds the last row of every key of every layer: yes

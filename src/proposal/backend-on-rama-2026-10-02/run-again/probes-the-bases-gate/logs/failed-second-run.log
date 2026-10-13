@@ -1,0 +1,99 @@
+Rama 1.6.0, in-process clusters, one for each case. Two modules, 4 tasks each, 2 task threads, 2 workers. No option of Rama is set.
+
+CASE :walk: THE THROW STANDS on the deciding task, at the head of the walk of record 900, before step 1
+  The gate threw: yes. At record "c5-00900", on task 1 (the layer's deciding task is [1]), thread "Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0".
+  Part B's records are in microbatch [26] of the module that threw, and in microbatch [24] of the one that did not.
+  THE FAILED ATTEMPT, by the probe's journal (entries of part B's records that carry attempt 1):
+    Decisions, by task: {1 400} . Copies written, by task: {} .
+    Of these, written after the throw: 0 {} .
+  THE RETRY (entries of part B's records that carry attempt 2):
+    Decisions, by task: {1 600} . Copies written, by task: {0 600, 2 600, 3 600} .
+    Records that the gate found already answered (step 1) in the whole run: 0 .
+    From the throw to the retry's first decision: 645 ms.
+    From the release of the batch to its end: 1357 ms in the module that threw, 196 ms in the one that did not.
+    Thread names by task in the failed attempt: {1 ["Worker bb1ad573 00000000@2005 DTT 0 0-task-group-exec-0"]}
+    The same tasks ran under the same thread names in the retry: yes
+  AT THE END:
+    The module that threw: decided on task [1]. Accepted 1500 of 1500, refused 0. Numbered 1 to 1500 in the depot's order: yes. Microbatches: 28. Every task holds the last row of every key: yes.
+    The module that did not: decided on task [1]. Accepted 1500 of 1500, refused 0. Numbered 1 to 1500 in the depot's order: yes. Microbatches: 29. Every task holds the last row of every key: yes.
+    Task 0, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 0, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 0, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 1, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 1, $$answers: 1500 entries in the module that threw, 1500 in the one that did not, 0 that differ.
+    Task 1, $$last: 1 entries in the module that threw, 1 in the one that did not, 0 that differ.
+    Task 2, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 2, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 2, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 3, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 3, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 3, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Entries [1 id] of part B in `$$attempts` at the end (rows of the failed attempt), by task: {0 0, 1 0, 2 0, 3 0}
+    Entries [2 id] of part B in `$$attempts` at the end (rows of the retry), by task: {0 600, 1 600, 2 600, 3 600}
+C5 VERDICT (:walk): the gate threw once: yes . Decisions and copies that the failed attempt had made before the throw, all tasks: 400 . After the retry every table on every task equal to the module that did not fail: yes . Rows of the failed attempt left on any task: 0 .
+
+CASE :back: THE THROW STANDS on the deciding task, when the copy of record 900 comes back to it through |all
+  The gate threw: yes. At record "c5-00900", on task 1 (the layer's deciding task is [1]), thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0".
+  Part B's records are in microbatch [20] of the module that threw, and in microbatch [17] of the one that did not.
+  THE FAILED ATTEMPT, by the probe's journal (entries of part B's records that carry attempt 1):
+    Decisions, by task: {1 600} . Copies written, by task: {0 498, 2 600, 3 600} .
+    Of these, written after the throw: 0 {} .
+  THE RETRY (entries of part B's records that carry attempt 2):
+    Decisions, by task: {1 600} . Copies written, by task: {0 600, 2 600, 3 600} .
+    Records that the gate found already answered (step 1) in the whole run: 0 .
+    From the throw to the retry's first decision: 608 ms.
+    From the release of the batch to its end: 1432 ms in the module that threw, 183 ms in the one that did not.
+    Thread names by task in the failed attempt: {0 ["Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"], 1 ["Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"], 2 ["Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"], 3 ["Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"]}
+    The same tasks ran under the same thread names in the retry: yes
+  AT THE END:
+    The module that threw: decided on task [1]. Accepted 1500 of 1500, refused 0. Numbered 1 to 1500 in the depot's order: yes. Microbatches: 24. Every task holds the last row of every key: yes.
+    The module that did not: decided on task [1]. Accepted 1500 of 1500, refused 0. Numbered 1 to 1500 in the depot's order: yes. Microbatches: 24. Every task holds the last row of every key: yes.
+    Task 0, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 0, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 0, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 1, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 1, $$answers: 1500 entries in the module that threw, 1500 in the one that did not, 0 that differ.
+    Task 1, $$last: 1 entries in the module that threw, 1 in the one that did not, 0 that differ.
+    Task 2, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 2, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 2, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 3, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 3, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 3, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Entries [1 id] of part B in `$$attempts` at the end (rows of the failed attempt), by task: {0 0, 1 0, 2 0, 3 0}
+    Entries [2 id] of part B in `$$attempts` at the end (rows of the retry), by task: {0 600, 1 600, 2 600, 3 600}
+C5 VERDICT (:back): the gate threw once: yes . Decisions and copies that the failed attempt had made before the throw, all tasks: 2698 . After the retry every table on every task equal to the module that did not fail: yes . Rows of the failed attempt left on any task: 0 .
+
+CASE :copy: THE THROW STANDS on another task, when the copy of record 900 arrives there, before it is written
+  The gate threw: yes. At record "c5-00900", on task 0 (the layer's deciding task is [1]), thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0".
+  Part B's records are in microbatch [18] of the module that threw, and in microbatch [18] of the one that did not.
+  THE FAILED ATTEMPT, by the probe's journal (entries of part B's records that carry attempt 1):
+    Decisions, by task: {1 600} . Copies written, by task: {0 400, 2 600, 3 600} .
+    Of these, written after the throw: 0 {} .
+  THE RETRY (entries of part B's records that carry attempt 2):
+    Decisions, by task: {1 600} . Copies written, by task: {0 600, 2 600, 3 600} .
+    Records that the gate found already answered (step 1) in the whole run: 0 .
+    From the throw to the retry's first decision: 621 ms.
+    From the release of the batch to its end: 1367 ms in the module that threw, 173 ms in the one that did not.
+    Thread names by task in the failed attempt: {0 ["Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"], 1 ["Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0"], 2 ["Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"], 3 ["Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0"]}
+    The same tasks ran under the same thread names in the retry: yes
+  AT THE END:
+    The module that threw: decided on task [1]. Accepted 1500 of 1500, refused 0. Numbered 1 to 1500 in the depot's order: yes. Microbatches: 20. Every task holds the last row of every key: yes.
+    The module that did not: decided on task [1]. Accepted 1500 of 1500, refused 0. Numbered 1 to 1500 in the depot's order: yes. Microbatches: 22. Every task holds the last row of every key: yes.
+    Task 0, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 0, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 0, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 1, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 1, $$answers: 1500 entries in the module that threw, 1500 in the one that did not, 0 that differ.
+    Task 1, $$last: 1 entries in the module that threw, 1 in the one that did not, 0 that differ.
+    Task 2, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 2, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 2, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 3, $$rows: 50 entries in the module that threw, 50 in the one that did not, 0 that differ.
+    Task 3, $$answers: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Task 3, $$last: 0 entries in the module that threw, 0 in the one that did not, 0 that differ.
+    Entries [1 id] of part B in `$$attempts` at the end (rows of the failed attempt), by task: {0 0, 1 0, 2 0, 3 0}
+    Entries [2 id] of part B in `$$attempts` at the end (rows of the retry), by task: {0 600, 1 600, 2 600, 3 600}
+C5 VERDICT (:copy): the gate threw once: yes . Decisions and copies that the failed attempt had made before the throw, all tasks: 2200 . After the retry every table on every task equal to the module that did not fail: yes . Rows of the failed attempt left on any task: 0 .
+
+C5 VERDICT, ALL CASES: tables equal at the end and no row of the failed attempt left: [[:walk true] [:back true] [:copy true]]

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Only the probe of the failed attempt (alias :failed) names this file. It
+     sends what Rama logs at INFO and above to stdout, each line behind the
+     word RAMA, so that the run's stdout file shows what Rama logged around
+     the throw. Without it, log4j2's default shows errors only. -->
+<Configuration status="WARN">
+  <Appenders>
+    <Console name="out" target="SYSTEM_OUT">
+      <PatternLayout pattern="RAMA %d{HH:mm:ss.SSS} %-5p [%t] %c{1} - %m%n"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level="INFO">
+      <AppenderRef ref="out"/>
+    </Root>
+  </Loggers>
+</Configuration>

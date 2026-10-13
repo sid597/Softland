@@ -1,0 +1,18 @@
+Rama 1.6.0, in-process cluster. One module, 4 tasks, 2 task threads, 2 workers. No option of Rama is set.
+
+C9, ONE RECORD AT A TIME, THE NEXT AT ONCE
+  The layer was decided on task 0 . Records: 100 . `$$last`: 100 .
+  ms from the start until the append came back: least 3.2, middle 4.0, most 8.4
+  ms from the start until the row was readable on task 0 (deciding): least 81.9, middle 87.1, most 278.8
+  ms from the start until the row was readable on task 1: least 81.9, middle 87.2, most 278.9
+  ms from the start until the row was readable on task 2: least 78.6, middle 84.7, most 291.2
+  ms from the start until the row was readable on task 3: least 78.6, middle 84.7, most 291.2
+
+C9, ONE RECORD AT A TIME, THE NEXT AFTER 500 ms OF REST
+  The layer was decided on task 0 . Records: 100 . `$$last`: 100 .
+  ms from the start until the append came back: least 1.9, middle 2.4, most 10.8
+  ms from the start until the row was readable on task 0 (deciding): least 88.9, middle 239.4, most 335.9
+  ms from the start until the row was readable on task 1: least 88.9, middle 239.5, most 336.2
+  ms from the start until the row was readable on task 2: least 87.8, middle 237.4, most 333.0
+  ms from the start until the row was readable on task 3: least 87.7, middle 237.5, most 333.0
+C9 VERDICT: see the two series above. An order of size only.

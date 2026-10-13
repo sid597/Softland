@@ -1,0 +1,123 @@
+Rama 1.6.0, in-process clusters, one for each other number of tasks. 2 task threads, 2 workers for every module. No option of Rama is set.
+
+ANOTHER NUMBER OF TASKS: 6 (the first module has 4)
+  Rama REFUSED to launch a module that owns its depot with 6 tasks. The error: org.apache.thrift.TException: Invalid config: Num tasks must be power of two | CAUSED BY: rpl.rama.generated.InvalidConfigException:  | CAUSED BY: rpl.rama.generated.InvalidConfigException: 
+  Rama REFUSED to launch a module that mirrors the first module's depot with 6 tasks. The error: org.apache.thrift.TException: Invalid config: Num tasks must be power of two | CAUSED BY: rpl.rama.generated.InvalidConfigException:  | CAUSED BY: rpl.rama.generated.InvalidConfigException: 
+  Rama REFUSED to launch a module that mirrors the depot, with the hop with 6 tasks. The error: org.apache.thrift.TException: Invalid config: Num tasks must be power of two | CAUSED BY: rpl.rama.generated.InvalidConfigException:  | CAUSED BY: rpl.rama.generated.InvalidConfigException: 
+C7 VERDICT (6 tasks): NOT RUN. Rama refused to launch a module with 6 tasks.
+C8 VERDICT (6 tasks): NOT RUN. Rama refused to launch a module with 6 tasks.
+
+ANOTHER NUMBER OF TASKS: 3 (the first module has 4)
+  Rama REFUSED to launch a module that owns its depot with 3 tasks. The error: org.apache.thrift.TException: Invalid config: Num tasks must be power of two | CAUSED BY: rpl.rama.generated.InvalidConfigException:  | CAUSED BY: rpl.rama.generated.InvalidConfigException: 
+  Rama REFUSED to launch a module that mirrors the first module's depot with 3 tasks. The error: org.apache.thrift.TException: Invalid config: Num tasks must be power of two | CAUSED BY: rpl.rama.generated.InvalidConfigException:  | CAUSED BY: rpl.rama.generated.InvalidConfigException: 
+  Rama REFUSED to launch a module that mirrors the depot, with the hop with 3 tasks. The error: org.apache.thrift.TException: Invalid config: Num tasks must be power of two | CAUSED BY: rpl.rama.generated.InvalidConfigException:  | CAUSED BY: rpl.rama.generated.InvalidConfigException: 
+C7 VERDICT (3 tasks): NOT RUN. Rama refused to launch a module with 3 tasks.
+C8 VERDICT (3 tasks): NOT RUN. Rama refused to launch a module with 3 tasks.
+
+ANOTHER NUMBER OF TASKS: 8 (the first module has 4)
+  Rama launched a module that owns its depot with 8 tasks.
+  THE FIRST MODULE, 4 tasks
+  first, layer c1: emitted on task [3], decided on task [3]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  first, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer08: emitted on task [2], decided on task [2]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer05: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer12: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first: 132 microbatches, at most 86 records in one.
+  C7, THE WALK AS IT IS, 8 tasks
+  Rama launched the module that mirrors the first module's depot with 8 tasks.
+  no hop, layer c1: emitted on task [3], decided on task [3]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  no hop, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer08: emitted on task [2], decided on task [2]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer05: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer12: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop: 4 microbatches, at most 3000 records in one.
+  no hop: a record of depot partition p is emitted on task: {0 [0], 1 [1], 2 [2], 3 [3]}
+  no hop, `$$rows` on each task against the first module's 110 rows: task 0 holds 110, 0 differ; task 1 holds 110, 0 differ; task 2 holds 110, 0 differ; task 3 holds 110, 0 differ; task 4 holds 110, 0 differ; task 5 holds 110, 0 differ; task 6 holds 110, 0 differ; task 7 holds 110, 0 differ
+  no hop, `$$answers` of all tasks as one set against the first module's: 0 differ of 6000. Answers held on two tasks: 0. `$$last` as one set: 0 differ of 7.
+C7 VERDICT (8 tasks, no hop): Rama let a module with 8 tasks mirror and consume the depot of a module with 4. Same rows as the first module's, every task holds every row, each layer in its depot order: yes.
+  C7, WITH (|hash *layer) AT THE HEAD OF THE WALK, 8 tasks
+  Rama launched the module that mirrors the depot, with the hop with 8 tasks.
+  hop, layer c1: emitted on task [3], decided on task [7]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  hop, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer08: emitted on task [2], decided on task [6]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer05: emitted on task [3], decided on task [7]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer12: emitted on task [3], decided on task [7]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop: 4 microbatches, at most 3000 records in one.
+  hop: a record of depot partition p is emitted on task: {0 [0], 1 [1], 2 [2], 3 [3]}
+  hop, `$$rows` on each task against the first module's 110 rows: task 0 holds 110, 0 differ; task 1 holds 110, 0 differ; task 2 holds 110, 0 differ; task 3 holds 110, 0 differ; task 4 holds 110, 0 differ; task 5 holds 110, 0 differ; task 6 holds 110, 0 differ; task 7 holds 110, 0 differ
+  hop, `$$answers` of all tasks as one set against the first module's: 0 differ of 6000. Answers held on two tasks: 0. `$$last` as one set: 0 differ of 7.
+C7 VERDICT (8 tasks, hop): same rows as the first module's, every task holds every row, each layer in its depot order: yes.
+  C8, A FRESH MODULE WITH 8 TASKS, FED THE FIRST DEPOT'S RECORDS BY A CLIENT
+  fresh, layer c1: emitted on task [7], decided on task [7]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  fresh, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer08: emitted on task [6], decided on task [6]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer05: emitted on task [7], decided on task [7]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer12: emitted on task [7], decided on task [7]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh: 96 microbatches, at most 165 records in one.
+  fresh: a record of depot partition p is emitted on task: {0 [0], 1 [1], 2 [6], 3 [7]}
+  fresh, `$$rows` on each task against the first module's 110 rows: task 0 holds 110, 0 differ; task 1 holds 110, 0 differ; task 2 holds 110, 0 differ; task 3 holds 110, 0 differ; task 4 holds 110, 0 differ; task 5 holds 110, 0 differ; task 6 holds 110, 0 differ; task 7 holds 110, 0 differ
+  fresh, `$$answers` of all tasks as one set against the first module's: 0 differ of 6000. Answers held on two tasks: 0. `$$last` as one set: 0 differ of 7.
+  Records read from the first depot, by partition: [1000 500 500 4000] . Appended to the fresh module: 6000
+C8 VERDICT (8 tasks): same rows as the first module's, every task holds every row, each layer in its order: yes.
+
+ANOTHER NUMBER OF TASKS: 2 (the first module has 4)
+  Rama launched a module that owns its depot with 2 tasks.
+  THE FIRST MODULE, 4 tasks
+  first, layer c1: emitted on task [3], decided on task [3]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  first, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer08: emitted on task [2], decided on task [2]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer05: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer12: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first: 107 microbatches, at most 165 records in one.
+  C7, THE WALK AS IT IS, 2 tasks
+  Rama launched the module that mirrors the first module's depot with 2 tasks.
+  no hop, layer c1: emitted on task [1], decided on task [1]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  no hop, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer00: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer08: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer05: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop, layer layer12: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  no hop: 4 microbatches, at most 3000 records in one.
+  no hop: a record of depot partition p is emitted on task: {0 [0], 1 [0], 2 [1], 3 [1]}
+  no hop, `$$rows` on each task against the first module's 110 rows: task 0 holds 110, 0 differ; task 1 holds 110, 0 differ
+  no hop, `$$answers` of all tasks as one set against the first module's: 0 differ of 6000. Answers held on two tasks: 0. `$$last` as one set: 0 differ of 7.
+C7 VERDICT (2 tasks, no hop): Rama let a module with 2 tasks mirror and consume the depot of a module with 4. Same rows as the first module's, every task holds every row, each layer in its depot order: yes.
+  C7, WITH (|hash *layer) AT THE HEAD OF THE WALK, 2 tasks
+  Rama launched the module that mirrors the depot, with the hop with 2 tasks.
+  hop, layer c1: emitted on task [1], decided on task [1]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  hop, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer00: emitted on task [0], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer08: emitted on task [1], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer05: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop, layer layer12: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  hop: 4 microbatches, at most 3000 records in one.
+  hop: a record of depot partition p is emitted on task: {0 [0], 1 [0], 2 [1], 3 [1]}
+  hop, `$$rows` on each task against the first module's 110 rows: task 0 holds 110, 0 differ; task 1 holds 110, 0 differ
+  hop, `$$answers` of all tasks as one set against the first module's: 0 differ of 6000. Answers held on two tasks: 0. `$$last` as one set: 0 differ of 7.
+C7 VERDICT (2 tasks, hop): same rows as the first module's, every task holds every row, each layer in its depot order: yes.
+  C8, A FRESH MODULE WITH 2 TASKS, FED THE FIRST DEPOT'S RECORDS BY A CLIENT
+  fresh, layer c1: emitted on task [1], decided on task [1]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  fresh, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer08: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer05: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh, layer layer12: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  fresh: 139 microbatches, at most 106 records in one.
+  fresh: a record of depot partition p is emitted on task: {0 [0], 1 [1], 2 [0], 3 [1]}
+  fresh, `$$rows` on each task against the first module's 110 rows: task 0 holds 110, 0 differ; task 1 holds 110, 0 differ
+  fresh, `$$answers` of all tasks as one set against the first module's: 0 differ of 6000. Answers held on two tasks: 0. `$$last` as one set: 0 differ of 7.
+  Records read from the first depot, by partition: [1000 500 500 4000] . Appended to the fresh module: 6000
+C8 VERDICT (2 tasks): same rows as the first module's, every task holds every row, each layer in its order: yes.

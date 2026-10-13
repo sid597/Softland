@@ -1,0 +1,38 @@
+Rama 1.6.0, in-process cluster. Two modules, 4 tasks each, 2 task threads, 2 workers. No option of Rama is set.
+The layers: c1, layer06, layer20, layer00, layer08, layer05, layer12 . Records in the depot: 6000
+
+THE FIRST RUN (the module that owns the depot)
+  first, layer c1: emitted on task [3], decided on task [3]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  first, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer08: emitted on task [2], decided on task [2]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer05: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first, layer layer12: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  first: 124 microbatches, at most 86 records in one.
+
+THE RUN AGAIN (a second module, the same gate over a mirror of the depot, from its beginning)
+  again, layer c1: emitted on task [3], decided on task [3]. Accepted 3000 of 3000, refused 0. Numbered 1 to 3000 in the depot's order: yes.
+  again, layer layer06: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  again, layer layer20: emitted on task [0], decided on task [0]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  again, layer layer00: emitted on task [1], decided on task [1]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  again, layer layer08: emitted on task [2], decided on task [2]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  again, layer layer05: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  again, layer layer12: emitted on task [3], decided on task [3]. Accepted 500 of 500, refused 0. Numbered 1 to 500 in the depot's order: yes.
+  again: 4 microbatches, at most 3000 records in one.
+  A record of depot partition p is emitted in the second module on task: {0 [0], 1 [1], 2 [2], 3 [3]}
+
+THE TWO, HELD AGAINST EACH OTHER, TABLE BY TABLE ON EVERY TASK
+  Task 0, $$rows: 110 entries in the first, 110 in the second, 0 that differ.
+  Task 0, $$answers: 1000 entries in the first, 1000 in the second, 0 that differ.
+  Task 0, $$last: 2 entries in the first, 2 in the second, 0 that differ.
+  Task 1, $$rows: 110 entries in the first, 110 in the second, 0 that differ.
+  Task 1, $$answers: 500 entries in the first, 500 in the second, 0 that differ.
+  Task 1, $$last: 1 entries in the first, 1 in the second, 0 that differ.
+  Task 2, $$rows: 110 entries in the first, 110 in the second, 0 that differ.
+  Task 2, $$answers: 500 entries in the first, 500 in the second, 0 that differ.
+  Task 2, $$last: 1 entries in the first, 1 in the second, 0 that differ.
+  Task 3, $$rows: 110 entries in the first, 110 in the second, 0 that differ.
+  Task 3, $$answers: 4000 entries in the first, 4000 in the second, 0 that differ.
+  Task 3, $$last: 3 entries in the first, 3 in the second, 0 that differ.
+C6 VERDICT: every table on every task of the second module equal to the first module's: yes . Every record accepted in its depot order in the first: yes , in the second: yes .
