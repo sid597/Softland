@@ -51,8 +51,14 @@
 
   The name of the module, for a client, is `(get-module-name Store)`.
 
-  State. The module has five depots. This namespace declares three: the two
-  depots of acts and the depot of batch clocks. Each gate declares its own
+  `add-gates-and-reads` adds everything of the module but its two depots of
+  acts, and `Store` is those two depots and that one call; so a second
+  module that has a depot, or a mirror of one, under each of the two names
+  runs the same gates and reads by this one definition.
+
+  State. The module has five depots. This namespace declares three: `Store`
+  the two depots of acts, and `add-gates-and-reads` the depot of batch
+  clocks. Each gate declares its own
   depot of answers, in its `add-to`, which is handed the module's `setup`
   for that; no code here names one. Each gate owns the PStates of its
   record: the streaming gate (`softland.store.module.streaming-gate`) those of the
@@ -136,11 +142,27 @@
             [softland.store.module.microbatch-gate :as microbatch-gate]
             [softland.store.module.streaming-gate :as streaming-gate]))
 
-(defmodule Store [setup topologies]
-  (declare-depot setup *streaming-depot (hash-by :layer))
-  (declare-depot setup *microbatch-depot (hash-by batch/first-entity))
+(defn add-gates-and-reads
+  "Adds everything of the module `Store` but its two depots of acts. Takes a
+  module's `setup` and its `topologies`. Declares the depot
+  `*batch-clock-depot`, closed to a client's append, and adds the streaming
+  gate, the topology that keeps a batch's clock, the microbatch gate and the
+  door's two reads, each by its own `add-to`. What must hold: the module has
+  a depot, or a mirror of one, under each of the names `*streaming-depot`
+  and `*microbatch-depot`. `Store` calls it behind the declarations of its
+  two depots; a module that mirrors those two depots and calls it runs the
+  same gates over them from their beginning, into tables, depots of answers
+  and a depot of batch clocks of its own. The depot of batch clocks is
+  declared here and not with the depots of acts because the module's own
+  topology appends to it, so each module that runs the gates has its own."
+  [setup topologies]
   (declare-depot setup *batch-clock-depot :disallow)
   (streaming-gate/add-to setup topologies)
   (batch-clock/add-to topologies)
   (microbatch-gate/add-to setup topologies)
   (door-reads/add-to topologies))
+
+(defmodule Store [setup topologies]
+  (declare-depot setup *streaming-depot (hash-by :layer))
+  (declare-depot setup *microbatch-depot (hash-by batch/first-entity))
+  (add-gates-and-reads setup topologies))
