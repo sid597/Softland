@@ -39,15 +39,13 @@
   State. The door owns no state: none that lasts, and none of the process.
   An opened door borrows four handles of Rama's client, the two depots of
   acts and the two queries of the module `Store`; the opener owns the
-  cluster handle, and nothing closes the door. The module has two more
-  depots (`softland.store.module`): the depot of batch clocks, and the
-  microbatch gate's depot of answers. Neither takes an act, and the door
-  opens neither: it reads the answer of an act from the record, by the
-  query, and never from a log. The door holds one number, fixed at the
-  opening: how long a wait sleeps between two reads
-  (`softland.store.door.wait`). It keeps nothing between two calls: no
-  act-id that it gave, no thing that it sent, no digest, no time that it
-  wrote, and no layer's depot.
+  cluster handle, and nothing closes the door. Those two depots are all
+  the depots of the module (`softland.store.module`). The door reads the
+  answer of an act from the record, by the query, and never from a log.
+  The door holds one number, fixed at the opening: how long a wait sleeps
+  between two reads (`softland.store.door.wait`). It keeps nothing between
+  two calls: no act-id that it gave, no thing that it sent, no digest, no
+  time that it wrote, and no layer's depot.
 
   The clocks. The door reads two clocks of its JVM. For the time on an act
   it reads the clock of the server that runs it, once for each thing that
@@ -65,9 +63,10 @@
   written a second time. `softland.store.gate.first-act/depot-at-making`:
   the depot that a layer starts with, for a layer that is not made. From
   `softland.store.record.rows`: `routing-id`, the first argument of the
-  query of an answer; and `depot-read` and `answer-read-by-routing-id`, the
-  tests that the head of each query makes of what a caller passes, which a
-  caller that may hold a thing that is no id makes itself before it calls.
+  query of an answer, which is the act-id's layer for both depots; and
+  `depot-read` and `answer-read-by-routing-id`, the tests that the head of
+  each query makes of what a caller passes, which a caller that may hold a
+  thing that is no id makes itself before it calls.
   The door opens no PState, makes no row and no text of a row.
 
   The sender. The door takes `:who`, `:session` and `:permission` as the
@@ -195,8 +194,9 @@
   returns when the streaming gate has processed the thing and its rows are
   visible. The microbatch depot with :append-ack: the call returns when the
   depot holds the thing; no stream topology reads that depot, so :ack would
-  wait for nothing more, and the level says what is meant. Either return is
-  a signal and never the answer.
+  wait for nothing more, and the level says what is meant. The microbatch
+  gate decides the thing in a batch of its own time, which the append does
+  not wait for. Either return is a signal and never the answer.
 
   How far a throw reaches: an append that threw may have gone through. Rama
   holds a caller in one append for as long as its client's own time limit
@@ -211,10 +211,11 @@
 
 (defn- read-answer
   "Reads the answer under an act-id: one round trip, the query
-  `answer-by-act-id`, to one task. Takes the door and an act-id. Gives
-  [:ok the answer or nil] or [:threw info]. The first argument of the query
-  is the act-id's routing id, the layer of a streaming act-id and the uuid
-  of a microbatch one.
+  `answer-by-act-id`, to one task, the task of the act-id's layer. Takes
+  the door and an act-id. Gives [:ok the answer or nil] or [:threw info].
+  The first argument of the query is the act-id's routing id
+  (`softland.store.record.rows/routing-id`): its layer, for a streaming
+  act-id and for a microbatch one.
 
   Before it calls, it makes the test that the head of the query makes
   (`softland.store.record.rows/answer-read-by-routing-id`). For a thing
@@ -337,11 +338,9 @@
   no door is then opened.
 
   Four round trips, once for a process and on no act's way: one fetch of a
-  client for each of the two depots of acts and the two queries. The
-  module's two other depots, of batch clocks and of the microbatch gate's
-  answers, take no act and are not fetched. The door borrows the handles and uses
-  them from every maker's thread; the opener owns the cluster handle, and
-  nothing closes the door.
+  client for each of the module's two depots and its two queries. The door
+  borrows the handles and uses them from every maker's thread; the opener
+  owns the cluster handle, and nothing closes the door.
 
   A door holds nothing that a call changes, so a process can open one door
   or several, and each serves every maker alike. Opening checks nothing of
@@ -455,13 +454,12 @@
   the door, in milliseconds since 1970, a fixed-width integer
   (`server-clock`). The door reads it once in a call, at step 3; a call
   that ends in a word before that step reads no clock. It is the one read
-  of a clock on the way of an act through a streaming layer: the streaming
-  gate reads no clock, and makes the stamp of its decision of this time.
-  Sid's decision of 13 October 2026 is that no gate reads a clock. The
-  microbatch gate is not built so: it holds this time to its form, and
-  makes its stamps of a clock that it reads once for each batch
-  (`softland.store.module.microbatch-gate`). Two doors on two servers write
-  two clocks, and nothing holds one against the other.
+  of a clock on the way of an act through the store, in a streaming layer
+  and in the base alike: no gate reads a clock (Sid's decision of 13
+  October 2026), and each gate makes the stamp of its decision of this
+  time and of the layer's last stamp (`softland.store.module.walk`). Two
+  doors on two servers write two clocks, and nothing holds one against the
+  other.
 
   A second send. A second send of one act under one act-id is the same
   thing but for its time: it carries the door's clock of the second send,
@@ -478,10 +476,20 @@
 
   The order of two sends. When the call returns, its append is over: it was
   acked or it threw. So two sends that one maker makes one after the other
-  reach the depot in that order. In a streaming layer that is the order of
-  the decisions, without a failure. In the base two acts on two first
-  entities have no order in the depot: a maker that needs the first decided
-  first reads its answer before it sends the second.
+  reach the depot in that order. A layer is one partition of its depot, in
+  the streaming depot and in the microbatch depot: the base is one line.
+  So in a streaming layer and in the base alike the order of the two sends
+  is the order of the two decisions, without a failure, and a maker need
+  not read the answer of the first before she sends the second. Each gate's
+  namespace says what a failure does
+  (`softland.store.module.streaming-gate`,
+  `softland.store.module.microbatch-gate`).
+
+  When the answer is there. For a streaming layer, when `send-act` returns
+  with its ack: the gate has run. For the base, when the batch that decided
+  the act is committed on the base's task; the ack says only that the depot
+  holds the thing, so a maker of the base reads with a wait
+  (`answer-of`).
 
   The call runs on the maker's thread and holds it until it returns. A
   thread whose interrupt mark is set when a call of Rama's client is made
@@ -548,10 +556,10 @@
   \"Nothing yet\" does not mean refused, and it does not mean that nothing
   is on a depot. It is the answer in states that the door cannot tell
   apart: nothing was ever sent under the act-id; a thing is on its depot
-  and not decided; a microbatch act is decided and its batch is not closed;
-  the thing is a stray, which the door itself never sends; the thing given
-  is no act-id, for which the door makes no read at all and comes back at
-  once.
+  and not decided; a microbatch act is decided and its batch is not yet
+  committed on the layer's task; the thing is a stray, which the door
+  itself never sends; the thing given is no act-id, for which the door
+  makes no read at all and comes back at once.
 
   A maker's own second send reads its answer as her own. A second send of
   one act under one act-id has the digest of the first, since a digest

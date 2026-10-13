@@ -1,0 +1,197 @@
+00:44:52.859     521.7  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads · scenario s1 {:log "k3-individual-throw", :retry-mode :individual, :mode :together, :throw-at :end, :reps 3} · settings of First: {:timeout nil, :retry-mode :individual, :way :plain}
+00:44:53.166     306.9  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435196578201600, :attempt 1}
+00:44:53.166     307.0  RUN     ---- k3-individual-throw run 1 of 3 · S1, A throws at the end of its event on its first attempt · mode :together ----
+00:44:53.170     311.1    the :ack append of E, before all, gave {}
+00:45:00.288    7429.1    the :ack append of D, sent when all was quiet, gave {}
+00:45:00.788    7929.3    NOTES of module First, in the order in which they were made:
+00:45:00.788    7929.4          308.8  E attempt 1 begins on task 1
+00:45:00.788    7929.4          308.8  E attempt 1 decides: accepted, number 117435196582526976
+00:45:00.788    7929.4          308.9  E attempt 1 ends
+00:45:00.788    7929.4          312.9  H attempt 1 begins on task 1
+00:45:00.788    7929.4          312.9  H attempt 1 sleeps 400 ms on the task's thread, at the start of the event
+00:45:00.788    7929.4          713.0  H attempt 1 wakes
+00:45:00.788    7929.4          713.2  H attempt 1 decides: accepted, number 117435196582789120
+00:45:00.788    7929.4          713.3  H attempt 1 ends
+00:45:00.788    7929.5          719.0  A attempt 1 begins on task 1
+00:45:00.788    7929.5          719.1  A attempt 1 decides: accepted, number 117435196582920192
+00:45:00.788    7929.5          719.2  A attempt 1 THROWS on purpose at the end of the event
+00:45:00.788    7929.5          986.0  the task global of task 0 is made ready again (time 2): the worker was started again
+00:45:00.789    7929.5          986.0  the task global of task 3 is made ready again (time 2): the worker was started again
+00:45:00.789    7929.5          986.0  the task global of task 1 is made ready again (time 2): the worker was started again
+00:45:00.789    7929.5          986.0  the task global of task 2 is made ready again (time 2): the worker was started again
+00:45:00.789    7929.6         1009.0  E attempt 2 begins on task 1
+00:45:00.789    7929.6         1009.0  E attempt 2 finds its answer there and does nothing
+00:45:00.789    7929.6         1009.0  E attempt 2 ends
+00:45:00.789    7929.6         1009.0  H attempt 2 begins on task 1
+00:45:00.789    7929.6         1009.0  H attempt 2 finds its answer there and does nothing
+00:45:00.789    7929.6         1009.0  H attempt 2 ends
+00:45:00.789    7929.6         1009.0  A attempt 2 begins on task 1
+00:45:00.789    7929.6         1009.1  A attempt 2 decides: accepted, number 117435196582920192
+00:45:00.789    7929.6         1009.3  A attempt 2 ends
+00:45:00.789    7929.6         1009.3  B attempt 1 begins on task 1
+00:45:00.789    7929.6         1009.4  B attempt 1 decides: refused, number 117435196586852352
+00:45:00.789    7929.7         1009.4  B attempt 1 ends
+00:45:00.789    7929.7         1009.5  C attempt 1 begins on task 1
+00:45:00.789    7929.7         1009.5  C attempt 1 decides: accepted, number 117435196590850048
+00:45:00.789    7929.7         1009.6  C attempt 1 ends
+00:45:00.789    7929.7         7425.8  D attempt 1 begins on task 1
+00:45:00.789    7929.7         7425.9  D attempt 1 decides: refused, number 117435197035053056
+00:45:00.789    7929.7         7426.1  D attempt 1 ends
+00:45:00.789    7929.7    the :ack append of E   called at     307.0, came back after      4.1 ms with {}
+00:45:00.789    7929.7    the :ack append of H   called at     311.2, came back after    407.7 ms with {}
+00:45:00.789    7929.7    the :ack append of A   called at     313.4, came back after    496.5 ms with CallbackException: Callback failure
+00:45:00.789    7929.8    the :ack append of B   called at     373.5, came back after    436.4 ms with CallbackException: Callback failure
+00:45:00.789    7929.8    the :ack append of C   called at     433.6, came back after    376.3 ms with CallbackException: Callback failure
+00:45:00.789    7929.8    the :ack append of D   called at    7212.1, came back after    216.8 ms with {}
+00:45:01.977    9118.3  RUN     module Again launched and run over the depot from its beginning · 18 records · it holds an answer for every act: true · after 1184 ms
+00:45:01.977    9118.4    NOTES of module Again:
+00:45:01.977    9118.5         8107.4  A attempt 1 begins on task 1
+00:45:01.977    9118.5         8107.4  A attempt 1 decides: accepted, number 117435196582920192
+00:45:01.977    9118.5         8107.4  A attempt 1 ends
+00:45:01.978    9118.5         8107.5  B attempt 1 begins on task 1
+00:45:01.978    9118.5         8107.5  B attempt 1 decides: refused, number 117435196586852352
+00:45:01.978    9118.5         8107.5  B attempt 1 ends
+00:45:01.992    9133.3    E    First: accepted  number 306:0      attempt 1   | Again: accepted  number 306:0      | same
+00:45:01.992    9133.4    A    First: accepted  number 312:0      attempt 2   | Again: accepted  number 312:0      | same
+00:45:01.992    9133.4    B    First: refused   number 372:0      attempt 1   | Again: refused   number 372:0      | same
+00:45:01.992    9133.4    C    First: accepted  number 433:0      attempt 1   | Again: accepted  number 433:0      | same
+00:45:01.992    9133.4    D    First: refused   number 7211:0     attempt 1   | Again: refused   number 7211:0     | same
+00:45:01.993    9133.7    the row at ["L00" "k"] · First holds the act "A" · Again holds the act "A"
+00:45:01.993    9133.8    the order of the decisions in layer L00 by number · First: ["E" "A" "B" "D"] · Again: ["E" "A" "B" "D"]
+00:45:01.993    9133.8    the partition of layer L00 in order, [position id]: [[4 "E"] [5 "H"] [6 "A"] [7 "B"] [8 "C"] [9 "D"]]
+00:45:01.993    9133.8    the depot holds 18 records of 18 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:45:01.993    9133.8    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:45:01.993    9133.9    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+00:45:01.993    9134.0    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 372:1 · B accepted number 372:0 · answers that would differ from Again: ["A" "B"] · the rule would name: ["A" "B"] · exactly those: true
+00:45:01.993    9134.0  VERDICT k3-individual-throw run 1 of 3 · SAME · First decided ["E" "A" "B" "D"] · Again decided ["E" "A" "B" "D"] · workers of First started again: yes
+00:45:02.903     302.8  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435197216522240, :attempt 1}
+00:45:02.903     302.9  RUN     ---- k3-individual-throw run 2 of 3 · S1, A throws at the end of its event on its first attempt · mode :together ----
+00:45:02.907     307.0    the :ack append of E, before all, gave {}
+00:45:09.982    7381.4    the :ack append of D, sent when all was quiet, gave {}
+00:45:10.482    7881.6    NOTES of module First, in the order in which they were made:
+00:45:10.482    7881.7          304.5  E attempt 1 begins on task 1
+00:45:10.482    7881.7          304.6  E attempt 1 decides: accepted, number 117435197220651008
+00:45:10.482    7881.7          304.6  E attempt 1 ends
+00:45:10.482    7881.7          308.8  H attempt 1 begins on task 1
+00:45:10.482    7881.7          308.8  H attempt 1 sleeps 400 ms on the task's thread, at the start of the event
+00:45:10.482    7881.7          708.9  H attempt 1 wakes
+00:45:10.482    7881.7          709.0  H attempt 1 decides: accepted, number 117435197220913152
+00:45:10.482    7881.7          709.2  H attempt 1 ends
+00:45:10.482    7881.7          714.0  A attempt 1 begins on task 1
+00:45:10.482    7881.7          714.1  A attempt 1 decides: accepted, number 117435197221044224
+00:45:10.482    7881.8          714.2  A attempt 1 THROWS on purpose at the end of the event
+00:45:10.482    7881.8          945.2  the task global of task 3 is made ready again (time 2): the worker was started again
+00:45:10.482    7881.8          945.2  the task global of task 1 is made ready again (time 2): the worker was started again
+00:45:10.482    7881.8          945.2  the task global of task 0 is made ready again (time 2): the worker was started again
+00:45:10.482    7881.8          945.2  the task global of task 2 is made ready again (time 2): the worker was started again
+00:45:10.482    7881.8          960.5  E attempt 2 begins on task 1
+00:45:10.482    7881.8          960.5  E attempt 2 finds its answer there and does nothing
+00:45:10.482    7881.8          960.5  E attempt 2 ends
+00:45:10.482    7881.8          960.6  H attempt 2 begins on task 1
+00:45:10.482    7881.8          960.6  H attempt 2 finds its answer there and does nothing
+00:45:10.482    7881.8          960.6  H attempt 2 ends
+00:45:10.482    7881.8          960.6  A attempt 2 begins on task 1
+00:45:10.482    7881.8          960.6  A attempt 2 decides: accepted, number 117435197221044224
+00:45:10.482    7881.8          960.7  A attempt 2 ends
+00:45:10.482    7881.8          960.7  B attempt 1 begins on task 1
+00:45:10.482    7881.9          960.7  B attempt 1 decides: refused, number 117435197225041920
+00:45:10.482    7881.9          960.8  B attempt 1 ends
+00:45:10.482    7881.9          960.8  C attempt 1 begins on task 1
+00:45:10.482    7881.9          960.9  C attempt 1 decides: accepted, number 117435197228974080
+00:45:10.482    7881.9          960.9  C attempt 1 ends
+00:45:10.482    7881.9         7378.6  D attempt 1 begins on task 1
+00:45:10.482    7881.9         7378.7  D attempt 1 decides: refused, number 117435197670359040
+00:45:10.482    7881.9         7378.8  D attempt 1 ends
+00:45:10.482    7881.9    the :ack append of E   called at     302.9, came back after      4.0 ms with {}
+00:45:10.482    7881.9    the :ack append of H   called at     307.0, came back after    406.8 ms with {}
+00:45:10.482    7881.9    the :ack append of A   called at     309.2, came back after    488.4 ms with CallbackException: Callback failure
+00:45:10.482    7881.9    the :ack append of B   called at     369.3, came back after    428.3 ms with CallbackException: Callback failure
+00:45:10.482    7881.9    the :ack append of C   called at     429.4, came back after    368.2 ms with CallbackException: Callback failure
+00:45:10.482    7881.9    the :ack append of D   called at    7165.1, came back after    216.3 ms with {}
+00:45:11.676    9075.5  RUN     module Again launched and run over the depot from its beginning · 18 records · it holds an answer for every act: true · after 1190 ms
+00:45:11.676    9075.6    NOTES of module Again:
+00:45:11.676    9075.7         8065.0  A attempt 1 begins on task 1
+00:45:11.676    9075.7         8065.0  A attempt 1 decides: accepted, number 117435197221044224
+00:45:11.676    9075.8         8065.0  A attempt 1 ends
+00:45:11.676    9075.8         8065.0  B attempt 1 begins on task 1
+00:45:11.676    9075.8         8065.0  B attempt 1 decides: refused, number 117435197225041920
+00:45:11.676    9075.8         8065.1  B attempt 1 ends
+00:45:11.689    9089.0    E    First: accepted  number 302:0      attempt 1   | Again: accepted  number 302:0      | same
+00:45:11.689    9089.1    A    First: accepted  number 308:0      attempt 2   | Again: accepted  number 308:0      | same
+00:45:11.689    9089.1    B    First: refused   number 369:0      attempt 1   | Again: refused   number 369:0      | same
+00:45:11.689    9089.1    C    First: accepted  number 429:0      attempt 1   | Again: accepted  number 429:0      | same
+00:45:11.689    9089.1    D    First: refused   number 7164:0     attempt 1   | Again: refused   number 7164:0     | same
+00:45:11.690    9089.5    the row at ["L00" "k"] · First holds the act "A" · Again holds the act "A"
+00:45:11.690    9089.5    the order of the decisions in layer L00 by number · First: ["E" "A" "B" "D"] · Again: ["E" "A" "B" "D"]
+00:45:11.690    9089.5    the partition of layer L00 in order, [position id]: [[4 "E"] [5 "H"] [6 "A"] [7 "B"] [8 "C"] [9 "D"]]
+00:45:11.690    9089.6    the depot holds 18 records of 18 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:45:11.690    9089.6    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:45:11.690    9089.7    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+00:45:11.690    9089.7    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 369:1 · B accepted number 369:0 · answers that would differ from Again: ["A" "B"] · the rule would name: ["A" "B"] · exactly those: true
+00:45:11.690    9089.8  VERDICT k3-individual-throw run 2 of 3 · SAME · First decided ["E" "A" "B" "D"] · Again decided ["E" "A" "B" "D"] · workers of First started again: yes
+00:45:12.594     311.8  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435197851631616, :attempt 1}
+00:45:12.594     311.8  RUN     ---- k3-individual-throw run 3 of 3 · S1, A throws at the end of its event on its first attempt · mode :together ----
+00:45:12.599     316.8    the :ack append of E, before all, gave {}
+00:45:19.663    7380.6    the :ack append of D, sent when all was quiet, gave {}
+00:45:20.163    7880.8    NOTES of module First, in the order in which they were made:
+00:45:20.163    7880.9          313.9  E attempt 1 begins on task 1
+00:45:20.163    7880.9          314.0  E attempt 1 decides: accepted, number 117435197855760384
+00:45:20.163    7880.9          314.1  E attempt 1 ends
+00:45:20.163    7880.9          319.1  H attempt 1 begins on task 1
+00:45:20.163    7880.9          319.1  H attempt 1 sleeps 400 ms on the task's thread, at the start of the event
+00:45:20.163    7880.9          719.2  H attempt 1 wakes
+00:45:20.163    7880.9          719.4  H attempt 1 decides: accepted, number 117435197856088064
+00:45:20.163    7880.9          719.5  H attempt 1 ends
+00:45:20.163    7880.9          724.6  A attempt 1 begins on task 1
+00:45:20.163    7880.9          724.6  A attempt 1 decides: accepted, number 117435197856350208
+00:45:20.163    7880.9          724.7  A attempt 1 THROWS on purpose at the end of the event
+00:45:20.163    7880.9          950.7  the task global of task 3 is made ready again (time 2): the worker was started again
+00:45:20.163    7880.9          951.5  the task global of task 0 is made ready again (time 2): the worker was started again
+00:45:20.163    7881.0          951.8  the task global of task 2 is made ready again (time 2): the worker was started again
+00:45:20.163    7881.0          951.9  the task global of task 1 is made ready again (time 2): the worker was started again
+00:45:20.163    7881.0          968.9  E attempt 2 begins on task 1
+00:45:20.163    7881.0          968.9  E attempt 2 finds its answer there and does nothing
+00:45:20.163    7881.0          968.9  E attempt 2 ends
+00:45:20.163    7881.0          968.9  H attempt 2 begins on task 1
+00:45:20.163    7881.0          968.9  H attempt 2 finds its answer there and does nothing
+00:45:20.163    7881.0          969.0  H attempt 2 ends
+00:45:20.163    7881.0          969.0  A attempt 2 begins on task 1
+00:45:20.163    7881.0          969.0  A attempt 2 decides: accepted, number 117435197856350208
+00:45:20.163    7881.0          969.1  A attempt 2 ends
+00:45:20.163    7881.0          969.1  B attempt 1 begins on task 1
+00:45:20.163    7881.0          969.1  B attempt 1 decides: refused, number 117435197860282368
+00:45:20.163    7881.0          969.2  B attempt 1 ends
+00:45:20.163    7881.0          969.2  C attempt 1 begins on task 1
+00:45:20.163    7881.1          969.3  C attempt 1 decides: accepted, number 117435197864214528
+00:45:20.163    7881.1          969.3  C attempt 1 ends
+00:45:20.163    7881.1         7378.0  D attempt 1 begins on task 1
+00:45:20.163    7881.1         7378.1  D attempt 1 decides: refused, number 117435198305402880
+00:45:20.163    7881.1         7378.2  D attempt 1 ends
+00:45:20.163    7881.1    the :ack append of E   called at     311.8, came back after      4.9 ms with {}
+00:45:20.163    7881.1    the :ack append of H   called at     316.8, came back after    407.5 ms with {}
+00:45:20.163    7881.1    the :ack append of A   called at     321.0, came back after    488.2 ms with CallbackException: Callback failure
+00:45:20.163    7881.1    the :ack append of B   called at     381.1, came back after    428.1 ms with CallbackException: Callback failure
+00:45:20.163    7881.1    the :ack append of C   called at     441.3, came back after    367.9 ms with CallbackException: Callback failure
+00:45:20.163    7881.1    the :ack append of D   called at    7172.6, came back after    208.0 ms with {}
+00:45:21.383    9101.3  RUN     module Again launched and run over the depot from its beginning · 18 records · it holds an answer for every act: true · after 1216 ms
+00:45:21.383    9101.4    NOTES of module Again:
+00:45:21.384    9101.5         8047.7  A attempt 1 begins on task 1
+00:45:21.384    9101.6         8047.7  A attempt 1 decides: accepted, number 117435197856350208
+00:45:21.384    9101.6         8047.7  A attempt 1 ends
+00:45:21.384    9101.6         8047.8  B attempt 1 begins on task 1
+00:45:21.384    9101.6         8047.8  B attempt 1 decides: refused, number 117435197860282368
+00:45:21.384    9101.6         8047.8  B attempt 1 ends
+00:45:21.396    9113.6    E    First: accepted  number 312:0      attempt 1   | Again: accepted  number 312:0      | same
+00:45:21.396    9113.6    A    First: accepted  number 321:0      attempt 2   | Again: accepted  number 321:0      | same
+00:45:21.396    9113.6    B    First: refused   number 381:0      attempt 1   | Again: refused   number 381:0      | same
+00:45:21.396    9113.6    C    First: accepted  number 441:0      attempt 1   | Again: accepted  number 441:0      | same
+00:45:21.396    9113.7    D    First: refused   number 7173:0     attempt 1   | Again: refused   number 7173:0     | same
+00:45:21.396    9113.9    the row at ["L00" "k"] · First holds the act "A" · Again holds the act "A"
+00:45:21.396    9114.0    the order of the decisions in layer L00 by number · First: ["E" "A" "B" "D"] · Again: ["E" "A" "B" "D"]
+00:45:21.396    9114.0    the partition of layer L00 in order, [position id]: [[4 "E"] [5 "H"] [6 "A"] [7 "B"] [8 "C"] [9 "D"]]
+00:45:21.396    9114.0    the depot holds 18 records of 18 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:45:21.396    9114.0    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:45:21.396    9114.1    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+00:45:21.396    9114.1    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 381:1 · B accepted number 381:0 · answers that would differ from Again: ["A" "B"] · the rule would name: ["A" "B"] · exactly those: true
+00:45:21.396    9114.2  VERDICT k3-individual-throw run 3 of 3 · SAME · First decided ["E" "A" "B" "D"] · Again decided ["E" "A" "B" "D"] · workers of First started again: yes
+00:45:21.987    9704.5  RUN     END · 3 runs · SAME: 3 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 3

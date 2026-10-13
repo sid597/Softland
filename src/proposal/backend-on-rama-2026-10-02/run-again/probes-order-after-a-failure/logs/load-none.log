@@ -1,0 +1,16 @@
+00:47:54.959     573.0  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads · scenario load {:log "load-none", :event :none, :rate 400, :secs 5, :reps 1} · settings of First: {:timeout nil, :retry-mode :all-after, :way :plain}
+00:47:57.522    2562.3  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435208651702272, :attempt 1}
+00:47:57.523    2562.8  RUN     ---- load-none run 1 of 1 · load: 400 acts a second for 5 s, four makers, four acts on each key · one second in: :none ----
+00:48:02.522    7562.7    the makers have sent 2000 acts
+00:48:09.551   14591.2    what the :ack appends gave: {"{}" 2012}
+00:48:09.551   14591.4    the :ack calls took: middle 6.4 ms · 99 of 100 under 14.2 ms · most 75.6 ms
+00:48:09.553   14593.2    attempts begun in First: 2012 · acts with more than one attempt: 0 · workers of First started again: 0 task globals made ready again
+00:48:11.337   16376.9  RUN     module Again launched and run over the depot from its beginning · 2012 records · it holds an answer for every act: true · after 1708 ms
+00:48:11.819   16859.1    m2-00000 First: accepted  number 2563:0     attempt 1   | Again: accepted  number 2563:0     | same
+00:48:11.821   16861.7    the row at ["L00" "k0"] · First holds the act "m2-00000" · Again holds the act "m2-00000"
+00:48:11.825   16865.3    the order of the decisions in layer L00 by number · First: ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m0-00004" "m1-00004" "m2-00004" "m3-00004"] and 988 more · Again: ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m0-00004" "m1-00004" "m2-00004" "m3-00004"] and 988 more
+00:48:11.826   16865.9    the partition of layer L00 in order, [position id]: [[4 "m2-00000"] [5 "m3-00000"] [6 "m1-00000"] [7 "m0-00000"] [8 "m2-00001"] [9 "m3-00001"] [10 "m1-00001"] [11 "m0-00001"] [12 "m3-00002"] [13 "m2-00002"] [14 "m1-00002"] [15 "m0-00002"]] and 1988 more
+00:48:11.826   16866.1    the depot holds 2012 records of 2012 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:48:11.826   16866.2    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:48:11.828   16868.4  VERDICT load-none run 1 of 1 · SAME · First decided ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m0-00004" "m1-00004" "m2-00004" "m3-00004"] and 988 more · Again decided ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m0-00004" "m1-00004" "m2-00004" "m3-00004"] and 988 more · workers of First started again: no
+00:48:12.658   17698.2  RUN     END · 1 runs · SAME: 1 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 1

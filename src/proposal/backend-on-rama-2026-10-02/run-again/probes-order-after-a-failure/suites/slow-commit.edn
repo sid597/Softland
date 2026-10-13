@@ -1,0 +1,6 @@
+;; S4 with Rama's own test hook `hook:replog-append-all`: the write of the
+;; batch that holds A's first attempt into the task's log is made slow. And
+;; the retry mode :none with a throw once more, for the lines RULE and FOLD.
+[{:scenario "s4slow" :log "s4slow-commit-while"  :hook "hook:replog-append-all" :hook-ms 5000 :timeout 3 :window :while :reps 3}
+ {:scenario "s4slow" :log "s4slow-commit-before" :hook "hook:replog-append-all" :hook-ms 5000 :timeout 3 :window :before :reps 3}
+ {:scenario "s1" :log "k3-none-throw-rule" :retry-mode :none :mode :together :throw-at :end :reps 2}]

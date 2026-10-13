@@ -71,7 +71,6 @@
     counts?             a query, a key -> whether a row under that key counts
     place-answer        a query, a layer, a row -> a place-answer
     order-place-answer  a query, a layer, the thing, a row -> a place-answer
-    one-of-each         the parts of a run, a key -> the one row under it
     of-word             a map from each word to how its rows are put together
     of-places           a query, a reading, `known`, places -> their
                         place-answers, without the places that still wait
@@ -154,48 +153,31 @@
     query row
     {:holds :value :value thing :layer layer :fact (fact-id layer row) :stamp (:stamp row)}))
 
-(defn one-of-each
-  "Takes the parts of one run in a microbatch layer, each a map from key to
-  row, and a key. Gives the one row under that key: nil when no part holds
-  it; else, among the parts that hold it, the row with the latest stamp. A
-  place of a plain key is in one part. A row that every task holds is in
-  each part, and the tasks do not show a write of it at one instant, so two
-  parts can differ for a moment; the later stamp is the newer row."
-  [parts k]
-  (reduce (fn [best part]
-            (let [row (sources/row-in part k)]
-              (if (and row (or (nil? best) (> (long (:stamp row)) (long (:stamp best)))))
-                row
-                best)))
-          nil
-          parts))
-
 ;; ------------------------------------------- how the rows of a word are put together
 
-(defn- known-facts
-  "Takes a reading, `known` and a layer. Gives the values of the layer's
-  fact sources, in their order; or nil when `known` does not hold one of
-  them, or the layer has none."
+(defn- known-fact
+  "Takes a reading, `known` and a layer. Gives the layer's fact source with
+  its value, as [source value]; or nil when the read wants no fact source
+  in the layer, or `known` does not hold it. A word of a query reads one
+  fact source in a layer (`softland.store.read-path.sources/of-word`)."
   [reading known layer]
-  (let [fact-sources (get-in reading [:by-layer layer :facts])]
-    (when (and (seq fact-sources) (every? #(contains? known %) fact-sources))
-      (mapv (fn [source] [source (get known source)]) fact-sources))))
+  (let [source (first (get-in reading [:by-layer layer :facts]))]
+    (when (and source (contains? known source))
+      [source (get known source)])))
 
 (defn- fact-row-at
-  "Takes the known values of a layer's fact sources (`known-facts`) and the
-  key of a place in that layer. Gives the row there, or nil: the value of a
-  source of one row, or the row that the parts of a run hold under the
-  key."
-  [facts key-text]
-  (let [[source value] (first facts)]
-    (if (= :row (first (:path source)))
-      value
-      (one-of-each (map second facts) key-text))))
+  "Takes a layer's fact source with its value (`known-fact`) and the key of
+  a place in that layer. Gives the row there, or nil: the value of a source
+  of one row, or the row that a run holds under the key."
+  [[source value] key-text]
+  (if (= :row (first (:path source)))
+    value
+    (sources/row-in value key-text)))
 
 (defn- walk-facts
   "The walk of a place for a place, an entity or a run. Takes the query, a
   reading, `known` and a place. Goes through the layers from the nearest:
-  the first layer of standing `:yes` whose fact sources hold a row at the
+  the first layer of standing `:yes` whose fact source holds a row at the
   place wins. Gives [:given place-answer]; [:none] when no layer holds a
   row there, or the place's key does not count; or [:waits] when the walk
   meets, before it stops, a layer whose standing is not known yet or a fact
@@ -208,8 +190,8 @@
       (if-let [layer (first todo)]
         (case (get-in reading [:standing layer])
           :not-known-yet [:waits]
-          :yes (if-let [facts (known-facts reading known layer)]
-                 (if-let [row (fact-row-at facts (rows/place-key layer entity k))]
+          :yes (if-let [fact (known-fact reading known layer)]
+                 (if-let [row (fact-row-at fact (rows/place-key layer entity k))]
                    [:given (place-answer query layer row)]
                    (recur (rest todo)))
                  [:waits])
@@ -305,10 +287,10 @@
 
 (defn- holds-fact-row?
   "Takes the query, a reading, `known`, a layer and a place. Gives true when
-  a fact source of the layer, in `known`, holds a row at the place."
+  the layer's fact source, in `known`, holds a row at the place."
   [_query reading known layer [entity k]]
-  (if-let [facts (known-facts reading known layer)]
-    (some? (fact-row-at facts (rows/place-key layer entity k)))
+  (if-let [fact (known-fact reading known layer)]
+    (some? (fact-row-at fact (rows/place-key layer entity k)))
     false))
 
 (defn- holds-order-or-check-row?
@@ -440,11 +422,12 @@
   holds of the other source. Gives nil for any other source."
   [query known source old new]
   (let [layer (:layer source)
+        home (layers/home query)
         asker (:asker query)
         signed-in? (some? asker)]
     (case (sources/rights-kind query source)
       :own-rows
-      (let [permission (when signed-in? (sources/permission-source layer asker))
+      (let [permission (when signed-in? (sources/permission-source home layer asker))
             permission-row (if (and permission (contains? known permission))
                              (get known permission)
                              :not-known-yet)]
@@ -452,7 +435,7 @@
          (layers/meaning query layer new permission-row signed-in?)])
 
       :permission
-      (let [own-rows (get known (sources/own-rows-source layer))]
+      (let [own-rows (get known (sources/own-rows-source home layer))]
         [(layers/meaning query layer own-rows old signed-in?)
          (layers/meaning query layer own-rows new signed-in?)])
 

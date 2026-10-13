@@ -1,0 +1,5 @@
+;; Many acts in flight: makers keep sending while one thing happens.
+[{:scenario "load" :log "load-none"   :event :none :rate 400 :secs 5 :reps 1}
+ {:scenario "load" :log "load-stall"  :event :stall :timeout 3 :sleep-ms 5000 :rate 200 :secs 8 :reps 3}
+ {:scenario "load" :log "load-throw"  :event :throw :rate 200 :secs 6 :reps 3}
+ {:scenario "load" :log "load-update" :event :update :rate 200 :secs 8 :reps 3}]

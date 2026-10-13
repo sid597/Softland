@@ -1,0 +1,8 @@
+Rama's own ERROR and WARN lines of the run "k3-none-throw-rule" (from the JVM's stdout): each distinct line once, its count in front, the time of day and the thread's name taken off, cut to 300 characters.
+      2 ERROR rpl.rama.distributed.worp.client.clientside-protocol - Unexpected channel pong timeout; closing channel. {:module-name probe.gate/First, :module-instance-id bb1ad573-19b8-9cd8-68fb-0e6f684df992, :supervisor-id 00000000-0000-0000-0000-000000000000, :hostname 00000000-0000-0000-0000-000000000000
+      2 ERROR rpl.rama.distributed.util.throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+      2 ERROR rpl.rama.distributed.util.throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+      2 ERROR rpl.rama.distributed.util.recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 1 0-queue-consumer}
+      2 ERROR rpl.rama.distributed.util.recurrent-task - Uncaught exception in watchable promise
+      2 ERROR rpl.rama.distributed.util.rama-component.watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+      2 ERROR rpl.rama.distributed.util.rama-component.core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated errors {:type :rpl.rama.util.watchable-promise/do-all, :e

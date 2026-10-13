@@ -1,5 +1,7 @@
 ;; Before changing this file, read the plan of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-read-path.md
+;; and, for where a microbatch layer is read, the section "The read path" of
+;; src/proposal/backend-on-rama-2026-10-02/run-again/PLAN-the-bases-gate.md
 ;; and the rulings that came after its check, which the plan does not hold:
 ;; 78 and 80; and 86, 87, 89 and 91, which the review of the whole built
 ;; (FULL_SPEC_REVIEW.md beside the plan). They are in
@@ -9,8 +11,8 @@
   "The read path: the one piece of code by which a fact comes back out of
   the store to a caller in the runtime's process, once or kept live. It
   requires Rama, and of Rama's client only this: `foreign-pstate`,
-  `foreign-object-info`, `foreign-select-async`, `foreign-proxy-async` and
-  `close!`. It is the one namespace of the store's source that opens a
+  `foreign-select-async`, `foreign-proxy-async` and `close!`. It is the one
+  namespace of the store's source that opens a
   table to read a fact; the door (`softland.store.door`) is the way in, and
   neither calls the other. So in the runtime the module has two clients.
 
@@ -50,8 +52,8 @@
   missing; a source is one row or one run of neighbouring rows of one table
   on one task. This file only fetches what is missing and asks again, at
   most `max-rounds` times, and hands `softland.store.read-path.answer` what
-  it fetched. Asked once, every missing source of one task goes in one call
-  of `foreign-select-async`. Kept live, every source is one push,
+  it fetched. Asked once, every missing source of one table under one
+  routing id goes in one call of `foreign-select-async`. Kept live, every source is one push,
   `foreign-proxy-async`, shared by every live read that wants the same
   source and closed when the last of them leaves.
 
@@ -91,9 +93,8 @@
              `:pushes` are under them (`counted-under`): the count that the
              read path's own bound on its pushes is held to
     :reads   a read's id -> its query, its function, its turn, the set of
-             the sources that it holds, whether it is opened, whether the
-             whole answer is owed, and the routing ids of the tasks as they
-             were read when it opened
+             the sources that it holds, whether it is opened, and whether
+             the whole answer is owed
 
   That is who looks at what, what each asked for, the pushes with a count
   of them, and one mark for each read. It holds no row, no value, no answer
@@ -178,7 +179,11 @@
   opening at a time, so a read that asked for about 10,000 pushes was
   turned away only after seconds. A streaming layer is whole on one task,
   so every live read through it, of every asker, counts toward that one
-  bound, and so do the other layers of that task.
+  bound, and so do the other layers of that task. A microbatch layer is
+  whole on every task, and a read holds its pushes on the task of the
+  read's home; so the live reads of that layer are spread over the tasks as
+  their homes are, and on one task its table counts the pushes of every
+  home that Rama puts there.
 
   So the read path has a bound of its own, under Rama's. It counts the
   pushes that it holds on each table under each routing id
@@ -193,15 +198,29 @@
   them a push (`:max-checks-of-one-live-read`); a read that needs more is
   turned away with `:serve-a-read-that-large` before one check is opened.
 
+  What the count bounds. For a streaming layer the routing id is the
+  layer, so the count is of every push of every asker through that layer.
+  For a microbatch layer the routing id is the home of the read
+  (`softland.store.read-path.sources`), so the count is of the pushes that
+  the askers of one home hold on one table of the microbatch gate: the 900
+  bounds what the reads that start from one layer hold on the base, and
+  not what all reads hold on the base.
+
   What that bound does not reach. It counts by routing id, since Rama's
   client does not say which task a routing id is on: two streaming layers
-  that Rama puts on one task, and the entities of the base that share a
-  task, are counted apart. And it counts one process, where Rama's bound
-  holds for every client of the cluster together. Past either, Rama
-  refuses the opening, and the read gets `:reach-the-store`, as any opening
-  that throws does: `read-live` gives that word and leaves every push that
-  it joined, and an open read that came to need the push ends. The read
-  path sets none of Rama's options. Its 900 stands under the default of
+  that Rama puts on one task are counted apart, and so are two homes on one
+  task, whose pushes on the base are on one table of that task. A live read
+  of the base holds two pushes at least on the base's facts under its home,
+  the base's own rows and one fact source, and no home shares them with
+  another. So Rama's bound holds the homes of one task that read the base
+  live to half its number at most, and the read path's count does not see
+  that (derived from the two counts; no run of this build opened that
+  many). And it counts one process, where Rama's bound holds for every
+  client of the cluster together. Past either, Rama refuses the opening, and the read
+  gets `:reach-the-store`, as any opening that throws does: `read-live`
+  gives that word and leaves every push that it joined, and an open read
+  that came to need the push ends. The read path sets none of Rama's
+  options. Its 900 stands under the default of
   `pstate.proxy.limit`; to raise that option, and this number with it, is
   a setting for Sid to weigh. Both numbers are the build's, kept and not
   decided, and so is the way of the checks that needs a push for each.
@@ -216,17 +235,26 @@
 
   A microbatch layer. A layer's gate is the depot that it starts with
   (`softland.store.gate.first-act/depot-at-making`). In a streaming layer
-  every row is on the layer's task. In a microbatch layer a fact is on the
-  task of its entity, a row of the facts by value on the task of its
-  value's digest, and the layer's own rows and each permission on every
-  task. So a run across entities of a microbatch layer has one part on each
-  task; the read path names each task with one routing id that Rama's own
-  class gives (`task-routing-ids`), reads each part by itself, and puts
-  them together. A row of a microbatch layer is read straight, as a row of
-  a streaming layer is: a second attempt of a batch writes the same row
-  again, and a push that calls back with a row that is the same tells an
-  asker nothing. The layers of one read are read at moments that differ,
-  and two tasks show one batch at two instants; nothing lines them up.
+  every row is on the layer's task. In a microbatch layer every row of the
+  facts, and of the facts by value, is on every task, the same rows
+  everywhere: its gate decides an act on the layer's task and writes the
+  rows of an accept on each task. So a read of such a layer needs one task,
+  and the read path reads it on the task of the read's home, the layer that
+  the read starts from: an asker reads the base where her own layer lives,
+  and a read that starts from the base reads it on the base's own task
+  (`softland.store.read-path.sources`, \"Where a layer is read\"). A run
+  across entities, and a run of the facts by value, come whole from that
+  one task. A row of a microbatch layer is read straight, as a row of a
+  streaming layer is, and nothing of a batch is read: a second attempt of a
+  batch writes the same row again, and a push that calls back with a row
+  that is the same tells an asker nothing. The layers of one read are read
+  at moments that differ, and two tasks show one batch at two instants
+  (read in Rama's page on microbatch topologies), so two askers with two
+  homes can be told of one act of the base at two instants; nothing lines
+  them up. What the read path rests on and does
+  not test at a read: that every task holds the rows. A task that held
+  fewer would give the askers of its homes fewer, and no read would
+  notice.
 
   Room that this code leaves, each a thing that is not in this build and
   that this code decides nothing of:
@@ -241,11 +269,7 @@
       (`softland.store.read-path.query/words`);
     - a permission that ends: the push on the asker's permission going from
       a row to none takes the same road as a setting that goes to
-      \"members\";
-    - a number of tasks that changes: a live read with a run across
-      entities of a microbatch layer holds the routing ids of the tasks as
-      they were when it opened, and would not notice. Such a read must be
-      opened again.
+      \"members\".
 
   Approach. The file has these sections, in this order: the read path as a
   value; the calls of Rama's client and the five forms of path; a read
@@ -257,8 +281,7 @@
             [softland.store.read-path.query :as query]
             [softland.store.read-path.sources :as sources]
             [softland.store.read-path.words :as words])
-  (:import [com.rpl.rama Helpers]
-           [com.rpl.rama.diffs DestroyedDiff Diff Diff$Processor KeyDiff KeyDiff$Processor
+  (:import [com.rpl.rama.diffs DestroyedDiff Diff Diff$Processor KeyDiff KeyDiff$Processor
             KeyRemoveDiff KeyRemoveDiff$Processor ResyncDiff UngracefulTerminationDiff]
            [java.io Writer]
            [java.util ArrayList]
@@ -403,7 +426,7 @@
                                      one value or two
 
   The fifth form is a `multi-path` of these, which `select-now` makes for
-  the reads of one task. What must hold: the two texts of a source were
+  the reads of one call. What must hold: the two texts of a source were
   made by `softland.store.record.rows` of ids that were tested first. A
   push is opened on the first three only."
   [source numbers step]
@@ -444,24 +467,6 @@
   [push]
   (try (rama/close! push)
        (catch Throwable _ nil)))
-
-(defn- task-routing-ids
-  "Gives one routing id for each task of the microbatch gate's tables, read
-  now: [:ok a vector of Strings whose i-th Rama's hash partitioner sends to
-  task i], or [:threw info]. The number of tasks is read from the handle,
-  which answers from what the client holds and costs no call; the ids are
-  those of Rama's own class `com.rpl.rama.Helpers`. Only a run across
-  entities of a microbatch layer needs them. Not `task-keys`: a key is the
-  key of a fact.
-
-  Limits. Rama's pages show that class for tests; whether Rama means it for
-  a client outside a test is a question for Rama's team, and not run here
-  beyond the in-process cluster. A number of tasks that changes is not
-  noticed by a live read that holds the ids of before."
-  [^ReadPath read-path]
-  (attempt (fn []
-             (let [n (:num-partitions (rama/foreign-object-info (.-microbatch-facts read-path)))]
-               (vec (Helpers/genHashingIndexKeys (int n)))))))
 
 ;; ------------------------------------------------------ a read asked once
 
@@ -508,7 +513,8 @@
 
 (defn- select-now
   "Reads the sources of the calls of one round, each call one round trip to
-  one task, all sent before any is waited for. Takes the read path, the
+  one task, all sent before any is waited for. The sources of one call have
+  one table and one routing id, so the first of them names both. Takes the read path, the
   calls (`softland.store.read-path.sources/calls-for-once`) and the moment
   at which the wait ends. Gives [:ok a map from each source to its value]
   or [:word a word]. Each call is one `multi-path` of its sources' paths: a
@@ -519,13 +525,11 @@
   [^ReadPath read-path calls deadline]
   (let [numbers (.-numbers read-path)
         step-of (fn [source] (if (= :run (first (:path source))) :first :whole))
-        sent (mapv (fn [{:keys [sources] :as call}]
+        sent (mapv (fn [{:keys [sources]}]
                      (let [paths (mapv #(path-of % numbers (step-of %)) sources)]
                        (if (some nil? paths)
                          [:no-path]
-                         (select-async read-path
-                                       (assoc (first sources) :routing-id (:routing-id call))
-                                       (apply path/multi-path paths)))))
+                         (select-async read-path (first sources) (apply path/multi-path paths)))))
                    calls)
         [outcome got] (gather read-path sent deadline)]
     (if (= :word outcome)
@@ -674,16 +678,23 @@
   its table and its routing id. Rama's client sends one routing id to one
   task, so every push of one such count is on one task of one table.
 
+  What one count holds. In a streaming layer the routing id is the layer,
+  so every push of every asker through one layer is one count. In a
+  microbatch layer the routing id is the home of the read, so one count
+  holds the pushes on that gate's table of the askers whose reads have one
+  home: on the base, the pushes of the askers of one home, and not those of
+  all who read the base.
+
   Why by routing id and not by task. Rama bounds the pushes on one table on
   one task, and its client gives no call that turns a routing id into a
   task (looked for in `com.rpl.rama`, `PState`, `ProxyState` and `Helpers`
-  of Rama 1.6.0; `Helpers/genHashingIndexKeys` goes the other way only). So
-  the read path counts by what it can know. Two routing ids that Rama puts
-  on one task are counted apart, and their pushes together can pass Rama's
-  bound while each count is under the read path's own: Rama then refuses
-  the opening, and the read gets `:reach-the-store`, as before this count.
-  In a streaming layer the routing id is the layer, so every push of every
-  asker through one layer is one count."
+  of Rama 1.6.0). So the read path counts by what it can know. Two routing
+  ids that Rama puts on one task are counted apart, and their pushes
+  together can pass Rama's bound while each count is under the read path's
+  own: Rama then refuses the opening, and the read gets `:reach-the-store`,
+  as before this count. That is so for two streaming layers on one task,
+  and for two homes on one task, whose pushes on a microbatch layer are on
+  one table of that task."
   [source]
   [(:gate source) (:table source) (:routing-id source)])
 
@@ -922,8 +933,7 @@
   (loop [round 0 joined #{} left #{}]
     (when-let [read (read-of read-path id)]
       (when-let [known (known-of read-path read)]
-        (let [reading (sources/reading (:query read) known (:task-routing-ids read) :live
-                                       (.-numbers read-path) (:sources read))
+        (let [reading (sources/reading (:query read) known :live (.-numbers read-path) (:sources read))
               {:keys [join leave]} (sources/moves reading (:sources read))]
           (cond
             (:too-large reading)
@@ -1130,34 +1140,22 @@
        (words/word :find-the-module (assoc (what-threw t) :module module-name))))))
 
 (defn- checked
-  "The head of `read-once` and `read-live`. Takes the read path and what a
-  caller gave as a query. Gives [:ok the query in its one form, and one
-  routing id for each task when the query needs them], or [:word a word]:
+  "The head of `read-once` and `read-live`. Takes what a caller gave as a
+  query. Gives [:ok the query in its one form], or [:word a word]:
   `:read-inside-an-askers-function` on a thread on which the read path is
   calling an asker's function; `:read-the-query`, with the check's word and
-  the part, for a thing that is no query; `:reach-the-store` when the
-  tasks could not be read. No call to Rama is made for the first two."
-  [read-path thing]
+  the part, for a thing that is no query. It makes no call to Rama."
+  [thing]
   (if (telling?)
     [:word (words/word :read-inside-an-askers-function nil)]
     (let [{query :ok why :refuse at :at} (query/check thing)]
-      (cond
-        why
+      (if why
         [:word (words/word :read-the-query {:why why :at at})]
-
-        (sources/needs-task-routing-ids? query)
-        (let [[outcome got] (task-routing-ids read-path)]
-          (if (= :threw outcome)
-            [:word (words/word :reach-the-store got)]
-            [:ok query got]))
-
-        :else
-        [:ok query nil]))))
+        [:ok query]))))
 
 (defn- read-once*
   "The body of `read-once`, for a query that passed its head. Takes the read
-  path, the query in its one form and the routing ids of the tasks. Gives
-  an answer or a word. It goes round: what is wanted
+  path and the query in its one form. Gives an answer or a word. It goes round: what is wanted
   (`softland.store.read-path.sources/reading`); the runs whose first read
   was not whole, in the layers that she may see, are read whole
   (`run-now`); when nothing is missing, the answer; else each missing
@@ -1167,11 +1165,11 @@
   never a value that a push holds. A run that has no first read
   (`softland.store.read-path.sources/first-read-holds?`) is wanted only in
   a layer that she may see, and is read by its size and then whole."
-  [^ReadPath read-path query routing-ids]
+  [^ReadPath read-path query]
   (let [numbers (.-numbers read-path)
         deadline (+ (now-ms) (:wait-ms numbers))]
     (loop [round 0 known {} first-reads #{}]
-      (let [reading (sources/reading query known routing-ids :once numbers)
+      (let [reading (sources/reading query known :once numbers)
             to-read-whole (filterv #(= :yes (get (:standing reading) (:layer %))) first-reads)]
         (cond
           (:too-large reading)
@@ -1221,13 +1219,14 @@
   throws, and it holds nothing when it returns.
 
   What it costs. Each round is the calls that are missing, one for each
-  task, sent at once: a place through three layers is three calls in one
-  round; from a layer, one call and then the others; what points at a
-  thing, one round for the rights and the marks, one for the orders, and
-  one for the checks of nearer layers, each check one seek. A run of more
-  than `:run-start-places` places costs two calls more. A run across
-  entities of a microbatch layer is one call for each task. One bound,
-  `:wait-ms`, holds for the whole call. No count of pushes bounds it: it
+  table under each routing id, sent at once: a place through three layers
+  is three calls in one round; from a layer, one call and then the others;
+  what points at a thing, one round for the rights and the marks, one for
+  the orders, and one for the checks of nearer layers, each check one seek.
+  A run of more than `:run-start-places` places costs two calls more. A
+  microbatch layer is read on the task of the read's home, in a call of its
+  own table: a run across its entities is one call, as in a streaming
+  layer. One bound, `:wait-ms`, holds for the whole call. No count of pushes bounds it: it
   opens none.
 
   It reads the tables, and takes no value of a push. Where a live read
@@ -1237,17 +1236,20 @@
   push is late; a read asked once that took its value could give a caller
   the state before her own act, straight after that act was acked. So what
   `read-once` gives is what the tables held when Rama served its calls: an
-  act whose ack a caller has, in a streaming layer, is in it.
+  act whose ack a caller has, in a streaming layer, is in it. An act of a
+  microbatch layer is in it once the task that serves the read holds its
+  rows, which is a task of the read's home and can be another than the one
+  that decided the act.
 
   What it reads before it knows the asker's right, and what it then drops,
   is in the namespace docstring. The layers are read at moments that
   differ; nothing lines them up."
   [^ReadPath read-path query]
   (try
-    (let [[outcome query routing-ids] (checked read-path query)]
+    (let [[outcome query] (checked query)]
       (if (= :word outcome)
         query
-        (read-once* read-path query routing-ids)))
+        (read-once* read-path query)))
     (catch Throwable t
       (words/word :reach-the-store (what-threw t)))))
 
@@ -1274,8 +1276,8 @@
 
 (defn- read-live*
   "The body of `read-live`, for a query that passed its head. Takes the read
-  path, the query in its one form, the routing ids of the tasks and the
-  asker's function. Gives {:now :leave-with} or a word.
+  path, the query in its one form and the asker's function. Gives {:now
+  :leave-with} or a word.
 
   It makes the read's entry, not opened, and goes round: what is wanted,
   join what is missing and leave what is not wanted, wait for the pushes,
@@ -1296,7 +1298,7 @@
   had joined or a run of it grew too large, is gone from `:reads` before it
   was opened: its function was not called, and this call gives the word of
   a read that got no answer."
-  [^ReadPath read-path query routing-ids f]
+  [^ReadPath read-path query f]
   (let [numbers (.-numbers read-path)
         held (.-held read-path)
         id (.incrementAndGet ^AtomicLong (.-next-id read-path))
@@ -1306,11 +1308,10 @@
         wanted-now (fn []
                      (when-let [read (read-of read-path id)]
                        (when-let [known (known-of read-path read)]
-                         (let [reading (sources/reading query known routing-ids :live numbers (:sources read))]
+                         (let [reading (sources/reading query known :live numbers (:sources read))]
                            (assoc (sources/moves reading (:sources read)) :reading reading :known known)))))]
     (swap! held assoc-in [:reads id]
-           {:query query :tell f :turn turn :sources #{} :opened? false :owed? false
-            :task-routing-ids routing-ids})
+           {:query query :tell f :turn turn :sources #{} :opened? false :owed? false})
     (try
       (loop [round 0]
         (let [{:keys [reading join leave]} (wanted-now)]
@@ -1404,10 +1405,10 @@
   never leaves stay, count toward that bound, and `open-count` shows them."
   [^ReadPath read-path query f]
   (try
-    (let [[outcome query routing-ids] (checked read-path query)]
+    (let [[outcome query] (checked query)]
       (if (= :word outcome)
         query
-        (read-live* read-path query routing-ids f)))
+        (read-live* read-path query f)))
     (catch Throwable t
       (words/word :reach-the-store (what-threw t)))))
 

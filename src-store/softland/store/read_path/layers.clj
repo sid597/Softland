@@ -31,6 +31,7 @@
                   `:not-known-yet`
     in-order      a query, the start layer's own rows and standing -> the
                   layers of the read, nearest first, or nil
+    home          a query -> the layer that the read starts from
     left-out      a layer and why -> what an answer says of it
     meaning       a query, a layer, its own rows, her permission row,
                   whether she is signed in -> what the rows mean for this
@@ -172,6 +173,20 @@
         :yes (vec (distinct (cons start (builds-on start-own-rows start))))
         (:may-not-see :not-made) [start]
         nil))))
+
+(defn home
+  "Takes a query in its one form. Gives the home of the read: the layer that
+  the read starts from, which is `:from-layer`, or the first layer of
+  `:layers`. It is read from the query alone, so it is the same in every
+  round of a read and for as long as a read is kept live, whatever the
+  tables hold: a home that is not made, or that the asker may not see, is
+  the home all the same.
+
+  The home says where a microbatch layer is read, and nothing else
+  (`softland.store.read-path.sources`). Which layers a read goes through,
+  and in what order, is `in-order`'s."
+  [query]
+  (or (:from-layer query) (first (:layers query))))
 
 (defn left-out
   "What an answer says of a layer that gave nothing. Takes the layer and

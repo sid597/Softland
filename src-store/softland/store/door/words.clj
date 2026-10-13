@@ -157,6 +157,7 @@
                   visible
     :depot-holds  the microbatch depot's ack, at the ack level :append-ack:
                   the depot holds the thing. It says nothing about the
-                  decision"
+                  decision: the answer is there when the batch that decides
+                  the thing is committed on the layer's task"
   {:streaming  :gate-ran
    :microbatch :depot-holds})

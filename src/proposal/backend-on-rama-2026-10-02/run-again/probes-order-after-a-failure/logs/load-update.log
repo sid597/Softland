@@ -1,0 +1,47 @@
+00:50:02.169   15538.6  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads · scenario load {:log "load-update", :event :update, :rate 200, :secs 8, :reps 3} · settings of First: {:timeout nil, :retry-mode :all-after, :way :plain}
+00:50:02.464     295.5  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435216849534976, :attempt 1}
+00:50:02.465     295.6  RUN     ---- load-update run 1 of 3 · load: 200 acts a second for 8 s, four makers, four acts on each key · one second in: :update ----
+00:50:07.152    4982.9    the update of module First gave nil after 3687 ms
+00:50:10.465    8295.7    the makers have sent 1600 acts
+00:50:17.495   15326.1    what the :ack appends gave: {"{}" 1612}
+00:50:17.495   15326.2    the :ack calls took: middle 4.9 ms · 99 of 100 under 1046.5 ms · most 1126.4 ms
+00:50:17.496   15327.0    attempts begun in First: 1612 · acts with more than one attempt: 0 · workers of First started again: 4 task globals made ready again
+00:50:18.997   16828.4  RUN     module Again launched and run over the depot from its beginning · 1612 records · it holds an answer for every act: true · after 1385 ms
+00:50:19.225   17055.6    m0-00000 First: accepted  number 295:0      attempt 1   | Again: accepted  number 295:0      | same
+00:50:19.225   17055.9    the row at ["L00" "k0"] · First holds the act "m0-00000" · Again holds the act "m0-00000"
+00:50:19.226   17057.2    the order of the decisions in layer L00 by number · First: ["m0-00000" "m2-00000" "m3-00000" "m1-00000" "m3-00002" "m0-00002" "m2-00002" "m1-00002" "m1-00004" "m3-00004" "m2-00004" "m0-00004"] and 788 more · Again: ["m0-00000" "m2-00000" "m3-00000" "m1-00000" "m3-00002" "m0-00002" "m2-00002" "m1-00002" "m1-00004" "m3-00004" "m2-00004" "m0-00004"] and 788 more
+00:50:19.226   17057.4    the partition of layer L00 in order, [position id]: [[4 "m0-00000"] [5 "m2-00000"] [6 "m3-00000"] [7 "m1-00000"] [8 "m2-00001"] [9 "m3-00001"] [10 "m0-00001"] [11 "m1-00001"] [12 "m3-00002"] [13 "m0-00002"] [14 "m2-00002"] [15 "m1-00002"]] and 1588 more
+00:50:19.226   17057.4    the depot holds 1612 records of 1612 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:50:19.226   17057.4    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:50:19.228   17058.6  VERDICT load-update run 1 of 3 · SAME · First decided ["m0-00000" "m2-00000" "m3-00000" "m1-00000" "m3-00002" "m0-00002" "m2-00002" "m1-00002" "m1-00004" "m3-00004" "m2-00004" "m0-00004"] and 788 more · Again decided ["m0-00000" "m2-00000" "m3-00000" "m1-00000" "m3-00002" "m0-00002" "m2-00002" "m1-00002" "m1-00004" "m3-00004" "m2-00004" "m0-00004"] and 788 more · workers of First started again: yes
+00:50:20.122     292.1  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435218006704128, :attempt 1}
+00:50:20.122     292.2  RUN     ---- load-update run 2 of 3 · load: 200 acts a second for 8 s, four makers, four acts on each key · one second in: :update ----
+00:50:24.618    4787.9    the update of module First gave nil after 3496 ms
+00:50:28.123    8292.4    the makers have sent 1600 acts
+00:50:35.150   15320.1    what the :ack appends gave: {"{}" 1612}
+00:50:35.150   15320.2    the :ack calls took: middle 5.0 ms · 99 of 100 under 1010.8 ms · most 1090.7 ms
+00:50:35.151   15320.9    attempts begun in First: 1612 · acts with more than one attempt: 0 · workers of First started again: 4 task globals made ready again
+00:50:36.671   16840.6  RUN     module Again launched and run over the depot from its beginning · 1612 records · it holds an answer for every act: true · after 1410 ms
+00:50:36.911   17080.6    m1-00000 First: accepted  number 291:0      attempt 1   | Again: accepted  number 291:0      | same
+00:50:36.911   17080.9    the row at ["L00" "k0"] · First holds the act "m1-00000" · Again holds the act "m1-00000"
+00:50:36.913   17082.6    the order of the decisions in layer L00 by number · First: ["m1-00000" "m2-00000" "m0-00000" "m3-00000" "m1-00002" "m2-00002" "m0-00002" "m3-00002" "m1-00004" "m0-00004" "m2-00004" "m3-00004"] and 788 more · Again: ["m1-00000" "m2-00000" "m0-00000" "m3-00000" "m1-00002" "m2-00002" "m0-00002" "m3-00002" "m1-00004" "m0-00004" "m2-00004" "m3-00004"] and 788 more
+00:50:36.913   17082.8    the partition of layer L00 in order, [position id]: [[4 "m1-00000"] [5 "m2-00000"] [6 "m0-00000"] [7 "m3-00000"] [8 "m1-00001"] [9 "m2-00001"] [10 "m0-00001"] [11 "m3-00001"] [12 "m1-00002"] [13 "m2-00002"] [14 "m0-00002"] [15 "m3-00002"]] and 1588 more
+00:50:36.913   17082.9    the depot holds 1612 records of 1612 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:50:36.913   17082.9    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:50:36.914   17084.1  VERDICT load-update run 2 of 3 · SAME · First decided ["m1-00000" "m2-00000" "m0-00000" "m3-00000" "m1-00002" "m2-00002" "m0-00002" "m3-00002" "m1-00004" "m0-00004" "m2-00004" "m3-00004"] and 788 more · Again decided ["m1-00000" "m2-00000" "m0-00000" "m3-00000" "m1-00002" "m2-00002" "m0-00002" "m3-00002" "m1-00004" "m0-00004" "m2-00004" "m3-00004"] and 788 more · workers of First started again: yes
+00:50:37.816     300.7  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435219166232576, :attempt 1}
+00:50:37.816     300.8  RUN     ---- load-update run 3 of 3 · load: 200 acts a second for 8 s, four makers, four acts on each key · one second in: :update ----
+00:50:42.358    4842.6    the update of module First gave nil after 3542 ms
+00:50:45.816    8300.9    the makers have sent 1600 acts
+00:50:52.845   15330.2    what the :ack appends gave: {"{}" 1612}
+00:50:52.846   15330.4    the :ack calls took: middle 4.7 ms · 99 of 100 under 1080.0 ms · most 1159.9 ms
+00:50:52.847   15331.4    attempts begun in First: 1612 · acts with more than one attempt: 0 · workers of First started again: 4 task globals made ready again
+00:50:54.305   16789.4  RUN     module Again launched and run over the depot from its beginning · 1612 records · it holds an answer for every act: true · after 1348 ms
+00:50:54.488   16973.3    m2-00000 First: accepted  number 301:0      attempt 1   | Again: accepted  number 301:0      | same
+00:50:54.489   16973.6    the row at ["L00" "k0"] · First holds the act "m2-00000" · Again holds the act "m2-00000"
+00:50:54.490   16974.9    the order of the decisions in layer L00 by number · First: ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m3-00004" "m2-00004" "m1-00004" "m0-00004"] and 788 more · Again: ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m3-00004" "m2-00004" "m1-00004" "m0-00004"] and 788 more
+00:50:54.490   16975.1    the partition of layer L00 in order, [position id]: [[4 "m2-00000"] [5 "m3-00000"] [6 "m1-00000"] [7 "m0-00000"] [8 "m2-00001"] [9 "m3-00001"] [10 "m1-00001"] [11 "m0-00001"] [12 "m3-00002"] [13 "m2-00002"] [14 "m1-00002"] [15 "m0-00002"]] and 1588 more
+00:50:54.490   16975.2    the depot holds 1612 records of 1612 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:50:54.490   16975.2    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:50:54.492   16976.4  VERDICT load-update run 3 of 3 · SAME · First decided ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m3-00004" "m2-00004" "m1-00004" "m0-00004"] and 788 more · Again decided ["m2-00000" "m3-00000" "m1-00000" "m0-00000" "m3-00002" "m2-00002" "m1-00002" "m0-00002" "m3-00004" "m2-00004" "m1-00004" "m0-00004"] and 788 more · workers of First started again: yes
+00:50:55.111   17595.8  RUN     END · 3 runs · SAME: 3 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 3

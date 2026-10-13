@@ -23,20 +23,21 @@
   the read path's own memory, its three maps, from the field of its type: to
   see that a push has left the map with its last reader, that no entry is
   without a reader, which fields an entry has, and that the counts of the
-  pushes are the counts of the map's entries. To find the task of a
-  layer it selects the layer's depot row with a handle of its own; the line
-  that rests on that says so. It reads no table round the read path for a
-  thing that it shows.
+  pushes are the counts of the map's entries. To find the task of a layer
+  it selects, with two handles of its own, the layer's last stamp in the
+  table that the layer's gate keeps for a task: only the task that decides
+  the layer's acts holds one. Each line that rests on that says so. It
+  reads no table of facts round the read path.
 
   Where the proof stands in for a call of Rama's client. The read path's
   two reading calls are macros of Rama's that end in two functions,
   `compiled-foreign-select-async` and `compiled-foreign-proxy-async`.
   Clojure lets a proof put a function of its own in the place of those, and
   of `close!`, for a while. The proof does so to count the calls of a read;
-  to keep each push and each callback that a read opened; to make a select
-  throw, and to make one never come back; to make the opening of a push
-  throw, and to make one never come back. Each line that rests on that says
-  so. It also puts a function in the place of two pure functions of the read
+  to note the table and the routing id of each call; to keep each push and
+  each callback that a read opened; to make a select throw, and to make one
+  never come back; to make the opening of a push throw, and to make one
+  never come back. Each line that rests on that says so. It also puts a function in the place of two pure functions of the read
   path, to count the rounds of a read asked once and to call a private
   function. The other throw is real: a module name under which no module
   runs.
@@ -53,12 +54,15 @@
 
   A second cluster. One check needs a batch of the base to run a second
   time. It has a cluster of its own, after the first is closed, as the
-  module's proof has one: before that cluster is launched the proof puts
-  functions of its own in the place of three pure functions of
-  `softland.store.gate.batch`, which note the rows of each attempt and
-  throw once, after the rows of the first attempt were made; and it puts
-  the store's own three back after. Every other check runs on the functions
-  as the store defines them.
+  module's proof has one: before that cluster is launched the proof puts a
+  function of its own in the place of one pure function that the walk of
+  both gates calls, `softland.store.gate.decision/writes`. It notes the
+  rows of facts of each decision and throws once, at the decision that the
+  proof names; and the proof puts the store's own function back after. The
+  store's module is loaded before the proof's function goes into the var:
+  the walk calls what the var holds only when its namespace was loaded
+  with the store's own function there (found in a run of this build).
+  Every other check runs on the functions as the store defines them.
 
   State. The proof starts one in-process cluster with four tasks and two
   workers, launches the module `Store` in it, and closes it at the end; the
@@ -68,7 +72,9 @@
   for the checks that count pushes, so that no other check's push is in its
   maps. The group of the read path's own bound opens two more, each with
   one small number: one that may hold 3 pushes on one table under one
-  routing id, and one whose live reads may need 1 check. It owns atoms: what
+  routing id, and one whose live reads may need 1 check. The group of the
+  base that is read where the asker's layer lives opens one more, for its
+  counts of pushes. It owns atoms: what
   it holds of the cluster, the lines that it showed, each permission that it
   made, each thing that the door sent, and each live read that it opened.
   Near the end it starts the module again in the cluster, by Rama's module
@@ -84,7 +90,8 @@
             [com.rpl.rama.path :as path]
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
-            [softland.store.gate.batch :as batch]
+            [softland.store.door.declaration :as declaration]
+            [softland.store.gate.decision :as decision]
             [softland.store.module :as module]
             [softland.store.read-path :as read-path]
             [softland.store.read-path.query :as query]
@@ -122,8 +129,8 @@
 (defonce ^{:private true
            :doc "What the proof holds of the cluster that it runs on, set by
   `open-round!`: the cluster, the module's name, the door, the proof's read
-  paths, and the one handle of the proof's own, of the streaming gate's
-  table of facts."}
+  paths, and the two handles of the proof's own, of the table that each
+  gate keeps for a task."}
   round
   (atom nil))
 
@@ -145,7 +152,7 @@
 
 (defn- open-round!
   "Takes the cluster. Opens the door and the read paths of the proof, and
-  the one handle that the proof itself selects with."
+  the two handles that the proof itself selects with."
   [ipc]
   (let [m (rama/get-module-name module/Store)]
     (reset! round
@@ -157,7 +164,8 @@
                                                      :max-checks-of-one-read 6})
              :short           (read-path/open ipc m {:wait-ms 300})
              :counted         (read-path/open ipc m)
-             :streaming-facts (rama/foreign-pstate ipc m "$$streaming-facts")})))
+             :streaming-task  (rama/foreign-pstate ipc m "$$streaming-task")
+             :microbatch-task (rama/foreign-pstate ipc m "$$microbatch-task")})))
 
 (defn- the-rp "The read path of most checks." [] (:read-path @round))
 (defn- the-door "The proof's door." [] (:door @round))
@@ -311,6 +319,23 @@
   [rp]
   (every? (comp seq :readers) (vals (:pushes (held rp)))))
 
+(defn- task-of
+  "Takes a layer of which a gate has decided an act. Gives the number of the
+  task that decides the layer's acts, found by selects of the proof's own,
+  round the read path: each task is asked, under a routing id that Rama's
+  test namespace gives for it, for the layer's last stamp in the table that
+  the layer's gate keeps for a task. Only the deciding task holds one, in a
+  streaming layer and in the base. nil when not exactly one task holds it."
+  [layer]
+  (let [table (get @round (if (= :base layer) :microbatch-task :streaming-task))
+        holding (keep-indexed (fn [i k]
+                                (when (some? (rama/foreign-select-one
+                                              (path/keypath :last-stamp (declaration/id-text layer)) table {:pkey k}))
+                                  i))
+                              (rtest/gen-hashing-index-keys tasks))]
+    (when (= 1 (count holding))
+      (first holding))))
+
 ;; ----------------------------------------- standing in for a call of Rama's client
 
 (defn- counting
@@ -336,6 +361,41 @@
       (let [result (f)]
         {:result result :selects @selects :opens @opens :closes @closes :rounds @rounds}))))
 
+(defn- noting-routing-ids
+  "Calls f while the proof stands in for Rama's two reading calls with
+  functions that note the table and the routing id of each call, and then
+  call Rama. Takes the read path whose calls are noted: a table is known by
+  its handle, which is a field of the read path's type. Gives {:result
+  :selects :opens}, the last two each a vector of [gate table routing-id]
+  in the order of the calls; a call on a handle that is not that read
+  path's, as the door's are, is noted as [:another nil routing-id]."
+  [^ReadPath rp f]
+  (let [selects (atom []) opens (atom [])
+        real-select rama/compiled-foreign-select-async
+        real-open rama/compiled-foreign-proxy-async
+        table-of (fn [pstate]
+                   (condp identical? pstate
+                     (.-streaming-facts rp)           [:streaming :facts]
+                     (.-microbatch-facts rp)          [:microbatch :facts]
+                     (.-streaming-facts-by-value rp)  [:streaming :facts-by-value]
+                     (.-microbatch-facts-by-value rp) [:microbatch :facts-by-value]
+                     [:another nil]))
+        note! (fn [calls pstate options] (swap! calls conj (conj (table-of pstate) (:pkey options))))]
+    (with-redefs [rama/compiled-foreign-select-async (fn [the-path pstate & more]
+                                                       (note! selects pstate (first more))
+                                                       (apply real-select the-path pstate more))
+                  rama/compiled-foreign-proxy-async (fn [the-path pstate & more]
+                                                      (note! opens pstate (first more))
+                                                      (apply real-open the-path pstate more))]
+      (let [result (f)]
+        {:result result :selects @selects :opens @opens}))))
+
+(defn- of-the-base
+  "Takes calls that `noting-routing-ids` noted. Gives those on the two
+  tables of the microbatch gate, in their order."
+  [calls]
+  (filterv #(= :microbatch (first %)) calls))
+
 (defn- keeping-pushes
   "Calls f while the proof stands in for the opening of a push with a
   function that keeps the options of each opening, and so its callback, and
@@ -355,86 +415,54 @@
 
 ;; ------------------------------------------------ a batch that runs a second time
 
-(def ^:private stores-base
-  "`softland.store.gate.batch/base` as the store defines it."
-  batch/base)
-
-(def ^:private stores-decide-or-send
-  "`softland.store.gate.batch/decide-or-send` as the store defines it."
-  batch/decide-or-send)
-
-(def ^:private stores-rows-to-send
-  "`softland.store.gate.batch/rows-to-send` as the store defines it."
-  batch/rows-to-send)
+(def ^:private stores-writes
+  "`softland.store.gate.decision/writes` as the store defines it."
+  decision/writes)
 
 (defonce ^{:private true
-           :doc "The rows that each attempt of a batch with things made on the
-  proof's second cluster, in the order in which the attempts began: for
-  each attempt a vector of [key row]."}
+           :doc "The rows of facts of each decision that wrote one on the proof's
+  second cluster, in the order of the decisions, a second attempt's among
+  them: for each a vector of [key row]."}
   attempts (atom []))
 
-(defonce ^{:private true :doc "True while the proof asks for one throw."} throw-asked (atom false))
+(defonce ^{:private true
+           :doc "The key of a fact's place at whose decision the proof asks for one
+  throw; nil when it asks for none."}
+  throw-at (atom nil))
+
 (defonce ^{:private true :doc "How many throws the proof made."} throws-made (atom 0))
 
-(defn- note-rows!
-  "Adds rows, each [key row], to the note of the newest attempt."
-  [rows]
-  (when (seq rows)
-    (swap! attempts (fn [notes] (if (seq notes) (update notes (dec (count notes)) into rows) notes)))))
-
-(defn noting-base
-  "Stands in for `softland.store.gate.batch/base` on the proof's second
-  cluster. Takes what it takes and gives what it gives. The gate calls it
-  once in each attempt; for a batch with things it begins the note of an
-  attempt. It is public and held by a var, and it closes over nothing: Rama
-  takes the function that the store's var holds at the launch."
+(defn noting-writes
+  "Stands in for `softland.store.gate.decision/writes` on the proof's second
+  cluster. Takes what it takes and gives what it gives, and notes the rows
+  of facts that it gave, each [key row]. Then, when the proof asked for a
+  throw at a place and this call gave a row for that place, it throws, this
+  once: the decision fails after its rows were made, the attempt of its
+  batch fails with it, and Rama runs the batch again. The walk of both
+  gates calls it, once in each decision. It is public and held by a var,
+  and it closes over nothing."
   [& args]
-  (when (nth args 2 nil)
-    (swap! attempts conj []))
-  (apply stores-base args))
-
-(defn noting-decide-or-send
-  "Stands in for `softland.store.gate.batch/decide-or-send` on the proof's
-  second cluster. Takes what it takes and gives what it gives, and notes
-  each fact row that it gave: those that the task writes at once, and those
-  that it sends to another task."
-  [& args]
-  (let [out (apply stores-decide-or-send args)]
-    (note-rows! (concat (:now out)
-                        (mapcat (fn [[_ kind payload]]
-                                  (when (= :rows kind) (map (fn [[_ k row]] [k row]) payload)))
-                                (:parcels out))))
-    out))
-
-(defn throwing-rows-to-send
-  "Stands in for `softland.store.gate.batch/rows-to-send` on the proof's
-  second cluster. Takes what it takes and gives what it gives, and notes
-  each row. Then, when the proof asked for a throw and this call gave rows,
-  it throws, this once: the attempt fails after its rows were made, and
-  Rama runs the batch again."
-  [& args]
-  (let [out (apply stores-rows-to-send args)]
-    (note-rows! (map (juxt :key :row) out))
-    (when (and (seq out) (compare-and-set! throw-asked true false))
+  (let [out (apply stores-writes args)
+        fact-rows (into [] (keep (fn [[which k row]] (when (= :fact which) [k row]))) out)
+        at @throw-at]
+    (when (seq fact-rows)
+      (swap! attempts conj fact-rows))
+    (when (and at (some #(= at (first %)) fact-rows) (compare-and-set! throw-at at nil))
       (swap! throws-made inc)
-      (throw (ex-info "the read path's proof: a forced failure of this attempt of a batch, after its rows were made" {})))
+      (throw (ex-info "the read path's proof: a forced failure of this attempt of a batch, after the rows of a decision were made" {})))
     out))
 
-(defn- put-the-proofs-functions!
-  "Puts the three functions of the proof into the vars of the store's
-  three. What must hold: no cluster of this JVM is launched; a launch takes
-  what the vars hold then."
+(defn- put-the-proofs-function!
+  "Puts the proof's function into the var of the store's `writes`. What
+  must hold: the store's module is loaded, which this namespace's own
+  requires see to, and no cluster of this JVM is launched."
   []
-  (alter-var-root #'batch/base (constantly noting-base))
-  (alter-var-root #'batch/decide-or-send (constantly noting-decide-or-send))
-  (alter-var-root #'batch/rows-to-send (constantly throwing-rows-to-send)))
+  (alter-var-root #'decision/writes (constantly noting-writes)))
 
-(defn- put-the-stores-functions-back!
-  "Puts the store's own three functions back into their vars."
+(defn- put-the-stores-function-back!
+  "Puts the store's own `writes` back into its var."
   []
-  (alter-var-root #'batch/base (constantly stores-base))
-  (alter-var-root #'batch/decide-or-send (constantly stores-decide-or-send))
-  (alter-var-root #'batch/rows-to-send (constantly stores-rows-to-send)))
+  (alter-var-root #'decision/writes (constantly stores-writes)))
 
 ;; ---------------------------------------------------------------- the checks
 
@@ -515,12 +543,10 @@
                                        [[(keyword (str "block-" i)) :parent]
                                         {:holds :value :value :canvas-1 :layer layer :fact [id (+ 17 i)] :stamp (:stamp wrote)}]))
                             (:places points))
-                     (check (str "since which stamp the order of " layer " is level: in a streaming layer the stamp of the act that marked the key; in the base a stamp of that act's batch, not earlier than the act's; and earlier than the facts that are in the order")
-                            [[layer] true true]
+                     (check (str "since which stamp the order of " layer " is level: the stamp of the act that marked the key, in a streaming layer and in the base; and earlier than the facts that are in the order")
+                            [[layer] (:stamp marked) true]
                             (let [since (:level-since (first (:orders points)))]
-                              [(mapv :layer (:orders points))
-                               (if (= :base layer) (<= (:stamp marked) since) (= (:stamp marked) since))
-                               (< since (:stamp wrote))]))
+                              [(mapv :layer (:orders points)) since (< since (:stamp wrote))]))
                      [layer (count (:places entity)) (count (:places run)) (count (:places points)) (:stamp wrote)]))]
     (doseq [[layer entity run points stamp] observed]
       (shown "each word of a query, asked once in" layer
@@ -758,6 +784,7 @@
         from (counted {:asks [:place :q7 :text] :asker :alice :from-layer :n7})
         entity (counted {:asks [:entity :doc] :asker :alice :layers [:main]})
         base-run (counted {:asks [:run [:e-01] [:e-12]] :asker :alice :layers [:base]})
+        base-run-through (counted {:asks [:run [:e-01] [:e-12]] :asker :alice :layers [:main :base]})
         points (counted {:asks [:points-at :parent :canvas-1] :asker :alice :layers [:near10 :plain10 :far10]})
         ;; 300 places, each checked in a nearer layer, in one call of 300 paths
         _ (doseq [layer [:o11n :o11f]] (make! layer :alice))
@@ -783,7 +810,8 @@
     (check "that live read has left, and none is open" {:live-reads 0 :pushes 0} (read-path/open-count (the-rp)))
     (check "the same from a layer: three calls in two rounds, the start layer's call first" [3 [1 2] false] from)
     (check "an entity of five keys: one call" [1 [1] false] entity)
-    (check "a run across entities of the base: one call for each task, in one round, the rights riding in one of them" [tasks [tasks] false] base-run)
+    (check "a run across entities of the base, from the base itself: one call, in one round, with the rights in it" [1 [1] false] base-run)
+    (check "the same run through her own layer and the base: two calls in one round, one for each layer" [2 [2] false] base-run-through)
     (check "what points at a thing through three layers: the rights, the orders of the two layers that mark the key, the checks in the two nearer layers"
            [7 [3 2 2] false] points)
     (check "300 places of a farther order, each checked in a nearer layer by one call of 300 paths: each place is given from the nearer layer's own fact, so the values came in the paths' order"
@@ -794,7 +822,8 @@
     (shown "the calls of a read asked once, counted by functions of the proof's in the place of Rama's select and of the read path's rounds:"
            "a place through three layers" (pr-str (second place-3)) "| the same while a live read held" (:pushes watcher-holds) "pushes open on its sources" (pr-str (second beside-a-live-read))
            "| from a layer" (pr-str (second from)) "| an entity" (pr-str (second entity))
-           "| a run across entities of the base" (pr-str (second base-run)) "| what points at a thing through three layers" (pr-str (second points)))
+           "| a run across entities of the base" (pr-str (second base-run)) "| the same through her own layer" (pr-str (second base-run-through))
+           "| what points at a thing through three layers" (pr-str (second points)))
     (shown "a call of 300 paths gives its values in the paths' order: each of 300 places came with the fact of its own nearer row")))
 
 (deftest a-very-large-run
@@ -852,29 +881,216 @@
 
 (deftest a-run-across-entities-of-the-base
   (let [query {:asks [:run [:e-01] [:e-12]] :asker :alice :layers [:base]}
-        once (ask query)
+        once (noting-routing-ids (the-rp) #(ask query))
         with-own (ask {:asks [:run [:b] [:base]] :asker :alice :layers [:base] :stores-own-facts true})
         without-own (ask {:asks [:run [:b] [:base]] :asker :alice :layers [:base]})
         read (live query)
         counts (read-path/open-count (the-rp))
+        held-under (set (map (juxt :gate :table :routing-id) (keys (:pushes (held (the-rp))))))
         wrote (put! :system :base [(fact :e-07 :size 700)])
         got (wait-until 30000 #(seq (later read)))
         _ (settled)
         after (later read)
         _ (leave! read)]
-    (check "asked once: the places of every task are in the answer" 12 (count (:places once)))
-    (check "kept live: the same answer now, and one push for each task beside the push of the base's own rows"
-           [(:places once) {:live-reads 1 :pushes (inc tasks)}] [(:places (:now read)) counts])
-    (check "one write on one task gives one change, with the place that was written"
+    (check "asked once, from the base itself: the twelve places come whole from one task, in one call under the base's routing id"
+           [12 [[:microbatch :facts :base]]] [(count (:places (:result once))) (:selects once)])
+    (check "kept live: the same answer now, and two pushes, the run and the base's own rows, both under the base's routing id"
+           [(:places (:result once)) {:live-reads 1 :pushes 2} #{[:microbatch :facts :base]}]
+           [(:places (:now read)) counts held-under])
+    (check "one write in the run gives one change, with the place that was written"
            [true [{:changed {[:e-07 :size] {:holds :value :value 700 :layer :base :fact [(:act-id wrote) 0] :stamp (:stamp wrote)}}}]]
            [(some? got) after])
-    (check "a run that reaches the base's own entity, asked with the store's own facts: the base's depot row, which every task holds, is in the answer once; asked without, no row of the store's is"
+    (check "a run that reaches the base's own entity, asked with the store's own facts: the base's depot row is in the answer; asked without, no row of the store's is"
            [:microbatch true]
            [(:value (get (:places with-own) [:base :softland.store/depot]))
             (not-any? (fn [[_ k]] (= "softland.store" (namespace k))) (keys (:places without-own)))])
-    (shown "a run across entities of the base has one part on each task: asked once it gives" (count (:places once)) "places; kept live it holds"
-           (:pushes counts) "pushes, one for each of" tasks "tasks and one for the base's own rows; one write on one task gave" (count after) "change"
-           "| the base's depot row, which every task holds, is given once")))
+    (shown "a run across entities of the base comes whole from one task: asked once from the base itself it gives" (count (:places (:result once)))
+           "places by the calls" (pr-str (:selects once)) "; kept live it holds" (:pushes counts) "pushes, the run and the base's own rows, under"
+           (pr-str held-under) "; one write in the run gave" (count after) "change | the calls are noted by functions of the proof's in the place of Rama's")))
+
+(deftest the-base-is-read-where-the-askers-layer-lives
+  (let [rp (the-rp)
+        base-task (task-of :base)
+        ;; a layer of alice's on each task of the cluster
+        homes (loop [i 0 found (sorted-map)]
+                (if (or (= tasks (count found)) (<= 60 i))
+                  found
+                  (let [layer (keyword (str "home-" i))
+                        _ (make! layer :alice)
+                        task (task-of layer)]
+                    (recur (inc i) (if (and task (not (contains? found task))) (assoc found task layer) found)))))
+        home-a (some (fn [[task layer]] (when (not= base-task task) layer)) homes)
+        ;; a layer of bob's own, on a task that is neither the base's nor that of alice's layer
+        home-b (loop [i 0]
+                 (let [layer (keyword (str "bobs-" i))]
+                   (make! layer :bob)
+                   (cond (not (contains? #{base-task (task-of home-a)} (task-of layer))) layer
+                         (< i 60) (recur (inc i)))))
+        the-three-tasks [(task-of home-a) (task-of home-b) base-task]
+        through (fn [who home asks] {:asks asks :asker who :layers [home :base]})
+        note-asks [:place :note-41 :text]
+        run-asks [:run [:e-01] [:e-12]]
+        points-asks [:points-at :parent :canvas-1]
+        from-the-base (fn [asks] (ask {:asks asks :asker :system :layers [:base]}))
+        ;; what the base's own task gives, before this group writes into the run or the order
+        base-note (:place (from-the-base note-asks))
+        base-run (:places (from-the-base run-asks))
+        base-order (:places (from-the-base points-asks))
+        ;; (i) asked once: the base through a layer on each task
+        on-each-task (into (sorted-map)
+                           (map (fn [[task home]] [task (noting-routing-ids rp #(ask (through :alice home note-asks)))]))
+                           homes)
+        bobs-note (noting-routing-ids rp #(ask (through :bob home-b note-asks)))
+        ;; (iii) asked once: a run across entities, and the order by value, each whole from one task
+        wholes (vec (for [[who home] [[:alice home-a] [:bob home-b]]
+                          asks [run-asks points-asks]]
+                      (let [noted (noting-routing-ids rp #(ask (through who home asks)))]
+                        {:home home :asks asks :places (:places (:result noted)) :calls (of-the-base (:selects noted))})))
+        ;; a place of the base that the proof writes under open reads
+        watched [:place :watched-33 :text]
+        value-through (fn [who home] (get-in (ask (through who home watched)) [:place :value]))
+        everywhere? (fn [v] (and (= v (get-in (from-the-base watched) [:place :value]))
+                                 (= v (value-through :bob home-b))
+                                 (every? #(= v (value-through :alice %)) (vals homes))))
+        _ (put! :system :base [(fact :watched-33 :text "v0")])
+        v0-everywhere (wait-until 30000 #(everywhere? "v0"))
+        ;; (ii) kept live: two askers whose layers live on two tasks, and one who reads from the base itself
+        readers [(live (through :alice home-a watched)) (live (through :bob home-b watched))
+                 (live {:asks watched :asker :system :layers [:base]})]
+        nows (mapv #(get-in % [:now :place :value]) readers)
+        live-counts (read-path/open-count rp)
+        pushes-on-the-row (set (keep (fn [source]
+                                       (when (= [:row (rows/place-key :base :watched-33 :text)] (:path source))
+                                         (:routing-id source)))
+                                     (keys (:pushes (held rp)))))
+        seen? (fn [v] (every? #(= v (get-in (screen %) [:place :value])) readers))
+        wrote-1 (put! :system :base [(fact :watched-33 :text "v1")])
+        got-1 (wait-until 30000 #(seen? "v1"))
+        wrote-2 (put! :system :base [(fact :watched-33 :text "v2")])
+        got-2 (wait-until 30000 #(seen? "v2"))
+        _ (settled)
+        told (mapv later readers)
+        _ (run! leave! readers)
+        ;; (iii) kept live: a run across entities and the order by value, through two homes
+        _ (wait-until 30000 #(everywhere? "v2"))
+        runs [(live (through :alice home-a run-asks)) (live (through :bob home-b run-asks))]
+        orders [(live (through :alice home-a points-asks)) (live (through :bob home-b points-asks))]
+        opened-whole [(mapv #(:places (:now %)) runs) (mapv #(:places (:now %)) orders)]
+        wrote-both (put! :system :base [(fact :e-05 :size 500) (fact :block-4 :parent :canvas-1)])
+        got-both (wait-until 30000 #(every? (comp seq later) (concat runs orders)))
+        _ (settled)
+        told-runs (mapv later runs)
+        told-orders (mapv later orders)
+        _ (run! leave! (concat runs orders))
+        after-all (read-path/open-count rp)
+        ;; straight after the maker's answer: a read asked once through a layer on another task
+        straight-after (vec (for [i (range 20)]
+                              (let [v (str "straight-" i)]
+                                (put! :system :base [(fact :watched-33 :text v)])
+                                [(= v (value-through :alice home-a))
+                                 (some? (wait-until 30000 #(= v (value-through :alice home-a))))])))
+        last-value (str "straight-" 19)
+        _ (wait-until 30000 #(everywhere? last-value))
+        ;; (iv) the pushes: two askers with one home, and one with another
+        _ (give! home-a :alice :bob)
+        counted (read-path/open (:ipc @round) (:module @round))
+        shared (noting-routing-ids
+                counted
+                (fn []
+                  (let [alice-a (live counted (through :alice home-a watched))
+                        one (:counts (held counted))
+                        bob-a (live counted (through :bob home-a watched))
+                        two (:counts (held counted))
+                        bob-b (live counted (through :bob home-b watched))
+                        three (:counts (held counted))
+                        on-the-row (frequencies (keep (fn [source]
+                                                        (when (= [:row (rows/place-key :base :watched-33 :text)] (:path source))
+                                                          (:routing-id source)))
+                                                      (keys (:pushes (held counted)))))
+                        wrote (put! :system :base [(fact :watched-33 :text "shared")])
+                        got (wait-until 30000 (fn [] (every? #(= "shared" (get-in (screen %) [:place :value])) [alice-a bob-a bob-b])))
+                        _ (settled)
+                        calls (mapv later [alice-a bob-a bob-b])
+                        _ (leave! alice-a)
+                        after-alice (:counts (held counted))
+                        _ (leave! bob-a)
+                        after-bob (:counts (held counted))
+                        _ (leave! bob-b)]
+                    {:one one :two two :three three :on-the-row on-the-row :wrote wrote :got got :calls calls
+                     :after-alice after-alice :after-bob after-bob :at-the-end (held counted)})))
+        change-of (fn [place value wrote index]
+                    {:changed {place {:holds :value :value value :layer :base :fact [(:act-id wrote) index] :stamp (:stamp wrote)}}})]
+    (check "the proof found a layer of alice's on each of the four tasks; and a layer of alice's, a layer of bob's and the base on three different tasks, each by selects of its own"
+           [tasks true true 3]
+           [(count homes) (some? home-a) (some? home-b) (count (set (remove nil? the-three-tasks)))])
+    (check "asked once through a layer on each task, a place of the base is given as it is from the base itself: its value, its layer, its fact and its stamp"
+           [true (vec (repeat tasks base-note))]
+           [(= [:value "a note" :base] ((juxt :holds :value :layer) base-note)) (mapv (comp :place :result) (vals on-each-task))])
+    (check "each of those reads made one call on the base's facts, under the routing id of the layer that it starts from, so on that layer's task; none was made under the base's routing id"
+           (mapv (fn [home] [[:microbatch :facts home]]) (vals homes))
+           (mapv (comp of-the-base :selects) (vals on-each-task)))
+    (check "bob, through his own layer, is given the same place, by one call on the base's facts under his layer's routing id"
+           [base-note [[:microbatch :facts home-b]]]
+           [(:place (:result bobs-note)) (of-the-base (:selects bobs-note))])
+    (check "a run across entities of the base comes back whole from the one task of each asker's layer: the places that the base's own task gives, by one call on the base's facts under her layer's routing id"
+           (vec (for [home [home-a home-b]] [base-run [[:microbatch :facts home]]]))
+           (mapv (juxt :places :calls) (filter #(= run-asks (:asks %)) wholes)))
+    (check "what points at a thing in the base, its order by value, comes back whole from that one task too: the places that the base's own task gives, by one call on the base's facts, for its rights and its marks, and one on its facts by value, both under her layer's routing id"
+           (vec (for [home [home-a home-b]]
+                  [base-order [[:microbatch :facts home] [:microbatch :facts-by-value home]]]))
+           (mapv (juxt :places :calls) (filter #(= points-asks (:asks %)) wholes)))
+    (check "those two answers hold places: the twelve of the run and the three under the marked key"
+           [12 3] [(count base-run) (count base-order)])
+    (check "a fact of the base is given through each layer and from the base itself, within the proof's wait after its maker's answer"
+           true (some? v0-everywhere))
+    (check "kept live by two askers whose layers are on two tasks, and by one who reads from the base itself: each has the value now; the three hold 12 pushes, and the base's row has three of them, one under each read's home"
+           [["v0" "v0" "v0"] {:live-reads 3 :pushes 12} #{home-a home-b :base}]
+           [nows live-counts pushes-on-the-row])
+    (check "a new fact of the base is told to each of the three on the task of her read's home: one change for each of two acts, with the fact and the stamp of its act"
+           [true true (vec (repeat 3 [(change-of [:watched-33 :text] "v1" wrote-1 0) (change-of [:watched-33 :text] "v2" wrote-2 0)]))]
+           [(some? got-1) (some? got-2) told])
+    (check "a run across entities of the base and what points at a thing in it, kept live through two layers on two tasks: each opens with the whole that the base's own task gives"
+           [(vec (repeat 2 base-run)) (vec (repeat 2 base-order))]
+           [(first opened-whole) (second opened-whole)])
+    (check "one act of the base with a fact in the run and a fact under the marked key: each asker of the run is told the one place of the run, and each asker of what points at the thing the one new place, once"
+           [true
+            (vec (repeat 2 [(change-of [:e-05 :size] 500 wrote-both 0)]))
+            (vec (repeat 2 [(change-of [:block-4 :parent] :canvas-1 wrote-both 1)]))]
+           [(some? got-both) told-runs told-orders])
+    (check "when each of them has left, the read path holds no live read and no push" {:live-reads 0 :pushes 0} after-all)
+    (check "20 acts of the base, each followed at once by a read asked once through a layer on another task: each was given within the proof's wait; how many were given at once is shown and not held"
+           (vec (repeat 20 true)) (mapv second straight-after))
+    (check "one asker through her layer holds 3 pushes on that layer's facts and 2 on the base's, its own rows and the place, counted under her layer's routing id; a second asker with the same home adds his permission in that layer and shares the two pushes on the base"
+           [{[:streaming :facts home-a] 3 [:microbatch :facts home-a] 2}
+            {[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2}]
+           [(:one (:result shared)) (:two (:result shared))])
+    (check "an asker with another home holds pushes of his own on the base, under his layer's routing id: the base's row has two pushes, one for each home, where three askers look at it"
+           [{[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
+            {home-a 1 home-b 1}
+            {[:microbatch :facts home-a] 2 [:microbatch :facts home-b] 2}]
+           [(:three (:result shared)) (:on-the-row (:result shared)) (frequencies (of-the-base (:opens shared)))])
+    (check "one write to the base's row calls each of the three functions once, with the fact of that act"
+           [true (vec (repeat 3 [(change-of [:watched-33 :text] "shared" (:wrote (:result shared)) 0)]))]
+           [(some? (:got (:result shared))) (:calls (:result shared))])
+    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
+           [{[:streaming :facts home-a] 3 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
+            {[:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
+            {:pushes {} :counts {} :reads {}}]
+           [(:after-alice (:result shared)) (:after-bob (:result shared)) (:at-the-end (:result shared))])
+    (shown "the base is read where the asker's layer lives: the base's acts are decided on task" base-task
+           "; through a layer of alice's on each of the tasks" (pr-str (vec (keys homes))) "a place of the base was given as from the base itself, each by the calls"
+           (pr-str (mapv (comp of-the-base :selects) (vals on-each-task))) "on the base's tables | the tasks are found by selects of the proof's own, the calls noted by functions of the proof's in the place of Rama's")
+    (shown "a run across entities of the base and what points at a thing in it come back whole from one task: through alice's layer" home-a "on task" (task-of home-a)
+           "and bob's layer" home-b "on task" (task-of home-b) "each gave the" (count base-run) "places of the run and the"
+           (count base-order) "places of the order, by the calls" (pr-str (mapv :calls wholes)))
+    (shown "kept live, a new fact of the base is told on each asker's task: three reads of one row of the base, with the homes" (pr-str pushes-on-the-row)
+           ", held" (:pushes live-counts) "pushes, three of them on that row; each of two acts gave each reader one change; one act with a fact in a run and one under a marked key gave each of four readers one change")
+    (shown "straight after the maker's answer of an act of the base, a read asked once through a layer on another task gave the new value at once"
+           (count (filter first straight-after)) "times of 20, and each time within the proof's wait | Rama's pages say that two tasks show a batch at two instants; this run saw a read that was ahead of the copy"
+           (count (remove first straight-after)) "times")
+    (shown "the count of pushes on the base is by the read's home: two askers with one home share its pushes," (pr-str (:two (:result shared)))
+           "; an asker with another home holds his own," (pr-str (:on-the-row (:result shared))) "on the one row; the openings on the base's tables were"
+           (pr-str (frequencies (of-the-base (:opens shared)))))))
 
 (deftest each-word-kept-live
   (let [_ (doseq [layer [:l14 :n14]] (make! layer :alice))
@@ -1158,7 +1374,7 @@
            [:terminated :terminated :terminated :terminated] statuses)
     (check "a third asker after the last one left opens new pushes, three, and gets a fresh value" [3 ["v1" :left]] [(:opens third) (:result third)])
     (check "what the read path holds for a live read and for a push: who looks at what, what each asked for, the pushes, and one mark; no field for a row, a value or an answer"
-           [#{:query :tell :turn :sources :opened? :owed? :task-routing-ids} #{:opening :readers :called}]
+           [#{:query :tell :turn :sources :opened? :owed?} #{:opening :readers :called}]
            [(set (mapcat keys (vals (:reads entries)))) (set (mapcat keys (vals (:pushes entries))))])
     (check "50 times, two threads open the same thing at once: one opening for each thing, four pushes for the two, and each is closed when both have left"
            [(repeat 50 [{:live-reads 2 :pushes 4} true]) 200]
@@ -1226,10 +1442,22 @@
         _ (put! :alice :f87 [(fact :block-2 :parent :canvas-87)])
         ended (wait-until #(some :ended (changes grows)))
         after-ended [(read-path/open-count rp) (held rp) (leave! grows)]
-        ;; the base: its own rows under the layer, a place under its entity
+        ;; the base, from the base itself: its own rows and a place, both under the base
         in-base (live rp {:asks [:place :e-07 :size] :asker :alice :layers [:base]})
         base-counts [(some? (:now in-base)) (:counts (held rp)) (level?)]
         _ (leave! in-base)
+        ;; the base through a home: the count is of one home's pushes on the base. The homes here are
+        ;; layers that are not made, so a read holds one push on the home's own rows and no other there
+        via (fn [home e] {:asks [:place e :size] :asker :alice :layers [home :base]})
+        first-of-home (live rp (via :unmade-87a :e-01))
+        second-of-home (live rp (via :unmade-87a :e-02))
+        home-full [(mapv #(get-in % [:now :place :value]) [first-of-home second-of-home]) (:counts (held rp)) (level?)]
+        third-of-home (counting #(read-path/read-live rp (via :unmade-87a :e-03) (fn [_] nil)))
+        other-home (live rp (via :unmade-87b :e-03))
+        from-base (live rp {:asks [:place :e-03 :size] :asker :alice :layers [:base]})
+        homes-apart [(mapv #(get-in % [:now :place :value]) [other-home from-base]) (:counts (held rp)) (level?)]
+        _ (run! leave! [first-of-home second-of-home other-home from-base])
+        after-homes (held rp)
         ;; the checks of one read that is kept live
         one-check (read-path/open ipc m {:max-checks-of-one-live-read 1})
         asked-once (ask one-check points)
@@ -1270,8 +1498,19 @@
                      :what :pushes-under-one-routing-id :most 3}}
             [{:live-reads 0 :pushes 0} {:pushes {} :counts {} :reads {}} :not-open]]
            [(when ended (last (changes grows))) after-ended])
-    (check "in the base a layer's own rows are counted under the layer and a place under its entity, so two entities of the base are two counts, on one task or not"
-           [true {[:microbatch :facts :base] 1 [:microbatch :facts :e-07] 1} true] base-counts)
+    (check "a read that starts from the base holds the base's own rows and a place, both counted under the base's routing id"
+           [true {[:microbatch :facts :base] 2} true] base-counts)
+    (check "in the base the count is of the pushes of one home: two reads of two places through one home that is not made hold 3 pushes on the base's facts under that home, its own rows and the two places, and 1 on the home's own rows"
+           [[1 2] {[:streaming :facts :unmade-87a] 1 [:microbatch :facts :unmade-87a] 3} true] home-full)
+    (check "a third place of the base through that home needs one push more than the read path may hold there: it is turned away with the word, and no push was opened or closed for it"
+           [{:could-not :keep-more-reads-live :what :pushes-under-one-routing-id :most 3} 0 0]
+           [(:result third-of-home) (:opens third-of-home) (:closes third-of-home)])
+    (check "the same place opens through another home, and from the base itself: each home has a count of its own on the base, and the full home's count stands"
+           [[3 3] {[:streaming :facts :unmade-87a] 1 [:microbatch :facts :unmade-87a] 3
+                   [:streaming :facts :unmade-87b] 1 [:microbatch :facts :unmade-87b] 2
+                   [:microbatch :facts :base] 2} true]
+           homes-apart)
+    (check "when those readers have left, nothing is held and no count is left" {:pushes {} :counts {} :reads {}} after-homes)
     (check "the checks of one read that is kept live have a number of their own: where one such read may need 1 check, what points at a thing with two places in the farther order is given whole when asked once, and kept live it is turned away with the word; 5 pushes were opened, for the rights of the two layers and the one order, none for a check, and each was closed"
            [2 {:could-not :serve-a-read-that-large :what :checks-of-one-read :most 1} 5 5 {:live-reads 0 :pushes 0}]
            [(count (:places asked-once)) (:result kept-live) (:opens kept-live) (:closes kept-live) (read-path/open-count one-check)])
@@ -1284,7 +1523,10 @@
            "| eight threads at once, 20 times: each time one opened and seven were turned away"
            "| an open read that came to need one push more ended with" (pr-str (:because (:ended (last (changes grows))))))
     (shown "the counts, read from the read path's own memory: what points at a thing through two layers" (pr-str (nth by-table 1))
-           "| a place of the base" (pr-str (nth base-counts 1)) "| at each moment the counts were the counts of the map's entries")
+           "| a place of the base, from the base itself" (pr-str (nth base-counts 1)) "| at each moment the counts were the counts of the map's entries")
+    (shown "on the base the bound holds the pushes of one home: with 3 for one table under one routing id, two places of the base through one home filled its count,"
+           (pr-str (nth home-full 1)) "; a third place through that home was turned away with" (pr-str (:could-not (:result third-of-home)))
+           "after" (:opens third-of-home) "openings, and opened through another home and from the base itself:" (pr-str (nth homes-apart 1)))
     (shown "kept live, a read that needs more checks than one live read may is turned away before a check is opened:" (pr-str (:result kept-live))
            "after" (:opens kept-live) "openings; asked once the same read gave" (count (:places asked-once)) "places")))
 
@@ -1513,17 +1755,11 @@
         far-run ((juxt :could-not :why) (ask {:asks [:run [(nth ids 0)] [(nth far-ids 1)]] :asker :alice :layers [:o23]}))
         whole-layer (set (map first (keys (:places (ask {:asks [:run :first :last] :asker :alice :layers [:o23]})))))
         ;; a layer whose text is the start of another's, on one task
-        task-of (fn [layer]
-                  (first (keep-indexed (fn [i k]
-                                         (when (rama/foreign-select-one (path/keypath (rows/place-key layer layer :softland.store/depot))
-                                                                        (:streaming-facts @round) {:pkey k})
-                                           i))
-                                       (rtest/gen-hashing-index-keys tasks))))
         _ (make! :pfx :alice)
         neighbour (loop [i 0]
                     (let [layer (keyword (str "pfx!" i))]
                       (make! layer :alice)
-                      (cond (= (task-of :pfx) (task-of layer)) layer
+                      (cond (and (some? (task-of layer)) (= (task-of :pfx) (task-of layer))) layer
                             (< i 40) (recur (inc i)))))
         _ (put! :alice :pfx [(fact :mine :n 1)])
         _ (put! :alice neighbour [(fact :not-mine :n 2)])
@@ -1686,8 +1922,18 @@
 (deftest a-batch-that-runs-a-second-time
   (let [system-own [:system :base :base]
         _ (make! :base :system)
+        ;; a layer of alice's on another task than the base's, to read the base through
+        base-task (task-of :base)
+        elsewhere (loop [i 0]
+                    (let [layer (keyword (str "elsewhere-" i))]
+                      (make! layer :alice)
+                      (cond (let [task (task-of layer)] (and (some? task) (not= base-task task))) layer
+                            (< i 40) (recur (inc i)))))
         before (put! :system :base [(fact :twice :text "before")])
+        through-elsewhere {:asks [:place :twice :text] :asker :alice :layers [elsewhere :base]}
+        _ (wait-until 30000 #(= "before" (get-in (ask through-elsewhere) [:place :value])))
         read (live {:asks [:place :twice :text] :asker :system :layers [:base]})
+        read-elsewhere (live through-elsewhere)
         ipc (:ipc @round)
         m (:module @round)
         place-key (rows/place-key :base :twice :text)
@@ -1696,41 +1942,50 @@
         answer (fn [sent] (wait-until 90000 #(let [a (door/answer-of (the-door) (:act-id sent) (:digest sent))]
                                                (when (= :accepted (:answer a)) a))))
         notes-before (count @attempts)
-        ;; one batch takes both acts; its first attempt fails after its rows were made
+        ;; one batch takes both acts, in the depot's order; the decision of the second throws once, after
+        ;; the first act's rows were written on the base's task and sent to every task
         _ (rtest/pause-microbatch-topology! ipc m "microbatch-gate")
         twice (send [(fact :twice :text "written by a batch that ran twice")])
-        _ (send [(fact :base :softland.store/who-may-see :everyone)])
-        _ (reset! throw-asked true)
+        other (send [(fact :twice-other :text "the act whose decision throws once")])
+        _ (reset! throw-at (rows/place-key :base :twice-other :text))
         _ (rtest/resume-microbatch-topology! ipc m "microbatch-gate")
         twice-answer (answer twice)
-        got (wait-until 60000 #(seq (later read)))
+        other-answer (answer other)
+        got (wait-until 60000 #(and (seq (later read)) (seq (later read-elsewhere))))
         ;; a second act at the same place, so that a second call for the first could not be on its way
         after (send [(fact :twice :text "after")])
         after-answer (answer after)
-        _ (wait-until 60000 #(= "after" (get-in (screen read) [:place :value])))
+        _ (wait-until 60000 #(and (= "after" (get-in (screen read) [:place :value]))
+                                  (= "after" (get-in (screen read-elsewhere) [:place :value]))))
+        _ (settled)
         all (later read)
+        all-elsewhere (later read-elsewhere)
         notes (subvec @attempts notes-before)
         rows-at-the-place (fn [note] (mapv second (filter (fn [[k]] (= place-key k)) note)))
         with-a-row (filterv (comp seq rows-at-the-place) notes)
         first-row (last (rows-at-the-place (first with-a-row)))
         second-row (last (rows-at-the-place (second with-a-row)))
         of-the-batch (filterv (fn [note] (some #(rows/same-row? first-row %) (rows-at-the-place note))) with-a-row)
-        _ (leave! read)]
-    (check "the proof made one throw, and the batch that wrote the place had two attempts, each of which made a row for the place; the third note with a row for the place is the batch of the act that was sent after"
-           [1 2 3] [@throws-made (count of-the-batch) (count with-a-row)])
+        told [{:changed {[:twice :text] {:holds :value :value "written by a batch that ran twice" :layer :base
+                                         :fact [(:act-id twice) 0] :stamp (:stamp first-row)}}}
+              {:changed {[:twice :text] {:holds :value :value "after" :layer :base
+                                         :fact [(:act-id after) 0] :stamp (:stamp after-answer)}}}]
+        _ (run! leave! [read read-elsewhere])]
+    (check "the proof found a layer of alice's on another task than the base's, by selects of its own" [true true] [(some? base-task) (some? elsewhere)])
+    (check "the proof made one throw, in the decision of the act that came after in the batch; the act that wrote the place was decided twice, each time with a row for the place; the third decision with a row for the place is that of the act that was sent after"
+           [1 2 3 true] [@throws-made (count of-the-batch) (count with-a-row) (some? other-answer)])
     (check "the row that the second attempt made for the place is the first attempt's row, in every field, the stamp too"
            [true true] [(some? first-row) (rows/same-row? first-row second-row)])
-    (check "under the open read the function was called once for that place, with the first attempt's row: the stamp of the row that the first attempt made, and the fact of the act; the next call is of the act that was sent after"
-           [true
-            [{:changed {[:twice :text] {:holds :value :value "written by a batch that ran twice" :layer :base
-                                        :fact [(:act-id twice) 0] :stamp (:stamp first-row)}}}
-             {:changed {[:twice :text] {:holds :value :value "after" :layer :base
-                                        :fact [(:act-id after) 0] :stamp (:stamp after-answer)}}}]]
+    (check "under the open read from the base itself the function was called once for that place, with the first attempt's row: the stamp of the row that the first attempt made, and the fact of the act; the next call is of the act that was sent after"
+           [true told]
            [(and (some? got) (some? twice-answer) (= (:stamp twice-answer) (:stamp first-row)) (< (:stamp before) (:stamp first-row)))
             all])
-    (shown "a batch of the base ran a second time under an open read of a place that it writes, on a cluster of its own in which the proof replaced three pure functions of the gate's batch and threw once:"
-           (count of-the-batch) "attempts made a row for the place, the same row in every field; the asker's function was called" (count all)
-           "times in all, once for that act with the stamp" (:stamp first-row) "of the first attempt's row, and once for the act after it")))
+    (check "under the open read through a layer on another task, where the first attempt's copy of that row was sent: the same two calls and no other"
+           told all-elsewhere)
+    (shown "a batch of the base ran a second time under two open reads of a place that it writes, on a cluster of its own in which the proof replaced one pure function of the gates' walk and threw once, in the decision of a later act of the batch:"
+           (count of-the-batch) "decisions made a row for the place, the same row in every field; the function of the read from the base itself was called" (count all)
+           "times in all, and that of the read through the layer" elsewhere "on task" (task-of elsewhere) "(the base is on task" (str base-task ")") (count all-elsewhere)
+           "times: once for that act with the stamp" (:stamp first-row) "of the first attempt's row, and once for the act after it")))
 
 (defn- on-a-cluster
   "Starts an in-process cluster, launches the module `Store` in it, opens
@@ -1760,6 +2015,7 @@
   (the-calls-of-a-read-asked-once)
   (a-very-large-run)
   (a-run-across-entities-of-the-base)
+  (the-base-is-read-where-the-askers-layer-lives)
   (each-word-kept-live)
   (what-shapes-a-read-changes-under-it)
   (one-push-for-one-thing)
@@ -1776,9 +2032,9 @@
 
 (defn test-ns-hook
   "Runs the proof on its two clusters, one after the other: every check but
-  one on the module as the store defines it; then, with three functions of
-  the gate's batch replaced, the check of a batch that runs a second time.
-  The store's own functions are put back whatever that check does. What the
+  one on the module as the store defines it; then, with one function of
+  the gates' walk replaced, the check of a batch that runs a second time.
+  The store's own function is put back whatever that check does. What the
   proof keeps of the first cluster means nothing on the second, so it is
   emptied between them."
   []
@@ -1786,11 +2042,11 @@
   (reset! permissions {})
   (reset! sent-things {})
   (reset! live-reads [])
-  (put-the-proofs-functions!)
+  (put-the-proofs-function!)
   (try
     (on-a-cluster a-batch-that-runs-a-second-time)
     (finally
-      (put-the-stores-functions-back!))))
+      (put-the-stores-function-back!))))
 
 (defn -main
   "Runs the proof, which starts and closes its own clusters, and exits:

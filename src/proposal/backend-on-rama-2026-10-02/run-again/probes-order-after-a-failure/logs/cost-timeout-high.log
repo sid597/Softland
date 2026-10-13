@@ -1,0 +1,7 @@
+00:54:02.820       2.3  COST    Rama 1.6.0, in-process, 4 tasks, 4 threads · one layer · every act accepted · settings of First: {:timeout 3600, :retry-mode :all-after, :way :plain}
+00:54:16.856   14038.1  COST    asked  100 a second · sent  1000 in 10.0 s (100 a second) · answered  1000 · calls that came back  1000 · middle 7.51 ms · 9 of 10 under 9.53 ms · 99 of 100 under 12.88 ms · most 14.2 ms · what the calls gave: {"answered" 1000}
+00:54:29.858   27039.7  COST    asked  200 a second · sent  2000 in 10.0 s (200 a second) · answered  2000 · calls that came back  2000 · middle 6.19 ms · 9 of 10 under 7.74 ms · 99 of 100 under 11.16 ms · most 15.3 ms · what the calls gave: {"answered" 2000}
+00:54:42.860   40041.9  COST    asked  400 a second · sent  4000 in 10.0 s (400 a second) · answered  4000 · calls that came back  4000 · middle 5.29 ms · 9 of 10 under 6.16 ms · 99 of 100 under 8.39 ms · most 12.7 ms · what the calls gave: {"answered" 4000}
+00:54:55.865   53046.4  COST    asked  800 a second · sent  8000 in 10.0 s (800 a second) · answered  8000 · calls that came back  8000 · middle 4.99 ms · 9 of 10 under 6.21 ms · 99 of 100 under 9.71 ms · most 29.7 ms · what the calls gave: {"answered" 8000}
+00:55:08.873   66054.6  COST    asked 1600 a second · sent 16000 in 10.0 s (1600 a second) · answered 16000 · calls that came back 16000 · middle 7.49 ms · 9 of 10 under 10.08 ms · 99 of 100 under 13.68 ms · most 28.5 ms · what the calls gave: {"answered" 16000}
+00:55:12.666   69848.2  COST    END

@@ -1,0 +1,1 @@
+Rama's own ERROR and WARN lines of the run "s4slow-commit-before" (from the JVM's stdout): each distinct line once, its count in front, the time of day and the thread's name taken off, cut to 300 characters.

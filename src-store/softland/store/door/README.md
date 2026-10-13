@@ -47,8 +47,9 @@ out: the time on the act.
 hold and for the name of the time's part, and the words.
 [door.clj](../door.clj) requires these three and the
 digest; outside this folder it requires two pure rules, the depot that a layer
-starts with ([first_act.clj](../gate/first_act.clj)) and the routing id with the
-tests of what a caller passes to a read ([rows.clj](../record/rows.clj)).
+starts with ([first_act.clj](../gate/first_act.clj)) and the routing id of an
+act-id, which is its layer, with the tests of what a caller passes to a read
+([rows.clj](../record/rows.clj)).
 
 ## The time on the act
 
@@ -83,8 +84,9 @@ checks are [gate/](../gate/README.md)'s. The door's calls of Rama's client, its
 two clocks, the server's for the time on an act and the JVM's `nanoTime` for a
 wait, and its waits are in [door.clj](../door.clj).
 
-The door owns no state. It borrows four handles of Rama's client, two depots
-and two queries, and holds one number, fixed at its opening. It keeps nothing
+The door owns no state. It borrows four handles of Rama's client, the module's
+two depots and its two queries, and holds one number, fixed at its opening. It
+keeps nothing
 between two calls: an act-id and a digest that a maker kept read her answer
 through any door that is opened on the module.
 
@@ -121,7 +123,9 @@ decisions that the door carries:
 
 | Decision | What Sid said | Where it shows in the door |
 |---|---|---|
-| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | `send-act` in [door.clj](../door.clj) reads the clock once for a thing, and `thing-to-append` in [additions.clj](additions.clj) adds the time. The gates are [module/](../module/README.md)'s, which says what each of them reads |
+| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | `send-act` in [door.clj](../door.clj) reads the clock once for a thing, and `thing-to-append` in [additions.clj](additions.clj) adds the time. It is the one read of a clock on the way of an act, in a streaming layer and in the base alike. The gates are [module/](../module/README.md)'s, which says what each of them reads |
+| 3 | "Every act is placed by its layer key, the base too. A layer is one line." | The door reads an answer on the task of the act-id's layer, for both depots: the routing id of an act-id is its layer. Two sends that one maker makes one after the other are decided in that order, in the base as in a streaming layer (`send-act` in [door.clj](../door.clj)) |
+| 5 | "The two depots that hold the answers go, and the rebuild with them. The depot of batch clocks goes. Two depots stay." | The door opens the module's two depots and its two queries, and the module has no other depot. The door reads an answer from the record, by the query |
 | 8 | "The clock the door carries is the clock of the server that runs the door. What the door does with a thing it cannot label stays as built." | The clock is the JVM's `currentTimeMillis` of the process that runs the door. For a thing that it cannot take, the door has its three tests and its seven words; the test of the parts that it adds holds `:door-time` too |
 
 ## Engineering choices
@@ -171,7 +175,17 @@ goes plain into a depot: everything.
 the contract says, and the microbatch depot with `:append-ack`: no stream
 topology reads that depot, so the level says what is meant. A maker gets the
 ack as one of two words, since the two say different things, and never as the
-answer.
+answer. The ack of the streaming depot says that the gate has run. The ack of
+the microbatch depot says only that the depot holds the thing: a maker of the
+base reads her answer when the batch that decided her act is committed on the
+base's task, so she reads with a wait.
+
+**The order of two sends.** A layer is one partition of its depot, in both
+depots: the base is one line. So two sends that one maker makes one after the
+other are decided in that order, in a streaming layer and in the base alike,
+without a failure, and she need not read the first answer before she sends the
+second. `send-act` in [door.clj](../door.clj) says it, and each gate's
+namespace says what a failure does.
 
 **The wait** ([wait.clj](wait.clj) holds its numbers). One read, and with a
 bound one more each 200 ms until an answer is there; the last read starts at
@@ -189,8 +203,8 @@ answer.
 
 **The test of a plain map** is written once more, as a private function of
 [additions.clj](additions.clj). It is two of Clojure's own predicates, and the
-declaration, a gate's batch and the act's check each hold the same line
-privately or in line; one home for it would change the code of each. The pure
+declaration, the digest and the act's check each hold the same line privately
+or in line; one home for it would change the code of each. The pure
 proof holds the door's copy against the declaration's test for a stray.
 
 **An act-id's uuid** is the JVM's random UUID, as the act's decision says: it is

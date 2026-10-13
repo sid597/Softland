@@ -4,19 +4,23 @@ This tree holds the code of the store that is built to stay. The implementation
 lives beneath [softland/](softland/README.md). It holds the act: the one form of
 what a maker gives to the store, and the check of that form. And it holds the
 store's Rama module: the two depots of acts, the streaming gate and the
-microbatch gate, the record that each gate keeps, the depot of answers to which
-each gate appends what it decided, what keeps the clock of each
-batch of the microbatch gate, and the reads by act-id. And it holds the door:
-the client code that takes a maker's act into a depot and reads its answer back.
-And it holds the read path: the client code by which a fact comes back out to a
-caller, once or kept live. And it holds the rebuild: the code that makes every
-row of every table again from the logs, and decides nothing.
-The pure code owns no state. The module's state, the depots, the records and the
-kept clock of a batch, is durable in the cluster that runs it. The door owns no
-state: it borrows four handles of Rama's client and holds one number, fixed at
-its opening. The read path's state is the memory of one process: who looks at
-what, and the pushes that they share. The rebuild owns no state: it is handed
-the logs and gives rows as data.
+microbatch gate, the one walk by which both decide a thing, the record that each
+gate keeps, and the reads by act-id. The module has those two depots and no
+other. And it holds the door: the client code that takes a maker's act into a
+depot, with the time written on it, and reads its answer back. And it holds the
+read path: the client code by which a fact comes back out to a caller, once or
+kept live.
+The pure code owns no state. The module's state, the two depots and the records,
+is durable in the cluster that runs it. The door owns no state: it borrows four
+handles of Rama's client and holds one number, fixed at its opening. The read
+path's state is the memory of one process: who looks at what, and the pushes
+that they share.
+
+The store comes out the same when its gates are run again over its two depots:
+a gate reads no clock and no table of the other gate, and the acts of a layer
+are one line in one depot partition. The
+[decisions of 13 October 2026](#decisions-of-13-october-2026--the-store-comes-out-the-same-when-it-is-run-again)
+say why, and the [verification map](../test-store/README.md) names the proof.
 
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
@@ -28,10 +32,10 @@ Start with the question you are carrying:
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
 | What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
 | What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
-| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and [batch.clj](softland/store/gate/batch.clj) |
+| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and of the walk that both gates call, [walk.clj](softland/store/module/walk.clj) |
 | How does a maker's act get into the store, and how is its answer read? | The namespace docstring of [door.clj](softland/store/door.clj), then [door/](softland/store/door/README.md) for its choices and its words |
 | How does a fact come back out to a tool, once or kept live, and what is it told of a layer that it may not see? | The namespace docstring of [read_path.clj](softland/store/read_path.clj), then [read_path/](softland/store/read_path/README.md) for its choices and its words |
-| How are the tables made again from the logs, what is a rebuild handed, and what does it not make? | The namespace docstring of [rebuild.clj](softland/store/rebuild.clj), then [rebuild/](softland/store/rebuild/README.md) for its choices, what is not decided and its words |
+| How are the tables made again, and how do I know that a second run gives the same? | A second module that mirrors the two depots and calls `add-gates-and-reads` of [module.clj](softland/store/module.clj) runs the store's own gates over them from their beginning. The [verification map](../test-store/README.md) names the proof that does it and compares every table |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
@@ -44,15 +48,15 @@ This tree has its own classpath, in two aliases of the root `deps.edn`. Both hol
 `resources`, the rig and the root's other dependencies are on neither, and a
 require of any of them from here fails at load.
 
-- `:store` holds Clojure alone as `:replace-deps`. The pure code and its four
-  proofs run on it, the read path's five pure namespaces and the rebuild's pure
-  core, each with its proof, among them. It is the guard that the pure code
+- `:store` holds Clojure alone as `:replace-deps`. The pure code and its three
+  proofs run on it, the read path's five pure namespaces with their proof among
+  them. It is the guard that the pure code
   needs nothing else: a pure namespace that came to require Rama would fail to
   load here.
 - `:store-module` holds Clojure and Rama (`com.rpl/rama` 1.6.0), and the same JVM
   options. The module and its proof run on it, and so do the door and its proof,
-  the read path with its proof and its measures, the rebuild's reader and its
-  placing with their proof, and the measures of the gates. It is a whole alias and not an
+  the read path with its proof and its measures, the proof that runs the gates
+  again over the depots, and the measures of the gates. It is a whole alias and not an
   addition to `:store`: with Rama in `:store`, the guard above would be gone.
   Rama's helper library is left out; the module uses none of it.
 
@@ -159,7 +163,9 @@ session read the photographs and wrote down a mark for each question
    its last section). He has not ruled between the two. Until he
    does, the code holds a key to a readable keyword (the queue, K5).
 10. **The microbatch hash entity is no part.** Sid decided. The depot derives
-    it.
+    it. On 13 October he decided that every act is placed by its layer key,
+    the base too (entry 3 of that day): the microbatch depot derives no entity,
+    and it places a thing by its `:layer` as the streaming depot does.
 11. **`:based-on` is a map from a fact id to a carried stamp.** Sid decided.
     Proposed by a session for a blank box (11C) and agreed by Sid in chat on
     6 October: an outside thing is recorded as a fact first, so its basis is
@@ -190,16 +196,22 @@ yet decided is queued in
 never live there.
 
 1. **Two depots, one for each gate: the streaming depot and the microbatch
-   depot.** Sid decided (F6 A, Q7 a; ‹27882354›).
+   depot.** Sid decided (F6 A, Q7 a; ‹27882354›). The builds of 8 to 13
+   October added three more: a depot of the clocks of batches, and a depot of
+   answers for each gate. On 13 October he took the three out (entry 5 of that
+   day). The module has these two.
 2. **The record is in the gates' PStates.** Sid decided (F2 A). His line
    (‹27882354›):
    "f2 - A, note to self- it is recomputable given the version a act was
    proposed at it will be rejected every time so storing it a new
    depotdoesn't make sense". The build found that a second run of a gate
-   over the acts depots does not give the same record (the store's page,
-   rule 19). On 12 October he decided that what a gate decided also goes
-   into a log (entry 1 of that day). The gates' PStates stay the record
-   that the door and every read use.
+   over the acts depots did not give the same record. On 12 October he
+   decided that what a gate decided also goes into a log (entry 1 of that
+   day). On 13 October he took that log out again and had the store built so
+   that a second run does give the same record (the aim and entry 5 of that
+   day), with the version of the act as what a rule belongs to (entry 6). So
+   his note of 7 October holds as he wrote it. The gates' PStates stay the
+   record that the door and every read use.
 3. **The members of a layer set its class, as a fact on the layer.** Sid
    decided (F1 A; ‹27882354›). The "third switch" of the 2 October drawing was never his
    agreement; this is.
@@ -216,13 +228,16 @@ never live there.
    fine to come a little bit delayed wdyt??"
    A session's, from that: the base, which everyone subscribes to, is the
    extreme of the second kind. His "a few ms" is not the build's figure; see
-   entry 8 of 11 and 12 October, "The base's second is fine".
+   entry 8 of 11 and 12 October, "The base's second is fine". What he means
+   by the base is said on 13 October, under "What the base is"; that its acts
+   are one line is entry 3 of that day.
 5. **Each layer holds a copy of each grammar it uses; a gate reads on its own
    task.** Sid decided (F5 A). He asked "what is the cost of holding a copy vs
    fetching it from another task??" (‹27882354›), and met a session's answer
    with "copy .. i agree with your logic here" (‹32f65085›). The logic is the
    session's: a copy is bytes and a rare write; a fetch is a cross-task hop on
-   every act.
+   every act. On 13 October he took the same side for the base's rows: a
+   copy on every task (entry 4 of that day).
 6. **The door reads a streaming act's answer from the record by act-id; the
    ack is a signal.** Sid decided (Q22 A): "so yeah A it is", after "ahh i
    understand why", where he says a session's reason back to it, "Because the
@@ -310,7 +325,10 @@ seal.
    decided that the system can hold many layers (entry 3 of that day), so
    "for the base" in this reading is no limit.
 4. **A stamp holds the clock time and a counter.** Sid decided (H2 A):
-   "clock-time+counter" (‹f3f530b8›).
+   "clock-time+counter" (‹f3f530b8›). Whose clock, and what the counter
+   counts, are his decisions of 13 October: the clock of the server that runs
+   the door, written on the act before the depot, and a number counted per
+   layer (entries 1 and 8 of that day). No gate reads a clock.
 5. **The store's keys in this build are three: the class, a permission, and
    the door's request for locks.** A session proposed the list (K1 A). Sid:
    "idk what else is missing or could be missing, so lets go" (‹751c2af7›). No
@@ -596,7 +614,11 @@ changes with them. They shape the read build, whose starter is
    and he struck neither: it shows no fact of a batch that could still be tried
    again, and it never gives nothing for a place that holds a fact. A session's
    note, which he did not answer: with no optimistic update, whoever writes
-   into the base waits that second to see her own fact.
+   into the base waits that second to see her own fact. Since 13 October the
+   base's gate closes no batch (entry 5 of that day), so nothing waits for a
+   run that closes one: a maker reads her answer when the batch of her act is
+   committed. A read still shows no fact that a second try could change,
+   because a second try of a batch makes every row as the first made it.
 9. **The other sheet comes after the read build.** Sid, 12 October: "all the Z
    phase can be done after this one imo". The sheet is "Before real data is
    kept" (`decisions/groups/g-check.txt`). His answers to it, with his lines
@@ -619,7 +641,13 @@ with them. They shape the build whose starter is
 `src/proposal/backend-on-rama-2026-10-02/BUILD-before-real-data.md`.
 
 1. **Every table can be made again from the logs, and a lost machine is met
-   by copies and backups.** Sid decided (Z1). On 11 October: "can't we just
+   by copies and backups.** Sid decided (Z1). **On 13 October he set aside
+   the box that a session had proposed under this entry**, the log of what a
+   gate decided and the rebuild that applies it (entry 5 of that day). The
+   entry's own line stands and is met another way: the tables are made again
+   by running the gates again over the two logs of acts, and a second run
+   gives the same tables (the aim of that day). What follows is the record of
+   12 October. On 11 October: "can't we just
    replay the log?? why it says A ?? when its deployed there will be a backup
    that will run and even if the main gets blown up we should be able to
    replay log and get to latest ...". A session answered that his sentence
@@ -715,7 +743,8 @@ with them. They shape the build whose starter is
    never trim". Rama's trim setting stays off. A session's: with entries 1
    and 2 this holds for each log of the module, the two of acts, the clocks
    of batches and the answers; the read build's receipt asked it of the
-   clocks of batches (section 10, row 11). Nobody has priced the disk.
+   clocks of batches (section 10, row 11). Nobody has priced the disk. Since
+   13 October the module's logs are the two of acts (entry 5 of that day).
 4. **Whose reads are kept: a model's, always; a person's, until she turns it
    off.** Sid decided (Z4 B). On 11 October, of a model's reads: "yeah we
    should for them store it". Asked on 12 October what holds for a person
@@ -786,3 +815,163 @@ with them. They shape the build whose starter is
      session's: a layer is decided on one thread, so a flood of refused acts
      at a layer slows its own makers; and what is written before a block
      stays.
+
+## Decisions of 13 October 2026 — the store comes out the same when it is run again
+
+Sid made these on 13 October 2026, in chat, after he went through the receipt
+of the build before real data
+(`src/proposal/backend-on-rama-2026-10-02/before-real-data/RECEIPT.md`). That
+night he sent them as eight numbered decisions in the prompt of the build "run
+again" (`src/proposal/backend-on-rama-2026-10-02/run-again/`). A session wrote
+the prompt's text at his word, from his lines of the day, and he sent it; where
+an entry gives a sentence as "the prompt's", it is in those words. Words in
+quotation marks with an id of the record are lines that he typed or dictated;
+dictated lines are given as the dictation has them. What a session drew from a
+decision is marked as a session's, and what stays not decided is named.
+
+The eight entries below have his eight numbers. Two things that the prompt
+says before its list stand before them here: the aim, and what the base is.
+
+The build "run again" built entries 1 to 5 and 8 in the night of 13 to 14
+October. Its page and its receipt are in its folder.
+
+**The aim: the store comes out the same when it is run again from its
+depots.** The prompt's first lines: "The store has to come out the same when
+it is run again from its depots. Today it does not, and it has five depots
+where I decided two." This is his note of 7 October (decision 2 of that day):
+"it is recomputable given the version a act was proposed at". What comes with
+it:
+
+- A proof that runs the store's gates a second time: a second module that
+  mirrors the two depots and decides every act again from their beginning,
+  with every row of every table compared. The prompt's: "Write first the
+  proof that runs the store's gates again over its depots and compares every
+  table ... It must fail on today's store." It failed on the store as it was,
+  in 3,064 rows, and passes on the store as it is.
+- A kept set of acts with the tables that they gave. The prompt's: "Keep the
+  acts of both depots and the tables they gave as a fixture. Every later build
+  must reproduce those tables from those acts, also with another number of
+  tasks."
+- A session's, which the build found and he has not seen: for a second run to
+  give the same, a gate can read nothing whose order no depot holds. So a gate
+  reads no clock (entry 1), no table of the other gate, and no count that it
+  shares with another layer (entry 8).
+
+**What the base is.** He said it on 13 October because sessions had built on
+another meaning. His lines (‹4123e23c›, dictated): "The base there means like
+the code that we are writing"; "any user who gets onboarded to Softland, they
+have this uh, basic admin provided things that they can do. Maybe like
+ingestors or some other stuff"; and of who changes it: "at that layer things
+are only going to change by either me making the changes or a few set of
+people or agents making the changes to the core of uh, system." The prompt's:
+"It is not partitioned by an entity. I said the base is microbatch because it
+does not need to be instant. I never decided that its acts are spread over
+partitions." Decision 4 of 7 October stands: the base is a microbatch layer.
+Not decided, the prompt's: "whether the layer that many people write into is a
+separate layer from the base". Nothing is built for a microbatch layer with
+many writers.
+
+His line for the first three entries (‹f8a673a6›, dictated): "From my point of
+view, it is the clock comes before the depot. There is local ordering and then
+everything is partitioned by the layer key."
+
+1. **The clock comes before the depot.** The prompt's: "The clock comes before
+   the depot. The door writes the time on the act. No gate reads a clock."
+   What comes with it:
+   - The door adds the time to a maker's thing, beside the act-id and the
+     depot. A stamp is made of that time, and the stamp of 8 October stands
+     (entry 4 of that day).
+   - Not decided, his list in the prompt: "what a second send of the same act
+     carries as its time"; "what happens to a record that arrives with no
+     time"; "what the time on the act is called"; "where a time that is far
+     ahead is stopped". Each is built to a small working answer that the code
+     marks "Not decided: kept for now"; the store's page lists them.
+   - A session's, for him to weigh with the last of those four: the rule of 10
+     seconds on a carried stamp was held against the gate's own clock. It is
+     held against the time on the act. Through the door that is the clock of
+     his server. A thing that is appended without the door carries a time that
+     its sender wrote.
+2. **Order is local.** The prompt's: "There is local ordering: the order Rama
+   gives inside one partition." So the store has no order between two layers,
+   and none between its two depots; what a gate decides rests on the order of
+   one layer's acts alone.
+3. **Every act is placed by its layer key, the base too.** The prompt's: "Every
+   act is placed by its layer key, the base too. A layer is one line." Earlier
+   that day he had asked of the base (‹7b869b91›, dictated): "why is it a case
+   for us that we are having two partitions? And we will not be following the
+   rule of uh, everything must stay in order, goes into one partition." Both
+   depots place a thing by its `:layer`. A layer's acts are one partition, and
+   their order is the depot's. Decision 10 of 6 October is met another way:
+   the depot derives no entity.
+4. **The base's rows: a copy on every task. One task decides, in the line's
+   order.** The prompt's words. A session had put three ways to him: the
+   base's rows on its one task, a copy on every task, or spread by entity as
+   built. His answer (‹f5283354›): "ok B it is". The reasons are a session's,
+   which he was shown: everyone reads the base, and with its rows on one task
+   every read of it in Softland would run on one thread and share Rama's bound
+   on live reads of one table on one task; and a copy is his own logic of 7
+   October (decision 5 of that day). What a copy costs, a session's: the base
+   is stored once on each task, a write to it is a write on each task, and a
+   reader on another task sees a change a moment later than a reader on the
+   base's own task. The build found one cost more: askers share a live read of
+   the base only when their reads start from the same layer.
+5. **Two depots. The depots of answers, the rebuild and the depot of batch
+   clocks go.** The prompt's: "The two depots that hold the answers go, and
+   the rebuild with them. The depot of batch clocks goes. Two depots stay."
+   Of the depots of answers, after a session had argued to keep them
+   (‹6f6300a5›): "no i will remove them this is weak logic imo". The session's
+   three reasons for keeping them, which he read and decided against: a rule
+   of a gate will change one day, and a second run would then decide an old
+   act under the new rule; a table can be changed by the code that owns it,
+   and a depot can only grow; and whatever is built later in Rama can be fed
+   only by a depot. Entry 6 is his answer to the first. What comes with it:
+   - Decision 1 of 7 October stands as he made it. The box under entry 1 of
+     12 October, a log of what a gate decided and a rebuild that applies it,
+     is set aside.
+   - A gate closes no batch, and the door's reads wait for none.
+   - Not designed: how a store with real data moves to another number of
+     tasks. A session's, read in Rama's docs and partly run: Rama adds tasks
+     by a new module that reads the old depots from their beginning, which is
+     the second run of the aim.
+6. **A change in what a gate accepts is a new version of the act. The old
+   version's rules stay in the code.** The prompt's words, with: "This starts
+   with the first real record. Until then the fixture is made again only when
+   a rule is changed on purpose, and the receipt says so. In this build it
+   means the rule on the page and the fixture; the code still knows one
+   version." A session proposed the rule to him that day, as the answer to
+   what a second run does with an old act when a rule of a gate has changed
+   since, and he took it into his prompt as his decision. What comes with it,
+   a session's: a second run decides an act under the rules of the act's own
+   version, so a fault in an old rule stays the answer of the acts that it
+   answered; the correction is a new version, from then on.
+7. **He is against the Rama setting that orders a layer's acts after a
+   failure.** His line (‹278f6238›): "yeah i am against the setting as well
+   ... so that is sorted what next?". The setting is
+   `topology.stream.max.executing.per.task` at 1; the measure that he read is
+   in the receipt of the build before real data, section 5. The prompt's:
+   "Nobody has shown whether a failure in a fast layer can make acts that were
+   in flight come out in another order when the store is run again. Run it
+   and find out. If it can, look for a cheap way to close it. If there is
+   none, say it on the store's page, and the proof names such acts." What the
+   run found is on the store's page, under the order of a layer's acts after a
+   failure.
+8. **A number counted per layer. The door's clock is its server's. What the
+   door cannot label stays as built.** The prompt's: "A number counted per
+   layer. The clock the door carries is the clock of the server that runs the
+   door. What the door does with a thing it cannot label stays as built." A
+   session had put the three to him as things it would add or leave unless he
+   said no, and his answer (‹febe1bee›) was: "to me the remaining ones and
+   what to do with them seems right to me". What comes with it:
+   - A gate keeps one last stamp for each layer. Two layers on one task count
+     apart, so a layer's stamps do not depend on which layers share its task
+     or on how many tasks the module has.
+   - The door tells the maker of a thing that it cannot give an act-id to,
+     and appends nothing for it, as it did.
+
+How the build went, in the prompt's words: "Not the Rama skill's seven phases
+on every piece." "Work in parts. Commit a part only when every proof passes, so
+the store is whole wherever the night ends." And of the first proof, a
+sentence that a session wrote and that he sent on as a line of its own
+(‹932247ec›): "The first proof is the one exception: commit it while it still
+fails, say which part makes it pass, and until that part is in it may go on
+failing."

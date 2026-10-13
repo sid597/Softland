@@ -23,7 +23,38 @@
   with the time that the door wrote on it; the answer under an act-id, by
   the query `answer-by-act-id`; the row of a place, by a select of the
   gates' tables of facts, to see what a gate kept of a value and that a
-  refused act left no row; and the strays of both gates.
+  refused act left no row; and the strays of both gates. A place of a
+  streaming layer has its row on the layer's task. A place of the base has
+  the same row on every task, and the proof reads each task.
+
+  The base. An act of the base goes to the microbatch depot, whose ack says
+  that the depot holds the thing and nothing of the decision. The proof
+  holds that with Rama's test tool, which pauses the microbatch gate: an
+  act that the gate will accept and one that it will refuse come back with
+  the same ack and read \"nothing yet\"; when the gate goes on, each reads
+  its answer, and each later read gives that answer again, also after the
+  module is started again. It holds the order of two sends: a give and then
+  the first act under it, and an act and then an act that replaces its
+  fact, each pair sent with no read between the two, are all accepted. It
+  sends 8 acts while the gate is paused: a give, the first act under it,
+  and six that each replace the fact of the act before, so that each needs
+  the rows of the one before it. Rama's test docs say that the next batch
+  then holds them all; the proof cannot see where a batch is cut, and
+  nothing of a batch is in an answer. An answer of the base shows when its batch is
+  committed on the base's task, and the copy of a fact on another task can
+  show a moment later. So before it reads a row of the base round the door,
+  the proof waits, with Rama's test tool, until the microbatch gate has
+  processed each record of its depot. It prints how long an act of the base
+  took from the return of `send-act` to its answer, as an order of size,
+  and holds that time to nothing but the bound of a wait.
+
+  The depot of a layer, and the other depot word. The door reads a layer's
+  depot when it makes an act-id. The proof notes what that read was asked
+  and what it gave, for the base, for a streaming layer and for a layer
+  that is not made. An act under an act-id whose depot word is not the
+  layer's goes to the depot that the act-id names. The proof sends one to
+  each depot, for a layer that is made and for one that is not, and holds
+  the word of the refusal that comes back.
 
   The time on the act. The door adds three parts to a maker's act: the
   act-id, the depot, and the time of the clock of the server that runs the
@@ -33,22 +64,23 @@
   integer between two readings of the clock that the proof makes, one just
   before the call of the door and one just after. The proof and its doors
   run in one process, so the proof reads the clock that the door reads. It
-  also holds the time in the stamp of an accepted streaming act against the
-  time on the act, with the stamp's own functions
-  (`softland.store.gate.stamp`). Where both are equal, the check says why:
-  the act is the first of its layer, or it was sent after each earlier act
-  of its layer. Of acts that 16 threads send into one layer at once it
-  holds only what holds in every order: no stamp is of a time before the
-  time on its act.
+  also holds the time in the stamp of an accepted act against the time on
+  the act, in a streaming layer and in the base, with the stamp's own
+  functions (`softland.store.gate.stamp`). Where both are equal, the check
+  says why: the act is the first of its layer, or it was sent after each
+  earlier act of its layer. Of acts that 16 threads send into one layer at
+  once it holds only what holds in every order: no stamp is of a time
+  before the time on its act.
 
   Where the proof stands in for a call of Rama's client. Clojure lets a
   proof put a function of its own in the place of `foreign-append!`,
   `foreign-invoke-query`, `foreign-depot` or `foreign-query` for a while.
   The proof does so for four things, and each line that rests on it says
   so: to count the handles that the opening of a door fetches; to count the
-  round trips of a call of the door; to note the calls of one send in their
-  order; and to make a read throw, since no real throw of a query was found
-  that the in-process cluster gives without a fault of the cluster. The
+  round trips of a call of the door; to note the calls of the door in their
+  order, and of a read what it was asked and what Rama gave; and to make a
+  read throw, since no real throw of a query was found that the in-process
+  cluster gives without a fault of the cluster. The
   other throws are real throws of Rama's client: a module name under which
   no module runs, a thing that holds a plain Java object, a thing whose
   `:who` is an object of the proof's own, and a call made on a thread whose
@@ -59,11 +91,13 @@
 
   State. The proof starts one in-process cluster with four tasks and two
   workers, launches the module `Store` in it, and closes it at the end; the
-  cluster's files are temporary and are Rama's. It opens six doors on the
+  cluster's files are temporary and are Rama's. It opens seven doors on the
   module: the door of most checks; a second door, opened with a read each
   100 ms; one more for the count of the handles that an opening fetches;
-  two in the check of the opener's number; and one near the end, which
-  stands for the door of another process. It owns three atoms: the lines
+  two in the check of the opener's number; one that reads each 5 ms, to
+  time an act of the base; and one near the end, which stands for the door
+  of another process. It pauses the microbatch gate with Rama's test tool,
+  and lets it go on each time. It owns three atoms: the lines
   that it showed; each result that a door gave it; and what later checks
   come back to. It reads two clocks of its JVM and sets neither: `nanoTime`
   to time a wait, and `currentTimeMillis`, the clock that the door reads
@@ -314,18 +348,27 @@
   [layer e k]
   (rama/foreign-select-one (path/keypath (record/place-key layer e k)) (:streaming-facts *round*) {:pkey layer}))
 
+(defn- rows-in
+  "The row at one place in one gate's table of facts, as each task holds
+  it: a vector with one entry for each task, nil where a task holds no row.
+  Takes the proof's name of the table, :streaming-facts or
+  :microbatch-facts, and the place. The microbatch gate keeps a fact of its
+  layers as the same row on every task. What must hold: each of the three
+  of the place is an id within the limit."
+  [pstate layer e k]
+  (mapv (fn [pkey]
+          (rama/foreign-select-one (path/keypath (record/place-key layer e k)) (get *round* pstate) {:pkey pkey}))
+        (rtest/gen-hashing-index-keys tasks)))
+
 (defn- rows-at
   "Each row that the two gates hold at one place, by a select of both
   gates' tables of facts on each task: a vector, empty when no gate holds a
   row there. It asks every task, so it does not rest on where a gate keeps
-  a place. A place under a plain key has one row at most. What must hold:
-  each of the three is an id within the limit."
+  a place. A place of a streaming layer has one row at most; a place of a
+  microbatch layer has its row once for each task. What must hold: each of
+  the three is an id within the limit."
   [layer e k]
-  (vec (for [pstate [:streaming-facts :microbatch-facts]
-             pkey (rtest/gen-hashing-index-keys tasks)
-             :let [row (rama/foreign-select-one (path/keypath (record/place-key layer e k)) (get *round* pstate) {:pkey pkey})]
-             :when row]
-         row)))
+  (vec (remove nil? (concat (rows-in :streaming-facts layer e k) (rows-in :microbatch-facts layer e k)))))
 
 (defn- strays
   "How many different strays the two gates hold, over every word and every
@@ -342,6 +385,19 @@
 
 (defn- resume-base! "Lets the microbatch gate go on." []
   (rtest/resume-microbatch-topology! (:ipc *round*) (:module *round*) "microbatch-gate"))
+
+(defn- settle-base!
+  "Waits until the microbatch gate has processed each record that its depot
+  holds, with Rama's test tool, which throws when `wait-ms` passes first.
+  The proof calls it before it reads a row of the base round the door: an
+  answer shows when its batch is committed on the base's task, and the copy
+  of a fact on another task can show a moment later. What must hold: the
+  gate is not paused, and the module was not started again since the
+  cluster started, since the proof does not know what the tool counts
+  after that."
+  []
+  (rtest/wait-for-microbatch-processed-count (:ipc *round*) (:module *round*) "microbatch-gate"
+                                             (log-count :microbatch) wait-ms))
 
 ;; ----------------------------------------- standing in for a call of Rama's client
 
@@ -380,6 +436,24 @@
                                               (apply real-query query args))]
       (let [result (f)]
         {:result result :calls @calls}))))
+
+(defn- asking
+  "Calls f while the proof stands in for Rama's client call
+  `foreign-invoke-query` with a function that calls Rama and then notes
+  what the query was asked and what it gave. Gives {:result what f gave,
+  :asked the queries in their order}, each query as [the arguments after
+  the handle, what Rama gave]: the read of a layer's depot has one
+  argument, the layer; the read of an answer has two, the routing id and
+  the act-id. What must hold is what `counting` asks."
+  [f]
+  (let [asked (atom [])
+        real-query rama/foreign-invoke-query]
+    (with-redefs [rama/foreign-invoke-query (fn [query & args]
+                                              (let [got (apply real-query query args)]
+                                                (swap! asked conj [(vec args) got])
+                                                got))]
+      (let [result (f)]
+        {:result result :asked @asked}))))
 
 (defn- fetching
   "Calls f while the proof stands in for the two calls of Rama's client
@@ -467,6 +541,25 @@
   "The system's act into the base, as a maker gives it."
   [facts]
   {:version 1 :who :system :layer :base :permission system-own :session :door-proof :facts facts})
+
+(defn- base-act-of
+  "An act into the base of a who under a permission, as a maker gives it."
+  [who permission facts]
+  {:version 1 :who who :layer :base :permission permission :session :door-proof :facts facts})
+
+(defn- time-sent
+  "The time that the door wrote on the thing that it sent for a result of
+  `send-act`, read back from the log of the depot that the act-id names; or
+  nil when that log holds no record, or more than one, under the act-id."
+  [sent]
+  (when (:act-id sent)
+    (time-on (record-of (:act-id sent)))))
+
+(defn- rising?
+  "True for stamps that are all there and of which each is above the one
+  before it."
+  [stamps]
+  (boolean (and (seq stamps) (every? int? stamps) (apply < stamps))))
 
 (defn- hex64?
   "True for a digest as a maker gets one: 64 hex characters."
@@ -1191,12 +1284,19 @@
 
 (deftest the-base-through-the-door
   (let [d (the-door)
-        before (act-id-for! d :base)
+        asked-before (asking #(act-id-for! d :base))
+        before (:result asked-before)
+        ;; an act for the base under an act-id with the other depot word, before the base is made
+        other-id (assoc (act-id-for! d :base) 1 :streaming)
+        logs-before-other (log-counts)
+        other (decide! d (system-act [(value :wrong-depot-base-1 "a value")]) other-id)
+        logs-after-other (log-counts)
         making {:version 1 :who :system :layer :base :permission system-own :session :door-proof
                 :facts [{:e :base :k :softland.store/depot :v :microbatch}
                         {:e :system :k :softland.store/permission :v system-own}]}
         made-sent (send! d making)
         made-answer (answer! d (:act-id made-sent) (:digest made-sent) wait-ms)
+        made-time (time-sent made-sent)
         ;; a value act: one read of the layer's depot and one append
         first-act (system-act [(value :doc-1 "a title")])
         logs-before (log-counts)
@@ -1207,28 +1307,24 @@
         logs-after (log-counts)
         first-record (when-not (:could-not first-value) (record-of (:act-id first-value)))
         first-answer (when-not (:could-not first-value) (answer! d (:act-id first-value) (:digest first-value) wait-ms))
-        first-rows (rows-at :base :doc-1 :text)
-        ;; several acts of one who from several threads while the gate is paused
-        gave (decide! d (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}]))
-        alices-act (fn [i] {:version 1 :who :alice :layer :base :permission alice-in-base :session :door-proof
-                            :facts [(value (keyword (str "alices-doc-" i)) i)]})
-        _ (pause-base!)
-        logs-before-paused (log-counts)
-        work (mapv (fn [i] (future (send! d (alices-act i)))) (range 4))
-        paused-sent (mapv (fn [f] (deref f 60000 {:could-not :no-return})) work)
-        logs-while-paused (log-counts)
-        while-paused (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent)))) paused-sent)
-        _ (resume-base!)
-        paused-answers (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent) wait-ms))) paused-sent)
-        ;; the base's batches: 8 acts on 8 entities in one batch
-        _ (pause-base!)
-        eight (mapv (fn [i] (send! d (system-act [{:e (keyword (str "seen-" i)) :k :seen}]))) (range 8))
-        _ (resume-base!)
-        eight-answers (mapv (fn [sent] (answer! d (:act-id sent) (:digest sent) wait-ms)) eight)
-        stamps (map :stamp eight-answers)]
+        _ (settle-base!)
+        first-rows (rows-in :microbatch-facts :base :doc-1 :text)
+        asked-again (asking #(answer! d (:act-id first-value) (:digest first-value)))
+        gave (decide! d (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}]))]
+    (swap! kept assoc
+           :base-under-the-streaming-word (:answer other)
+           :base-answers [[(:act-id made-sent) (:digest made-sent) made-answer]
+                          [(:act-id first-value) (:digest first-value) first-answer]])
     (check "act-id-for the base before it is made: the base starts as a microbatch layer" [:base :microbatch] (vec (take 2 before)))
+    (check "that act-id came of one read of the layer's depot, asked with the layer alone, which gave nothing: the base was not made, and the door gave the depot that the base starts with"
+           [[[[:base] nil]] (first-act/depot-at-making :base)] [(:asked asked-before) (get before 1)])
+    (check "an act for the base under an act-id with the streaming depot word, sent before the base is made: the thing goes to the streaming depot, one record more in its log and none in the other; the streaming gate's ack; and that gate's recorded refusal comes back, with the word of a layer of the other gate and not the word of a layer that is not made"
+           [nil :gate-ran [1 0] {:answer :refused :reason :layer-belongs-to-the-other-gate}]
+           [(:could-not (:sent other)) (:ack (:sent other)) (mapv - logs-after-other logs-before-other) (dissoc (:answer other) :stamp)])
     (check "the base's making act by the system: the microbatch depot's ack, which says only that the depot holds the thing; and a wait gives accepted"
            [:depot-holds [:base :microbatch] :accepted] [(:ack made-sent) (vec (take 2 (:act-id made-sent))) (:answer made-answer)])
+    (check "the stamp of that answer holds the time that the door wrote on the making act, with a counter of zero: it is the first decision of the base in the microbatch gate's record"
+           [true made-time 0] [(int? made-time) (time-in (:stamp made-answer)) (counter-in (:stamp made-answer))])
     (check "a value act into the base: the microbatch depot's ack, and one record more in its log, the act itself"
            [nil :depot-holds [0 1]]
            [(:could-not first-value) (:ack first-value) (mapv - logs-after logs-before)])
@@ -1237,23 +1333,192 @@
     (check "the record in the log is the system's act with the door's three additions, its value plain: without its time it is the act with :act-id and :depot, and its time is a time of the door's clock between the proof's two readings round the send. The door writes the time on a thing for the microbatch depot as it does for the other"
            [(assoc first-act :act-id (:act-id first-value) :depot :microbatch) true]
            [(without-the-time first-record) (time-between? (time-on first-record) clock-before clock-after)])
-    (check "the act's answer by a wait is accepted, and one gate holds one row at its place, with the text of its value"
-           [:accepted ["\"a title\""]] [(:answer first-answer) (mapv :value first-rows)])
+    (check "the act's answer by a wait is accepted; the microbatch gate holds the row of its place on each task, one row, with the text of its value; and the streaming gate holds no row there on any task"
+           [:accepted (vec (repeat tasks "\"a title\"")) 1 (vec (repeat tasks nil))]
+           [(:answer first-answer) (mapv :value first-rows) (count (set first-rows)) (rows-in :streaming-facts :base :doc-1 :text)])
+    (check "a read of that answer with no wait is one query, asked with the act-id's layer and the act-id: the routing id of an act-id of the base is its layer. The read gives the answer that the wait gave, its stamp too"
+           [[[:base (:act-id first-value)]] :base first-answer]
+           [(mapv first (:asked asked-again)) (record/routing-id (:act-id first-value)) (:result asked-again)])
     (check "the system gives Alice a permission in the base" true (accepted? gave))
+    (shown "the base through the door: its making act" (pr-str (dissoc made-sent :digest)) "and a wait gave" (pr-str made-answer)
+           "| the time that the door wrote on it:" made-time "| the time and the counter in the stamp of its answer:"
+           (time-in (:stamp made-answer)) (counter-in (:stamp made-answer)))
+    (shown "a value act into the base made the calls" (pr-str (:calls noted-calls))
+           "of Rama's client, which the proof noted by standing in for them with functions that note and then call Rama; a wait gave" (pr-str first-answer)
+           "| the value at its place in the microbatch gate's table, task by task:" (pr-str (mapv :value first-rows))
+           "| a read of its answer with no wait asked the query with its routing id and its act-id, and the routing id was" (pr-str (first (ffirst (:asked asked-again)))))
+    (shown "an act for the base under an act-id with the streaming depot word, sent before the base was made:" (told other))))
+
+(deftest the-depot-of-a-layer
+  (let [d (the-door)
+        asked (fn [layer] (asking #(act-id-for! d layer)))
+        base (asked :base)
+        streaming (asked :alice)
+        not-made (asked :no-such-layer)
+        seen (fn [got] [(:asked got) (vec (take 2 (:result got)))])
+        series (asking #(noted (door/act-ids-for d :base 3)))
+        sent (asking #(send! d (system-act [(value :depot-read-doc "a value")])))
+        sent-answer (answer! d (:act-id (:result sent)) (:digest (:result sent)) wait-ms)
+        by-hand (mapv (fn [layer] (rama/foreign-invoke-query (:depot-of-layer *round*) layer)) [:base :alice :no-such-layer])]
+    (swap! kept update :base-answers conj [(:act-id (:result sent)) (:digest (:result sent)) sent-answer])
+    (check "act-id-for the base, which is made: one read of the layer's depot, asked with the layer alone; the read gave the microbatch depot, and the act-id names it"
+           [[[[:base] :microbatch]] [:base :microbatch]] (seen base))
+    (check "act-id-for a streaming layer that is made: one read, which gave the streaming depot, and the act-id names it"
+           [[[[:alice] :streaming]] [:alice :streaming]] (seen streaming))
+    (check "act-id-for a layer that is not made: one read, which gave nothing; the act-id names the depot that the layer starts with, which for a layer that is not the base is the streaming depot"
+           [[[[:no-such-layer] nil]] [:no-such-layer :streaming] :streaming]
+           (conj (seen not-made) (first-act/depot-at-making :no-such-layer)))
+    (check "act-ids-for 3 in the base: one read, which gave the microbatch depot, and 3 act-ids that name it"
+           [[[[:base] :microbatch]] 3 #{[:base :microbatch]}]
+           [(:asked series) (count (:result series)) (set (map (fn [id] (vec (take 2 id))) (:result series)))])
+    (check "a send into the base that makes its act-id: one read, of the base's depot, which gave the microbatch depot; the thing went to that depot, and its answer by a wait is accepted"
+           [[[[:base] :microbatch]] [:base :microbatch] :depot-holds :accepted]
+           [(:asked sent) (vec (take 2 (:act-id (:result sent)))) (:ack (:result sent)) (:answer sent-answer)])
+    (check "the query of a layer's depot, called with the proof's own handle for the same three layers, gives the microbatch depot, the streaming depot, and nothing"
+           [:microbatch :streaming nil] by-hand)
+    (shown "the depot of a layer, as the door's read of it gave it, each read asked with the layer alone: the base" (pr-str (:asked base))
+           "| a streaming layer that is made" (pr-str (:asked streaming)) "| a layer that is not made" (pr-str (:asked not-made))
+           "for which the door gave" (pr-str (vec (take 2 (:result not-made))))
+           "| the proof noted each read by standing in for Rama's client call with a function that calls Rama and notes what it gave")))
+
+(deftest the-ack-of-the-base-is-no-answer
+  (let [d (the-door)
+        alices-act (fn [i] (base-act-of :alice alice-in-base [(value (keyword (str "alices-doc-" i)) i)]))
+        ;; several acts of one who from several threads while the gate is paused
+        _ (pause-base!)
+        logs-before-paused (log-counts)
+        work (mapv (fn [i] (future (send! d (alices-act i)))) (range 4))
+        paused-sent (mapv (fn [f] (deref f 60000 {:could-not :no-return})) work)
+        logs-while-paused (log-counts)
+        while-paused (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent)))) paused-sent)
+        _ (resume-base!)
+        paused-answers (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent) wait-ms))) paused-sent)
+        ;; one act that the gate will accept and one that it will refuse, while the gate is paused
+        mallorys [:mallory :base :base system-own]
+        to-accept (system-act [(value :ack-doc "a value that the gate will accept")])
+        to-refuse (base-act-of :mallory mallorys [(value :mallorys-doc "a value of a who with no permission")])
+        _ (pause-base!)
+        two-sent (mapv (fn [act] (send! d act)) [to-accept to-refuse])
+        two-paused (mapv (fn [sent] (answer! d (:act-id sent) (:digest sent))) two-sent)
+        began (System/nanoTime)
+        waited-paused (answer! d (:act-id (first two-sent)) (:digest (first two-sent)) 600)
+        waited-ms (quot (- (System/nanoTime) began) 1000000)
+        _ (resume-base!)
+        two-answers (mapv (fn [sent] (answer! d (:act-id sent) (:digest sent) wait-ms)) two-sent)
+        read-again (mapv (fn [sent] (vec (repeatedly 5 #(answer! d (:act-id sent) (:digest sent))))) two-sent)
+        _ (settle-base!)
+        accepted-rows (rows-in :microbatch-facts :base :ack-doc :text)]
+    (swap! kept update :base-answers into (mapv (fn [sent answer] [(:act-id sent) (:digest sent) answer]) two-sent two-answers))
     (check "4 acts of one who sent from 4 threads while the gate is paused: each send comes back with the depot's ack while the gate is still paused, the microbatch log holds 4 records more, and each reads nothing yet"
            [[nil nil nil nil] (vec (repeat 4 :depot-holds)) [0 4] (vec (repeat 4 {:answer :nothing-yet}))]
            [(mapv :could-not paused-sent) (mapv :ack paused-sent) (mapv - logs-while-paused logs-before-paused) while-paused])
     (check "the gate goes on, and each of the 4 answers by a wait is accepted"
            [:accepted :accepted :accepted :accepted] (mapv :answer paused-answers))
-    (check "8 acts on 8 entities sent while the gate is paused: each is acked by the depot, and each answer by a bounded wait is accepted"
-           [(vec (repeat 8 :depot-holds)) (vec (repeat 8 :accepted))] [(mapv :ack eight) (mapv :answer eight-answers)])
-    (check "the 8 were decided in one batch: their 8 stamps are different and lie within one tick of the gate's clock"
-           [8 true] [(count (set stamps)) (< (- (reduce max stamps) (reduce min stamps)) 65536)])
-    (shown "the base through the door: its making act" (pr-str (dissoc made-sent :digest)) "and a wait gave" (pr-str made-answer))
-    (shown "a value act into the base made the calls" (pr-str (:calls noted-calls))
-           "of Rama's client, which the proof noted by standing in for them with functions that note and then call Rama; a wait gave" (pr-str first-answer)
-           "| 4 acts of one who from 4 threads while the gate was paused each came back with the depot's ack and read" (pr-str (first while-paused))
-           "until the gate went on | 8 acts on 8 entities in one batch, each accepted by a bounded wait")))
+    (check "an act that the gate will accept, and an act of a who under a permission that was never given, which it will refuse, sent while the gate is paused: both sends come back with the one ack of the microbatch depot, which says nothing of the decision, and each reads nothing yet"
+           [[nil nil] [:depot-holds :depot-holds] [{:answer :nothing-yet} {:answer :nothing-yet}]]
+           [(mapv :could-not two-sent) (mapv :ack two-sent) two-paused])
+    (check "a wait of 600 ms for the first of the two, while the gate is still paused, comes back after its bound with nothing yet"
+           [{:answer :nothing-yet} true] [waited-paused (<= 600 waited-ms)])
+    (check "the gate goes on: a wait gives accepted for the first, and for the second the gate's recorded refusal with its word"
+           [{:answer :accepted} {:answer :refused :reason :permission-does-not-stand}]
+           (mapv (fn [answer] (dissoc answer :stamp)) two-answers))
+    (check "a read that gave an answer gives the same answer on each later read: 5 reads more of each of the two, with no wait, give the answer that the wait gave, its stamp too"
+           [(vec (repeat 5 (nth two-answers 0))) (vec (repeat 5 (nth two-answers 1)))] read-again)
+    (check "the accepted value is one row on each task of the microbatch gate's table, and no gate holds a row at the place of the refused value, on any task"
+           [(vec (repeat tasks "\"a value that the gate will accept\"")) 1 []]
+           [(mapv :value accepted-rows) (count (set accepted-rows)) (rows-at :base :mallorys-doc :text)])
+    (shown "4 acts of one who from 4 threads while the microbatch gate was paused each came back with the depot's ack and read" (pr-str (first while-paused))
+           "until the gate went on, and then" (pr-str (mapv :answer paused-answers)))
+    (shown "the ack of the microbatch depot is no answer: an act that the gate accepts and one that it refuses, sent while the gate was paused, came back with the acks" (pr-str (mapv :ack two-sent))
+           "and read" (pr-str two-paused) "| a wait of 600 ms came back after" waited-ms "ms with" (pr-str waited-paused)
+           "| when the gate went on they read" (pr-str (mapv (fn [answer] (dissoc answer :stamp)) two-answers))
+           "| 5 later reads of each gave that answer again:" (pr-str (mapv (fn [answer reads] (every? (fn [r] (= answer r)) reads)) two-answers read-again))
+           "| the proof paused the gate with Rama's test tool")))
+
+(deftest two-sends-into-the-base-are-decided-in-their-order
+  (let [d (the-door)
+        answers-of (fn [sent] (mapv (fn [one] (answer! d (:act-id one) (:digest one) wait-ms)) sent))
+        times-in (fn [answers] (mapv (comp time-in :stamp) answers))
+        ;; a give, and then the first act under it
+        orens [:oren :base :base system-own]
+        give-ids (noted (door/act-ids-for d :base 2))
+        give (system-act [{:e :oren :k :softland.store/permission :v orens}])
+        orens-first (base-act-of :oren orens [(value :orens-doc "the first act under a permission that was just given")])
+        give-calls (noting (fn [] [(send! d give (get give-ids 0)) (send! d orens-first (get give-ids 1))]))
+        give-sent (:result give-calls)
+        give-answers (answers-of give-sent)
+        give-times (mapv time-sent give-sent)
+        ;; an act, and then an act that names its fact to replace
+        replace-ids (noted (door/act-ids-for d :base 2))
+        written (system-act [(value :two-sends-doc "as first sent")])
+        replacing (system-act [(assoc (value :two-sends-doc "as replaced") :replaces [(get replace-ids 0) 0])])
+        replace-calls (noting (fn [] [(send! d written (get replace-ids 0)) (send! d replacing (get replace-ids 1))]))
+        replace-sent (:result replace-calls)
+        replace-answers (answers-of replace-sent)
+        replace-times (mapv time-sent replace-sent)
+        ;; 8 acts in one batch, each of which needs the rows of the one before it
+        petras [:petra :base :base system-own]
+        chain-ids (noted (door/act-ids-for d :base 8))
+        chain-acts (into [(system-act [{:e :petra :k :softland.store/permission :v petras}])
+                          (base-act-of :petra petras [(value :chain-doc 1)])]
+                         (map (fn [i] (base-act-of :petra petras [(assoc (value :chain-doc i) :replaces [(get chain-ids (dec i)) 0])])))
+                         (range 2 8))
+        _ (pause-base!)
+        chain-calls (noting (fn [] (vec (map-indexed (fn [i act] (send! d act (get chain-ids i))) chain-acts))))
+        chain-sent (:result chain-calls)
+        chain-paused (mapv (fn [one] (answer! d (:act-id one) (:digest one))) chain-sent)
+        _ (resume-base!)
+        chain-answers (answers-of chain-sent)
+        chain-times (mapv time-sent chain-sent)
+        _ (settle-base!)
+        replaced-rows (rows-in :microbatch-facts :base :two-sends-doc :text)
+        chain-rows (rows-in :microbatch-facts :base :chain-doc :text)]
+    (check "a give in the base and then the first act under the given permission, sent one after the other under act-ids asked for ahead: the calls of Rama's client from the first send to the return of the second are two appends, and no read"
+           [[:append 2] [:append 2]] (:calls give-calls))
+    (check "both are accepted: the gate decided the give before the act that needs it, which is the order of the two sends. The two stamps rise in that order, and the time in each is the time that the door wrote on its thing: one maker sent the two one after the other, after each earlier act of the base"
+           [[:accepted :accepted] true give-times]
+           [(mapv :answer give-answers) (rising? (mapv :stamp give-answers)) (times-in give-answers)])
+    (check "an act that writes a fact and then an act that names that fact to replace, sent the same way: two appends, and no read"
+           [[:append 2] [:append 2]] (:calls replace-calls))
+    (check "both are accepted: the gate decided the first before the act that replaces its fact. The two stamps rise in the order of the sends, the time in each is the time that the door wrote on its thing, and the place holds the value of the second, one row on each task"
+           [[:accepted :accepted] true replace-times (vec (repeat tasks "\"as replaced\"")) 1]
+           [(mapv :answer replace-answers) (rising? (mapv :stamp replace-answers)) (times-in replace-answers)
+            (mapv :value replaced-rows) (count (set replaced-rows))])
+    (check "8 acts of the base sent one after the other while the gate is paused, under act-ids asked for ahead: 8 appends and no read; each send comes back with the depot's ack, and each reads nothing yet"
+           [(vec (repeat 8 [:append 2])) (vec (repeat 8 :depot-holds)) (vec (repeat 8 {:answer :nothing-yet}))]
+           [(:calls chain-calls) (mapv :ack chain-sent) chain-paused])
+    (check "the gate goes on, and each of the 8 is accepted by a bounded wait. The first is a give, the second is the first act under it, and each of the next six replaces the fact of the act before it: so each was decided with the rows that the act before it wrote"
+           (vec (repeat 8 :accepted)) (mapv :answer chain-answers))
+    (check "the 8 stamps rise in the order of the sends, and the time in each is the time that the door wrote on its thing"
+           [true chain-times] [(rising? (mapv :stamp chain-answers)) (times-in chain-answers)])
+    (check "the place that the last seven wrote holds the value of the last of them, one row on each task"
+           [(vec (repeat tasks "7")) 1] [(mapv :value chain-rows) (count (set chain-rows))])
+    (shown "two sends into the base with no read between them are decided in their order: a give and then the first act under it read" (pr-str (mapv :answer give-answers))
+           "| an act and then an act that replaces its fact read" (pr-str (mapv :answer replace-answers))
+           "| the calls of Rama's client in each pair:" (pr-str (:calls give-calls)) (pr-str (:calls replace-calls))
+           "| the proof noted the calls by standing in for them with functions that note and then call Rama")
+    (shown "8 acts of the base sent while the gate was paused, a give, the first act under it, and six that each replace the fact of the act before: read while the gate was paused" (pr-str (frequencies (map :answer chain-paused)))
+           "| read when it went on" (pr-str (frequencies (map :answer chain-answers)))
+           "| the stamps rise in the order of the sends:" (rising? (mapv :stamp chain-answers))
+           "| the counters in the 8 stamps:" (pr-str (mapv (comp counter-in :stamp) chain-answers))
+           "| the value at the place, task by task:" (pr-str (mapv :value chain-rows))
+           "| Rama's test docs say that the batch after a pause holds each record that was appended meanwhile; the proof did not see where a batch was cut")))
+
+(deftest how-long-an-act-of-the-base-takes
+  (let [fine (noted (door/open (:ipc *round*) (:module *round*) {:read-every-ms 5}))
+        timed (mapv (fn [i]
+                      (let [sent (send! fine (system-act [(value (keyword (str "timed-doc-" i)) i)]))
+                            returned (System/nanoTime)
+                            answer (answer! fine (:act-id sent) (:digest sent) wait-ms)]
+                        {:sent sent :answer answer :took-ms (quot (- (System/nanoTime) returned) 1000000)}))
+                    (range 5))]
+    (check "a door opened with a read each 5 ms is a door" nil (:could-not fine))
+    (check "5 acts of the base through it, each sent when the one before is answered: each send comes back with the depot's ack, and a wait with the proof's bound gives accepted"
+           [(vec (repeat 5 :depot-holds)) (vec (repeat 5 :accepted))]
+           [(mapv (comp :ack :sent) timed) (mapv (comp :answer :answer) timed)])
+    (shown "from the return of send-act to the answer of an act of the base, for 5 acts sent one by one through a door that reads each 5 ms:" (pr-str (mapv :took-ms timed))
+           "ms | an order of size: one run on Rama's in-process cluster, on one machine, with every row in memory and no network; a time can be one sleep of 5 ms and one read later than the commit of the act's batch on the base's task"
+           "| the proof holds these times to nothing but the bound of a wait," wait-ms "ms")))
 
 (def ^:private kinds-of-value
   "A value of each kind that the form takes, each as [what it is, the value,
@@ -1316,24 +1581,32 @@
         streaming (vec (map-indexed (fn [i [_ v _]] (decide! d (act-of :kinds [(value (entity i) v)]))) kinds-of-value))
         base-sent (vec (map-indexed (fn [i [_ v _]] (send! d (system-act [(value (entity i) v)]))) kinds-of-value))
         base-answers (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent) wait-ms))) base-sent)
+        _ (settle-base!)
         seen (fn [layer i answer]
                (let [rows (rows-at layer (entity i) :text)]
                  [(:answer answer) (mapv :value rows) (record/read-value (first rows))]))
+        seen-in-base (fn [i answer]
+                       (let [rows (rows-in :microbatch-facts :base (entity i) :text)]
+                         [(:answer answer) (mapv :value rows) (count (set rows)) (record/read-value (first rows))]))
+        in-the-other-table (vec (mapcat (fn [i] (remove nil? (rows-in :streaming-facts :base (entity i) :text)))
+                                        (range (count kinds-of-value))))
         all (vec (map-indexed (fn [i [what v text]]
-                                [what v text (seen :kinds i (:answer (nth streaming i))) (seen :base i (nth base-answers i))])
+                                [what v text (seen :kinds i (:answer (nth streaming i))) (seen-in-base i (nth base-answers i))])
                               kinds-of-value))]
     (check "the layer of this check is made, and the proof holds a value of 45 kinds" [true 45] [made? (count kinds-of-value)])
     (doseq [[what v text through-streaming through-base] all]
       (check (str what ", through the streaming depot: accepted under the door's digest; one gate holds one row at its place, with the one text of the value in its normal form; a reader of the row is given the value")
              [:accepted [text] [:value v]] through-streaming)
-      (check (str what ", through the microbatch depot: the same")
-             [:accepted [text] [:value v]] through-base))
+      (check (str what ", through the microbatch depot: accepted under the door's digest; the microbatch gate holds the row of its place on each task, one row, with the one text of the value in its normal form; a reader of the row is given the value")
+             [:accepted (vec (repeat tasks text)) 1 [:value v]] through-base))
+    (check "no place of those values of the base has a row in the streaming gate's table, on any task" [] in-the-other-table)
     (shown "a value of each of" (count kinds-of-value) "kinds that the form takes, through the door and each depot: accepted under the door's digest through the streaming depot"
            (count (filter (fn [[_ _ _ [answer]]] (= :accepted answer)) all)) "| through the microbatch depot"
            (count (filter (fn [[_ _ _ _ [answer]]] (= :accepted answer)) all))
-           "| rows that hold the text written out in the proof:"
-           (count (filter (fn [[_ _ text [_ texts]]] (= [text] texts)) all)) "and"
-           (count (filter (fn [[_ _ text _ [_ texts]]] (= [text] texts)) all)))
+           "| places of the streaming layer whose one row holds the text written out in the proof:"
+           (count (filter (fn [[_ _ text [_ texts]]] (= [text] texts)) all))
+           "| places of the base whose row holds that text on each of the" tasks "tasks:"
+           (count (filter (fn [[_ _ text _ [_ texts]]] (= (vec (repeat tasks text)) texts)) all)))
     (shown "for example" (pr-str {:b 1.50M :a [1 2N]}) "is kept as" (pr-str "{:a [1 2] :b 1.5M}")
            "| the texts of a few kinds:" (str/join " | " (map (fn [[what _ text]] (str what " " (pr-str text))) (take 12 (drop 12 kinds-of-value)))))))
 
@@ -1347,7 +1620,19 @@
         clock-before (clock)
         with-value (decide! d with-value-act id-2)
         clock-after (clock)
-        logs-after (log-counts)]
+        logs-after (log-counts)
+        ;; a layer that is not made and that starts with the streaming depot, under the microbatch depot word
+        id-3 (assoc (act-id-for! d :made-by-nobody) 1 :microbatch)
+        not-made (decide! d (act-of :made-by-nobody [(value :wrong-depot-3 "a value")]) id-3)
+        ;; the base, which is made, under the streaming depot word
+        id-4 (assoc (act-id-for! d :base) 1 :streaming)
+        base-act (system-act [(value :wrong-depot-base-2 "a value")])
+        logs-before-base (log-counts)
+        clock-before-base (clock)
+        base-other (decide! d base-act id-4)
+        clock-after-base (clock)
+        logs-after-base (log-counts)
+        before-the-making (:base-under-the-streaming-word @kept)]
     (check "an act of a streaming layer under an act-id that a maker gives back with the other depot word: the thing goes to the depot that the act-id names, and that gate's recorded refusal comes back"
            [:depot-holds {:answer :refused :reason :layer-belongs-to-the-other-gate}]
            [(:ack (:sent no-value)) (dissoc (:answer no-value) :stamp)])
@@ -1357,9 +1642,25 @@
     (check "the log of that depot holds the act as its maker gave it, with its value plain: one record, which without its time is the act with :act-id and :depot, the depot that the act-id names, and whose time is a time of the door's clock between the proof's two readings round the call; and no fact of it is in the tables: no gate holds a row at its place, on any task"
            [[[(assoc with-value-act :act-id id-2 :depot :microbatch) true]] []]
            [(seen-in-log id-2 clock-before clock-after) (rows-at :alice :wrong-depot-2 :text)])
+    (check "an act into a layer that is not made and that starts with the streaming depot, under an act-id with the microbatch depot word: the microbatch gate refuses it with the same word, the word of a layer of the other gate, and not with the word of a layer that is not made; no gate holds a row at its place, on any task"
+           [:depot-holds {:answer :refused :reason :layer-belongs-to-the-other-gate} []]
+           [(:ack (:sent not-made)) (dissoc (:answer not-made) :stamp) (rows-at :made-by-nobody :wrong-depot-3 :text)])
+    (check "an act of the base, which is made, under an act-id with the streaming depot word: the thing goes to the streaming depot, one record more in that log and none in the base's own; the streaming gate's ack; and that gate's recorded refusal comes back under the act's own act-id"
+           [nil :gate-ran [1 0] {:answer :refused :reason :layer-belongs-to-the-other-gate}]
+           [(:could-not (:sent base-other)) (:ack (:sent base-other)) (mapv - logs-after-base logs-before-base) (dissoc (:answer base-other) :stamp)])
+    (check "the log of the streaming depot holds that act as its maker gave it: one record, which without its time is the act with :act-id and :depot, the depot that the act-id names, and whose time is a time of the door's clock between the proof's two readings round the call; and no gate holds a row at its place, on any task"
+           [[[(assoc base-act :act-id id-4 :depot :streaming) true]] []]
+           [(seen-in-log id-4 clock-before-base clock-after-base) (rows-at :base :wrong-depot-base-2 :text)])
+    (check "the streaming gate gave the same word for an act of the base before the base was made: the word of an act for a layer of the other gate does not follow what the other gate has made"
+           [{:answer :refused :reason :layer-belongs-to-the-other-gate} true]
+           [(dissoc before-the-making :stamp) (= (dissoc before-the-making :stamp) (dissoc (:answer base-other) :stamp))])
     (shown "an act-id given back with the other depot word: an act with no value comes back" (pr-str (dissoc (:answer no-value) :stamp))
            "| an act with a value goes to the depot that the act-id names and comes back" (pr-str (dissoc (:answer with-value) :stamp))
-           "under its own act-id, with no row at its place")))
+           "under its own act-id, with no row at its place")
+    (shown "the other depot word on each depot: an act of a streaming layer that is made, on the microbatch depot," (pr-str (:reason (:answer with-value)))
+           "| an act into a streaming layer that is not made, on the microbatch depot," (pr-str (:reason (:answer not-made)))
+           "| an act of the base on the streaming depot, before the base was made" (pr-str (:reason before-the-making))
+           "and after" (pr-str (:reason (:answer base-other))))))
 
 (deftest the-module-is-started-again
   (let [d (the-door)
@@ -1369,8 +1670,13 @@
         answer-after (answer! d (:act-id landed) (:digest landed))
         after (decide! d (act-of :dora [(value :after-the-update "a value that is sent after the module was started again")]))
         row-after (row-of :dora :note-2 :text)
+        base-before (:base-answers @kept)
+        base-read-again (mapv (fn [[act-id digest _]] (answer! d act-id digest)) base-before)
         base-after (decide! d (system-act [(value :doc-after-the-update "a value")]))]
     (check "answer-of gives the same answer for an act-id and a digest from before" (:answer landed) answer-after)
+    (check "the same for the base: of 5 acts of the base whose answers were read before, 4 accepted and 1 refused, one read each with no wait gives the answer that was read before, its stamp too"
+           [5 {:accepted 4 :refused 1} (mapv (fn [[_ _ answer]] answer) base-before)]
+           [(count base-before) (frequencies (map (fn [[_ _ answer]] (:answer answer)) base-before)) base-read-again])
     (check "a value act through the same door after it is accepted, and its row holds the text of its value"
            [true "\"a value that is sent after the module was started again\""]
            [(accepted? after) (:value (row-of :dora :after-the-update :text))])
@@ -1378,7 +1684,9 @@
            [true "\"one value\""] [(= row-before row-after) (:value row-after)])
     (check "an act with a value into the base through the same door is accepted after it too" true (accepted? base-after))
     (shown "the module was started again under the opened door, by Rama's module update with the unchanged module: answer-of gives"
-           (pr-str answer-after) "for an act from before, and a value act after it:" (told after))))
+           (pr-str answer-after) "for an act from before, and a value act after it:" (told after)
+           "| answers of acts of the base from before that one read gave again, the stamp too:"
+           (count (filter true? (map (fn [[_ _ answer] read] (= answer read)) base-before base-read-again))) "of" (count base-before))))
 
 (deftest the-door-holds-nothing
   (let [d (the-door)
@@ -1421,9 +1729,9 @@
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them. Later checks
-  build on the layers that earlier ones made. The base is made late, the
-  module is started again near the end, and the check over the whole run
-  comes last."
+  build on the layers that earlier ones made. The base is made late, and
+  the checks of the base follow its making; the module is started again
+  near the end, and the check over the whole run comes last."
   []
   (the-door-is-opened)
   (an-act-with-no-value)
@@ -1440,6 +1748,10 @@
   (an-append-that-threw)
   (many-makers-at-once)
   (the-base-through-the-door)
+  (the-depot-of-a-layer)
+  (the-ack-of-the-base-is-no-answer)
+  (two-sends-into-the-base-are-decided-in-their-order)
+  (how-long-an-act-of-the-base-takes)
   (a-value-of-each-kind-through-each-depot)
   (an-act-id-with-the-other-depot-word)
   (the-module-is-started-again)

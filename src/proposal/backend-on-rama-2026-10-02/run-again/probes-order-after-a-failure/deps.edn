@@ -1,0 +1,20 @@
+;; Probes for one question of 13 October 2026: can a failure in a layer that a
+;; stream topology decides make acts that were in flight come out in another
+;; order when the store is run again? They require nothing of the store's
+;; tree. Run from this folder, one at a time, each behind the lock that the
+;; store's proofs wait on. `run.sh` takes the lock and keeps the output:
+;;   ./run.sh <log name> <scenario> [key value ...]
+;;   ./run.sh suite <name of a file under suites/>
+;;   ./run.sh <log name> cost [key value ...]
+;; or by hand:
+;;   flock ../../before-real-data/runs/cluster.lock clojure -M:order <scenario> [key value ...]
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {;; reads the loaded jar: the public names, no cluster, no lock needed
+           :names  {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.names"]}
+           ;; one scenario, or a suite of them: see the docstring of probe.order
+           :order  {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.order"]}
+           ;; what the gate costs a maker at 100 to 1,600 acts a second
+           :cost   {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.cost"]}}}

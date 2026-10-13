@@ -18,8 +18,11 @@
   `write`, stands for a gate: it puts the rows of one accepted act in those
   maps, with the rows of `softland.store.record.rows`, and keeps the order
   by value of a marked key as the store's page says a gate keeps it. A
-  source is read from the maps by `table-value`. No task is played: every
-  part of a run across the tasks of a microbatch layer holds the whole run.
+  source is read from the maps by `table-value`. No task is played: a
+  source's routing id is not looked at when it is read, so a source of the
+  base gives the same rows under every home, as the store's tables do when
+  every task holds the base's rows. That every task holds them is the proof
+  on the cluster's.
 
   The player. For a live read the proof holds a world: the tables; the
   writes that are still to come; for each push that the read holds, the
@@ -85,12 +88,6 @@
 (def ^:private numbers "The read path's numbers, at their defaults." (query/numbers nil))
 
 (defrecord Thing [asks asker layers])
-
-(def ^:private task-ids
-  "Four texts that stand for the routing ids of four tasks of the microbatch
-  tables. The proof plays no task, so they only tell the parts of a run
-  apart."
-  ["t0" "t1" "t2" "t3"])
 
 (defn- q
   "Takes a query as a caller gives it. Gives it in its one form; nil for a
@@ -224,7 +221,7 @@
   not enough."
   [tables query]
   (loop [round 0 known {} calls [] first-missing nil]
-    (let [reading (sources/reading query known task-ids :once numbers)
+    (let [reading (sources/reading query known :once numbers)
           missing (:missing reading)]
       (cond
         (empty? missing) {:rounds round :calls calls :first-missing first-missing
@@ -265,7 +262,7 @@
   [world]
   (loop [world world joined #{} left #{} known-before nil round 0]
     (let [known (known-of world)
-          reading (sources/reading (:query world) known task-ids :live numbers (:held world))
+          reading (sources/reading (:query world) known :live numbers (:held world))
           {:keys [join leave]} (sources/moves reading (:held world))]
       (if (or (and (empty? join) (empty? leave)) (< 8 round))
         [world {:reading reading :known known :joined joined :left left :known-before (or known-before known)}]
@@ -396,7 +393,7 @@
          round 0
          first-joined nil]
     (let [known (known-of world)
-          reading (sources/reading query known task-ids :live numbers (:held world))
+          reading (sources/reading query known :live numbers (:held world))
           {:keys [join leave]} (sources/moves reading (:held world))]
       (if (and (empty? join) (empty? leave))
         (assoc world :screen (answer/whole query reading known) :rounds round :first-joined first-joined)
@@ -461,22 +458,36 @@
   the start; and the writes: `[:w layer place thing]`, a fact, and
   `[:see layer]`, a permission that is given to her. A layer that she may
   see is \"everyone\"; one that she may not is \"members\", and she holds
-  no permission in it."
-  [k marks facts seen writes]
-  (let [tables (reduce write {}
-                       (concat
-                        (for [n (range 1 (inc k))] [:make (layer-n n) 1])
-                        (for [n (range 1 (inc k))] [:setting (layer-n n) (if (contains? seen n) :everyone :members) 2])
-                        (for [n (range 1 (inc k)) :when (get marks n)] [:marks (layer-n n) #{:parent} 3])
-                        (for [[[n place] [thing version]] (sort-by (comp second val) facts)]
-                          [:fact (layer-n n) :maker place :parent (get things thing) (+ 10 version)])))
-        writes (map-indexed (fn [i [kind n place thing]]
-                              (if (= :see kind)
-                                [:permission (layer-n n) :ann (+ 100 i)]
-                                [:fact (layer-n n) :maker place :parent (get things thing) (+ 100 i)]))
-                            writes)]
-    (open-live tables writes
-               (q {:asks [:points-at :parent :canvas-1] :asker :ann :layers (mapv layer-n (range 1 (inc k)))}))))
+  no permission in it. With a first argument, a function from a layer's
+  number to its id, the layers have those ids; with none they are
+  `layer-n`'s."
+  ([k marks facts seen writes]
+   (points-at-world layer-n k marks facts seen writes))
+  ([layer-n k marks facts seen writes]
+   (let [tables (reduce write {}
+                        (concat
+                         (for [n (range 1 (inc k))] [:make (layer-n n) 1])
+                         (for [n (range 1 (inc k))] [:setting (layer-n n) (if (contains? seen n) :everyone :members) 2])
+                         (for [n (range 1 (inc k)) :when (get marks n)] [:marks (layer-n n) #{:parent} 3])
+                         (for [[[n place] [thing version]] (sort-by (comp second val) facts)]
+                           [:fact (layer-n n) :maker place :parent (get things thing) (+ 10 version)])))
+         writes (map-indexed (fn [i [kind n place thing]]
+                               (if (= :see kind)
+                                 [:permission (layer-n n) :ann (+ 100 i)]
+                                 [:fact (layer-n n) :maker place :parent (get things thing) (+ 100 i)]))
+                             writes)]
+     (open-live tables writes
+                (q {:asks [:points-at :parent :canvas-1] :asker :ann :layers (mapv layer-n (range 1 (inc k)))})))))
+
+(defn- base-at
+  "Takes the number of a layer of a played list, 1 the nearest. Gives a
+  function from a layer's number to its id, for `points-at-world`: that
+  layer is the base, a microbatch layer, and each other one is `layer-n`'s.
+  With the base nearest, the read's home is the base. With the base second
+  or farther, the home is a streaming layer, and the base's order by value
+  and the checks of the base are read under that layer's routing id."
+  [i]
+  (fn [n] (if (= n i) :base (layer-n n))))
 
 (def ^:private points-at-scenarios
   "The thirteen scenarios of the check's model, each as: what it is, the
@@ -570,16 +581,43 @@
                             writes)]
     (open-live tables writes (q {:asks asks :asker :ann :layers [:near :far]}))))
 
+(defn- base-world
+  "A world for one place, or one entity, through an asker's own layer and
+  the base. Her own layer, `:mine`, is the read's home: a streaming layer
+  that is \"everyone\" and holds nothing at the start. The base, a
+  microbatch layer, has a setting and, for the asker, a permission or none,
+  and holds a fact at the place. So each source of the base, its own rows,
+  her permission and the fact, is read under the routing id of her own
+  layer. Takes the base's setting at the start, whether she holds a
+  permission there, the writes, and what is asked. A write is `[:setting
+  word]` and `[:permission]`, of the base; `[:mine]`, a fact of her own
+  layer at the place; or `[:base]`, a fact of the base there."
+  [setting permission? writes asks]
+  (let [tables (reduce write {}
+                       (concat [[:make :mine 1] [:make :base 1]
+                                [:setting :mine :everyone 2] [:setting :base setting 2]]
+                               (when permission? [[:permission :base :ann 3]])
+                               [[:fact :base :maker :p :text "b0" 11]]))
+        writes (map-indexed (fn [i [kind word]]
+                              (case kind
+                                :setting    [:setting :base word (+ 100 i)]
+                                :permission [:permission :base :ann (+ 100 i)]
+                                :mine       [:fact :mine :maker :p :text (str "m" i) (+ 100 i)]
+                                :base       [:fact :base :maker :p :text (str "b" i) (+ 100 i)]))
+                            writes)]
+    (open-live tables writes (q {:asks asks :asker :ann :layers [:mine :base]}))))
+
 (defn- every-small-standing
   "Every list of up to n writes of the setting, the permission and the two
-  facts, from four starts. Takes n, what is asked, and the fault that the
-  player is to make, or nil. Gives {:lists :states :wrong}."
-  [n asks fault]
-  (let [options [[:setting :members] [:setting :everyone] [:permission] [:near] [:far]]
+  facts, from four starts. Takes a world, `standing-world` or `base-world`,
+  with the two words of its facts' writes; n; what is asked; and the fault
+  that the player is to make, or nil. Gives {:lists :states :wrong}."
+  [world [nearer farther] n asks fault]
+  (let [options [[:setting :members] [:setting :everyone] [:permission] [nearer] [farther]]
         played (for [setting [:everyone :members]
                      permission? [false true]
                      writes (lists-up-to n options)]
-                 (assoc (every-order (standing-world setting permission? writes asks) fault)
+                 (assoc (every-order (world setting permission? writes asks) fault)
                         :is [setting permission? writes]))]
     {:lists (count played)
      :states (reduce + (map :states played))
@@ -721,13 +759,13 @@
   (shown "a word of a query is declared in three maps or in none:" (pr-str (sort (keys query/words)))))
 
 (deftest the-layers
-  (let [own (fn [layer] (table-value traces (sources/own-rows-source layer)))
-        permission (fn [layer who] (table-value traces (sources/permission-source layer who)))
+  (let [own (fn [layer] (table-value traces (sources/own-rows-source layer layer)))
+        permission (fn [layer who] (table-value traces (sources/permission-source layer layer who)))
         from (q {:asks [:place :note-41 :text] :asker :alice :from-layer :alice-notes})
         points (q {:asks [:points-at :parent :canvas-1] :asker :bob :layers [:team]})
-        with-setting (fn [word stamp] (table-value (write traces [:setting :team word stamp]) (sources/own-rows-source :team)))
-        with-list (fn [listed] (table-value (write traces [:list :alice-notes listed 900]) (sources/own-rows-source :alice-notes)))
-        with-mark (fn [marked] (table-value (write traces [:marks :team marked 900]) (sources/own-rows-source :team)))]
+        with-setting (fn [word stamp] (table-value (write traces [:setting :team word stamp]) (sources/own-rows-source :team :team)))
+        with-list (fn [listed] (table-value (write traces [:list :alice-notes listed 900]) (sources/own-rows-source :alice-notes :alice-notes)))
+        with-mark (fn [marked] (table-value (write traces [:marks :team marked 900]) (sources/own-rows-source :team :team)))]
     (check "the layers of a list: each once, at its first place"
            [:alice-notes :team :nowhere :base]
            (layers/in-order (q {:asks [:place :e :k] :asker :bob :layers [:alice-notes :team :nowhere :team :base]}) nil nil))
@@ -741,6 +779,20 @@
     (check "a start layer that she may not see, or that is not made: the layer alone, and its list is not used"
            [[:alice-notes] [:alice-notes]]
            [(layers/in-order from (own :alice-notes) :may-not-see) (layers/in-order from {} :not-made)])
+    (check "the home of a read is the layer that it starts from: the first layer of a list, also of a list that names it a second time, and of a list of one; the start layer of a query that takes its list from a layer"
+           [:alice-notes :team :base :alice-notes]
+           (mapv #(layers/home (q (merge {:asks [:place :e :k] :asker :bob} %)))
+                 [{:layers [:alice-notes :team :base]} {:layers [:team :base :team]} {:layers [:base]}
+                  {:from-layer :alice-notes}]))
+    (check "the home is read from the query alone: it is the same for each word of a query, for a person who is not signed in, and for a start layer that is not made or that she may not see, where the list is the layer alone"
+           [[:team :team :team :team] :team [:nowhere [:nowhere]] [:alice-notes [:alice-notes]]]
+           [(mapv #(layers/home (q {:asks % :asker :bob :layers [:team :base]}))
+                  [[:place :e :k] [:entity :e] [:run :first :last] [:points-at :parent :canvas-1]])
+            (layers/home (q {:asks [:place :e :k] :not-signed-in true :layers [:team :base]}))
+            (let [nowhere (q {:asks [:place :e :k] :asker :bob :from-layer :nowhere})]
+              [(layers/home nowhere) (layers/in-order nowhere {} :not-made)])
+            (let [bob-from (assoc from :asker :bob)]
+              [(layers/home bob-from) (layers/in-order bob-from (own :alice-notes) :may-not-see)])])
     (check "the standing: the seven lines of its table"
            [:not-known-yet :not-made :yes :may-not-see :not-known-yet :yes :may-not-see]
            [(layers/standing :team nil :not-known-yet true)
@@ -791,23 +843,24 @@
     (check "what an answer says of a layer that it left out: the layer and why, and nothing else"
            {:layer :alice-notes :why :may-not-see} (layers/left-out :alice-notes :may-not-see))
     (shown "the layers: a list gives each layer once at its first place; from a layer the read looks in the layer and then in the layers of its own fact, and no further; a start layer that she may not see gives itself alone")
+    (shown "the home of a read is the layer that it starts from, read from the query alone: the first layer of :layers, or :from-layer, whatever is asked, whoever asks and whatever the tables hold of that layer")
     (shown "the standing: the seven lines of its table hold; a layer with no setting reads as members, the base as everyone; a row that is written again with the same word, and a list or a mark of a layer that she may not see, mean the same before and after")))
 
 (deftest a-step-that-joins-or-leaves-a-source-owes-the-whole-answer
   (let [;; a fact's step that finds the new setting first and joins her permission
         world (standing-world :everyone true [[:setting :members] [:near]] [:place :p :text])
         after-writes (-> world (move [:write] nil) (move [:write] nil))
-        setting (sources/own-rows-source :near)
-        fact (sources/place-source :near :p :text)
+        setting (sources/own-rows-source :near :near)
+        fact (sources/place-source :near :near :p :text)
         both-taken (-> after-writes (move [:take setting] nil) (move [:take fact] nil))
         fact-first (move both-taken [:handle fact] nil)
-        permission (sources/permission-source :near :ann)
+        permission (sources/permission-source :near :near :ann)
         given-her (-> fact-first (move [:serve permission] nil) (move [:arrive permission] nil))
         ;; a step that leaves an order whose mark was taken off
         marked (reduce write {} [[:make :l1 1] [:setting :l1 :everyone 2] [:marks :l1 #{:parent} 3]
                                  [:fact :l1 :maker :p :parent :canvas-1 11]])
         open (open-live marked [[:marks :l1 #{} 100]] (q {:asks [:points-at :parent :canvas-1] :asker :ann :layers [:l1]}))
-        own (sources/own-rows-source :l1)
+        own (sources/own-rows-source :l1 :l1)
         unmarked (-> open (move [:write] nil) (move [:take own] nil) (move [:handle own] nil))]
     (check "a fact's step that sees the new setting first joins her permission, tells nothing of its place, and owes"
            [true true (:screen world)]
@@ -822,64 +875,144 @@
 
 (deftest the-sources
   (let [digest (rows/value-digest-of :canvas-1)
-        own-rows (fn [layer] (table-value traces (sources/own-rows-source layer)))
-        of (fn [asks layer] ((get sources/of-word (first asks)) (q (merge alice {:asks asks :layers [layer]})) layer (own-rows layer) task-ids))]
-    (check "the layer's own rows: one run of the layer's own entity under the store's namespace; in the base every task holds it"
+        own-rows (fn [layer] (table-value traces (sources/own-rows-source layer layer)))
+        ;; what a word reads in one layer, for a read whose home is `home`
+        of (fn [asks home layer]
+             ((get sources/of-word (first asks)) (q (merge alice {:asks asks :layers (vec (distinct [home layer]))}))
+              layer (own-rows layer)))
+        ;; every source of a layer that a read asked once came to read
+        read-in (fn [query layer] (set (filter #(= layer (:layer %)) (keys (:known (play-once traces query))))))
+        asks-of-each-word [[:place :note-41 :text] [:entity :note-41] [:run [:note-41 :a] [:note-41 :z]]
+                           [:run [:block-1] [:note-9]] [:run :first :last] [:points-at :parent :canvas-1]]]
+    (check "the layer's own rows: one run of the layer's own entity under the store's namespace. A streaming layer's routing id is the layer, whatever the home; the base's is the home"
            [{:gate :streaming :table :facts :layer :team :routing-id :team
              :path [:own-rows ":team :team :softland.store/" ":team :team :softland.store0"]}
-            {:gate :microbatch :table :facts :layer :base :routing-id :base :every-task true
+            {:gate :microbatch :table :facts :layer :base :routing-id :team
+             :path [:own-rows ":base :base :softland.store/" ":base :base :softland.store0"]}
+            {:gate :microbatch :table :facts :layer :base :routing-id :base
              :path [:own-rows ":base :base :softland.store/" ":base :base :softland.store0"]}]
-           [(sources/own-rows-source :team) (sources/own-rows-source :base)])
-    (check "her permission: one row, on its holder"
+           [(sources/own-rows-source :alice-notes :team) (sources/own-rows-source :team :base)
+            (sources/own-rows-source :base :base)])
+    (check "her permission: one row, on its holder; in the base under the home"
            [{:gate :streaming :table :facts :layer :team :routing-id :team :path [:row ":team :alice :softland.store/permission"]}
-            {:gate :microbatch :table :facts :layer :base :routing-id :base :every-task true
+            {:gate :microbatch :table :facts :layer :base :routing-id :team
+             :path [:row ":base :alice :softland.store/permission"]}
+            {:gate :microbatch :table :facts :layer :base :routing-id :base
              :path [:row ":base :alice :softland.store/permission"]}]
-           [(sources/permission-source :team :alice) (sources/permission-source :base :alice)])
-    (check "a place: the layer routes a streaming layer, the entity a microbatch layer"
+           [(sources/permission-source :alice-notes :team :alice) (sources/permission-source :team :base :alice)
+            (sources/permission-source :base :base :alice)])
+    (check "a place: the layer routes a streaming layer, the home a microbatch layer, and never the entity"
            [[{:gate :streaming :table :facts :layer :team :routing-id :team :path [:row ":team :note-41 :text"]}]
-            [{:gate :microbatch :table :facts :layer :base :routing-id :note-41 :path [:row ":base :note-41 :text"]}]]
-           [(of [:place :note-41 :text] :team) (of [:place :note-41 :text] :base)])
-    (check "an entity: one run, on the entity's task in the base"
+            [{:gate :microbatch :table :facts :layer :base :routing-id :team :path [:row ":base :note-41 :text"]}]
+            [{:gate :microbatch :table :facts :layer :base :routing-id :base :path [:row ":base :note-41 :text"]}]]
+           [(of [:place :note-41 :text] :team :team) (of [:place :note-41 :text] :team :base)
+            (of [:place :note-41 :text] :base :base)])
+    (check "an entity: one run, under the home in the base"
            [[{:gate :streaming :table :facts :layer :team :routing-id :team :path [:run ":team :note-41 " ":team :note-41!"]}]
-            [{:gate :microbatch :table :facts :layer :base :routing-id :note-41 :path [:run ":base :note-41 " ":base :note-41!"]}]]
-           [(of [:entity :note-41] :team) (of [:entity :note-41] :base)])
-    (check "a run of keys of one entity is on that entity's task; a run across entities of the base is one source for each task"
-           [[:note-41] ["t0" "t1" "t2" "t3"] [[:run ":base :a " ":base :b!"]] [:team]]
-           [(mapv :routing-id (of [:run [:note-41 :a] [:note-41 :z]] :base))
-            (mapv :routing-id (of [:run [:a] [:b]] :base))
-            (vec (distinct (map :path (of [:run [:a] [:b]] :base))))
-            (mapv :routing-id (of [:run [:a] [:b]] :team))])
+            [{:gate :microbatch :table :facts :layer :base :routing-id :team :path [:run ":base :note-41 " ":base :note-41!"]}]
+            [{:gate :microbatch :table :facts :layer :base :routing-id :base :path [:run ":base :note-41 " ":base :note-41!"]}]]
+           [(of [:entity :note-41] :team :team) (of [:entity :note-41] :team :base) (of [:entity :note-41] :base :base)])
+    (check "a run of keys of one entity, a run across entities and a whole layer are each one source in the base, under the home; in a streaming layer each is one source under the layer"
+           [[[:team] [[:run ":base :note-41 :a" ":base :note-41 :z "]]]
+            [[:team] [[:run ":base :a " ":base :b!"]]]
+            [[:team] [[:run ":base " ":base!"]]]
+            [[:base] [[:run ":base :a " ":base :b!"]]]
+            [[:team] [[:run ":team :a " ":team :b!"]]]]
+           (mapv (fn [[asks home layer]] ((juxt #(mapv :routing-id %) #(mapv :path %)) (of asks home layer)))
+                 [[[:run [:note-41 :a] [:note-41 :z]] :team :base]
+                  [[:run [:a] [:b]] :team :base]
+                  [[:run :first :last] :team :base]
+                  [[:run [:a] [:b]] :base :base]
+                  [[:run [:a] [:b]] :alice-notes :team]]))
     (check "the ends of a run: a place is in the run that ends at it; a whole layer is a run and no table"
            [[:run ":team :e :a" ":team :e :m "] [:run ":team " ":team!"] [:run ":team :e " ":team!"]]
-           (mapv #(:path (first (of % :team))) [[:run [:e :a] [:e :m]] [:run :first :last] [:run [:e] :last]]))
-    (check "what points at a thing: the thing's run in the facts by value, by the stamp of the mark; the value's digest routes the base; a layer that does not mark the key reads nothing"
+           (mapv #(:path (first (of % :team :team))) [[:run [:e :a] [:e :m]] [:run :first :last] [:run [:e] :last]]))
+    (check "what points at a thing: the thing's run in the facts by value, by the stamp of the mark, one source; in the base under the home, and never under the value's digest; a layer that does not mark the key reads nothing"
            [[{:gate :streaming :table :facts-by-value :layer :team :routing-id :team
               :path [:run (str ":team :parent 700 " digest " ") (str ":team :parent 700 " digest "!")]}]
-            [{:gate :microbatch :table :facts-by-value :layer :base :routing-id digest
+            [{:gate :microbatch :table :facts-by-value :layer :base :routing-id :team
+              :path [:run (str ":base :parent 300 " digest " ") (str ":base :parent 300 " digest "!")]}]
+            [{:gate :microbatch :table :facts-by-value :layer :base :routing-id :base
               :path [:run (str ":base :parent 300 " digest " ") (str ":base :parent 300 " digest "!")]}]
             []]
-           [(of [:points-at :parent :canvas-1] :team) (of [:points-at :parent :canvas-1] :base)
-            (of [:points-at :parent :canvas-1] :alice-notes)])
-    (check "a check of a nearer layer at a place is the source of that place"
-           (sources/place-source :team :block-1 :parent) (sources/check-source :team :block-1 :parent))
+           [(of [:points-at :parent :canvas-1] :team :team) (of [:points-at :parent :canvas-1] :team :base)
+            (of [:points-at :parent :canvas-1] :base :base) (of [:points-at :parent :canvas-1] :alice-notes :alice-notes)])
+    (check "a check of a nearer layer at a place is the source of that place, in a streaming layer and in the base; a check of the base has the home as its routing id"
+           [true true {:gate :microbatch :table :facts :layer :base :routing-id :alice-notes :path [:row ":base :block-3 :parent"]}]
+           [(= (sources/place-source :team :team :block-1 :parent) (sources/check-source :team :team :block-1 :parent))
+            (= (sources/place-source :team :base :block-1 :parent) (sources/check-source :team :base :block-1 :parent))
+            ;; the base as a nearer layer of a read that starts from her notes: the place of the team's own order is checked in it
+            (get-in (:reading (play-once traces (q (merge alice {:asks [:points-at :parent :canvas-1] :layers [:alice-notes :base :team]}))))
+                    [:by-layer :base :checks [:block-3 :parent]])])
+    (check "a source of a streaming layer is the same under every home: the layer's own rows, a permission, a place, a check, a run and the order by value"
+           [true true true true true true]
+           (mapv (fn [make] (apply = (map make [:team :alice-notes :base :nowhere])))
+                 [#(sources/own-rows-source % :team)
+                  #(sources/permission-source % :team :alice)
+                  #(sources/place-source % :team :note-41 :text)
+                  #(sources/check-source % :team :block-1 :parent)
+                  #(sources/run-source % :team ":team :a " ":team :b!")
+                  #(sources/by-value-source % :team :parent 700 :canvas-1)]))
+    (check "every source of the base that a read asked once comes to read has the read's home as its routing id, for each word and each kind of run: through her notes and the team, through her notes with the team behind the base, through the team alone, and from the base itself"
+           [#{:alice-notes} #{:alice-notes} #{:team} #{:base}]
+           (mapv (fn [layers]
+                   (into #{}
+                         (mapcat (fn [asks] (map :routing-id (read-in (q (merge alice {:asks asks :layers layers})) :base))))
+                         asks-of-each-word))
+                 [[:alice-notes :team :base] [:alice-notes :base :team] [:team :base] [:base]]))
+    (check "each word reads the base as one fact source, and the base's rights as two: its own rows and her permission"
+           [[1 1 1 1 1 1] [[:own-rows :row] [:own-rows :row] [:own-rows :row] [:own-rows :row] [:own-rows :row] [:own-rows :row]]]
+           (let [read (fn [asks]
+                        (let [query (q (merge alice {:asks asks :layers [:team :base]}))
+                              {:keys [reading known]} (play-once traces query)]
+                          [(count (get-in reading [:by-layer :base :facts]))
+                           (vec (sort (map (comp first :path)
+                                           (filter #(and (= :base (:layer %)) (sources/rights-kind query %)) (keys known)))))]))]
+             [(mapv (comp first read) asks-of-each-word) (mapv (comp second read) asks-of-each-word)]))
+    (check "two reads with one home have equal sources for the base: a list, a longer list and a start layer whose list is the longer one; two askers with one home share the base's own rows and the place, and each has her own permission row"
+           [true true 3
+            #{[:own-rows ":base :base :softland.store/" ":base :base :softland.store0"] [:row ":base :note-41 :text"]}]
+           (let [place {:asks [:place :note-41 :text]}
+                 short (read-in (q (merge alice place {:layers [:alice-notes :base]})) :base)
+                 long (read-in (q (merge alice place {:layers [:alice-notes :team :base]})) :base)
+                 from (read-in (q (merge alice place {:from-layer :alice-notes})) :base)
+                 hers (read-in (q (merge alice place {:layers [:team :base]})) :base)
+                 his (read-in (q (merge place {:asker :bob :layers [:team :base]})) :base)]
+             [(= short long) (= long from) (count long)
+              (set (map :path (filter his hers)))]))
+    (check "two reads with two homes share no source of the base, though each reads the same rows of it; the sources of the team, a streaming layer, are shared"
+           [#{} true true]
+           (let [place {:asks [:place :note-41 :text]}
+                 through-notes (q (merge alice place {:layers [:alice-notes :team :base]}))
+                 through-team (q (merge alice place {:layers [:team :base]}))]
+             [(set (filter (read-in through-notes :base) (read-in through-team :base)))
+              (= (set (map :path (read-in through-notes :base))) (set (map :path (read-in through-team :base))))
+              (= (read-in through-notes :team) (read-in through-team :team))]))
     (check "two askers of one thing who ask for different parts have equal sources"
            true
            (let [one (q {:asks [:place :note-41 :text] :asker :alice :layers [:team :base] :with #{:writer}})
                  two (q {:asks [:place :note-41 :text] :asker :alice :layers [:team :base] :stores-own-facts true})]
-             (= (:wanted (sources/reading one {} nil :once numbers)) (:wanted (sources/reading two {} nil :once numbers)))))
-    (check "which sources are a layer's rights, and which a check"
-           [:own-rows :permission nil true false]
+             (= (:wanted (sources/reading one {} :once numbers)) (:wanted (sources/reading two {} :once numbers)))))
+    (check "which sources are a layer's rights, and which a check, in a streaming layer and in the base under a home"
+           [:own-rows :permission nil true false :own-rows :permission nil true false]
            (let [points (q (merge alice {:asks [:points-at :parent :canvas-1] :layers [:team :base]}))]
-             [(sources/rights-kind points (sources/own-rows-source :team))
-              (sources/rights-kind points (sources/permission-source :team :alice))
-              (sources/rights-kind points (sources/place-source :team :block-1 :parent))
-              (sources/check? points (sources/check-source :team :block-1 :parent))
-              (sources/check? points (sources/permission-source :team :alice))]))
-    (check "only a run whose two ends do not name one entity needs the routing ids of the tasks"
-           [true false false false]
-           (mapv #(sources/needs-task-routing-ids? (q (merge alice {:asks % :layers [:base]})))
-                 [[:run [:a] [:b]] [:run [:a :k] [:a :m]] [:entity :a] [:place :a :k]]))
-    (shown "the sources of each word in a streaming layer and in the base hold the table, the routing id and the path that the record's page gives: the layer for a streaming layer; in the base the entity for a place and an entity, one source for each task for a run across entities, the value's digest for what points at a thing")
+             [(sources/rights-kind points (sources/own-rows-source :team :team))
+              (sources/rights-kind points (sources/permission-source :team :team :alice))
+              (sources/rights-kind points (sources/place-source :team :team :block-1 :parent))
+              (sources/check? points (sources/check-source :team :team :block-1 :parent))
+              (sources/check? points (sources/permission-source :team :team :alice))
+              (sources/rights-kind points (sources/own-rows-source :team :base))
+              (sources/rights-kind points (sources/permission-source :team :base :alice))
+              (sources/rights-kind points (sources/place-source :team :base :block-1 :parent))
+              (sources/check? points (sources/check-source :team :base :block-1 :parent))
+              (sources/check? points (sources/permission-source :team :base :alice))]))
+    (check "a source is a map of five parts and no other, in a streaming layer and in the base"
+           [#{:gate :table :layer :routing-id :path}]
+           (vec (distinct (map (comp set keys)
+                               (mapcat #(keys (:known (play-once traces (q (merge alice {:asks % :layers [:alice-notes :team :base]})))))
+                                       asks-of-each-word)))))
+    (shown "the sources of each word in a streaming layer and in the base hold the table, the routing id and the path that the record's page gives. The routing id is the layer for a streaming layer, under every home; in the base it is the home of the read for every kind of source: the layer's own rows, a permission, a place, a check, an entity, a run of keys, a run across entities, a whole layer and the order by value. Each is one source")
+    (shown "two reads with one home have equal sources for the base, so they share each push on it; two reads with two homes share none of them, and read the same rows; a streaming layer's sources are shared whatever the homes")
     (shown "two askers of one thing who ask for different parts of a row have equal sources, so they share each push; a check of a nearer layer at a place is the source of that place")))
 
 (deftest the-loop-ends
@@ -895,9 +1028,13 @@
     (check "asked once: a place in one layer is one call in one round; through three layers three calls in one round; from a layer one call and then two"
            [[1 [1]] [1 [3]] [2 [1 2]]]
            (mapv once [place-1 place-3 place-from]))
-    (check "asked once: an entity of the base is one call, with the rights riding it; a run across entities of the base is one call for each task"
-           [[1 [1]] [1 [4]]]
-           (mapv once [entity-base run-base]))
+    (check "asked once: an entity of the base is one call, with the rights in it; a run across entities of the base is one call too, and so is a whole layer"
+           [[1 [1]] [1 [1]] [1 [1]]]
+           (mapv once [entity-base run-base (q (merge alice {:asks [:run :first :last] :layers [:base]}))]))
+    (check "asked once through her own layer: the base is one call more, under her layer's routing id, for a place, an entity, a run across entities and a whole layer"
+           [[1 [2]] [1 [2]] [1 [2]] [1 [2]]]
+           (mapv #(once (q (merge alice {:asks % :layers [:team :base]})))
+                 [[:place :note-41 :text] [:entity :note-41] [:run [:block-1] [:block-9]] [:run :first :last]]))
     (check "asked once: what points at a thing through three layers is three rounds, the rights, the orders, the checks; from a layer four"
            [[3 [3 2 2]] 4]
            [(once points-3) (first (once points-from))])
@@ -920,15 +1057,30 @@
              (with-redefs [sources/before-standing? (constantly false)]
                [(= as-built (:answer (play-once traces place-3)))
                 (once place-3)])))
-    (check "the calls of one round: a source that every task holds rides a call of its layer"
-           [[:note-41 3]]
-           (mapv (juxt :routing-id (comp count :sources))
-                 (sources/calls-for-once (:missing (sources/reading entity-base {} nil :once numbers)) numbers)))
+    (check "the calls of one round: a layer's rights and its fact are one call, in the base under the home's routing id"
+           [[:microbatch :facts :base 3]]
+           (mapv (juxt :gate :table :routing-id (comp count :sources))
+                 (sources/calls-for-once (:missing (sources/reading entity-base {} :once numbers)) numbers)))
+    (check "the calls of one round through her own layer: one call for each of the two tables, both under her layer's routing id, each with the rights and the fact"
+           #{[:streaming :facts :team 3] [:microbatch :facts :team 3]}
+           (set (map (juxt :gate :table :routing-id (comp count :sources))
+                     (sources/calls-for-once
+                      (:missing (sources/reading (q (merge alice {:asks [:entity :note-41] :layers [:team :base]})) {} :once numbers))
+                      numbers))))
+    (check "each call holds sources of one table under one routing id, and each source is in one call: every source of what points at a thing through three layers, the base among them"
+           [true true]
+           (let [all (:wanted (:reading (play-once traces points-3)))
+                 calls (sources/calls-for-once all numbers)]
+             [(every? (fn [{:keys [gate table routing-id sources]}]
+                        (every? #(= [gate table routing-id] ((juxt :gate :table :routing-id) %)) sources))
+                      calls)
+              (= (sort-by pr-str all) (sort-by pr-str (mapcat :sources calls)))]))
     (check "the calls of one round are cut at the greatest count of paths of one call"
            [2 2 1]
            (mapv (comp count :sources)
-                 (sources/calls-for-once (map #(sources/place-source :team (keyword (str "e" %)) :k) (range 5))
+                 (sources/calls-for-once (map #(sources/place-source :team :team (keyword (str "e" %)) :k) (range 5))
                                          (assoc numbers :max-paths-in-one-call 2))))
+    (shown "asked once, the base is one call of its table under the home's routing id, with the rights and the fact in it: 1 call from the base itself, also for a run across its entities and for the whole layer; 1 call more than her own layer's when it is read through her layer")
     (shown "the loop ends: asked once, a place is 1 round (1 call in one layer, 3 through three layers), from a layer 2 rounds (1 call, then 2), what points at a thing 3 rounds, from a layer 4; kept live, a place opens in 2 or 3 rounds, what points at a thing through a given list in 4, and from a start layer that is members in 6; none takes more than 6")
     (shown "a read asked once wants the place in the same round as the rights, a live read only when she may see the layer; with before-standing? giving false the read asked once takes the rights first, 2 rounds of 3 calls, and gives the same answer")))
 
@@ -975,7 +1127,7 @@
     (check "the checks of one read are bounded, by one number when it is asked once and by another when it is kept live: past its own number the read wants none of them and says that it is too large, with that number; the other number does not bound it"
            [[{:what :checks-of-one-read :most 2} true] [{:what :checks-of-one-read :most 2} true] [nil false] [nil false]]
            (let [bounded (fn [mode numbers]
-                           (let [r (sources/reading query known task-ids mode numbers)]
+                           (let [r (sources/reading query known mode numbers)]
                              [(:too-large r) (every? nil? (map :checks (vals (:by-layer r))))]))]
              [(bounded :once (assoc numbers :max-checks-of-one-read 2))
               (bounded :live (assoc numbers :max-checks-of-one-live-read 2))
@@ -1061,15 +1213,27 @@
            [(answer/counts? (q {:asks [:entity :e] :asker :a :layers [:l]}) :softland.store/permission)
             (answer/counts? (q {:asks [:entity :e] :asker :a :layers [:l] :stores-own-facts true}) :softland.store/permission)
             (answer/counts? (q {:asks [:entity :e] :asker :a :layers [:l]}) :text)])
-    (check "a row that several parts of a run of the base hold is given once: the one with the latest stamp; a place of one part comes from that part"
-           [7 3 nil]
-           (let [parts [{"k" {:stamp 5} "a" {:stamp 3}} {"k" {:stamp 7}} {} {"k" {:stamp 6}}]]
-             [(:stamp (answer/one-of-each parts "k")) (:stamp (answer/one-of-each parts "a")) (answer/one-of-each parts "none")]))
+    (check "a run across entities of the base, read through her own layer, gives each place of the base once, from its row, and the nearer layer's place where it holds one"
+           [{[:block-1 :parent] [:team :canvas-2 711] [:block-2 :parent] [:base :canvas-1 321] [:block-3 :parent] [:team :canvas-1 710]
+             [:note-41 :text] [:team "from the team" 712] [:note-41 :title] [:base "a title" 311]
+             [:note-9 :text] [:team "only the team" 713] [:note-9 :size] [:base 9 330] [:note-9 :raw] [:base nil 331]}
+            {[:block-1 :parent] [:base :canvas-1 320] [:block-2 :parent] [:base :canvas-1 321]
+             [:note-41 :text] [:base "from the base" 310] [:note-41 :title] [:base "a title" 311]
+             [:note-9 :size] [:base 9 330] [:note-9 :raw] [:base nil 331]}]
+           (let [of-run (fn [layers] (into {} (map (fn [[p a]] [p ((juxt :layer :value :stamp) a)]))
+                                           (:places (ask :alice [:run [:block-1] [:note-9 :text]] layers))))]
+             [(of-run [:team :base]) (of-run [:base])]))
+    (check "the answer of a read of the base does not differ by its home: the same place, entity, run and what points at a thing, from the base itself and through a layer that is not made"
+           [true true true true]
+           (mapv (fn [asks]
+                   (= (dissoc (ask :alice asks [:base]) :layers :left-out)
+                      (dissoc (ask :alice asks [:nowhere :base]) :layers :left-out)))
+                 [[:place :note-41 :text] [:entity :note-41] [:run :first :last] [:points-at :parent :canvas-1]]))
     (check "what points at a thing says, for each layer that she may see, since which stamp its order is level, or that it marks nothing"
            [{:layer :alice-notes :not-marked true} {:layer :team :level-since 700} {:layer :base :level-since 300}]
            (:orders (ask :alice [:points-at :parent :canvas-1] [:alice-notes :team :base])))
     (shown "what a read gives: the four things that a place can hold are told apart; the nearest layer that holds a fact wins, also with nothing here; each place of a run comes from the nearest layer that holds it; a layer that is left out is named with why and nothing of it is given")
-    (shown "a place-answer holds no writer and no permission unless asked; the store's own facts are in no answer that did not ask for them; a row that every task of the base holds is given once, the latest")))
+    (shown "a place-answer holds no writer and no permission unless asked; the store's own facts are in no answer that did not ask for them; a run across entities of the base gives each place once, and a read of the base gives the same from the base itself and through another home")))
 
 (deftest which-changes-reach-an-asker
   (let [tables (reduce write traces [[:fact :alice-notes :alice :note-41 :text "from her notes" 20]])
@@ -1085,23 +1249,52 @@
         place [:note-41 :text]]
     (check "a change in the layer that wins the place is told; a change under a nearer row is not"
            [true false false]
-           [(answer/told-by? alice-3 r known (sources/place-source :alice-notes :note-41 :text) place)
-            (answer/told-by? alice-3 r known (sources/place-source :team :note-41 :text) place)
-            (answer/told-by? alice-3 r known (sources/place-source :base :note-41 :text) place)])
+           [(answer/told-by? alice-3 r known (sources/place-source :alice-notes :alice-notes :note-41 :text) place)
+            (answer/told-by? alice-3 r known (sources/place-source :alice-notes :team :note-41 :text) place)
+            (answer/told-by? alice-3 r known (sources/place-source :alice-notes :base :note-41 :text) place)])
+    (check "a change of the base's row is told to an asker who reads it through her own layer, when no nearer layer holds the place; the source is one that her read holds"
+           [true true false]
+           (let [title [:note-41 :title]
+                 query (q (merge alice {:asks [:place :note-41 :title] :layers [:alice-notes :team :base]}))
+                 [title-r title-known] (known-for query)
+                 source (sources/place-source :alice-notes :base :note-41 :title)]
+             [(answer/told-by? query title-r title-known source title)
+              (contains? title-known source)
+              (contains? title-known (sources/place-source :base :base :note-41 :title))]))
     (check "a change in a layer that she may not see is not told; for her the next layer wins, and its change is told"
            [false true]
-           [(answer/told-by? bob-3 bob-r bob-known (sources/place-source :alice-notes :note-41 :text) place)
-            (answer/told-by? bob-3 bob-r bob-known (sources/place-source :team :note-41 :text) place)])
+           [(answer/told-by? bob-3 bob-r bob-known (sources/place-source :alice-notes :alice-notes :note-41 :text) place)
+            (answer/told-by? bob-3 bob-r bob-known (sources/place-source :alice-notes :team :note-41 :text) place)])
     (check "a change of a store key's row is told only to an asker who asked for the store's own facts"
            [false true]
            [(answer/told-by? holder holder-r holder-known (first (get-in holder-r [:by-layer :team :facts])) [:bob :softland.store/permission])
             (answer/told-by? asked asked-r asked-known (first (get-in asked-r [:by-layer :team :facts])) [:bob :softland.store/permission])])
     (check "the places that a change names for a query: the asked place from its row and from no other; each key of a run; no place from a layer's own rows"
            [#{[:note-41 :text]} #{} #{[:bob :softland.store/permission]} #{}]
-           [(sources/places-of alice-3 (sources/place-source :team :note-41 :text) [":team :note-41 :text"])
-            (sources/places-of alice-3 (sources/permission-source :team :alice) [":team :alice :softland.store/permission"])
+           [(sources/places-of alice-3 (sources/place-source :alice-notes :team :note-41 :text) [":team :note-41 :text"])
+            (sources/places-of alice-3 (sources/permission-source :alice-notes :team :alice) [":team :alice :softland.store/permission"])
             (sources/places-of holder (first (get-in holder-r [:by-layer :team :facts])) [":team :bob :softland.store/permission" "no key"])
-            (sources/places-of holder (sources/own-rows-source :team) [":team :team :softland.store/depot"])])
+            (sources/places-of holder (sources/own-rows-source :team :team) [":team :team :softland.store/depot"])])
+    (check "what the base's own rows and her permission mean at a change, for a read through her own layer: each is read beside the other, which the read holds under her layer's routing id"
+           [[:there :there] [:none :there] [:members :members]]
+           (let [tables (reduce write {} [[:make :mine 1] [:make :base 1] [:setting :mine :everyone 2] [:setting :base :members 2]
+                                          [:permission :base :ann 3] [:fact :base :maker :p :text "b0" 11]])
+                 query (q {:asks [:place :p :text] :asker :ann :layers [:mine :base]})
+                 known (:known (play-once tables query))
+                 own (sources/own-rows-source :mine :base)
+                 permission (sources/permission-source :mine :base :ann)
+                 of-own (answer/meanings query known own (get known own) (get known own))
+                 of-permission (answer/meanings query known permission nil (get known permission))]
+             [(mapv :permission of-own) (mapv :permission of-permission) (mapv :who-may-see of-permission)]))
+    (check "the places that a change of the base names, for a read through her own layer: the asked place from its row; each key of a run across entities; the entity of each key of the order by value"
+           [#{[:note-41 :text]} #{[:block-1 :parent] [:note-41 :title]} #{[:block-2 :parent]}]
+           (let [digest (rows/value-digest-of :canvas-1)
+                 run (q (merge alice {:asks [:run :first :last] :layers [:team :base]}))
+                 points (q (merge alice {:asks [:points-at :parent :canvas-1] :layers [:team :base]}))]
+             [(sources/places-of alice-3 (sources/place-source :alice-notes :base :note-41 :text) [":base :note-41 :text"])
+              (sources/places-of run (sources/run-source :team :base ":base " ":base!") [":base :block-1 :parent" ":base :note-41 :title"])
+              (sources/places-of points (sources/by-value-source :team :base :parent 300 :canvas-1)
+                                 [(rows/by-value-key :base :parent 300 digest :block-2)])]))
     (shown "which changes reach an asker: a change in the layer that wins the place; not one under a nearer row, not one in a layer that she may not see, and one of a store key's row only when she asked for the store's own facts")))
 
 (deftest every-order-of-the-callbacks
@@ -1109,8 +1302,16 @@
                        (assoc (every-order (points-at-world k marks facts seen writes) nil) :what what))
                      points-at-scenarios)
         small (every-small-points-at nil)
-        place (every-small-standing 3 [:place :p :text] nil)
-        entity (every-small-standing 2 [:entity :p] nil)
+        place (every-small-standing standing-world [:near :far] 3 [:place :p :text] nil)
+        entity (every-small-standing standing-world [:near :far] 2 [:entity :p] nil)
+        ;; the base, read under the routing id of the asker's own layer
+        base-played (vec (for [[where at] [["the nearest" (constantly 1)] ["the second" (constantly 2)] ["the farthest" identity]]
+                               [what k marks facts seen writes] points-at-scenarios]
+                           (assoc (every-order (points-at-world (base-at (at k)) k marks facts seen writes) nil)
+                                  :what (str "the base is " where " layer; " what))))
+        base-place (every-small-standing base-world [:mine :base] 3 [:place :p :text] nil)
+        base-entity (every-small-standing base-world [:mine :base] 2 [:entity :p] nil)
+        base-run (every-small-standing base-world [:mine :base] 2 [:run :first :last] nil)
         ;; a layer that leaves and joins by the start layer's list, while its fact and a nearer one change
         list-world (fn [asks]
                      (let [tables (reduce write {} [[:make :home 1] [:make :near 1] [:make :far 1]
@@ -1132,7 +1333,8 @@
                                         (and (told-by? query reading known source place)
                                              (not-any? (fn [nearer]
                                                          (some? (get *known-before-the-leaving*
-                                                                     (sources/check-source nearer (first place) (second place)))))
+                                                                     (sources/check-source (layers/home query) nearer
+                                                                                           (first place) (second place)))))
                                                        (take-while #(not= (:layer source) %) (:layers reading))))))]
                         {:scenarios (mapv (fn [[what k marks facts seen writes]]
                                             (when (:wrong (every-order (points-at-world k marks facts seen writes) nil))
@@ -1150,6 +1352,41 @@
            [120 []] [(:lists entity) (:wrong entity)])
     (check "a layer that leaves and joins by the start layer's list while its fact and a farther one change: a place, an entity and a whole layer, none with an order that ends wrong"
            [nil nil nil] (mapv :wrong lists))
+    (doseq [{:keys [what wrong]} base-played]
+      (check (str "what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: " what)
+             nil wrong))
+    (check "the base is read in those worlds, under the routing id of the nearest layer: with the base second, each read that may see it and whose base marks the key holds the base's order by value under the nearest layer's routing id, and the scenario of four layers comes to hold a check of the base under it; with the base nearest, under the base's own"
+           [[true] true [true]]
+           (let [holds? (fn [world table routing-id]
+                          (boolean (some #(= [:microbatch table routing-id] ((juxt :gate :table :routing-id) %)) (:held world))))
+                 opened (fn [i [_ k marks facts seen writes]] (points-at-world (base-at i) k marks facts seen writes))]
+             [(vec (distinct (map (fn [[_ _ marks _ seen :as scenario]]
+                                    (or (not (get marks 2)) (not (contains? seen 2))
+                                        (holds? (opened 2 scenario) :facts-by-value :l1)))
+                                  points-at-scenarios)))
+              (let [twelve (nth points-at-scenarios 11)
+                    ;; one order of its moves, played to the end: always the first move that can be made
+                    world (loop [world (opened 2 twelve) n 0]
+                            (let [moves (moves-of world)]
+                              (if (or (empty? moves) (< 200 n)) world (recur (move world (first moves) nil) (inc n)))))]
+                (boolean (some #(and (= [:microbatch :facts :l1] ((juxt :gate :table :routing-id) %))
+                                     (= :row (first (:path %)))
+                                     (sources/check? (:query world) %))
+                               (:held world))))
+              (vec (distinct (map (fn [[_ _ marks _ seen :as scenario]]
+                                    (or (not (get marks 1)) (not (contains? seen 1))
+                                        (holds? (opened 1 scenario) :facts-by-value :base)))
+                                  points-at-scenarios)))]))
+    (check "a place through her own layer and the base, the base with a setting and a permission or none, each source of the base under her layer's routing id: every list of up to three writes of the setting, the permission and the two facts, 620 lists, none with an order that ends wrong"
+           [620 []] [(:lists base-place) (:wrong base-place)])
+    (check "the same for an entity of the base and for the whole of the two layers, every list of up to two writes: 120 lists each, none with an order that ends wrong"
+           [[120 []] [120 []]] [[(:lists base-entity) (:wrong base-entity)] [(:lists base-run) (:wrong base-run)]])
+    (check "in those worlds the read holds the base's own rows, her permission and the fact as sources of the microbatch gate under her own layer's routing id, and none under the base's"
+           [#{[:microbatch :facts :mine]} #{[:own-rows] [:row]}]
+           (let [world (base-world :members true [] [:place :p :text])
+                 of-base (filter #(= :base (:layer %)) (:held world))]
+             [(set (map (juxt :gate :table :routing-id) of-base))
+              (set (map (comp vector first :path) of-base))]))
     (check "the player can fail. With the mark dropped, so that no step carries an owed answer to a later one, the scenarios in which a layer joins over a farther order end wrong"
            [true true] [(contains? (set no-mark) "9") (contains? (set no-mark) "13")])
     (check "the player can fail. With told-by? counting a check that the same step has just left, the plan's own crossing ends wrong, and so do lists of the small ones"
@@ -1162,6 +1399,11 @@
            (:lists place) "lists and" (:states place) "states; for an entity," (:lists entity) "lists and" (:states entity)
            "states; and for a place, an entity and a whole layer while the start layer's list drops a layer and takes it back,"
            (reduce + (map :states lists)) "states")
+    (shown "the base read under the routing id of the asker's own layer, in every order of the callbacks: the thirteen scenarios of what points at a thing, each with the base as the nearest, the second and the farthest layer,"
+           (reduce + (map :states base-played)) "states and" (reduce + (map :ends base-played)) "ends; a place through her own layer and the base while the base's setting and her permission in it change,"
+           (:lists base-place) "lists and" (:states base-place) "states; an entity," (:lists base-entity) "lists and" (:states base-entity)
+           "states; the whole of the two layers," (:lists base-run) "lists and" (:states base-run)
+           "states; in each end the asker's screen is what a read asked once gives from the tables")
     (shown "the player can fail: with the mark dropped the scenarios" (pr-str (filterv some? no-mark))
            "end wrong; with told-by? counting a check that the step has just left, the scenarios"
            (pr-str (filterv some? (:scenarios counting-left))) "and" (:small counting-left) "of the 672 small lists end wrong")

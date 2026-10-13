@@ -1,0 +1,95 @@
+00:48:12.658   17698.6  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads · scenario load {:log "load-stall", :event :stall, :timeout 3, :sleep-ms 5000, :rate 200, :secs 8, :reps 3} · settings of First: {:timeout 3, :retry-mode :all-after, :way :plain}
+00:48:13.002     343.5  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435209675046912, :attempt 1}
+00:48:13.002     343.6  RUN     ---- load-stall run 1 of 3 · load: 200 acts a second for 8 s, four makers, four acts on each key · one second in: :stall ----
+00:48:21.002    8343.8    the makers have sent 1600 acts
+00:48:28.031   15372.5    what the :ack appends gave: {"{}" 1613, "CallbackException: Callback failure" 1}
+00:48:28.031   15372.7    the :ack calls took: middle 1082.1 ms · 99 of 100 under 4978.0 ms · most 5029.3 ms
+00:48:28.032   15373.8    attempts begun in First: 1615 · acts with more than one attempt: 1 · workers of First started again: 0 task globals made ready again
+00:48:28.032   15373.9    NOTES of module First for A and B:
+00:48:28.033   15374.7         1350.3  A attempt 1 begins on task 1
+00:48:28.033   15374.8         1350.4  A attempt 1 sleeps 5000 ms on the task's thread, at the start of the event
+00:48:28.033   15374.9         6350.4  A attempt 1 wakes
+00:48:28.033   15374.9         6350.5  A attempt 1 decides: accepted, number 117435209744515076
+00:48:28.033   15375.0         6350.6  A attempt 1 ends
+00:48:28.033   15375.0         6379.0  A attempt 2 begins on task 1
+00:48:28.034   15375.0         6379.1  A attempt 2 finds its answer there and does nothing
+00:48:28.034   15375.1         6379.1  A attempt 2 ends
+00:48:28.034   15375.2         6394.3  B attempt 1 begins on task 1
+00:48:28.034   15375.2         6394.3  B attempt 1 decides: refused, number 117435209764175872
+00:48:28.034   15375.2         6394.3  B attempt 1 ends
+00:48:28.036   15377.7    the :ack append of A   called at    1343.7, came back after   5020.6 ms with CallbackException: Callback failure
+00:48:28.036   15377.8    the :ack append of B   called at    1643.9, came back after   4758.1 ms with {}
+00:48:29.463   16804.2  RUN     module Again launched and run over the depot from its beginning · 1614 records · it holds an answer for every act: true · after 1417 ms
+00:48:29.712   17053.9    A    First: accepted  number 1343:4     attempt 1   | Again: accepted  number 1343:4     | same
+00:48:29.713   17054.0    B    First: refused   number 1643:0     attempt 1   | Again: refused   number 1643:0     | same
+00:48:29.713   17054.4    the row at ["L00" "kA"] · First holds the act "A" · Again holds the act "A"
+00:48:29.714   17055.7    the order of the decisions in layer L00 by number · First: ["m2-00000" "m3-00000" "m0-00000" "m1-00000" "m0-00002" "m1-00002" "m3-00002" "m2-00002" "m2-00004" "m3-00004" "m1-00004" "m0-00004"] and 790 more · Again: ["m2-00000" "m3-00000" "m0-00000" "m1-00000" "m0-00002" "m1-00002" "m3-00002" "m2-00002" "m2-00004" "m3-00004" "m1-00004" "m0-00004"] and 790 more
+00:48:29.714   17055.9    the partition of layer L00 in order, [position id]: [[4 "m2-00000"] [5 "m3-00000"] [6 "m0-00000"] [7 "m1-00000"] [8 "m2-00001"] [9 "m3-00001"] [10 "m0-00001"] [11 "m1-00001"] [12 "m0-00002"] [13 "m1-00002"] [14 "m3-00002"] [15 "m2-00002"]] and 1590 more
+00:48:29.714   17056.0    the depot holds 1614 records of 1614 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:48:29.715   17056.1    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:48:29.723   17064.7    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+00:48:29.723   17064.9    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 1643:1 · B accepted number 1643:0 · answers that would differ from Again: ["A" "B" "m0-00052" "m0-00054" "m0-00056" "m0-00058" "m0-00060" "m0-00062" "m0-00064" "m1-00052" "m1-00054" "m1-00056"] and 18 more · the rule would name: ["A" "B" "m0-00052" "m0-00054" "m0-00056" "m0-00058" "m0-00060" "m0-00062" "m0-00064" "m1-00052" "m1-00054" "m1-00056"] and 18 more · exactly those: true
+00:48:29.725   17066.1  VERDICT load-stall run 1 of 3 · SAME · First decided ["m2-00000" "m3-00000" "m0-00000" "m1-00000" "m0-00002" "m1-00002" "m3-00002" "m2-00002" "m2-00004" "m3-00004" "m1-00004" "m0-00004"] and 790 more · Again decided ["m2-00000" "m3-00000" "m0-00000" "m1-00000" "m0-00002" "m1-00002" "m3-00002" "m2-00002" "m2-00004" "m3-00004" "m1-00004" "m0-00004"] and 790 more · workers of First started again: no
+00:48:30.661     319.8  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435210832740352, :attempt 1}
+00:48:30.661     319.9  RUN     ---- load-stall run 2 of 3 · load: 200 acts a second for 8 s, four makers, four acts on each key · one second in: :stall ----
+00:48:38.662    8320.0    the makers have sent 1600 acts
+00:48:45.685   15343.2    what the :ack appends gave: {"{}" 1613, "CallbackException: Callback failure" 1}
+00:48:45.685   15343.3    the :ack calls took: middle 1057.2 ms · 99 of 100 under 4961.6 ms · most 5013.3 ms
+00:48:45.686   15344.0    attempts begun in First: 1615 · acts with more than one attempt: 1 · workers of First started again: 0 task globals made ready again
+00:48:45.686   15344.1    NOTES of module First for A and B:
+00:48:45.686   15344.6         1326.2  A attempt 1 begins on task 1
+00:48:45.686   15344.7         1326.2  A attempt 1 sleeps 5000 ms on the task's thread, at the start of the event
+00:48:45.686   15344.7         6326.3  A attempt 1 wakes
+00:48:45.686   15344.7         6326.4  A attempt 1 decides: accepted, number 117435210901880832
+00:48:45.686   15344.7         6326.5  A attempt 1 ends
+00:48:45.686   15344.7         6342.3  A attempt 2 begins on task 1
+00:48:45.686   15344.8         6342.4  A attempt 2 finds its answer there and does nothing
+00:48:45.686   15344.8         6342.5  A attempt 2 ends
+00:48:45.686   15344.9         6354.4  B attempt 1 begins on task 1
+00:48:45.686   15344.9         6354.4  B attempt 1 decides: refused, number 117435210921541632
+00:48:45.686   15344.9         6354.4  B attempt 1 ends
+00:48:45.688   15346.4    the :ack append of A   called at    1320.0, came back after   5008.3 ms with CallbackException: Callback failure
+00:48:45.688   15346.5    the :ack append of B   called at    1620.2, came back after   4741.5 ms with {}
+00:48:47.111   16769.8  RUN     module Again launched and run over the depot from its beginning · 1614 records · it holds an answer for every act: true · after 1414 ms
+00:48:47.319   16977.5    A    First: accepted  number 1320:0     attempt 1   | Again: accepted  number 1320:0     | same
+00:48:47.319   16977.6    B    First: refused   number 1620:0     attempt 1   | Again: refused   number 1620:0     | same
+00:48:47.319   16977.8    the row at ["L00" "kA"] · First holds the act "A" · Again holds the act "A"
+00:48:47.321   16979.2    the order of the decisions in layer L00 by number · First: ["m0-00000" "m2-00000" "m1-00000" "m3-00000" "m2-00002" "m3-00002" "m1-00002" "m0-00002" "m3-00004" "m0-00004" "m1-00004" "m2-00004"] and 790 more · Again: ["m0-00000" "m2-00000" "m1-00000" "m3-00000" "m2-00002" "m3-00002" "m1-00002" "m0-00002" "m3-00004" "m0-00004" "m1-00004" "m2-00004"] and 790 more
+00:48:47.321   16979.4    the partition of layer L00 in order, [position id]: [[4 "m0-00000"] [5 "m2-00000"] [6 "m1-00000"] [7 "m3-00000"] [8 "m0-00001"] [9 "m1-00001"] [10 "m2-00001"] [11 "m3-00001"] [12 "m2-00002"] [13 "m3-00002"] [14 "m1-00002"] [15 "m0-00002"]] and 1590 more
+00:48:47.321   16979.5    the depot holds 1614 records of 1614 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:48:47.321   16979.6    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:48:47.327   16985.1    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+00:48:47.327   16985.2    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 1620:1 · B accepted number 1620:0 · answers that would differ from Again: ["A" "B" "m0-00052" "m0-00054" "m0-00056" "m0-00058" "m0-00060" "m0-00062" "m0-00064" "m1-00052" "m1-00054" "m1-00056"] and 18 more · the rule would name: ["A" "B" "m0-00052" "m0-00054" "m0-00056" "m0-00058" "m0-00060" "m0-00062" "m0-00064" "m1-00052" "m1-00054" "m1-00056"] and 18 more · exactly those: true
+00:48:47.328   16986.4  VERDICT load-stall run 2 of 3 · SAME · First decided ["m0-00000" "m2-00000" "m1-00000" "m3-00000" "m2-00002" "m3-00002" "m1-00002" "m0-00002" "m3-00004" "m0-00004" "m1-00004" "m2-00004"] and 790 more · Again decided ["m0-00000" "m2-00000" "m1-00000" "m3-00000" "m2-00002" "m3-00002" "m1-00002" "m0-00002" "m3-00004" "m0-00004" "m1-00004" "m2-00004"] and 790 more · workers of First started again: no
+00:48:48.245     311.6  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435211984928768, :attempt 1}
+00:48:48.245     311.7  RUN     ---- load-stall run 3 of 3 · load: 200 acts a second for 8 s, four makers, four acts on each key · one second in: :stall ----
+00:48:56.245    8311.8    the makers have sent 1600 acts
+00:49:03.281   15347.0    what the :ack appends gave: {"{}" 1613, "CallbackException: Callback failure" 1}
+00:49:03.281   15347.1    the :ack calls took: middle 1052.1 ms · 99 of 100 under 4960.2 ms · most 5013.0 ms
+00:49:03.282   15348.1    attempts begun in First: 1615 · acts with more than one attempt: 1 · workers of First started again: 0 task globals made ready again
+00:49:03.282   15348.1    NOTES of module First for A and B:
+00:49:03.282   15348.9         1317.2  A attempt 1 begins on task 1
+00:49:03.283   15348.9         1317.2  A attempt 1 sleeps 5000 ms on the task's thread, at the start of the event
+00:49:03.283   15348.9         6317.3  A attempt 1 wakes
+00:49:03.283   15348.9         6317.4  A attempt 1 decides: accepted, number 117435212054200324
+00:49:03.283   15348.9         6317.5  A attempt 1 ends
+00:49:03.283   15349.0         6334.3  A attempt 2 begins on task 1
+00:49:03.283   15349.1         6334.4  A attempt 2 finds its answer there and does nothing
+00:49:03.283   15349.2         6334.5  A attempt 2 ends
+00:49:03.283   15349.3         6346.0  B attempt 1 begins on task 1
+00:49:03.283   15349.3         6346.0  B attempt 1 decides: refused, number 117435212073926656
+00:49:03.283   15349.3         6346.0  B attempt 1 ends
+00:49:03.285   15351.3    the :ack append of A   called at    1311.8, came back after   5007.1 ms with CallbackException: Callback failure
+00:49:03.285   15351.3    the :ack append of B   called at    1612.0, came back after   4740.3 ms with {}
+00:49:04.695   16761.8  RUN     module Again launched and run over the depot from its beginning · 1614 records · it holds an answer for every act: true · after 1402 ms
+00:49:04.919   16985.3    A    First: accepted  number 1311:4     attempt 1   | Again: accepted  number 1311:4     | same
+00:49:04.919   16985.4    B    First: refused   number 1612:0     attempt 1   | Again: refused   number 1612:0     | same
+00:49:04.919   16985.7    the row at ["L00" "kA"] · First holds the act "A" · Again holds the act "A"
+00:49:04.921   16987.1    the order of the decisions in layer L00 by number · First: ["m1-00000" "m0-00000" "m3-00000" "m2-00000" "m3-00002" "m2-00002" "m0-00002" "m1-00002" "m3-00004" "m0-00004" "m2-00004" "m1-00004"] and 790 more · Again: ["m1-00000" "m0-00000" "m3-00000" "m2-00000" "m3-00002" "m2-00002" "m0-00002" "m1-00002" "m3-00004" "m0-00004" "m2-00004" "m1-00004"] and 790 more
+00:49:04.921   16987.3    the partition of layer L00 in order, [position id]: [[4 "m1-00000"] [5 "m0-00000"] [6 "m3-00000"] [7 "m2-00000"] [8 "m0-00001"] [9 "m2-00001"] [10 "m1-00001"] [11 "m3-00001"] [12 "m3-00002"] [13 "m2-00002"] [14 "m0-00002"] [15 "m1-00002"]] and 1590 more
+00:49:04.921   16987.3    the depot holds 1614 records of 1614 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+00:49:04.921   16987.3    RULE   names as out of their line: 0 [] · the acts whose answer differs: 0 · the rule names exactly those: true
+00:49:04.926   16992.7    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+00:49:04.926   16992.9    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 1612:1 · B accepted number 1612:0 · answers that would differ from Again: ["A" "B" "m0-00052" "m0-00054" "m0-00056" "m0-00058" "m0-00060" "m0-00062" "m0-00064" "m1-00052" "m1-00054" "m1-00056"] and 18 more · the rule would name: ["A" "B" "m0-00052" "m0-00054" "m0-00056" "m0-00058" "m0-00060" "m0-00062" "m0-00064" "m1-00052" "m1-00054" "m1-00056"] and 18 more · exactly those: true
+00:49:04.928   16994.5  VERDICT load-stall run 3 of 3 · SAME · First decided ["m1-00000" "m0-00000" "m3-00000" "m2-00000" "m3-00002" "m2-00002" "m0-00002" "m1-00002" "m3-00004" "m0-00004" "m2-00004" "m1-00004"] and 790 more · Again decided ["m1-00000" "m0-00000" "m3-00000" "m2-00000" "m3-00002" "m2-00002" "m0-00002" "m1-00002" "m3-00004" "m0-00004" "m2-00004" "m1-00004"] and 790 more · workers of First started again: no
+00:49:05.533   17599.8  RUN     END · 3 runs · SAME: 3 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 3

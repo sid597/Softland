@@ -76,9 +76,9 @@ it is committed while it fails.
 |---|---|---|---|
 | 0 | The proof: a second module over the store's two depots from their beginning, every table compared | fails, committed failing | **done.** On the store as it was before the build 3,064 rows differ (`runs/first-proof-run-again.txt`) |
 | A | The clock before the depot, the number per layer, the streaming gate's depot of answers and the rebuild out | still fails, on the base alone: the streaming gate's four tables hold 0 rows that differ | **done.** What it changed is in `PART-A.md`; its runs are `runs/after-a-*.txt` |
-| B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes | its Rama claims are run (`probes-the-bases-gate/RESULTS.md`), its plan is written (`PLAN-the-bases-gate.md`), and a draft of the gate ran on a module of its own with every table the same on a run again. The store's own gate is not changed yet |
-| C | Decision 7 on the store itself: closed, or said on the store's page and named by the proof | passes | a run on a stand-in gate is under way |
-| D | This folder's pages, the queue, the open rows of both receipts, the progress page of the folder above | — | not begun |
+| B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes: 0 rows differ on a run again, and the kept acts give the kept tables with 4 tasks and with 8 | the source is switched and every proof is adapted (`PART-B.md`); the whole set of proofs is run once more before its commit |
+| C | Decision 7 on the store itself: closed, or said on the store's page and named by the proof | passes | **run.** On a stand-in gate of the store's form no failure that could be made in process changed the order, in 87 of 87 runs (`probes-order-after-a-failure/RESULTS.md`). On the store itself three kinds of failure were made inside the run-again proof, a throw in the base, a stall past Rama's timeout and a throw in a streaming layer: after each, a second run gave the same tables, 0 rows differing. One case was reached in neither: a batch that fails with no restart and loses its rows, as a failed copy to a second machine would make it. No cheap way to close that case was found. It is said on the store's page, and the proof names an act that is decided out of its line |
+| D | The pages: the store's page, the source entry's decisions of 13 October, the proofs' map, the queue, the open rows of both receipts, the progress page of the folder above, the questions for Rama's team | — | written from the finished code; the proofs' map is being finished |
 | E | One fresh review of the whole, its fixes, the final runs, one receipt | passes | not begun |
 
 ## Working answers, each kept for now and decided by nobody
@@ -125,6 +125,30 @@ code, and its docstring says "Not decided: kept for now".
    build. The docstrings and the folder maps beside the code are true at each commit.
 
 More are added below as they are made.
+
+## Found by the build, for Sid to hear of
+
+Each follows from one of his decisions or was met on the way. None is decided.
+
+1. **A live read of the base is shared only by askers whose reads start from one
+   layer.** With a copy on every task, an asker reads the base on the task of her own
+   layer, under that layer's routing id. Before, every asker shared one live read of
+   the base's own rows. Derived, not run: at Rama's default bound of 1,000 live reads
+   on one table on one task, about 500 layers for each task can read the base live.
+   The read path's own count is by routing id and does not see this bound.
+2. **A second module with another number of tasks decides a layer on the task of its
+   depot partition**, not on the task of the layer's hash (run on a stand-in, 8 tasks
+   over a depot of 4). So the way to more tasks needs depots of its own, or one hop at
+   the head of each gate. Not built.
+3. **A maker cannot tell three states apart behind a failed append**: an act that was
+   accepted, an act that was decided after a worker started again, and an act that
+   never reached the depot (run on a stand-in). The door's word for it says so, and
+   she reads the record by act-id.
+4. **One thing with a time at the end of the range** (2^46 less one) is accepted and
+   leaves its layer 65,535 stamps before 2^62. It goes with "where a time that is far
+   ahead is stopped".
+5. **A reader on another task than the base's can see a new fact a moment later.** Read
+   in Rama's docs; not seen in a run of this build.
 
 ## Where the papers are
 

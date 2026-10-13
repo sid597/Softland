@@ -13,23 +13,25 @@
     clojure -M:store-module -m softland.store.gate-measures small
 
   Each line of it starts with MEASURED. The first lines say which tree is
-  measured: what `git rev-parse --short HEAD` gives, how many paths under
-  `src-store` differ from that commit, and whether the module has the
-  microbatch gate's depot of answers. A set of times is printed as its
-  count, its least, its middle, the time that 9 of 10 are not above, and
-  its most, in milliseconds. It exits 0 unless it cannot run.
+  measured: what `git rev-parse --short HEAD` gives, and how many paths
+  under `src-store` differ from that commit. A set of times is printed as
+  its count, its least, its middle, the time that 9 of 10 are not above,
+  and its most, in milliseconds. It exits 0 unless it cannot run.
 
   No live read is open in any measure: the run opens doors and no read path
   (`softland.store.read-path`), and each line of a number says so.
 
-  Which gate appends an answer. The streaming gate appends nothing: what it
-  decided is in its tables, and the module has no depot of its answers. The
-  microbatch gate appends what a batch decided to its depot of answers,
-  `*microbatch-answer-depot`. The run sends acts through the door and reads
-  answers back, and times that. It reads nothing that a depot of answers
-  adds; it only asks the cluster whether the microbatch gate's depot is
-  there under its name, to say which tree it is on: the same file runs on a
-  tree whose gate has that depot and on a tree whose gate has none.
+  Where an answer is, and when. Each gate keeps what it decided in its own
+  tables. No gate appends an answer to a depot: the module's two depots
+  hold what clients appended and nothing else (`softland.store.module`).
+  The run sends acts through the door and reads answers back through the
+  door, and times that. The append of a streaming act returns when the
+  streaming gate has run, so a time of the streaming gate is to the return
+  of `send-act`. The append of an act of the base returns when the depot
+  holds the thing, and its answer is there when the batch that decided it
+  is committed on the base's task; nothing waits for a later batch. So a
+  time of the base is to the read of the door's wait that gave the answer:
+  it can be one sleep of that wait and one read later than the commit.
 
   What is run, on Rama's in-process cluster with 4 tasks, 2 threads and 2
   workers. Every act goes in through the door.
@@ -39,21 +41,20 @@
         of one layer, 100 a second. The streaming gate, timed to the return
         of `send-act`, which is the streaming depot's ack: once with the key
         not marked and once with it marked. And the base, timed to the
-        moment at which the door's wait gives \"accepted\". These are the
-        shapes of M1 of `softland.store.read-measures`, and its lines stand
-        beside the M1 lines of
-        `src/proposal/backend-on-rama-2026-10-02/reads/runs/measures-final.txt`
-    D2  what a gate's append of an answer adds, which is the difference of
-        this run on two trees, one whose gate appends and one whose gate
-        does not, and no number of one run. On this tree the streaming gate
-        appends nothing and the microbatch gate appends. For the streaming
-        gate: D1's two streaming lines; and one shape more, the same act
-        sent a second time under its act-id, so that the gate finds its
-        answer there. For the microbatch gate: D1's base shape through a door whose
-        wait reads every 5 ms, with two times for each act: to the first
-        sight of its answer's row by a select of the table, which is the
-        commit of its batch on that task; and to the door's \"accepted\",
-        which is the closing of the batch
+        moment at which the door's wait gives \"accepted\": once through a
+        door whose wait reads every 200 ms, the door's own number, and once
+        through a door whose wait reads every 5 ms. The two streaming
+        shapes and the first shape of the base are those of M1 of
+        `softland.store.read-measures`. The lines of the streaming gate
+        stand beside the M1 lines of the streaming gate in
+        `src/proposal/backend-on-rama-2026-10-02/reads/runs/measures-final.txt`;
+        the lines of the base stand beside no line of that file, whose
+        base gave an answer only for a closed batch
+    D2  the same act sent a second time under its act-id, into a streaming
+        layer: the gate finds the answer that it gave the first time and
+        decides nothing. One maker asks for the act-ids of a series ahead,
+        sends each act under its act-id, and then sends each again; both
+        sends are timed to the return of `send-act`
     D3  Rama's setting `topology.stream.max.executing.per.task`, at Rama's
         default and at 1. D1's first shape at 1. And the most acts a second
         that one maker holds, in both readings: acts sent at fixed rates
@@ -78,16 +79,15 @@
   State. The run starts one in-process cluster, launches the module `Store`
   in it and closes it; then it starts a second, launches `StoreAtOne` in it
   and closes it. In the first it opens two doors, the second with a wait
-  that reads every 5 ms, and one handle on the table `$$microbatch-answers`.
-  It starts `git` twice to say which tree it is on. It reads the clock."
+  that reads every 5 ms; in the second, one door. It opens no depot and no
+  table itself. It starts `git` twice to say which tree it is on. It reads
+  the clock."
   (:require [clojure.java.shell :as shell]
             [clojure.string :as str]
             [com.rpl.rama :as rama]
-            [com.rpl.rama.path :as path]
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
-            [softland.store.module :as module]
-            [softland.store.record.rows :as record])
+            [softland.store.module :as module])
   (:import [com.rpl.rama RamaModule]
            [java.util.concurrent ExecutorService Executors LinkedBlockingQueue ThreadFactory
             ThreadPoolExecutor TimeUnit]
@@ -97,7 +97,7 @@
   "The loads of the measures, by their names: the plan's own, and a small
   one for a first try. `:acts` and `:warm` are the acts of a shape at 100 a
   second and those before them that are not counted; `:again` is how many
-  things D2 sends a second time; `:rates` are D3's rates in acts a second,
+  acts D2 sends a second time; `:rates` are D3's rates in acts a second,
   each held for `:rate-seconds`; `:one-by-one-seconds` is how long D3's
   maker sends one act after the other."
   {:full  {:acts 3000 :warm 500 :again 1000 :rates [200 400 800 1600] :rate-seconds 10 :one-by-one-seconds 10}
@@ -111,12 +111,6 @@
   the gate does not hold shows as times that grow, and not as more load."
   2000)
 
-(def ^:private answer-depots
-  "The names under which the cluster is asked for a depot of answers: the
-  one name of the microbatch gate's. The streaming gate has no depot of
-  answers, so no name of one is asked for."
-  ["*microbatch-answer-depot"])
-
 (def ^:private setting
   "The name of Rama's setting that D3 measures."
   "topology.stream.max.executing.per.task")
@@ -129,9 +123,13 @@
 
 (alter-meta! #'StoreAtOne assoc
              :doc "The module `Store` by its own definition, with one option of Rama set at
-  the launch: the streaming gate runs one event of a task at a time. It has
-  a name of its own, and a door opens on that name. Nothing of the store's
-  code names the option.")
+  the launch: the streaming gate runs one event of a task at a time. It
+  calls the definition of `softland.store.module/Store` with its own
+  `setup` and `topologies`. So it declares the two depots of acts as
+  `Store` does, each partitioned by the thing's `:layer`, and adds the two
+  gates and the door's two reads by `Store`'s one call; this file writes
+  none of that a second time. It has a name of its own, and a door opens on
+  that name. Nothing of the store's code names the option.")
 
 ;; ---------------------------------------------------------------- what is printed
 
@@ -174,17 +172,6 @@
   (try (let [{:keys [exit out]} (apply shell/sh "git" args)]
          (if (zero? exit) (str/trim out) "not told"))
        (catch Throwable _ "not told")))
-
-(defn- depots-of-answers
-  "Asks the cluster for a depot of the module under each name of
-  `answer-depots`. Gives the names under which one came. Rama's client of
-  1.6.0 has no call that lists the depots of a module, so each name is
-  asked for, and a throw is taken as \"none under that name\"."
-  [cluster module-name]
-  (vec (filter (fn [depot]
-                 (try (some? (rama/foreign-depot cluster module-name depot))
-                      (catch Throwable _ false)))
-               answer-depots)))
 
 ;; ------------------------------------------------------------- through the door
 
@@ -303,7 +290,7 @@
 
 (defn- d1-streaming
   "D1, the streaming gate: once with the key not marked, once with it
-  marked. These two shapes are also what D2 reads on two trees."
+  marked."
   [{:keys [door]} {:keys [acts warm]}]
   (let [layer :d1
         own (make! door layer)
@@ -315,16 +302,20 @@
 
 (defn- d1-base
   "D1, the base: the same acts into the base, each timed to the moment at
-  which the door's wait gives \"accepted\". The sender sends at its pace;
-  each act's answer is waited for on a thread of its own, by the door's
-  wait, which reads the answer every 200 ms: a time can be up to that much
-  later than the closing of the act's batch."
-  [{:keys [door]} {:keys [acts warm]}]
+  which the door's wait gives \"accepted\". Takes a door, how often its
+  wait reads, in milliseconds, for the printed line, the number of the
+  first act's place, and the load. The sender sends at its pace; each act's
+  answer is waited for on a thread of its own, by the door's wait. The
+  answer is there when the act's batch is committed on the base's task, and
+  the wait reads at its own pace: a time can be one sleep of the wait and
+  one read later than that commit. The reads are a load of their own on the
+  base's task, the more the more often the wait reads."
+  [door every-ms first-number {:keys [acts warm]}]
   (let [^ExecutorService waiters (Executors/newCachedThreadPool)
         from-due (atom []) from-call (atom []) not-accepted (atom 0)
         send-one (fn [i due count?]
                    (let [called (System/nanoTime)
-                         sent (send! door :system :base system-own [(another-place i)])]
+                         sent (send! door :system :base system-own [(another-place (+ first-number i))])]
                      (if (:could-not sent)
                        (swap! not-accepted inc)
                        (.submit waiters
@@ -341,18 +332,19 @@
     (paced acts every-10-ms (fn [i due] (send-one i due true)))
     (.shutdown waiters)
     (.awaitTermination waiters 180 TimeUnit/SECONDS)
-    (measured "D1 the base, 100 acts a second, the same acts, the door's wait reads every 200 ms | from the act's due moment to the moment at which the door's wait gives accepted:"
+    (measured "D1 the base, 100 acts a second, the same acts, the door's wait reads every" every-ms
+              "ms | from the act's due moment to the moment at which the door's wait gives accepted, which is the commit of the act's batch on the base's task and then one sleep of the wait and one read at most:"
               (times @from-due))
-    (measured "D1 the base, the same | from the call of send-act to that moment:" (times @from-call)
+    (measured "D1 the base, the same, the door's wait reads every" every-ms "ms | from the call of send-act to that moment:" (times @from-call)
               "| acts that got no accepted answer:" @not-accepted)))
 
 ;; ------------------------------------------------------------------------ D2
 
 (defn- d2-again
-  "D2, the streaming gate, one shape more: the same act sent a second
-  time. One maker asks for the act-ids of the series ahead, sends each act
-  under its act-id, 100 a second, and then sends each again under the same
-  act-id, 100 a second. A second send of one act under one act-id is the
+  "D2, the streaming gate: the same act sent a second time. One maker asks
+  for the act-ids of the series ahead, sends each act under its act-id,
+  100 a second, and then sends each again under the same act-id, 100 a
+  second. A second send of one act under one act-id is the
   same thing but for the time that the door writes on it, and has the
   digest of the first (`softland.store.door/send-act`); the door appends it
   with `:ack`, and the gate finds the answer that it gave the first time
@@ -390,80 +382,6 @@
                 (times (:took second-time)) "| sends that came back with a word of the door:" (:words second-time)
                 "| the last act's answer, read once:" (pr-str (:last second-time))))))
 
-(defn- row-seen-at
-  "Reads the row of an answer in the table `$$microbatch-answers` every
-  5 ms until a read gives one. Takes the handle of the table, an act-id of
-  the base, a counter of the reads made, and a bound in milliseconds. Gives
-  the moment of the clock after the first read that gave a row, in
-  nanoseconds; or nil when there is no handle, the act-id gives no key, a
-  read threw, or the bound passed. The select goes to the task of the
-  act-id's uuid, where the answer's row is, and reads the row whether or
-  not its batch is closed."
-  [answers act-id ^AtomicLong reads bound-ms]
-  (let [routing-id (record/routing-id act-id)
-        key (second (record/answer-read-by-routing-id routing-id act-id))
-        ends (+ (System/nanoTime) (* 1000000 (long bound-ms)))]
-    (when (and answers key)
-      (try
-        (loop []
-          (.incrementAndGet reads)
-          (cond
-            (some? (rama/foreign-select-one (path/keypath key) answers {:pkey routing-id})) (System/nanoTime)
-            (< ends (System/nanoTime)) nil
-            :else (do (Thread/sleep 5) (recur))))
-        (catch Throwable _ nil)))))
-
-(defn- d2-base
-  "D2, the microbatch gate: D1's base shape, with two times for each act.
-  The first is to the first sight of its answer's row by a select of the
-  table, read every 5 ms: the commit of its batch on that task. The second
-  is to the moment at which the wait of a door that reads every 5 ms gives
-  \"accepted\": the closing of its batch. What a gate does between the
-  commit and the closing is in the second and not in the first, so the
-  third line gives the span between the two for each act. Each act is
-  waited for on a thread of its own, which reads first the table and then
-  the door; each time can be one sleep of 5 ms and one read later than what
-  it is of. The reads are a load of their own on the tasks: the first line
-  says how many selects of the table were made."
-  [{:keys [door-5ms answers]} {:keys [acts warm]}]
-  (let [^ExecutorService waiters (Executors/newCachedThreadPool)
-        to-row (atom []) to-accepted (atom []) between (atom [])
-        not-accepted (atom 0) row-not-seen (atom 0)
-        reads (AtomicLong.)
-        send-one (fn [i count?]
-                   (let [called (System/nanoTime)
-                         sent (send! door-5ms :system :base system-own [(another-place (+ 300000 i))])]
-                     (if (:could-not sent)
-                       (swap! not-accepted inc)
-                       (.submit waiters
-                                ^Runnable
-                                (fn []
-                                  (let [seen (row-seen-at answers (:act-id sent) reads 120000)
-                                        answer (door/answer-of door-5ms (:act-id sent) (:digest sent) 120000)
-                                        now (System/nanoTime)]
-                                    (when count?
-                                      (if seen
-                                        (swap! to-row conj (- seen called))
-                                        (swap! row-not-seen inc)))
-                                    (if (= :accepted (:answer answer))
-                                      (when count?
-                                        (swap! to-accepted conj (- now called))
-                                        (when seen (swap! between conj (- now seen))))
-                                      (swap! not-accepted inc))))))))]
-    (paced warm every-10-ms (fn [i _] (send-one (- i warm) false)))
-    (paced acts every-10-ms (fn [i _] (send-one i true)))
-    (.shutdown waiters)
-    (.awaitTermination waiters 180 TimeUnit/SECONDS)
-    (measured "D2 the base, 100 acts a second, the same acts, the table and the door read every 5 ms | from the call of send-act to the first sight of the act's answer's row by a select of the table, which is the commit of its batch on that task:"
-              (times @to-row) "| acts whose row was not seen:" @row-not-seen
-              "| selects of the table made, of all acts:" (.get reads)
-              (if answers
-                "| the table is $$microbatch-answers"
-                "| the table $$microbatch-answers was not found under that name"))
-    (measured "D2 the base, the same | from the call of send-act to the moment at which the door's wait gives accepted, which is the closing of its batch:"
-              (times @to-accepted) "| acts that got no accepted answer:" @not-accepted)
-    (measured "D2 the base, the same | from the first sight of the row to the door's accepted:" (times @between))))
-
 ;; ------------------------------------------------------------------------ D3
 
 (defn- senders
@@ -487,14 +405,15 @@
   permission, the rate in acts a second, the seconds, and the number of the
   first act's place. Gives {:from-due :from-call :words :most-on-way
   :last-took :last :all-returned?}: the times to the return of `send-act`
-  in nanoseconds; how many sends came back with a word of the door; the
-  most sends that were due and had not returned at one moment; the last
-  act's time from its due moment, or nil; the word of its answer, read once
-  after every send returned; and whether every send returned in the 300 s."
+  in nanoseconds; the sends that came back with a word of the door, as how
+  many came back with each [word, class of what threw]; the most sends
+  that were due and had not returned at one moment; the last act's time
+  from its due moment, or nil; the word of its answer, read once after
+  every send returned; and whether every send returned in the 300 s."
   [door layer permission rate seconds first-number]
   (let [n (* (long rate) (long seconds))
         pool (senders)
-        from-due (atom []) from-call (atom []) words (atom 0)
+        from-due (atom []) from-call (atom []) words (atom [])
         on-way (AtomicLong.) most-on-way (AtomicLong.)
         last-took (atom nil) last-sent (atom nil)]
     (paced n (quot 1000000000 (long rate))
@@ -508,7 +427,7 @@
                                returned (System/nanoTime)]
                            (.decrementAndGet on-way)
                            (if (:could-not sent)
-                             (swap! words inc)
+                             (swap! words conj [(:could-not sent) (:threw sent)])
                              (do (swap! from-due conj (- returned due))
                                  (swap! from-call conj (- returned called))))
                            (when (= i (dec n))
@@ -517,7 +436,7 @@
     (.shutdown pool)
     (let [all-returned? (.awaitTermination pool 300 TimeUnit/SECONDS)]
       (when-not all-returned? (.shutdownNow pool))
-      {:from-due @from-due :from-call @from-call :words @words :most-on-way (.get most-on-way)
+      {:from-due @from-due :from-call @from-call :words (frequencies @words) :most-on-way (.get most-on-way)
        :last-took @last-took :last (answer-word door @last-sent) :all-returned? all-returned?})))
 
 (defn- one-by-one
@@ -567,7 +486,10 @@
         (measured "D3 the same," rate "acts a second, the setting" at "| from the call of send-act to its return:" (times (:from-call got))
                   "| the most sends due and not returned at one moment:" (:most-on-way got)
                   "| the sender holds" most-senders "in send-act at once, and a send that is due over that waits for a thread"
-                  "| sends that came back with a word of the door:" (:words got)
+                  "| sends that came back with a word of the door:" (reduce + (vals (:words got)))
+                  (if (seq (:words got))
+                    (str "| how many with each word and class of what threw: " (pr-str (:words got)))
+                    "")
                   "| every send returned within 300 s of the last due moment:" (if (:all-returned? got) "yes" "no"))))
     (measured "D3 the streaming gate, the setting" at "| the rates of this run at which the last act was answered within a second of its due moment:"
               (pr-str @held) "of" (pr-str rates) "acts a second")
@@ -627,9 +549,7 @@
       (rtest/launch-module! ipc module/Store launch)
       (let [m (rama/get-module-name module/Store)
             hold {:door (open-door ipc m nil)
-                  :door-5ms (open-door ipc m {:read-every-ms 5})
-                  :answers (try (rama/foreign-pstate ipc m "$$microbatch-answers") (catch Throwable _ nil))}
-            found (depots-of-answers ipc m)]
+                  :door-5ms (open-door ipc m {:read-every-ms 5})}]
         (said "the measures of the gates, with the load" (pr-str load-name) (pr-str load)
               "| no live read is open in any measure: the run opens doors and no read path"
               "| Rama's in-process cluster, 4 tasks, 2 threads, 2 workers, one machine, every row in memory, no network: a time is a floor for a round trip and says little of a disk or a network | JVM heap limit"
@@ -640,15 +560,14 @@
                 (cond (= "not told" status) status
                       (str/blank? status) 0
                       :else (count (str/split-lines status))))
-              "| a depot of answers in the module" (str m ":")
-              (if (seq found) (str "yes, " (str/join " and " found)) (str "none, asked for as " (str/join " and " answer-depots))))
-        (said "D1's lines stand beside the M1 lines of reads/runs/measures-final.txt; those are of the tree of the read build, whose door took the locks of a send from a stock that it kept, so a request's round is not in their middle")
-        (said "D2 is the difference of D1's two streaming lines, and of the D2 lines, between this run and the run of this file on another tree; one run holds no number of it")
+              "| the module" m "| each gate keeps its answers in its own tables, and no gate appends an answer to a depot")
+        (said "a time of the streaming gate is to the return of send-act, which is the streaming depot's ack | a time of the base is to the read of the door's wait that gave accepted: the answer is there when the act's batch is committed on the base's task, and nothing waits for a later batch")
+        (said "D1's lines of the streaming gate stand beside the M1 lines of the streaming gate in reads/runs/measures-final.txt; those are of the tree of the read build, whose door took the locks of a send from a stock that it kept, so a request's round is not in their middle | D1's lines of the base stand beside no line of that file: its lines of the base are to an answer that the door's read gave only for a closed batch, and this store closes no batch")
         (set-up! (:door hold))
         (d1-streaming hold load)
-        (d1-base hold load)
+        (d1-base (:door hold) 200 0 load)
+        (d1-base (:door-5ms hold) 5 300000 load)
         (d2-again hold load)
-        (d2-base hold load)
         (d3-default hold load)))
     (with-open [ipc (rtest/create-ipc)]
       (rtest/launch-module! ipc StoreAtOne launch)

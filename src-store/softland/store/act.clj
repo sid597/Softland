@@ -56,8 +56,9 @@
   `readable-keyword?`. The door's additions
   (`softland.store.door.additions`) ask nothing of it but the shape of an
   act-id, through the declaration. The standing of an act
-  (`softland.store.gate.decision/standing`, which both gates call) asks
-  `allows` of the permission that the act names, and the record's rows
+  (`softland.store.gate.decision/standing`, which the walk calls for both
+  gates) asks `allows` of the permission that the act names, and the
+  record's rows
   (`softland.store.record.rows`) ask `value?`, `normal-value`,
   `has-shape?` and `readable-keyword?` when they read a row back. The read
   path's check of a query (`softland.store.read-path.query`) declares its
@@ -74,10 +75,11 @@
   writes it, from the clock of its server. The standing of a permission, and
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
-  session and the digest of an act: the gates'. The microbatch hash entity:
-  the depot derives it. The door is `softland.store.door`; the gate is in its
-  own namespaces beside this one. A stamp, an answer, a read and the
-  settings of a layer are not here either.
+  session and the digest of an act: the gates'. The partition of an act in
+  its depot: the depot takes it from the act's layer
+  (`softland.store.module`). The door is `softland.store.door`; the gate
+  is in its own namespaces beside this one. A stamp, an answer, a read and
+  the settings of a layer are not here either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more
   facts that one maker sends under one act-id. An act-id is

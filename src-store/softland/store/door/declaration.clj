@@ -52,8 +52,9 @@
   `check` never throw: a throw in a gate would stop its partition (a finding
   of the rig on Rama).
 
-  Callers. `softland.store.gate.decision`, `softland.store.record.rows` and the two
-  gates (`softland.store.module.streaming-gate`, `softland.store.module.microbatch-gate`).
+  Callers. `softland.store.gate.decision`, `softland.store.record.rows` and
+  the walk of one thing, which both gates call
+  (`softland.store.module.walk`).
   The door's additions (`softland.store.door.additions`), for the tests of
   an id and of an act-id, and for the name of the time's part. The digest
   (`softland.store.door.digest`), for that name: it is the part that a
@@ -137,7 +138,7 @@
   "The name of the part of an arrived thing that holds the time on the act:
   `:door-time`. The door writes the part (`softland.store.door/send-act`):
   the clock of the server that runs the door, in milliseconds since 1970.
-  The streaming gate makes the stamp of a decision of it
+  Each gate makes the stamp of a decision of it
   (`softland.store.gate.decision/time-on`), and the digest of a thing
   leaves it out (`softland.store.door.digest`).
 
@@ -159,7 +160,7 @@
   Sid's to say. Nothing stops one but this range: no check holds the time
   on an act against a clock. A thing that anything appends with a time far
   ahead of every clock is accepted when the rest of it is right, and each
-  later stamp of its layer in the streaming gate is later than that time.
+  later stamp of its layer is later than that time.
   This number is the one place where a bound on the time is made."
   (bit-shift-left 1 46))
 
@@ -609,11 +610,9 @@
                                This covers a thing with no `:layer`
 
   A thing that passes names one layer in its act-id and in its `:layer`, of
-  `max-id-text` characters at most. On the streaming depot, when a client
-  appended it, it is on the task of that layer, which is where a read by
-  its act-id looks. On the microbatch depot it is on the task of the entity
-  of its first fact, and its answer is written on the task of its act-id's
-  uuid, which is where that read looks.
+  `max-id-text` characters at most. On either depot, when a client
+  appended it, it is on the task of that layer, which is where its gate
+  writes its answer and where a read by its act-id looks.
 
   It reads no time. A thing with a usable act-id and no usable time is no
   stray: `check` refuses it, and the refusal is recorded under its act-id.

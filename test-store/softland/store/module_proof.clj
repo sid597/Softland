@@ -15,93 +15,146 @@
   this namespace, in the order of one act: it reads the depot of the layer;
   makes the act-id, with a random UUID; writes a time on the thing, as the
   door does; appends the thing, each value plain as a maker gives it; reads
-  the answer by act-id; and compares the answer's digest with the digest of
-  what it sent. The time is a reading of the proof's own clock, or a time
-  that a check chose: a check of a stamp of the streaming gate chooses the
-  time, so that the stamp is a number that the proof makes itself from that
-  time. The hand also plays a reader of
-  the tables, and does not use the read path (`softland.store.read-path`),
-  which has a proof of its own: it selects a fact's row, the row of a
-  layer's marked keys, and a run of the facts by value, with the keys and
-  the partitioning keys that `softland.store.record.rows` gives, and reads a
-  row back with that namespace's functions. An error from the append is not an answer. It
-  keeps each thing that it sent, so that a repeat is the same thing byte for
-  byte.
-
-  The hand also plays a reader of the microbatch gate's depot of answers:
-  with Rama's client it reads each partition of `*microbatch-answer-depot`
-  from its start, and holds each entry against what the read by act-id
-  gives and against the tables. No topology of the module reads that depot,
-  and neither the door nor the read path. The streaming gate has no depot
-  of answers: the proof asks the cluster for one by name and gets none, and
-  what that gate decided is read from its tables.
+  the answer by act-id, with the act-id's layer as the routing id, for both
+  depots; and compares the answer's digest with the digest of what it sent.
+  The time is a reading of the proof's own clock, or a time that a check
+  chose: a check of a stamp chooses the time, in both gates, so that the
+  stamp is a number that the proof makes itself from that time. The hand
+  also plays a reader of the tables, and does not use the read path
+  (`softland.store.read-path`), which has a proof of its own: it selects a
+  fact's row, the row of a layer's marked keys, and a run of the facts by
+  value, with the keys that `softland.store.record.rows` gives, and reads a
+  row back with that namespace's functions. An error from the append is not
+  an answer. It keeps each thing that it sent, so that a repeat is the same
+  thing byte for byte.
 
   The two depots. For a streaming layer the hand appends with the ack level
   :ack and reads the answer once: the ack waits for the gate. For the base,
   the one microbatch layer, no ack carries an answer: the hand appends with
-  :append-ack and reads the answer by act-id in a loop with a time limit, as
-  a door would. To put several things into one batch it pauses the
-  microbatch topology with Rama's test tool, appends, and lets it go on.
+  :append-ack, waits with Rama's test tool until the gate has processed
+  each thing that it appended, and reads the answer once. It sends things of
+  the base in three ways: one alone; several in a row, with no wait for the
+  gate between two of them, as a maker sends her acts; and several while
+  the microbatch topology is paused, so that one batch takes them all.
+
+  Where the hand reads the base. The row of a fact and a row of the facts
+  by value are on every task. The hand reads one on the base's task; on
+  each of the four tasks, with a key that hashes to the task; and, at
+  chosen moments of the run, in the whole table on every task, which it
+  holds against itself task by task. An answer, a layer's last stamp and
+  the digest of a stray are on one task. Which task is a layer's is told
+  from the depot's log: the partition that holds the layer's things.
+
+  The checks of the base. The streaming gate's groups are their measure:
+  what the proof shows of a streaming layer it shows of the base, group for
+  group. Two things are held once, for the streaming depot: the kinds of
+  value that Rama carries on a depot, and what the two reads give for a
+  thing that is no id. Beside them stand the checks of what only the base
+  has: the line
+  (acts that need each other's rows, appended with no wait for the gate,
+  and a chain of 100 acts in one batch); the copies on every task; the
+  stamp by the proof's own arithmetic for each thing that the gate decided,
+  in the depot's order; a mark and the facts after it in one batch; and an
+  attempt of a batch that fails and runs again.
 
   State. The proof starts two in-process clusters, one after the other in
   one JVM, each with four tasks and two workers, launches the module `Store`
   in each, and closes each; a cluster's files are temporary and are Rama's.
-  Every check but three groups runs on the first cluster, on the functions
+  Every check but two groups runs on the first cluster, on the functions
   as the store defines them: nothing is replaced in the JVM while it runs.
-  The three groups that make a gate fail run on the second cluster: a batch
-  of the microbatch gate that runs a second time, a run of that gate that
-  closes a batch and fails behind its appends, and an event of the
-  streaming gate that fails before its first write and runs again. For that
-  cluster alone `-main` puts seven functions of this namespace into the
-  vars of seven pure functions of the store that the gates' dataflow calls,
-  before the launch, and puts the store's own back when the cluster is
-  closed, in a `finally`: `base`, `decide-or-send`, `rows-to-send`,
-  `records-of-closing` and `marks-places-asked` of
-  `softland.store.gate.batch`, `writes` of `softland.store.gate.decision`,
-  and `stray-reason` of `softland.store.door.declaration`. Each of the
-  seven gives exactly what the store's function gives; three of them throw,
-  once each, when a group asked for it. The module's source holds no hook
-  for any of this. Rama takes the function that a var holds at each launch.
+  The two groups that make a gate fail run on the second cluster: an
+  attempt of a batch of the microbatch gate that fails in the middle of the
+  batch and runs again, and an event of the streaming gate that fails
+  before its first write and runs again. For that cluster alone `-main`
+  puts two functions of this namespace into the vars of two pure functions
+  of the store that the walk of one thing calls, before the launch, and
+  puts the store's own back when the cluster is closed, in a `finally`:
+  `writes` of `softland.store.gate.decision`, and `stray-reason` of
+  `softland.store.door.declaration`. Each gives what the store's function
+  gives, but for what a group asked: `writes` throws once for one act of
+  each of the two groups; to each act of the failing batch before the
+  throw it adds one row that no act writes; and to one act more, in an
+  attempt that commits, such a row too. The module's source holds no
+  hook for any of this. The walk reads each var at each call, because this
+  namespace loads the store's module, and with it the walk, while the vars
+  hold the store's own functions.
 
-  The proof owns eleven atoms: the lines that it showed; the things that it
-  sent to each depot; the first answers of each gate, in the order sent;
-  what later checks come back to; and, for the second cluster, the note of
-  each attempt of a batch, the wish for a throw, each throw that was made,
-  what the proof asked of a closing and what came of it, and the events of
-  the streaming gate that it watches, with the one that is to fail and each
-  call that was noted for them. `-main`
-  empties all but the shown lines between the two clusters:
-  Rama counts the things that a gate processed from the launch of a
-  cluster. The notes are the memory of this process. They hold a first
-  attempt's rows through the restart of a worker only because the in-process
-  cluster is one JVM. The proof reads the clock for the time that the hand
-  writes on a thing when no check chose one, to make a carried stamp for
-  the base, and to time a wait.
+  The proof owns seven atoms: the lines that it showed; the things that it
+  sent to each depot; the first answers of the streaming gate, in the order
+  sent; what later checks come back to; and, for the second cluster, the
+  batch that is to fail, with each call that was noted for it, and the
+  events of the streaming gate that it watches, with the one that is to
+  fail and each call that was noted for them. `-main` empties all but the
+  shown lines between the two clusters: Rama counts the things that a gate
+  processed from the launch of a cluster. The notes are the memory of this
+  process. They hold a first attempt's calls through the restart of a
+  worker only because the in-process cluster is one JVM. The proof reads
+  the clock for the time that the hand writes on a thing when no check
+  chose one, and to end a loop that watches a table.
 
   Approach. The checks run in one order on one cluster, and later checks
   build on the layers, the facts and the permissions that earlier ones
   made. The checks of the streaming gate run first. The base is made after
   the check that sends its making act to the streaming gate, because that
   check holds the word that the streaming gate gives an act for the base
-  while the base is not made. Each check says what
-  must be read back, and reads it back through the module's own queries.
-  A check that reads a fact back holds the row's text against a text that
-  the proof writes out, and the log's value against the value that the hand
-  sent: never against a text that the store's own function makes from the
-  same value.
-  Where it shows a row, it selects the row from a gate's PState: for a
-  streaming layer with the layer as the partitioning key, for the base with
-  the row's own route, and for \"on which tasks is this row\" once on each
-  task. Such a select goes round the two reads, so it sees a row of a
-  batch that is not closed; one check uses that to catch an answer between
-  its batch and the closing. Near the end the proof starts the module again
-  in the cluster, by Rama's module update with the unchanged module, and
-  reads both records once more; Rama then prints some lines of its own log,
-  marked ERROR, that are no failed checks. So it does on the second cluster
-  for each of the three throws that the proof makes: Rama says that it
-  treats the throw as fatal for the worker, and starts the worker again.
+  while the base is not made. Each check says what must be read back, and
+  reads it back through the module's own queries. A check that reads a fact
+  back holds the row's text against a text that the proof writes out, and
+  the log's value against the value that the hand sent: never against a
+  text that the store's own function makes from the same value. Where it
+  shows a row, it selects the row from a gate's PState, with a partitioning
+  key. Such a select goes round the two reads. Near the end the proof
+  starts the module again in the cluster, by Rama's module update with the
+  unchanged module, and reads both records once more; Rama then prints some
+  lines of its own log, marked ERROR, that are no failed checks. So it does
+  on the second cluster for each of the two throws that the proof makes:
+  Rama says that it treats the throw as fatal for the worker, and starts
+  the worker again.
 
-  What it does not reach is in the folder's README."
+  What rests on a time or a wait. The hand's wait for the microbatch gate
+  is Rama's test tool, which counts the records that the gate processed
+  and throws at its own time limit. On the first cluster two loops watch a
+  table until a row shows, each for 30 seconds at most: for the first
+  sight of an answer's row, and for the new row of a place that is
+  replaced, on every task. A call that asks the cluster for a name is
+  given ten seconds. On the second cluster the answers of the batch that
+  fails, of the act behind it and of the event that fails are read in a
+  loop for 60 seconds at most, and the stand-in sleeps 300 ms before the
+  throw in the batch. No check holds a number of milliseconds.
+
+  What the proof does not reach, for the base.
+
+    - A killed process. The throw that the proof makes restarts a worker
+      inside one JVM. No process is killed, and no row has to come back
+      from a disk.
+    - Several machines. Each cluster is one JVM on one machine.
+    - A failure while a batch commits. The forced failure is in the walk,
+      before any task commits. Of the time in which one task has committed
+      a batch and another has not, the proof holds nothing: the rounds of
+      selects of a replaced place count how often they saw it, and no check
+      rests on that number.
+    - A module with another number of tasks. Both clusters have four.
+    - A yield in the walk. Nothing looks for one at run time. The proof
+      holds it only by the chain of 100 acts in one batch, each of which
+      names the fact of the act before it: an act decided out of the
+      depot's order would be refused as stale.
+    - A batch from inside. That the things appended while the topology is
+      paused fall into one batch is Rama's test docs'. The proof sees that
+      none of them had an answer while it was paused; and on the second
+      cluster the notes show that the failed attempt decided 21 acts of 40
+      and the retry all 40.
+    - The greatest time that the declaration takes, in the base. It would
+      set the base's last stamp to the end of the range for the rest of
+      the run. The streaming gate's group holds it in a layer of its own,
+      and both gates have one declaration and one rule for the stamp.
+    - A second module over the same two depots. That is the proof of the
+      run again (`softland.store.run-again-proof`).
+    - A microbatch layer beside the base. No layer but the base starts
+      with the microbatch depot. So the second layer in the check of two
+      layers of one task is a layer of the other gate, whose acts this gate
+      refuses: it has stamps and answers there, and no fact.
+
+  What else it does not reach is in the folder's README."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
             [com.rpl.rama :as rama]
@@ -110,13 +163,10 @@
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
-            [softland.store.gate.batch :as batch]
             [softland.store.gate.decision :as decision]
             [softland.store.gate.first-act :as first-act]
             [softland.store.module :as module]
-            [softland.store.module.microbatch-gate :as microbatch-gate]
-            [softland.store.record.rows :as record]
-            [softland.store.gate.stamp :as stamp])
+            [softland.store.record.rows :as record])
   (:import [java.util UUID]))
 
 (defonce ^{:private true
@@ -154,11 +204,9 @@
 
 (def ^:dynamic ^:private *hand*
   "What the proof's hand holds of a cluster: the cluster itself, the name
-  of the module, the two depots of acts, the microbatch gate's depot of
-  answers, the two queries, the four PStates of each gate, the depot of
-  batch clocks and the PState of the kept clock;
-  and `:checks`, which says which of the proof's two clusters it is.
-  `-main` binds it for the run on each cluster."
+  of the module, the two depots of acts, the two queries and the four
+  PStates of each gate; and `:checks`, which says which of the proof's two
+  clusters it is. `-main` binds it for the run on each cluster."
   nil)
 
 (defonce ^{:private true
@@ -175,21 +223,16 @@
   first-answers (atom []))
 
 (defonce ^{:private true
-           :doc "What one group of checks hands to a later one, by name: rows and
-  answers as they were before the module is started again, and the pairs
-  that the reads of the base are held to."}
+           :doc "What one group of checks hands to a later one, by name: results,
+  the entities and the task of the base, and rows and answers as they were
+  before the module is started again."}
   kept (atom {}))
 
 (defonce ^{:private true
            :doc "Each thing that the hand appended to the microbatch depot, in the
-  order sent: its count is what the wait for a batch waits for, and the
+  order sent: its count is what the wait for the gate waits for, and the
   depot's log is held against it."}
   base-things-sent (atom []))
-
-(defonce ^{:private true
-           :doc "The answers that the hand read in the base, in groups, each group
-  the acts whose answers were read together."}
-  base-answers (atom []))
 
 (defn- open-hand
   "Takes the cluster. Gives the handles that the hand works with."
@@ -205,13 +248,10 @@
      :task-ps    (rama/foreign-pstate ipc m "$$streaming-task")
      :module     m
      :mb-depot      (rama/foreign-depot ipc m "*microbatch-depot")
-     :mb-answer-depot (rama/foreign-depot ipc m "*microbatch-answer-depot")
      :mb-answers-ps (rama/foreign-pstate ipc m "$$microbatch-answers")
      :mb-facts-ps   (rama/foreign-pstate ipc m "$$microbatch-facts")
      :mb-by-value-ps (rama/foreign-pstate ipc m "$$microbatch-facts-by-value")
-     :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")
-     :clock-depot   (rama/foreign-depot ipc m "*batch-clock-depot")
-     :clock-ps      (rama/foreign-pstate ipc m "$$batch-clock")}))
+     :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")}))
 
 (defn- depot-of-layer
   "Reads the depot of a layer, or nil for a layer that is not made. The hand
@@ -222,10 +262,10 @@
     (rama/foreign-invoke-query (:depot-of-layer *hand*) layer)))
 
 (defn- answer-of
-  "Reads the answer under an act-id, or nil for nothing yet. The hand passes
-  the act-id's routing id as the first argument, the layer of a streaming
-  act-id and the uuid of a microbatch one, and tests the act-id before it
-  calls."
+  "Reads the answer under an act-id, or nil for nothing yet: one call of
+  the query. The hand passes the act-id's routing id as the first argument,
+  which is the act-id's layer for both depots, and tests the act-id before
+  it calls."
   [act-id]
   (let [routing-id (record/routing-id act-id)]
     (when (record/answer-read-by-routing-id routing-id act-id)
@@ -503,9 +543,10 @@
   (str (short-id (:act-id thing)) " " word " stamp " (:stamp answer)))
 
 (defn- stamps-apart-from-the-rule
-  "Holds each stamp of a streaming layer's answers against the gate's rule,
-  by the proof's own arithmetic. Takes first answers as `first-answers`
-  keeps them, in the order decided. For each it makes the stamp that the
+  "Holds each stamp of a gate's answers against the gates' one rule, by the
+  proof's own arithmetic. Takes first answers as `first-answers` keeps the
+  streaming gate's, or as `decided-on-the-microbatch-depot` gives the
+  microbatch gate's, in the order decided. For each it makes the stamp that the
   rule gives: the greatest of the time on the thing with a counter of 0,
   the stamp of the answer before it in its layer plus one, and the greatest
   stamp that the thing carries plus one; each only when it is there, and 0
@@ -534,14 +575,22 @@
 ;; ------------------------------------------------------ the hand for the base
 
 (def ^:private time-limit-ms
-  "How long the hand reads for the answer of a microbatch act before it gives
-  up, in milliseconds."
+  "How long the hand watches a table for a row that a batch is to show, in
+  milliseconds, before it gives up."
   30000)
+
+(def ^:private index-keys
+  "For each task of the proof's cluster, a key that Rama's hash partitioner
+  sends to it: the i-th to task i. A select with one of them as the
+  partitioning key reads that task's part of a table."
+  (vec (rtest/gen-hashing-index-keys tasks)))
 
 (defn- append-to-base!
   "Appends a thing to the microbatch depot with the ack level :append-ack,
   and keeps it. Gives :appended, or what the append threw. The ack says that
-  the depot holds the thing, and nothing about the decision."
+  the depot holds the thing, and nothing about the decision. Each append
+  waits for that ack, so the depot holds the things of one thread in the
+  order in which the thread appended them."
   [x]
   (swap! base-things-sent conj x)
   (try (rama/foreign-append! (:mb-depot *hand*) x :append-ack)
@@ -554,113 +603,101 @@
   []
   (rtest/wait-for-microbatch-processed-count (:ipc *hand*) (:module *hand*) "microbatch-gate" (count @base-things-sent)))
 
-(defn- await-answer
-  "Reads the answer under a microbatch act-id in a loop, as a door would,
-  until one is there or the time limit has passed. Gives the answer, or
-  nil."
-  [act-id]
-  (let [deadline (+ (System/currentTimeMillis) time-limit-ms)]
-    (loop []
-      (let [answer (answer-of act-id)]
-        (cond answer answer
-              (< deadline (System/currentTimeMillis)) nil
-              :else (do (Thread/sleep 20) (recur)))))))
-
-(defn- note-base-answers!
-  "Keeps the first answers of one batch as one group, for the check of the
-  stamps: of each result whose answer is of its own thing, and whose act-id
-  the proof has not seen answered before."
-  [results]
-  (let [seen (into #{} (comp cat (map :act-id)) @base-answers)
-        group (into []
-                    (comp (filter (fn [r] (and (:answer r) (:mine? r))))
-                          (map (fn [r] {:act-id (:act-id (:thing r)) :stamp (:stamp (:answer r))}))
-                          (remove (fn [a] (contains? seen (:act-id a))))
-                          (distinct))
-                    results)]
-    (when (seq group) (swap! base-answers conj group))))
-
-(defn- closed-through
-  "The `:closed-through` of the microbatch gate on the task of a route."
-  [route]
-  (rama/foreign-select-one (path/keypath :closed-through) (:mb-task-ps *hand*) {:pkey route}))
-
 (defn- base-result
-  "A result as `decide!` gives one, for a thing that was sent to the
-  microbatch depot and processed: the thing, the ack, the answer read in a
-  loop, whether the answer's digest is the digest of what was sent, and one
-  word. A stray has no answer to wait for, so its act-id is read once.
-
-  When the read gave an answer under a microbatch act-id, the hand selects
-  the `:closed-through` of the answer's task right after the read and keeps
-  the pair in `kept`, under :base-reads. `:closed-through` never goes back,
-  so an answer whose stamp is above it then was read from a batch that was
-  not closed."
+  "A result as `decide!` gives one, for a thing that was appended to the
+  microbatch depot and that the gate has processed: the thing, the ack, the
+  answer, whether the answer's digest is the digest of what was sent, and
+  one word. The answer is read once, by one call of the query with the
+  act-id's layer as the routing id: the hand waits for nothing behind the
+  gate's processing. What must hold: the gate has processed the thing."
   [x ack]
-  (let [act-id (when (map? x) (get x :act-id))
-        stray? (declaration/stray-reason :microbatch x)
-        answer (if stray?
-                 (answer-of act-id)
-                 (await-answer act-id))]
-    (when (and answer (not stray?))
-      (swap! kept update :base-reads (fnil conj [])
-             {:act-id act-id :stamp (:stamp answer) :closed-through-after (closed-through (nth act-id 2))}))
+  (let [answer (answer-of (when (map? x) (get x :act-id)))]
     {:thing x :ack ack :answer answer :mine? (digest/is-digest-of? (:digest answer) x)
      :word (cond (nil? answer) :nothing-yet
                  (= :accepted (:verdict answer)) :accepted
                  :else (:reason answer))}))
 
 (defn- decide-in-base!
-  "Sends one thing to the microbatch depot, alone, and reads its answer by
-  act-id until one is there. Gives the result, as `decide!` does."
+  "Sends one thing to the microbatch depot, alone, waits until the gate has
+  processed it, and reads its answer by act-id once. Gives the result, as
+  `decide!` does."
   [x]
-  (let [ack (append-to-base! x)
-        _ (wait-until-processed!)
-        result (base-result x ack)]
-    (note-base-answers! [result])
-    result))
+  (let [ack (append-to-base! x)]
+    (wait-until-processed!)
+    (base-result x ack)))
+
+(defn- decide-in-a-row!
+  "Sends things to the microbatch depot one after the other, with no wait
+  for the gate between two of them, as one maker does who sends her acts in
+  a row. The gate runs meanwhile, so the things fall into as many batches as
+  it happens to cut. Then it waits until the gate has processed them and
+  reads each answer once. Gives the result of each, in the order given."
+  [xs]
+  (let [acks (mapv append-to-base! xs)]
+    (wait-until-processed!)
+    (mapv base-result xs acks)))
 
 (defn- decide-in-one-batch!
   "Sends things to the microbatch depot so that one batch of the gate takes
   them all: it pauses the microbatch topology, appends, and lets it go on.
-  Gives the result of each, in the order given."
-  [xs]
-  (rtest/pause-microbatch-topology! (:ipc *hand*) (:module *hand*) "microbatch-gate")
-  (let [acks (mapv append-to-base! xs)]
-    (rtest/resume-microbatch-topology! (:ipc *hand*) (:module *hand*) "microbatch-gate")
-    (wait-until-processed!)
-    (let [results (mapv base-result xs acks)]
-      (note-base-answers! results)
-      results)))
+  Rama's test docs say that the next batch then holds each record that was
+  appended meanwhile, up to 1,000 for a partition; no check of the proof
+  sees a batch from inside. `while-paused`, when given, is a function of no
+  argument that the hand calls behind the appends and before it lets the
+  topology go on. Gives the result of each thing, in the order given."
+  ([xs] (decide-in-one-batch! xs nil))
+  ([xs while-paused]
+   (rtest/pause-microbatch-topology! (:ipc *hand*) (:module *hand*) "microbatch-gate")
+   (let [acks (try
+                (let [acks (mapv append-to-base! xs)]
+                  (when while-paused (while-paused))
+                  acks)
+                (finally
+                  (rtest/resume-microbatch-topology! (:ipc *hand*) (:module *hand*) "microbatch-gate")))]
+     (wait-until-processed!)
+     (mapv base-result xs acks))))
 
-(defn- base-row
-  "Selects one row of a PState of the microbatch gate, by its key, on the
-  task of a route: the entity of a fact, the uuid of an answer. The select
-  goes round the reads, so it also sees a row of a batch that is not
-  closed."
-  [pstate route k]
-  (rama/foreign-select-one (path/keypath k) (get *hand* pstate) {:pkey route}))
-
-(defn- base-fact
-  "The row of a place of the base, on the task of its entity, or nil."
-  [e k]
-  (base-row :mb-facts-ps e (record/place-key :base e k)))
+(defn- on-each-task
+  "Selects one path of a PState on each task of the cluster, with a key that
+  hashes to the task. Gives what each task gave, in the order of the tasks:
+  nil for a task that holds nothing there."
+  [pstate p]
+  (mapv (fn [pkey] (rama/foreign-select-one p (get *hand* pstate) {:pkey pkey})) index-keys))
 
 (defn- rows-by-task
   "Selects the row under a key on each task of the cluster. Gives a sorted
   map from the number of each task that holds a row to that row."
   [pstate k]
   (into (sorted-map)
-        (keep-indexed (fn [task pkey]
-                        (when-let [row (rama/foreign-select-one (path/keypath k) (get *hand* pstate) {:pkey pkey})]
-                          [task row])))
-        (rtest/gen-hashing-index-keys tasks)))
+        (keep-indexed (fn [task row] (when row [task row])))
+        (on-each-task pstate (path/keypath k))))
 
-(defn- task-of-row
-  "The number of the task that holds the row under a key, or nil. For a row
-  that is on one task."
+(defn- base-row
+  "Selects one row of a PState of the microbatch gate, by its key, on the
+  base's task: with the base's id as the partitioning key."
   [pstate k]
-  (first (keys (rows-by-task pstate k))))
+  (rama/foreign-select-one (path/keypath k) (get *hand* pstate) {:pkey :base}))
+
+(defn- base-fact
+  "The row of a place of the base, as the base's task holds it, or nil."
+  [e k]
+  (base-row :mb-facts-ps (record/place-key :base e k)))
+
+(defn- facts-on-every-task
+  "The row of a place of the base on each task, cut to what a check holds
+  it against: a map from each task that holds a row to
+  [the uuid of the act that wrote it, the index of the fact, the stamp, the
+  text of the value]."
+  [e k]
+  (into (sorted-map)
+        (map (fn [[task row]] [task [(:by-act row) (:by-index row) (:stamp row) (:value row)]]))
+        (rows-by-task :mb-facts-ps (record/place-key :base e k))))
+
+(defn- on-every-task
+  "What `facts-on-every-task` gives when each task of the cluster holds the
+  same row: the row's four parts, on each task."
+  [by-act by-index stamp value-text]
+  (into (sorted-map) (map (fn [task] [task [by-act by-index stamp value-text]])) (range tasks)))
 
 (defn- base-marks-rows
   "The row at the base's marked-keys place, on each task that holds one."
@@ -668,35 +705,76 @@
   (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/marked-keys)))
 
 (defn- base-marked-keys
-  "The keys that the base marks, each with its stamp, as the task of the
-  layer id holds them."
+  "The keys that the base marks, each with its stamp, as the base's task
+  holds them."
   []
-  (record/marked-keys-of (base-row :mb-facts-ps :base (record/place-key :base :base :softland.store/marked-keys))))
+  (record/marked-keys-of (base-fact :base :softland.store/marked-keys)))
 
 (defn- base-entries-of
   "The rows of the run of one value under a marked key of the base, since a
-  stamp of that key: [key row] of each. One select of a range of the facts
-  by value, with the value's digest as the partitioning key: the run of one
-  value is on one task."
+  stamp of that key: [key row] of each, in the order of the keys. One select
+  of a range of the facts by value, on the base's task."
   [k since v]
   (let [[from to] (record/by-value-run :base k since v)]
-    (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:mb-by-value-ps *hand*) {:pkey (record/value-digest-of v)})))
+    (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:mb-by-value-ps *hand*) {:pkey :base})))
 
 (defn- base-run-of
-  "The entities of the places in the run of one value of the base."
+  "The entities of the places in the run of one value of the base, as the
+  base's task holds it."
   [k since v]
   (mapv (fn [[k _]] (record/by-value-entity k)) (base-entries-of k since v)))
+
+(defn- base-runs-by-task
+  "The entities of the places in the run of one value of the base, on each
+  task, in the order of the tasks."
+  [k since v]
+  (let [[from to] (record/by-value-run :base k since v)]
+    (mapv (fn [pkey]
+            (mapv (fn [[k _]] (record/by-value-entity k))
+                  (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:mb-by-value-ps *hand*) {:pkey pkey})))
+          index-keys)))
 
 (defn- base-entry-key
   "The key in the facts by value of a place of the base, for a value."
   [k since v e]
   (record/by-value-key :base k since (record/value-digest-of v) e))
 
-(defn- gates-last-stamp
-  "The last stamp that the microbatch gate gave: one for the gate, on the
-  gate's task, the task of the depot word."
+(defn- base-entries-under
+  "Each row of the base's facts by value under one marked key since one
+  stamp of that key, whatever its value, on each task: for each task, in
+  the order of the tasks, a map from the row's key to
+  [the uuid of the act that wrote it, the index of the fact]."
+  [k since]
+  (let [run (str ":base " k " " since)]
+    (mapv (fn [pkey]
+            (into {}
+                  (map (fn [[key row]] [key [(:by-act row) (:by-index row)]]))
+                  (rama/foreign-select [(path/sorted-map-range (str run " ") (str run "!")) path/ALL]
+                                       (:mb-by-value-ps *hand*) {:pkey pkey})))
+          index-keys)))
+
+(defn- last-stamps-by-task
+  "The last stamp that the microbatch gate keeps for a layer, on each task
+  that keeps one: a sorted map from the task's number to the stamp."
+  [layer]
+  (into (sorted-map)
+        (keep-indexed (fn [task n] (when n [task n])))
+        (on-each-task :mb-task-ps (path/keypath :last-stamp (str layer)))))
+
+(defn- base-last-stamp
+  "The last stamp that the microbatch gate gave in a layer, the base when
+  none is given: the number under the text of the layer id in `:last-stamp`
+  of the gate's task table, read on the layer's task. nil for a layer of
+  which the gate decided nothing."
+  ([] (base-last-stamp :base))
+  ([layer]
+   (rama/foreign-select-one (path/keypath :last-stamp (str layer)) (:mb-task-ps *hand*) {:pkey layer})))
+
+(defn- time-of-last-in-base
+  "The time, in milliseconds, in the base's last stamp, by the proof's own
+  arithmetic. What must hold: the gate has decided a thing of the base."
   []
-  (rama/foreign-select-one (path/keypath :last-stamp) (:mb-task-ps *hand*) {:pkey :microbatch}))
+  (quot (base-last-stamp) 65536))
 
 (defn- base-strays
   "The number of different strays of the microbatch gate under each word,
@@ -704,13 +782,12 @@
   []
   (into {}
         (map (fn [word]
-               [word (reduce + (map (fn [k] (rama/foreign-select-one [(path/keypath :strays word) (path/view count)]
-                                                                     (:mb-task-ps *hand*) {:pkey k}))
-                                    (rtest/gen-hashing-index-keys tasks)))]))
+               [word (reduce + (on-each-task :mb-task-ps [(path/keypath :strays word) (path/view count)]))]))
         declaration/stray-reasons))
 
 (defn- stored-in-base
-  "Each record of the microbatch depot's log, read back: [partition record]."
+  "Each record of the microbatch depot's log, read back: [partition record],
+  in the order of the partitions and, within one, of the offsets."
   []
   (let [depot (:mb-depot *hand*)]
     (for [p (range (:num-partitions (rama/foreign-object-info depot)))
@@ -718,109 +795,190 @@
           r (rama/foreign-depot-read depot p start-offset end-offset)]
       [p r])))
 
-(defn- kept-clock-row
-  "The row that the module keeps for the newest batch of the microbatch gate
-  that had things to decide, {:batch :clock}, or nil when no batch kept one:
-  one select of `$$batch-clock` on the gate's task, the task of the depot
-  word."
-  []
-  (rama/foreign-select-one (path/keypath :microbatch) (:clock-ps *hand*) {:pkey :microbatch}))
+(defn- partitions-of
+  "Takes the records of a depot's log, each [partition record], and a
+  thing. Gives the set of the partitions that hold a record equal to the
+  thing."
+  [records x]
+  (into #{} (keep (fn [[p r]] (when (= x r) p))) records))
 
-(defn- clock-records
-  "Each record of the log of the depot of batch clocks, read back:
-  [partition record]. A partition that holds nothing is not read."
-  []
-  (let [depot (:clock-depot *hand*)]
-    (vec (for [p (range (:num-partitions (rama/foreign-object-info depot)))
-               :let [{:keys [start-offset end-offset]} (rama/foreign-depot-partition-info depot p)]
-               :when (< start-offset end-offset)
-               r (rama/foreign-depot-read depot p start-offset end-offset)]
-           [p r]))))
-
-(defn- clock-record?
-  "True for a record of the depot of batch clocks as the gate must append
-  it: a map of exactly `:batch` and `:clock`, two integers."
-  [r]
-  (boolean (and (map? r) (= #{:batch :clock} (set (keys r))) (integer? (:batch r)) (integer? (:clock r)))))
-
-;; --------------------------- the hand for the microbatch gate's log of answers
-
-(def ^:private quiet-ms
-  "How long the proof waits to see that a quiet time adds no record to a
-  depot, in milliseconds."
-  1500)
-
-(defn- hex-by-hand
-  "The hex text of a run of bytes, two lower-case digits for each byte, made
-  with Java's formatter and no function of the store."
-  [^bytes b]
-  (apply str (map (fn [x] (format "%02x" (bit-and 0xff (long x)))) b)))
-
-(defn- answer-log
-  "Each record of the microbatch gate's depot of answers, read back with
-  Rama's client as any reader of a depot's log is given it:
-  [partition record], in the order of the partitions and, within one, of
-  the offsets. It asks for the number of partitions and for the two offsets
-  of each, and reads each partition that holds something, whole. The
-  streaming gate has no such depot."
-  []
-  (let [depot (:mb-answer-depot *hand*)]
-    (vec (for [p (range (:num-partitions (rama/foreign-object-info depot)))
-               :let [{:keys [start-offset end-offset]} (rama/foreign-depot-partition-info depot p)]
-               :when (< start-offset end-offset)
-               r (rama/foreign-depot-read depot p start-offset end-offset)]
-           [p r]))))
-
-(defn- logged-answers
-  "Takes the records of the microbatch gate's depot of answers, each
-  [partition record]. Gives each answer's entry among them, in the order
-  read:
-  {:partition :batch :entry}, with the partition and the batch's id of the
-  record that holds it. The entry is as the log holds it but for its digest,
-  which is given as hex text made by the proof's own hand, so that it can be
-  held against the digest that the door's read gives."
+(defn- partitions-of-layers
+  "Takes the records of a depot's log, each [partition record]. Gives, for
+  each layer that a record names under `:layer`, by the printed text of the
+  layer id, the set of the partitions that hold a record of it: what a
+  client can see of where the depot's partitioner put a layer."
   [records]
-  (vec (for [[p r] records
-             entry (:answers r)]
-         {:partition p :batch (:batch r) :entry (update entry :digest hex-by-hand)})))
+  (reduce (fn [by-layer [p r]]
+            (let [layer (when (map? r) (get r :layer))]
+              (if (or (keyword? layer) (uuid? layer))
+                (update by-layer (str layer) (fnil conj #{}) p)
+                by-layer)))
+          {}
+          records))
 
-(defn- logged-strays
-  "Takes the records of the microbatch gate's depot of answers. Gives each
-  stray's entry among them, in the order read: {:partition :batch :entry}."
+(defn- on-more-than-one-partition
+  "Takes the records of a depot's log. Gives the text of each layer whose
+  records are on more than one partition, sorted: an empty vector when each
+  layer is one partition."
   [records]
-  (vec (for [[p r] records
-             entry (:strays r)]
-         {:partition p :batch (:batch r) :entry entry})))
+  (vec (sort (keep (fn [[layer partitions]] (when (< 1 (count partitions)) layer)) (partitions-of-layers records)))))
 
-(defn- entries-under
-  "Takes answers as `logged-answers` gives them, and an act-id. Gives the
-  entries under that act-id, in the order read."
-  [logged act-id]
-  (into [] (comp (map :entry) (filter #(= act-id (:act-id %)))) logged))
+(defn- table-on-each-task
+  "Selects a whole table of rows of the microbatch gate on each task. Gives,
+  in the order of the tasks, a map from each key that the task holds to its
+  row, a run of bytes as the vector of its bytes. One select of a task's
+  whole part of the table; the tables of this proof fit in memory."
+  [pstate]
+  (mapv (fn [pkey]
+          (into {}
+                (map (fn [[k row]] [k (content row)]))
+                (rama/foreign-select [path/ALL] (get *hand* pstate) {:pkey pkey})))
+        index-keys))
 
-(defn- entry-of-answer
-  "The entry that the log of answers must hold for an answer, made by the
-  proof's own hand from the act-id and from what the read by act-id gave:
-  {:act-id :stamp :digest}, the digest as hex, and `:refused` with the word
-  for a refusal. It has no other part, so an entry that is equal to it holds
-  no value of a fact."
-  [act-id answer]
-  (cond-> {:act-id act-id :stamp (:stamp answer) :digest (:digest answer)}
-    (= :refused (:verdict answer)) (assoc :refused (:reason answer))))
+(defn- task-table-on-each-task
+  "What the microbatch gate keeps for each task beside its three tables. In
+  the order of the tasks: {:last-stamp, a map from the text of a layer id to
+  that layer's last stamp; :strays, a map from each word that has a stray on
+  the task to the set of the digests under it}."
+  []
+  (mapv (fn [pkey]
+          (let [ps (:mb-task-ps *hand*)]
+            {:last-stamp (into {} (map vec) (rama/foreign-select [(path/keypath :last-stamp) path/ALL] ps {:pkey pkey}))
+             :strays (into {}
+                           (keep (fn [word]
+                                   (let [digests (set (rama/foreign-select [(path/keypath :strays word) path/ALL] ps {:pkey pkey}))]
+                                     (when (seq digests) [word digests]))))
+                           declaration/stray-reasons)}))
+        index-keys))
 
-(defn- entries-apart
-  "Takes answers as `logged-answers` gives them, and pairs of an act-id and
-  the answer that the read by act-id gave for it. Gives the short id of each
-  act-id that has no entry, or an entry that is not `entry-of-answer` of its
-  answer: an empty vector when each answer has its entry and every entry
-  under one act-id is the same."
-  [logged answered]
-  (let [by-act-id (group-by (comp :act-id :entry) logged)]
-    (vec (keep (fn [[act-id answer]]
-                 (let [entries (map :entry (get by-act-id act-id))]
-                   (when-not (and (seq entries) (every? #(= (entry-of-answer act-id answer) %) entries))
-                     (short-id act-id))))
-               answered))))
+(defn- base-tables
+  "The four tables of the microbatch gate, whole, on every task:
+  {:facts :by-value :answers :task}, each a vector in the order of the
+  tasks (`table-on-each-task`, `task-table-on-each-task`)."
+  []
+  {:facts (table-on-each-task :mb-facts-ps)
+   :by-value (table-on-each-task :mb-by-value-ps)
+   :answers (table-on-each-task :mb-answers-ps)
+   :task (task-table-on-each-task)})
+
+(defn- keys-apart
+  "Takes one table on each task, a vector of maps from key to row. Gives the
+  keys whose row is not the same on every task, a task that lacks the key
+  among them, sorted: an empty vector when every task holds the same map."
+  [by-task]
+  (vec (sort (remove (fn [k] (apply = (map #(get % k ::no-row) by-task)))
+                     (distinct (mapcat keys by-task))))))
+
+(defn- tables-apart
+  "Takes what `base-tables` gave at two moments. Gives [table task] for each
+  task's part of a table that is not the same at both, in every key and
+  every field: an empty vector when nothing changed."
+  [before after]
+  (vec (for [table [:facts :by-value :answers :task]
+             task (range tasks)
+             :when (not= (get-in before [table task]) (get-in after [table task]))]
+         [table task])))
+
+(defn- the-copies
+  "Reads the four tables of the microbatch gate whole, on every task, and
+  holds them against the depot's log. Takes the records of the microbatch
+  depot's log, each [partition record]. Gives:
+
+    :facts            how many rows of the facts each task holds
+    :facts-apart      the keys of the facts whose row is not the same on
+                      every task
+    :by-value         how many rows of the facts by value each task holds
+    :by-value-apart   the same for the facts by value
+    :answers          how many answers each task holds
+    :answers-off      the key of each answer that is on a task which is not
+                      the one partition of its layer in the depot's log
+    :last-stamps      for each task, the texts of the layers of which it
+                      keeps a last stamp
+    :last-stamps-off  [task layer] of each last stamp on a task which is
+                      not the one partition of its layer
+    :strays           how many digests of strays each task holds
+    :strays-off       [task word] of each digest of a stray on a task whose
+                      partition holds no stray of that digest
+
+  The layer of an answer is the text before the space in its key."
+  [records]
+  (let [{:keys [facts by-value answers task]} (base-tables)
+        partitions (partitions-of-layers records)
+        on-its-task? (fn [task-number layer-text] (= #{task-number} (get partitions layer-text)))
+        strays-arrived (into #{}
+                             (keep (fn [[p r]] (when (declaration/stray-reason :microbatch r) [p (digest/hex-of r)])))
+                             records)]
+    {:facts (mapv count facts)
+     :facts-apart (keys-apart facts)
+     :by-value (mapv count by-value)
+     :by-value-apart (keys-apart by-value)
+     :answers (mapv count answers)
+     :answers-off (vec (for [[task-number rows] (map-indexed vector answers)
+                             k (sort (keys rows))
+                             :when (not (on-its-task? task-number (first (str/split k #" " 2))))]
+                         k))
+     :last-stamps (mapv (comp vec sort keys :last-stamp) task)
+     :last-stamps-off (vec (for [[task-number kept-there] (map-indexed vector task)
+                                 layer-text (sort (keys (:last-stamp kept-there)))
+                                 :when (not (on-its-task? task-number layer-text))]
+                             [task-number layer-text]))
+     :strays (mapv (fn [kept-there] (reduce + (map count (vals (:strays kept-there))))) task)
+     :strays-off (vec (for [[task-number kept-there] (map-indexed vector task)
+                            [word digests] (sort-by key (:strays kept-there))
+                            d (sort digests)
+                            :when (not (contains? strays-arrived [task-number d]))]
+                        [task-number word]))}))
+
+(defn- check-the-copies
+  "Holds where the rows of the microbatch gate are, at one moment of the
+  proof. Takes a word for the moment, which opens each check's text, and the
+  records of the microbatch depot's log as read then. Makes five checks and
+  one SHOWN line. Gives what `the-copies` gave."
+  [at records]
+  (let [copies (the-copies records)
+        base-partition (first (get (partitions-of-layers records) ":base"))]
+    (check (str at ": `$$microbatch-facts` is the same map on every task: each task holds rows, as many as each other task, and no key has a row that is not the same on all of them, in every field")
+           [true 1 []] [(pos? (first (:facts copies))) (count (set (:facts copies))) (:facts-apart copies)])
+    (check (str at ": `$$microbatch-facts-by-value` is the same map on every task")
+           [1 []] [(count (set (:by-value copies))) (:by-value-apart copies)])
+    (check (str at ": `$$microbatch-answers` holds a row only on the task of its layer: no answer is on a task that is not the partition of its layer in the depot's log, and the base's task holds answers")
+           [[] true] [(:answers-off copies) (pos? (nth (:answers copies) base-partition 0))])
+    (check (str at ": `$$microbatch-task` keeps a layer's last stamp only on the task of that layer, and the digest of a stray only on the task of the partition where the stray arrived")
+           [[] []] [(:last-stamps-off copies) (:strays-off copies)])
+    (check (str at ": each layer that a thing of the microbatch depot names is on one partition of the depot")
+           [] (on-more-than-one-partition records))
+    (shown (str at ":") "the rows of the microbatch gate by task | facts" (pr-str (:facts copies)) "| facts by value" (pr-str (:by-value copies))
+           "| answers" (pr-str (:answers copies)) "| the layers of the last stamps" (pr-str (:last-stamps copies))
+           "| digests of strays" (pr-str (:strays copies)) "| the base's task is" base-partition)
+    copies))
+
+(defn- decided-on-the-microbatch-depot
+  "Takes the records of the microbatch depot's log, each [partition record],
+  in the order of the partitions and of each partition's offsets. Gives one
+  entry for each act-id under which the microbatch gate decided a thing, in
+  that order, as `first-answers` holds the streaming gate's:
+  {:act-id :layer :stamp :thing :word}. The thing is the first record under
+  the act-id, which is the one that the gate decided, as the log gave it
+  back. A stray has no entry. The answer is read by act-id, once; an act-id
+  with no answer has the word :nothing-yet and no stamp. A layer is one
+  partition, so the entries of one layer are in the order in which the gate
+  decided them."
+  [records]
+  (:out
+   (reduce (fn [{:keys [seen out] :as so-far} [_ r]]
+             (let [act-id (when (map? r) (get r :act-id))]
+               (if (or (declaration/stray-reason :microbatch r) (contains? seen act-id))
+                 so-far
+                 (let [answer (answer-of act-id)]
+                   {:seen (conj seen act-id)
+                    :out (conj out {:act-id act-id :layer (nth act-id 0) :stamp (:stamp answer) :thing r
+                                    :word (cond (nil? answer) :nothing-yet
+                                                (= :accepted (:verdict answer)) :accepted
+                                                :else (:reason answer))})}))))
+           {:seen #{} :out []}
+           records)))
+
+;; ------------------------------- the hand for either depot and for the source
 
 (defn- answered-of
   "Takes things that the hand sent to a gate's depot, and that gate's depot
@@ -837,24 +995,6 @@
               (keep (fn [act-id] (when-let [answer (answer-of act-id)] [act-id answer]))))
         things))
 
-(defn- await-log
-  "Reads the microbatch gate's depot of answers in a loop until `enough?`
-  holds of its records or a time limit has passed, the hand's own when none
-  is given.
-  Gives the records of the last read that came back. A read that throws
-  counts as no read: for about half a second after a worker is started
-  again a read can throw. For what a later run of a gate appends, which no
-  read by act-id waits for: a stray's entry in the base, and the copies
-  that a run which runs again leaves."
-  ([enough?] (await-log enough? time-limit-ms))
-  ([enough? limit-ms]
-   (let [deadline (+ (System/currentTimeMillis) limit-ms)]
-     (loop [last-read []]
-       (let [records (try (answer-log) (catch Throwable _ nil))]
-         (if (or (and records (enough? records)) (< deadline (System/currentTimeMillis)))
-           (or records last-read)
-           (do (Thread/sleep 20) (recur (or records last-read)))))))))
-
 (defn- client-append
   "Appends a thing to a depot as a client of the cluster does, on a thread
   of its own. Gives :appended, :refused when the append threw, and
@@ -867,24 +1007,9 @@
   gate's task table, or nil when no task's does: one select of the set on
   each task."
   [pstate word digest]
-  (first (keep-indexed (fn [task pkey]
-                         (when (some #{digest} (rama/foreign-select [(path/keypath :strays word) path/ALL] (get *hand* pstate) {:pkey pkey}))
-                           task))
-                       (rtest/gen-hashing-index-keys tasks))))
-
-(defn- to-keep-by-task
-  "How many keys the microbatch gate's `:to-keep` holds on each task: what a
-  batch that is committed and not closed has left to keep."
-  []
-  (mapv (fn [pkey] (count (rama/foreign-select [(path/keypath :to-keep) path/MAP-KEYS] (:mb-task-ps *hand*) {:pkey pkey})))
-        (rtest/gen-hashing-index-keys tasks)))
-
-(defn- to-close-by-task
-  "The microbatch gate's `:to-close` on each task: the batch that the next
-  run of the gate closes, on the gate's task, and nil elsewhere."
-  []
-  (mapv (fn [pkey] (rama/foreign-select-one (path/keypath :to-close) (:mb-task-ps *hand*) {:pkey pkey}))
-        (rtest/gen-hashing-index-keys tasks)))
+  (first (keep-indexed (fn [task digests] (when (some #{digest} digests) task))
+                       (mapv (fn [pkey] (rama/foreign-select [(path/keypath :strays word) path/ALL] (get *hand* pstate) {:pkey pkey}))
+                             index-keys))))
 
 (defn- code-of
   "Takes the text of a Clojure source file. Gives it with each string and
@@ -934,6 +1059,15 @@
                 (let [found (count (re-seq pattern text))]
                   (when (pos? found) [(.getName (java.io.File. ^String path)) found]))))
         code))
+
+(defn- found-in-a-text
+  "Takes a text of code that the proof wrote and a pattern. Gives how often
+  the pattern is found in it, by the search that `named-in` makes of a file
+  of the store: the text goes through `code-of` first. A check of a word
+  that no file of the store holds uses it to show that the search finds the
+  word where it is."
+  [text pattern]
+  (get (named-in {"a-text-of-the-proof.clj" (code-of text)} pattern) "a-text-of-the-proof.clj" 0))
 
 ;; ------------------------------------------------------------- the people
 
@@ -1613,7 +1747,7 @@
            [(ask :answer :alice [:team :streaming u]) (ask :answer :alice 5) (ask :answer :alice [:alice :streaming])
             (ask :answer "alice" ["alice" :streaming u]) (ask :answer long [long :streaming u])
             (some? (ask :answer :alice accepted))])
-    (check "an act-id of the depot microbatch, asked for with its layer and not with its uuid as the routing id, gets nothing" nil (ask :answer :alice [:alice :microbatch (nth accepted 2)]))
+    (check "an act-id of the depot microbatch under a streaming layer, asked for with its layer as the routing id, gets nothing: the microbatch gate's answers hold no row under it" nil (ask :answer :alice [:alice :microbatch (nth accepted 2)]))
     (check "the read of a depot, called with what is no id, or with a layer that is not made, gives nothing"
            [nil nil nil] [(ask :depot-of-layer "alice") (ask :depot-of-layer long) (ask :depot-of-layer :nobody)])
     (check "the same two reads give an answer and a depot for what is one: the act-id of an accepted act with its layer, and a layer that is made"
@@ -1966,175 +2100,218 @@
   (let [before (depot-of-layer :base)
         on-the-other-depot (decide! (thing :base :system system-own [{:e :early :k :note}]
                                            {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
-        sent-at (System/currentTimeMillis)
         early (decide-in-base! (system-act [{:e :early :k :note}]))
-        waited (- (System/currentTimeMillis) sent-at)
-        [made-a made-b] (decide-in-one-batch! [(making :base :system :system)
-                                               (update (making :base :system :system) :facts (comp vec reverse))])
-        [winner loser] (if (= :accepted (:word made-a)) [made-a made-b] [made-b made-a])
+        [by-stranger for-another-holder]
+        (decide-in-a-row! [(assoc (making :base :system :system) :who :mallory)
+                           (making :base :alice :alice)])
+        depot-then (depot-of-layer :base)
+        ;; The line: three acts of which each needs the row of the one before
+        ;; it, appended with no wait for the gate between them.
+        the-making (making :base :system :system)
+        the-give (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}])
+        alices-first (thing :base :alice alice-in-base [(value-fact :alices-first-doc :text "alice's first act in the base")])
+        [made give first-under :as line] (decide-in-a-row! [the-making the-give alices-first])
+        depot-read (depot-of-layer :base)
+        made-again (decide-in-base! (update (making :base :system :system) :facts (comp vec reverse)))
         depot-rows (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/depot))
         permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :system :softland.store/permission))
+        alices-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission))
         after (decide-in-base! (system-act [{:e :early :k :note}]))]
+    (swap! kept assoc :base-give give)
     (check "before its making, the depot of the base is nothing" nil before)
     (check "an act for the base on the streaming depot, before the base is made, is refused as an act for a layer of the other gate, under its streaming act-id with the digest of what was sent: the streaming gate tells it from the layer id, and reads no table of the other gate for it"
            [:layer-belongs-to-the-other-gate true] [(:word on-the-other-depot) (:mine? on-the-other-depot)])
-    (check "an act into the base before it is made is refused, and its answer is found from its act-id alone"
+    (check "an act into the base before it is made is refused. It was appended alone, with nothing sent after it, and one read by its act-id gave its answer when the gate had processed it: no answer of the base waits for a later run of the gate"
            [:appended :layer-not-made true] [(:ack early) (:word early) (:mine? early)])
-    (check "the answer of an act that is alone in its batch, with nothing sent after it, is readable within the hand's time limit"
-           true (< waited time-limit-ms))
-    (check "two making acts of the base in one batch, their facts in the two orders: one is accepted, the other refused"
-           [:accepted true :permission-fact-not-beneath-the-acts-own] [(:word winner) (:mine? winner) (:word loser)])
-    (check "the one that is accepted holds the earlier stamp" true (< (:stamp (:answer winner)) (:stamp (:answer loser))))
-    (check "the base made by the system: its depot is microbatch" :microbatch (depot-of-layer :base))
+    (check "a making act of the base by a who that is not the system, and one that names a person as the base's holder, are each refused, and the base is not made"
+           [:layer-not-made :layer-not-made nil] [(:word by-stranger) (:word for-another-holder) depot-then])
+    (check "the line: the base's making act, the give of a permission to a person, and her first act under the given permission, appended one after the other with no wait for the gate between them: each is accepted, with the digest of what was sent"
+           [[:appended :appended :appended] [:accepted :accepted :accepted] [true true true]]
+           [(mapv :ack line) (mapv :word line) (mapv :mine? line)])
+    (check "their stamps go up in the order in which they were appended"
+           true (apply < (map (comp :stamp :answer) line)))
+    (check "a second making act of the base, its two facts in the other order, is refused: the base is made, and the permission that the act gives is not beneath its own"
+           :permission-fact-not-beneath-the-acts-own (:word made-again))
+    (check "the base made by the system: one read of depot-of-layer gives microbatch" :microbatch depot-read)
     (check "the depot row and the system's permission row are on every task, each with the stamp of the making act's answer"
-           [tasks tasks #{(:stamp (:answer winner))}]
+           [tasks tasks #{(:stamp (:answer made))}]
            [(count depot-rows) (count permission-rows) (set (map :stamp (concat (vals depot-rows) (vals permission-rows))))])
     (check "the rows hold the depot as a fact on the layer's own entity, and the system's permission on its holder"
            [:microbatch system-own]
            [(record/value-of (first (vals depot-rows))) (record/value-of (first (vals permission-rows)))])
+    (check "the row of the permission that was given is on every task with the stamp of the give's answer, and the fact of the first act under it on every task with the stamp of that act's answer"
+           [tasks #{(:stamp (:answer give))}
+            (on-every-task (nth (:act-id alices-first) 2) 0 (:stamp (:answer first-under)) "\"alice's first act in the base\"")]
+           [(count alices-rows) (set (map :stamp (vals alices-rows))) (facts-on-every-task :alices-first-doc :text)])
     (check "after the making, the same act of the system into the base is accepted" :accepted (:word after))
-    (shown "an act into the base before it is made refused:" (told early) "| its answer was readable" waited
-           "ms after the append, with nothing sent after it")
-    (shown "the base made by the system, with the depot microbatch:" (told winner) "| depot-of-layer :base =" (depot-of-layer :base)
-           "| the depot row is on" (count depot-rows) "tasks, the system's permission on" (count permission-rows))
-    (shown "two making acts of the base in one batch: one accepted, the other" (:word loser))))
+    (shown "an act into the base before it is made refused:" (told early) "| read by one call when the gate had processed it, with nothing sent after it"
+           "| a making act of the base by a stranger:" (:word by-stranger) "| for a holder that is not the system:" (:word for-another-holder))
+    (shown "the line: the base's making act, a give, and the first act under the given permission, appended with no wait between them:"
+           (told made) "|" (told give) "|" (told first-under))
+    (shown "the base made by the system, with the depot microbatch: depot-of-layer :base =" depot-read
+           "| the depot row is on" (count depot-rows) "tasks, the system's permission on" (count permission-rows)
+           "| a second making act, its facts in the other order:" (:word made-again))))
 
 (deftest an-act-lands-in-the-base
-  (let [candidates (mapv #(keyword (str "doc-" %)) (range 1 9))
-        seen (decide-in-one-batch! (mapv (fn [e] (system-act [{:e e :k :seen}])) candidates))
-        task-of-entity (into {} (map (fn [e] [e (task-of-row :mb-facts-ps (record/place-key :base e :seen))])) candidates)
-        firsts (mapv first (vals (group-by task-of-entity candidates)))
-        three (vec (take 3 (concat firsts (remove (set firsts) candidates))))
-        e (first three)
+  (let [entities (mapv #(keyword (str "doc-" %)) (range 1 9))
+        seen (decide-in-one-batch! (mapv (fn [e] (system-act [{:e e :k :seen}])) entities))
+        seen-rows (mapv (fn [e] (rows-by-task :mb-facts-ps (record/place-key :base e :seen))) entities)
+        records (vec (stored-in-base))
+        partitions-of-seen (into #{} (mapcat (fn [result] (partitions-of records (:thing result)))) seen)
+        base-task (first partitions-of-seen)
+        e (first entities)
         fact (value-fact e :title "the first text of the base")
         landed (decide-in-base! (system-act [fact]))
-        landed-log (answer-log)
-        clock-then (kept-clock-row)
-        last-stamp-then (gates-last-stamp)
-        landed-entries (entries-under (logged-answers landed-log) (:act-id (:thing landed)))
-        landed-record (some (fn [[_ r]] (when (some #(= (:act-id (:thing landed)) (:act-id %)) (:answers r)) r)) landed-log)
         act-uuid (nth (:act-id (:thing landed)) 2)
         the-row (base-fact e :title)
         by-task (rows-by-task :mb-facts-ps (record/place-key :base e :title))
+        other-keys [e :alice act-uuid "a text that is no id" 42]
+        with-other-keys (mapv (fn [pkey] (rama/foreign-select-one (path/keypath (record/place-key :base e :title))
+                                                                  (:mb-facts-ps *hand*) {:pkey pkey}))
+                              other-keys)
+        answer-tasks (vec (keys (rows-by-task :mb-answers-ps (record/answer-key :base act-uuid))))
+        last-stamps (last-stamps-by-task :base)
         logged (record-of-act (stored-in-base) (:act-id (:thing landed)))
         never-sent (answer-of (new-act-id :base))]
-    (swap! kept assoc :base-landed landed :base-entities three :base-task-of-entity task-of-entity)
-    (check "eight acts of one batch on eight entities are each accepted, and their facts are on more than one task"
-           [(vec (repeat 8 :accepted)) true] [(mapv :word seen) (< 1 (count (set (vals task-of-entity))))])
+    (swap! kept assoc :base-landed landed :base-entities (vec (take 3 entities)) :base-task base-task)
+    (check "eight acts of one batch, each with one fact, on eight entities, are each accepted"
+           (vec (repeat 8 :accepted)) (mapv :word seen))
+    (check "the eight things, whose first facts are on eight different entities, are on one partition of the microbatch depot: the depot places a thing by its layer"
+           1 (count partitions-of-seen))
+    (check "the fact of each of the eight is on every task, the same row in every field"
+           [(vec (repeat 8 tasks)) (vec (repeat 8 1))]
+           [(mapv count seen-rows) (mapv (comp count set vals) seen-rows)])
     (check "one act with a plain value lands through the microbatch gate and is read back by act-id: accepted, with the digest of what was sent"
            [:appended :accepted nil true] [(:ack landed) (:verdict (:answer landed)) (:reason (:answer landed)) (:mine? landed)])
     (check "the place holds the value as a String, the one text of the value in its normal form, and gives the UTF-8 of that text back; the fact that wrote it, who wrote it and the permission that the act named, and the stamp of the answer"
            ["\"the first text of the base\"" (utf8-of "\"the first text of the base\"") act-uuid 0 ":system" "[:system :base :base]" (:stamp (:answer landed))]
            [(:value the-row) (value-bytes the-row) (:by-act the-row) (:by-index the-row) (:who the-row) (:permission the-row) (:stamp the-row)])
-    (check "the row holds those six fields and no other, and is on one task, the task of its entity"
-           [#{:value :by-act :by-index :who :permission :stamp} [(task-of-entity e)]]
-           [(set (keys the-row)) (vec (keys by-task))])
+    (check "the row holds those six fields and no other, and every task holds it, the same in every field"
+           [#{:value :by-act :by-index :who :permission :stamp} tasks #{the-row}]
+           [(set (keys the-row)) (count by-task) (set (vals by-task))])
+    (check "a select of the place gives that row whatever the partitioning key is: the place's entity, another layer's id, a UUID, a text and a number"
+           (vec (repeat (count other-keys) the-row)) with-other-keys)
+    (check "the answer's row is on one task, the task of the base's depot partition; and that task alone keeps a last stamp of the base, which is the stamp of this answer"
+           [[base-task] {base-task (:stamp (:answer landed))}]
+           [answer-tasks last-stamps])
     (check "the microbatch depot's log holds the act's fact as the hand sent it, the value plain, with no part added"
            [{:e e :k :title :v "the first text of the base"}] (vec (:facts logged)))
-    (check "read right after the door's read gave the answer, the act has one entry in the microbatch gate's log of answers: its act-id, the stamp of its answer and the digest of what was sent, with no word of a refusal and no value of the act's fact"
-           [{:act-id (:act-id (:thing landed)) :stamp (:stamp (:answer landed)) :digest (digest/hex-of (:thing landed))}]
-           landed-entries)
-    (check "the record that holds the entry holds its answers and what the batch keeps of itself, and no other part: the batch's id and its clock, which are those of the kept clock's row, and its last stamp, which is the gate's"
-           [#{:answers :batch :clock :last-stamp} (:batch clock-then) (:clock clock-then) last-stamp-then]
-           [(set (keys landed-record)) (:batch landed-record) (:clock landed-record) (:last-stamp landed-record)])
+    (check "the microbatch depot's log holds the time that the hand wrote on the act, a reading of its clock, and the stamp of the answer is not earlier than that time with a counter of 0"
+           [true (time-on (:thing landed)) true]
+           [(int? (time-on (:thing landed))) (time-on logged) (<= (stamp-at (time-on (:thing landed)) 0) (:stamp (:answer landed)))])
     (check "an act-id of the base that was never sent has no answer: nothing yet" nil never-sent)
     (shown "one act with a plain value landing through the microbatch gate and read back by act-id:" (pr-str (:answer landed)))
-    (shown "its entry in the microbatch gate's log of answers, read right after the door's read:" (pr-str landed-entries)
-           "| what its record holds of the batch:" (pr-str (select-keys landed-record [:batch :clock :last-stamp])))
-    (shown "a value of the base kept as its one text in its row, on task" (task-of-entity e) "and no other:" (pr-str (:value the-row))
+    (shown "eight things of the base with eight different first entities are on one partition of the microbatch depot, partition" base-task
+           "| the fact of each is on" (pr-str (mapv count seen-rows)) "tasks")
+    (shown "a value of the base kept as its one text in its row, the same row on" (count by-task) "tasks:" (pr-str (:value the-row))
            "| read back:" (pr-str (record/read-value the-row)) "| the fields of the row:" (pr-str (vec (sort (keys the-row))))
+           "| its answer is on task" (pr-str answer-tasks) "| the base's last stamp by task:" (pr-str last-stamps)
            "| the microbatch depot's log holds the value plain:" (pr-str (vec (:facts logged))))))
 
-(defn- seen-before-closing
-  "Sends one act with a value, alone, on the entity that is the uuid of its
-  own act-id, so that the row of its fact and the row of its answer are on
-  one task. It watches the answers table itself, round the reads, for the
-  row of the answer. At the first sight of the row it selects the row of the
-  fact and the `:closed-through` of the task, then reads the answer as a
-  door does. Before those it selects `:to-close` on the gate's task, the
-  batch that the next run of the gate closes, for 20 ms at most while it is
-  not there; and after them how many keys `:to-keep` holds on each task.
-  Gives {:thing :row :value-row :closed-through :read :to-close :to-keep}."
+(defn- seen-at-the-commit
+  "Appends one act with a value, alone, and watches the answers table of the
+  microbatch gate itself, round the reads, on the base's task, for the row
+  of the act's answer. At the first sight of the row it reads the answer as
+  a door does, with one call of the query. Gives {:thing :row :read
+  :selects}: the thing; the row as the select gave it, or nil when none
+  showed within the hand's time limit; what the one call gave; and how many
+  selects were made."
   []
-  (let [base-thing (system-act [])
-        act-id (:act-id base-thing)
-        uuid (nth act-id 2)
-        x (assoc base-thing :facts [(value-fact uuid :note "seen before its batch is closed")])
+  (let [x (system-act [(value-fact :seen-at-the-commit :note "read at the first sight of its answer's row")])
+        act-id (:act-id x)
+        k (record/answer-key :base (nth act-id 2))
         _ (append-to-base! x)
         deadline (+ (System/currentTimeMillis) time-limit-ms)
-        row (loop []
-              (or (base-row :mb-answers-ps uuid (record/answer-key :base uuid))
-                  (when (< (System/currentTimeMillis) deadline)
-                    (Thread/sleep 1)
-                    (recur))))
-        to-close (loop [n 0]
-                   (or (rama/foreign-select-one (path/keypath :to-close) (:mb-task-ps *hand*) {:pkey :microbatch})
-                       (when (< n 20)
-                         (Thread/sleep 1)
-                         (recur (inc n)))))
-        value-row (base-fact uuid :note)
-        closed (closed-through uuid)
+        [row selects] (loop [n 1]
+                        (let [row (base-row :mb-answers-ps k)]
+                          (cond row [row n]
+                                (< deadline (System/currentTimeMillis)) [nil n]
+                                :else (do (Thread/sleep 1) (recur (inc n))))))
         read (answer-of act-id)]
-    {:thing x :row row :value-row value-row :closed-through closed :read read
-     :to-close to-close :to-keep (to-keep-by-task)}))
+    {:thing x :row row :read read :selects selects}))
 
-(deftest an-answer-is-readable-when-its-batch-is-closed
-  (let [tries (loop [n 1]
-                (let [seen (seen-before-closing)
-                      result (do (wait-until-processed!) (base-result (:thing seen) :appended))]
-                  (note-base-answers! [result])
-                  (if (or (and (:row seen) (nil? (:read seen))) (<= 5 n))
-                    (assoc seen :after result :tries n)
-                    (recur (inc n)))))
-        {:keys [thing row value-row read after]} tries
+(deftest an-answer-is-readable-when-its-batch-is-committed
+  (let [{:keys [thing row read selects]} (seen-at-the-commit)
+        _ (wait-until-processed!)
+        after (base-result thing :appended)
         act-id (:act-id thing)
-        uuid (nth act-id 2)]
-    (check "the row of a maker's answer and the row of her act's fact are in the tables, the fact's row with the text of its value, and the answer's stamp is later than its task's closed-through"
-           [true "\"seen before its batch is closed\"" true]
-           [(some? row) (:value value-row)
-            (boolean (and row (or (nil? (:closed-through tries)) (< (:closed-through tries) (:stamp row)))))])
-    (check "and the read by act-id gives nothing of that answer: the batch is not closed" nil read)
-    (check "while the batch is committed and not closed, the gate's task holds what the next run closes: `:to-close`, with a batch's id and its clock, and no other part"
-           [#{:batch :clock} true true]
-           [(set (keys (:to-close tries))) (integer? (:batch (:to-close tries))) (integer? (:clock (:to-close tries)))])
-    (check "after the next run of the gate the read gives the answer, with the stamp of that row, and closed-through is not below it"
-           [(:stamp row) :accepted true]
-           [(:stamp (:answer after)) (:word after) (<= (:stamp row) (closed-through uuid))])
-    (shown "an answer is not readable before its batch is closed: the row is in the table with stamp" (:stamp row)
-           "| closed-through on its task" (:closed-through tries) "| answer-by-act-id gives" (pr-str read)
-           "although the rows of the answer and of the fact are in the tables"
-           "| :to-close on the gate's task then:" (pr-str (:to-close tries)) "| keys of :to-keep by task a moment later:" (pr-str (:to-keep tries))
-           "| and is readable after:" (told after) "| closed-through" (closed-through uuid) "| caught at try" (:tries tries))))
+        uuid (nth act-id 2)
+        ask (fn [routing-id] (rama/foreign-invoke-query (:answer *hand*) routing-id act-id))
+        by-layer (ask :base)
+        by-uuid (ask uuid)
+        by-another-layer (ask :alice)]
+    (check "the row of an act's answer shows in the answers table on the base's task; at that first sight one call of answer-by-act-id, with the act-id's layer as its routing id, gives the answer, with the stamp of that row: the read waits for nothing behind the commit that showed the row"
+           [true :accepted (:stamp row)]
+           [(some? row) (:verdict read) (:stamp read)])
+    (check "the answer that the read gave then is the answer that it gives when the gate has processed the thing, with the digest of what was sent"
+           [read true read] [(:answer after) (:mine? after) by-layer])
+    (check "the same query, called with the uuid of the act-id as its routing id, gives nothing: the head of the query finds that the routing id is not the act-id's layer and makes no read. `answer-read-by-routing-id`, called by hand with the same two, gives nil; with the layer it gives the depot word and the key of the answer"
+           [nil nil [:microbatch (str ":base " uuid)]]
+           [by-uuid (record/answer-read-by-routing-id uuid act-id) (record/answer-read-by-routing-id :base act-id)])
+    (check "and called with another layer as its routing id it gives nothing either" nil by-another-layer)
+    (shown "an answer of the base is readable when its batch is committed on the base's task: the row showed at select" selects
+           "with stamp" (:stamp row) "| one call of answer-by-act-id with the layer as routing id gave then:" (pr-str read)
+           "| with the uuid as routing id:" (pr-str by-uuid) "(the head makes no read)")))
 
 (deftest refusals-and-repeats-in-the-base
   (let [landed (:base-landed @kept)
         accepted-thing (:thing landed)
         e (:e (first (:facts accepted-thing)))
-        task-of-entity (:base-task-of-entity @kept)
-        [e1 e2] (:base-entities @kept)
+        [_ e2 e3] (:base-entities @kept)
         [refused-one stale] (decide-in-one-batch!
                              [(system-act [(assoc (value-fact :doc-r1 :text "a value that names a fact which is not there")
                                                   :replaces [(new-act-id :base) 0])])
                               (system-act [(assoc (value-fact e :title "stale") :replaces [(new-act-id :base) 0])])])
         answer-before (answer-of (:act-id accepted-thing))
         row-before (base-fact e :title)
-        last-stamp-before (gates-last-stamp)
+        stamp-before (base-last-stamp)
         _ (append-to-base! accepted-thing)
         _ (append-to-base! (:thing refused-one))
         _ (wait-until-processed!)
         answer-after (answer-of (:act-id accepted-thing))
         refused-again (answer-of (:act-id (:thing refused-one)))
         row-after (base-fact e :title)
+        stamp-after (base-last-stamp)
+        at-another-time (at-time accepted-thing (+ 5 (time-on accepted-thing)))
+        other-time (decide-in-base! at-another-time)
+        after-other-time [(base-last-stamp) (base-fact e :title)]
         other-under-used (decide-in-base! (assoc (system-act [{:e :doc-r2 :k :text}]) :act-id (:act-id accepted-thing)))
-        twice-a (system-act [{:e e1 :k :twice}])
-        twice-b (assoc (system-act [{:e e2 :k :twice}]) :act-id (:act-id twice-a))
+        twice-a (system-act [{:e e2 :k :twice}])
+        twice-b (assoc (system-act [{:e e3 :k :twice}]) :act-id (:act-id twice-a))
         [two-a two-b] (decide-in-one-batch! [twice-a twice-b])
-        written-a (base-fact e1 :twice)
-        written-b (base-fact e2 :twice)]
+        written-a (rows-by-task :mb-facts-ps (record/place-key :base e2 :twice))
+        written-b (rows-by-task :mb-facts-ps (record/place-key :base e3 :twice))
+        ;; The walk of one place that the streaming group makes act by act,
+        ;; here appended in a row: each act is decided against the rows that
+        ;; the acts before it in the line wrote.
+        junk {:act-id (new-act-id :base) :layer :base :junk 1 declaration/time-part (System/currentTimeMillis)}
+        good-under-junk (assoc (system-act [{:e :walk-doc-0 :k :text}]) :act-id (:act-id junk))
+        w0 (system-act [(value-fact :walk-doc :text "the first text")])
+        empty-place (system-act [(assoc (value-fact :walk-doc-2 :text "x") :replaces [(:act-id w0) 0])])
+        replaced (system-act [(assoc (value-fact :walk-doc :text "the second text") :replaces [(:act-id w0) 0])])
+        stale-now (system-act [(assoc (value-fact :walk-doc :text "late") :replaces [(:act-id w0) 0])])
+        over (system-act [(value-fact :walk-doc :text "the third text")])
+        retract (system-act [{:e :walk-doc :k :text}])
+        over-retract (system-act [(assoc (value-fact :walk-doc :text "after the retract") :replaces [(:act-id retract) 0])])
+        retract-on-empty (system-act [{:e :walk-doc-3 :k :text}])
+        retract-again (system-act [{:e :walk-doc-3 :k :text}])
+        onto-retract (system-act [(value-fact :walk-doc-3 :text "onto a retract, naming nothing")])
+        value-to-retract (system-act [(value-fact :walk-doc-4 :text "a value that is retracted")])
+        last-retract (system-act [{:e :walk-doc-4 :k :text :replaces [(:act-id value-to-retract) 0]}])
+        on-the-layer (system-act [(value-fact :base :title "a fact of the layer's own entity, under a plain key")])
+        twice-in-one (system-act [{:e :walk-doc-5 :k :text} {:e :walk-doc-5 :k :text}])
+        own-base (system-act [])
+        own-fact (assoc own-base :facts [{:e :walk-doc-5 :k :text}
+                                         {:e :walk-doc-6 :k :text :replaces [(:act-id own-base) 0]}])
+        in-the-row [junk good-under-junk w0 empty-place replaced stale-now replaced over retract over-retract retract-on-empty
+                    retract-again onto-retract value-to-retract last-retract on-the-layer twice-in-one own-fact]
+        walked (decide-in-a-row! in-the-row)
+        retract-rows (rows-by-task :mb-facts-ps (record/place-key :base :walk-doc-4 :text))
+        retract-row (first (vals retract-rows))]
     (check "an act that is refused for a place gets a recorded refusal through the microbatch gate: its reason, a stamp and the digest of what was sent"
            [:refused :replaced-fact-not-current true true]
            [(:verdict (:answer refused-one)) (:reason (:answer refused-one)) (int? (:stamp (:answer refused-one))) (:mine? refused-one)])
-    (check "a refusal writes nothing at the place" nil (base-fact :doc-r1 :text))
+    (check "a refusal writes nothing at the place, on any task" {} (rows-by-task :mb-facts-ps (record/place-key :base :doc-r1 :text)))
     (check "a stale replaces is refused through the microbatch gate, and the place is as it was"
            [:replaced-fact-not-current (:stamp (:answer landed))] [(:word stale) (:stamp row-before)])
     (check "a repeat is answered from the record: the same answer, with the stamp of the first decision"
@@ -2143,37 +2320,64 @@
            [(:stamp row-before) (:by-act row-before) "\"the first text of the base\""]
            [(:stamp row-after) (:by-act row-after) (:value row-after)])
     (check "a repeat of a refused act reads the recorded refusal" (:answer refused-one) refused-again)
+    (check "not decided twice: the base's last stamp is the same after the two repeats" stamp-before stamp-after)
+    (check "two things under one act-id that differ only in the time on them, the second 5 ms later: they are not equal, and they have one digest; the second reads the one answer, that of the first, which is of its own digest too"
+           [false true :appended answer-before true]
+           [(= accepted-thing at-another-time) (= (digest/hex-of accepted-thing) (digest/hex-of at-another-time))
+            (:ack other-time) (:answer other-time) (:mine? other-time)])
+    (check "and it is a repeat: nothing is decided a second time, so the base's last stamp and the row of the act's fact are as they were"
+           [stamp-before row-before] after-other-time)
     (check "a second, different act under a used act-id is told so: the answer it reads is not of its own digest"
            [answer-before false] [(:answer other-under-used) (:mine? other-under-used)])
-    (check "and nothing of the second act is written" nil (base-fact :doc-r2 :text))
-    (check "the two things of one act-id arrive on two tasks" true (not= (task-of-entity e1) (task-of-entity e2)))
-    (check "one act-id under two different things in one batch: one answer, which is of one of the two"
-           [true #{true false}] [(= (:answer two-a) (:answer two-b)) (set [(:mine? two-a) (:mine? two-b)])])
-    (check "the thing that has the answer wrote its fact, and nothing of the other is written"
-           [(:mine? two-a) (:mine? two-b)] [(some? written-a) (some? written-b)])
+    (check "and nothing of the second act is written, on any task" {} (rows-by-task :mb-facts-ps (record/place-key :base :doc-r2 :text)))
+    (check "one act-id under two different things in one batch: one answer, and it is of the thing that the depot holds first"
+           [true [true false]] [(= (:answer two-a) (:answer two-b)) [(:mine? two-a) (:mine? two-b)]])
+    (check "the first thing wrote its fact, on every task, and nothing of the second is written on any"
+           [tasks {}] [(count written-a) written-b])
+    (check "eighteen things appended in a row with no wait for the gate, each decided against the rows that the things before it wrote: a thing that is no act uses its act-id, and a good act under it reads that refusal; a fact is written; a replaces on an empty place is stale; the current fact is named and replaced; the replaced fact named again is stale; the accepted replace sent again is still accepted; a fact that names nothing writes over; a retract; a fact that names the retract; a retract on an empty place, twice; a value onto a retract; a value and its retract; a fact on the layer's own entity; a place named twice; and a fact that replaces a fact of its own act"
+           [:unknown-part :unknown-part :accepted :replaced-fact-not-current :accepted :replaced-fact-not-current :accepted :accepted
+            :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :place-named-twice :replaces-own-fact]
+           (mapv :word walked))
+    (check "each of the eighteen read an answer of its own digest, but the good act under the junk's act-id"
+           (assoc (vec (repeat 18 true)) 1 false) (mapv :mine? walked))
+    (check "at the end of the row the walked place holds, on every task, the fact that named the retract; the place of the stale replaces holds nothing; and the place of the value onto a retract holds that value"
+           [(on-every-task (nth (:act-id over-retract) 2) 0 (:stamp (:answer (nth walked 9))) "\"after the retract\"")
+            {}
+            (on-every-task (nth (:act-id onto-retract) 2) 0 (:stamp (:answer (nth walked 12))) "\"onto a retract, naming nothing\"")]
+           [(facts-on-every-task :walk-doc :text) (facts-on-every-task :walk-doc-2 :text) (facts-on-every-task :walk-doc-3 :text)])
+    (check "a retract is recorded as the current fact of its place, on every task: a row with no value, which holds who retracted and under which permission"
+           [tasks 1 (nth (:act-id last-retract) 2) false [:nothing-here] :system system-own]
+           [(count retract-rows) (count (set (vals retract-rows))) (:by-act retract-row) (contains? retract-row :value)
+            (record/read-value retract-row) (record/who-of retract-row) (record/permission-of retract-row)])
+    (check "the two facts of the place named twice and of the act that replaces its own fact are on no task"
+           [{} {}] [(facts-on-every-task :walk-doc-5 :text) (facts-on-every-task :walk-doc-6 :text)])
     (shown "a refusal through the microbatch gate, recorded with its reason:" (pr-str (:answer refused-one))
            "| a repeat of that refused act reads:" (pr-str refused-again))
     (shown "a stale replaces refused through the microbatch gate:" (told stale))
     (shown "a repeat (same act-id sent twice to the microbatch depot) answered from the record, not decided twice: stamp before"
            (:stamp answer-before) "after" (:stamp answer-after) "| the stamp of its place before" (:stamp row-before) "after" (:stamp row-after)
-           "| the gate's last stamp moved from" last-stamp-before "to" (gates-last-stamp) "and gave the repeat no stamp")
+           "| the base's last stamp before" stamp-before "after" stamp-after)
+    (shown "the same act of the base under its act-id with another time on it, 5 ms later, is a repeat: one digest"
+           (subs (digest/hex-of at-another-time) 0 16) "| it reads the first's answer, stamp" (:stamp (:answer other-time))
+           "| the base's last stamp after it" (first after-other-time))
     (shown "a second, different act under a used act-id of the base told so: the digest of the answer"
            (subs (:digest (:answer other-under-used)) 0 16) "is not the digest of what was sent"
            (subs (digest/hex-of (:thing other-under-used)) 0 16))
-    (shown "one act-id under two things in one batch, on tasks" (task-of-entity e1) "and" (task-of-entity e2)
-           ": one answer; written by the first thing?" (some? written-a) "by the second?" (some? written-b))))
+    (shown "one act-id under two things in one batch: one answer, of the first thing in the depot's order; written by the first on"
+           (count written-a) "tasks, by the second on" (count written-b))
+    (shown "the walk of a place in the base, eighteen things appended in a row with no wait:" (pr-str (mapv :word walked)))))
 
-(deftest one-batch-one-order
-  (let [task-of-entity (:base-task-of-entity @kept)
-        [ea eb] (:base-entities @kept)
+(deftest one-line-one-order
+  (let [[ea eb] (:base-entities @kept)
         first-value (decide-in-base! (system-act [(value-fact ea :order "the fact before")]))
         f0 [(:act-id (:thing first-value)) 0]
         [a b] (decide-in-one-batch!
                [(system-act [(assoc (value-fact ea :order "from the first act") :replaces f0)])
                 (system-act [{:e eb :k :order-other} (assoc (value-fact ea :order "from the second act") :replaces f0)])])
-        [winner loser] (if (= :accepted (:word a)) [a b] [b a])
-        place (base-fact ea :order)
-        other-fact (base-fact eb :order-other)
+        other-fact (facts-on-every-task eb :order-other)
+        one (system-act [(value-fact ea :line "from the first of two")])
+        two (system-act [(assoc (value-fact ea :line "from the second of two") :replaces [(:act-id one) 0])])
+        [one-result two-result] (decide-in-a-row! [one two])
         [first-mark second-mark] (decide-in-one-batch! [(system-act [{:e ea :k :mark}])
                                                         (system-act [{:e eb :k :mark-other} {:e ea :k :mark}])])
         mark (base-fact ea :mark)
@@ -2183,29 +2387,64 @@
                                (thing :base :dave dave-in-base [{:e :dave :k :note}])
                                (system-act [{:e :dave :k :softland.store/permission :v dave-in-base}])])
         dave-later (decide-in-base! (thing :base :dave dave-in-base [{:e :dave :k :note}]))]
-    (check "the two entities are on two tasks" true (not= (task-of-entity ea) (task-of-entity eb)))
-    (check "two acts of one batch that replace the same fact, arriving on two tasks: one is accepted, the other refused as stale"
-           [:accepted :replaced-fact-not-current] [(:word winner) (:word loser)])
-    (check "the place holds the winner's fact, with the winner's stamp and the text of the winner's value"
-           [(nth (:act-id (:thing winner)) 2) (:stamp (:answer winner)) (if (= a winner) "\"from the first act\"" "\"from the second act\"")]
-           [(:by-act place) (:stamp place) (:value place)])
-    (check "the winner holds the earlier stamp: it has the earlier turn" true (< (:stamp (:answer winner)) (:stamp (:answer loser))))
-    (check "the loser is refused whole: its fact on the other task is there only when it is the winner's"
-           (= b winner) (some? other-fact))
-    (check "two acts of one batch that write one place and name nothing are both accepted, and the place holds the later stamp"
-           [:accepted :accepted (max (:stamp (:answer first-mark)) (:stamp (:answer second-mark)))]
-           [(:word first-mark) (:word second-mark) (:stamp mark)])
-    (check "in one batch, on one entity: a give and then an act under it are both accepted; an act and then the give, the act is refused"
+    (check "two acts of one batch that replace the same fact: the one that the depot holds first is accepted, and the second is refused as stale"
+           [:accepted :replaced-fact-not-current] [(:word a) (:word b)])
+    (check "the place holds the first act's fact on every task, with its stamp and the text of its value"
+           (on-every-task (nth (:act-id (:thing a)) 2) 0 (:stamp (:answer a)) "\"from the first act\"")
+           (facts-on-every-task ea :order))
+    (check "the second is refused whole, with a later stamp: its other fact is on no task"
+           [true {}] [(< (:stamp (:answer a)) (:stamp (:answer b))) other-fact])
+    (check "two acts that write one place, appended one after the other with no wait for the gate: both are accepted, and the second names the first one's fact as the one that it replaces, so it was decided against the row that the first wrote"
+           [:accepted :accepted] [(:word one-result) (:word two-result)])
+    (check "the second one's fact is the place's fact, on every task"
+           (on-every-task (nth (:act-id two) 2) 0 (:stamp (:answer two-result)) "\"from the second of two\"")
+           (facts-on-every-task ea :line))
+    (check "two acts of one batch that write one place and name nothing are both accepted, and the place holds the fact of the second, with its stamp"
+           [:accepted :accepted (nth (:act-id (:thing second-mark)) 2) 1 (:stamp (:answer second-mark))]
+           [(:word first-mark) (:word second-mark) (:by-act mark) (:by-index mark) (:stamp mark)])
+    (check "in one batch: a give and then an act under it are both accepted; an act and then the give, the act is refused"
            [:accepted :accepted :permission-does-not-stand :accepted]
            [(:word give-carol) (:word carol-acts) (:word dave-acts) (:word give-dave)])
     (check "the same act under the permission, in a later batch, is accepted" :accepted (:word dave-later))
-    (shown "two acts of one batch that replace the same fact, with one winner: on tasks" (task-of-entity ea) "and" (task-of-entity eb)
-           "|" (told winner) "|" (told loser) "| the place is written by" (short-id [nil nil (:by-act place)]))
+    (shown "two acts of one batch that replace the same fact: the first in the depot's order wins:" (told a) "|" (told b))
+    (shown "two acts that write one place, appended with no wait, the second naming the first's fact:" (told one-result) "|" (told two-result)
+           "| the place is written by" (short-id (:act-id two)) "on" (count (facts-on-every-task ea :line)) "tasks")
     (shown "two acts of one batch that write one place and name nothing:" (told first-mark) "|" (told second-mark) "| the place holds stamp" (:stamp mark))
     (shown "a give and an act under it in one batch, in both orders:" (:word give-carol) (:word carol-acts) "|" (:word dave-acts) (:word give-dave))))
 
+(deftest a-chain-in-one-batch
+  (let [n 100
+        acts (reduce (fn [acts i]
+                       (conj acts (system-act [(cond-> (value-fact :chain-doc :text (str "link " i))
+                                                 (pos? i) (assoc :replaces [(:act-id (peek acts)) 0]))])))
+                     []
+                     (range n))
+        ids (mapv :act-id acts)
+        answered-while-paused (atom nil)
+        results (decide-in-one-batch! acts (fn [] (reset! answered-while-paused (count (keep answer-of ids)))))
+        stamps (mapv #(:stamp (:answer %)) results)
+        stamp-of (zipmap ids stamps)
+        in-the-chain (set ids)
+        order-in-the-depot (into [] (keep (fn [[_ r]] (when (and (map? r) (contains? in-the-chain (:act-id r))) (:act-id r))))
+                                 (stored-in-base))
+        by-uuid (mapv (fn [act-id] (rama/foreign-invoke-query (:answer *hand*) (nth act-id 2) act-id)) ids)]
+    (check "while the gate was paused, with the 100 acts of the chain on the depot, none of them had an answer"
+           0 @answered-while-paused)
+    (check "a chain of 100 acts appended while the gate was paused, each naming the fact of the act before it as the one that it replaces: every one is accepted, with the digest of what was sent. An act that was decided before the act before it would have been refused as stale"
+           [{:accepted n} true] [(frequencies (map :word results)) (every? :mine? results)])
+    (check "the depot holds the 100 in the order in which they were appended, and their stamps increase strictly in that order"
+           [true true] [(= ids order-in-the-depot) (boolean (and (seq order-in-the-depot) (apply < (map stamp-of order-in-the-depot))))])
+    (check "on every task the place holds the fact of the last act of the chain"
+           (on-every-task (nth (peek ids) 2) 0 (peek stamps) "\"link 99\"")
+           (facts-on-every-task :chain-doc :text))
+    (check "asked with the uuid of its act-id as the routing id, each of the 100 gives nothing, on whichever task its uuid hashes to: the nothing is the head's"
+           [n #{nil}] [(count by-uuid) (set by-uuid)])
+    (shown "a chain of" n "acts in one batch, each replacing the fact of the act before it:" (pr-str (frequencies (map :word results)))
+           "| answered while the gate was paused:" @answered-while-paused
+           "| stamps strictly increasing in the depot's order, from" (first stamps) "to" (peek stamps))))
+
 (deftest a-person-acts-in-the-base
-  (let [give (decide-in-base! (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}]))
+  (let [give (:base-give @kept)
         permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission))
         writes (decide-in-base! (thing :base :alice alice-in-base [(value-fact :alices-doc :text "alice's text in the base")]))
         [give-again end-it depot-again depot-other setting-elsewhere give-bob unknown-key tools-own]
@@ -2221,8 +2460,7 @@
         bob-acts (decide-in-base! (thing :base :bob bob-in-base [{:e :bobs-doc :k :note}]))
         permission-rows-after (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission))
         tools-own-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :permission))
-        clock (System/currentTimeMillis)
-        far (stamp/pack (+ clock 60000) 0)
+        far (stamp-at (+ (System/currentTimeMillis) 60000) 0)
         fact-id [(:act-id (:thing give)) 0]
         [not-given not-holder beside far-ahead far-ahead-no-standing]
         (decide-in-one-batch!
@@ -2232,7 +2470,7 @@
           (system-act [{:e :far-doc :k :note}] {:based-on {fact-id far}})
           (thing :base :mallory alice-in-base [{:e :mallorys-doc :k :note}] {:based-on {fact-id far}})])
         next-one (decide-in-base! (system-act [{:e :far-doc :k :note}]))]
-    (check "the system gives a person a permission in the base, beneath its own: accepted, and it sits on its holder as a fact"
+    (check "the system gave a person a permission in the base, beneath its own: accepted, and it sits on its holder as a fact"
            [:accepted alice-in-base] [(:word give) (record/value-of (first (vals permission-rows)))])
     (check "the permission's row is on every task" tasks (count permission-rows))
     (check "a person acts in the base under the permission that the system gave, with a value: accepted, and the row holds the text of her value"
@@ -2254,17 +2492,16 @@
     (check "a fact under a key in the store's namespace that the store does not know is refused by the microbatch gate too, and nothing is written"
            [:store-key-not-known {}]
            [(:word unknown-key) (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/owner))])
-    (check "a tool's own fact under the bare word :permission, on a holder's entity, is accepted in the base: its row is on one task, with the tool's value, and the store's permission is on every task"
-           [:accepted 1 [:value "a tool's own permission"] tasks]
-           [(:word tools-own) (count tools-own-rows) (record/read-value (first (vals tools-own-rows))) (count permission-rows-after)])
-    (check "an act that carries a stamp more than 10 seconds ahead of the gate's clock is refused"
+    (check "a tool's own fact under the bare word :permission, on a holder's entity, is accepted in the base: its row is on every task, as any fact's, with the tool's value, beside the store's permission of that holder"
+           [:accepted tasks #{[:value "a tool's own permission"]} tasks]
+           [(:word tools-own) (count tools-own-rows) (set (map record/read-value (vals tools-own-rows))) (count permission-rows-after)])
+    (check "an act that carries a stamp a minute ahead of the time on it is refused"
            :carried-stamp-too-far-ahead (:word far-ahead))
     (check "the same under a permission that does not stand is refused with the word of the 10-second rule, as in the streaming gate"
            :carried-stamp-too-far-ahead (:word far-ahead-no-standing))
-    (check "the carried stamp puts the stamps of its batch 10 seconds ahead of the clock at most, and the next stamp is later still"
+    (check "the refusal holds an ordinary stamp, which does not follow the carried stamp, and the next stamp of the base is later"
            [true true]
-           [(< (stamp/time-of (:stamp (:answer far-ahead))) (+ (System/currentTimeMillis) 11000))
-            (< (:stamp (:answer far-ahead)) (:stamp (:answer next-one)))])
+           [(< (:stamp (:answer far-ahead)) far) (< (:stamp (:answer far-ahead)) (:stamp (:answer next-one)))])
     (shown "a person acting in the base under a permission that the system gave:" (told give) "| the permission's row is on"
            (count permission-rows) "tasks | her act, with a value:" (told writes))
     (shown "in the base, an act under a permission that does not stand:" (:word not-given) "| by a who that is not the holder:" (:word not-holder)
@@ -2274,7 +2511,7 @@
            "| a permission beneath a person's, and an act under it:" (:word give-bob) (:word bob-acts))
     (shown "in the base, a key in softland.store that the store does not know:" (:word unknown-key)
            "| a tool's own fact under the bare word :permission:" (:word tools-own) "| its row is on" (count tools-own-rows)
-           "task, the store's permission of the same holder on" (count permission-rows-after))
+           "tasks, the store's permission of the same holder on" (count permission-rows-after))
     (shown "a carried stamp too far ahead, in the base:" (told far-ahead) "| the same with no standing:" (:word far-ahead-no-standing))))
 
 (deftest a-permission-deeper-than-four-in-the-base
@@ -2282,9 +2519,9 @@
         at (fn [depth] (nth chain (dec depth)))
         holder (fn [depth] (first (at depth)))
         rows-on-its-holder (fn [depth] (rows-by-task :mb-facts-ps (record/place-key :base (holder depth) :softland.store/permission)))
-        gives (mapv (fn [depth] (decide-in-base! (thing :base (holder (dec depth)) (at (dec depth))
-                                                        [{:e (holder depth) :k :softland.store/permission :v (at depth)}])))
-                    (range 2 34))
+        gives (decide-in-a-row! (mapv (fn [depth] (thing :base (holder (dec depth)) (at (dec depth))
+                                                         [{:e (holder depth) :k :softland.store/permission :v (at depth)}]))
+                                      (range 2 34)))
         give-33 (peek gives)
         acts-too [:deep-seer-32 :base :base (at 31) :see-and-act]
         sees [:deep-looker-32 :base :base (at 31) :see]
@@ -2304,12 +2541,12 @@
                                (thing :base :deep-looker-32 sees [{:e :deep-lookers-doc :k :text}])])
         slot-rows (fn [e] (set (map (comp act/allows record/value-of)
                                     (vals (rows-by-task :mb-facts-ps (record/place-key :base e :softland.store/permission))))))]
-    (check "in the base each holder gives a permission beneath her own, one at each depth from 2 to 32, each in a batch of its own: the 31 gives are each accepted"
+    (check "in the base each holder gives a permission beneath her own, one at each depth from 2 to 32, appended one after the other with no wait for the gate: the 31 gives are each accepted, so each was decided against the row that the give before it wrote"
            (vec (repeat 31 :accepted)) (mapv :word (pop gives)))
     (check "the permissions of depth 4, 5, 31 and 32 each sit on their holder as they were given, on every task"
            (mapv (fn [depth] [tasks #{[:value (at depth)]}]) [4 5 31 32])
            (mapv (fn [depth] (let [rows (rows-on-its-holder depth)] [(count rows) (set (map record/read-value (vals rows)))])) [4 5 31 32]))
-    (check "the give at depth 33 is refused as malformed: the refusal is recorded under its own act-id with the digest of what was sent, and no task holds a row on that holder"
+    (check "the give at depth 33, appended in the same row, is refused as malformed: the refusal is recorded under its own act-id with the digest of what was sent, and no task holds a row on that holder"
            [:malformed true {}] [(:word give-33) (:mine? give-33) (rows-on-its-holder 33)])
     (check "an act under the permission of depth 5, and one under the permission of depth 32, each with a value, are accepted"
            [:accepted :accepted "\"under depth 5\"" "\"under depth 32\""]
@@ -2327,7 +2564,8 @@
            [(:word give-acts-too) (:word give-sees) (slot-rows :deep-seer-32) (slot-rows :deep-looker-32)
             (:word seer-acts) (:value (base-fact :deep-seers-doc :text)) (:word looker-acts)])
     (check "a give of depth 33 with the fifth slot is refused as malformed" :malformed (:word slot-at-33))
-    (shown "a permission deeper than four, through the microbatch gate: the gives at depth 2 to 32:" (pr-str (frequencies (map :word (pop gives))))
+    (shown "a permission deeper than four, through the microbatch gate: the gives at depth 2 to 32, appended in a row with no wait:"
+           (pr-str (frequencies (map :word (pop gives))))
            "| the give at depth 33:" (told give-33) "| an act under depth 5:" (told under-5) "| under depth 32:" (told under-32))
     (shown "in the base, the row of the act under depth 32 holds its permission whole:" (count (:permission row-32)) "characters of text that open"
            (count (filter #{\[} (:permission row-32))) "vectors | an own permission of depth 33:" (told own-33)
@@ -2337,22 +2575,38 @@
 (deftest the-bounds-in-the-base
   (let [[value-over value-at] (decide-in-one-batch! [(system-act [(value-fact :bound-doc-over :text over-the-bound-of-a-value)])
                                                      (system-act [(value-fact :bound-doc-at :text at-the-bound-of-a-value)])])
+        at-rows (rows-by-task :mb-facts-ps (record/place-key :base :bound-doc-at :text))
         at-row (base-fact :bound-doc-at :text)
         act-over (decide-in-base! (act-over-its-bound :base))
         act-over-bytes (* 256 (+ 65536 (count (utf8-of (pr-str (:who (:thing act-over)))))
                                  (count (utf8-of (pr-str (:permission (:thing act-over)))))))
         records (vec (stored-in-base))
         value-over-logged (record-of-act records (:act-id (:thing value-over)))
-        act-over-logged (record-of-act records (:act-id (:thing act-over)))]
+        act-over-logged (record-of-act records (:act-id (:thing act-over)))
+        many (fn [n] (system-act (map (fn [i] {:e (keyword (str "many-" i)) :k :text}) (range n))))
+        based-on (fn [n] (into {} (map (fn [i] [[[:base :microbatch (UUID. 0 1)] i] 1])) (range n)))
+        long-id (keyword (apply str (repeat 300 "a")))
+        [facts-256 facts-257 based-1024 based-1025 long-entity]
+        (decide-in-one-batch! [(many 256)
+                               (many 257)
+                               (system-act [{:e :based-doc :k :text}] {:based-on (based-on 1024)})
+                               (system-act [{:e :based-doc :k :text}] {:based-on (based-on 1025)})
+                               (system-act [{:e long-id :k :text}])])
+        last-of-many (rows-by-task :mb-facts-ps (record/place-key :base :many-255 :text))]
+    (check "through the microbatch gate, in one batch: an act of 256 facts is accepted, and its last fact is a row on every task, with its index; one of 257 is refused; 1,024 entries of based-on are taken, and 1,025 are refused; and an id that prints to more than 256 characters is refused, the refusal recorded under the act-id"
+           [:accepted tasks #{255} :too-many-facts :accepted :too-many-based-on :id-too-long true]
+           [(:word facts-256) (count last-of-many) (set (map :by-index (vals last-of-many))) (:word facts-257)
+            (:word based-1024) (:word based-1025) (:word long-entity) (:mine? long-entity)])
     (check "through the microbatch gate, a value whose one text is 65,537 bytes is refused with the word of the bound on one value: the refusal is recorded under its own act-id with the digest of what was sent, no task holds a row of it, and the depot's log holds the act whole, the value plain"
            [:appended :value-too-large true {} true]
            [(:ack value-over) (:word value-over) (:mine? value-over)
             (rows-by-task :mb-facts-ps (record/place-key :base :bound-doc-over :text)) (= (:thing value-over) value-over-logged)])
-    (check "a value whose one text is 65,536 bytes is accepted in the same batch, and its row holds those bytes: the string in its quotes, which reads back as the value"
-           [:accepted 65536 21848 true true]
+    (check "a value whose one text is 65,536 bytes is accepted in the same batch, and its row holds those bytes: the string in its quotes, which reads back as the value; every task holds that row"
+           [:accepted 65536 21848 true true tasks 1]
            [(:word value-at) (count (value-bytes at-row)) (count (:value at-row))
             (= (str "\"" at-the-bound-of-a-value "\"") (:value at-row))
-            (= [:value at-the-bound-of-a-value] (record/read-value at-row))])
+            (= [:value at-the-bound-of-a-value] (record/read-value at-row))
+            (count at-rows) (count (set (vals at-rows)))])
     (check "an act of 256 values at that bound, under a who and a permission of more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no task holds a row of it"
            [true :appended :act-too-large true true 256 {} {}]
            [(< 18874368 act-over-bytes) (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
@@ -2360,9 +2614,11 @@
             (rows-by-task :mb-facts-ps (record/place-key :base :over-0 :text))
             (rows-by-task :mb-facts-ps (record/place-key :base :over-255 :text))])
     (shown "the bound on one value, through the microbatch gate: a text of 65,537 bytes" (told value-over) "| of 65,536 bytes" (told value-at)
-           "| its row holds" (count (value-bytes at-row)) "bytes in" (count (:value at-row)) "characters")
+           "| its row holds" (count (value-bytes at-row)) "bytes in" (count (:value at-row)) "characters, on" (count at-rows) "tasks")
     (shown "the bound on an act, through the microbatch gate: an act whose rows would hold" act-over-bytes "bytes of text, over 18874368:"
-           (told act-over) "| in the log whole, with" (count (:facts act-over-logged)) "values plain")))
+           (told act-over) "| in the log whole, with" (count (:facts act-over-logged)) "values plain")
+    (shown "in the base a thing over each limit is refused:" (:word facts-257) (:word based-1025) (:word long-entity)
+           "| at each limit accepted:" (:word facts-256) (:word based-1024) "| the 256th fact is on" (count last-of-many) "tasks")))
 
 (deftest a-long-batch
   (let [n 400
@@ -2370,143 +2626,257 @@
         k (fn [i] (keyword (str "k" i)))
         results (decide-in-one-batch! (mapv (fn [i] (system-act [{:e (entity i) :k (k i)}])) (range n)))
         stamps (mapv #(:stamp (:answer %)) results)
-        sample (range 0 n 37)
-        log (answer-log)
-        clock-then (kept-clock-row)
-        last-stamp-then (gates-last-stamp)
-        logged (logged-answers log)
-        ids (set (map (comp :act-id :thing) results))
-        of-the-batch (filterv #(contains? ids (:act-id (:entry %))) logged)
-        batch-ids (set (map :batch of-the-batch))
-        batch-records (filterv (fn [[_ r]] (contains? batch-ids (:batch r))) log)]
+        sample (range 0 n 37)]
     (check "a batch of 400 acts on 20 entities: each is accepted, each with a stamp of its own"
            [#{:accepted} n] [(set (map :word results)) (count (set stamps))])
-    (check "the acts on one entity keep the depot's order: their stamps go up in the order sent"
-           true (every? (fn [[_ sent]] (apply < (map second sent))) (group-by #(entity (first %)) (map-indexed vector stamps))))
-    (check "the fact of each act of a sample is on its place, with the stamp of its answer"
-           (mapv #(nth stamps %) sample) (mapv #(:stamp (base-fact (entity %) (k %))) sample))
-    (check "read right after the door's reads gave the 400 answers, each has one entry in the microbatch gate's log of answers, the entry of its answer"
-           [n []] [(count of-the-batch) (entries-apart logged (map (fn [r] [(:act-id (:thing r)) (:answer r)]) results))])
-    (check "the 400 entries are in the records of one batch, the batch of the kept clock's row, on one partition; no record holds more than 256 entries, so they are more than one; the first holds what the batch keeps of itself, its clock and its last stamp, which are the kept clock and the gate's last stamp; and no other record of the batch holds either"
-           [#{(:batch clock-then)} 1 true true {:clock (:clock clock-then) :last-stamp last-stamp-then} #{{}}]
-           [batch-ids (count (set (map first batch-records)))
-            (every? (fn [[_ r]] (<= (+ (count (:answers r)) (count (:strays r))) 256)) batch-records)
-            (< 1 (count batch-records))
-            (select-keys (second (first batch-records)) [:clock :last-stamp])
-            (set (map (fn [[_ r]] (select-keys r [:clock :last-stamp])) (rest batch-records)))])
-    (check "the last stamp that the batch keeps of itself is not below the stamp of any of its answers" true (every? #(<= % last-stamp-then) stamps))
+    (check "the base is one line: the stamps of the 400 go up in the order in which they were appended, whatever the entity of each"
+           true (apply < stamps))
+    (check "the fact of each act of a sample is on its place on every task, with the stamp of its answer"
+           (mapv (fn [i] [tasks #{(nth stamps i)}]) sample)
+           (mapv (fn [i] (let [rows (rows-by-task :mb-facts-ps (record/place-key :base (entity i) (k i)))]
+                           [(count rows) (set (map :stamp (vals rows)))]))
+                 sample))
     (shown "a batch of" n "acts on 20 entities: each accepted, with" (count (set stamps))
-           "stamps; on each entity the stamps go up in the order sent")
-    (shown "the batch of" n "answers in the microbatch gate's log of answers:" (count batch-records) "records of batch" (pr-str batch-ids)
-           "on partition" (pr-str (set (map first batch-records))) "with" (pr-str (mapv (fn [[_ r]] (count (:answers r))) batch-records))
-           "entries | the first holds" (pr-str (select-keys (second (first batch-records)) [:clock :last-stamp])))))
+           "stamps, which go up in the order sent over the whole batch")))
 
-(deftest an-act-on-several-tasks
-  (let [task-of-entity (:base-task-of-entity @kept)
-        entities (:base-entities @kept)
+(deftest the-copies-of-the-base
+  (let [records (vec (stored-in-base))
+        copies (check-the-copies "the copies, after the line, the chain and the long batch" records)]
+    (check "by then each task holds more than 400 rows of the base's facts, and the base's task more than 500 answers"
+           [true true]
+           [(< 400 (first (:facts copies))) (< 500 (nth (:answers copies) (:base-task @kept)))])))
+
+(deftest the-time-on-the-act-in-the-base
+  (let [;; One millisecond later than the time in the base's last stamp, so
+        ;; that each stamp of this walk is a number that the proof makes.
+        t (inc (time-of-last-in-base))
+        act-at (fn [e millis] (at-time (system-act [(value-fact e :text (str "the text of " (name e)))]) millis))
+        same (mapv #(act-at (keyword (str "same-" %)) t) (range 3))
+        later (act-at :later (inc t))
+        earlier (act-at :earlier (- t 5000))
+        at-zero (act-at :at-zero 0)
+        no-times [(dissoc (act-at :no-time t) declaration/time-part)
+                  (act-at :nil-time nil)
+                  (act-at :time-2-to-the-46 (inc greatest-time))
+                  (act-at :time-below-zero -1)
+                  (act-at :time-no-integer 1.5)]
+        unknown-part (at-time (assoc (system-act [(value-fact :unknown-part :text "x")]) :a-part-that-no-form-names 1) (+ t 2))
+        other-layers-permission (at-time (thing :base :system [:system :alice :alice] [(value-fact :another-fault :text "x")]) (+ t 3))
+        ;; The 10-second rule, at its edge, against the time on the act.
+        t2 (+ t 4)
+        fact-id [[:base :microbatch (UUID. 0 1)] 0]
+        edge (stamp-at (+ t2 10000) 65535)
+        far-ahead (system-act [{:e :ahead-1 :k :text}] {declaration/time-part t2 :based-on {fact-id (inc edge)}})
+        claim (system-act [{:e :ahead-1 :k :text}] {declaration/time-part t2 :claimed-when Long/MAX_VALUE})
+        at-the-edge (system-act [{:e :ahead-2 :k :text}]
+                                {declaration/time-part t2 :based-on {fact-id edge} :because-of (new-act-id :base)})
+        next-one (system-act [{:e :ahead-3 :k :text}] {declaration/time-part t2})
+        xs (vec (concat same [later earlier at-zero] no-times [unknown-part other-layers-permission far-ahead claim at-the-edge next-one]))
+        results (decide-in-one-batch! xs)
+        words (mapv :word results)
+        stamps (mapv (comp :stamp :answer) results)
+        last-after (base-last-stamp)
+        ;; Two layers of one task. A layer that starts streaming and whose
+        ;; id hashes to the base's task is found without a send: a select
+        ;; with it as the partitioning key finds the base's last stamp. Its
+        ;; acts on the microbatch depot are refused, each with a stamp.
+        beside (first (filter (fn [layer] (some? (rama/foreign-select-one (path/keypath :last-stamp ":base")
+                                                                          (:mb-task-ps *hand*) {:pkey layer})))
+                              (map #(keyword (str "beside-the-base-" %)) (range 64))))
+        beside-act (fn [] (at-time (assoc (thing beside beside [beside beside beside] [{:e :beside-doc :k :note}])
+                                          :act-id [beside :microbatch (UUID/randomUUID)] :depot :microbatch)
+                                   chosen-time))
+        [beside-1 base-between beside-2] (decide-in-a-row! [(beside-act)
+                                                            (system-act [{:e :between-doc :k :note}] {declaration/time-part t2})
+                                                            (beside-act)])
+        lasts-of-the-task [(base-last-stamp beside) (base-last-stamp) (last-stamps-by-task beside)]]
+    (check "seventeen things of the base, with times that the hand chose, are appended while the gate is paused, so one batch takes them; each is answered with the digest of what was sent"
+           (vec (repeat 17 true)) (mapv :mine? results))
+    (check "a. three acts with one time on them, one millisecond later than the time in the base's last stamp: each is accepted; the first gets that time with a counter of 0, the second the counter 1 and the third the counter 2; the row of the third's fact holds its stamp on every task"
+           [[:accepted :accepted :accepted] [(stamp-at t 0) (stamp-at t 1) (stamp-at t 2)]
+            (on-every-task (nth (:act-id (nth same 2)) 2) 0 (stamp-at t 2) "\"the text of same-2\"")]
+           [(subvec words 0 3) (subvec stamps 0 3) (facts-on-every-task :same-2 :text)])
+    (check "a. an act with a later time on it, one millisecond after the time in the last stamp, gets that time with a counter of 0"
+           [:accepted (stamp-at (inc t) 0)] [(nth words 3) (nth stamps 3)])
+    (check "c. an act whose time is earlier than the base's last stamp, by 5 seconds, gets the last stamp plus one: the clock went back, and the stamps of the base did not; an act with the time 0 on it, the earliest there is, the same"
+           [[:accepted :accepted] [(stamp-at (inc t) 1) (stamp-at (inc t) 2)]]
+           [(subvec words 4 6) (subvec stamps 4 6)])
+    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^46, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, with a stamp of the base's last plus one; and none writes a row on any task"
+           [(vec (repeat 5 :no-door-time)) (mapv #(stamp-at (inc t) %) (range 3 8)) (vec (repeat 5 {}))]
+           [(subvec words 6 11) (subvec stamps 6 11)
+            (mapv (fn [x] (facts-on-every-task (:e (first (:facts x))) :text)) no-times)])
+    (check "d. a thing with a usable time that the declaration refuses for another fault keeps its time in the stamp of its refusal: one with a part that no form names, and one whose permission is for another layer"
+           [[:unknown-part (stamp-at (+ t 2) 0)] [:permission-not-in-layer (stamp-at (+ t 3) 0)]]
+           [[(nth words 11) (nth stamps 11)] [(nth words 12) (nth stamps 12)]])
+    (check "the 10-second rule is held against the time on the act, at its edge: an act that carries a stamp whose time is 10,001 ms after the time on the act, with a counter of 0, is refused; its answer holds an ordinary stamp, the time on the act with a counter of 0"
+           [:carried-stamp-too-far-ahead (stamp-at t2 0)] [(nth words 13) (nth stamps 13)])
+    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the same time on the act gives the counter 1"
+           [:accepted (stamp-at t2 1)] [(nth words 14) (nth stamps 14)])
+    (check "an act that carries a stamp whose time is exactly 10,000 ms after the time on the act, with the counter full, one stamp below the one that was refused, is accepted, with the carried stamp plus one"
+           [:accepted (inc edge)] [(nth words 15) (nth stamps 15)])
+    (check "and the next stamp of the base, for an act with the same time on it, is one more; it is the base's last stamp"
+           [(+ 2 edge) (+ 2 edge)] [(nth stamps 16) last-after])
+    (check "b. two layers of one task count apart in the microbatch gate too. A layer that starts streaming and whose id hashes to the base's task gets, for its first act on the microbatch depot, with a time of 2023 on it, a refusal whose stamp is that time with a counter of 0: its own count, far below the base's last stamp on that task. An act of the base, appended between, gets the base's last stamp plus one. The layer's second act gets the counter 1"
+           [true [:layer-belongs-to-the-other-gate :accepted :layer-belongs-to-the-other-gate]
+            [(stamp-at chosen-time 0) (+ 3 edge) (stamp-at chosen-time 1)]]
+           [(some? beside) (mapv :word [beside-1 base-between beside-2]) (mapv (comp :stamp :answer) [beside-1 base-between beside-2])])
+    (check "b. the base's task keeps a last stamp for each of the two layers, each its own, and no other task keeps one for that layer"
+           [(stamp-at chosen-time 1) (+ 3 edge) {(:base-task @kept) (stamp-at chosen-time 1)}]
+           lasts-of-the-task)
+    (shown "two layers of one task count apart in the microbatch gate: the layer" beside "on the base's task," (told beside-1) "|" (told beside-2)
+           "| an act of the base between them:" (told base-between) "| the last stamps that the task keeps, of that layer and of the base:"
+           (pr-str (subvec lasts-of-the-task 0 2)))
+    (shown "the time on the act makes the stamp, in the microbatch gate, for seventeen things of one batch. The chosen time" t
+           "| three acts with it:" (pr-str (subvec stamps 0 3)) "| a later time:" (told (nth results 3))
+           "| a time 5 s earlier, and the time 0:" (told (nth results 4)) "|" (told (nth results 5)))
+    (shown "in the base a thing with no usable time is refused, with the last stamp plus one: no time, nil, 2^46, below zero, no integer:"
+           (pr-str (mapv vector (subvec words 6 11) (subvec stamps 6 11)))
+           "| refused for another fault, with a usable time:" (told (nth results 11)) "|" (told (nth results 12)))
+    (shown "the 10-second rule in the base, against the time" t2 "on the act | a carried stamp 10,001 ms after it, counter 0:" (told (nth results 13))
+           "| one stamp below, 10,000 ms after it with the counter full:" (told (nth results 15)) "carried" edge
+           "| claimed-when far ahead:" (told (nth results 14)) "| the next stamp of the base:" (nth stamps 16))))
+
+(deftest an-act-of-several-facts-in-the-base
+  (let [entities (:base-entities @kept)
         places (mapv (fn [e] [e :body]) entities)
         sent-facts (mapv (fn [[e k]] (value-fact e k (str "the body of " (name e)))) places)
-        place-rows (fn [] (mapv (fn [[e k]] (rows-by-task :mb-facts-ps (record/place-key :base e k))) places))
+        place-rows (fn [] (mapv (fn [[e k]] (facts-on-every-task e k)) places))
         refused (decide-in-base! (system-act (update sent-facts 2 assoc :replaces [(new-act-id :base) 0])))
         places-after-refusal (place-rows)
-        earlier-stamps (keep (fn [[e task]] (when (contains? (set (map task-of-entity entities)) task) (:stamp (base-fact e :seen))))
-                             task-of-entity)
-        last-stamp-before (gates-last-stamp)
+        last-stamp-before (base-last-stamp)
         accepted (decide-in-base! (system-act sent-facts))
         act-uuid (nth (:act-id (:thing accepted)) 2)
         stamp (:stamp (:answer accepted))
         places-after (place-rows)
-        last-stamp-after (gates-last-stamp)
-        [arrives-on other-entity] entities
-        planted (decide-in-base! (system-act [{:e other-entity :k :crossed}]))
-        crossing (decide-in-base! (system-act [{:e arrives-on :k :crossing}
-                                               {:e other-entity :k :crossed :replaces [(:act-id (:thing planted)) 0]}]))
-        crossed-row (base-fact other-entity :crossed)
-        crossing-again (decide-in-base! (system-act [{:e arrives-on :k :crossing-again}
-                                                     {:e other-entity :k :crossed :replaces [(:act-id (:thing planted)) 0]}]))]
+        last-stamp-after (base-last-stamp)
+        [first-entity other-entity] entities
+        planted (system-act [{:e other-entity :k :crossed}])
+        crossing (system-act [{:e first-entity :k :crossing}
+                              {:e other-entity :k :crossed :replaces [(:act-id planted) 0]}])
+        crossing-again (system-act [{:e first-entity :k :crossing-again}
+                                    {:e other-entity :k :crossed :replaces [(:act-id planted) 0]}])
+        [planted-result crossing-result crossing-again-result] (decide-in-a-row! [planted crossing crossing-again])]
     (swap! kept assoc :base-values {:places places :act-uuid act-uuid})
-    (check "the three entities of the act are on more than one task" true (< 1 (count (set (map task-of-entity entities)))))
-    (check "an act of three values that touches several tasks, with its third fact stale, is refused whole" :replaced-fact-not-current (:word refused))
+    (check "an act of three values on three entities, with its third fact stale, is refused whole" :replaced-fact-not-current (:word refused))
     (check "no row of it is on any task: none of its three places holds a fact" [{} {} {}] places-after-refusal)
     (check "the same act with each fact good is accepted whole" [:accepted true] [(:word accepted) (:mine? accepted)])
-    (check "each fact's row is on the task of its entity and no other, written by the act, with the stamp of its answer and the text of its value"
-           (mapv (fn [[e _] i] [[(task-of-entity e)] act-uuid i stamp (str "\"the body of " (name e) "\"")]) places (range))
-           (mapv (fn [rows] (let [row (first (vals rows))] [(vec (keys rows)) (:by-act row) (:by-index row) (:stamp row) (:value row)])) places-after))
-    (check "the one stamp of builder's rule 18: rows were written before on those tasks, and the stamp is later than the stamp of each of them, and than the refusal's"
-           [true true true] [(pos? (count earlier-stamps)) (every? #(< % stamp) earlier-stamps) (< (:stamp (:answer refused)) stamp)])
-    (check "the gate has one last stamp: it was below the act's stamp before the batch, and is not below it after"
-           [true true] [(< last-stamp-before stamp) (<= stamp last-stamp-after)])
-    (check "an act alone in its batch replaces the current fact of a place on another task than the one where it arrived: accepted, and the place holds its fact"
-           [true :accepted :accepted (nth (:act-id (:thing crossing)) 2) 1 (:stamp (:answer crossing))]
-           [(not= (task-of-entity arrives-on) (task-of-entity other-entity)) (:word planted) (:word crossing)
-            (:by-act crossed-row) (:by-index crossed-row) (:stamp crossed-row)])
-    (check "the same replaces sent again under a new act-id is stale, and nothing of that act is written on either task"
-           [:replaced-fact-not-current nil (:stamp (:answer crossing))]
-           [(:word crossing-again) (base-fact arrives-on :crossing-again) (:stamp (base-fact other-entity :crossed))])
-    (shown "an act of three values that touches several tasks accepted whole:" (told accepted) "| its facts on tasks" (pr-str (mapv #(vec (keys %)) places-after))
-           "| the text in each row:" (pr-str (mapv (fn [rows] (:value (first (vals rows)))) places-after)))
+    (check "each fact's row is on every task, written by the act, with the index of the fact, the one stamp of the answer and the text of its value"
+           (mapv (fn [[e _] i] (on-every-task act-uuid i stamp (str "\"the body of " (name e) "\""))) places (range))
+           places-after)
+    (check "the refusal took a stamp of the line: it was the base's last stamp before the act; the act's stamp is later, and is the base's last stamp after it"
+           [(:stamp (:answer refused)) true stamp]
+           [last-stamp-before (< last-stamp-before stamp) last-stamp-after])
+    (check "three acts appended in a row with no wait: a retract; an act of two facts whose second names that retract as the fact that it replaces; and the same replaces again under a new act-id. The first two are accepted and the third is stale"
+           [:accepted :accepted :replaced-fact-not-current]
+           [(:word planted-result) (:word crossing-result) (:word crossing-again-result)])
+    (check "the replaced place holds, on every task, the second fact of the act that replaced it, and nothing of the stale act is written on any task"
+           [(on-every-task (nth (:act-id crossing) 2) 1 (:stamp (:answer crossing-result)) nil) {}]
+           [(facts-on-every-task other-entity :crossed) (facts-on-every-task first-entity :crossing-again)])
+    (shown "an act of three values on three entities accepted whole:" (told accepted) "| each of its facts is on"
+           (pr-str (mapv count places-after)) "tasks | the text in each row:" (pr-str (mapv (fn [rows] (peek (first (vals rows)))) places-after)))
     (shown "one refused whole with no row of it on any task:" (told refused) "| rows at its three places:" (pr-str places-after-refusal))
-    (shown "an act that arrived on task" (task-of-entity arrives-on) "replaces the current fact of a place on task" (task-of-entity other-entity)
-           "and is accepted:" (told crossing) "| the same replaces again:" (told crossing-again))
-    (shown "the one stamp of builder's rule 18: the act's answer and its three facts, on" (count (set (map task-of-entity entities)))
-           "tasks, hold the stamp" stamp "| later than each of" (count earlier-stamps) "rows written before on those tasks"
-           "| the gate's last stamp before" last-stamp-before "after" last-stamp-after)))
+    (shown "an act of two facts that replaces the fact of the act before it in the line:" (told crossing-result)
+           "| the same replaces again:" (told crossing-again-result)
+           "| the base's last stamp before the act of three values" last-stamp-before "after" last-stamp-after)))
 
 (deftest each-gate-tells-the-other-gates-layers
   (let [base-on-streaming (decide! (thing :base :system system-own [{:e :wrong-depot :k :note}]
                                           {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
-        [alice-on-microbatch nobody-on-microbatch]
+        on-microbatch (fn [x] (assoc x :act-id [(:layer x) :microbatch (UUID/randomUUID)] :depot :microbatch))
+        later-own [:made-later :made-later :made-later]
+        later-act (fn [] (on-microbatch (thing :made-later :made-later later-own [{:e :wrong-depot :k :note}])))
+        [alice-on-microbatch later-before later-making-on-microbatch]
         (decide-in-one-batch!
-         [(thing :alice :alice alice-own [{:e :wrong-depot :k :note}] {:act-id [:alice :microbatch (UUID/randomUUID)] :depot :microbatch})
-          (thing :nobody :nobody [:nobody :nobody :nobody] [{:e :wrong-depot :k :note}]
-                 {:act-id [:nobody :microbatch (UUID/randomUUID)] :depot :microbatch})])
+         [(on-microbatch (thing :alice :alice alice-own [{:e :wrong-depot :k :note}]))
+          (later-act)
+          (on-microbatch (making :made-later :made-later :made-later))])
+        depot-before (depot-of-layer :made-later)
+        made-by-streaming (decide! (making :made-later :made-later :made-later))
+        depot-after (depot-of-layer :made-later)
+        later-after (decide-in-base! (later-act))
         strays-before (base-strays)
+        last-stamps-before [(base-last-stamp) (base-last-stamp :alice)]
         both (alice [{:e :both-depots :k :text}])
         on-streaming (decide! both)
         malformed {:act-id [:base :microbatch] :layer :base :marker (UUID/randomUUID)}
-        acks (mapv append-to-base! [both 5 5 malformed])
+        long-id (keyword (apply str (repeat 300 "a")))
+        too-long {:act-id [long-id :microbatch (UUID/randomUUID)] :layer long-id}
+        other-layer (assoc (system-act [{:e :stray-doc :k :text}]) :layer :team)
+        acks (mapv append-to-base! [both 5 5 malformed too-long other-layer])
         _ (wait-until-processed!)
         strays-after (base-strays)
-        base-strays-sent [[both :act-id-of-the-other-gate 1] [5 :no-act-id 2] [malformed :act-id-malformed 1]]
-        stray-digests-sent (set (map (fn [[x _ _]] (digest/hex-of x)) base-strays-sent))
-        log (await-log (fn [records]
-                         (<= 4 (count (filter #(contains? stray-digests-sent (:digest (:entry %))) (logged-strays records))))))
-        strays-logged (logged-strays log)
-        entries-of-stray (fn [x] (into [] (comp (map :entry) (filter #(= (digest/hex-of x) (:digest %)))) strays-logged))
-        records-of-strays (filterv (fn [[_ r]] (some #(contains? stray-digests-sent (:digest %)) (:strays r))) log)]
+        last-stamps-after [(base-last-stamp) (base-last-stamp :alice)]
+        records (vec (stored-in-base))
+        base-strays-sent [[both :act-id-of-the-other-gate] [5 :no-act-id] [malformed :act-id-malformed]
+                          [too-long :id-too-long] [other-layer :act-id-of-another-layer]]
+        alices-partitions (partitions-of records (:thing alice-on-microbatch))
+        alices-answer-tasks (set (keys (rows-by-task :mb-answers-ps
+                                                     (record/answer-key :alice (nth (:act-id (:thing alice-on-microbatch)) 2)))))
+        code (source-of-the-store)
+        in-file (fn [file pattern] (get (named-in code pattern) file 0))
+        gate-code (some (fn [[path text]] (when (str/ends-with? path "microbatch_gate.clj") text)) code)
+        three [#"\$\$streaming-" #"currentTimeMillis" #"depot-partition-append!"]
+        of-the-walk [#"\(\|[a-z]" #"yield-if-overtime" #":allow-yield\?"]
+        a-text "(|hash *k) (yield-if-overtime) (local-select> [ALL] $$streaming-facts {:allow-yield? true}) (depot-partition-append! *d 1)"]
     (check "an act for the base, a microbatch layer, sent to the streaming depot after the base is made is refused as an act into a layer of the other gate, under its streaming act-id: the word that such an act got before the base was made"
            [:acked :layer-belongs-to-the-other-gate true] [(:ack base-on-streaming) (:word base-on-streaming) (:mine? base-on-streaming)])
-    (check "an act for a streaming layer sent to the microbatch depot is refused the same way, and read back with the uuid of its act-id"
+    (check "an act for a streaming layer that is made, sent to the microbatch depot, is refused the same way, and is read back with its layer as the routing id"
            [:layer-belongs-to-the-other-gate true] [(:word alice-on-microbatch) (:mine? alice-on-microbatch)])
-    (check "an act for a layer that no gate made, sent to the microbatch depot, is refused as an act into a layer that is not made"
-           :layer-not-made (:word nobody-on-microbatch))
-    (check "neither wrote a fact, in either record"
-           [nil {}] [(fact-row :base :wrong-depot :note) (rows-by-task :mb-facts-ps (record/place-key :alice :wrong-depot :note))])
-    (check "each thing was appended" (vec (repeat 4 :appended)) acks)
+    (check "an act for a layer that starts streaming and that no gate has made, sent to the microbatch depot, gets the same word, and so does a making act of that layer: the microbatch gate tells the layer from its id, and does not make it"
+           [:layer-belongs-to-the-other-gate true :layer-belongs-to-the-other-gate nil]
+           [(:word later-before) (:mine? later-before) (:word later-making-on-microbatch) depot-before])
+    (check "the streaming gate then makes that layer, and an act for it on the microbatch depot gets the word that it got before the layer was made"
+           [:accepted :streaming :layer-belongs-to-the-other-gate]
+           [(:word made-by-streaming) depot-after (:word later-after)])
+    (check "none wrote a fact, in either record: the base's place in the streaming gate's facts holds nothing, and no task of the microbatch gate holds a fact or a depot row of either streaming layer"
+           [nil {} {} {}]
+           [(fact-row :base :wrong-depot :note)
+            (rows-by-task :mb-facts-ps (record/place-key :alice :wrong-depot :note))
+            (rows-by-task :mb-facts-ps (record/place-key :made-later :wrong-depot :note))
+            (rows-by-task :mb-facts-ps (record/place-key :made-later :made-later :softland.store/depot))])
+    (check "the refusal of the act for Alice's layer is on one task of the microbatch gate, the partition of her layer on the microbatch depot, and that task keeps the stamp of that refusal as her layer's last stamp there"
+           [1 alices-partitions (:stamp (:answer alice-on-microbatch))]
+           [(count alices-partitions) alices-answer-tasks (second last-stamps-before)])
+    (check "each thing was appended" (vec (repeat 6 :appended)) acks)
     (check "one act-id sent on both depots has one answer, the streaming gate's: the microbatch gate keeps the thing as a stray"
            [:accepted (:answer on-streaming)] [(:word on-streaming) (answer-of (:act-id both))])
-    (check "a stray on the microbatch depot is kept under its word, once however often it comes, and gets no answer"
-           {:no-act-id 1 :act-id-malformed 1 :id-too-long 0 :act-id-of-the-other-gate 1 :act-id-of-another-layer 0}
+    (check "a stray on the microbatch depot is kept under its word, once however often it comes: five different strays, one for each word, one of them sent twice"
+           {:no-act-id 1 :act-id-malformed 1 :id-too-long 1 :act-id-of-the-other-gate 1 :act-id-of-another-layer 1}
            (merge-with - strays-after strays-before))
-    (check "each arrival of a stray on the microbatch depot has an entry in the microbatch gate's log of answers once a later run of the gate has closed its batch: one for each of two strays, and two for the one that came twice; each entry holds the stray's word, its digest and the task whose set holds that digest, and no other part"
-           (mapv (fn [[x word arrivals]]
-                   (vec (repeat arrivals {:stray word :digest (digest/hex-of x) :task (task-of-stray :mb-task-ps word (digest/hex-of x))})))
-                 base-strays-sent)
-           (mapv (fn [[x _ _]] (entries-of-stray x)) base-strays-sent))
-    (check "a batch of strays alone made no stamp: each record that holds one of those entries holds the batch's id and its strays, and no clock, no last stamp and no answer"
-           #{#{:batch :strays}} (set (map (fn [[_ r]] (set (keys r))) records-of-strays)))
-    (check "the act for a streaming layer that the microbatch gate refused has its entry in that gate's log, with the word of its answer's row"
-           [{:act-id (:act-id (:thing alice-on-microbatch)) :stamp (:stamp (:answer alice-on-microbatch))
-             :digest (digest/hex-of (:thing alice-on-microbatch)) :refused :layer-belongs-to-the-other-gate}]
-           (entries-under (logged-answers log) (:act-id (:thing alice-on-microbatch))))
-    (shown "each arrival of a stray on the microbatch depot has an entry in the microbatch gate's log of answers; entries by word:"
-           (pr-str (into (sorted-map) (map (fn [[x word _]] [word (count (entries-of-stray x))])) base-strays-sent))
-           "| the records that hold them:" (pr-str (mapv (fn [[p r]] [p (:batch r) (count (:strays r))]) records-of-strays)))
+    (check "a stray gets no answer and writes no fact: an act-id whose layer is not the thing's layer has none, and its fact is on no task"
+           [nil {}] [(answer-of (:act-id other-layer)) (facts-on-every-task :stray-doc :text)])
+    (check "the digest of each stray is kept on the task of the depot partition where the stray arrived: one partition for each of the five, the base's for the thing whose layer is the base, and the partition of Alice's layer for the thing whose layer is hers"
+           [[1 1 1 1 1] true true
+            (mapv (fn [[x _]] (first (partitions-of records x))) base-strays-sent)]
+           [(mapv (fn [[x _]] (count (partitions-of records x))) base-strays-sent)
+            (= #{(:base-task @kept)} (partitions-of records malformed))
+            (= alices-partitions (partitions-of records both))
+            (mapv (fn [[x word]] (task-of-stray :mb-task-ps word (digest/hex-of x))) base-strays-sent)])
+    (check "a stray gets no stamp: after the six strays the last stamp of the base, and the last stamp that the microbatch gate keeps for Alice's layer, are as they were"
+           last-stamps-before last-stamps-after)
+    (check "in the code of the store's source, strings and comments left out: the microbatch gate's file and the walk's name no table of the streaming gate, and hold no `currentTimeMillis` and no `depot-partition-append!`; and the walk's file holds no partitioner, no `yield-if-overtime` and no `:allow-yield?`"
+           [[0 0 0] [0 0 0] [0 0 0]]
+           [(mapv #(in-file "microbatch_gate.clj" %) three) (mapv #(in-file "walk.clj" %) three) (mapv #(in-file "walk.clj" %) of-the-walk)])
+    (check "the search finds each word where it is: the microbatch gate's file names its own tables, the door's file reads the clock, and a text that the proof wrote with the six words in it gives each once"
+           [true true [1 0 1] [1 1 1]]
+           [(pos? (in-file "microbatch_gate.clj" #"\$\$microbatch-")) (pos? (in-file "door.clj" #"currentTimeMillis"))
+            (mapv #(found-in-a-text a-text %) three) (mapv #(found-in-a-text a-text %) of-the-walk)])
+    (check "the microbatch gate's file holds one partitioner, `|all`, and it stands behind the call of the walk: the copy goes out when the decision is written"
+           [1 true]
+           [(in-file "microbatch_gate.clj" #"\(\|[a-z]")
+            (boolean (and gate-code (str/index-of gate-code "(walk/decide") (str/index-of gate-code "(|all)")
+                          (< (str/index-of gate-code "(walk/decide") (str/index-of gate-code "(|all)"))))])
     (shown "rule 7 in both directions: an act for a microbatch layer sent to the streaming depot:" (told base-on-streaming)
            "| an act for a streaming layer sent to the microbatch depot:" (told alice-on-microbatch)
-           "| for a layer that is not made:" (:word nobody-on-microbatch))
+           "| for a layer that starts streaming, before it is made:" (:word later-before) "| a making act of it there:" (:word later-making-on-microbatch)
+           "| after the streaming gate made it:" (:word later-after))
     (shown "one act-id on both depots has one answer:" (told on-streaming) "| strays of the microbatch gate, by word:"
-           (pr-str (merge-with - strays-after strays-before)) "| the same stray sent twice counts once")))
+           (pr-str (merge-with - strays-after strays-before)) "| the same stray sent twice counts once | each digest is on the task of the partition where its stray arrived:"
+           (pr-str (mapv (fn [[x word]] [word (task-of-stray :mb-task-ps word (digest/hex-of x))]) base-strays-sent)))
+    (shown "the code of the microbatch gate and of the walk: tables of the streaming gate, currentTimeMillis, depot-partition-append!, in each file:"
+           (pr-str (mapv #(in-file "microbatch_gate.clj" %) three)) (pr-str (mapv #(in-file "walk.clj" %) three))
+           "| partitioners, yield-if-overtime and :allow-yield? in the walk:" (pr-str (mapv #(in-file "walk.clj" %) of-the-walk))
+           "| partitioners in the microbatch gate:" (in-file "microbatch_gate.clj" #"\(\|[a-z]"))))
 
 ;; ------------------------------------ what the microbatch gate keeps for a read
 
@@ -2514,6 +2884,7 @@
   (let [facts (mapv (fn [[k v]] (value-fact :kept-doc k v)) kinds-of-value)
         landed (decide-in-base! (system-act facts))
         rows (into {} (map (fn [k] [k (base-fact :kept-doc k)])) (keys kinds-of-value))
+        rows-on-tasks (into {} (map (fn [k] [k (rows-by-task :mb-facts-ps (record/place-key :base :kept-doc k))])) (keys kinds-of-value))
         logged (record-of-act (stored-in-base) (:act-id (:thing landed)))
         logged-as-given (:v (some (fn [fact] (when (= :as-given (:k fact)) fact)) (:facts logged)))
         edges (decide-in-base! (system-act (mapv (fn [[k [v _]]] (value-fact :edges-doc k v)) edges-of-a-value)))
@@ -2525,13 +2896,16 @@
         alices-row (base-fact :alices-doc :text)
         retract (decide-in-base! (thing :base :alice alice-in-base [{:e :alices-doc :k :gone}]))
         retract-row (base-fact :alices-doc :gone)
-        give-row (base-row :mb-facts-ps :alice (record/place-key :base :alice :softland.store/permission))]
+        give-row (base-fact :alice :softland.store/permission)]
     (check "an act with a plain value of each kind, on one entity of the base, is accepted" [:accepted true] [(:word landed) (:mine? landed)])
     (check "each row of the base holds the one text of its value in its normal form, as the proof wrote it out by hand"
            texts-of-kinds (into {} (map (fn [[k row]] [k (:value row)])) rows))
     (check "each row gives back the UTF-8 of that text, and holds six fields and no other"
            [(into {} (map (fn [[k t]] [k (utf8-of t)])) texts-of-kinds) #{#{:value :by-act :by-index :who :permission :stamp}}]
            [(into {} (map (fn [[k row]] [k (value-bytes row)])) rows) (set (map (comp set keys) (vals rows)))])
+    (check "each of those rows is on every task, the same in every field"
+           (into {} (map (fn [[k row]] [k [tasks #{row}]])) rows)
+           (into {} (map (fn [[k by-task]] [k [(count by-task) (set (vals by-task))]])) rows-on-tasks))
     (check "each row reads back as the value in its normal form: the value that the maker gave, for each that was given so"
            (into {} (map (fn [[k v]] [k [:value v]])) kinds-read-back)
            (into {} (map (fn [[k row]] [k (record/read-value row)])) rows))
@@ -2560,7 +2934,7 @@
             (:word retract)
             [(record/who-of retract-row) (record/permission-of retract-row) (record/read-value retract-row)]
             [(record/who-of give-row) (record/permission-of give-row) (record/read-value give-row)]])
-    (shown "a value of each kind, kept by the microbatch gate as its one text in its row:"
+    (shown "a value of each kind, kept by the microbatch gate as its one text in its row, the same row on every task:"
            (pr-str (into (sorted-map) (map (fn [[k row]] [k (:value row)])) rows)))
     (shown "the act in the microbatch depot's log holds each value plain, as given: the map that was not in its normal form is" (pr-str logged-as-given)
            "in the log and" (:value (get rows :as-given)) "in its row")
@@ -2576,7 +2950,7 @@
         write (fn [k v & {:as more}] (system-act [(merge {:e :base :k k :v v} more)]))
         firsts (decide-in-one-batch! [(write who-may-see :members) (write builds-on [:team :alice]) (write marks #{:tag})])
         after-first (mapv rows [who-may-see builds-on marks])
-        end-of-first (gates-last-stamp)
+        first-marking (:stamp (:answer (nth firsts 2)))
         seconds (decide-in-one-batch! [(write who-may-see :everyone) (write builds-on []) (write marks #{})])
         after-second (mapv rows [who-may-see builds-on marks])
         fact-of (fn [results i] [(:act-id (:thing (nth results i))) 0])
@@ -2584,7 +2958,7 @@
                                      (write builds-on [:team] :replaces (fact-of seconds 1))
                                      (write marks #{:tag} :replaces (fact-of seconds 2))])
         after-named (mapv rows [who-may-see builds-on marks])
-        end-of-named (gates-last-stamp)
+        second-marking (:stamp (:answer (nth named 2)))
         refused (decide-in-one-batch!
                  [(write who-may-see :everyone :replaces (fact-of firsts 0))
                   (write builds-on [] :replaces (fact-of firsts 1))
@@ -2607,13 +2981,7 @@
         after-alice (rows who-may-see)
         on-the-other-depot (decide! (thing :base :system system-own [{:e :base :k who-may-see :v :members}]
                                            {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
-        after-the-other-depot (rows who-may-see)
-        log (answer-log)
-        logged (logged-answers log)
-        last-stamps-of-the-batch-of (fn [result]
-                                      (let [batches (set (map :batch (filter #(= (:act-id (:thing result)) (:act-id (:entry %))) logged)))]
-                                        (set (keep (fn [[_ r]] (when (contains? batches (:batch r)) (:last-stamp r))) log))))
-        level-since-of (fn [by-task] (get (record/marked-keys-of (first (vals by-task))) :tag))]
+        after-the-other-depot (rows who-may-see)]
     (check "before any fact says it, no task holds a row at the place of any of the three keys, and the base reads as: seen by everyone, building on nothing, marking no key"
            [[{} {} {}] [:everyone [] #{}]]
            [before (mapv #(first-act/starts-with :base %) [who-may-see builds-on marks])])
@@ -2635,15 +3003,10 @@
     (check "after those fifteen refusals every task holds the rows that the last accepted writes left, with the same stamps"
            (mapv (fn [by-task] (into {} (map (fn [[task row]] [task (:stamp row)])) by-task)) after-named)
            (mapv (fn [by-task] (into {} (map (fn [[task row]] [task (:stamp row)])) by-task)) after-refused))
-    (check "the row of the marked keys holds on every task, derived by the gate, the stamp of each marked key: the last stamp of the batch that marked it; none when the set is empty; a new one when the key is marked again"
-           [#{{:tag end-of-first}} #{{}} #{{:tag end-of-named}} true]
+    (check "the row of the marked keys holds on every task, derived by the gate, the stamp of each marked key: the stamp of the act that marked it; none when the set is empty; and the stamp of the later act when the key is marked again"
+           [#{{:tag first-marking}} #{{}} #{{:tag second-marking}} true]
            [(set (map record/marked-keys-of (vals (nth after-first 2)))) (set (map record/marked-keys-of (vals (nth after-second 2))))
-            (set (map record/marked-keys-of (vals (nth after-named 2)))) (< end-of-first end-of-named)])
-    (check "the stamp of a newly marked key is not below the stamp of any act of its batch"
-           true (every? #(<= (:stamp (:answer %)) end-of-first) firsts))
-    (check "the last stamp of a batch is in a log: the records of the batch that holds the entry of the act which marked the key hold one `:last-stamp`, and it is the stamp that the row of the marked keys gives the key, at the first marking and when the key is marked again"
-           [#{(level-since-of (nth after-first 2))} #{(level-since-of (nth after-named 2))}]
-           [(last-stamps-of-the-batch-of (nth firsts 2)) (last-stamps-of-the-batch-of (nth named 2))])
+            (set (map record/marked-keys-of (vals (nth after-named 2)))) (< first-marking second-marking)])
     (check "who may write the three is whoever may act in the layer, kept and not decided: a person with a permission in the base sets the base to everyone, on every task"
            [:accepted tasks #{[:value :everyone]} #{:alice}]
            [(:word by-alice) (count after-alice) (values-of after-alice) (set (map record/who-of (vals after-alice)))])
@@ -2654,11 +3017,10 @@
            (pr-str (mapv :word firsts)) (pr-str (mapv :word seconds)) (pr-str (mapv :word named))
            "| each row is on" (pr-str (mapv count after-named)) "tasks | refused, by word:" (pr-str (frequencies (map :word refused))))
     (shown "the stamps of the base's marked keys, derived by the gate, the same on every task: after the first write"
-           (pr-str (set (map record/marked-keys-of (vals (nth after-first 2))))) "where the last stamp of that batch is" end-of-first
+           (pr-str (set (map record/marked-keys-of (vals (nth after-first 2))))) "where the stamp of the marking act is" first-marking
            "| after the set was emptied" (pr-str (set (map record/marked-keys-of (vals (nth after-second 2)))))
            "| after the key was marked again" (pr-str (set (map record/marked-keys-of (vals (nth after-named 2)))))
-           "| the last stamps that the microbatch gate's log of answers holds for the two batches that marked the key:"
-           (pr-str (last-stamps-of-the-batch-of (nth firsts 2))) (pr-str (last-stamps-of-the-batch-of (nth named 2))))))
+           "where the stamp of that act is" second-marking)))
 
 (deftest what-a-permission-allows-in-the-base
   (let [erin-sees [:erin :base :base system-own :see]
@@ -2679,10 +3041,7 @@
           (system-act [{:e :greta :k :softland.store/permission :v gretas}])])
         sends-a-value (decide-in-base! (thing :base :erin erin-sees [(value-fact :erins-value :text "a value of a holder of see")]))
         greta-writes (decide-in-base! (thing :base :greta gretas [{:e :gretas-doc :k :note}]))
-        permission-rows-after (rows-by-task :mb-facts-ps (record/place-key :base :erin :softland.store/permission))
-        log (logged-answers (answer-log))
-        entry-of-refusal (fn [result word] {:act-id (:act-id (:thing result)) :stamp (:stamp (:answer result))
-                                            :digest (digest/hex-of (:thing result)) :refused word})]
+        permission-rows-after (rows-by-task :mb-facts-ps (record/place-key :base :erin :softland.store/permission))]
     (check "the system gives a person a permission in the base that says see: accepted, and its row is on every task with the whole text, slot and all"
            [:accepted tasks #{[:value erin-sees]}]
            [(:word give-see) (count permission-rows) (set (map record/read-value (vals permission-rows)))])
@@ -2697,12 +3056,6 @@
            [:permission-does-not-allow-acting {} :permission-does-not-allow-acting true {}]
            [(:word gives) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))
             (:word sends-a-value) (:mine? sends-a-value) (rows-by-task :mb-facts-ps (record/place-key :base :erins-value :text))])
-    (check "each act of a maker who may not act has its entry in the microbatch gate's log of answers once the door's read gave its answer, with the word: her act in the batch of the give, her act in a later batch, her act with a value, and her act under a permission that does not stand"
-           [[(entry-of-refusal in-the-same-batch :permission-does-not-allow-acting)]
-            [(entry-of-refusal acts :permission-does-not-allow-acting)]
-            [(entry-of-refusal sends-a-value :permission-does-not-allow-acting)]
-            [(entry-of-refusal names-less :permission-does-not-stand)]]
-           (mapv (fn [result] (entries-under log (:act-id (:thing result)))) [in-the-same-batch acts sends-a-value names-less]))
     (check "a second give to her, of see and act, is refused: a permission's place takes one write, and her row on each task is as it was, in every field"
            [:store-key-takes-one-write tasks permission-rows]
            [(:word raise) (count permission-rows-after) permission-rows-after])
@@ -2711,26 +3064,25 @@
     (shown "in the base, a permission that says see:" (pr-str (record/value-of (first (vals permission-rows)))) "on" (count permission-rows) "tasks"
            "| its holder acts in the batch of the give:" (:word in-the-same-batch) "| in a later batch:" (told acts)
            "| names it without the slot:" (:word names-less) "| with see and act:" (:word names-more) "| gives:" (:word gives)
-           "| sends a value:" (told sends-a-value) "| a second give of see and act:" (:word raise)
-           "| the entry of her refused act in the log of answers:" (pr-str (entries-under log (:act-id (:thing acts)))))))
+           "| sends a value:" (told sends-a-value) "| a second give of see and act:" (:word raise))))
 
 (deftest what-points-at-a-thing-in-the-base
-  (let [task-of-entity (:base-task-of-entity @kept)
-        [e1 e2 e3] (:base-entities @kept)
+  (let [[e1 e2 e3] (:base-entities @kept)
         u (UUID/randomUUID)
         place (fn [e] (base-fact e :on))
         writes! (fn [e v & {:as more}] (decide-in-base! (system-act [(merge (value-fact e :on v) more)])))
         marks! (fn [keys] (decide-in-base! (system-act [{:e :base :k marks :v keys}])))
-        key-task (fn [k] (vec (keys (rows-by-task :mb-by-value-ps k))))
+        key-tasks (fn [k] (vec (keys (rows-by-task :mb-by-value-ps k))))
+        every-task (vec (range tasks))
         before-the-mark (writes! e3 :canvas-1)
         mark-1 (marks! #{:on})
-        s1 (gates-last-stamp)
+        s1 (:stamp (:answer mark-1))
         marked-1 (base-marks-rows)
         run-0 (base-run-of :on s1 :canvas-1)
         a1 (writes! e1 :canvas-1)
         a2 (writes! e2 :canvas-1)
         run-1 (base-entries-of :on s1 :canvas-1)
-        tasks-of-run-1 (mapv (fn [[k _]] (key-task k)) run-1)
+        tasks-of-run-1 (mapv (fn [[k _]] (key-tasks k)) run-1)
         a3 (writes! e1 u :replaces [(:act-id (:thing a1)) 0])
         after-3 [(base-run-of :on s1 :canvas-1) (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e1)) (base-run-of :on s1 u)]
         a4 (writes! e1 :canvas-2)
@@ -2740,36 +3092,44 @@
         _ (append-to-base! (:thing a4))
         _ (wait-until-processed!)
         after-again (base-entries-of :on s1 :canvas-2)
+        ;; an entry that a later act put back is not taken out when an
+        ;; earlier act is appended again
+        x1 (writes! :doc-9 :v1)
+        x2 (writes! :doc-9 :v2)
+        x3 (writes! :doc-9 :v1)
+        _ (append-to-base! (:thing x2))
+        _ (wait-until-processed!)
+        after-put-back [(base-runs-by-task :on s1 :v1) (base-runs-by-task :on s1 :v2)
+                        (set (map :by-act (vals (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :v1 :doc-9)))))]
         a6 (decide-in-base! (system-act [{:e e1 :k :on}]))
-        after-6 [(base-run-of :on s1 :canvas-2) (record/read-value (place e1))]
+        after-6 [(base-runs-by-task :on s1 :canvas-2) (record/read-value (place e1))]
         mark-off (marks! #{})
         marked-off (base-marked-keys)
         a8 (writes! e2 :canvas-3)
         after-8 [(count (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e2)))
                  (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-3 e2)) (record/read-value (place e2))]
         mark-2 (marks! #{:on})
-        s2 (gates-last-stamp)
+        s2 (:stamp (:answer mark-2))
         marked-2 (base-marks-rows)
         after-mark-2 [(base-run-of :on s2 :canvas-3) (base-run-of :on s2 :canvas-1)]
         a10 (writes! e2 :canvas-4)
         after-10 [(base-run-of :on s2 :canvas-4) (base-run-of :on s2 :canvas-3)]
         a11 (decide-in-base! (system-act [{:e e1 :k :beside} (value-fact e2 :on :canvas-5)]))
         after-11 [(base-run-of :on s2 :canvas-4) (rows-by-task :mb-by-value-ps (base-entry-key :on s2 :canvas-4 e2))
-                  (base-run-of :on s2 :canvas-5) (count (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e2)))]
+                  (base-runs-by-task :on s2 :canvas-5) (count (rows-by-task :mb-by-value-ps (base-entry-key :on s1 :canvas-1 e2)))]
         final-run (base-entries-of :on s2 :canvas-5)]
-    (swap! kept assoc :base-run {:k :on :since s2 :value :canvas-5} :base-marked-since s2)
+    (swap! kept assoc :base-marked-since s2)
     (check "each act of this walk is accepted"
-           #{:accepted} (set (map :word [before-the-mark mark-1 a1 a2 a3 a4 a5 a6 mark-off a8 mark-2 a10 a11])))
-    (check "the two entities of the walk are on two tasks" true (not= (task-of-entity e1) (task-of-entity e2)))
-    (check "the mark puts the key in the row of the marked keys, on every task, with the last stamp of the batch that marked it, which is not below the stamp of the marking act"
-           [tasks #{{:on s1}} true]
-           [(count marked-1) (set (map record/marked-keys-of (vals marked-1))) (<= (:stamp (:answer mark-1)) s1)])
+           #{:accepted} (set (map :word [before-the-mark mark-1 a1 a2 a3 a4 a5 x1 x2 x3 a6 mark-off a8 mark-2 a10 a11])))
+    (check "the mark puts the key in the row of the marked keys, on every task, with the stamp of the act that marked it; the key that an earlier check had marked, and that this set does not hold, is marked no more"
+           [tasks #{{:on s1}}]
+           [(count marked-1) (set (map record/marked-keys-of (vals marked-1)))])
     (check "nothing is filled from before: the fact that was written before the mark is in no run" [] run-0)
-    (check "two facts on two tasks with one value: both places are in the run of that value, and their two rows are on one task, found from the value alone"
-           [(vec (sort-by str [e1 e2])) true true
+    (check "two facts on two entities with one value: both places are in the run of that value, each row of the run is on every task, and the row holds the fact that wrote it, its stamp, who and the permission, and no value"
+           [(vec (sort-by str [e1 e2])) [every-task every-task]
             {:by-act (nth (:act-id (:thing a1)) 2) :by-index 0 :stamp (:stamp (:answer a1)) :who ":system" :permission "[:system :base :base]"}]
            [(vec (sort-by str (map (fn [[k _]] (record/by-value-entity k)) run-1)))
-            (apply = tasks-of-run-1) (= 1 (count (first tasks-of-run-1)))
+            tasks-of-run-1
             (some (fn [[k row]] (when (= e1 (record/by-value-entity k)) row)) run-1)])
     (check "the fact is replaced, naming what it replaces, with a UUID: its place is out of the run of the value before, no task holds a row under the key of that entry, and it is in the run of the UUID"
            [[e2] {} [e1]] after-3)
@@ -2781,87 +3141,106 @@
            after-5)
     (check "an earlier act that wrote that entry is appended a second time: the gate answers it from the record, and the run is as the later act left it"
            after-5 after-again)
-    (check "a retract: the place is out of the run, and holds a fact with no value" [[] [:nothing-here]] after-6)
+    (check "an act that took an entry out is appended a second time, after a later act put the entry back: the gate answers it from the record and copies nothing, so on every task the entry is still there and is the later act's"
+           [(vec (repeat tasks [:doc-9])) (vec (repeat tasks [])) #{(nth (:act-id (:thing x3)) 2)}]
+           after-put-back)
+    (check "a retract: the place is out of the run on every task, and holds a fact with no value" [(vec (repeat tasks [])) [:nothing-here]] after-6)
     (check "the mark is taken off by a second write of the set without the key" {} marked-off)
-    (check "a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays on its one task, and the new value has no row"
-           [1 {} [:value :canvas-3]] after-8)
-    (check "the key is marked again: every task holds the new stamp, the last stamp of that batch, later than the first"
+    (check "a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays, on every task, and the new value has no row on any"
+           [tasks {} [:value :canvas-3]] after-8)
+    (check "the key is marked again: every task holds the new stamp, the stamp of the act that marked it again, later than the first"
            [tasks #{{:on s2}} true]
            [(count marked-2) (set (map record/marked-keys-of (vals marked-2))) (< s1 s2)])
     (check "under the new stamp the run of the place's value and the run of the value of the row that stayed are both empty: that row is under the old stamp, in no run that a read can name"
            [[] []] after-mark-2)
     (check "a fact written after the second mark, over a fact from before it: its place is in the run of its value, and the run of the value before is empty" [[e2] []] after-10)
-    (check "an act that arrives on another task than the place's writes over it: the entry of the value before is out, no task holds a row under its key, and the place is in the run of the new value; the row of the first marking is still there, on one task"
-           [[] {} [e2] 1] after-11)
-    (shown "what points at a thing, in the base. The key :on is marked since" s1 ", the last stamp of the batch that marked it | two places on tasks"
-           (task-of-entity e1) "and" (task-of-entity e2) "hold one value: the rows of its run are both on task" (pr-str (first tasks-of-run-1)))
+    (check "an act of two facts writes over it: the entry of the value before is out, no task holds a row under its key, and the place is in the run of the new value on every task; the row of the first marking is still there, on every task"
+           [[] {} (vec (repeat tasks [e2])) tasks] after-11)
+    (shown "what points at a thing, in the base. The key :on is marked since" s1 ", the stamp of the act that marked it | two places hold one value: each row of its run is on tasks"
+           (pr-str (first tasks-of-run-1)))
     (shown "the fact replaced, written over, written again, retracted; after each, the run of the value before, the rows under the key of the entry that went out, the run of the new value:"
-           (pr-str after-3) (pr-str after-4) "| after the retract:" (pr-str after-6))
+           (pr-str after-3) (pr-str after-4) "| after the retract, the run on each task:" (pr-str (first after-6)))
+    (shown "in the base, an act that took an entry out appended a second time, after a later act put the entry back: the run of the value on each task"
+           (pr-str (first after-put-back)) "| of the other value" (pr-str (second after-put-back)))
     (shown "the mark taken off, a fact replaced, the key marked again since" s2 ": every run under the new stamp is empty" (pr-str after-mark-2)
-           "| then a fact written, and replaced by an act that arrived on another task:" (pr-str after-10) (pr-str after-11)
+           "| then a fact written, and written over by an act of two facts:" (pr-str after-10) (pr-str (subvec after-11 0 2))
            "| the run that a read then finds:" (pr-str (mapv (fn [[k _]] (record/by-value-entity k)) final-run)))))
 
 (deftest one-batch-under-a-marked-key
-  (let [task-of-entity (:base-task-of-entity @kept)
-        [e1 e2 e3] (:base-entities @kept)
+  (let [[e1 e2 _] (:base-entities @kept)
         s2 (:base-marked-since @kept)
         [first-on-one-place second-on-one-place]
         (decide-in-one-batch! [(system-act [(value-fact e2 :on :first-of-two)])
                                (system-act [(value-fact e2 :on :second-of-two)])])
         place (base-fact e2 :on)
-        after-two [(base-run-of :on s2 :canvas-5) (base-run-of :on s2 :first-of-two) (base-run-of :on s2 :second-of-two)
+        after-two [(base-run-of :on s2 :canvas-5) (base-run-of :on s2 :first-of-two) (base-runs-by-task :on s2 :second-of-two)
                    (rows-by-task :mb-by-value-ps (base-entry-key :on s2 :first-of-two e2))]
-        [marking under-the-new-mark]
-        (decide-in-one-batch! [(system-act [{:e :base :k marks :v #{:on :in}}])
-                               (system-act [(value-fact e1 :in :canvas-1)])])
-        end-of-marking (gates-last-stamp)
+        ;; A mark and the facts after it, in one batch: the marking act
+        ;; holds a fact under the key that it marks; the next act writes the
+        ;; key on two entities; one more entity; a replace; a retract.
+        marking (system-act [{:e :base :k marks :v #{:on :in}} (value-fact :m0 :in :target-1)])
+        next-act (system-act [(value-fact :m1 :in :target-1) (value-fact :m3 :in :target-1)])
+        third (system-act [(value-fact :m2 :in :target-1)])
+        replace-it (system-act [(assoc (value-fact :m1 :in :target-2) :replaces [(:act-id next-act) 0])])
+        retract-it (system-act [{:e :m2 :k :in :replaces [(:act-id third) 0]}])
+        in-one-batch (decide-in-one-batch! [marking next-act third replace-it retract-it])
+        since (:stamp (:answer (first in-one-batch)))
         marked (base-marks-rows)
-        in-fact (base-fact e1 :in)
-        after-marking (base-run-of :in end-of-marking :canvas-1)
-        later (decide-in-base! (system-act [(value-fact e3 :in :canvas-1)]))
-        after-later (base-run-of :in end-of-marking :canvas-1)
+        entries (base-entries-under :in since)
+        expected-entries {(base-entry-key :in since :target-1 :m3) [(nth (:act-id next-act) 2) 1]
+                          (base-entry-key :in since :target-2 :m1) [(nth (:act-id replace-it) 2) 0]}
+        own-fact (facts-on-every-task :m0 :in)
+        retracted (mapv record/read-value (vals (rows-by-task :mb-facts-ps (record/place-key :base :m2 :in))))
+        later (decide-in-base! (system-act [(value-fact :m4 :in :target-1)]))
+        after-later (base-runs-by-task :in since :target-1)
         [see-a see-b] (decide-in-one-batch! [(system-act [{:e :base :k who-may-see :v :members}])
                                              (system-act [{:e e1 :k :beside-2} {:e :base :k who-may-see :v :everyone}])])
-        see-rows (rows-by-task :mb-facts-ps (record/place-key :base :base who-may-see))
-        later-of-the-two (if (< (:stamp (:answer see-a)) (:stamp (:answer see-b))) see-b see-a)]
+        see-rows (rows-by-task :mb-facts-ps (record/place-key :base :base who-may-see))]
+    (swap! kept assoc :base-run {:k :in :since since :value :target-1})
     (check "two acts of one batch on one place under a marked key, each with the place as its own: both are accepted"
            [:accepted :accepted] [(:word first-on-one-place) (:word second-on-one-place)])
-    (check "the place holds the later turn's value; the entry of the value before the batch is out, the first act's value has no row on any task, and the place is in the run of the later value alone"
-           [[:value :second-of-two] (:stamp (:answer second-on-one-place)) [[] [] [e2] {}]]
+    (check "the place holds the second act's value; the entry of the value before the batch is out, the first act's value has no row on any task, and the place is in the run of the second value alone, on every task"
+           [[:value :second-of-two] (:stamp (:answer second-on-one-place)) [[] [] (vec (repeat tasks [e2])) {}]]
            [(record/read-value place) (:stamp place) after-two])
-    (check "a mark and a fact under its key in one batch: both accepted; the key is marked on every task since the last stamp of that batch, and the stamp that it keeps for the other key is as it was"
-           [:accepted :accepted tasks #{{:on s2 :in end-of-marking}}]
-           [(:word marking) (:word under-the-new-mark) (count marked) (set (map record/marked-keys-of (vals marked)))])
-    (check "the mark holds from the batch after: the fact of the mark's own batch is in no run, and its stamp is not later than the key's stamp"
-           [[] true] [after-marking (<= (:stamp in-fact) end-of-marking)])
-    (check "a fact under that key in a later batch is accepted, and is in the order" [:accepted [e3]] [(:word later) after-later])
-    (check "two writes of who may see the base in one batch, from two tasks: both accepted, and every task holds one row, the later turn's"
-           [:accepted :accepted tasks #{(nth (:act-id (:thing later-of-the-two)) 2)}]
+    (check "a mark and the facts after it, appended while the gate was paused: the act that marks a key, the next act with two facts under it, a third fact, a replace of one and a retract of another: each is accepted"
+           (vec (repeat 5 :accepted)) (mapv :word in-one-batch))
+    (check "the key is marked on every task with the stamp of the act that marked it, and the key that was marked before keeps its stamp"
+           [tasks #{{:on s2 :in since}}]
+           [(count marked) (set (map record/marked-keys-of (vals marked)))])
+    (check "the mark holds from the next act: on every task the order by value holds, under that key, exactly two entries, the second fact of the act straight after the mark and the entry of the replacing value, each written by its act. The replaced value's entry and the retracted one are out, on every task"
+           (vec (repeat tasks expected-entries)) entries)
+    (check "the act is decided with the marks as they were before it: the fact that the marking act itself holds under the key is in no run, though its row is on every task, with the stamp of the key"
+           (on-every-task (nth (:act-id marking) 2) 1 since ":target-1") own-fact)
+    (check "the retracted place holds a fact with no value on every task" (vec (repeat tasks [:nothing-here])) retracted)
+    (check "a fact under that key in a later batch is accepted, and is in the order on every task, beside the one that stayed"
+           [:accepted (vec (repeat tasks [:m3 :m4]))] [(:word later) after-later])
+    (check "two writes of who may see the base in one batch: both accepted, and every task holds one row, the second one's"
+           [:accepted :accepted tasks #{(nth (:act-id (:thing see-b)) 2)}]
            [(:word see-a) (:word see-b) (count see-rows) (set (map :by-act (vals see-rows)))])
+    (check-the-copies "the copies, after the marks" (vec (stored-in-base)))
     (shown "two acts of one batch on one place under a marked key:" (told first-on-one-place) "|" (told second-on-one-place)
-           "| the runs of the value before, of the first act's value and of the second's:" (pr-str (vec (take 3 after-two))))
-    (shown "a mark and a fact under its key in one batch: the fact's stamp" (:stamp in-fact) "is not later than the key's stamp" end-of-marking
-           ", and the fact is in no run:" (pr-str after-marking) "| a fact of a later batch is:" (pr-str after-later))
-    (shown "two writes of who may see the base in one batch, arriving on tasks" (task-of-entity e1) "and the task of the layer's entity: every task holds the row of"
-           (short-id (:act-id (:thing later-of-the-two))))))
+           "| the runs of the value before and of the first act's value:" (pr-str (vec (take 2 after-two)))
+           "| of the second's, on each task:" (pr-str (nth after-two 2)))
+    (shown "a mark and the facts after it in one batch: the key :in is marked since" since ", the stamp of the marking act, on" (count marked)
+           "tasks | entries under it on each task:" (pr-str (mapv count entries)) "of" (count expected-entries)
+           "expected | the marking act's own fact is in no run | with a later fact, the run of the value on each task:" (pr-str after-later))
+    (shown "two writes of who may see the base in one batch: every task holds the row of" (short-id (:act-id (:thing see-b))))))
 
 (defn- base-snapshot
   "What the proof reads of the base before and after the module is started
-  again: the answer of the act that landed, the depot, the gate's last
+  again: the answer of the act that landed, the depot, the base's last
   stamp, the count of strays, a permission's row on each task, the marked
   keys on each task with their stamps, the run of one value in the facts by
-  value, the row of a value that was not given in its normal form and what
-  a reader gets from the row of another, and the row of the kept clock of
-  the newest batch."
+  value on each task, the row of a value that was not given in its normal
+  form and what a reader gets from the row of another."
   []
   {:answer (answer-of (:act-id (:thing (:base-landed @kept))))
    :depot (depot-of-layer :base)
-   :last-stamp (gates-last-stamp)
-   :kept-clock (kept-clock-row)
+   :last-stamp (base-last-stamp)
    :strays (base-strays)
    :permission (into (sorted-map) (map (fn [[task row]] [task (:stamp row)])) (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission)))
    :marked-keys (into (sorted-map) (map (fn [[task row]] [task (record/marked-keys-of row)])) (base-marks-rows))
-   :run (let [{:keys [k since value]} (:base-run @kept)] (base-entries-of k since value))
+   :run (let [{:keys [k since value]} (:base-run @kept)] (base-runs-by-task k since value))
    :kept-value (record/read-value (base-fact :kept-doc :map))
    :kept-row (base-fact :kept-doc :as-given)})
 
@@ -2916,35 +3295,44 @@
         replacing (system-act [(assoc (value-fact e :text "the text after")
                                       :replaces [(:act-id (:thing written)) 0])])
         new-uuid (nth (:act-id replacing) 2)
-        before-the-append (base-fact e :text)
+        on-the-tasks (fn [] (on-each-task :mb-facts-ps (path/keypath (record/place-key :base e :text))))
+        before-the-append (on-the-tasks)
         ack (append-to-base! replacing)
         deadline (+ (System/currentTimeMillis) time-limit-ms)
         seen (loop [seen [before-the-append]]
-               (let [row (base-fact e :text)
-                     seen (conj seen row)]
-                 (if (or (= new-uuid (:by-act row)) (< deadline (System/currentTimeMillis)))
+               (let [rows (on-the-tasks)
+                     seen (conj seen rows)]
+                 (if (or (every? #(= new-uuid (:by-act %)) rows) (< deadline (System/currentTimeMillis)))
                    seen
                    (do (Thread/sleep 2) (recur seen)))))
         read-at-first-sight (answer-of (:act-id replacing))
         _ (wait-until-processed!)
         result (base-result replacing ack)
-        _ (note-base-answers! [result])
-        after-closing (base-fact e :text)]
-    (swap! kept assoc :base-before (base-snapshot) :base-log-before (answer-log))
+        at-rest (on-the-tasks)
+        each-row (apply concat seen)
+        rounds-of-two-facts (count (filter (fn [rows] (< 1 (count (set (map :by-act rows))))) seen))
+        went-once? (fn [task]
+                     (let [writers (mapv #(:by-act (nth % task)) seen)]
+                       (= writers (vec (concat (take-while #(= old-uuid %) writers)
+                                               (repeat (count (drop-while #(= old-uuid %) writers)) new-uuid))))))]
+    (swap! kept assoc :base-before (base-snapshot) :base-tables-before (base-tables))
     (check "a fact with a value is written to a place of the base, and an act that names it replaces it: both accepted"
            [:accepted :accepted true] [(:word written) (:word result) (:mine? result)])
-    (check "from before the append of the replacing act until its row shows, each select of the place, straight from the facts table on the task of its entity, gave a row and never nothing"
-           [true true] [(< 2 (count seen)) (every? some? seen)])
-    (check "each row that a select gave was the fact before or the fact after, with the text of the value before or after, the first select the one before and the last the one after"
-           [#{[old-uuid "\"the text before\""] [new-uuid "\"the text after\""]} old-uuid new-uuid]
-           [(set (map (juxt :by-act :value) seen)) (:by-act (first seen)) (:by-act (peek seen))])
-    (check "the row that the select gave at its first sight of the new fact is the row that the place holds after the batch is closed, in every field"
-           (content after-closing) (content (peek seen)))
-    (shown "a place of the base that is replaced never gives nothing to a select that goes straight to the table:"
-           (count seen) "selects from before the append until the new row showed," (count (filter #(= old-uuid (:by-act %)) seen))
-           "gave the fact before and" (count (filter #(= new-uuid (:by-act %)) seen)) "the fact after | at the first sight of the new row the door's read by act-id gave"
-           (if read-at-first-sight "its answer: the batch was closed by then" "nothing yet: the batch was not closed")
-           "| the row seen then is the row after the closing")))
+    (check "from before the append of the replacing act until its row shows on every task, each select of the place, on each of the four tasks, straight from the facts table, gave a row and never nothing"
+           [true true] [(< 2 (count seen)) (every? some? each-row)])
+    (check "each row that a select gave was the fact before or the fact after, with the text of the value before or after; the first round of selects gave the one before on every task, and the last round the one after on every task"
+           [#{[old-uuid "\"the text before\""] [new-uuid "\"the text after\""]} #{old-uuid} #{new-uuid}]
+           [(set (map (juxt :by-act :value) each-row)) (set (map :by-act (first seen))) (set (map :by-act (peek seen)))])
+    (check "on each task the place went from the fact before to the fact after once, and never back: no task showed the older row again behind the newer"
+           (vec (repeat tasks true)) (mapv went-once? (range tasks)))
+    (check "the rows that the last round of selects gave are the rows that the four tasks hold when the gate has processed the act, in every field"
+           (mapv content at-rest) (mapv content (peek seen)))
+    (shown "a place of the base that is replaced never gives nothing to a select that goes straight to the table, on any task:"
+           (count seen) "rounds of four selects from before the append until the new row showed on every task | selects that gave the fact before:"
+           (count (filter #(= old-uuid (:by-act %)) each-row)) "| the fact after:" (count (filter #(= new-uuid (:by-act %)) each-row))
+           "| rounds in which some tasks showed the fact after and others the fact before, counted and not held to a number:" rounds-of-two-facts
+           "| when every task showed the new row the read by act-id gave"
+           (if read-at-first-sight "its answer" "nothing yet"))))
 
 (deftest after-the-module-is-started-again
   (let [landed (:landed @kept)
@@ -3008,6 +3396,7 @@
         depots-asked (mapv depot-of-the-module
                            ["*streaming-depot" "*microbatch-depot" "*batch-clock-depot" "*microbatch-answer-depot"
                             "*the-modules-proof-names-no-depot" "*streaming-answer-depot"])
+        tables-asked (mapv table-of-the-module ["$$microbatch-facts" "$$batch-clock"])
         code (source-of-the-store)
         in-the-streaming-gate (fn [pattern] (get (named-in code pattern) "streaming_gate.clj" 0))
         in-the-microbatch-gate (fn [pattern] (get (named-in code pattern) "microbatch_gate.clj" 0))
@@ -3034,20 +3423,22 @@
            [true []] [(< 300 (reduce + (vals sent-values))) (counts-apart sent-values logged-values #(subvec % 0 3))])
     (shown "the stamps of" (count answers) "answers increase strictly in each of" (count by-layer) "layers, and each is the number that the rule gives; answers by partition:"
            (pr-str (into (sorted-map) (map (fn [[p on-the-task]] [p (count on-the-task)])) by-partition)))
-    (check "the module has no depot named *streaming-answer-depot. Asked of the cluster by name, for the number of its partitions: the two depots of acts, the depot of batch clocks and the microbatch gate's depot of answers are there; a depot that the module never had is not; and neither is a depot of answers of the streaming gate. The same call, made first, appended a thing to the depot of acts"
-           [:appended [:there :there :there :there :not-there :not-there]]
-           [hands-append depots-asked])
-    (check "in the code of the store's source, strings and comments left out, no file names a depot of answers of the streaming gate; the microbatch gate's is named twice, in that gate's file and no other: where it is declared, closed to a client's append, and where it is appended to"
-           [{} {"microbatch_gate.clj" 2} {"microbatch_gate.clj" 1} {"microbatch_gate.clj" 1}]
+    (check "the module has two depots. Asked of the cluster by name, for the number of its partitions: the two depots of acts are there; a depot of batch clocks, a depot of answers of the microbatch gate, a depot that the module never had and a depot of answers of the streaming gate are not. Asked for a table by name, with a select of one key: the microbatch gate's facts are there, and a table of a batch's clock is not. The same call, made first, appended a thing to the depot of acts"
+           [:appended [:there :there :not-there :not-there :not-there :not-there] [:there :not-there]]
+           [hands-append depots-asked tables-asked])
+    (check "in the code of the store's source, strings and comments left out, no file names a depot of answers of either gate, and none names a clock of a batch; the store declares two depots, both in the module's file"
+           [{} {} {} {"module.clj" 2}]
            [(named-in code #"streaming-answer-depot")
-            (named-in code #"\*microbatch-answer-depot")
-            (named-in code #"\(declare-depot\s+\S+\s+\*microbatch-answer-depot\s+:disallow\)")
-            (named-in code #"\(depot-partition-append!\s+\*microbatch-answer-depot\s")])
-    (check "the code of the streaming gate's file names no table of the microbatch gate, and holds no `depot-partition-append!`, no `currentTimeMillis` and no partitioner; the same four searches find each in the microbatch gate's file, and the streaming gate's file does name its own tables"
-           [[0 0 0 0] [true true true true] true]
+            (named-in code #"microbatch-answer-depot")
+            (named-in code #"batch-clock")
+            (named-in code #"\(declare-depot\s")])
+    (check "the code of the streaming gate's file names no table of the microbatch gate, and holds no `depot-partition-append!`, no `currentTimeMillis` and no partitioner; and it does name its own tables. The four searches find each word where it is: a table of the microbatch gate and a partitioner in that gate's file, `currentTimeMillis` in the door's file, and `depot-partition-append!` in a text that the proof wrote"
+           [[0 0 0 0] true [true true true 1]]
            [(mapv in-the-streaming-gate [#"\$\$microbatch-" #"depot-partition-append!" #"currentTimeMillis" #"\(\|[a-z]"])
-            (mapv (comp pos? in-the-microbatch-gate) [#"\$\$microbatch-" #"depot-partition-append!" #"currentTimeMillis" #"\(\|[a-z]"])
-            (pos? (in-the-streaming-gate #"\$\$streaming-"))])
+            (pos? (in-the-streaming-gate #"\$\$streaming-"))
+            [(pos? (in-the-microbatch-gate #"\$\$microbatch-")) (pos? (in-the-microbatch-gate #"\(\|[a-z]"))
+             (pos? (get (named-in code #"currentTimeMillis") "door.clj" 0))
+             (found-in-a-text "(depot-partition-append! *depot 1)" #"depot-partition-append!")]])
     (check "no topology of the store reads a depot of answers, and neither the door nor the read path: no `source>` names one, and neither `door.clj` nor `read_path.clj` holds the word answer-depot, in its code or in a docstring; the same search finds the `source>` of each gate's depot of acts, and the word depot in each of the two files"
            [{} {"streaming_gate.clj" 1 "microbatch_gate.clj" 1} [false false] [true true]]
            [(named-in code #"source>[^()]*answer-depot")
@@ -3057,206 +3448,134 @@
     (shown "layers by depot partition:" (pr-str (select-keys partition-of made)) "| the depot holds all" (count records)
            "things sent, each as it was sent, with the time that the hand wrote | each of the" (reduce + (vals sent-values))
            "values that the hand sent is plain on it")
-    (shown "the depots of the module, asked of the cluster by name: the two of acts, of batch clocks, the microbatch gate's of answers,"
-           "one that the module never had, *streaming-answer-depot:" (pr-str depots-asked))
+    (shown "the depots of the module, asked of the cluster by name: *streaming-depot, *microbatch-depot, *batch-clock-depot,"
+           "*microbatch-answer-depot, one that the module never had, *streaming-answer-depot:" (pr-str depots-asked)
+           "| the tables $$microbatch-facts and $$batch-clock:" (pr-str tables-asked))
     (shown "where the store's code names a depot of answers: of the streaming gate" (pr-str (named-in code #"streaming-answer-depot"))
-           "| of the microbatch gate" (pr-str (named-in code #"\*microbatch-answer-depot"))
-           "| a source> of one:" (pr-str (named-in code #"source>[^()]*answer-depot")))))
+           "| of the microbatch gate" (pr-str (named-in code #"microbatch-answer-depot"))
+           "| a clock of a batch:" (pr-str (named-in code #"batch-clock"))
+           "| a source> of a depot of answers:" (pr-str (named-in code #"source>[^()]*answer-depot"))
+           "| where a depot is declared:" (pr-str (named-in code #"\(declare-depot\s")))))
 
 (deftest the-base-after-the-module-is-started-again
   (let [before (:base-before @kept)
         landed (:base-landed @kept)
         after (base-snapshot)
+        tables-after (base-tables)
         _ (append-to-base! (:thing landed))
         _ (wait-until-processed!)
         answer-after-repeat (answer-of (:act-id (:thing landed)))
-        value-after (decide-in-base! (system-act [(value-fact :after-doc :text "a value after the start")]))
+        stamp-after-repeat (base-last-stamp)
+        last-before (:last-stamp before)
+        ;; The hand writes the time in the base's last stamp on the first
+        ;; act, so its stamp must be that stamp plus one, exactly; and a
+        ;; time one millisecond later than the time in that stamp on the
+        ;; second, so its stamp must be its own time with a counter of 0.
+        value-after (decide-in-base! (system-act [(value-fact :after-doc :text "a value after the start")]
+                                                 {declaration/time-part (quot last-before 65536)}))
+        later-time (inc (quot (inc last-before) 65536))
+        at-its-time (decide-in-base! (system-act [(value-fact :after-doc-2 :text "a value at its own time")]
+                                                 {declaration/time-part later-time}))
         by-alice (decide-in-base! (thing :base :alice alice-in-base [{:e :alices-doc :k :after}]))
-        clock-before (:kept-clock before)
-        clock-after (kept-clock-row)
-        {:keys [places act-uuid]} (:base-values @kept)
-        log-before (:base-log-before @kept)
-        log-after (answer-log)
-        entries-by-act-id (fn [log] (into {} (map (fn [[act-id found]] [act-id (set (map :entry found))]))
-                                          (group-by (comp :act-id :entry) (logged-answers log))))
-        entries-before (entries-by-act-id log-before)
-        entries-after (entries-by-act-id log-after)]
-    (check "the answer, the depot of the base, the gate's last stamp, the strays, a permission's rows, the marked keys, a run of the facts by value, the row of a value and what a reader gets from another, and the kept clock of the newest batch are as they were"
+        {:keys [places act-uuid]} (:base-values @kept)]
+    (check "the answer, the depot of the base, the base's last stamp, the strays, a permission's rows, the marked keys, a run of the facts by value on each task, the row of a value and what a reader gets from another are as they were"
            before after)
+    (check "the run that is read holds places, the same on every task: the check of the run is of rows"
+           [true 1] [(pos? (count (first (:run after)))) (count (set (:run after)))])
+    (check "the copies are still on every task: each of the gate's four tables holds on each task the rows that it held before the start, in every key and every field"
+           [] (tables-apart (:base-tables-before @kept) tables-after))
     (check "the row of a value from before holds the text of the value's normal form still" "{:a [1 2] :b 1.5M}" (:value (:kept-row after)))
-    (check "the kept clock is one row of a batch's id and a clock; a batch with things after the start keeps its clock under a later id, and the clock is not earlier"
-           [true true true true]
-           [(clock-record? clock-before) (clock-record? clock-after)
-            (boolean (and clock-before clock-after (< (:batch clock-before) (:batch clock-after))))
-            (boolean (and clock-before clock-after (<= (:clock clock-before) (:clock clock-after))))])
-    (check "the answers' entries are in the microbatch gate's log of answers after the start: each of the more than 300 act-ids that had an entry before has, before and after, one answer under it, the same, however many copies hold it"
-           [true []]
-           [(< 300 (count entries-before))
-            (vec (keep (fn [[act-id entries]] (when-not (and (= 1 (count entries)) (= entries (get entries-after act-id))) (short-id act-id)))
-                       entries-before))])
-    (check "a repeat after it is answered from the record" (:answer before) answer-after-repeat)
-    (check "an act with a value after the start is accepted in the base, and its row holds the text of the value"
-           [:accepted "\"a value after the start\""] [(:word value-after) (:value (base-fact :after-doc :text))])
-    (check "the first stamp after is later than the gate's last stamp before" true (< (:last-stamp before) (:stamp (:answer value-after))))
+    (check "a repeat after it is answered from the record: the same answer, and the base's last stamp is the one from before"
+           [(:answer before) last-before] [answer-after-repeat stamp-after-repeat])
+    (check "an act with a value after the start is accepted in the base, and its row holds the text of the value on every task"
+           [:accepted (on-every-task (nth (:act-id (:thing value-after)) 2) 0 (:stamp (:answer value-after)) "\"a value after the start\"")]
+           [(:word value-after) (facts-on-every-task :after-doc :text)])
+    (check "the first stamp after is the base's last stamp before plus one: the hand wrote the time in that stamp on the act, so the gate counted on from the number that its table kept through the start"
+           (inc last-before) (:stamp (:answer value-after)))
+    (check "and the next act, with a time on it one millisecond later than the time in that stamp, gets its own time with a counter of 0"
+           [:accepted (stamp-at later-time 0)] [(:word at-its-time) (:stamp (:answer at-its-time))])
     (check "a permission that the system gave before stands after" :accepted (:word by-alice))
-    (check "each value of the act on several tasks is in its row still, as the text of what was sent, written by that act"
-           (mapv (fn [[e _]] [(str "\"the body of " (name e) "\"") act-uuid]) places)
-           (mapv (fn [[e k]] ((juxt :value :by-act) (base-fact e k))) places))
+    (check "each value of the act of three facts is in its row still, on every task, as the text of what was sent, written by that act"
+           (mapv (fn [[e _]] [tasks #{[(str "\"the body of " (name e) "\"") act-uuid]}]) places)
+           (mapv (fn [[e k]] (let [rows (facts-on-every-task e k)]
+                               [(count rows) (set (map (fn [[by-act _ _ value]] [value by-act]) (vals rows)))]))
+                 places))
     (shown "after the module is started again in the cluster, the base's record is as it was: the same answer, depot" (:depot after)
-           "| the same row of a value | the gate's last stamp before" (:last-stamp before) "the first stamp after" (:stamp (:answer value-after)))
-    (shown "the microbatch gate's log of answers held" (count log-before) "records before the start and" (count log-after)
-           "after it and the batches since, with" (reduce + (map count (vals entries-after))) "different answers under" (count entries-after)
-           "act-ids: whether a start that is no failure appends copies is counted and not held to a number")
-    (check "the gate's one throw, called by hand: given the clock that is kept for a batch it gives that clock; given none it throws and names the batch, so that no stamp is made from a clock that is not kept"
-           [(:clock clock-after) [:threw {:batch 41}]]
-           [(microbatch-gate/clock-must-be-kept (:clock clock-after) (:batch clock-after))
-            (try (microbatch-gate/clock-must-be-kept nil 41)
-                 (catch clojure.lang.ExceptionInfo e [:threw (ex-data e)]))])
-    (shown "the kept clock of the newest batch is as it was after the start:" (pr-str clock-before)
-           "| a batch with things after it kept its clock under a later id:" (pr-str clock-after)
-           "| the gate's one throw, called by hand with no clock kept, throws and names the batch; no run of this proof reached it in the gate")))
+           "| the same row of a value | each of the four tables the same on each task:" (pr-str (tables-apart (:base-tables-before @kept) tables-after))
+           "tables apart | the base's last stamp before" last-before "the first stamp after" (:stamp (:answer value-after))
+           "| the stamp of an act with a later time:" (:stamp (:answer at-its-time)))))
 
 (deftest the-stamps-and-the-depot-of-the-base
   (let [records (vec (stored-in-base))
-        groups @base-answers
-        answers (vec (apply concat groups))
-        sent-digests (frequencies (map digest/hex-of @base-things-sent))
-        logged-digests (frequencies (map (fn [[_ r]] (digest/hex-of r)) records))
+        decided (decided-on-the-microbatch-depot records)
+        by-layer (group-by :layer decided)
+        apart-from-the-rule (stamps-apart-from-the-rule decided)
+        one-moved (stamps-apart-from-the-rule (update-in decided [1 :stamp] inc))
+        last-stamps-apart (vec (keep (fn [[layer of-the-layer]]
+                                       (when-not (= (:stamp (peek of-the-layer)) (base-last-stamp layer)) layer))
+                                     by-layer))
+        of-the-base? (fn [x] (and (map? x) (= :base (:layer x))))
+        sent-hex (mapv digest/hex-of @base-things-sent)
+        logged-hex (mapv (fn [[_ r]] (digest/hex-of r)) records)
+        sent-digests (frequencies sent-hex)
+        logged-digests (frequencies logged-hex)
+        base-sent-in-order (vec (keep-indexed (fn [i x] (when (of-the-base? x) (nth sent-hex i))) @base-things-sent))
+        base-logged-in-order (vec (keep-indexed (fn [i [_ r]] (when (of-the-base? r) (nth logged-hex i))) records))
         sent-values (values-in @base-things-sent)
         logged-values (values-in (map second records))
         sent-times (times-in @base-things-sent)
         logged-times (times-in (map second records))
-        reads (:base-reads @kept)
-        clocks (clock-records)
-        answer-records (answer-log)
-        logged (logged-answers answer-records)
-        answered (answered-of @base-things-sent :microbatch)
-        answered-ids (set (map first answered))
-        batches-with-an-answer (set (map :batch logged))
-        of-itself (fn [batch] (set (keep (fn [[_ r]] (when (and (= batch (:batch r)) (or (contains? r :clock) (contains? r :last-stamp)))
-                                                       (select-keys r [:clock :last-stamp])))
-                                         answer-records)))
-        clocks-by-batch (reduce (fn [by-batch [_ r]] (update by-batch (:batch r) (fnil conj #{}) (:clock r))) {} clocks)
-        last-stamp-at-rest (gates-last-stamp)
-        to-keep-at-rest (to-keep-by-task)
-        to-close-at-rest (to-close-by-task)
-        forged {:batch 1 :answers [{:act-id [:base :microbatch (UUID/randomUUID)] :stamp 1 :digest (byte-array 32)}]}
-        forged-append (client-append (:mb-answer-depot *hand*) forged)
-        count-before-quiet (count (answer-log))
-        _ (Thread/sleep quiet-ms)
-        count-after-quiet (count (answer-log))
-        not-closed-at-the-read (remove (fn [{:keys [stamp closed-through-after]}]
-                                         (and closed-through-after (<= stamp closed-through-after)))
-                                       reads)
-        not-closed (remove (fn [{:keys [act-id stamp]}] (<= stamp (or (closed-through (nth act-id 2)) -1))) answers)]
-    (check "the stamps of the microbatch gate's answers go up in the order decided: each batch's stamps are later than those of the batch before"
-           true (every? (fn [[earlier later]] (< (reduce max (map :stamp earlier)) (reduce min (map :stamp later)))) (partition 2 1 groups)))
-    (check "no two answers of the gate share a stamp" true (apply distinct? (map :stamp answers)))
-    (check "each stamp is below 2^62 and holds a clock time of today"
-           true (every? #(and (< (:stamp %) act/max-carried-stamp)
-                              (< (- (System/currentTimeMillis) 3600000) (stamp/time-of (:stamp %)) (+ (System/currentTimeMillis) 60000)))
-                        answers))
-    (check "each answer that a read gave was of a closed batch at the read: its stamp is not above the closed-through that the hand selected on its task right after the read"
-           [true []] [(<= (count answers) (count reads)) (vec not-closed-at-the-read)])
-    (check "and at the end of the run no answer is left in a batch that is not closed" [] (vec not-closed))
+        base-partitions (into #{} (keep (fn [[p r]] (when (of-the-base? r) p))) records)
+        first-entities (into #{} (keep (fn [[_ r]] (when (and (of-the-base? r) (sequential? (:facts r)) (map? (first (:facts r))))
+                                                     (:e (first (:facts r))))))
+                             records)
+        streaming-records (vec (stored))
+        on-both-depots (let [streaming (partitions-of-layers streaming-records)
+                             microbatch (partitions-of-layers records)]
+                         (into (sorted-map)
+                               (keep (fn [[layer partitions]] (when-let [others (get microbatch layer)] [layer [partitions others]])))
+                               streaming))]
+    (check "each thing of the microbatch depot that is no stray has an answer under its act-id: the gate decided more than 600 things, and none is without one"
+           [true []] [(< 600 (count decided)) (vec (keep (fn [d] (when (= :nothing-yet (:word d)) (short-id (:act-id d)))) decided))])
+    (check "the stamps of the answers increase strictly in each layer of the microbatch depot, in the depot's order"
+           true (every? (fn [[_ of-the-layer]] (apply < (map :stamp of-the-layer))) by-layer))
+    (check "each stamp is the number that the gate's rule gives, by the proof's own arithmetic, as for the streaming gate: the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one. It is held for each thing that the microbatch gate decided, in the depot's order"
+           [] apart-from-the-rule)
+    (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another"
+           [true (short-id (:act-id (nth decided 1)))]
+           [(<= 1 (count one-moved) 2) (first (first one-moved))])
+    (check "each stamp is below 2^62; and the last stamp that the gate keeps for each layer, on the layer's task, is the stamp of the last answer of that layer"
+           [true []] [(every? #(< (:stamp %) act/max-carried-stamp) decided) last-stamps-apart])
     (check "the microbatch depot holds each thing that was sent to it: accepted, refused, repeated and stray"
            (count @base-things-sent) (count records))
-    (check "the things of the base are on more than one partition of the depot" true (< 1 (count (set (map first records)))))
     (check "each thing is on the microbatch depot as it was sent: the digests that the proof takes of the records read back are the digests of the things sent, each as often"
            [] (counts-apart sent-digests logged-digests #(subs % 0 16)))
-    (check "a digest leaves the time on the act out, so the time is held apart: under each act-id the microbatch depot's log holds the time that the hand wrote, as often as it was sent"
-           [true []] [(< 300 (count sent-times)) (counts-apart sent-times logged-times (fn [[act-id time]] [(short-id act-id) time]))])
+    (check "the things of the base are on one partition of the depot, in the order in which the hand appended them: more than 600 things, whose first facts are on more than 50 different entities"
+           [1 true true true]
+           [(count base-partitions) (< 600 (count base-logged-in-order)) (< 50 (count first-entities))
+            (= base-sent-in-order base-logged-in-order)])
+    (check "both depots put a thing on the partition of its layer: on each depot the things of every layer are on one partition, and each layer that has things on both depots is on the partition of one number in both"
+           [[] [] true true]
+           [(on-more-than-one-partition streaming-records) (on-more-than-one-partition records)
+            (< 1 (count on-both-depots)) (every? (fn [[_ [in-streaming in-microbatch]]] (= in-streaming in-microbatch)) on-both-depots)])
+    (check "a digest leaves the time on the act out, so the time is held apart: under each act-id the microbatch depot's log holds the time that the hand wrote, or none where the hand wrote none, as often as it was sent"
+           [true []] [(< 600 (count sent-times)) (counts-apart sent-times logged-times (fn [[act-id time]] [(short-id act-id) time]))])
     (check "each value is plain on the microbatch depot: every value that a fact of a thing sent holds is in the log under its act-id, its entity and its key, as it was given; the hand sent more than 300 of them"
            [true []] [(< 300 (reduce + (vals sent-values))) (counts-apart sent-values logged-values #(subvec % 0 3))])
-    (check "the depot of batch clocks holds records, each a map of exactly a batch's id and a clock, two integers, all on one partition"
-           [true true 1]
-           [(< 30 (count clocks)) (every? (fn [[_ r]] (clock-record? r)) clocks) (count (set (map first clocks)))])
-    (check "each answer's row of the base has its entry in the microbatch gate's log of answers: for each of the more than 300 act-ids that have an answer there is at least one entry, and each entry under it is the act-id with the stamp and the digest that the read by act-id gives, the word when it is a refusal, and no other part, so no value of a fact; every entry under one act-id is the same; and no entry is under an act-id that has no answer"
-           [true [] []]
-           [(< 300 (count answered)) (entries-apart logged answered)
-            (vec (distinct (keep (fn [{:keys [entry]}] (when-not (contains? answered-ids (:act-id entry)) (short-id (:act-id entry)))) logged)))])
-    (check "every record of that depot holds its batch's id, an integer, and beside it answers, strays, a clock and a last stamp, and no other part"
-           [true #{}]
-           [(every? (fn [[_ r]] (integer? (:batch r))) answer-records)
-            (set (remove #{:batch :answers :strays :clock :last-stamp} (mapcat (fn [[_ r]] (keys r)) answer-records)))])
-    (check "each of the more than 30 batches whose records hold an answer keeps of itself one clock and one last stamp, the same wherever a record of it holds them; and the clock is the clock of a record of that batch on the depot of batch clocks"
-           [true []]
-           [(< 30 (count batches-with-an-answer))
-            (vec (keep (fn [batch]
-                         (let [kept-of-itself (of-itself batch)
-                               {:keys [clock last-stamp]} (first kept-of-itself)]
-                           (when-not (and (= 1 (count kept-of-itself)) (integer? last-stamp) (contains? (get clocks-by-batch batch #{}) clock))
-                             batch)))
-                       batches-with-an-answer))])
-    (check "the greatest last stamp that a record of the log holds is the gate's last stamp"
-           last-stamp-at-rest (reduce max (keep (fn [[_ r]] (:last-stamp r)) answer-records)))
-    (check "on the store at rest the microbatch gate's `:to-keep` holds no key on any task, and `:to-close` is absent on every task"
-           [(vec (repeat tasks 0)) (vec (repeat tasks nil))] [to-keep-at-rest to-close-at-rest])
-    (check "a client's append to the microbatch gate's depot of answers is refused; and a quiet time of 1.5 s adds no record to that depot, the refused record among them"
-           [:refused (count answer-records) count-before-quiet]
-           [forged-append count-before-quiet count-after-quiet])
-    (check "the row of the kept clock is the first record, in the depot's order, of the batch with the greatest id on that depot"
-           (let [newest (reduce max (map (fn [[_ r]] (:batch r)) clocks))]
-             (some (fn [[_ r]] (when (= newest (:batch r)) r)) clocks))
-           (kept-clock-row))
-    (shown "the stamps of" (count answers) "answers of the microbatch gate, in" (count groups) "batches, go up in the order decided;"
-           "each of" (count reads) "reads that gave an answer gave one of a batch that was closed at the read")
-    (shown "the microbatch depot holds all" (count records) "things sent, on" (count (set (map first records)))
-           "partitions, each as it was sent | each of the" (reduce + (vals sent-values)) "values that the hand sent is plain on it")
-    (shown "the depot of batch clocks holds" (count clocks) "records, each a batch's id and a clock and nothing else, for"
-           (count (set (map (fn [[_ r]] (:batch r)) clocks))) "batches, all on partition" (pr-str (set (map first clocks)))
-           "| the kept row is the newest batch's:" (pr-str (kept-clock-row)))
-    (shown "the microbatch gate's log of answers:" (count answer-records) "records of" (count (set (map (fn [[_ r]] (:batch r)) answer-records)))
-           "batches, with" (count logged) "answers' entries for" (count answered) "act-ids that have an answer, each entry the answer's, and"
-           (count (logged-strays answer-records)) "strays' entries |" (count batches-with-an-answer)
-           "batches keep a clock and a last stamp; the greatest last stamp is the gate's:" last-stamp-at-rest)
-    (shown "the store at rest: keys of :to-keep by task" (pr-str to-keep-at-rest) "| :to-close by task" (pr-str to-close-at-rest)
-           "| a client's append to the microbatch gate's depot of answers:" forged-append
-           "| records of that depot before and after" quiet-ms "ms with nothing sent:" count-before-quiet count-after-quiet)))
+    (check-the-copies "the copies, at the end of the run" records)
+    (shown "the stamps of" (count decided) "answers of the microbatch gate, in" (count by-layer)
+           "layers, increase strictly in each layer in the depot's order, and each is the number that the rule gives")
+    (shown "the microbatch depot holds all" (count records) "things sent, each as it was sent |" (count base-logged-in-order)
+           "things of the base, with" (count first-entities) "different first entities, are on partition" (pr-str base-partitions)
+           "in the order appended | each of the" (reduce + (vals sent-values)) "values that the hand sent is plain on it")
+    (shown "layers that have things on both depots, each with its partition on the streaming depot and on the microbatch depot:"
+           (pr-str on-both-depots))))
 
-;; ------------------------------------- a batch that Rama runs a second time
-
-(def ^:private first-base
-  "`softland.store.gate.batch/base` as the store defines it, taken when this
-  namespace was loaded, before any var is changed."
-  batch/base)
-
-(def ^:private first-decide-or-send
-  "`softland.store.gate.batch/decide-or-send` as the store defines it."
-  batch/decide-or-send)
-
-(def ^:private first-rows-to-send
-  "`softland.store.gate.batch/rows-to-send` as the store defines it."
-  batch/rows-to-send)
-
-(defonce ^{:private true
-           :doc "The note of each attempt of a batch with things on the proof's
-  second cluster, in the order in which the attempts began:
-  {:wall :clock :last-stamp :numbers :base :rows}. `:rows` holds each row that
-  the attempt made, as [which key row], in the order noted."}
-  attempts (atom []))
-
-(defonce ^{:private true
-           :doc "The wish for a throw: true while the next call of
-  `noting-rows-to-send` that gives rows is to throw."}
-  throw-asked (atom false))
-
-(defonce ^{:private true
-           :doc "Each throw that `noting-rows-to-send` made:
-  {:wall :rows :attempts :thread}, where :attempts is how many attempts were
-  noted when it threw."}
-  throws-made (atom []))
-
-(def ^:private first-records-of-closing
-  "`softland.store.gate.batch/records-of-closing` as the store defines it."
-  batch/records-of-closing)
-
-(def ^:private first-marks-places-asked
-  "`softland.store.gate.batch/marks-places-asked` as the store defines it."
-  batch/marks-places-asked)
+;; ------------------------------------------- a gate that fails and runs again
 
 (def ^:private first-writes
-  "`softland.store.gate.decision/writes` as the store defines it."
+  "`softland.store.gate.decision/writes` as the store defines it, taken when
+  this namespace was loaded, before any var is changed."
   decision/writes)
 
 (def ^:private first-stray-reason
@@ -3264,12 +3583,21 @@
   declaration/stray-reason)
 
 (defonce ^{:private true
-           :doc "What the proof asked of a closing on its second cluster, and what
-  came of it: {:asked :noted :throws}. `:asked` is true while the next
-  closing that gives records is to fail behind its appends; `:noted` is
-  true from the call that gave those records until the throw; `:throws`
-  holds each throw that was made, {:wall :thread}."}
-  closing-failure (atom {:asked false :noted false :throws []}))
+           :doc "The batch of the microbatch gate that the proof makes fail on its
+  second cluster, and what came of it:
+  {:armed? :run :throw-at :calls :left :throws}. `:run` holds the act-ids of
+  the batch's acts. `:throw-at` holds the act-id at whose decision the
+  attempt is to fail, or nil for a run that is to commit. `:armed?` is true
+  from the hand's wish until the throw, or until the hand takes it away:
+  while it is, the stand-in of `writes` hands the walk one extra row for
+  each other act of the run. `:calls` holds each call that the stand-in
+  got for an act of the run, in the order made:
+  {:act-id :wall :thread :refused :stamp :rows :armed?}, where `:rows` are
+  the writes that the store's own function gave, each [which key row] with
+  its bytes by content, and `:armed?` says whether the call came before the
+  throw. `:left` holds the key of each extra row that was handed out.
+  `:throws` holds each throw that was made, {:wall :thread}."}
+  attempt-failure (atom {:armed? false :run #{} :throw-at nil :calls [] :left [] :throws []}))
 
 (defonce ^{:private true
            :doc "The events of the streaming gate that the proof watches on its
@@ -3287,47 +3615,25 @@
   content."}
   event-failures (atom {:to-fail nil :watched #{} :calls []}))
 
-(defn noting-records-of-closing
-  "Stands in for `softland.store.gate.batch/records-of-closing` on the
-  proof's second cluster. Takes what it takes and gives what it gives. The
-  keeping task of a batch calls it in the run that closes the batch, right
-  before that run's appends to the depot of answers. When the proof asked
-  for a failed closing and this call gave records, it notes that a closing
-  has its records. It is public and held by a var, and it closes over
-  nothing."
-  [to-close last-stamp kept]
-  (let [out (first-records-of-closing to-close last-stamp kept)]
-    (when (seq out)
-      (swap! closing-failure (fn [state] (if (:asked state) (assoc state :noted true) state))))
-    out))
+(def ^:private left-entity
+  "The entity of each row that only a failed attempt of a batch is handed.
+  No act of the proof writes it."
+  :left-by-a-failed-attempt)
 
-(defn throwing-marks-places-asked
-  "Stands in for `softland.store.gate.batch/marks-places-asked` on the
-  proof's second cluster. Takes what it takes and gives what it gives.
-  Every task calls it in step 2 of each run, behind the closing and its
-  appends. When the note of a closing is there, the first call takes the
-  note and the wish away and throws, this once: the run that closes a batch
-  then fails behind its appends, and Rama runs it again."
-  [asked]
-  (let [[before _] (swap-vals! closing-failure
-                               (fn [state]
-                                 (if (:noted state)
-                                   (-> state
-                                       (assoc :asked false :noted false)
-                                       (update :throws conj {:wall (System/currentTimeMillis)
-                                                             :thread (.getName (Thread/currentThread))}))
-                                   state)))]
-    (when (:noted before)
-      (throw (ex-info "the module's proof: a forced failure of the run that closes a batch, behind its appends" {}))))
-  (first-marks-places-asked asked))
+(defn- left-key
+  "The key of the extra row that the failed attempt is handed for one act:
+  the place of `left-entity` in the base under a key made of the act's
+  uuid, as text, written out by the proof's own hand."
+  [act-uuid]
+  (str ":base " left-entity " :of-" act-uuid))
 
 (defn noting-stray-reason
   "Stands in for `softland.store.door.declaration/stray-reason` on the
   proof's second cluster. Takes what it takes and gives what it gives. It
-  is the first step of each event of the streaming gate, which calls it
-  with the word :streaming: such a call says that a run of the thing's
-  event began, and it is noted when the proof watches the thing's act-id.
-  The microbatch gate and the proof's hand call it with the word
+  is the first step of the walk of one thing, which the streaming gate
+  calls with the word :streaming: such a call says that a run of the
+  thing's event began, and it is noted when the proof watches the thing's
+  act-id. The microbatch gate and the proof's hand call it with the word
   :microbatch; those calls are not noted. The note never throws: a thing
   whose act-id cannot be read is not noted."
   [gate-depot thing]
@@ -3345,13 +3651,28 @@
 
 (defn throwing-writes
   "Stands in for `softland.store.gate.decision/writes` on the proof's second
-  cluster. Takes what it takes and gives what it gives. The streaming gate
-  calls it behind the event's reads and before its first write, and only
-  for a thing that it decides. For an act-id that the proof watches it
+  cluster. Takes what it takes and gives what it gives, but for the two
+  failures that the proof asks for. The walk calls it behind its reads and
+  before its first write, and only for a thing that it decides, in both
+  gates.
+
+  An event of the streaming gate. For an act-id that the proof watches it
   notes each call, with the word of a refusal and the stamp that the gate
   gave it and the writes that it made. The first call for the act-id that
   is to fail throws behind its note: that event fails with no row written.
-  What must hold for the throw: the act-id that is to fail is watched."
+  What must hold for the throw: the act-id that is to fail is watched.
+
+  An attempt of a batch of the microbatch gate. For an act-id of the run
+  that `attempt-failure` names it notes each call in the same way. While
+  the failure is armed: at the act of `:throw-at` it disarms, waits 300 ms
+  so that the other tasks can write the copies already sent, and throws,
+  this once; for each other act of the run it adds one write to the
+  store's result, the act's first fact row again at `left-key` of the act.
+  In the batch that fails those are the acts before the throw. The walk
+  writes that row and the gate copies it as any row, so it is on every task
+  in the failed attempt, and no attempt after is handed it. A run that is
+  armed with no act to throw at commits with its extra rows: the proof
+  uses one to show that such a row is written and copied."
   [act-id act refused stamp digest in-hand]
   (let [out (first-writes act-id act refused stamp digest in-hand)
         [before _] (swap-vals! event-failures
@@ -3360,104 +3681,58 @@
                                    (update state :calls conj {:where :decision :act-id act-id :wall (System/currentTimeMillis)
                                                               :thread (.getName (Thread/currentThread))
                                                               :refused refused :stamp stamp :rows (mapv content out)})
-                                   state)))]
+                                   state)))
+        fact-row (some (fn [[which _ row]] (when (= :fact which) row)) out)
+        extra (when fact-row [:fact (left-key (nth act-id 2 nil)) fact-row])
+        [attempt _] (swap-vals! attempt-failure
+                                (fn [state]
+                                  (if (contains? (:run state) act-id)
+                                    (let [state (update state :calls conj {:act-id act-id :wall (System/currentTimeMillis)
+                                                                           :thread (.getName (Thread/currentThread))
+                                                                           :refused refused :stamp stamp :rows (mapv content out)
+                                                                           :armed? (:armed? state)})]
+                                      (cond (not (:armed? state)) state
+                                            (= act-id (:throw-at state)) (-> state
+                                                                             (assoc :armed? false)
+                                                                             (update :throws conj {:wall (System/currentTimeMillis)
+                                                                                                   :thread (.getName (Thread/currentThread))}))
+                                            extra (update state :left conj (second extra))
+                                            :else state))
+                                    state)))
+        armed-for-this? (and (:armed? attempt) (contains? (:run attempt) act-id))]
     (when (and (some? (:to-fail before)) (= act-id (:to-fail before))
                (not-any? #(and (= :decision (:where %)) (= act-id (:act-id %))) (:calls before)))
       (throw (ex-info "the module's proof: a forced failure of an event of the streaming gate, before its first write" {})))
-    out))
+    (cond
+      (and armed-for-this? (= act-id (:throw-at attempt)))
+      (do (Thread/sleep 300)
+          (throw (ex-info "the module's proof: a forced failure of an attempt of a batch of the microbatch gate, in the middle of the batch" {})))
 
-(def ^:private edge-ahead-ms
-  "How far ahead of the hand's clock the stamp is that the edge act of the
-  batch that runs twice carries, in milliseconds: the store's 10,000
-  (`softland.store.gate.stamp/max-ahead-millis`) and 700. The act is at the
-  edge when the first attempt takes its clock less than 700 ms after the
-  hand's reading and the second attempt begins more than 700 ms after it;
-  the runs of the plan and of its check gave 122 ms for the first and 1,001
-  to 1,548 ms more for the second. The number changes what the check shows
-  and never whether it passes."
-  10700)
+      (and armed-for-this? extra)
+      (conj out extra)
+
+      :else
+      out)))
 
 (def ^:private twice-limit-ms
-  "How long the hand reads for the answers of the batch that runs twice, in
-  milliseconds. A second attempt came 1 to 2 seconds after the first in the
-  runs; an attempt that Rama ends by its phase timeout takes about 31."
+  "How long the hand reads for the answers of a batch or of an event that
+  fails and runs again, in milliseconds. A second run came 1 to 2 seconds
+  after the first in the runs; an attempt that Rama ends by its phase
+  timeout takes about 31."
   60000)
 
-(defn- note-rows!
-  "Adds rows, each [which key row], to the note of the newest attempt."
-  [rows]
-  (when (seq rows)
-    (swap! attempts (fn [notes]
-                      (if (seq notes)
-                        (update-in notes [(dec (count notes)) :rows] into rows)
-                        notes)))))
-
-(defn noting-base
-  "Stands in for `softland.store.gate.batch/base` on the proof's second
-  cluster. Takes what it takes and gives what it gives. The gate calls it
-  once in each attempt, on the gate's task; for a batch with numbers it
-  begins the note of an attempt: the clock and the last stamp that the gate
-  gave it, the numbers, the base, and the wall time of the call. It is
-  public and held by a var, and it closes over nothing: Rama takes the
-  function that the store's var holds at the launch."
-  [clock last-stamp numbers]
-  (let [base (first-base clock last-stamp numbers)]
-    (when numbers
-      (swap! attempts conj {:wall (System/currentTimeMillis) :clock clock :last-stamp last-stamp
-                            :numbers numbers :base base :rows []}))
-    base))
-
-(defn noting-decide-or-send
-  "Stands in for `softland.store.gate.batch/decide-or-send` on the proof's
-  second cluster. Takes what it takes and gives what it gives, and notes
-  each row that it gave: each fact that the task writes at once, and each
-  row of a parcel of the kind :rows, a row of the kind :by-value that is nil
-  among them."
-  [item own-rows]
-  (let [out (first-decide-or-send item own-rows)]
-    (note-rows! (concat (map (fn [[k row]] [:fact k row]) (:now out))
-                        (mapcat (fn [[_ kind payload]] (when (= :rows kind) payload)) (:parcels out))))
-    out))
-
-(defn noting-rows-to-send
-  "Stands in for `softland.store.gate.batch/rows-to-send` on the proof's
-  second cluster. Takes what it takes and gives what it gives, and notes
-  each row: the rows of the acts that meet. Then, when the proof asked for a
-  throw and this call gave rows, it throws, this once. Step 4 calls it on
-  every task, and only the meeting task of a layer gets rows from it; step 3
-  is done on every task by then. So when every act of a batch is into one
-  layer, the throw comes after the one call that gives rows, and the note of
-  the attempt is whole by the order of the code, wherever the tasks sit."
-  [pass]
-  (let [out (first-rows-to-send pass)]
-    (note-rows! (map (juxt :which :key :row) out))
-    (when (and (seq out) (compare-and-set! throw-asked true false))
-      (swap! throws-made conj {:wall (System/currentTimeMillis) :rows (count out) :attempts (count @attempts)
-                               :thread (.getName (Thread/currentThread))})
-      (throw (ex-info "the module's proof: a forced failure of this attempt of a batch, after its rows were noted" {})))
-    out))
-
 (defn- put-noting-functions!
-  "Puts the seven stand-ins into the vars of the store's seven functions.
-  What must hold: no cluster of this JVM is launched; a launch takes what
-  the vars hold then, and a replacement made behind a launch is not taken."
+  "Puts the two stand-ins into the vars of the store's two functions. What
+  must hold: this namespace has loaded the store's module, and with it the
+  walk, while the vars held the store's own functions; the walk then reads
+  each var at each call."
   []
-  (alter-var-root #'batch/base (constantly noting-base))
-  (alter-var-root #'batch/decide-or-send (constantly noting-decide-or-send))
-  (alter-var-root #'batch/rows-to-send (constantly noting-rows-to-send))
-  (alter-var-root #'batch/records-of-closing (constantly noting-records-of-closing))
-  (alter-var-root #'batch/marks-places-asked (constantly throwing-marks-places-asked))
   (alter-var-root #'decision/writes (constantly throwing-writes))
   (alter-var-root #'declaration/stray-reason (constantly noting-stray-reason)))
 
 (defn- put-the-stores-functions-back!
-  "Puts the store's own seven functions back into their vars."
+  "Puts the store's own two functions back into their vars."
   []
-  (alter-var-root #'batch/base (constantly first-base))
-  (alter-var-root #'batch/decide-or-send (constantly first-decide-or-send))
-  (alter-var-root #'batch/rows-to-send (constantly first-rows-to-send))
-  (alter-var-root #'batch/records-of-closing (constantly first-records-of-closing))
-  (alter-var-root #'batch/marks-places-asked (constantly first-marks-places-asked))
   (alter-var-root #'decision/writes (constantly first-writes))
   (alter-var-root #'declaration/stray-reason (constantly first-stray-reason)))
 
@@ -3470,112 +3745,74 @@
   (reset! first-answers [])
   (reset! kept {})
   (reset! base-things-sent [])
-  (reset! base-answers [])
-  (reset! attempts [])
-  (reset! throw-asked false)
-  (reset! throws-made [])
-  (reset! closing-failure {:asked false :noted false :throws []})
+  (reset! attempt-failure {:armed? false :run #{} :throw-at nil :calls [] :left [] :throws []})
   (reset! event-failures {:to-fail nil :watched #{} :calls []}))
 
-(defn- decide-twice!
-  "The hand for a second attempt. Sends things to the microbatch depot so
-  that one batch of the gate takes them all, as `decide-in-one-batch!` does,
-  with a throw asked for: the first attempt of that batch fails in step 4,
-  after the one call of `rows-to-send` that gives rows, and Rama runs the
-  batch again. Takes the things, and a function of no argument that makes
-  the last thing: the hand calls it right before it appends that thing, and
-  lets the topology go on at once, so that the last thing can carry a
-  reading of the clock that is fresh. Gives
-  {:results :answered? :waited :notes :throws :last-thing}: the result of
-  each thing in the order sent, the last thing last; whether each was
-  answered within `twice-limit-ms`; the milliseconds from the topology's
-  going on to the last answer; the notes of the attempts that began since
-  the send; and the throws made since.
+(defn- decide-with-a-failed-attempt!
+  "The hand for an attempt of a batch that fails. Appends acts to the
+  microbatch depot while the gate is paused, so that one batch takes them
+  all; arms the failure for them, with the throw at the act of the index
+  given; and lets the topology go on. The first attempt of the batch then
+  fails at that act, the worker is started again, and Rama processes the
+  batch a second time. Gives {:results :answered? :waited}: the result of
+  each act in the order sent; whether each was answered within
+  `twice-limit-ms`; and the milliseconds from the topology's going on to
+  the last answer.
 
   It reads the answers in a loop that takes a read that throws as nothing
   yet: for about half a second after a worker is started again, a read can
   throw. What must hold: the hand is on the proof's second cluster, where
-  the noting functions run, and every thing is an act into one layer."
-  [xs make-last]
+  the stand-ins run."
+  [acts throw-index]
   (let [ipc (:ipc *hand*)
         module-name (:module *hand*)
-        notes-before (count @attempts)
-        throws-before (count @throws-made)]
+        ids (mapv :act-id acts)]
     (rtest/pause-microbatch-topology! ipc module-name "microbatch-gate")
-    (let [acks (mapv append-to-base! xs)
-          _ (reset! throw-asked true)
-          last-thing (make-last)
-          last-ack (append-to-base! last-thing)
+    (let [acks (mapv append-to-base! acts)
+          _ (reset! attempt-failure {:armed? true :run (set ids) :throw-at (nth ids throw-index) :calls [] :left [] :throws []})
           _ (rtest/resume-microbatch-topology! ipc module-name "microbatch-gate")
           went-on (System/currentTimeMillis)
-          all (conj (vec xs) last-thing)
           answer-or-nil (fn [x] (try (answer-of (:act-id x)) (catch Throwable _ nil)))
           answered? (loop []
-                      (cond (every? answer-or-nil all) true
+                      (cond (every? answer-or-nil acts) true
                             (< (+ went-on twice-limit-ms) (System/currentTimeMillis)) false
                             :else (do (Thread/sleep 50) (recur))))
           waited (- (System/currentTimeMillis) went-on)]
-      (reset! throw-asked false)
       {:results (mapv (fn [x ack]
                         (let [answer (answer-or-nil x)]
                           {:thing x :ack ack :answer answer :mine? (digest/is-digest-of? (:digest answer) x)
                            :word (cond (nil? answer) :nothing-yet
                                        (= :accepted (:verdict answer)) :accepted
                                        :else (:reason answer))}))
-                      all (conj acks last-ack))
+                      acts acks)
        :answered? answered?
-       :waited waited
-       :notes (subvec @attempts notes-before)
-       :throws (subvec @throws-made throws-before)
-       :last-thing last-thing})))
+       :waited waited})))
 
-(defn- decide-with-a-failed-closing!
-  "The hand for a closing that runs a second time. Sends things to the
-  microbatch depot so that one batch of the gate takes them all, as
-  `decide-in-one-batch!` does, with a failed closing asked for. The batch
-  itself runs once. The next run of the gate, which closes it, appends the
-  batch's records and then fails, on the first task that calls
-  `marks-places-asked` behind the closing; Rama runs that run again. Gives
-  {:results :answered? :waited :throws}: the result of each thing in the
-  order sent; whether each thing that is no stray was answered within
-  `twice-limit-ms`; the milliseconds from the topology's going on to the
-  last answer; and the throws made since.
-
-  It reads the answers in a loop that takes a read that throws as nothing
-  yet. What must hold: the hand is on the proof's second cluster, where the
-  stand-ins run; and the batch before is closed, so that the first closing
-  that gives records is this batch's."
-  [xs]
-  (let [ipc (:ipc *hand*)
-        module-name (:module *hand*)
-        throws-before (count (:throws @closing-failure))]
-    (rtest/pause-microbatch-topology! ipc module-name "microbatch-gate")
-    (let [acks (mapv append-to-base! xs)
-          _ (swap! closing-failure assoc :asked true :noted false)
-          _ (rtest/resume-microbatch-topology! ipc module-name "microbatch-gate")
-          went-on (System/currentTimeMillis)
-          answer-or-nil (fn [x] (try (answer-of (:act-id x)) (catch Throwable _ nil)))
-          acts (remove #(declaration/stray-reason :microbatch %) xs)
-          answered? (loop []
-                      (cond (every? answer-or-nil acts) true
-                            (< (+ went-on twice-limit-ms) (System/currentTimeMillis)) false
-                            :else (do (Thread/sleep 50) (recur))))
-          waited (- (System/currentTimeMillis) went-on)]
-      (swap! closing-failure assoc :asked false)
-      {:results (mapv (fn [x ack]
-                        (let [answer (when-not (declaration/stray-reason :microbatch x) (answer-or-nil x))]
-                          {:thing x :ack ack :answer answer :mine? (digest/is-digest-of? (:digest answer) x)
-                           :word (cond (nil? answer) :nothing-yet
-                                       (= :accepted (:verdict answer)) :accepted
-                                       :else (:reason answer))}))
-                      xs acks)
-       :answered? answered?
-       :waited waited
-       :throws (subvec (:throws @closing-failure) throws-before)})))
+(defn- decide-behind-a-failure!
+  "Sends one thing to the microbatch depot, alone, behind a batch that
+  failed and ran again, and reads its answer by act-id in a loop until one
+  is there or `twice-limit-ms` has passed; a read that throws counts as no
+  read. Gives the result, as `decide!` does. The loop is there because the
+  proof does not rest, behind a failed attempt, on what Rama's test tool
+  counts as processed."
+  [x]
+  (let [ack (append-to-base! x)
+        began (System/currentTimeMillis)
+        _ (try (wait-until-processed!) (catch Throwable _ nil))
+        answer (loop []
+                 (or (try (answer-of (:act-id x)) (catch Throwable _ nil))
+                     (when (< (System/currentTimeMillis) (+ began twice-limit-ms))
+                       (Thread/sleep 20)
+                       (recur))))]
+    {:thing x :ack ack :answer answer :mine? (digest/is-digest-of? (:digest answer) x)
+     :word (cond (nil? answer) :nothing-yet
+                 (= :accepted (:verdict answer)) :accepted
+                 :else (:reason answer))}))
 
 (defn- calls-for
-  "The calls that the stand-ins noted for one act-id on the proof's second
-  cluster, of one kind, :run or :decision, in the order made."
+  "The calls that the stand-ins noted for one act-id of the streaming gate
+  on the proof's second cluster, of one kind, :run or :decision, in the
+  order made."
   [where act-id]
   (filterv #(and (= where (:where %)) (= act-id (:act-id %))) (:calls @event-failures)))
 
@@ -3600,329 +3837,103 @@
                        (recur))))]
     {:ack (deref sent 10000 :no-ack-in-time) :answer answer :waited (- (System/currentTimeMillis) began)}))
 
-(defn- rows-by-key
-  "Takes the rows that an attempt noted, each [which key row]. Gives a map
-  from [which key] to the rows noted under it, in the order noted, each with
-  its bytes by content. A key that was noted with no row, as the key of a
-  row of the facts by value that goes out is, holds a nil there: it is a
-  key all the same."
-  [rows]
-  (reduce (fn [by-key [which k row]] (update by-key [which k] (fnil conj []) (content row))) {} rows))
-
-(defn- fields-apart
-  "Takes two rows, each a map or nil. Gives the fields that the two do not
-  hold alike; [:row-or-no-row] when one of them is no row."
-  [a b]
-  (cond (= a b) []
-        (or (nil? a) (nil? b)) [:row-or-no-row]
-        :else (remove (fn [field] (= (get a field) (get b field))) (distinct (concat (keys a) (keys b))))))
-
-(defn- rows-side-by-side
-  "Sets the rows of two attempts side by side. Takes the notes of two
-  attempts. Gives one entry for each key, [which key], whose rows are not
-  the same in both: {:key :noted-in :differs}. :noted-in says whether the
-  key is in the first note only, in the second only, or in both; for a key
-  in both, :differs holds the fields in which its rows differ, a run of
-  bytes compared by its content, or :how-many-rows. Gives an empty vector
-  when both attempts made rows under the same keys, and at each key the same
-  rows in every field. A key that was noted with no row is a key all the
-  same, so a row that goes out in one attempt and is not noted in the other
-  is told."
-  [note-1 note-2]
-  (let [first-rows (rows-by-key (:rows note-1))
-        second-rows (rows-by-key (:rows note-2))]
-    (vec (keep (fn [k]
-                 (let [in-first (get first-rows k)
-                       in-second (get second-rows k)]
-                   (cond (nil? in-second) {:key k :noted-in :the-first-attempt-only}
-                         (nil? in-first) {:key k :noted-in :the-second-attempt-only}
-                         (= in-first in-second) nil
-                         (not= (count in-first) (count in-second)) {:key k :noted-in :both :differs #{:how-many-rows}}
-                         :else {:key k :noted-in :both :differs (set (mapcat fields-apart in-first in-second))})))
-               (sort-by pr-str (distinct (concat (keys first-rows) (keys second-rows))))))))
-
-(defn- as-the-tables-hold-it?
-  "Takes a kind and a key as an attempt noted them, and the last row that
-  the attempt noted under them, with its bytes by content. Selects the key
-  on every task, straight from the gate's tables, and gives true when the
-  tables hold that row and no other:
-
-    :fact       one task holds the row, or every task for a row under one
-                of the five store keys that sit on every task, each the same
-    :answer     one task holds the row
-    :by-value   one task holds the row; for a row that went out, no task
-                holds a row under the key
-
-  It gives false for a kind that is none of the three."
-  [which k noted]
-  (let [found (fn [pstate] (mapv content (vals (rows-by-task pstate k))))]
-    (case which
-      :fact (let [rows (found :mb-facts-ps)]
-              (and (= (count rows) (if (batch/on-every-task? (nth (record/place-of-key k) 2)) tasks 1))
-                   (every? #(= noted %) rows)))
-      :answer (= [noted] (found :mb-answers-ps))
-      :by-value (= (if noted [noted] []) (found :mb-by-value-ps))
-      false)))
-
-(deftest a-batch-runs-a-second-time
-  (let [;; What the batch stands on, each in a batch that runs once: the base,
-        ;; a marked key, a fact to replace, a value under the marked key, and
-        ;; a person's permission.
-        made (decide-in-base! (making :base :system :system))
+(deftest an-attempt-of-a-batch-fails-and-runs-again
+  (let [;; What the batch stands on, each decided once: a streaming layer,
+        ;; which the group behind this one acts in; the base, by a making
+        ;; act whose two facts are in the other order; and a marked key.
+        made-streaming (decide! (making :alice :system :alice))
+        made (decide-in-base! (update (making :base :system :system) :facts (comp vec reverse)))
         marking (decide-in-base! (system-act [{:e :base :k marks :v #{:on}}]))
-        since (gates-last-stamp)
-        [fact-before value-before give-alice]
-        (decide-in-one-batch! [(system-act [(value-fact :twice-doc :title "the text before")])
-                               (system-act [(value-fact :twice-pointer :on :canvas-1)])
-                               (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}])])
-        run-before (mapv first (base-entries-of :on since :canvas-1))
-        note-of-the-batch-before (peek @attempts)
-        ;; The batch that runs twice. Every act is into the base.
-        fact-id [(:act-id (:thing fact-before)) 0]
-        xs [(system-act [{:e :twice-1 :k :note}])
-            (system-act [(value-fact :twice-2 :text "a plain value")])
-            (system-act [{:e :twice-3 :k :note} (value-fact :twice-4 :text "a value on a second entity of one act")])
-            (thing :base :alice alice-in-base [(value-fact :twice-5 :text "a person's text")])
-            (system-act [(assoc (value-fact :twice-doc :title "the text after") :replaces fact-id)])
-            (system-act [{:e :twice-doc :k :title}])
-            (system-act [{:e :twice-holder :k :softland.store/permission :v [:twice-holder :base :base system-own]}])
-            (system-act [{:e :twice-seer :k :softland.store/permission :v [:twice-seer :base :base system-own :see]}])
-            (system-act [{:e :twice-8 :k :softland.store/lock-request :v 2}])
-            (thing :base :mallory [:mallory :base :base system-own] [{:e :twice-6 :k :note}])
-            (system-act [(value-fact :twice-7 :plain "a value under a key that no check before it wrote")])
-            (system-act [(value-fact :twice-pointer :on :canvas-2)])
-            (system-act [(value-fact :twice-pointer-2 :on :first-of-two)])
-            (system-act [(value-fact :twice-pointer-2 :on :second-of-two)])
-            (system-act [{:e :base :k marks :v #{:on :in}}])
-            (system-act [{:e :base :k who-may-see :v :members}])
-            (system-act [{:e :base :k builds-on :v [:team]}])]
-        make-edge (fn [] (system-act [{:e :twice-edge :k :note}]
-                                     {:based-on {fact-id (stamp/pack (+ (System/currentTimeMillis) edge-ahead-ms) 0)}}))
-        {:keys [results answered? waited notes throws last-thing]} (decide-twice! xs make-edge)
-        ;; Read at once, before another batch with things keeps its clock.
-        kept-row (kept-clock-row)
-        records (clock-records)
-        notes-then (count @attempts)
-        [note-1 note-2] notes
-        the-throw (first throws)
-        edge-carried (first (vals (:based-on last-thing)))
-        edge-reading (- (stamp/time-of edge-carried) edge-ahead-ms)
-        edge-word (when note-1
-                    (if (stamp/too-far-ahead? (:clock note-1) edge-carried) :carried-stamp-too-far-ahead :accepted))
-        at-the-edge? (boolean (and note-1 note-2
-                                   (stamp/too-far-ahead? (:clock note-1) edge-carried)
-                                   (not (stamp/too-far-ahead? (:wall note-2) edge-carried))))
-        side-by-side (if (= 2 (count notes)) (rows-side-by-side note-1 note-2) :the-notes-are-not-two)
-        first-rows (rows-by-key (:rows note-1))
-        noted (rows-by-key (:rows note-2))
-        kinds (frequencies (map first (keys noted)))
-        not-as-noted (vec (keep (fn [[[which k] rows]] (when-not (as-the-tables-hold-it? which k (peek rows)) [which k])) noted))
-        answers-apart (vec (keep (fn [{:keys [thing answer]}]
-                                   (let [[layer _ uuid] (:act-id thing)
-                                         row (peek (get noted [:answer (record/answer-key layer uuid)]))]
-                                     (when-not (and row answer
-                                                    (= [(if (:refused row) :refused :accepted) (:refused row) (:stamp row)]
-                                                       [(:verdict answer) (:reason answer) (:stamp answer)]))
-                                       (:act-id thing))))
-                                 results))
-        task-of-fact (fn [e k] (task-of-row :mb-facts-ps (record/place-key :base e k)))
-        fact-tasks (set (map (fn [[e k]] (task-of-fact e k))
-                             [[:twice-1 :note] [:twice-2 :text] [:twice-3 :note] [:twice-4 :text] [:twice-5 :text] [:twice-doc :title]]))
-        alices-row (base-fact :twice-5 :text)
-        marks-rows (base-marks-rows)
-        batch-end (gates-last-stamp)
-        seer-rows (rows-by-task :mb-facts-ps (record/place-key :base :twice-seer :softland.store/permission))
-        runs-after [(mapv first (base-entries-of :on since :canvas-1)) (base-run-of :on since :canvas-2)
-                    (base-run-of :on since :first-of-two) (base-run-of :on since :second-of-two)]
-        ;; The batch's entries in the gate's log of answers, read when each
-        ;; of its things had its answer from the door's read.
-        twice-log (answer-log)
-        twice-logged (logged-answers twice-log)
-        twice-ids (set (map (comp :act-id :thing) results))
-        twice-batches (set (map :batch (filter #(contains? twice-ids (:act-id (:entry %))) twice-logged)))
-        twice-records (filterv (fn [[_ r]] (contains? twice-batches (:batch r))) twice-log)
-        ;; The check must be able to fail: the first note against itself with
-        ;; one stamp moved, with one key left out, and with a removal left out.
-        a-fact (some (fn [[[which _ :as k] rows]] (when (and (= :fact which) (:stamp (peek rows))) k)) (sort-by pr-str first-rows))
-        a-removal (some (fn [[[which _ :as k] rows]] (when (and (= :by-value which) (nil? (peek rows))) k)) (sort-by pr-str first-rows))
-        with-rows (fn [f] (update note-1 :rows (fn [rows] (vec (keep f rows)))))
-        stamp-moved (with-rows (fn [[which k row]] [which k (if (and (= [which k] a-fact) row) (update row :stamp inc) row)]))
-        fact-left-out (with-rows (fn [[which k row]] (when-not (= [which k] a-fact) [which k row])))
-        removal-left-out (with-rows (fn [[which k row]] (when-not (= [which k] a-removal) [which k row])))
-        ;; Rulings 17 (a) and (b): the records of the depot of batch clocks.
-        of-the-batch (filterv (fn [[_ r]] (= (:batch kept-row) (:batch r))) records)
-        _ (Thread/sleep quiet-ms)
-        records-after-quiet (clock-records)
-        later (decide-in-base! (system-act [{:e :twice-later :k :note}]))
-        kept-later (kept-clock-row)
-        records-later (clock-records)]
-    (check "on a cluster of its own, with seven functions of the store's pure code replaced by ones that give what the store's give: the base is made, a key is marked, and a fact, a value under the marked key and a person's permission are written, each in a batch that runs once"
-           [:accepted :accepted :accepted :accepted :accepted [(base-entry-key :on since :canvas-1 :twice-pointer)]]
-           [(:word made) (:word marking) (:word fact-before) (:word value-before)
-            (:word give-alice) run-before])
-    (check "1. the notes hold two attempts of one batch: two notes since the send; one throw made between them, in a call of rows-to-send that gave rows; both attempts given the same last stamp and the same numbers; and the batch before was given another last stamp"
-           [2 1 true true true true true]
-           [(count notes) (count throws)
-            (boolean (and the-throw (pos? (:rows the-throw)) (= (dec notes-then) (:attempts the-throw))))
-            (boolean (and note-1 note-2 (some? (:last-stamp note-1)) (= (:last-stamp note-1) (:last-stamp note-2))))
-            (boolean (and note-1 note-2 (= (:numbers note-1) (:numbers note-2))))
-            (boolean (and note-1 note-of-the-batch-before (not= (:last-stamp note-of-the-batch-before) (:last-stamp note-1))))
-            answered?])
-    (check "2. both attempts were given one clock: the clock of the row that the module keeps for the batch, and of the batch's one record on the depot of batch clocks"
-           [true true [(:clock note-1)]]
-           [(boolean (and note-1 note-2 (some? (:clock note-1)) (= (:clock note-1) (:clock note-2))))
-            (= (:clock note-1) (:clock kept-row))
-            (mapv (fn [[_ r]] (:clock r)) of-the-batch)])
-    (check "3. the second attempt began later than the batch's clock, so the one clock is not two readings of one millisecond; and each attempt made the same base from it"
-           [true true]
-           [(boolean (and note-1 note-2 (< (:clock note-1) (:wall note-2))))
-            (boolean (and note-1 note-2 (some? (:base note-1)) (= (:base note-1) (:base note-2))))])
-    (check "4. the rows of the two attempts side by side: both made rows under the same keys, and at each key the same row in every field, the stamp too; and the two notes are not empty: each holds as many keys as the other, an answer's key for each of the 18 things among them"
-           [[] true 18 18]
-           [side-by-side (= (count first-rows) (count noted))
-            (count (filter (fn [[which _]] (= :answer which)) (keys first-rows))) (get kinds :answer)])
-    (check "the batch held what it was sent to hold: rows of three kinds were noted, of a fact, of an answer and of the facts by value, and of no other kind; a row of the facts by value that goes out is among them; and each thing got the word that it must get, the edge act the word that the 10-second rule gives it against the kept clock"
-           [#{:fact :answer :by-value} true true
-            [:accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :store-key-not-known
-             :permission-does-not-stand :accepted :accepted :accepted :accepted :accepted :accepted :accepted edge-word]
-            true]
-           [(set (keys kinds))
-            (boolean (some (fn [[[which _] rows]] (and (= :by-value which) (nil? (peek rows)))) noted))
-            (boolean (some (fn [[[which _] rows]] (and (= :by-value which) (some? (peek rows)))) noted))
-            (mapv :word results)
-            (every? :mine? results)])
-    (check "5. each row that the tables hold after the batch, selected on every task, is the row that both attempts made: each fact on the task of its entity, each row of a give, of the marks, of the setting and of the list on every task, each answer, each row of the facts by value, and no row under a key that went out"
-           [] not-as-noted)
-    (check "6. each answer as answer-by-act-id gives it has the verdict, the word and the stamp of the row that both attempts made"
-           [] answers-apart)
-    (check "7. once the batch is closed, each of its 18 answers has one entry in the microbatch gate's log of answers, and it is the entry of the answer that both attempts made: the attempt that failed left none"
-           [(vec (repeat 18 1)) []]
-           [(mapv (fn [r] (count (entries-under twice-logged (:act-id (:thing r))))) results)
-            (entries-apart twice-logged (map (fn [r] [(:act-id (:thing r)) (:answer r)]) results))])
-    (check "8. the batch's records hold one batch's id, the id of the row of the kept clock; and one of them holds what the batch keeps of itself: the one clock that both attempts were given, and the gate's last stamp behind the batch"
-           [#{(:batch kept-row)} [{:clock (:clock note-1) :last-stamp batch-end}]]
-           [twice-batches (vec (keep (fn [[_ r]] (when (contains? r :clock) (select-keys r [:clock :last-stamp]))) twice-records))])
-    (check "each value of the batch is in its row as the text of what was sent, a value in an act of two entities and a value under a key that takes any value among them"
-           ["\"a plain value\"" "\"a value on a second entity of one act\"" "\"a person's text\""
-            "\"a value under a key that no check before it wrote\"" ":canvas-2" ":second-of-two"]
-           (mapv (fn [[e k]] (:value (base-fact e k)))
-                 [[:twice-2 :text] [:twice-4 :text] [:twice-5 :text] [:twice-7 :plain] [:twice-pointer :on] [:twice-pointer-2 :on]]))
-    (check "the rows that the build of what the gates keep added are among them: a person's fact holds who wrote it and her permission; the row of the marked keys, on every task, keeps the stamp of the key from before and gives the new key the last stamp of this batch; the give with the slot holds it; and in the facts by value the value before went out, the new one came in, and of two acts on one place the later turn's value alone has a row"
-           [[:alice alice-in-base] tasks #{{:on since :in batch-end}} #{[:value [:twice-seer :base :base system-own :see]]}
-            [[] [:twice-pointer] [] [:twice-pointer-2]]]
-           [[(record/who-of alices-row) (record/permission-of alices-row)]
-            (count marks-rows) (set (map record/marked-keys-of (vals marks-rows)))
-            (set (map record/read-value (vals seer-rows)))
-            runs-after])
-    (check "the facts of the batch are on more than one task" true (< 1 (count fact-tasks)))
-    (check "the check can fail: the first attempt's note beside itself with one stamp moved gives that key and the stamp; with one fact left out, that key as noted in one attempt only; and with a row that goes out left out, that key too, so a key noted with no row is told from a key that was not noted"
-           [[{:key a-fact :noted-in :both :differs #{:stamp}}]
-            [{:key a-fact :noted-in :the-first-attempt-only}]
-            [{:key a-removal :noted-in :the-first-attempt-only}]
-            true]
-           [(rows-side-by-side note-1 stamp-moved)
-            (rows-side-by-side note-1 fact-left-out)
-            (rows-side-by-side note-1 removal-left-out)
-            (boolean (and a-fact a-removal))])
-    (check "ruling 17 (a): the depot of batch clocks holds as many records as batches with things since the launch, which is the attempts noted less one, because the second attempt found its clock kept and appended nothing; a quiet time adds none; and a later batch adds one, under a later id"
-           [(dec notes-then) (dec notes-then) notes-then true :accepted]
-           [(count records) (count records-after-quiet) (count records-later)
-            (boolean (and kept-row kept-later (< (:batch kept-row) (:batch kept-later))))
-            (:word later)])
-    (check "ruling 17 (b): each record of that depot, read back, is a map of exactly a batch's id and a clock, two integers; all are on one partition"
-           [true 1]
-           [(every? (fn [[_ r]] (clock-record? r)) records-later) (count (set (map first records-later)))])
-    (shown "a batch of the store's own microbatch gate, of" (count results) "things, was sent with a throw asked for: attempts noted" (count notes)
-           "| throws made" (count throws) ", in a call of rows-to-send that gave" (:rows the-throw) "rows, on the thread" (pr-str (:thread the-throw))
-           "| the last stamps that the attempts were given:" (pr-str (mapv :last-stamp notes)) "and the numbers" (pr-str (mapv :numbers notes))
-           "| all things answered:" answered? "," waited "ms after the topology went on")
-    (shown "the clocks that the attempts were given:" (pr-str (mapv :clock notes))
-           (if (and note-1 note-2 (= (:clock note-1) (:clock note-2))) "| one clock for both" "| NOT one clock")
-           "| the kept row" (pr-str kept-row) "| the clocks of the batch's records on the depot" (pr-str (mapv (fn [[_ r]] (:clock r)) of-the-batch))
-           "| the first attempt called base" (when note-1 (- (:wall note-1) (:clock note-1)))
-           "ms after the clock that it was given: the append, the ack and the read back | the second attempt began"
-           (when (and note-1 note-2) (- (:wall note-2) (:clock note-1)))
-           "ms after the first attempt's clock: a clock read anew would have given each stamp another time")
-    (shown "the two attempts side by side:" (count noted) "keys in the second attempt's note, of the kinds" (pr-str (into (sorted-map) kinds))
-           "| keys whose rows are not the same in both attempts:" (if (vector? side-by-side) (count side-by-side) (pr-str side-by-side))
-           (if (and (vector? side-by-side) (seq side-by-side)) (str "| the first of them: " (pr-str (vec (take 3 side-by-side)))) "")
-           "| rows that the tables do not hold as the second attempt noted them:" (count not-as-noted)
-           "| answers that answer-by-act-id gives otherwise:" (count answers-apart))
-    (shown "the batch in the microbatch gate's log of answers, once closed: entries under each of its" (count results) "act-ids"
-           (pr-str (frequencies (map (fn [r] (count (entries-under twice-logged (:act-id (:thing r))))) results)))
-           "| its records:" (count twice-records) "of batch" (pr-str twice-batches)
-           "| what it keeps of itself:" (pr-str (vec (keep (fn [[_ r]] (when (contains? r :clock) (select-keys r [:clock :last-stamp]))) twice-records))))
-    (shown "the act at the edge of the 10 seconds: its carried stamp is" edge-ahead-ms "ms after the hand's reading; the first attempt was given a clock"
-           (when note-1 (- (:clock note-1) edge-reading)) "ms after that reading and the second attempt began" (when note-2 (- (:wall note-2) edge-reading))
-           "ms after it | the word that the 10-second rule gives it against the first attempt's clock:" edge-word
-           "| the word that it got:" (:word (peek results))
-           (if at-the-edge?
-             "| it was at the edge: an attempt that read the clock anew at the second attempt's start would have accepted it"
-             "| it was not at the edge in this run, so it shows nothing about the verdict"))
-    (shown "the depot of batch clocks on that cluster:" (count records) "records for" notes-then "attempts of" (dec notes-then)
-           "batches with things | after" quiet-ms "ms with nothing sent:" (count records-after-quiet) "| after one more batch:" (count records-later)
-           "| the kept row then:" (pr-str kept-later))))
-
-(deftest a-closing-runs-a-second-time
-  (let [made-streaming (decide! (making :alice :system :alice))
-        stray {:act-id [:base :microbatch] :layer :base :marker (UUID/randomUUID)}
-        stray-digest (digest/hex-of stray)
-        xs [(system-act [(value-fact :closing-1 :text "kept twice")])
-            (system-act [{:e :closing-2 :k :note}])
-            (thing :base :mallory [:mallory :base :base system-own] [{:e :closing-3 :k :note}])
-            (thing :alice :alice alice-own [{:e :closing-4 :k :note}] {:act-id [:alice :microbatch (UUID/randomUUID)] :depot :microbatch})
-            stray]
-        {:keys [results answered? waited throws]} (decide-with-a-failed-closing! xs)
-        acts (pop results)
-        ids (set (map (comp :act-id :thing) acts))
-        strays-of (fn [records] (into [] (comp (map :entry) (filter #(= stray-digest (:digest %)))) (logged-strays records)))
-        log (await-log (fn [records]
-                         (let [logged (logged-answers records)]
-                           (and (every? #(<= 2 (count (entries-under logged %))) ids) (<= 2 (count (strays-of records))))))
-                       twice-limit-ms)
-        logged (logged-answers log)
-        of-the-batch (filterv #(contains? ids (:act-id (:entry %))) logged)
-        batch-ids (set (map :batch of-the-batch))
-        batch-records (mapv (comp content second) (filter (fn [[_ r]] (contains? batch-ids (:batch r))) log))
-        half (quot (count batch-records) 2)
-        clock-then (kept-clock-row)
-        last-stamp-then (gates-last-stamp)
-        ;; The log holds the second run's records before that run commits,
-        ;; and each task commits its part alone. So the hand reads the two
-        ;; fields until both are as a committed closing leaves them, for the
-        ;; hand's time limit at most; the check holds what it read last.
-        nothing-left [(vec (repeat tasks 0)) (vec (repeat tasks nil))]
-        [to-keep-after to-close-after]
-        (let [deadline (+ (System/currentTimeMillis) time-limit-ms)]
-          (loop []
-            (let [seen (try [(to-keep-by-task) (to-close-by-task)] (catch Throwable _ nil))]
-              (if (or (= nothing-left seen) (< deadline (System/currentTimeMillis)))
-                seen
-                (do (Thread/sleep 20) (recur))))))]
-    (check "on the second cluster a streaming layer is made, and one batch of the base is sent with a failed closing asked for: two acts that are accepted, one of a maker who may not act, one into the streaming layer, and a stray; each act got its word, with the digest of what was sent"
-           [:accepted [:accepted :accepted :permission-does-not-stand :layer-belongs-to-the-other-gate] [true true true true] true]
-           [(:word made-streaming) (mapv :word acts) (mapv :mine? acts) answered?])
-    (check "the run that closes the batch failed once, behind its appends: one throw was made, in a call of marks-places-asked"
-           1 (count throws))
-    (check "each entry of that batch is in the microbatch gate's log of answers twice, the same: each of the four answers has two entries, both the entry of its answer, the refused ones with the word of their row; and the stray has two, with its word, its digest and the task whose set holds it"
-           [{2 4} []
-            (vec (repeat 2 {:stray :act-id-malformed :digest stray-digest :task (task-of-stray :mb-task-ps :act-id-malformed stray-digest)}))]
-           [(frequencies (map count (vals (group-by (comp :act-id :entry) of-the-batch))))
-            (entries-apart logged (map (fn [r] [(:act-id (:thing r)) (:answer r)]) acts))
-            (strays-of log)])
-    (check "the records of the batch are there twice, the second run's the same as the first's in every part: they hold one batch's id, the id of the kept clock's row, and each run's first record holds the batch's clock and its last stamp, the kept clock and the gate's last stamp"
-           [#{(:batch clock-then)} true true [{:clock (:clock clock-then) :last-stamp last-stamp-then} {:clock (:clock clock-then) :last-stamp last-stamp-then}]]
-           [batch-ids (pos? half) (= (subvec batch-records 0 half) (subvec batch-records half))
-            (vec (keep (fn [r] (when (contains? r :clock) (select-keys r [:clock :last-stamp]))) batch-records))])
-    (check "when the second run of the closing has committed, nothing is left to keep: `:to-keep` holds no key on any task, and `:to-close` is absent on every task"
-           nothing-left [to-keep-after to-close-after])
-    (shown "a run of the microbatch gate that closes a batch failed behind its appends and ran again: throws made" (count throws)
-           "on the thread" (pr-str (:thread (first throws))) "| all acts answered:" answered? "," waited "ms after the topology went on"
-           "| words:" (pr-str (mapv :word acts)))
-    (shown "each entry of that batch is in the log twice: entries by act-id" (pr-str (frequencies (map count (vals (group-by (comp :act-id :entry) of-the-batch)))))
-           "| the stray's entries:" (pr-str (strays-of log)) "| records of the batch:" (count batch-records)
-           "| each run's first record keeps:" (pr-str (vec (keep (fn [r] (when (contains? r :clock) (select-keys r [:clock :last-stamp]))) batch-records)))
-           "| after it, keys of :to-keep by task" (pr-str to-keep-after) "and :to-close by task" (pr-str to-close-after))))
+        since (:stamp (:answer marking))
+        ;; The batch: 40 acts of the system, a chain on 5 places under the
+        ;; marked key, so that each accept writes a fact and an entry of the
+        ;; order by value, and from the sixth on takes an entry out. Each
+        ;; carries a time of its own, one millisecond after the one before,
+        ;; all later than the time in the base's last stamp.
+        n 40
+        throw-index 20
+        places 5
+        t0 (inc (time-of-last-in-base))
+        place-of (fn [i] (keyword (str "failed-place-" (mod i places))))
+        value-of (fn [i] (keyword (str "target-" (mod i 7))))
+        acts (reduce (fn [acts i]
+                       (conj acts (system-act [(cond-> (value-fact (place-of i) :on (value-of i))
+                                                 (<= places i) (assoc :replaces [(:act-id (nth acts (- i places))) 0]))]
+                                              {declaration/time-part (+ t0 i)})))
+                     []
+                     (range n))
+        ids (mapv :act-id acts)
+        uuids (mapv #(nth % 2) ids)
+        {:keys [results answered? waited]} (decide-with-a-failed-attempt! acts throw-index)
+        noted @attempt-failure
+        _ (wait-until-processed!)
+        calls-of (fn [act-id] (filterv #(= act-id (:act-id %)) (:calls noted)))
+        calls-by-act (mapv calls-of ids)
+        attempts-apart (vec (keep (fn [[act-id calls]]
+                                    (when-not (and (= 2 (count calls))
+                                                   (= (select-keys (first calls) [:refused :stamp :rows])
+                                                      (select-keys (second calls) [:refused :stamp :rows])))
+                                      (short-id act-id)))
+                                  (map vector (subvec ids 0 (inc throw-index)) calls-by-act)))
+        expected-left (mapv left-key (subvec uuids 0 throw-index))
+        left-rows (mapv (fn [k] (rows-by-task :mb-facts-ps k)) expected-left)
+        records (vec (stored-in-base))
+        facts-with-the-left-entity (mapv (fn [rows] (count (filter #(str/includes? % (str left-entity)) (keys rows))))
+                                         (table-on-each-task :mb-facts-ps))
+        last-of-each-place (take-last places (range n))
+        expected-entries (into {} (map (fn [i] [(base-entry-key :on since (value-of i) (place-of i)) [(nth uuids i) 0]])) last-of-each-place)
+        entries (base-entries-under :on since)
+        decided (decided-on-the-microbatch-depot records)
+        later (decide-behind-a-failure! (system-act [{:e :after-the-retry :k :note}] {declaration/time-part (+ t0 n)}))
+        ;; The check of the rows that were handed to the failed attempt must
+        ;; be able to fail. One more act is decided with the function armed
+        ;; and no throw: it is handed such a row in an attempt that commits.
+        handed-once (system-act [(value-fact :handed-once :note "handed one row more, in an attempt that commits")]
+                                {declaration/time-part (+ t0 n 1)})
+        _ (reset! attempt-failure {:armed? true :run #{(:act-id handed-once)} :throw-at nil :calls [] :left [] :throws []})
+        handed-result (decide-behind-a-failure! handed-once)
+        handed-rows (rows-by-task :mb-facts-ps (left-key (nth (:act-id handed-once) 2)))]
+    (swap! attempt-failure assoc :armed? false :run #{})
+    (check "on the second cluster, with the proof's two functions in the vars of the store's `writes` and `stray-reason`: a streaming layer is made; the base is made by a making act whose two facts are in the other order; and a key of the base is marked"
+           [:accepted :accepted :accepted] [(:word made-streaming) (:word made) (:word marking)])
+    (check "the proof's function threw once, at the 21st act of a batch of 40 that was appended while the gate was paused; before the throw it had handed the walk one extra row for each of the 20 acts before it, at a key that no act writes"
+           [1 expected-left false]
+           [(count (:throws noted)) (:left noted) (:armed? noted)])
+    (check "the failed attempt walked the acts in the depot's order up to the throw and no further: `writes` was called twice for each of the first 21 acts, once in each attempt, and once for each of the 19 behind the throw; each call before the throw was armed, and no call behind it"
+           [(vec (concat (repeat (inc throw-index) 2) (repeat (- n throw-index 1) 1)))
+            (vec (concat (repeat (inc throw-index) [true false]) (repeat (- n throw-index 1) [false])))]
+           [(mapv count calls-by-act) (mapv #(mapv :armed? %) calls-by-act)])
+    (check "the second attempt made each row as the first made it: for each of the 21 acts that both attempts decided, both calls were given the same stamp and no word of a refusal, and the store's own function gave the same writes, row for row"
+           [] attempts-apart)
+    (check "after the retry all 40 are accepted, each with the digest of what was sent, and each stamp is the number that the rule gives: the time on its act with a counter of 0"
+           [true {:accepted n} true (mapv #(stamp-at (+ t0 %) 0) (range n))]
+           [answered? (frequencies (map :word results)) (every? :mine? results) (mapv (comp :stamp :answer) results)])
+    (check "no task holds one of the rows that only the failed attempt was handed: a select of each of the 20 keys gives nothing on every task, and no key of the facts on any task names their entity"
+           [(vec (repeat throw-index {})) (vec (repeat tasks 0))]
+           [left-rows facts-with-the-left-entity])
+    (check-the-copies "the copies, after the failed attempt and its retry" records)
+    (check "the order by value holds, on every task, the last entry of each of the 5 places and no entry of an earlier act of the batch"
+           (vec (repeat tasks expected-entries)) entries)
+    (check "each of the 5 places holds, on every task, the fact of the last act that wrote it"
+           (mapv (fn [i] (on-every-task (nth uuids i) 0 (stamp-at (+ t0 i) 0) (str (value-of i)))) last-of-each-place)
+           (mapv (fn [i] (facts-on-every-task (place-of i) :on)) last-of-each-place))
+    (check "each thing that the microbatch gate decided on this cluster has the stamp that the rule gives, by the proof's own arithmetic; and the base's last stamp is the stamp of the last act of the batch"
+           [[] (stamp-at (+ t0 (dec n)) 0)]
+           [(stamps-apart-from-the-rule decided) (:stamp (peek (filterv #(= :base (:layer %)) decided)))])
+    (check "the gate goes on behind the retry: the next act of the base, with the next millisecond on it, is accepted with that time and a counter of 0"
+           [:accepted (stamp-at (+ t0 n) 0)] [(:word later) (:stamp (:answer later))])
+    (check "the check of those rows can fail: one more act, decided with the proof's function armed and no throw, is accepted, and the row that it was handed at such a key is on every task, written by that act. A row that the walk is handed this way is written and copied, so the 20 rows went with the attempt that failed"
+           [:accepted tasks #{(nth (:act-id handed-once) 2)}]
+           [(:word handed-result) (count handed-rows) (set (map :by-act (vals handed-rows)))])
+    (shown "an attempt of a batch of the store's own microbatch gate failed and ran again: of" n "acts appended while the gate was paused, the proof's function in the var of `writes` threw at the"
+           (inc throw-index) "st, on the thread" (pr-str (:thread (first (:throws noted)))) "| rows handed to the failed attempt only:" (count (:left noted))
+           "| calls of writes for each act:" (pr-str (frequencies (map count calls-by-act)))
+           "| all acts answered:" answered? "," waited "ms after the topology went on")
+    (shown "a row handed to an attempt that commits, with no throw: on" (count handed-rows) "tasks | the act:" (told handed-result))
+    (shown "the two attempts: acts whose two decisions were not the same in stamp, word and rows:" (count attempts-apart)
+           "| after the retry:" (pr-str (frequencies (map :word results))) "| stamps from" (first (map (comp :stamp :answer) results))
+           "to" (peek (mapv (comp :stamp :answer) results)) "| rows of the failed attempt left on each task:" (pr-str facts-with-the-left-entity)
+           "| entries of the order by value on each task:" (pr-str (mapv count entries)))))
 
 (deftest an-event-fails-and-runs-again
   (let [place (fn [i] (keyword (str "replayed-" i)))
@@ -4013,14 +4024,17 @@
   (what-points-at-a-thing)
   (the-base-is-made)
   (an-act-lands-in-the-base)
-  (an-answer-is-readable-when-its-batch-is-closed)
+  (an-answer-is-readable-when-its-batch-is-committed)
   (refusals-and-repeats-in-the-base)
-  (one-batch-one-order)
+  (one-line-one-order)
+  (a-chain-in-one-batch)
   (a-person-acts-in-the-base)
   (a-permission-deeper-than-four-in-the-base)
   (the-bounds-in-the-base)
   (a-long-batch)
-  (an-act-on-several-tasks)
+  (the-copies-of-the-base)
+  (the-time-on-the-act-in-the-base)
+  (an-act-of-several-facts-in-the-base)
   (each-gate-tells-the-other-gates-layers)
   (what-a-fact-keeps-in-the-base)
   (the-keys-that-take-a-second-write-in-the-base)
@@ -4038,13 +4052,12 @@
   "Runs the checks in the order in which the proof tells them. Later checks
   build on what earlier ones made. On the proof's first cluster: the checks
   of the streaming gate come first; the base is made after them. On the
-  second cluster: the groups that make a gate fail, the microbatch gate's
-  two first and then the streaming gate's one. The hand says which cluster
+  second cluster: the two groups that make a gate fail, the microbatch
+  gate's first and then the streaming gate's. The hand says which cluster
   it is."
   []
-  (if (= :a-batch-runs-twice (:checks *hand*))
-    (do (a-batch-runs-a-second-time)
-        (a-closing-runs-a-second-time)
+  (if (= :a-gate-fails (:checks *hand*))
+    (do (an-attempt-of-a-batch-fails-and-runs-again)
         (an-event-fails-and-runs-again))
     (the-checks-on-the-store-as-defined)))
 
@@ -4052,8 +4065,7 @@
   "Creates an in-process cluster, launches the module `Store` in it with
   four tasks, two threads and two workers, runs the checks that `checks`
   names with the hand on that cluster, and closes the cluster. Gives what
-  `run-tests` gives. The launch takes the functions that the vars of the
-  store's code hold at that moment."
+  `run-tests` gives."
   [checks]
   (with-open [ipc (rtest/create-ipc)]
     (rtest/launch-module! ipc module/Store {:tasks tasks :threads 2 :workers 2})
@@ -4064,20 +4076,20 @@
   "Runs the proof on two clusters, one after the other, and exits: status 0
   when each check of both runs holds. It takes no argument.
 
-  The first cluster runs every check but the groups that make a gate fail,
-  on the functions as the store defines them. When it is closed, `-main`
-  empties the hand's atoms, all but the shown lines; puts the seven
+  The first cluster runs every check but the two groups that make a gate
+  fail, on the functions as the store defines them. When it is closed,
+  `-main` empties the hand's atoms, all but the shown lines; puts the two
   stand-ins into the vars of the store's functions; starts the second
-  cluster, which runs the groups that make a gate fail; and puts the store's
-  functions back when that cluster is closed, in a `finally`. The count line
-  is one: the counts of the two runs, added."
+  cluster, which runs the two groups that make a gate fail; and puts the
+  store's functions back when that cluster is closed, in a `finally`. The
+  count line is one: the counts of the two runs, added."
   [& _]
   (let [counts #(select-keys % [:test :pass :fail :error])
         first-run (run-on-a-cluster :the-store-as-defined)
         _ (empty-the-hand!)
         second-run (try
                      (put-noting-functions!)
-                     (run-on-a-cluster :a-batch-runs-twice)
+                     (run-on-a-cluster :a-gate-fails)
                      (finally (put-the-stores-functions-back!)))
         result (merge-with + (counts first-run) (counts second-run))
         {:keys [fail error]} result]

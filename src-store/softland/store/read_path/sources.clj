@@ -15,24 +15,35 @@
                  makes two sources equal: every key of the source begins
                  with that layer's text
     :routing-id  what Rama's client is given as its partitioning key: the
-                 layer in a streaming layer; in a microbatch layer the
-                 entity of a fact, the digest of a value, or the routing id
-                 of one task. It is called a routing id, as in
+                 layer in a streaming layer; in a microbatch layer the home
+                 of the read. It is called a routing id, as in
                  `softland.store.record.rows/routing-id`, so that \"key\"
                  stays a fact's key
     :path        `[:row key]`, one row; `[:own-rows from to]`, the layer's
                  own rows; or `[:run from to]`, a run of places, `to` not
                  in it
-    :every-task  true where every task of a microbatch layer holds the rows
-                 (the layer's own rows and a permission), so that a read
-                 asked once may send the source with another call of the
-                 same layer
+
+  Where a layer is read. A streaming layer has every row on its own task,
+  so each source of it has the layer as its routing id. A microbatch layer
+  has every row of its facts, and of its facts by value, on every task, the
+  same rows everywhere; so a read of it needs one task, any one. It is read
+  on the task of the read's home, the layer that the read starts from
+  (`softland.store.read-path.layers/home`): each source of a microbatch
+  layer has the home as its routing id, whatever it reads: the layer's own
+  rows, a permission, a place, a check, a run of one entity or across
+  entities, or a run of the facts by value. So an asker reads the base where
+  her own layer lives, and a read that starts from a microbatch layer reads
+  it on that layer's own task. Every source is one source: no run has a
+  part on each task.
 
   Two askers look at the same thing when their sources are equal maps; that
-  map is the key by which a push is shared. Which parts of a row an asker
-  asked for, and whether she asked for the store's own facts, are no part
-  of a source. A check of a nearer layer at a place and a read of that
-  place are one source.
+  map is the key by which a push is shared. In a streaming layer those are
+  all the askers of one row or run. In a microbatch layer they are the
+  askers of that row or run whose reads have the same home: two reads with
+  two homes read the same rows on the tasks of their homes, and each holds
+  a push of its own. Which parts of a row an asker asked for, and whether
+  she asked for the store's own facts, are no part of a source. A check of
+  a nearer layer at a place and a read of that place are one source.
 
   `known` is a map from a source to the value that a select gave or that a
   push holds now: a row or nil for a source of one row, a map from key to
@@ -41,13 +52,10 @@
 
   Inputs and results, by call:
 
-    own-rows-source, permission-source, place-source, run-sources,
-    by-value-source, check-source      -> a source, or sources
+    own-rows-source, permission-source, place-source, run-source,
+    by-value-source, check-source      -> a source
     of-word                             a map from each word of a query to
                                         what it reads in one layer
-    needs-task-routing-ids?             a query -> whether it can have a
-                                        part on each task of a microbatch
-                                        layer
     first-read-holds?                   whether the first read of a run can
                                         be made
     before-standing?                    whether a source is read before the
@@ -95,130 +103,109 @@
   [layer]
   (first-act/depot-at-making layer))
 
+(defn- source-of
+  "Takes the home of a read, a layer, the name of a table and a path. Gives
+  the source of that path in that table of the layer. The one place where a
+  source gets its routing id: the layer in a streaming layer, whose rows are
+  on the layer's own task; the home in a microbatch layer, whose rows every
+  task holds, so that they are read on the home's task. What must hold: the
+  home is the home of the read that the source is for
+  (`softland.store.read-path.layers/home`)."
+  [home layer table path]
+  (let [gate (gate-of layer)]
+    {:gate gate :table table :layer layer
+     :routing-id (if (= :microbatch gate) home layer)
+     :path path}))
+
 (defn own-rows-source
-  "Takes a layer. Gives the source of the layer's own rows: its depot, who
-  may see it, what it builds on and its marked keys, as one run of the
-  facts table. In a microbatch layer every task holds the rows, and the
-  routing id is the layer, so that every asker of every read through the
-  layer shares one push."
-  [layer]
-  (let [gate (gate-of layer)
-        [from to] (rows/own-rows-run layer)]
-    (cond-> {:gate gate :table :facts :layer layer :routing-id layer :path [:own-rows from to]}
-      (= :microbatch gate) (assoc :every-task true))))
+  "Takes the home of a read and a layer. Gives the source of the layer's own
+  rows: its depot, who may see it, what it builds on and its marked keys, as
+  one run of the facts table. Every asker of every read through a streaming
+  layer shares one push on it; in a microbatch layer, the askers of one
+  home do."
+  [home layer]
+  (let [[from to] (rows/own-rows-run layer)]
+    (source-of home layer :facts [:own-rows from to])))
 
 (defn permission-source
-  "Takes a layer and an asker's id. Gives the source of her permission row
-  in the layer: one row, on its holder. In a microbatch layer every task
-  holds it, and the routing id is the layer."
-  [layer asker]
-  (let [gate (gate-of layer)]
-    (cond-> {:gate gate :table :facts :layer layer :routing-id layer
-             :path [:row (rows/place-key layer asker :softland.store/permission)]}
-      (= :microbatch gate) (assoc :every-task true))))
+  "Takes the home of a read, a layer and an asker's id. Gives the source of
+  her permission row in the layer: one row, on its holder."
+  [home layer asker]
+  (source-of home layer :facts [:row (rows/place-key layer asker :softland.store/permission)]))
 
 (defn place-source
-  "Takes a layer, an entity and a key. Gives the source of that place in the
-  layer: one row. In a microbatch layer the routing id is the entity, whose
-  task holds the place."
-  [layer entity k]
-  (let [gate (gate-of layer)]
-    {:gate gate :table :facts :layer layer
-     :routing-id (if (= :microbatch gate) entity layer)
-     :path [:row (rows/place-key layer entity k)]}))
+  "Takes the home of a read, a layer, an entity and a key. Gives the source
+  of that place in the layer: one row."
+  [home layer entity k]
+  (source-of home layer :facts [:row (rows/place-key layer entity k)]))
 
 (defn check-source
-  "Takes a nearer layer, an entity and a key. Gives the source of the check
-  of that layer at that place: which row, if any, the layer holds there. It
-  is the source of the place itself, so a check and a read of the place
-  share one push."
-  [layer entity k]
-  (place-source layer entity k))
+  "Takes the home of a read, a nearer layer, an entity and a key. Gives the
+  source of the check of that layer at that place: which row, if any, the
+  layer holds there. It is the source of the place itself, so a check and a
+  read of the place share one push."
+  [home layer entity k]
+  (place-source home layer entity k))
 
-(defn run-sources
-  "Takes a layer; the two ends of a run of its facts, as texts; the one
-  entity that both ends name, or nil; and one routing id for each task of
-  the microbatch tables. Gives the sources of the run, as a vector. A
-  streaming layer holds the run on its own task: one source. A microbatch
-  layer holds the run of one entity on that entity's task: one source. Any
-  other run of a microbatch layer has one part on each task: one source for
-  each routing id, in their order. What must hold: for such a run the
-  routing ids are given; with none it gives no source."
-  [layer from to one-entity task-routing-ids]
-  (let [gate (gate-of layer)
-        source (fn [routing-id]
-                 {:gate gate :table :facts :layer layer :routing-id routing-id :path [:run from to]})]
-    (cond
-      (= :streaming gate) [(source layer)]
-      (some? one-entity)  [(source one-entity)]
-      :else               (mapv source task-routing-ids))))
+(defn run-source
+  "Takes the home of a read, a layer and the two ends of a run of its facts,
+  as texts. Gives the source of the run: one source, whether the two ends
+  name one entity or the run goes across entities, in a streaming layer and
+  in a microbatch layer alike. The task that serves it holds the whole
+  run."
+  [home layer from to]
+  (source-of home layer :facts [:run from to]))
 
 (defn by-value-source
-  "Takes a layer, a key that the layer marks, the stamp of the mark and a
-  thing. Gives the source of that thing's run in the layer's facts by
-  value: every place under the key whose current fact has that value and
-  was written since that stamp. In a microbatch layer the routing id is the
-  value's digest, whose task holds the whole run."
-  [layer k since thing]
-  (let [gate (gate-of layer)
-        [from to] (rows/by-value-run layer k since thing)]
-    {:gate gate :table :facts-by-value :layer layer
-     :routing-id (if (= :microbatch gate) (rows/value-digest-of thing) layer)
-     :path [:run from to]}))
-
-(defn- one-entity-of
-  "Takes the two ends of a run in their one form. Gives the entity that both
-  name, or nil when they name two, or one is `:first` or `:last`."
-  [first-end last-end]
-  (when (and (vector? first-end) (vector? last-end) (= (nth first-end 0) (nth last-end 0)))
-    (nth first-end 0)))
+  "Takes the home of a read, a layer, a key that the layer marks, the stamp
+  of the mark and a thing. Gives the source of that thing's run in the
+  layer's facts by value: every place under the key whose current fact has
+  that value and was written since that stamp. One source: the task that
+  serves it holds the whole run."
+  [home layer k since thing]
+  (let [[from to] (rows/by-value-run layer k since thing)]
+    (source-of home layer :facts-by-value [:run from to])))
 
 (def of-word
   "What each word of a query reads in one layer. A map from the word to a
-  function of the query in its one form, a layer, the layer's own rows (nil
-  when not known) and the routing ids of the tasks; it gives the fact
-  sources of that word in that layer, as a vector.
+  function of the query in its one form, a layer and the layer's own rows
+  (nil when not known); it gives the fact sources of that word in that
+  layer, as a vector. Each word of this build reads one source in a layer,
+  or none, and each source has the routing id that the query's home gives
+  it (`softland.store.read-path.layers/home`).
 
     :place      the place: one row
     :entity     the entity's run
-    :run        the run between the two ends
+    :run        the run between the two ends; none when the ends give no
+                run
     :points-at  the thing's run in the layer's facts by value, when the
                 layer's own rows are known and mark the key; else none
 
   Whether a source of it is wanted now is `reading`'s."
   {:place
-   (fn [query layer _own-rows _task-routing-ids]
+   (fn [query layer _own-rows]
      (let [[_ entity k] (:asks query)]
-       [(place-source layer entity k)]))
+       [(place-source (layers/home query) layer entity k)]))
 
    :entity
-   (fn [query layer _own-rows task-routing-ids]
+   (fn [query layer _own-rows]
      (let [[_ entity] (:asks query)
            [from to] (rows/entity-run layer entity)]
-       (run-sources layer from to entity task-routing-ids)))
+       [(run-source (layers/home query) layer from to)]))
 
    :run
-   (fn [query layer _own-rows task-routing-ids]
+   (fn [query layer _own-rows]
      (let [[_ first-end last-end] (:asks query)]
        (if-let [[from to] (rows/run-of-ends layer first-end last-end)]
-         (run-sources layer from to (one-entity-of first-end last-end) task-routing-ids)
+         [(run-source (layers/home query) layer from to)]
          [])))
 
    :points-at
-   (fn [query layer own-rows _task-routing-ids]
+   (fn [query layer own-rows]
      (let [[_ k thing] (:asks query)]
        (if-let [since (layers/marked-since own-rows layer k)]
-         [(by-value-source layer k since thing)]
+         [(by-value-source (layers/home query) layer k since thing)]
          [])))})
-
-(defn needs-task-routing-ids?
-  "Takes a query in its one form. Gives true when a layer of it could have a
-  part on each task: it asks a run whose two ends do not name one entity.
-  Only then does the read path ask Rama's client how many tasks the
-  microbatch tables have."
-  [query]
-  (let [[word first-end last-end] (:asks query)]
-    (boolean (and (= :run word) (nil? (one-entity-of first-end last-end))))))
 
 (defn outside-the-agreed-range?
   "Takes the text of a key, or of an end of a run. Gives true when it holds
@@ -392,7 +379,8 @@
   the one place where the other answer would be made: left out (an empty
   map), a read finds no nearer row and the runs are joined."
   [query layers standing by-layer known most]
-  (let [[word k] (:asks query)]
+  (let [[word k] (:asks query)
+        home (layers/home query)]
     (if (not= :points-at word)
       {}
       (loop [todo (filter #(= :yes (get standing %)) layers)
@@ -417,7 +405,7 @@
                      (reduce (fn [checks near]
                                (assoc checks near
                                       (into (get checks near {})
-                                            (map (fn [entity] [[entity k] (check-source near entity k)]))
+                                            (map (fn [entity] [[entity k] (check-source home near entity k)]))
                                             fresh)))
                              checks
                              (when (seq fresh) nearer))
@@ -427,11 +415,9 @@
 ;; -------------------------------------------------------- what a read wants
 
 (defn reading
-  "What a read wants now. Takes the query in its one form; `known`; one
-  routing id for each task of the microbatch tables (nil when the query
-  needs none, `needs-task-routing-ids?`); how the read is asked, `:once` or
-  `:live`; the numbers; and, for a live read, the set of the sources that
-  the read holds, given or not. Gives a map:
+  "What a read wants now. Takes the query in its one form; `known`; how the
+  read is asked, `:once` or `:live`; the numbers; and, for a live read, the
+  set of the sources that the read holds, given or not. Gives a map:
 
     :layers       the layers of the read, nearest first. While the list of
                   a start layer cannot be said yet, the start layer alone
@@ -476,17 +462,18 @@
 
   Limit. It reads no size of a run: a run that is too large is found where
   it is fetched (`softland.store.read-path`)."
-  ([query known task-routing-ids mode numbers]
-   (reading query known task-routing-ids mode numbers nil))
-  ([query known task-routing-ids mode numbers held]
+  ([query known mode numbers]
+   (reading query known mode numbers nil))
+  ([query known mode numbers held]
    (let [asker (:asker query)
+         home (layers/home query)
          signed-in? (some? asker)
          [word k thing] (:asks query)
          facts-of (get of-word word)
          rights (fn [layer]
-                  (let [own (own-rows-source layer)
+                  (let [own (own-rows-source home layer)
                         own-rows (get known own)
-                        permission (when signed-in? (permission-source layer asker))
+                        permission (when signed-in? (permission-source home layer asker))
                         permission-row (if (and permission (contains? known permission))
                                          (get known permission)
                                          :not-known-yet)
@@ -511,7 +498,7 @@
                                                          (before-standing? mode source)
                                                          (contains? held source))
                                         false))]
-                        (cond-> (assoc told :facts (filterv wanted? (facts-of query layer own-rows task-routing-ids)))
+                        (cond-> (assoc told :facts (filterv wanted? (facts-of query layer own-rows)))
                           (= :points-at word) (assoc :since (layers/marked-since own-rows layer k)))))
          by-layer (into {}
                         (map (fn [layer]
@@ -552,27 +539,13 @@
   "Takes the missing sources of a read asked once, and the numbers. Gives
   the calls to make, as a vector of {:gate :table :routing-id :sources}:
   the sources in groups of one table and one routing id, each group cut at
-  `:max-paths-in-one-call` sources. A source whose rows every task holds
-  goes to a group of its own layer and table when the round has one, so
-  that it rides that call; else it is a call of its own under the layer's
-  routing id. So a layer's rights and its fact are one round trip, and a
-  run across the tasks of a microbatch layer carries the rights in the
-  first of its calls."
+  `:max-paths-in-one-call` sources. So a layer's rights and its fact are
+  one round trip. Every source of a microbatch layer in one read has the
+  read's home as its routing id, so what one read reads of such layers is
+  one call for their facts and one for their facts by value."
   [missing numbers]
-  (let [most (:max-paths-in-one-call numbers)
-        group-of (juxt :gate :table :routing-id)
-        riders (filter :every-task missing)
-        others (remove :every-task missing)
-        groups (group-by group-of others)
-        home-of (fn [rider]
-                  (or (first (sort-by pr-str
-                                      (filter (fn [[gate table]] (and (= gate (:gate rider)) (= table (:table rider))))
-                                              (map group-of (filter #(= (:layer rider) (:layer %)) others)))))
-                      (group-of rider)))
-        groups (reduce (fn [groups rider] (update groups (home-of rider) (fnil conj []) rider))
-                       groups
-                       riders)]
-    (vec (for [[[gate table routing-id] sources] groups
+  (let [most (:max-paths-in-one-call numbers)]
+    (vec (for [[[gate table routing-id] sources] (group-by (juxt :gate :table :routing-id) missing)
                part (partition-all most sources)]
            {:gate gate :table table :routing-id routing-id :sources (vec part)}))))
 

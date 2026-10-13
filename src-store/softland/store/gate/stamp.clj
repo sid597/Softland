@@ -2,33 +2,31 @@
   "The stamp: one integer that holds a time and a counter. Pure code. It
   needs no cluster, and it reads no clock: a gate gives each number.
 
-  A gate gives one stamp to each decision, accepted or refused. In the
-  streaming gate a stamp is strictly increasing in its layer: it is later
-  than the last stamp that the gate gave in that layer. It is later than
-  each stamp that the act carries, and below 2^62. The order is the
-  layer's and not the task's: two decisions in two layers of one task can
-  have one stamp.
+  A gate gives one stamp to each decision, accepted or refused. In both
+  gates a stamp is strictly increasing in its layer: it is later than the
+  last stamp that the gate gave in that layer. It is later than each stamp
+  that the act carries, and below 2^62. The order is the layer's and not
+  the task's: two decisions in two layers of one task can have one stamp.
 
-  Where the time comes from. The streaming gate reads no clock. It gives
-  the time on the act, which the door wrote from the clock of the server
-  that runs the door (`softland.store.door/send-act`), and the last stamp
-  of the act's layer. For a thing with no usable time it gives nil, and the
-  stamp is the layer's last stamp plus one. Sid's decisions of 13 October
-  2026 say this: \"The door writes the time on the act. No gate reads a
-  clock\", and \"A number counted per layer\". The microbatch gate is not
-  built so: it gives the clock of its batch, which it reads once for a
-  batch and keeps, and the one last stamp of the whole gate
-  (`softland.store.gate.batch`).
+  Where the time comes from. No gate reads a clock. A gate gives the time
+  on the act, which the door wrote from the clock of the server that runs
+  the door (`softland.store.door/send-act`), and the last stamp of the
+  act's layer. For a thing with no usable time it gives nil, and the stamp
+  is the layer's last stamp plus one. Sid's decisions of 13 October 2026
+  say this: \"The door writes the time on the act. No gate reads a
+  clock\", and \"A number counted per layer\". Nothing of a batch is in a
+  stamp, so a gate that decides the same things in the same order gives
+  the same stamps however its batches are cut.
 
   The packing. stamp = milliseconds since 1970 x 65,536 + counter: the low
   16 bits are the counter, the bits above them the time. One millisecond
-  holds 65,536 stamps for whatever the last stamp is kept for, a layer in
-  the streaming gate, which is far more than a gate decides there in a
-  millisecond; so the time in a stamp does not run ahead of the time that
-  the gate gave because of load. That is what the finding asks: plain
-  milliseconds ran ahead under load. The packing reaches 2^62 when the time
-  reaches 2^46 milliseconds, in the year 4199; the declaration holds the
-  time on an act below that (`softland.store.door.declaration/max-time`).
+  holds 65,536 stamps for a layer, which is far more than a gate decides
+  in one layer in a millisecond; so the time in a stamp does not run ahead
+  of the time that the gate gave because of load. That is what the finding
+  asks: plain milliseconds ran ahead under load. The packing reaches 2^62
+  when the time reaches 2^46 milliseconds, in the year 4199; the
+  declaration holds the time on an act below that
+  (`softland.store.door.declaration/max-time`).
 
   The time in a stamp is not always the time on its act. A stamp is the
   greatest of three numbers (`next-stamp`), so an act whose time is not
@@ -46,8 +44,8 @@
     pack, time-of, counter-of   the two halves of a stamp
 
   State and effects. None. Where a last stamp is kept is the gate's: the
-  streaming gate reads the layer's from the record at each decision.
-  `next-stamp` takes it as a number.")
+  walk of one thing (`softland.store.module.walk`) reads the layer's from
+  the gate's record at each decision. `next-stamp` takes it as a number.")
 
 (def counter-bits
   "How many low bits of a stamp are the counter."
@@ -58,9 +56,8 @@
   A number of the build, kept and not decided. Without it a carried stamp
   alone could push a layer's stamps to the end of their range. It holds the
   carried stamps and not the time on the act itself
-  (`softland.store.door.declaration/max-time` says what holds that). The
-  microbatch gate holds a carried stamp to the same span past the clock of
-  its batch."
+  (`softland.store.door.declaration/max-time` says what holds that). Both
+  gates hold a carried stamp to it."
   10000)
 
 (defn pack
@@ -98,9 +95,6 @@
   stamp, into the time bits when the counter is full, and the time in the
   stamp is ahead of the time on the act until the time on a later act
   passes it.
-
-  The microbatch gate calls it with the clock of its batch as the time and
-  with the last stamp of the whole gate.
 
   It never throws. What must hold for a stamp below 2^62: the time is below
   2^46, as the declaration holds the time on an act; and the last and the

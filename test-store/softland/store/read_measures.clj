@@ -36,22 +36,32 @@
     M3  the opening of a canvas of 5,000 facts: asked as the run across the
         5,000 entities and as what points at the canvas, once and kept
         live, through one layer and through three; with a streaming layer
-        as the farthest, and with the base as the farthest. Kept live
-        through three layers, what points at the canvas needs a check, and
-        so a push, for each place and each nearer layer: far more than the
-        250 that one live read may need, so that shape measures how soon
-        the read is turned away. One shape more gives the cost of those
-        checks where they are few enough to open: what points at a canvas
-        of 100 facts, kept live through three layers
+        as the farthest, and with the base as the farthest. Through one
+        layer the base is read from the base itself, on the base's own
+        task; through three it is read on the task of the nearest layer,
+        the read's home. Either way the run and the order come whole from
+        one task. Kept live through three layers, what points at the
+        canvas needs a check, and so a push, for each place and each
+        nearer layer: far more than the 250 that one live read may need,
+        so that shape measures how soon the read is turned away. One shape
+        more gives the cost of those checks where they are few enough to
+        open: what points at a canvas of 100 facts, kept live through three
+        layers
     M4  how late a push is: one live read of one place, which one maker
-        changes 10 times a second; in a streaming layer and in the base;
-        and, in a streaming layer, of one place of the facts by value
+        changes 10 times a second; in a streaming layer; in the base, read
+        from the base itself; in the base, read through a layer of the
+        asker's own, so on that layer's task, which holds a copy of the
+        base's rows; and, in a streaming layer, of one place of the facts
+        by value
     M5  what is not measured here
 
   What a number here is. The cluster runs in the process of the measure, on
   one machine, with every row in memory and no network. So a time is a
   floor for a round trip and says little of a seek on a disk. A real
   cluster, the base on one, a network and a second node are not measured.
+  The base's rows are on each of the four tasks, and the microbatch gate
+  writes each accepted row of a fact on each of them; what that copy costs
+  the gate is the gates' own measure, not this one.
 
   What a time to the return of `send-act` holds. Each act of the measures
   is sent with no act-id, so the door makes one. The call is then two round
@@ -206,7 +216,9 @@
   which the door's wait gives \"accepted\". The sender sends at its pace;
   each act's answer is waited for on a thread of its own, by the door's
   wait, which reads the answer every 200 ms: a time can be up to that much
-  later than the answer's row."
+  later than the answer's row. The answer is on the base's own task, and
+  it is there when the batch that decided the act is committed on that
+  task."
   [{:keys [acts warm]}]
   (let [^ExecutorService waiters (Executors/newCachedThreadPool)
         from-due (atom []) from-call (atom []) not-accepted (atom 0)
@@ -233,7 +245,7 @@
               (times @from-due))
     (measured "M1 the base, the same | from the call of send-act to that moment:" (times @from-call)
               "| acts that got no accepted answer:" @not-accepted)
-    (measured "M1 the base | how many acts a batch held: not told: no function gives a stamp's batch")))
+    (measured "M1 the base | how many acts a batch held: not told: nothing of a batch is in a decision or in a stamp")))
 
 ;; ------------------------------------------------------------------------ M2
 
@@ -428,6 +440,12 @@
   the base at one place give one change, with the later one, so an act can
   have no call of its own.
 
+  `layers` is the list of the read. With the written layer alone the read
+  starts from it. With a layer of the asker's own before the base, the
+  read's home is that layer, and the push on the base's row is on that
+  layer's task: a time then holds the commit of the batch on a task that
+  only holds a copy.
+
   `table` is `:facts` or `:facts-by-value`. For `:facts` the read is of one
   place, and each act writes another value there: the push is on one row of
   the facts table, which holds the value as a String. For `:facts-by-value`
@@ -436,15 +454,17 @@
   facts by value, whose rows hold no value, and each act changes the one
   row of it.
   An act is known in a change by its act-id, which the place-answer's fact
-  holds. What must hold for `:facts-by-value`: the layer marks `:late-on`."
-  [what table who layer permission {:keys [late-acts late-warm]}]
+  holds. What must hold for `:facts-by-value`: the layer marks `:late-on`;
+  for a list of two layers: the nearer one holds no fact at the place, and
+  the asker may see both."
+  [what table who layer permission asker layers {:keys [late-acts late-warm]}]
   (let [rp (:read-path @round)
         told (atom [])
         number-of (atom {})
         by-value? (= :facts-by-value table)
         read (read-path/read-live rp
                                   {:asks (if by-value? [:points-at :late-on :late-thing] [:place :late :n])
-                                   :asker who :layers [layer]}
+                                   :asker asker :layers layers}
                                   (fn [change]
                                     (when-let [[act-id] (:fact (first (vals (:changed change))))]
                                       (swap! told conj [act-id (System/nanoTime)]))))
@@ -482,13 +502,18 @@
   "M4: a place of the facts table, in a streaming layer and in the base; and
   a place of the facts by value in a streaming layer, so that a push on one
   row of the facts table and a push on a run of the facts by value are
-  measured under the same load."
+  measured under the same load. The base is measured twice: read from the
+  base itself, on the base's own task; and read through a layer of the
+  asker's own that holds nothing at the place, on that layer's task."
   [load]
   (let [own (make! :m4)]
     (accepted! :maker :m4 own [{:e :m4 :k :softland.store/marked-keys :v #{:late-on}}])
-    (m4-one "of a place of the facts table, in a streaming layer" :facts :maker :m4 own load)
-    (m4-one "of a place of the facts table, in the base" :facts :system :base system-own load)
-    (m4-one "of a place of the facts by value, in a streaming layer" :facts-by-value :maker :m4 own load)))
+    (make! :m4-own)
+    (m4-one "of a place of the facts table, in a streaming layer" :facts :maker :m4 own :maker [:m4] load)
+    (m4-one "of a place of the facts table, in the base, read from the base itself" :facts :system :base system-own :system [:base] load)
+    (m4-one "of a place of the facts table, in the base, read through a layer of the asker's own, on that layer's task"
+            :facts :system :base system-own :maker [:m4-own :base] load)
+    (m4-one "of a place of the facts by value, in a streaming layer" :facts-by-value :maker :m4 own :maker [:m4] load)))
 
 ;; ----------------------------------------------------------------------- the run
 

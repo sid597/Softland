@@ -2,13 +2,11 @@
   "The record as PStates: the schemas, written once. It requires Rama, and
   it declares nothing: a gate declares four PStates with these schemas under
   its own names, because in Rama only the topology that owns a PState can
-  write it. So \"the same record shape\" for each gate is these functions:
-  the answers, the facts and the facts by value are one schema
-  for both gates, and what a gate keeps for a task is `task` for the
-  streaming gate and `microbatch-task` for the microbatch gate. One schema
-  more is no part of a record: `batch-clock`, the clock that is kept for the
-  newest batch of the microbatch gate, which the topology of
-  `softland.store.module.batch-clock` declares and writes.
+  write it. So \"the same record shape\" for each gate is these four
+  functions: the answers, the facts, the facts by value, and `task`, what a
+  gate keeps for a task. Each is one schema for both gates, so one walk of
+  one thing (`softland.store.module.walk`) reads and writes either gate's
+  four.
 
   What each schema holds, field by field, is in the namespace docstring of
   `softland.store.record.rows`, which makes and reads the rows. Here is why each
@@ -31,103 +29,45 @@
              level would cost one seek more for each read and each write. A
              table of its own and not more keys of `facts`: its key has five
              parts where a place has three, so in one map a key of this
-             order could sort into the run of an entity; and in a
-             microbatch layer the two are placed by different parts.
-    task     a fixed-keys value for each task, what the streaming gate
-             keeps beside its three tables: under `:last-stamp`, for each
-             layer that the gate has decided a thing of on the task, the
-             last stamp that it gave in that layer; and the strays seen on
-             the task. Two things that are no row of a fact or of an
-             answer, in one PState so that they cost one partition and not
-             two. `:last-stamp` is a map from the printed text of a layer
-             id to a number, subindexed, with size tracking off. A map with
-             one key for each layer, and not one number for the task,
-             because a stamp is counted in its layer (Sid, 13 October
-             2026). The key is the text of the layer id, as in every key of
-             a row, so that the position has one class: a layer id is a
-             keyword or a UUID. Subindexed, because a task holds every
-             layer that hashes to it, a personal layer for each person
-             among them, and a map that is not subindexed is read and
-             written whole at each decision. Size tracking is off: nothing
-             asks how many layers the map holds, and tracking costs a read
-             at each write. The cost of the level: a read of one layer's
-             last stamp goes through the field and then the layer's key,
-             where a row of the three tables is one key; Rama's skill text
-             counts each such level as a read on disk, and no run here
-             measured it.
-    microbatch-task
-             what the microbatch gate keeps for a task: the strays as in
-             `task`, four fields more, and a `:last-stamp` that is one
-             number. `:closed-through`: each row on the task with a stamp
-             not later than this is of a closed batch, and the door's two
-             reads give no other. `:turns`: the text of the microbatch id that the count
-             belongs to, and how many things of that batch the task has
-             given a turn. It is durable, and not a count in memory, because
-             Rama sets a PState back when an attempt of a batch fails, so a
-             second attempt counts from the same number. The text is beside
-             the count so that the count starts again with each batch.
-             `:last-stamp` is one for the whole gate, on the gate's task
-             only.
-             `:to-keep`: what a batch decided and the gate's depot of
-             answers does not hold yet, on the batch's keeping task. A
-             table of the gate and no memory, because Rama sets it back
-             with the answers' rows when an attempt fails: an entry and
-             its answer's row are committed together or not at all. A
-             subindexed map from a text to a value: the batch's id in 19
-             digits, the task that sent the value in 5 and a part number
-             in 5, with a space between. So the keys of one batch are
-             neighbours and one range read gives them, two tasks never
-             write one key, and a value is read once and taken out. A
-             text and no packed number, since the id of a batch goes up
-             for as long as the module lives. Size tracking is off:
-             nothing asks the map's size, and tracking costs a read at
-             each write. A value holds the batch's id and two vectors,
-             the answers and the strays, 256 entries at most between them
-             by the code that makes it, so the vectors are small and are
-             not subindexed. An answer is held by the text of its layer
-             and its uuid, with its stamp, its digest and the word of a
-             refusal: each position has one class. A value for each task
-             and each 256 entries, and not a key for each answer, which
-             would cost one put and one removal for every answer of a
-             batch.
-             `:to-close`: on the gate's task only, the id of the newest
-             batch that left something to keep, with the batch's clock
-             when it made a stamp. It is the mark by which the next run
-             knows that it closes a batch, and where the closing takes
-             the batch's clock from. It is with the gate's last stamp,
-             which the closing needs with it.
-    batch-clock
-             {Keyword -> a row}, with one key, the depot word of the gate
-             whose clock it is, `:microbatch`, and so one row: the batch
-             that the clock belongs to, as the number of its microbatch id,
-             and the clock in milliseconds. A read is one seek and a write
-             one put. One row and not a row for each batch: a kept clock
-             has one use, a later attempt of the same batch, and Rama
-             starts no batch before the one before is committed on every
-             task; so when a later batch keeps its clock, nothing can read
-             the earlier one again. The depot of batch clocks keeps every
-             record (`softland.store.module`). The row is not in the
-             microbatch gate's own PStates because Rama sets those back
-             when an attempt of a batch fails, and this row is what a
-             second attempt must find.
+             order could sort into the run of an entity.
+    task     a fixed-keys value for each task, what a gate keeps beside
+             its three tables: under `:last-stamp`, for each layer that the
+             gate has decided a thing of on the task, the last stamp that
+             it gave in that layer; and the strays seen on the task. Two
+             things that are no row of a fact or of an answer, in one
+             PState so that they cost one partition and not two.
+             `:last-stamp` is a map from the printed text of a layer id to
+             a number, subindexed, with size tracking off. A map with one
+             key for each layer, and not one number for the task, because
+             a stamp is counted in its layer (Sid, 13 October 2026). The
+             key is the text of the layer id, as in every key of a row, so
+             that the position has one class: a layer id is a keyword or a
+             UUID. Subindexed, because a task of the streaming gate holds
+             every layer that hashes to it, a personal layer for each
+             person among them, and a map that is not subindexed is read
+             and written whole at each decision. Size tracking is off:
+             nothing asks how many layers the map holds, and tracking
+             costs a read at each write. The cost of the level: a read of
+             one layer's last stamp goes through the field and then the
+             layer's key, where a row of the three tables is one key;
+             Rama's skill text counts each such level as a read on disk,
+             and no run here measured it.
 
   Why flat maps and not one PState keyed by the layer. An answer is found
   by an act's uuid, a fact by its place, a row of the facts by value by the
-  digest of its value: they share no
-  key. With the layer as the top-level key and three subindexed maps
-  under it, each row would cost two seeks to read and one more to write,
-  where each costs one here.
+  digest of its value: they share no key. With the layer as the top-level
+  key and three subindexed maps under it, each row would cost two seeks to
+  read and one more to write, where each costs one here.
+
   A row is placed by the task on which its gate writes it, not by a hash of
   its whole key. So nothing may route by a whole key. The streaming gate
   writes each row of a layer on the layer's task, and each read of a
-  streaming layer routes by the layer. The microbatch gate writes a row on
-  the task that the second part of its key gives: the uuid of an answer,
-  the entity of a fact; a row of the facts by
-  value on the task of its value digest, the fourth part of its key, so
-  that the run of one value is on one task; and a row under one of the five
-  store keys that sit on every task (`softland.store.gate.batch/on-every-task?`)
-  on every task. A read of a microbatch layer routes by that part.
-  `softland.store.record.rows` says it row by row.
+  streaming layer routes by the layer. The microbatch gate writes an
+  answer and a layer's last stamp on the layer's task, and each row of the
+  facts and of the facts by value on every task: a read of an answer
+  routes by the layer, and a read of a microbatch layer's facts finds each
+  row on whichever task it runs. `softland.store.record.rows` says it row
+  by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
@@ -138,14 +78,8 @@
   text of a value is the one that the declaration's check made
   (`softland.store.door.declaration/check`). The two tables that a reader is kept
   live on, the facts and the facts by value, hold no byte array; the answers
-  do, and so does a value of `:to-keep`, and no read is kept live on either.
-  A row of another class throws at the write, so
-  the rows are made only by `softland.store.record.rows`; the row of the
-  kept clock, two numbers, is made only by
-  `softland.store.gate.batch/clock-row-to-keep`; and what the microbatch
-  gate writes under `:to-keep` and `:to-close` only by
-  `softland.store.gate.batch/rows-to-keep` and
-  `softland.store.gate.batch/to-close-of`.
+  do, and no read is kept live on them. A row of another class throws at
+  the write, so the rows are made only by `softland.store.record.rows`.
 
   The strays. The outer map, a reason word to a set, is not subindexed: its
   keys are the words of `softland.store.door.declaration/stray-reasons`, a closed
@@ -156,14 +90,13 @@
   count a stray again at each retry.
 
   A last stamp is durable state because a stamp must increase through a
-  restart and through a move of the task's leader. The streaming gate reads
-  the last stamp of the act's layer from the PState at each decision, the
-  microbatch gate its one last stamp once for each batch; neither keeps one
-  in the memory of a process.
+  restart and through a move of the task's leader. The walk reads the last
+  stamp of the act's layer from the gate's PState at each decision, in both
+  gates; neither gate keeps one in the memory of a process.
 
   State and effects. None: each function gives a schema, a value. The
   PStates that a gate declares with them are durable state of the cluster."
-  (:require [com.rpl.rama :refer [fixed-keys-schema map-schema set-schema vector-schema]])
+  (:require [com.rpl.rama :refer [fixed-keys-schema map-schema set-schema]])
   (:import [clojure.lang Keyword]
            [java.util UUID]))
 
@@ -210,8 +143,10 @@
                               :permission String})})
 
 (defn task
-  "Gives the schema of what the streaming gate keeps for a task beside its
-  three tables. `:last-stamp`: a map from the printed text of a layer id
+  "Gives the schema of what a gate keeps for a task beside its three
+  tables. It serves both gates: the streaming gate declares
+  `$$streaming-task` with it and the microbatch gate `$$microbatch-task`.
+  `:last-stamp`: a map from the printed text of a layer id
   (`softland.store.door.declaration/id-text`) to the last stamp that the
   gate gave in that layer; a layer of which the gate has decided nothing on
   the task has no key. `:strays`: by reason word, the digests, as hex text,
@@ -227,56 +162,3 @@
   []
   (fixed-keys-schema {:last-stamp (map-schema String Long {:subindex-options {:track-size? false}})
                       :strays     (map-schema Keyword (set-schema String {:subindex? true}))}))
-
-(defn microbatch-task
-  "Gives the schema of what the microbatch gate keeps for a task as a whole:
-  the strays seen on it, as in `task`; the stamp through which its rows are
-  of closed batches; its count of turns, with the text of the microbatch id
-  that the count belongs to; on the gate's task only, the last stamp that
-  the gate gave, and `:to-close`, the batch that the next run of the gate
-  closes, with its clock when it made a stamp; and, on the keeping task of
-  a batch, `:to-keep`: under each key of
-  `softland.store.gate.batch/to-keep-key` the answers and the strays that
-  one task sent to keep of that batch, until the next run has appended
-  them. The map of `:to-keep` is subindexed, with size tracking off; the
-  two vectors of a value are not, since
-  `softland.store.gate.batch/max-kept` bounds them. What must hold of what
-  is written: a `:to-close` is `softland.store.gate.batch/to-close-of`'s
-  and a value of `:to-keep` is `softland.store.gate.batch/rows-to-keep`'s;
-  a value of another class throws at the write."
-  []
-  (fixed-keys-schema {:strays         (map-schema Keyword (set-schema String {:subindex? true}))
-                      :closed-through Long
-                      :turns          (fixed-keys-schema {:batch String :given Long})
-                      :last-stamp     Long
-                      :to-keep        (map-schema
-                                       String
-                                       (fixed-keys-schema
-                                        {:batch   Long
-                                         :answers (vector-schema
-                                                   (fixed-keys-schema {:layer   String
-                                                                       :uuid    UUID
-                                                                       :stamp   Long
-                                                                       :digest  byte-array-class
-                                                                       :refused Keyword}))
-                                         :strays  (vector-schema
-                                                   (fixed-keys-schema {:stray  Keyword
-                                                                       :digest String
-                                                                       :task   Long}))})
-                                       {:subindex-options {:track-size? false}})
-                      :to-close       (fixed-keys-schema {:batch Long :clock Long})}))
-
-(defn batch-clock
-  "Gives the schema of the kept clock of a batch: the depot word of the
-  gate, `:microbatch`, to one row, {:batch :clock}. `:batch` is the batch
-  that the clock belongs to, as the number of its microbatch id; in `:turns`
-  the same id is held as text. `:clock` is the clock time in milliseconds
-  since 1970. What must hold of a row that is written: both are of the class
-  Long, as `softland.store.gate.batch/clock-row-to-keep` makes them; a row of
-  another class throws at the write. The table rests on one thing of Rama's:
-  the id of a batch goes up and never comes again. If a microbatch topology
-  were deleted and declared again under its name, its ids would start anew,
-  the row would be of a later batch for ever, and no attempt could keep a
-  clock (`softland.store.module.microbatch-gate/clock-must-be-kept`)."
-  []
-  {Keyword (fixed-keys-schema {:batch Long :clock Long})})

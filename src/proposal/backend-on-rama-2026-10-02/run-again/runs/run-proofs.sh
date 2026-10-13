@@ -60,12 +60,12 @@ for proof in "${proofs[@]}"; do
     echo "The whole output is raw-$label-$proof.txt beside this file, and is not committed. The run took $((end - start)) seconds."
     echo
     awk '/^THE PROOF, IN ONE PLACE/ {seen=1} seen && (/^THE PROOF, IN ONE PLACE/ || /^SHOWN/) {print}' "$raw"
-    grep -E '^\{:test [0-9]+, :pass [0-9]+, :fail [0-9]+, :error [0-9]+\}' "$raw" | tail -1
-    grep -E '^(FAIL in|ERROR in)' "$raw" | head -40
+    grep -a -E '^\{:test [0-9]+, :pass [0-9]+, :fail [0-9]+, :error [0-9]+\}' "$raw" | tail -1
+    grep -a -E '^(FAIL in|ERROR in)' "$raw" | head -40
     echo
     echo "exit status: $code"
   } >"$cut"
-  echo "$proof $(grep -E '^\{:test' "$cut" | tail -1) exit $code ($((end - start)) s)"
+  echo "$proof $(grep -a -E '^\{:test' "$cut" | tail -1) exit $code ($((end - start)) s)"
   [ "$code" -ne 0 ] && status=1
 done
 exit $status

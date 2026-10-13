@@ -118,7 +118,14 @@
                                      one time on one table under one routing
                                      id. A read kept live that would take it
                                      past this is turned away before it
-                                     opens one of those pushes. It stands
+                                     opens one of those pushes. In a
+                                     streaming layer the routing id is the
+                                     layer, so it bounds every push of every
+                                     asker through one layer. In a
+                                     microbatch layer, the base, the routing
+                                     id is the home of the read, so it
+                                     bounds the pushes on the base of the
+                                     askers of one home. It stands
                                      under Rama's own bound of 1,000 pushes
                                      on one table on one task, the default
                                      of Rama's option `pstate.proxy.limit`

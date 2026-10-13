@@ -63,16 +63,22 @@
   of the earlier marking stay where they are and no read names them. A
   retract has no row in this order.
 
-  Where a row lives. The rows are the same for both gates; the task is not.
-  A row of a streaming layer is on the layer's task. A row of a microbatch
-  layer is on the task that one part of its key gives: an answer on the task
-  of the act's uuid, a fact on the task of its entity, a fact by value on
-  the task of its value digest (`by-value-route`), so that the run of one
-  value is on one task. A fact of
-  a microbatch layer under `:softland.store/depot`,
-  `:softland.store/permission`, `:softland.store/who-may-see`,
-  `:softland.store/builds-on` or `:softland.store/marked-keys` is on every
-  task. No row names a task.
+  Where a row lives. The rows are the same for both gates; the tasks are
+  not. The layer's task is the task of the layer's partition in its depot:
+  each depot partitions by the hash of the thing's `:layer`
+  (`softland.store.module`).
+
+    a streaming layer    each answer, each fact and each fact by value on
+                         the layer's task, and on no other
+    a microbatch layer   each fact and each fact by value on every task:
+                         the layer's task writes the row when it decides,
+                         and the gate copies it to each other task
+                         (`softland.store.module.microbatch-gate`). Each
+                         answer on the layer's task, and on no other
+
+  So a read by act-id goes to the layer's task for either depot
+  (`routing-id`), and a read of a microbatch layer's facts finds each row
+  on whichever task it runs. No row names a task.
 
   Why the keys are strings. A key is a pair or a triple of ids, and an id is
   a keyword or a UUID: two classes. A string made of the parts' printed
@@ -88,30 +94,9 @@
   throws in a topology, and a throw there stops the partition. So a gate
   writes no row that these functions did not make.
 
-  What a depot of answers holds. Each gate also appends what it decided to
-  a depot of its own: a log from which, with the depot of acts, the tables
-  can be made again. The form of what such a log holds is made here, for
-  both gates:
-
-    an answer's entry  {:act-id [layer depot uuid] :stamp :digest}, and
-                       `:refused` with the word for a refusal
-                       (`answer-record`): the answer's row with the act-id
-                       beside it, and no value of a fact
-    a stray's entry    {:stray the word, :digest the digest as hex text,
-                       :task the task on which it arrived}
-                       (`stray-record`), one for each arrival
-    a record           a map of entries: `:answers` and `:strays`, each a
-                       vector, each there only when it holds an entry
-                       (`log-record`). The microbatch gate adds what a
-                       batch keeps of itself (`softland.store.gate.batch`)
-
   Inputs and results, by group:
 
     answer-key, place-key, by-value-key                -> the text of a key
-    answer-record, stray-record, log-record
-                                      an answer's row with its act-id, a
-                                      stray, or entries -> an entry, or a
-                                      record, of a depot of answers
     by-value-run                      a layer, a key, a stamp, a value
                                       -> the two ends of that value's run
     entity-run, own-rows-run, run-of-ends
@@ -122,25 +107,26 @@
     plain-bytes                       the String that a fact's row holds for
                                       its value -> the value's plain bytes
     value-digest, value-digest-of     bytes, or a value -> 64 hex characters
-    place-of-key, by-value-entity, by-value-route, id-of-text,
+    place-of-key, by-value-entity, id-of-text,
     answer-key-parts                  the text of a key -> its parts
     answer-row, fact-row, with-level-since, by-value-row
                                       -> a row to write
     answer-of, written-by?, holds-value?, value-of, read-value,
     plain-bytes-of, who-of,
-    permission-of, marked-keys-of, closed?             a row -> what it says
+    permission-of, marked-keys-of     a row -> what it says
     same-row?, holds-this-value?      a row, and a row or a value
                                       -> true or false
-    routing-id                        an act-id -> the first argument of a
-                                      read by that act-id
+    routing-id                        an act-id -> its layer, the first
+                                      argument of a read by that act-id
     answer-read, depot-read, answer-read-by-routing-id
                                       what a caller gave a read
                                       -> the keys to read, or nil
 
   State and effects. None. Each function is pure.
 
-  Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the
-  streaming gate, and `softland.store.module.door-reads`. The door (`softland.store.door`) and
+  Callers. `softland.store.gate.decision`, the walk of one thing, which
+  both gates call (`softland.store.module.walk`), and
+  `softland.store.module.door-reads`. The door (`softland.store.door`) and
   the proof's hand call `routing-id` and the `-read` functions to test what
   they pass before they call a query. `read-value`, `who-of`,
   `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,
@@ -209,56 +195,6 @@
      :reason  (:refused row)
      :stamp   (:stamp row)
      :digest  (text/hex (:digest row))}))
-
-;; ---------------------------------------------- what a depot of answers holds
-
-(defn answer-record
-  "The entry of one answer in a gate's depot of answers. Takes the depot
-  word of the gate that gave the answer; the layer and the uuid of the
-  act-id under which the thing arrived; and the answer's row, as
-  `answer-row` makes it or as the gate read it. Gives
-  {:act-id [layer depot uuid] :stamp :digest}, and `:refused` with the word
-  when the row holds one: the answer's row with the act-id beside it, and
-  no value of a fact. The digest is the row's, 32 bytes. The act-id is held
-  as data and not as the text of the answer's key, so that a reader of the
-  log makes the key with the `answer-key` of its own day. A gate answers
-  only under an act-id of its own depot, so the gate's depot word is the
-  depot slot of the act-id. Of the row it reads `:stamp`, `:digest` and
-  `:refused`, and nothing else. It never throws. What must hold: the row is
-  an answer's row."
-  [gate-depot layer act-uuid row]
-  (cond-> {:act-id [layer gate-depot act-uuid]
-           :stamp  (:stamp row)
-           :digest (:digest row)}
-    (:refused row) (assoc :refused (:refused row))))
-
-(defn stray-record
-  "The entry of one arrival of a stray in a gate's depot of answers. Takes
-  the stray's word (`softland.store.door.declaration/stray-reason`); the
-  digest of the thing as hex text, as the set of that word holds it
-  (`softland.store.door.digest/hex-of`); and the number of the task on which
-  the stray arrived, which is the task of that set. Gives
-  {:stray :digest :task}, the task as a long. The task is in the entry
-  because the partition of a record need not be the task of the set: the
-  microbatch gate keeps a batch on one task. What must hold: the task is an
-  integer."
-  [word digest-hex task]
-  {:stray word :digest digest-hex :task (long task)})
-
-(defn log-record
-  "A record of a depot of answers: a map of entries. Takes answer records
-  (`answer-record`) and stray records (`stray-record`), each a sequence or
-  nil. Gives a map with `:answers`, a vector, when there is an answer
-  record, and `:strays`, a vector, when there is a stray record. A part
-  with nothing in it is absent, so the record of one answer is
-  {:answers [entry]} and the record of one stray {:strays [entry]}. The
-  streaming gate appends what this gives for one entry. The microbatch gate
-  adds what a batch keeps of itself
-  (`softland.store.gate.batch/records-of-closing`)."
-  [answer-records stray-records]
-  (cond-> {}
-    (seq answer-records) (assoc :answers (vec answer-records))
-    (seq stray-records) (assoc :strays (vec stray-records))))
 
 ;; -------------------------------------------------------------------- facts
 
@@ -446,8 +382,7 @@
   "Takes a value, as a maker would give it. Gives `value-digest` of the plain
   bytes that a row holds for it: the UTF-8 of the one text of its normal form. So
   a UUID is always taken as `#uuid \"...\"`, never as its 36 characters,
-  and no caller chooses a text. In a microbatch layer this is also the
-  partitioning key of the value's run. What must hold: the thing is a value
+  and no caller chooses a text. What must hold: the thing is a value
   (`softland.store.act/value?`)."
   [v]
   (value-digest (text/utf8 (act/normal-value v))))
@@ -486,13 +421,6 @@
   as a vector. No printed text of an id holds a space."
   [k]
   (vec (.split ^String k " " -1)))
-
-(defn by-value-route
-  "Takes a key of the facts by value. Gives its value digest, the fourth
-  part: the route of the row in a microbatch layer, whose hash gives the
-  row's task. What must hold: the key is `by-value-key`'s."
-  [k]
-  (nth (parts-of-key k) 3 nil))
 
 (defn by-value-row
   "Takes the one text of an act's `:who`; the one text of the permission
@@ -550,9 +478,9 @@
   "Takes a key of the answers, as `answer-key` makes it. Gives
   [layer-text uuid]: the printed text of the layer, and the uuid of the
   act-id as a UUID; nil for a text that is no such key. It never throws.
-  `id-of-text` of the first gives the layer back, a keyword or a UUID. The
-  microbatch gate holds an answer by these two, each of one class, until
-  its entry is appended (`softland.store.gate.batch/rows-to-keep`)."
+  `id-of-text` of the first gives the layer back, a keyword or a UUID. It
+  is for a reader of the answers' keys: no gate and no read of the store
+  calls it."
   [answer-key-text]
   (try
     (let [parts (parts-of-key answer-key-text)]
@@ -684,18 +612,6 @@
                   (= (value-digest (plain-bytes (:value row))) (value-digest-of v))))
     (catch Throwable _ false)))
 
-;; ------------------------------------------------- a row of a closed batch
-
-(defn closed?
-  "Takes a row that holds a stamp, an answer's or a fact's, or nil; and the
-  `:closed-through` of the row's task, or nil. Gives true when the row is of
-  a closed batch of the microbatch gate: its stamp is not later than
-  `:closed-through`. False for no row, and before any batch is closed. The
-  door's two reads and the streaming gate's question about the base give
-  such a row of a microbatch layer only when this is true."
-  [row closed-through]
-  (boolean (and row closed-through (<= (long (:stamp row)) (long closed-through)))))
-
 ;; ------------------------------------------- what a caller gave a read
 
 (defn answer-read
@@ -720,20 +636,21 @@
 
 (defn routing-id
   "Takes an act-id. Gives its routing id, the first argument of the read by
-  act-id: the layer of a streaming act-id, the uuid of a microbatch act-id.
-  Rama's client hashes it, so the read goes straight to the task where the
-  answer is. Gives nil for a thing that is no act-id. It never throws."
+  act-id: the act-id's layer, for a streaming act-id and for a microbatch
+  one. Rama's client hashes it, so the read goes straight to the layer's
+  task, where the answer is in either gate's record. Gives nil for a thing
+  that is no act-id. It never throws."
   [act-id]
   (when (and (vector? act-id)
              (declaration/act-id-in-layer? (nth act-id 0 nil) act-id))
-    (if (= :microbatch (nth act-id 1)) (nth act-id 2) (nth act-id 0))))
+    (nth act-id 0)))
 
 (defn answer-read-by-routing-id
   "The test at the head of the query by act-id. Takes what a caller gave: a
   routing id and an act-id. Gives what `answer-read` gives for the act-id
   and its own layer slot, [depot key]; or nil when no read is to be made:
-  the thing is no act-id, the routing id is not the one of the act-id's
-  depot, or the layer is over the limit. It never throws."
+  the thing is no act-id, the routing id is not the act-id's layer, or the
+  layer is over the limit. It never throws."
   [given act-id]
   (let [own (routing-id act-id)]
     (when (and (some? own) (= own given))

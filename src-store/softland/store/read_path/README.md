@@ -14,8 +14,8 @@ All of this folder is pure code and loads with Clojure alone.
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [query.clj](query.clj) | A query written as data: its one form, declared as shapes and rules in `act.clj`'s language; the four words that can be asked; the check; the read path's numbers. | None. |
-| [layers.clj](layers.clj) | The layers of a read: which layers, in what order; whether a layer is made; whether an asker may see it; what a read says of a layer that it left out; what a layer's own rows mean for one query. | None. |
-| [sources.clj](sources.clj) | The sources of a read, as data: each row or run that the read path asks of Rama, with its table and its routing id; which of them a read wants next; the calls of one round; the size rules of a run; which keys and places a change names. | None. |
+| [layers.clj](layers.clj) | The layers of a read: which layers, in what order, and which of them is the read's home; whether a layer is made; whether an asker may see it; what a read says of a layer that it left out; what a layer's own rows mean for one query. | None. |
+| [sources.clj](sources.clj) | The sources of a read, as data: each row or run that the read path asks of Rama, with its table and its routing id, which says on which task a layer is read; which of them a read wants next; the calls of one round; the size rules of a run; which keys and places a change names. | None. |
 | [answer.clj](answer.clj) | What a read gives: the layers put together, the nearest that holds a fact first; a place-answer; and what a change tells a live asker. | None. |
 | [words.clj](words.clj) | Everything that the read path says in place of an answer, as data: its own eight words, why a live read ended, why a layer gave nothing. | None. |
 
@@ -78,6 +78,15 @@ The rest by pointer: the store's keys and their namespace (8 and 9 October),
 the depot that a layer starts with (7 October), and the form of an id and of a
 value (6 October) are read through the functions that the files above require.
 
+One decision of 13 October 2026, entry 4 of that day in the store source
+entry, says where the base is read. In Sid's words: "4. The base's rows: a copy
+on every task. One task decides, in the line's order." The reason that he was
+given for the copy: everyone reads the base, and with all its rows on one task
+every read of the base would run on one thread and share Rama's bound on the
+pushes of one table on one task. So the read path reads a microbatch layer on
+the task of the read's home, and [sources.clj](sources.clj) is where that
+shows: "Where a microbatch layer is read", below.
+
 ## Engineering choices
 
 Each is the builder's, with its reason. None is a decision of Sid's, and each is
@@ -93,13 +102,16 @@ both ways, and two askers of one thing hold equal data.
 
 **A source is what is shared.** One row, or one run of neighbouring rows, of one
 table on one task, as a map. Two reads share a push when their sources are
-equal. So two askers whose lists differ share the push of each layer that both
-lists hold, and askers who asked for different parts of a row share too. A place
-is not served from an open run that holds it: they are two sources.
+equal. So two askers whose lists differ share the push of each streaming layer
+that both lists hold, and of a microbatch layer when their reads have the same
+home; and askers who asked for different parts of a row share too. A place is
+not served from an open run that holds it: they are two sources.
 
-**One call for each task, asked once.** Every missing source of one task goes in
-one call. A layer's rights and its fact are one round trip; a place through
-three layers is three calls in one round.
+**One call for each table under each routing id, asked once.** Every missing
+source of one table under one routing id goes in one call. A layer's rights and
+its fact are one round trip; a place through three layers is three calls in one
+round. What a read reads of the base is one call more, to the task of the
+read's home.
 
 **A read asked once reads a layer's fact with its rights.** So the runtime can
 read one row, or the first places of a run, of a layer that the asker may then
@@ -176,10 +188,29 @@ holds back the reads of others; this was run for the plan's check, and the
 namespace docstring of [read_path.clj](../read_path.clj) says what was seen. A
 read asked from inside a function is turned away with a word of its own.
 
-**The task of a row in a microbatch layer.** A run across entities of a
-microbatch layer has one part on each task. The read path names each task with
-one routing id that a class of Rama's own gives. Rama's pages show that class
-for tests; whether it is meant for a client is a question for Rama's team.
+**Where a microbatch layer is read.** A streaming layer has every row on its
+own task. A microbatch layer, which today is the base, has every row of its
+facts and of its facts by value on every task, the same rows everywhere: its
+gate decides an act on the layer's task and writes the rows of an accept on
+each task. So a read of it needs one task, and any one will do. The read path
+takes the task of the read's home: the layer that the read starts from, which
+is `:from-layer`, or the first layer of `:layers`. Every source of a microbatch
+layer in a read has the home as its routing id: the layer's own rows, a
+permission, a place, a check of it, a run of one entity or across entities, and
+a run of the facts by value. Each is one source, and a run comes whole from the
+one task. So an asker reads the base where her own layer lives, and a read that
+starts from the base reads it on the base's own task.
+
+What follows from it. Two askers whose reads have the same home share their
+pushes on the base; two with two homes do not, and each holds a push of its
+own on the task of its home. The tasks show one batch of the base at instants
+that differ, by Rama's own page on microbatch topologies; so two askers with
+two homes can be told of one act at two instants, and a read asked once through
+her own layer, straight after the maker of an act of the base has its answer,
+can still give the base as it was before that act. That is read in Rama's
+page; the read path's proof on the cluster counts how often it sees it, and
+holds nothing to the count. The read path does not test, at a read, that the
+task of the home holds the rows: it rests on the gate's copy.
 
 **The numbers.** Seven that an opener can give, and two more, each kept and not
 decided: 256 places in the first read of a run; 20,000 places in one run; 40,000
@@ -198,7 +229,15 @@ comes to need such a push ends. And one live read of what points at a thing may
 need 250 checks of nearer layers, each of them a push. A read asked once opens
 no push and is held to neither. The count is by routing id and not by task,
 because Rama's client does not say which task a routing id is on; and it is of
-one process. What that leaves to Rama's own bound, and that the read path sets
+one process. In a streaming layer the routing id is the layer, so one count
+holds every push of every asker through that layer. In the base the routing id
+is the home of the read, so one count holds the pushes on the base of the
+askers of one home, and the 900 bounds those: it does not bound what all the
+homes of one task hold on the base together, which is what Rama's own bound
+counts there. Each home that reads the base live holds a push of its own on
+the base's own rows and one at least on a fact of it, so Rama's bound holds
+the homes of one task that read the base live to half its number at most
+(derived, not run). What that leaves to Rama's own bound, and that the read path sets
 none of Rama's options, is in the namespace docstring of
 [read_path.clj](../read_path.clj). Not decided here: whether Rama's option is
 raised, or the checks are made with fewer pushes.
@@ -299,8 +338,9 @@ door's word for its own opening and is the read path's own.
 
 | Word | What it is |
 |---|---|
-| a source, with `:gate`, `:table`, `:layer`, `:routing-id`, `:path`, `:every-task` | One value that Rama gives and can push, as data. `:facts` and `:facts-by-value` name the table; `:row`, `:own-rows` and `:run` the kind of path |
+| a source, with `:gate`, `:table`, `:layer`, `:routing-id`, `:path` | One value that Rama gives and can push, as data. `:facts` and `:facts-by-value` name the table; `:row`, `:own-rows` and `:run` the kind of path |
 | a routing id | What Rama's client is given as its partitioning key. The record's own word, so that "key" stays a fact's key |
+| the home of a read | The layer that a read starts from: `:from-layer`, or the first layer of `:layers`. It is the routing id of each source of a microbatch layer in that read |
 | the layer's own rows | The rows of a layer's own entity under the store's keys: its depot, who may see it, what it builds on, its marked keys |
 | standing, with `:yes`, `:not-known-yet`, `:may-not-see`, `:not-made` | Whether an asker may see a layer, as the read path knows it now. The gates use the same word for a permission that stands; whether it stays here is Sid's |
 | a check | The read of a nearer layer's row at a place that a farther layer's order by value gives |
@@ -325,7 +365,7 @@ others are.
 | `:pushes`, with `:opening`, `:readers`, `:called` | What the read path holds for each push: the one call that opens it, the live reads that hold it, and a mark that its first callback came |
 | `:counts` | How many pushes the read path holds on each table under each routing id: what its own bound is held to |
 | `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |
-| `:reads`, with `:query`, `:tell`, `:turn`, `:sources`, `:opened?`, `:owed?`, `:task-routing-ids` | What the read path holds for each live read: its query, its function, its turn, the sources that it holds, whether it is opened, whether the whole answer is owed, and the routing ids of the tasks as they were when it opened |
+| `:reads`, with `:query`, `:tell`, `:turn`, `:sources`, `:opened?`, `:owed?` | What the read path holds for each live read: its query, its function, its turn, the sources that it holds, whether it is opened, and whether the whole answer is owed |
 | `:whole`, `:first`, `:count`, `:size` | The step of a read for which a path is made: the row or the run itself; the first read of a run; its count; its size |
 | `:ok`, `:refuse` | What the check of a query gives: the query in its one form, or the word with which it is turned away, beside `:at`. The form is that of the act's check |
 | `:put`, `:out`, `:all` | What a diff names: a key that was put, a key that went out, or no key |

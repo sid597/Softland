@@ -65,12 +65,13 @@
   `depot-at-making` gives for the layer is not the gate's depot. It reads
   the layer id and nothing else: no record, of this gate or of the other.
 
-  The streaming gate hands what this gives to
-  `softland.store.gate.decision/standing` and `makes-the-layer?` as whether
-  the layer is the other gate's. So the word of an act on the streaming
-  depot for a layer that starts with the other depot, the base, comes from
-  the act alone, and is the same whenever the gate decides it. That rule is
-  a session's, 14 October 2026; `standing` says what forced it.
+  `softland.store.gate.decision/standing` and `makes-the-layer?` ask it, for
+  both gates, as whether the layer is the other gate's. For the streaming
+  gate such a layer is the base; for the microbatch gate it is every other
+  layer. So the word of an act on one depot for a layer that starts with
+  the other depot comes from the act alone, and is the same whenever the
+  gate decides it. That rule is a session's, 14 October 2026; `standing`
+  says what forced it.
 
   Limit. It says where a layer starts, which in this build is where the
   layer stays: no act changes a layer's depot."

@@ -1,0 +1,34 @@
+01:10:35.992   17864.6  RUN     Rama 1.6.0, in-process · scenario load {:log "w2-load-throw", :launch {:tasks 4, :threads 2, :workers 2}, :event :throw, :rate 200, :secs 6, :reps 1} · settings of First: {:timeout nil, :retry-mode :all-after, :launch {:tasks 4, :threads 2, :workers 2}}
+01:10:36.305     313.1  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435297709948928, :attempt 1}
+01:10:36.305     313.1  RUN     ---- w2-load-throw run 1 of 1 · load: 200 acts a second for 6 s, four makers, four acts on each key · one second in: :throw ----
+01:10:42.305    6313.3    the makers have sent 1200 acts
+01:10:49.320   13328.2    what the :ack appends gave: {"{}" 1188, "CallbackException: Callback failure" 26}
+01:10:49.320   13328.3    the :ack calls took: middle 5.6 ms · 99 of 100 under 300.5 ms · most 360.5 ms
+01:10:49.321   13329.0    attempts begun in First: 1200 · acts with more than one attempt: 10 · workers of First started again: 2 task globals made ready again
+01:10:49.321   13329.0    NOTES of module First for A and B:
+01:10:49.321   13329.6         1320.6  A attempt 1 begins on task 1
+01:10:49.321   13329.6         1320.6  A attempt 1 decides: accepted, number 117435297779220484
+01:10:49.321   13329.6         1320.6  A attempt 1 THROWS on purpose at the end of the event
+01:10:49.321   13329.6         1573.5  the task global of task 0 is made ready again (time 2): the worker was started again
+01:10:49.321   13329.6         1589.8  the task global of task 1 is made ready again (time 2): the worker was started again
+01:10:49.321   13329.6         1605.3  A attempt 2 begins on task 1
+01:10:49.322   13329.6         1605.4  A attempt 2 decides: accepted, number 117435297779220484
+01:10:49.322   13329.7         1605.4  A attempt 2 ends
+01:10:49.322   13329.7         1605.4  B attempt 1 begins on task 1
+01:10:49.322   13329.7         1605.4  B attempt 1 decides: refused, number 117435297779417088
+01:10:49.322   13329.7         1605.5  B attempt 1 ends
+01:10:49.323   13330.8    the :ack append of A   called at    1313.2, came back after    124.1 ms with CallbackException: Callback failure
+01:10:49.323   13330.8    the :ack append of B   called at    1316.4, came back after    120.9 ms with CallbackException: Callback failure
+01:10:50.823   14830.8  RUN     module Again launched and run over the depot from its beginning · 1190 records · it holds an answer for every act: true · after 1388 ms
+01:10:51.033   15040.8    A    First: accepted  number 1313:4     attempt 2   | Again: accepted  number 1313:4     | same
+01:10:51.033   15040.8    B    First: refused   number 1316:0     attempt 1   | Again: refused   number 1316:0     | same
+01:10:51.033   15041.1    the row at ["L00" "kA"] · First holds the act "A" · Again holds the act "A"
+01:10:51.034   15042.2    the order of the decisions in layer L00 by number · First: ["m0-00000" "m3-00000" "m1-00000" "m2-00000" "m0-00002" "m2-00002" "m1-00002" "m3-00002" "m0-00004" "m3-00004" "m2-00004" "m1-00004"] and 578 more · Again: ["m0-00000" "m3-00000" "m1-00000" "m2-00000" "m0-00002" "m2-00002" "m1-00002" "m3-00002" "m0-00004" "m3-00004" "m2-00004" "m1-00004"] and 578 more
+01:10:51.034   15042.3    the partition of layer L00 in order, [position id]: [[4 "m0-00000"] [5 "m3-00000"] [6 "m1-00000"] [7 "m2-00000"] [8 "m0-00001"] [9 "m3-00001"] [10 "m1-00001"] [11 "m2-00001"] [12 "m0-00002"] [13 "m2-00002"] [14 "m1-00002"] [15 "m3-00002"]] and 1166 more
+01:10:51.034   15042.4    the depot holds 1190 records of 1190 acts · answers that differ: 0 [] · rows that differ: 0 [] · last numbers that differ: 0 · acts with no answer in First: 0 []
+01:10:51.036   15044.5    RULE   names: 0 [] (with no number: 0 · with a number out of its line: 0) · acts that stand behind the first of them in their layer: 0 · the acts whose answer differs: 0 · the rule names exactly those: true · every one of those is named or stands behind a named one: true
+01:10:51.036   15044.5    FOLD   acts whose answer in First is not what the gate's rule gives when folded over their partition in order: 0 [] · exactly the acts whose answer differs from Again: true
+01:10:51.041   15049.0    PURE   the gate's rule folded over the partition in its order gives exactly the answers that Again holds: true
+01:10:51.041   15049.0    IF     B had been decided before A in First (computed with the gate's rule, not run): A refused number 1316:1 · B accepted number 1316:0 · answers that would differ from Again: ["A" "B"] · the rule would name: ["A" "B"] · exactly those: true
+01:10:51.042   15049.9  VERDICT w2-load-throw run 1 of 1 · SAME · First decided ["m0-00000" "m3-00000" "m1-00000" "m2-00000" "m0-00002" "m2-00002" "m1-00002" "m3-00002" "m0-00004" "m3-00004" "m2-00004" "m1-00004"] and 578 more · Again decided ["m0-00000" "m3-00000" "m1-00000" "m2-00000" "m0-00002" "m2-00002" "m1-00002" "m3-00002" "m0-00004" "m3-00004" "m2-00004" "m1-00004"] and 578 more · workers of First started again: yes
+01:10:51.637   15645.3  RUN     END · 1 runs · SAME: 1 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 1 · the fold named exactly the differing acts in: 1

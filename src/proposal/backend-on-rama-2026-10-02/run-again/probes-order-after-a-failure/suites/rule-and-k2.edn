@@ -1,0 +1,7 @@
+;; The main stall again, now with the lines PURE and IF (the gate's rule
+;; folded with no cluster), and then K2: the stream timeout set very high.
+[{:scenario "s2" :log "s2-t3-while-rule"  :timeout 3 :sleep-ms 5000 :window :while :reps 3}
+ {:scenario "s2" :log "s2-t3-before-rule" :timeout 3 :sleep-ms 5000 :window :before :reps 3}
+ {:scenario "s2" :log "k2-high-while"     :timeout 3600 :sleep-ms 5000 :window :while :reps 3}
+ {:scenario "s2" :log "k2-high-before"    :timeout 3600 :sleep-ms 8000 :window :before :reps 3}
+ {:scenario "s2" :log "k2-high-long"      :timeout 3600 :sleep-ms 40000 :window :while :reps 1}]

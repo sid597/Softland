@@ -1,0 +1,7 @@
+23:48:02.549     608.0  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads · scenario look {:reps 1} · settings of First: {:timeout nil, :retry-mode :all-after, :way :plain}
+23:48:05.002    2452.3  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117434973212114944, :attempt 1}
+23:48:05.002    2452.5  RUN     ---- look run 1 of 1 · one act, no failure: the dynamic vars bound on the thread of its event ----
+23:48:05.010    2460.6    the :ack append gave {}
+23:48:05.010    2460.7    dynamic vars bound on the event's thread: 0
+23:48:05.010    2460.9    the whole list is in logs/look-bindings.txt
+23:48:05.794    3244.9  RUN     END · 1 runs · SAME: 1 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 0

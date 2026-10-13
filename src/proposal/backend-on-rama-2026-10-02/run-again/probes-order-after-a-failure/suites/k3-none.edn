@@ -1,0 +1,7 @@
+;; K3, the retry mode :none. Rama refuses :start-from with it, so the source
+;; of First has {:retry-mode :none} only.
+[{:scenario "s2" :log "k3-none-while"  :timeout 3 :retry-mode :none :sleep-ms 5000 :window :while :reps 3}
+ {:scenario "s2" :log "k3-none-before" :timeout 3 :retry-mode :none :sleep-ms 5000 :window :before :reps 3}
+ {:scenario "s1" :log "k3-none-throw"  :retry-mode :none :mode :together :throw-at :end :reps 3}
+ {:scenario "s1" :log "k3-none-throw-behind" :retry-mode :none :mode :behind :throw-at :end :reps 3}
+ {:scenario "hooks" :log "hooks-look" :reps 1}]

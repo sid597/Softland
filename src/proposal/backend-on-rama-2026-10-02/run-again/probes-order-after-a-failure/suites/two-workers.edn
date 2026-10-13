@@ -1,0 +1,7 @@
+;; The throw and the stall once more, with both modules launched as the
+;; probe of 13 October launched its modules: 4 tasks, 2 threads, 2 workers.
+[{:scenario "s1" :log "w2-s1-together" :launch {:tasks 4 :threads 2 :workers 2} :mode :together :throw-at :end :reps 3}
+ {:scenario "s2" :log "w2-s2-before"   :launch {:tasks 4 :threads 2 :workers 2} :timeout 3 :sleep-ms 5000 :window :before :reps 3}
+ {:scenario "s2" :log "w2-s2-while"    :launch {:tasks 4 :threads 2 :workers 2} :timeout 3 :sleep-ms 5000 :window :while :reps 3}
+ {:scenario "load" :log "w2-load-stall" :launch {:tasks 4 :threads 2 :workers 2} :event :stall :timeout 3 :sleep-ms 5000 :rate 200 :secs 8 :reps 1}
+ {:scenario "load" :log "w2-load-throw" :launch {:tasks 4 :threads 2 :workers 2} :event :throw :rate 200 :secs 6 :reps 1}]

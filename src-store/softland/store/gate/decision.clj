@@ -11,7 +11,8 @@
   (`softland.store.door.declaration/check`). A row is a row of the record
   (`softland.store.record.rows`), or nil for a key that holds none. Each check
   takes the depot of the gate that owns the record, :streaming or
-  :microbatch.
+  :microbatch. The one caller in a cluster is the walk of one thing
+  (`softland.store.module.walk`), which both gates call.
 
   The checks, in the order in which a gate makes them. The order of the
   checks is the order of the reasons: when an act has two faults, the check
@@ -20,9 +21,8 @@
   act's order.
 
     early      `refused-early`: the declaration's own word, or the 10-second
-               rule on a carried stamp, held against the time that the gate
-               gives: the time on the act (`time-on`) in the streaming
-               gate. Nothing of the record is read.
+               rule on a carried stamp, held against the time on the act
+               (`time-on`). Nothing of the record is read.
     standing   `standing`: the layer's depot is this gate's (c); the layer
                is made, or the act is a right making act; the act's
                permission stands for its `:who` (d); and that permission
@@ -45,9 +45,7 @@
   `rows-before-needed` names the rows before that are still to be read.
   `writes` then gives, beside the fact's row, the rows of the facts by
   value: the entry of the new value, and the entry of the value before
-  taken out. The streaming gate calls the four; the microbatch gate reads
-  the marks on a place's home task and hands `writes` the same things
-  (`softland.store.gate.batch`).
+  taken out. The walk calls the four, for both gates.
 
   How two of the checks rest on how a row can come to be, and read less
   than their words name.
@@ -77,11 +75,12 @@
   Not here. Check (a), the answer under the act-id, and the test for a
   stray: the gate makes them before any of these. The bound on one value
   and the bound on an act: they are the last step of the declaration's
-  check, and come to `refused-early` as its word. Whether a layer is the
-  other gate's: the gate gives the answer to `standing`, the streaming gate
-  from the act alone and the microbatch gate from a read of the other
-  gate's record. Where the last stamp is kept, and for what: the gate
-  reads it and gives it to `stamp-of`."
+  check, and come to `refused-early` as its word. The other gate's record:
+  no check takes a row of it, and whether a layer is the other gate's is
+  asked of the layer id alone
+  (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`).
+  Where a layer's last stamp is kept: the walk reads it and gives it to
+  `stamp-of`."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text]
@@ -104,15 +103,14 @@
   (declaration/usable-time thing))
 
 (defn refused-early
-  "The checks that read nothing of the record. Takes the time that the gate
-  decides with, in milliseconds: the time on the act (`time-on`) in the
-  streaming gate, nil for a thing with none; in the microbatch gate the
-  clock of the batch, which is the same on every attempt of the batch. And
+  "The checks that read nothing of the record. Takes the time on the act in
+  milliseconds (`time-on`), nil for a thing with none, in both gates; and
   what `softland.store.door.declaration/check` gave for the thing, as its
   two parts: the act, or nil, and the declaration's reason word, or nil.
   Gives the declaration's word when there is one; or
   :carried-stamp-too-far-ahead when a stamp that the act carries is more
-  than 10 seconds ahead of that time; or nil."
+  than 10 seconds ahead of that time; or nil. With no time no carried
+  stamp is too far ahead; such a thing has the declaration's word."
   [time-millis act declarations-reason]
   (cond
     declarations-reason declarations-reason
@@ -138,29 +136,38 @@
   [act]
   (record/place-key (:layer act) (:layer act) :softland.store/depot))
 
+(defn- layer-is-the-other-gates?
+  "Takes the gate's depot and an act. Gives true when the act's layer is the
+  other gate's: it starts with the other gate's depot
+  (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`). It
+  reads the layer id of the act and nothing else, so it gives the same
+  whether or not the other gate has made the layer. For the streaming gate
+  such a layer is the base; for the microbatch gate it is every other
+  layer."
+  [gate-depot act]
+  (first-act/starts-with-the-other-gates-depot? gate-depot (:layer act)))
+
 (defn makes-the-layer?
   "Takes the gate's depot, an act, the row at the place of `:who`'s
-  permission, the row at the place of the layer's depot, and whether the
-  layer is the other gate's, as `standing` takes it: the streaming gate
-  hands whether the layer starts with the other gate's depot, the
-  microbatch gate whether the other gate's record holds the layer. Gives
-  true when the act is the first act of its layer: both rows are nil, the
-  layer is not the other gate's, and the act has the form of a making act
-  for this gate. What must hold: when the permission's row is nil, the
-  depot's row was read."
-  [gate-depot act permission-row depot-row layer-is-the-other-gates?]
+  permission, and the row at the place of the layer's depot. Gives true
+  when the act is the first act of its layer: both rows are nil, the layer
+  is not the other gate's (`layer-is-the-other-gates?`), and the act has
+  the form of a making act for this gate. `standing` gives nil for such an
+  act and for an act whose permission stands; this tells the two apart.
+  What must hold: when the permission's row is nil, the depot's row was
+  read."
+  [gate-depot act permission-row depot-row]
   (boolean (and (nil? permission-row)
                 (nil? depot-row)
-                (not layer-is-the-other-gates?)
+                (not (layer-is-the-other-gates? gate-depot act))
                 (first-act/making-act? gate-depot act))))
 
 (defn standing
   "The standing of an act: checks (c) and (d), what the act's permission
   allows, and the first act of a layer. Takes the gate's depot; an act; the
-  row at the place of `:who`'s permission; the row at the place of the
-  layer's depot, which is read only when the first is nil; and whether the
-  layer is the other gate's, which counts only when both are nil. Gives nil
-  when the act's permission stands and allows acting, or when the act is a
+  row at the place of `:who`'s permission; and the row at the place of the
+  layer's depot, which is read only when the first is nil. Gives nil when
+  the act's permission stands and allows acting, or when the act is a
   right making act for a layer that is not made (`makes-the-layer?` tells
   the two apart). Else a word:
 
@@ -191,26 +198,19 @@
   \"see\" stays \"see\"; that is kept, and not decided
   (`store-key-fault`).
 
-  The fifth argument, whether the layer is the other gate's, is not the
-  same question in the two gates.
-
-  The streaming gate hands whether the layer starts with the other gate's
-  depot (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`),
-  and reads no table of the other gate. So an act on the streaming depot
-  for such a layer, of which this gate's record holds nothing, gets
+  Whether the layer is the other gate's is worked out here, from the gate's
+  depot and the act's layer (`layer-is-the-other-gates?`), and counts only
+  when both rows are nil. No table of the other gate is read for it, in
+  either gate. So an act on one depot for a layer that starts with the
+  other depot, of which this gate's record holds nothing, gets
   `:layer-belongs-to-the-other-gate` whether or not the other gate has made
   the layer, and never `:layer-not-made`. The word of an act for a layer of
   the other gate comes from the act alone: a session's rule, 14 October
   2026, and no decision of Sid's. It is forced by his line that the store
   comes out the same when it is run again: a word that followed what the
   other gate had made by then would follow an order across two depots,
-  which no second run gives again.
-
-  The microbatch gate hands whether the other gate's record holds the
-  layer, as its own read of that record gave it. So its word for such a
-  layer is `:layer-belongs-to-the-other-gate` once the other gate has made
-  the layer, and `:layer-not-made` before."
-  [gate-depot act permission-row depot-row layer-is-the-other-gates?]
+  which no second run gives again."
+  [gate-depot act permission-row depot-row]
   (let [permission (:permission act)]
     (cond
       (record/holds-value? permission-row permission)
@@ -222,7 +222,7 @@
         :permission-does-not-stand
         :who-not-the-permissions-holder)
 
-      layer-is-the-other-gates?
+      (layer-is-the-other-gates? gate-depot act)
       :layer-belongs-to-the-other-gate
 
       (first-act/making-act? gate-depot act)
@@ -437,8 +437,8 @@
   A thing that the declaration refused carries nothing here: its stamp is
   the greater of its time and the layer's last stamp plus one. A thing with
   no usable time gets the layer's last stamp plus one, or 0 in a layer with
-  no last stamp. The streaming gate is the one caller; the microbatch
-  gate makes the stamps of a batch in `softland.store.gate.batch`."
+  no last stamp. The walk is the one caller, for both gates: no stamp holds
+  anything of a batch."
   [time-millis last-stamp act refused]
   (stamp/next-stamp time-millis
                     last-stamp
@@ -527,11 +527,11 @@
           (:facts act))))
 
 (defn writes
-  "Each row that one decision writes, as data, for a gate to write in one
-  event. Takes the act-id under which the thing arrived; the act, or nil for
+  "Each row that one decision writes, as data, for the walk to write in one
+  call. Takes the act-id under which the thing arrived; the act, or nil for
   a thing that the declaration refused; the word of the refusal, or nil for
   an accept; the stamp of the decision; the digest of the thing, 32 bytes;
-  and what the gate has in hand for an accept, a map that is not read for a
+  and what the walk has in hand for an accept, a map that is not read for a
   refusal:
 
     :since-by-place  for each place of the act whose key the layer marks,
@@ -542,9 +542,8 @@
                      `:since-by-place`, and of the marked-keys place when
                      the act writes it
     :level-from      the stamp that a newly marked key gets: the stamp of
-                     the act in the streaming gate; the last stamp of the
-                     batch in the microbatch gate, where a mark holds from
-                     the batch after
+                     the act, in both gates. So a mark holds from the next
+                     act of the layer
 
   Gives a vector of [which key row]:
 
@@ -554,10 +553,9 @@
                            is to be taken out
     [:answer key row]      the answer under the act-id
     [:last-stamp nil n]    the last stamp to keep, which is the stamp of
-                           the decision. It names no key: the streaming
-                           gate writes it for the act's layer, and the
-                           microbatch gate leaves it out and keeps one for
-                           a batch
+                           the decision. It names no key: the walk writes
+                           it for the act's layer, in the table that the
+                           gate keeps for a task
 
   A refusal writes the answer and the last stamp, and nothing else. An
   accept writes all of them. Every row is whole, at a fixed key, and a key

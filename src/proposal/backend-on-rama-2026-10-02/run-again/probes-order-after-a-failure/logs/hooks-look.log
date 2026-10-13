@@ -1,0 +1,21 @@
+01:02:48.450   48849.9  RUN     Rama 1.6.0, in-process, 4 tasks, 4 threads · scenario hooks {:log "hooks-look", :reps 1} · settings of First: {:timeout nil, :retry-mode :all-after, :way :plain}
+01:02:48.752     301.8  RUN     layers L00 and L02 are on task 1 · layer L01 is on task 2 · a read of the answer of find-L00 from outside gives {:verdict :accepted, :n 117435267068133376, :attempt 1}
+01:02:48.752     301.9  RUN     ---- hooks-look run 1 of 1 · Rama's test hooks around one act, no failure ----
+01:02:48.752     301.9    hook hook:apply-promise:test-hook · :replaced
+01:02:48.752     301.9    hook hook:completed-streaming-batch · :replaced
+01:02:48.752     301.9    hook hook:failed-streaming-batch · :replaced
+01:02:48.752     301.9    hook hook:filtering-because-invalid · :replaced
+01:02:48.752     302.0    hook hook:replog-append-all · :replaced
+01:02:48.752     302.0    hook hook:running-leader-apply-agent · :replaced
+01:02:48.752     302.0    hook hook:starting-streaming-batch · :replaced
+01:02:48.752     302.0    hook hook:triggering-reactivity · :replaced
+01:02:48.756     305.9    calls before the act, by hook and kind of thread: ([["hook:replog-append-all" "Worker x x@n DTT n n-task-group-exec-n"] 28])
+01:02:48.761     310.0    the :ack append of one act gave {}
+01:02:49.061     610.2    calls of the hooks from the append on, 2 in all; the first 30, [ms since the call · hook · thread]:
+01:02:49.061     610.3      +    0.40 ms  hook:replog-append-all             Worker bb1ad573 00000000@2002 DTT 1 0-task-group-exec-0
+01:02:49.061     610.3      +    2.13 ms  hook:replog-append-all             Worker bb1ad573 00000000@2002 DTT 1 0-task-group-exec-0
+01:02:49.061     610.3    NOTES of module First for the act:
+01:02:49.061     610.4          307.8  A attempt 1 begins on task 1
+01:02:49.061     610.4          307.9  A attempt 1 decides: accepted, number 117435267072393216
+01:02:49.061     610.4          307.9  A attempt 1 ends
+01:02:49.655    1204.7  RUN     END · 1 runs · SAME: 1 · DIFFERENT: 0 · did not reach the end: 0 · the rule named exactly the differing acts in: 0
