@@ -1,9 +1,9 @@
 (ns softland.store.pure-proof
   "The proof of the gates' pure namespaces: the one text and the digest, the
-  door's declaration, the stamp, the first act of a layer, the record's
-  rows, the checks of the decision, the pure code of a batch of the
-  microbatch gate, and what a gate's depot of answers holds. And of the
-  door's pure namespaces: its words, what it
+  door's declaration, the time on the act, the stamp, the first act of a
+  layer, the record's rows, the checks of the decision, the pure code of a
+  batch of the microbatch gate, and what a depot of answers holds. And of
+  the door's pure namespaces: its words, what it
   makes of one act, and the numbers of a maker's wait. And of the source
   under `src-store/`: that no code of it names a lock; and of the proofs
   under `test-store/`: that their code names one only where a proof means
@@ -24,6 +24,32 @@
   against a text that the proof writes out, or against what a second road
   gives: Java's own UTF-8, the proof's own SHA-256, Clojure's printer. A
   refusal is held by its word.
+
+  The time. A thing on a depot holds the time on the act, and the
+  declaration refuses a thing with no usable one. So each thing that the
+  proof's hand builds holds one time, `now`, under the name that
+  `softland.store.door.declaration/time-part` holds; a thing without it is
+  built so on purpose. The proof holds: what the declaration takes as a
+  time, the word for a thing with none, and where that word stands among
+  the others; that the test for a stray reads no time; that the digest
+  leaves the time out at the top level of a plain map and nowhere else;
+  that the door's additions add the time that they are handed and test
+  nothing of it; and that the stamp of a decision is made of the time on
+  the thing, or counts on from the layer's last stamp for a thing with
+  none. The name of the part is written out as a literal in three places,
+  each held against the declaration's: the second writing of the shape, the
+  text of the door's word, and the first field of the record `Timed`. In
+  the cases of a batch `now` is the batch's clock, which the microbatch
+  gate reads once for a batch and keeps. That a door writes its server's
+  clock there, and that the streaming gate reads none, need a cluster and
+  are not reached here.
+
+  A layer of the other gate. The cases of the standing hold what
+  `softland.store.gate.decision/standing` makes of its fifth argument, and
+  what the streaming gate hands there: whether the act's layer starts with
+  the other gate's depot, asked of the act alone. The batch in memory hands
+  what the microbatch gate hands: whether the other gate's record holds the
+  layer.
 
   The batch. Beside the cases of each function of `softland.store.gate.batch`,
   the proof runs whole batches in memory: the gate's four steps over the
@@ -48,7 +74,8 @@
   what it decided to be kept, on one task, and the next run closes it and
   makes the records. The proof holds the records against the answers' rows
   in the tables. An append is one step there: a failure in the run that
-  closes, and the streaming gate's append, are the module's proof's.
+  closes is the module's proof's. The streaming gate has no depot of
+  answers.
 
   The order by value. Its cases decide one act at a time against a record in
   memory with a function of the proof's own, `streaming-step`, which makes
@@ -179,6 +206,18 @@
 
 (defrecord Thing [e k])
 
+;; A record with a field of the name that `softland.store.door.declaration/time-part`
+;; holds: `digest-cases` holds that name against the field.
+(defrecord Timed [door-time e])
+
+(def ^:private now
+  "The one time of the proof's cases, in milliseconds since 1970. The proof's
+  hand writes it on each thing that it builds, under
+  `softland.store.door.declaration/time-part`, where a door writes the clock
+  of its server. The cases of the decision give it as the time on the act,
+  and the cases of a batch as the batch's clock."
+  1700000000000)
+
 (def ^:private alice-own "Alice's permission in her own layer." [:alice :alice :alice])
 (def ^:private bobs "Bob's permission in Alice's layer, beneath hers." [:bob :alice :alice alice-own])
 
@@ -206,16 +245,17 @@
 
 (defn- arrived
   "Alice's act into her own layer as it arrives on the streaming depot, under
-  the act-id `(act-id n)`, with these facts and no optional part."
+  the act-id `(act-id n)`, with the time `now` on it, these facts and no
+  optional part."
   [n & facts]
-  {:act-id (act-id n) :depot :streaming
+  {:act-id (act-id n) :depot :streaming declaration/time-part now
    :version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1
    :facts (vec facts)})
 
 (defn- one-form
   "The one form on arrival of `arrived` for facts that are in their one form."
   [n & facts]
-  {:act-id (act-id n) :depot :streaming
+  {:act-id (act-id n) :depot :streaming declaration/time-part now
    :version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1
    :based-on {} :because-of nil :claimed-when nil :subjects #{}
    :facts (vec facts)})
@@ -224,6 +264,17 @@
   "The least thing that the check takes: Alice's act with one fact that has
   a value."
   (arrived 1 (value-at :note-1 :text)))
+
+(defn- without-time
+  "Takes a thing that is a plain map. Gives it without the part that holds
+  the time on the act."
+  [thing]
+  (dissoc thing declaration/time-part))
+
+(defn- at-time
+  "The least thing with `t` under the part that holds the time on the act."
+  [t]
+  (assoc good declaration/time-part t))
 
 (defn- verdict
   "What the declaration's check gave, as one word: :ok, or its reason."
@@ -358,13 +409,17 @@
 (def ^:private digest-cases
   "The cases of the digest: its size; what it is the SHA-256 of; a thing that
   throws; the comparison of a sender that still holds its thing; the same
-  act built twice; the digest that tells a throw."
+  act built twice; the digest that tells a throw; and the time on the act,
+  which the digest leaves out at the top level of a plain map and nowhere
+  else."
   (let [no-bytes {:b [1 2N "x"] :a #{:k}}
-        with-bytes {:run (bytes-of 5) :e :note-1}]
+        with-bytes {:run (bytes-of 5) :e :note-1}
+        unreadable (sha-256 (utf8 "#unreadable"))
+        string-keys (fn [v] (sorted-map "a" v (name declaration/time-part) 5))]
     [["a digest is 32 bytes, and its hex text 64 characters"
       (fn [] [(alength ^bytes (digest/digest no-bytes)) (count (digest/hex-of no-bytes))])
       [32 64]]
-     ["for a thing with no bytes, the digest is the SHA-256 of the UTF-8 of its one text"
+     ["for a thing with no bytes and no time, the digest is the SHA-256 of the UTF-8 of its one text"
       (fn [] (digest/hex-of no-bytes))
       (sha-256 (utf8 (text/text no-bytes)))]
      ["the digest of {:a 1} is the SHA-256 of the six characters {:a 1}"
@@ -376,11 +431,12 @@
      ["the digest of a thing that throws when it is read is the digest of the text #unreadable"
       (fn [] (digest/hex-of {:facts (throwing)}))
       (sha-256 (utf8 "#unreadable"))]
-     ["the comparison of a sender that still holds its thing: the digest of the thing sent, of a thing with another entity, and no digest"
+     ["the comparison of a sender that still holds its thing: the digest of the thing sent, of a thing with another entity, and no digest; and the thing sent, held without its time"
       (fn [] [(digest/is-digest-of? (digest/hex-of good) good)
               (digest/is-digest-of? (digest/hex-of good) (arrived 1 (value-at :note-2 :text)))
-              (digest/is-digest-of? nil good)])
-      [true false false]]
+              (digest/is-digest-of? nil good)
+              (digest/is-digest-of? (digest/hex-of good) (without-time good))])
+      [true false false true]]
      ["the same act built twice has one digest, so a maker's second send of one act reads the answer of the first; the act with another value has another digest"
       (fn [] (let [built (fn [v] (digest/hex-of (arrived 1 (value-at :note-1 :text v))))]
                [(= (built "a text") (built "a text")) (= (built "a text") (digest/hex-of good))
@@ -389,16 +445,61 @@
      ["the digest that tells a throw: the hex text that `hex-of` gives, for a thing that is read to its end; nothing for a thing that throws when it is read"
       (fn [] [(digest/readable-hex-of {:a 1}) (= (digest/readable-hex-of good) (digest/hex-of good))
               (digest/readable-hex-of {:facts (throwing)}) (digest/readable-hex-of (throwing))])
-      [(sha-256 (utf8 "{:a 1}")) true nil nil]]]))
+      [(sha-256 (utf8 "{:a 1}")) true nil nil]]
+     ["two things that differ only in the time on the act have one digest, by `digest`, by `hex-of` and by `readable-hex-of`: the least thing with a time one millisecond later, as a second send carries, with a nil time, and with no time"
+      (fn [] (let [others [(at-time (inc now)) (at-time nil) (without-time good)]]
+               [(mapv (fn [x] (= (comparable (digest/digest good)) (comparable (digest/digest x)))) others)
+                (mapv (fn [x] (= (digest/hex-of good) (digest/hex-of x))) others)
+                (mapv (fn [x] (= (digest/readable-hex-of good) (digest/readable-hex-of x))) others)
+                (= (digest/hex-of good) (digest/readable-hex-of good) (text/hex (digest/digest good)))]))
+      [[true true true] [true true true] [true true true] true]]
+     ["the digest of a thing with a time is the SHA-256 of the one text of the thing without it; the text of the thing holds the time, and the digest is not of that text"
+      (fn [] [(digest/hex-of good)
+              (str/includes? (text/text good) (str declaration/time-part " " now))
+              (= (digest/hex-of good) (sha-256 (utf8 (text/text good))))])
+      [(sha-256 (utf8 (text/text (without-time good)))) true false]]
+     ["a thing that differs in anything else has another digest, with the same time on it: another value, another act-id, another who, a part more that holds the same number as the time"
+      (fn [] (mapv (fn [x] (= (digest/hex-of good) (digest/hex-of x)))
+                   [(arrived 1 (value-at :note-1 :text "a text.")) (arrived 2 (value-at :note-1 :text))
+                    (assoc good :who :bob) (assoc good :claimed-when now)]))
+      [false false false false]]
+     ["a time deeper than the top level is not left out: two things that differ only in a time inside a value, inside a fact, or inside a vector have two digests, by `hex-of` and by `readable-hex-of`; the digest of the vector is the SHA-256 of its whole text"
+      (fn [] (let [in-value (fn [t] (arrived 1 (value-at :note-1 :text {declaration/time-part t})))
+                   in-fact (fn [t] (arrived 1 (assoc (value-at :note-1 :text) declaration/time-part t)))
+                   in-vector (fn [t] [{declaration/time-part t}])]
+               [(mapv (fn [made] (= (digest/hex-of (made 1)) (digest/hex-of (made 2)))) [in-value in-fact in-vector])
+                (mapv (fn [made] (= (digest/readable-hex-of (made 1)) (digest/readable-hex-of (made 2)))) [in-value in-fact in-vector])
+                (= (digest/hex-of (in-vector 1)) (sha-256 (utf8 (text/text (in-vector 1)))))]))
+      [[false false false] [false false false] true]]
+     ["a sorted map with string keys, from which Clojure cannot take a keyword's part, keeps a digest of its own: the SHA-256 of its own text, by each of the three functions; two such maps with different content have two digests; neither has the digest of #unreadable"
+      (fn [] (let [a (string-keys 1)
+                   b (string-keys 2)]
+               [(try (dissoc a declaration/time-part) :taken (catch ClassCastException _ :threw))
+                (text/text a)
+                (= (digest/hex-of a) (sha-256 (utf8 (text/text a))))
+                (= (digest/hex-of a) (digest/readable-hex-of a) (text/hex (digest/digest a)))
+                (= (digest/hex-of a) (digest/hex-of b)) (= (digest/readable-hex-of a) (digest/readable-hex-of b))
+                (= unreadable (digest/hex-of a)) (= unreadable (digest/hex-of b))]))
+      [:threw (str "{\"a\" 1 \"" (name declaration/time-part) "\" 5}") true true false false false false]]
+     ["a record is not changed: a record with a field of the time's name has the digest of a record, the SHA-256 of its text, by each of the three functions; with the field taken out it would be a plain map, which has another digest"
+      (fn [] (let [timed (->Timed 5 :note-1)]
+               [(contains? timed declaration/time-part) (record? (without-time timed)) (text/text timed)
+                (= (digest/hex-of timed) (sha-256 (utf8 (text/text timed))))
+                (= (digest/hex-of timed) (digest/readable-hex-of timed) (text/hex (digest/digest timed)))
+                (= (digest/hex-of timed) (digest/hex-of (without-time timed)))]))
+      [true false "#other softland.store.pure_proof.Timed" true true false]]]))
 
 ;; ---------------------------------------------------------- the declaration
 
 (def ^:private declared-shapes
-  "The five shapes that the door adds, written out here a second time."
+  "The five shapes that the door adds, written out here a second time. What
+  arrives holds the time on the act after the depot: a fixed-width integer
+  of 0 or more and below 2^46."
   {:arrived-act
    [:parts
     [:act-id :act-id]
     [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
+    [:door-time [:int {:min 0 :below 70368744177664}] {:reason :no-door-time}]
     [:version [:enum 1] {:reason :unknown-version}]
     [:who :id]
     [:layer :id]
@@ -436,10 +537,11 @@
 
 (def ^:private declared-reasons
   "Each word with which the check refuses: `act.clj`'s seven and the door's
-  eighteen, the two of the last step among them."
+  nineteen, the word of the time's part and the two of the last step among
+  them."
   #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
     :permission-not-in-layer
-    :depot-not-the-act-ids-depot :too-many-facts :too-many-based-on
+    :depot-not-the-act-ids-depot :no-door-time :too-many-facts :too-many-based-on
     :store-key-not-known
     :depot-fact-not-a-depot-word :permission-fact-not-a-permission
     :permission-fact-not-on-its-holder
@@ -455,15 +557,20 @@
   [["the door's map of shapes holds each shape of act.clj as act.clj declares it"
     (fn [] (= act/shapes (select-keys declaration/shapes (keys act/shapes))))
     true]
-   ["the five shapes that the door adds: what arrives, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
+   ["the five shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
     (fn [] (apply dissoc declaration/shapes (keys act/shapes)))
     declared-shapes]
+   ["the name of the part that holds the time on the act, and the bound that the time must be below, 2^46 ms: each is what the shape of what arrives holds"
+    (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
+             [declaration/time-part declaration/max-time (= declaration/max-time (bit-shift-left 1 46))
+              (= part declaration/time-part) (= (:below (second shape)) declaration/max-time)]))
+    [:door-time 70368744177664 true true true]]
    ["the seventeen rules, the maker's first, each with its reason; the six of the keys that take a second write stand after the rules of a permission fact"
     (fn [] declaration/rules)
     declared-rules]
-   ["the words with which the check refuses, read from the two declarations, and the two of its last step"
-    (fn [] declaration/reasons)
-    declared-reasons]
+   ["the words with which the check refuses, read from the two declarations, the word of the time's part among them, and the two of its last step"
+    (fn [] [declaration/reasons (contains? declaration/reasons :no-door-time)])
+    [declared-reasons true]]
    ["the five words of a stray, in the order tested"
     (fn [] declaration/stray-reasons)
     [:no-act-id :act-id-malformed :id-too-long :act-id-of-the-other-gate :act-id-of-another-layer]]
@@ -521,8 +628,9 @@
     (assoc good :act-id [(long-id 256) :streaming (uuid 1)] :layer (long-id 256)) nil]])
 
 (def ^:private stray-cases
-  "The cases of the test for a stray: one for each row of `stray-rows`, and
-  the two that show that the test takes the gate's depot."
+  "The cases of the test for a stray: one for each row of `stray-rows`, the
+  two that show that the test takes the gate's depot, and the two that show
+  that it reads no time."
   (concat
    (map (fn [[what x word]] [(str "a stray? " what) (fn [] (declaration/stray-reason :streaming x)) word])
         stray-rows)
@@ -531,14 +639,27 @@
      nil]
     ["and a streaming act-id at the microbatch gate is a stray"
      (fn [] (declaration/stray-reason :microbatch good))
-     :act-id-of-the-other-gate]]))
+     :act-id-of-the-other-gate]
+    ["the test for a stray reads no time: each of the 16 plain maps of the rows above, 15 of which hold a time, has one word at a gate, with its time as it is, without it, with a nil one and with a string; held at each gate's depot"
+     (fn [] (let [maps (filter (fn [x] (and (map? x) (not (record? x)))) (map second stray-rows))
+                  word (fn [x] [(declaration/stray-reason :streaming x) (declaration/stray-reason :microbatch x)])]
+              [(count maps)
+               (count (filter (fn [x] (contains? x declaration/time-part)) maps))
+               (every? (fn [x] (= (word x) (word (without-time x)) (word (assoc x declaration/time-part nil))
+                                  (word (assoc x declaration/time-part "no time"))))
+                       maps)]))
+     [16 15 true]]
+    ["a thing with a usable act-id and no time is no stray on its act-id's depot: the check has the word for it, so a gate answers it under its act-id"
+     (fn [] [(declaration/stray-reason :streaming (without-time good)) (verdict (declaration/check (without-time good)))])
+     [nil :no-door-time]]]))
 
 (def ^:private whole
   "A thing with each part, given with subvectors, narrow integers and a list
   of facts: a value that is not in its normal form, a retract, a permission
-  given."
+  given. Its time is a narrow integer too."
   {:act-id (subvec (into [:x] (act-id 9)) 1)
    :depot :streaming
+   declaration/time-part (int 1700001)
    :version (int 1)
    :who :alice :layer :alice
    :permission (subvec [:x :alice :alice :alice] 1)
@@ -554,7 +675,7 @@
 
 (def ^:private whole-form
   "The one form on arrival of `whole`."
-  {:act-id (act-id 9) :depot :streaming
+  {:act-id (act-id 9) :depot :streaming declaration/time-part 1700001
    :version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1
    :based-on {[(act-id 2) 0] 41} :because-of (act-id 2) :claimed-when 1700000
    :subjects #{:alice :bob}
@@ -582,21 +703,22 @@
 
 (def ^:private passing-cases
   "Things that the check takes, each shown in its one form on arrival."
-  [["the least thing in its one form on arrival: each part, and its fact with its five parts, the text of the value in the place of the value"
-    (fn [] (act-of good))
-    (one-form 1 {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""})]
+  [["the least thing in its one form on arrival: each part, the time on the act as it arrived, and its fact with its five parts, the text of the value in the place of the value"
+    (fn [] [(act-of good) (get (act-of good) declaration/time-part)])
+    [(one-form 1 {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""}) now]]
    ["a thing with each part, given with subvectors, narrow integers and a list of facts: a fact under a plain key holds the text of its value's normal form and no value, a fact with no value holds neither, a fact under a store key holds both"
     (fn [] (act-of whole))
     whole-form]
-   ["its one form has plain vectors and longs, and the text is a String"
+   ["its one form has plain vectors and longs, the text is a String, and the time, given as a narrow integer, is a long"
     (fn [] (let [form (act-of whole)
                  [fact-id carried] (first (:based-on form))]
              (mapv #(.getSimpleName (class %))
                    [(:act-id form) (:permission form) (:facts form) fact-id (second fact-id) carried
                     (:claimed-when form) (second (:replaces (first (:facts form))))
-                    (:v (nth (:facts form) 2)) (:text (first (:facts form)))])))
+                    (:v (nth (:facts form) 2)) (:text (first (:facts form)))
+                    (get whole declaration/time-part) (get form declaration/time-part)])))
     ["PersistentVector" "PersistentVector" "PersistentVector" "PersistentVector" "Long" "Long"
-     "Long" "Long" "PersistentVector" "String"]]
+     "Long" "Long" "PersistentVector" "String" "Integer" "Long"]]
    ["the text of a value under a plain key is the one text of its normal form, and the one form keeps no value beside it: an Integer, a decimal with a trailing zero, a sorted map, a UUID, a keyword, a string with a quote and a character of three bytes"
     (fn [] (mapv (fn [v] (let [fact (first (:facts (act-of (arrived 1 (value-at :note-1 :text v)))))]
                            [(:v fact) (:text fact)]))
@@ -680,10 +802,32 @@
    ["facts that are no sequence" (assoc good :facts {:e :note-1}) :malformed]
    ["a fact that is no map" (assoc good :facts [5]) :malformed]])
 
+(def ^:private time-rows
+  "The least thing with each kind of time on it. For each: the thing; the
+  time that `softland.store.door.declaration/usable-time` gives for it, nil
+  for none; and the word of the check. A double and a big integer hold the
+  number of `now`, so their class alone is the fault."
+  (let [bound (bit-shift-left 1 46)]
+    [["no time" (without-time good) nil :no-door-time]
+     ["a time that is nil" (at-time nil) nil :no-door-time]
+     ["a time that is a string" (at-time "1700000000000") nil :no-door-time]
+     ["a time that is a double" (at-time 1.7E12) nil :no-door-time]
+     ["a time that is a big integer" (at-time 1700000000000N) nil :no-door-time]
+     ["a time that is a Java big integer" (at-time (java.math.BigInteger. "1700000000000")) nil :no-door-time]
+     ["a time of -1" (at-time -1) nil :no-door-time]
+     ["a time of 2^46" (at-time bound) nil :no-door-time]
+     ["a time that is the greatest long" (at-time Long/MAX_VALUE) nil :no-door-time]
+     ["a time of 2^46 less one" (at-time (dec bound)) (dec bound) :ok]
+     ["a time of 0" (at-time 0) 0 :ok]
+     ["a time that is a narrow integer" (at-time (int 1700001)) 1700001 :ok]
+     ["the time of the proof's things" good now :ok]]))
+
 (def ^:private doors-rows
   "One thing for each word that a part or a rule of the door's declaration
-  gives: the least thing with one fault. The two words of the last step are
-  earned in `limit-rows`, at their edges."
+  gives: the least thing with one fault. The word of the time's part is
+  earned in `time-rows`, by each kind of time that the shape does not take.
+  The two words of the last step are earned in `limit-rows`, at their
+  edges."
   [["no depot" (dissoc good :depot) :depot-not-the-act-ids-depot]
    ["a depot that is no depot word" (assoc good :depot :fast) :depot-not-the-act-ids-depot]
    ["a depot that is not the depot slot of the act-id" (assoc good :depot :microbatch) :depot-not-the-act-ids-depot]
@@ -733,6 +877,40 @@
      ["a layer in the list that a layer builds on" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base long]})]
      ["a key in the set that a layer marks" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on long}})]]))
 
+(def ^:private time-cases
+  "The cases of the time on the act as the declaration reads it: what
+  `softland.store.door.declaration/usable-time` gives for each row of
+  `time-rows`; its class; a thing that is no plain map; a thing that throws
+  when the part is read; and where the word of the time stands among the
+  words of the check, by each thing of `makers-rows` and of `doors-rows`
+  with its time taken off. The word of the check for each row of
+  `time-rows` is held in `refusals-of-the-declaration`."
+  (concat
+   (map (fn [[what x usable _]]
+          [(str "the usable time of the least thing with " what) (fn [] (declaration/usable-time x)) usable])
+        time-rows)
+   [["a usable time is a long, whatever fixed-width class the thing held: a long, an Integer, a Short, a Byte"
+     (fn [] (mapv (fn [t] (let [usable (declaration/usable-time (at-time t))] [usable (.getSimpleName (class usable))]))
+                  [7 (int 7) (short 7) (byte 7)]))
+     (vec (repeat 4 [7 "Long"]))]
+    ["a thing that is no plain map has no usable time: nil, a number, a string, a vector that holds the part's name and a time, a record that holds the part, a record with a field of the part's name"
+     (fn [] (mapv declaration/usable-time
+                  [nil 5 "a thing" [declaration/time-part now] (assoc (->Thing 1 2) declaration/time-part now) (->Timed now :note-1)]))
+     [nil nil nil nil nil nil]]
+    ["nothing throws: a sorted map with string keys throws when a keyword's part is read from it, and has no usable time; neither has a sequence that throws when it is read, or a map whose time is such a sequence"
+     (fn [] (let [string-keys (sorted-map "a" 1 (name declaration/time-part) now)]
+              [(try (get string-keys declaration/time-part) :read (catch ClassCastException _ :threw))
+               (mapv declaration/usable-time [string-keys (throwing) (at-time (throwing))])]))
+     [:threw [nil nil nil]]]
+    ["the time's word stands after the word of a part that the form does not know, and before the word of each of the maker's own parts: of the things of `makers-rows` with the time taken off, the first, whose fault is such a part of the thing itself, keeps its word, and each of the other sixteen, whose fault is in a part of the maker's, gets the time's"
+     (fn [] (let [given (mapv (fn [[_ x _]] (verdict (declaration/check (without-time x)))) makers-rows)]
+              [(first given) (frequencies (rest given))]))
+     [:unknown-part {:no-door-time 16}]]
+    ["the time's word stands after the word of a depot that is absent or no depot word, and before each rule: of the things of `doors-rows` with the time taken off, the first two keep the depot's word, and each of the other twenty-three, whose fault a rule finds, gets the time's; a depot word that is not the act-id's is one of them"
+     (fn [] (let [given (mapv (fn [[_ x _]] (verdict (declaration/check (without-time x)))) doors-rows)]
+              [(vec (take 2 given)) (frequencies (drop 2 given))]))
+     [[:depot-not-the-act-ids-depot :depot-not-the-act-ids-depot] {:no-door-time 23}]]]))
+
 ;; ------------------------------------------- the bounds of the check's last step
 
 (def ^:private at-the-bound
@@ -758,7 +936,7 @@
   [more]
   (let [id (long-id 256)
         value (apply str (repeat 48735 "a"))]
-    {:act-id [id :streaming (uuid 1)] :depot :streaming
+    {:act-id [id :streaming (uuid 1)] :depot :streaming declaration/time-part now
      :version 1 :who id :layer id :permission (deep-permission id id 32) :session :alice-s1
      :facts (mapv (fn [i] {:e (keyword (str "note-" i)) :k :text
                            :v (if (= i 255) (str value (apply str (repeat more "a"))) value)})
@@ -817,9 +995,23 @@
   "Things with two faults. The part that is declared first, the shape before
   a rule, the rule that is listed first, and a rule before the last step
   give the reason; in the last step, a value over its bound before an act
-  over its bound."
+  over its bound. The time on the act is declared after the depot and
+  before each of the maker's parts."
   [["a part that is not named, and a wrong version" (assoc good :owner 1 :version 2) :unknown-part]
    ["no depot, and a wrong version" (assoc (dissoc good :depot) :version 2) :depot-not-the-act-ids-depot]
+   ["a part that is not named, and no time: the part that the form does not know" (assoc (without-time good) :owner 1) :unknown-part]
+   ["a depot that is no depot word, and no time: the depot is declared before the time" (assoc (without-time good) :depot :fast) :depot-not-the-act-ids-depot]
+   ["no depot, and no time" (dissoc (without-time good) :depot) :depot-not-the-act-ids-depot]
+   ["no time, and a wrong version: the time is declared before each of the maker's parts" (assoc (without-time good) :version 2) :no-door-time]
+   ["no time, and a who that is a string" (assoc (without-time good) :who "alice") :no-door-time]
+   ["no time, and no permission" (dissoc (without-time good) :permission) :no-door-time]
+   ["no time, and no fact" (assoc (without-time good) :facts []) :no-door-time]
+   ["no time, and facts that throw when they are read" (assoc (without-time good) :facts (throwing)) :no-door-time]
+   ["no time, and a fact with a part that the form does not name: that fault is inside a part of the maker's"
+    (without-time (arrived 1 (assoc (value-at :note-1 :text) :layer :bob))) :no-door-time]
+   ["no time, and a depot word that is not the act-id's: the shape comes before a rule" (assoc (without-time good) :depot :microbatch) :no-door-time]
+   ["a time of 2^46, and a value over the bound: the shape comes before the last step"
+    (assoc (arrived 1 (value-at :note-1 :text over-the-bound)) declaration/time-part (bit-shift-left 1 46)) :no-door-time]
    ["a wrong version, and facts that are no sequence" (assoc good :version 2 :facts 5) :unknown-version]
    ["a wrong version, and facts that throw when they are read" (assoc good :version 2 :facts (throwing)) :unknown-version]
    ["a good version, and facts that throw when they are read" (assoc good :facts (throwing)) :malformed]
@@ -893,7 +1085,7 @@
     (arrived 1 {:e :bob :k :softland.store/permission :v (deep-permission :bob :alice 33)}) :malformed]
    ["ids that are UUIDs: who, the layer, an entity"
     (let [who (uuid 31) layer (uuid 32)]
-      {:act-id [layer :streaming (uuid 1)] :depot :streaming :version 1 :who who :layer layer
+      {:act-id [layer :streaming (uuid 1)] :depot :streaming declaration/time-part now :version 1 :who who :layer layer
        :permission [who layer layer] :session (uuid 33)
        :facts [{:e (uuid 34) :k :text :v "a text"}]})
     :ok]])
@@ -924,51 +1116,76 @@
 ;; ------------------------------------------------------------------ the stamp
 
 (def ^:private stamp-cases
-  "The cases of the stamp: the packing, the next stamp, the 10-second rule,
-  the greatest carried stamp, the year."
-  (let [t 1700000000000
+  "The cases of the stamp: the packing; the next stamp, of the time that a
+  gate gives, the last stamp and the greatest carried stamp, with each of
+  the three there and not there; the 10-second rule, with a time and with
+  none; the greatest carried stamp; the year, and the bound of the time on
+  an act."
+  (let [t now
         s (fn [millis counter] (stamp/pack millis counter))]
     [["the packing: milliseconds x 65,536 + counter, and back"
       (fn [] [(stamp/pack 3 5) (stamp/time-of (stamp/pack t 77)) (stamp/counter-of (stamp/pack t 77))])
       [(+ (* 3 65536) 5) t 77]]
-     ["the first decision of a task: the clock, with a counter of zero"
+     ["the first decision in a layer, of a thing with a time: the time, with a counter of zero"
       (fn [] (stamp/next-stamp t nil nil))
       (s t 0)]
-     ["the clock is ahead of the last stamp: the clock, with a counter of zero"
+     ["the time is later than the time in the last stamp: the time, with a counter of zero"
       (fn [] (stamp/next-stamp (+ t 5) (s t 9) nil))
       (s (+ t 5) 0)]
-     ["a second decision in one tick: the last stamp plus one"
+     ["a second decision with the same time: the last stamp plus one"
       (fn [] (stamp/next-stamp t (s t 0) nil))
       (s t 1)]
-     ["the clock went back: the last stamp plus one all the same"
+     ["a time earlier than the time in the last stamp, as of a door whose clock is behind or went back: the last stamp plus one all the same"
       (fn [] (stamp/next-stamp (- t 60000) (s t 3) nil))
       (s t 4)]
-     ["more decisions in one tick than the counter holds: the stamp carries into the time and still increases"
+     ["more decisions with one time than the counter holds: the stamp carries into the time and still increases"
       (fn [] (let [next (stamp/next-stamp t (s t 65535) nil)]
                [(> next (s t 65535)) (stamp/time-of next) (stamp/counter-of next)]))
       [true (inc t) 0]]
-     ["an act carries a stamp ahead of the clock and of the last stamp: later than it"
+     ["an act carries a stamp ahead of its time and of the last stamp: later than it"
       (fn [] (stamp/next-stamp t (s t 3) (s (+ t 2000) 8)))
       (s (+ t 2000) 9)]
-     ["an act carries a stamp behind the clock: the clock"
+     ["an act carries a stamp behind its time: the time"
       (fn [] (stamp/next-stamp t nil (s (- t 2000) 8)))
       (s t 0)]
-     ["65,537 decisions in a row at one clock tick: each stamp later than the one before"
+     ["65,537 decisions in a row with one time: each stamp later than the one before"
       (fn [] (let [stamps (reductions (fn [last _] (stamp/next-stamp t last nil)) (stamp/next-stamp t nil nil) (range 65536))]
                [(count stamps) (apply < stamps)]))
       [65537 true]]
-     ["the 10-second rule at its edge: 10,000 ms ahead is not too far, 10,001 is"
+     ["a thing with no time: the last stamp plus one; the greatest carried stamp plus one; the greater of the two, in either order"
+      (fn [] [(stamp/next-stamp nil (s t 3) nil) (stamp/next-stamp nil nil (s t 8))
+              (stamp/next-stamp nil (s t 3) (s (+ t 2000) 8)) (stamp/next-stamp nil (s (+ t 2000) 8) (s t 3))])
+      [(s t 4) (s t 9) (s (+ t 2000) 9) (s (+ t 2000) 9)]]
+     ["nothing in each place, one at a time, with the two others there: no time, no last stamp, no carried stamp"
+      (fn [] [(stamp/next-stamp nil (s t 3) (s (- t 2000) 8)) (stamp/next-stamp t nil (s (+ t 2000) 8))
+              (stamp/next-stamp (+ t 5) (s t 3) nil)])
+      [(s t 4) (s (+ t 2000) 9) (s (+ t 5) 0)]]
+     ["nothing in all three places: the stamp is 0, a long; and 65,537 decisions in a row with no time count on from it, one by one"
+      (fn [] (let [first-stamp (stamp/next-stamp nil nil nil)
+                   stamps (reductions (fn [last _] (stamp/next-stamp nil last nil)) first-stamp (range 65536))]
+               [first-stamp (.getSimpleName (class first-stamp)) (= stamps (range 65537))]))
+      [0 "Long" true]]
+     ["a time of 0 is a time: its stamp is 0 too, and the last stamp plus one passes it"
+      (fn [] [(stamp/next-stamp 0 nil nil) (stamp/next-stamp 0 41 nil)])
+      [0 42]]
+     ["the 10-second rule at its edge: 10,000 ms ahead of the time is not too far, 10,001 is"
       (fn [] [(stamp/too-far-ahead? t (s (+ t 10000) 65535)) (stamp/too-far-ahead? t (s (+ t 10001) 0))
               (stamp/too-far-ahead? t (s (- t 5) 0)) (stamp/too-far-ahead? t (dec act/max-carried-stamp))])
       [false true false true]]
+     ["the 10-second rule with no time: false for each carried stamp, the greatest that an act can carry too, since there is nothing to hold it against"
+      (fn [] [(stamp/too-far-ahead? nil (s (+ t 10001) 0)) (stamp/too-far-ahead? nil (dec act/max-carried-stamp))
+              (stamp/too-far-ahead? nil 0)])
+      [false false false]]
      ["the greatest stamp that an act carries: of its based-on, never claimed-when"
       (fn [] [(stamp/greatest-carried {:based-on {[(act-id 2) 0] 5 [(act-id 2) 1] 9} :claimed-when 99})
               (stamp/greatest-carried {:based-on {} :claimed-when 99})])
       [9 nil]]
-     ["the packing reaches 2^62 when the clock reaches 2^46 ms, in the year 4199"
+     ["the packing reaches 2^62 when the time reaches 2^46 ms, in the year 4199; that is the bound of the time on an act, so the greatest time that the declaration takes, with a full counter, is the last stamp below 2^62"
       (fn [] [(stamp/pack (bit-shift-left 1 46) 0)
-              (.getYear (.atZone (java.time.Instant/ofEpochMilli (bit-shift-left 1 46)) java.time.ZoneOffset/UTC))])
-      [(bit-shift-left 1 62) 4199]]
+              (.getYear (.atZone (java.time.Instant/ofEpochMilli (bit-shift-left 1 46)) java.time.ZoneOffset/UTC))
+              (= declaration/max-time (bit-shift-left 1 46))
+              (= (stamp/pack (dec declaration/max-time) 65535) (dec act/max-carried-stamp))])
+      [(bit-shift-left 1 62) 4199 true true]]
      ["a stamp of today is below 2^62"
       (fn [] (< (stamp/next-stamp t nil nil) act/max-carried-stamp))
       true]]))
@@ -983,7 +1200,7 @@
   [layer who holder]
   (let [permission [holder layer layer]
         depot (first-act/depot-at-making layer)]
-    {:act-id [layer depot (uuid 1)] :depot depot :version 1 :who who :layer layer
+    {:act-id [layer depot (uuid 1)] :depot depot declaration/time-part now :version 1 :who who :layer layer
      :permission permission :session :s1 :based-on {} :because-of nil :claimed-when nil :subjects #{}
      :facts [(arrived-fact layer :softland.store/depot depot)
              (arrived-fact holder :softland.store/permission permission)]}))
@@ -1030,12 +1247,22 @@
       false]]))
 
 (def ^:private first-act-cases
-  "The cases of the first act: the depot that a layer starts with, and one
-  case for each row of `first-act-rows`."
+  "The cases of the first act: the depot that a layer starts with, whether a
+  layer starts with the other gate's depot, and one case for each row of
+  `first-act-rows`."
   (concat
    [["the depot that a layer starts with: microbatch for the base, streaming for any other"
      (fn [] (mapv first-act/depot-at-making [:base :alice :team (uuid 1)]))
      [:microbatch :streaming :streaming :streaming]]
+    ["a layer that starts with the other gate's depot: at the streaming gate's depot the base, and no other layer, a keyword or a UUID; at the microbatch gate's depot each layer but the base"
+     (fn [] [(mapv #(first-act/starts-with-the-other-gates-depot? :streaming %) [:base :alice :team (uuid 1)])
+             (mapv #(first-act/starts-with-the-other-gates-depot? :microbatch %) [:base :alice :team (uuid 1)])])
+     [[true false false false] [false true true true]]]
+    ["no act that has the form of a making act for a gate is for a layer that starts with the other gate's depot: each of the five such rows below, at its gate; and the base's making act at the streaming gate's depot is for such a layer"
+     (fn [] [(mapv (fn [[_ gate-depot act _]] (first-act/starts-with-the-other-gates-depot? gate-depot (:layer act)))
+                   (filter (fn [[_ _ _ making?]] making?) first-act-rows))
+             (first-act/starts-with-the-other-gates-depot? :streaming (:layer (making :base :system :system)))])
+     [[false false false false false] true]]
     ["the two ids that the form knows"
      (fn [] [first-act/system first-act/base])
      [:system :base]]
@@ -1291,8 +1518,6 @@
 
 ;; --------------------------------------------------------------- the decision
 
-(def ^:private now "The gate's clock in the cases of the decision." 1700000000000)
-
 (defn- permission-row
   "The row of a permission fact, as an accept writes it."
   [permission]
@@ -1310,14 +1535,27 @@
   "Bob's permission in Alice's layer, beneath hers, that says see and act."
   [:bob :alice :alice alice-own :see-and-act])
 
+(def ^:private base-on-the-streaming-depot
+  "An act into the base as it arrives on the streaming depot: by the system
+  under its own permission in the base, with one fact that has a value. It
+  is no stray on that depot, and the declaration's check takes it."
+  {:act-id [:base :streaming (uuid 1)] :depot :streaming declaration/time-part now
+   :version 1 :who :system :layer :base :permission [:system :base :base] :session :s1
+   :facts [(value-at :doc-1 :note)]})
+
 (def ^:private standing-rows
   "For each: the act, the row at the place of who's permission, the row at
-  the layer's depot place, whether the other gate holds the layer; then the
-  word of `standing`, and whether the act makes the layer."
+  the layer's depot place, whether the layer is the other gate's; then the
+  word of `standing`, and whether the act makes the layer. Each row is held
+  at the streaming gate's depot. The fifth part is written out in each row,
+  so that the rows hold what `standing` makes of it; `standing-cases` holds
+  what the streaming gate hands there."
   (let [alices (act-of good)
         bobs-act (assoc alices :who :bob :permission bobs)
         personal (making :alice :system :alice)
-        group (making :team :alice :alice)]
+        group (making :team :alice :alice)
+        into-base (act-of base-on-the-streaming-depot)
+        base-making (making :base :system :system)]
     [["the act's permission is at its holder's place" alices (permission-row alice-own) nil false nil false]
      ["an act under a permission given beneath another, at its holder's place" bobs-act (permission-row bobs) nil false nil false]
      ["the place holds another permission of the same holder" (assoc alices :permission [:alice :alice :alice [:x :alice :alice]])
@@ -1333,9 +1571,19 @@
      ["an act into a layer that is not made" alices nil nil false :layer-not-made false]
      ["a right making act of a personal layer, into a layer that is not made" personal nil nil false nil true]
      ["a right making act of a group's layer" group nil nil false nil true]
-     ["a making act of the base at the streaming gate" (making :base :system :system) nil nil false :layer-not-made false]
-     ["an act into a layer that the other gate's record holds" alices nil nil true :layer-belongs-to-the-other-gate false]
-     ["a making act for a layer that the other gate's record holds" group nil nil true :layer-belongs-to-the-other-gate false]
+     ["an act into the base, a layer of the other gate, of which this gate's record holds nothing" into-base nil nil true
+      :layer-belongs-to-the-other-gate false]
+     ["the base's making act, which has the form of a making act for the other gate and not for this one, with the layer said to be the other gate's"
+      base-making nil nil true :layer-belongs-to-the-other-gate false]
+     ["an act that has the form of a making act for this gate, with the layer said to be the other gate's: it makes nothing"
+      group nil nil true :layer-belongs-to-the-other-gate false]
+     ["an act of no such form, with the layer said to be the other gate's" alices nil nil true :layer-belongs-to-the-other-gate false]
+     ["the base's making act with the layer not said to be the other gate's, which the streaming gate does not hand for the base: it is no making act for this gate, and the word is that of a layer that is not made"
+      base-making nil nil false :layer-not-made false]
+     ["a layer said to be the other gate's counts only when both rows are nil: with the row of the permission there, the act stands"
+      alices (permission-row alice-own) nil true nil false]
+     ["and with the row of the layer's depot there, the layer is made here: the word of a permission that the record does not hold"
+      bobs-act nil depot-row true :permission-does-not-stand false]
      ["a holder of see who names her permission as the row has it: an act needs act"
       (assoc alices :who :bob :permission bobs-see) (permission-row bobs-see) nil false :permission-does-not-allow-acting false]
      ["a holder of see who names her permission without the slot: the bytes are not the row's, so naming more does not stand"
@@ -1357,12 +1605,26 @@
       nil nil false :layer-not-made false]]))
 
 (def ^:private standing-cases
-  "The cases of the standing: the two places that are read, and one case for
-  each row of `standing-rows`."
+  "The cases of the standing: the two places that are read, what the
+  streaming gate hands as whether the layer is the other gate's, and one
+  case for each row of `standing-rows`."
   (concat
    [["the places that the standing reads: who's permission, then the layer's depot"
      (fn [] [(decision/permission-place (act-of good)) (decision/depot-place (act-of good))])
      [":alice :alice :softland.store/permission" ":alice :alice :softland.store/depot"]]
+    ["what the streaming gate hands as the fifth: whether the act's layer starts with the other gate's depot, asked of the act alone. With no row of the layer in its record, an act into the base and the base's making act get the word of a layer of the other gate, and neither makes the layer; an act into another layer that is not made, and a right making act of one, get what a layer of this gate gets"
+     (fn [] (mapv (fn [act] (let [the-other-gates? (first-act/starts-with-the-other-gates-depot? :streaming (:layer act))]
+                              [the-other-gates?
+                               (decision/standing :streaming act nil nil the-other-gates?)
+                               (decision/makes-the-layer? :streaming act nil nil the-other-gates?)]))
+                  [(act-of base-on-the-streaming-depot) (making :base :system :system) (act-of good) (making :team :alice :alice)]))
+     [[true :layer-belongs-to-the-other-gate false] [true :layer-belongs-to-the-other-gate false]
+      [false :layer-not-made false] [false nil true]]]
+    ["an act into the base on the streaming depot is no stray there, the declaration's check takes it, and no early check refuses it: it is the standing that has the word"
+     (fn [] [(declaration/stray-reason :streaming base-on-the-streaming-depot)
+             (verdict (declaration/check base-on-the-streaming-depot))
+             (decision/refused-early (decision/time-on base-on-the-streaming-depot) (act-of base-on-the-streaming-depot) nil)])
+     [nil :ok nil]]
     ["what a permission allows, read from its one form: a first permission and one given without the slot read as see and act; with the slot, what the slot says; the slot of a permission above it is not read"
      (fn [] (mapv act/allows [alice-own bobs bobs-see bobs-see-and-act [:carol :alice :alice bobs-see]]))
      [:see-and-act :see-and-act :see :see-and-act :see-and-act]]]
@@ -1374,20 +1636,46 @@
         standing-rows)))
 
 (def ^:private early-cases
-  "The cases of the checks that read nothing of the record: the
-  declaration's word, and the 10-second rule."
-  (let [carrying (fn [millis] (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack millis 0)})))]
-    [["the declaration's word comes first"
+  "The cases of the checks that read nothing of the record: the time on a
+  thing, which the streaming gate gives to them; the declaration's word; and
+  the 10-second rule, held against that time."
+  (let [carrying-at (fn [t millis] (assoc (at-time t) :based-on {[(act-id 2) 0] (stamp/pack millis 0)}))
+        carrying (fn [millis] (act-of (carrying-at now millis)))
+        early (fn [thing] (let [checked (declaration/check thing)]
+                            (decision/refused-early (decision/time-on thing) (:ok checked) (:refuse checked))))]
+    [["the time on a thing is the usable time that it holds: `now` for the least thing"
+      (fn [] (decision/time-on good))
+      now]
+     ["a thing that the declaration refuses for another fault keeps its time: a wrong version, a part that the form does not know, facts that throw when they are read, a value over the bound; each with the check's word"
+      (fn [] (mapv (fn [x] [(decision/time-on x) (verdict (declaration/check x))])
+                   [(assoc good :version 2) (assoc good :owner 1) (assoc good :facts (throwing))
+                    (arrived 1 (value-at :note-1 :text over-the-bound))]))
+      [[now :unknown-version] [now :unknown-part] [now :malformed] [now :value-too-large]]]
+     ["a thing with no usable time has none: no time, a nil one, a double, a time of 2^46; and a thing that is no map, or that throws when it is read"
+      (fn [] (mapv decision/time-on [(without-time good) (at-time nil) (at-time 1.7E12) (at-time (bit-shift-left 1 46))
+                                     nil 5 (throwing)]))
+      [nil nil nil nil nil nil nil]]
+     ["the declaration's word comes first"
       (fn [] (decision/refused-early now nil :value-too-large))
       :value-too-large]
+     ["a thing with no time, as the streaming gate hands it, with nil for the time and the declaration's word"
+      (fn [] (early (without-time good)))
+      :no-door-time]
      ["an act that carries no stamp, or one in the past, or one 10 seconds ahead, goes on"
       (fn [] [(decision/refused-early now (act-of good) nil)
               (decision/refused-early now (carrying (- now 5000)) nil)
               (decision/refused-early now (carrying (+ now 10000)) nil)])
       [nil nil nil]]
-     ["an act that carries a stamp more than 10 seconds ahead of the clock is refused"
+     ["an act that carries a stamp more than 10 seconds ahead of the time on it is refused"
       (fn [] (decision/refused-early now (carrying (+ now 10001)) nil))
       :carried-stamp-too-far-ahead]
+     ["the rule is held against the thing's own time: one carried stamp, 10,001 ms after `now`, on a thing whose time is `now` and on a thing whose time is one millisecond later"
+      (fn [] [(early (carrying-at now (+ now 10001))) (early (carrying-at (inc now) (+ now 10001)))])
+      [:carried-stamp-too-far-ahead nil]]
+     ["with nil for the time the rule refuses nothing, an act that carries a stamp an hour ahead goes on; the same thing with its time taken off gets the declaration's word, so no act goes on without a time"
+      (fn [] [(decision/refused-early nil (carrying (+ now 3600000)) nil)
+              (early (without-time (carrying-at now (+ now 3600000))))])
+      [nil :no-door-time]]
      ["claimed-when far ahead is a claim: no refusal"
       (fn [] (decision/refused-early now (act-of (assoc good :claimed-when Long/MAX_VALUE)) nil))
       nil]]))
@@ -1534,13 +1822,26 @@
                                                             {:place-rows {marks-place row-before} :level-from level-from})]
                            (record/marked-keys-of row)))
         uuid-who "#uuid \"00000000-0000-0000-0000-00000000004d\""]
-    [["the stamp of a decision: later than the last stamp and than each stamp that the act carries"
+    [["the stamp of a decision: later than the layer's last stamp and than each stamp that the act carries"
       (fn [] (let [carrying (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack (+ now 3000) 5)}))]
                [(decision/stamp-of now nil nil :malformed)
                 (decision/stamp-of now (stamp/pack now 4) (act-of good) nil)
                 (decision/stamp-of now (stamp/pack now 4) carrying nil)
                 (decision/stamp-of now (stamp/pack now 4) carrying :layer-not-made)]))
       [(stamp/pack now 0) (stamp/pack now 5) (stamp/pack (+ now 3000) 6) (stamp/pack (+ now 3000) 6)]]
+     ["the stamp of a refused thing that has a time holds that time: a thing with a wrong version and a time 7 ms after `now`, its time read with `time-on`, in a layer with no last stamp and in a layer whose last stamp is of an earlier time; after a last stamp of a later time it is that stamp plus one"
+      (fn [] (let [refused (assoc (at-time (+ now 7)) :version 2)
+                   word (:refuse (declaration/check refused))
+                   stamp-after (fn [last-stamp] (decision/stamp-of (decision/time-on refused) last-stamp nil word))]
+               [word (stamp-after nil) (stamp/time-of (stamp-after nil)) (stamp-after (stamp/pack now 4))
+                (stamp-after (stamp/pack (+ now 9) 4))]))
+      [:unknown-version (stamp/pack (+ now 7) 0) (+ now 7) (stamp/pack (+ now 7) 0) (stamp/pack (+ now 9) 5)]]
+     ["the stamp of a refused thing that has no time: the layer's last stamp plus one, and 0 in a layer with no last stamp"
+      (fn [] (let [refused (without-time good)
+                   word (:refuse (declaration/check refused))
+                   stamp-after (fn [last-stamp] (decision/stamp-of (decision/time-on refused) last-stamp nil word))]
+               [word (decision/time-on refused) (stamp-after (stamp/pack now 4)) (stamp-after nil)]))
+      [:no-door-time nil (stamp/pack now 5) 0]]
      ["an act refused for a carried stamp too far ahead gets an ordinary stamp"
       (fn [] (decision/stamp-of now (stamp/pack now 4)
                                 (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack (+ now 60000) 0)}))
@@ -1819,9 +2120,10 @@
 
 (defn- base-thing
   "An act into the base as it arrives on the microbatch depot, under the
-  act-id `(base-id n)`, by `who` under `permission`, with these facts."
+  act-id `(base-id n)`, by `who` under `permission`, with the time `now` on
+  it and these facts."
   [n who permission & facts]
-  {:act-id (base-id n) :depot :microbatch
+  {:act-id (base-id n) :depot :microbatch declaration/time-part now
    :version 1 :who who :layer :base :permission permission :session :s1
    :facts (vec facts)})
 
@@ -3059,9 +3361,9 @@
       (base-thing 14 :system system-own {:e p1 :k :twice})
       (base-thing 14 :system system-own {:e p2 :k :twice})
       ;; an act for a layer of the other gate, made and not made
-      {:act-id [:alice :microbatch (uuid 15)] :depot :microbatch :version 1 :who :alice :layer :alice
+      {:act-id [:alice :microbatch (uuid 15)] :depot :microbatch declaration/time-part now :version 1 :who :alice :layer :alice
        :permission alice-own :session :s1 :facts [{:e p1 :k :stranger}]}
-      {:act-id [:nobody :microbatch (uuid 16)] :depot :microbatch :version 1 :who :alice :layer :nobody
+      {:act-id [:nobody :microbatch (uuid 16)] :depot :microbatch declaration/time-part now :version 1 :who :alice :layer :nobody
        :permission [:alice :nobody :nobody] :session :s1 :facts [{:e p2 :k :stranger}]}
       ;; a plain value under a plain key, and two strays
       (base-thing 17 :system system-own {:e p1 :k :plain :v "a plain value"})
@@ -3403,14 +3705,15 @@
 
 (defn- built
   "What the door's pure parts make of a maker's thing, with no cluster:
-  {:thing the thing to append}, under the act-id given or `(act-id 70)`; or
-  the door's word."
+  {:thing the thing to append}, under the act-id given or `(act-id 70)`,
+  with the time `now` where the door hands the clock of its server; or the
+  door's word."
   ([thing] (built thing nil))
   ([thing given]
    (let [reading (additions/reading thing given)]
      (if (:could-not reading)
        reading
-       (additions/thing-to-append reading (or given (act-id 70)))))))
+       (additions/thing-to-append reading (or given (act-id 70)) now)))))
 
 (defn- through
   "What comes of a maker's thing: the door's word, as `said` gives it; or
@@ -3475,6 +3778,9 @@
    ["no act: an act that already carries :depot"
     (fn [] (through (assoc (maker value-fact) :depot :streaming)))
     (could-not :add-its-parts :depot)]
+   ["no act: an act that already carries the part of the time, also a nil one"
+    (fn [] [(through (assoc (maker value-fact) declaration/time-part now)) (through (assoc (maker value-fact) declaration/time-part nil))])
+    (vec (repeat 2 (could-not :add-its-parts declaration/time-part)))]
    ["no act: :facts absent or nil: the thing goes in as given"
     (fn [] [(through (dissoc (maker) :facts)) (through (assoc (maker) :facts nil))
             (contains? (:thing (built (dissoc (maker) :facts))) :facts)])
@@ -3533,16 +3839,20 @@
 
 (def ^:private additions-cases
   "The cases of the door's additions beside the table: an act-id given
-  back; the kinds of fact; the order of the tests; the thing that is built;
-  things that have no end or that throw; the count of a series. They do not
-  reach the making of an act-id, the append or the read of an answer, which
-  need a cluster: those are the door's proof's."
+  back; the kinds of fact; the order of the tests; the thing that is built,
+  with the three parts that the door adds, the time that it is handed among
+  them; things that have no end or that throw; the count of a series. They
+  do not reach the making of an act-id, the read of the clock, the append or
+  the read of an answer, which need a door on a cluster: those are the
+  door's proof's."
   (let [given (fn [depot] [:alice depot (uuid 9)])
         permission-fact {:e :bob :k :softland.store/permission :v bobs}
         retract {:e :note-2 :k :text}
         mixed (fn [facts] (assoc makers-act :facts facts))
         three [value-fact retract permission-fact]
-        hands-thing (fn [facts] (assoc makers-act :act-id (act-id 70) :depot :streaming :facts facts))]
+        doors-parts [:act-id :depot declaration/time-part]
+        hands-thing (fn [facts] (assoc makers-act :act-id (act-id 70) :depot :streaming declaration/time-part (+ now 60000)
+                                       :facts facts))]
     [;; a reading
      ["a reading holds two parts: the maker's own map, and its layer"
       (fn [] (let [act (maker value-fact)
@@ -3600,6 +3910,24 @@
      ["two faults, it carries :act-id and has no :layer: the door's own parts come before the layer"
       (fn [] (through {:act-id (act-id 1) :facts [value-fact]}))
       (could-not :add-its-parts :act-id)]
+     ["two faults, it carries the part of the time and has no :layer: the same order"
+      (fn [] (through {declaration/time-part now :facts [value-fact]}))
+      (could-not :add-its-parts declaration/time-part)]
+     ["a maker's thing that already holds the part of the time, also a nil one: the reading is the word :add-its-parts with nothing appended, and its place is the name that the declaration holds; the text of the word in the door's table names that part beside the two others"
+      (fn [] (let [says (:says (get words/words :add-its-parts))
+                   readings (mapv (fn [t] (additions/reading (assoc (maker value-fact) declaration/time-part t) nil)) [now nil])]
+               [readings
+                (mapv (fn [reading] (= declaration/time-part (:at reading))) readings)
+                (mapv (fn [part] (str/includes? says (str part))) doors-parts)
+                says]))
+      [(vec (repeat 2 {:could-not :add-its-parts :appended :nothing :at declaration/time-part}))
+       [true true] [true true true]
+       "the thing already holds a part that the door adds, :act-id, :depot or :door-time on the act; the door writes over nothing"]]
+     ["the door's own parts are tested in their order, the act-id, the depot, the time: a thing that holds more than one of them, each with nil, gets the word at the first"
+      (fn [] (let [at (fn [& parts] (:at (additions/reading (reduce (fn [thing part] (assoc thing part nil)) (maker value-fact) parts) nil)))]
+               [(at :act-id :depot declaration/time-part) (at :depot declaration/time-part) (at :act-id declaration/time-part)
+                (at declaration/time-part)]))
+      [:act-id :depot :act-id declaration/time-part]]
      ["two faults, a :layer that is no id and a value that is no value: the door reads no fact, so the layer gives the word"
       (fn [] (through (assoc (maker (assoc value-fact :v 1/3)) :layer "notes")))
       (could-not :make-an-act-id :layer)]
@@ -3611,16 +3939,35 @@
                    same? (fn [facts] (identical? facts (:facts (:thing (built (mixed facts))))))]
                [(same? three) (same? (apply list three)) (same? lazy) @walked (realized? lazy)]))
       [true true true 0 false]]
-     ["the thing is the maker's map with two parts more: each part that the maker gave is the maker's own object, a part that the form does not know too, and nothing is filled in"
+     ["the thing is the maker's map with three parts more: each part that the maker gave is the maker's own object, a part that the form does not know too, and nothing is filled in"
       (fn [] (let [act (assoc (mixed three) :subjects #{:bob} :based-on {[(act-id 5) 0] 7} :note {:a 1})
                    thing (:thing (built act))]
                [(every? (fn [part] (identical? (get act part) (get thing part)))
                         [:version :who :layer :permission :session :subjects :based-on :note :facts])
                 (sort (remove (set (keys act)) (keys thing)))
-                (select-keys thing [:act-id :depot])
+                (select-keys thing doors-parts)
                 (sort (remove (set (keys (:thing (built (maker value-fact))))) [:based-on :because-of :claimed-when :subjects]))]))
-      [true [:act-id :depot] {:act-id (act-id 70) :depot :streaming}
+      [true (sort doors-parts) {:act-id (act-id 70) :depot :streaming declaration/time-part now}
        [:based-on :because-of :claimed-when :subjects]]]
+     ["the thing to append is the maker's map with the three parts added and nothing else changed: with the three taken off again it is equal to the maker's map; the depot is the depot slot of the act-id; the time is the number that the door hands, under the name that the declaration holds. No clock is read: two calls with one time give one thing, and a call with another time gives a thing that differs in that part alone"
+      (fn [] (let [act (assoc (mixed three) :subjects #{:bob} :note {:a 1})
+                   reading (additions/reading act nil)
+                   made (additions/thing-to-append reading (given :microbatch) 1234)
+                   thing-at (fn [t] (:thing (additions/thing-to-append reading (given :microbatch) t)))]
+               [(sort (keys made))
+                (= act (apply dissoc (:thing made) doors-parts))
+                (select-keys (:thing made) doors-parts)
+                (= (:thing made) (thing-at 1234))
+                (= (without-time (:thing made)) (without-time (thing-at 1235)))
+                (get (thing-at 1235) declaration/time-part)]))
+      [[:thing] true {:act-id (given :microbatch) :depot :microbatch declaration/time-part 1234} true true 1235]]
+     ["the time is added as the door hands it and is not tested here: a nil, a string and a time of 2^46 are in the thing as given, and it is the declaration's check that refuses each; a time of 2^46 less one goes in"
+      (fn [] (let [reading (additions/reading (maker value-fact) nil)]
+               (mapv (fn [t] (let [thing (:thing (additions/thing-to-append reading (act-id 70) t))]
+                               [(contains? thing declaration/time-part) (= t (get thing declaration/time-part))
+                                (verdict (declaration/check thing))]))
+                     [nil "a time" (bit-shift-left 1 46) (dec (bit-shift-left 1 46))])))
+      [[true true :no-door-time] [true true :no-door-time] [true true :no-door-time] [true true :ok]]]
      ["a value is in the thing as its maker gave it and not in its normal form; the declaration's check takes the thing, and its one form holds the text of the normal form"
       (fn [] (let [v (array-map :b 1.50M :a [1 2N])
                    thing (:thing (built (mixed [(assoc value-fact :v v) retract permission-fact])))
@@ -3637,7 +3984,7 @@
               (declaration/stray-reason :streaming (assoc (->Thing :note-1 :text) :layer :alice :act-id (given :streaming)))
               (read-word (assoc (->Thing :note-1 :text) :layer :alice) (given :streaming))])
       [[nil nil nil nil] :no-act-id (could-not :read-the-act)]]
-     ["the digest of the thing that the door builds follows the form of the facts as the maker gave them: a list and a lazy sequence have one digest, a vector has another, and each is the digest of the same thing as a hand would send it"
+     ["the digest of the thing that the door builds follows the form of the facts as the maker gave them: a list and a lazy sequence have one digest, a vector has another, and each is the digest of the same thing as a hand would send it a minute later, since the time is no part of the digest"
       (fn [] (let [of (fn [facts] (digest/hex-of (:thing (built (mixed facts)))))
                    as-list (of (apply list three))
                    as-lazy (of (map identity three))
@@ -3658,7 +4005,11 @@
                 (identical? (:facts endless) (:facts (:thing (built endless))))
                 (identical? who (:who (:thing (built odd-who))))
                 (sort (remove (set (keys endless)) (keys (:thing (built endless)))))]))
-      [:read :read :read true true [:act-id :depot]]]
+      [:read :read :read true true (sort doors-parts)]]
+     ["nothing throws while the three parts are added: a reading whose thing is a sorted map with string keys, which takes no keyword's part, and an act-id that is no vector, each end in the word :read-the-act"
+      (fn [] [(said (additions/thing-to-append {:thing (sorted-map "layer" :alice) :layer :alice} (act-id 70) now))
+              (said (additions/thing-to-append (additions/reading (maker value-fact) nil) 5 now))])
+      [(could-not :read-the-act) (could-not :read-the-act)]]
      ["the digest that the door takes tells a thing that throws while it is read: nothing for a thing whose facts throw, where the plain digest is that of #unreadable"
       (fn [] (let [thing (:thing (built (assoc (maker) :facts (throwing))))]
                [(digest/readable-hex-of thing) (= (digest/hex-of thing) (sha-256 (utf8 "#unreadable")))]))
@@ -3880,10 +4231,20 @@
   (shown "the text of each of" (count (filter some? edn-values)) "values that a fact can hold is EDN and reads back as the value")
   (shown "the count of the UTF-8 bytes of a string, with no array made:"
          (pr-str (mapv text/utf8-count ["" "a" "é" "✓" "𝄞"])) "for no character and for a character of one, two, three and four bytes")
-  (shown "the digest is SHA-256 over the one text, 32 bytes; bytes are fed as they are; the digest of the least act is"
+  (shown "the digest is SHA-256 over the one text of the thing without the time on the act, 32 bytes; bytes are fed as they are; the digest of the least act is"
          (digest/hex-of good) "| the same act built a second time has the digest"
          (digest/hex-of (arrived 1 (value-at :note-1 :text)))
-         "| the digest that tells a throw, for a thing whose facts throw:" (pr-str (digest/readable-hex-of {:facts (throwing)}))))
+         "| the digest that tells a throw, for a thing whose facts throw:" (pr-str (digest/readable-hex-of {:facts (throwing)})))
+  (shown "the digest leaves the time on the act out, the part" declaration/time-part "at the top level of a plain map: the least act with the time" now
+         "has the digest above, and so has it with the time" (inc now) "and with none:"
+         (pr-str (mapv (fn [x] (subs (digest/hex-of x) 0 12)) [good (at-time (inc now)) (without-time good)]))
+         "| with another value:" (pr-str (subs (digest/hex-of (arrived 1 (value-at :note-1 :text "a text."))) 0 12))
+         "| a time inside a value is not left out, two times there give:"
+         (pr-str (mapv (fn [t] (subs (digest/hex-of (arrived 1 (value-at :note-1 :text {declaration/time-part t}))) 0 12)) [1 2]))
+         "| a sorted map with string keys keeps the digest of its own text, two with different content:"
+         (pr-str (mapv (fn [v] (subs (digest/hex-of (sorted-map "a" v (name declaration/time-part) 5)) 0 12)) [1 2]))
+         "and #unreadable has" (pr-str (subs (sha-256 (utf8 "#unreadable")) 0 12))
+         "| a record with a field of that name keeps the digest of a record:" (pr-str (subs (digest/hex-of (->Timed 5 :note-1)) 0 12))))
 
 (deftest the-declaration
   (holds declaration-parts-cases)
@@ -3916,33 +4277,63 @@
          (pr-str (mapv (juxt :k :v :text) (:facts (act-of whole))))))
 
 (deftest refusals-of-the-declaration
-  (let [rows (concat makers-rows doors-rows)
+  (let [times (map (fn [[what x _ word]] [what x word]) time-rows)
+        rows (concat makers-rows doors-rows)
         n (+ (holds (verdicts rows))
+             (holds (verdicts times))
              (holds (verdicts (map (fn [[what x]] [what x :id-too-long]) id-rows)))
              (holds (verdicts limit-rows)))
-        earned (into #{} (map #(nth % 2)) (concat rows limit-rows [[nil nil :id-too-long]]))]
+        earned (into #{} (map #(nth % 2)) (concat rows times limit-rows [[nil nil :id-too-long]]))]
     (is (= declaration/reasons (disj earned :ok)) "each word of the declaration comes from a thing that earns it")
-    (shown "the check refuses" n "things, each for one fault. act.clj's words, by the maker's own faults:" (words makers-rows))
+    (shown "the check gives the word that the proof holds for" n "things, each with one fault, or at the edge of a limit or of the time's range. act.clj's words, by the maker's own faults:" (words makers-rows))
     (shown "the door's words:" (words doors-rows))
+    (shown "the time on the act, the least thing with each kind of time:" (words times))
     (shown "an id that prints to 257 characters is refused :id-too-long in each place:" (str/join "; " (map first id-rows)))
     (shown "the limits at their edges:" (words limit-rows))
     (shown "each of the" (count declaration/reasons) "reason words comes from a thing that earns it")))
 
 (deftest the-maker's-check-inside-the-door's
-  (let [makers-part (fn [thing] (dissoc thing :act-id :depot))
+  (let [doors-parts [:act-id :depot declaration/time-part]
+        makers-part (fn [thing] (apply dissoc thing doors-parts))
         rows (filter (fn [[_ x _]] (:refuse (act/parse (makers-part x)))) makers-rows)]
     (doseq [[what x _] rows]
       (is (= (:refuse (act/parse (makers-part x))) (verdict (declaration/check x)))
           (str "the door's check gives act.clj's own word for: " what)))
     (is (= (count makers-rows) (count rows)) "each of the maker's faults is refused by act.clj's own parse")
-    (is (= {:ok (dissoc (one-form 1 {:e :note-1 :k :text :v "a text" :replaces nil}) :act-id :depot)}
+    (is (= {:ok (apply dissoc (one-form 1 {:e :note-1 :k :text :v "a text" :replaces nil}) doors-parts)}
            (act/parse (makers-part good)))
-        "the maker's part of the least thing, which is the thing without its act-id and its depot, is an act that act.clj's own parse takes")
-    (shown "for" (count rows) "faults of the maker's form, the door's check gives the word that act.clj's own parse gives for the maker's part, which is the thing without :act-id and :depot")))
+        "the maker's part of the least thing, which is the thing without its act-id, its depot and its time, is an act that act.clj's own parse takes")
+    (is (= [:unknown-part :unknown-part :unknown-part]
+           (mapv (fn [part] (:refuse (act/parse (assoc (makers-part good) part (get good part))))) doors-parts))
+        "each of the three parts that the door adds is no part of the maker's act: act.clj's own parse refuses the maker's part with any one of them put back")
+    (shown "for" (count rows) "faults of the maker's form, the door's check gives the word that act.clj's own parse gives for the maker's part, which is the thing without"
+           (str/join ", " doors-parts))))
 
 (deftest the-order-of-the-reasons
   (let [n (holds (verdicts order-rows))]
     (shown "the order of the declarations gives the reason," n "things with two faults:" (words order-rows))))
+
+(deftest the-time-on-the-act
+  (let [n (holds time-cases)
+        bound (bit-shift-left 1 46)]
+    (shown "the time on the act," n "cases. Its part is" declaration/time-part "and a usable time is a fixed-width integer of 0 or more and below"
+           declaration/max-time "| the usable time of the least thing, by its time:"
+           (str/join " | " (map (fn [[what x _ _]] (str what " " (pr-str (declaration/usable-time x)))) time-rows)))
+    (shown "the usable time and the check's word at the edges of the range, as [time usable-time word]:"
+           (pr-str (mapv (fn [t] [t (declaration/usable-time (at-time t)) (verdict (declaration/check (at-time t)))])
+                         [-1 0 (dec bound) bound]))
+           "| a thing that is no plain map, and a sorted map with string keys, which throws when the part is read:"
+           (pr-str (mapv declaration/usable-time [nil 5 (->Timed now :note-1) (sorted-map "a" 1 (name declaration/time-part) now)])))
+    (shown "where the time's word stands: a thing with no time and"
+           (str/join " | " (map (fn [[what fault]] (str what " " (verdict (declaration/check (fault (without-time good))))))
+                                [["a part that the form does not know" #(assoc % :owner 1)]
+                                 ["a depot that is no depot word" #(assoc % :depot :fast)]
+                                 ["a depot word that is not the act-id's" #(assoc % :depot :microbatch)]
+                                 ["a wrong version" #(assoc % :version 2)]
+                                 ["no permission" #(dissoc % :permission)]
+                                 ["no fact" #(assoc % :facts [])]]))
+           "| the test for a stray reads no time: the least thing with no time is"
+           (pr-str (or (declaration/stray-reason :streaming (without-time good)) "no stray")))))
 
 (deftest the-bounds
   (let [n (holds bound-cases)]
@@ -3964,13 +4355,21 @@
 
 (deftest the-stamp
   (let [n (holds stamp-cases)]
-    (shown "the stamp," n "cases: milliseconds x 65,536 + counter; the next stamp is later than the last when the clock stands still, goes back, or one tick has more than 65,536 decisions; later than a carried stamp; 10,000 ms ahead is the edge of the 10-second rule; the packing reaches 2^62 in the year 4199")
-    (shown "a stamp of the clock" now "with the counter 0 is" (stamp/pack now 0))))
+    (shown "the stamp," n "cases: milliseconds x 65,536 + counter; the next stamp is later than the last when the time that the gate gives is the same, is earlier, or has more than 65,536 decisions; later than a carried stamp; 10,000 ms ahead of the time is the edge of the 10-second rule; the packing reaches 2^62 in the year 4199, at the bound of the time on an act")
+    (shown "a stamp of the time" now "with the counter 0 is" (stamp/pack now 0)
+           "| with no time the stamp is the last plus one, the greatest carried plus one, or 0 with neither, as [time last carried stamp]:"
+           (pr-str (mapv (fn [[t last carried]] [t last carried (stamp/next-stamp t last carried)])
+                         [[nil nil nil] [nil 41 nil] [nil nil 41] [nil 41 77] [now 41 nil]]))
+           "| with no time no carried stamp is too far ahead:" (pr-str (stamp/too-far-ahead? nil (dec act/max-carried-stamp))))))
 
 (deftest the-first-act
   (holds first-act-cases)
   (shown "the form of a making act:"
-         (str/join " | " (map (fn [[what gate-depot _ expected]] (str what " [" (name gate-depot) " gate] " expected)) first-act-rows))))
+         (str/join " | " (map (fn [[what gate-depot _ expected]] (str what " [" (name gate-depot) " gate] " expected)) first-act-rows)))
+  (shown "a layer that starts with the other gate's depot, as [gate's depot, layer, the answer]:"
+         (pr-str (vec (for [gate-depot [:streaming :microbatch]
+                            layer [first-act/base :alice :team (uuid 1)]]
+                        [gate-depot layer (first-act/starts-with-the-other-gates-depot? gate-depot layer)])))))
 
 (deftest the-records-rows
   (let [n (holds record-cases)
@@ -3992,8 +4391,30 @@
   (holds places-cases)
   (holds writes-cases)
   (holds by-value-cases)
+  (shown "the time that the streaming gate decides with is the time on the thing, as [what, the time, the check's word, the stamp in a layer with no last stamp, the stamp after the last stamp 41]:"
+         (pr-str (mapv (fn [[what thing]]
+                         (let [checked (declaration/check thing)
+                               time-millis (decision/time-on thing)
+                               refused (decision/refused-early time-millis (:ok checked) (:refuse checked))]
+                           [what time-millis (or refused :goes-on)
+                            (decision/stamp-of time-millis nil (:ok checked) refused)
+                            (decision/stamp-of time-millis 41 (:ok checked) refused)]))
+                       [["the least thing" good]
+                        ["a wrong version" (assoc good :version 2)]
+                        ["no time" (without-time good)]
+                        ["a time of 2^46" (at-time (bit-shift-left 1 46))]])))
   (shown "the standing of an act:"
          (str/join " | " (map (fn [[what _ _ _ _ word makes?]] (str what " " (or word (if makes? "makes the layer" "stands")))) standing-rows)))
+  (shown "an act on the streaming depot for the base, with no row of the base in the gate's record, as [the layer starts with the other gate's depot, the word, makes the layer]:"
+         (pr-str (let [act (act-of base-on-the-streaming-depot)
+                       the-other-gates? (first-act/starts-with-the-other-gates-depot? :streaming (:layer act))]
+                   [the-other-gates? (decision/standing :streaming act nil nil the-other-gates?)
+                    (decision/makes-the-layer? :streaming act nil nil the-other-gates?)]))
+         "| the same for the base's making act:"
+         (pr-str (let [act (making :base :system :system)
+                       the-other-gates? (first-act/starts-with-the-other-gates-depot? :streaming (:layer act))]
+                   [the-other-gates? (decision/standing :streaming act nil nil the-other-gates?)
+                    (decision/makes-the-layer? :streaming act nil nil the-other-gates?)])))
   (shown "the checks of the places:"
          (str/join " | " (map (fn [[what _ _ word]] (str what " " (or word "passes"))) places-rows)))
   (shown "the writes of a decision: a refusal writes the answer and the last stamp; an accept of one value writes 3 rows, the fact, the answer and the last stamp, and the fact's row holds the one text of its value, who wrote it and the permission that the act named:"
@@ -4413,13 +4834,17 @@
     (shown "what the door makes of one act," (+ rows others) "cases." rows
            "of them are things that are no act, one kind after the other: a thing ends in one of the door's words and nothing is appended, or it goes in and a gate's check has the word:"
            (str/join " | " (map (fn [[what f _]] (str (second (str/split what #": ")) " -> " (pr-str (f))))
-                                (filter (fn [[what _ _]] (re-find #"^no act: (a map with no :layer|a thing whose :layer cannot|a record with a :layer|an act that already carries :depot|257 facts|a fact that is a record|a fact that carries :sealed|a value that is no value|a value whose text|1,025)" what))
+                                (filter (fn [[what _ _]] (re-find #"^no act: (a map with no :layer|a thing whose :layer cannot|a record with a :layer|an act that already carries :depot|an act that already carries the part of the time|257 facts|a fact that is a record|a fact that carries :sealed|a value that is no value|a value whose text|1,025)" what))
                                         not-an-act-cases))))
     (shown "a reading of a maker's act holds" (pr-str (sort (keys (additions/reading (maker value-fact) nil))))
-           "| the thing that the door builds is the maker's act with :act-id and :depot, each other part as given:"
+           "| the thing that the door builds is the maker's act with :act-id, :depot and the time that the door hands, here" now
+           "under" (str declaration/time-part ",") "each other part as given:"
            (pr-str (:thing (built (maker (assoc value-fact :v (array-map :b 1.50M :a [1 2N])) {:e :note-2 :k :text}))))
            "| the declaration's check takes it, and gives the value the text"
-           (pr-str (:text (first (:facts (act-of (:thing (built (maker (assoc value-fact :v (array-map :b 1.50M :a [1 2N])))))))))))
+           (pr-str (:text (first (:facts (act-of (:thing (built (maker (assoc value-fact :v (array-map :b 1.50M :a [1 2N]))))))))))
+           "| a maker's thing that already holds that part, also with nil:"
+           (pr-str (additions/reading (assoc (maker value-fact) declaration/time-part nil) nil))
+           "| the word says:" (pr-str (:says (get words/words :add-its-parts))))
     (shown "the digest of the thing with its facts as a list, as a lazy sequence and as a vector:"
            (pr-str (mapv (fn [facts] (subs (digest/hex-of (:thing (built (assoc makers-act :facts facts)))) 0 12))
                          [(list value-fact) (map identity [value-fact]) [value-fact]])))))
@@ -4470,6 +4895,7 @@
   (refusals-of-the-declaration)
   (the-maker's-check-inside-the-door's)
   (the-order-of-the-reasons)
+  (the-time-on-the-act)
   (the-bounds)
   (nothing-throws)
   (the-stamp)

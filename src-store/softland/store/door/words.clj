@@ -45,8 +45,8 @@
   says, and its `:appended`.
 
   Why seven. One word names one thing that the door could not do: find the
-  module, make an act-id, read the layer's depot, read the act, add its two
-  parts, append, read the answer. With fewer words a maker would have to
+  module, make an act-id, read the layer's depot, read the act, add its
+  three parts, append, read the answer. With fewer words a maker would have to
   read a second word inside the first to learn what to do next. Where in
   the maker's thing the door stopped is no word of its own: it is carried
   as data, under `:at`."
@@ -72,7 +72,7 @@
 
    :add-its-parts
    {:from     #{:send-act}
-    :says     "the thing already holds a part that the door adds, :act-id or :depot on the act; the door writes over nothing"
+    :says     "the thing already holds a part that the door adds, :act-id, :depot or :door-time on the act; the door writes over nothing"
     :appended :nothing}
 
    :append-cleanly

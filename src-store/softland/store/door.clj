@@ -6,8 +6,9 @@
 
   A maker is whatever makes an act: a screen, a converter, an agent. A maker
   gives the door its act in the one form (`softland.store.act`), with plain
-  values. The door makes an act-id, adds the act-id and the depot that it
-  names to the act, appends the thing to that depot, and gives the maker
+  values. The door makes an act-id; adds to the act the act-id, the depot
+  that it names, and the time of the clock of the server that runs the
+  door; appends the thing to that depot; and gives the maker
   the act-id, the digest of what it sent, and the ack as a signal. The
   maker reads the answer back by the act-id and the digest. A gate is the
   authority: the door checks nothing of the act's form, and anything can
@@ -38,15 +39,20 @@
   State. The door owns no state: none that lasts, and none of the process.
   An opened door borrows four handles of Rama's client, the two depots of
   acts and the two queries of the module `Store`; the opener owns the
-  cluster handle, and nothing closes the door. The module has three more
-  depots (`softland.store.module`): the depot of batch clocks, and each
-  gate's depot of answers. None of them takes an act, and the door opens
-  none: it reads the answer of an act from the record, by the query, and
-  never from a log. The door holds one number, fixed at the opening: how
-  long a wait sleeps between two reads
+  cluster handle, and nothing closes the door. The module has two more
+  depots (`softland.store.module`): the depot of batch clocks, and the
+  microbatch gate's depot of answers. Neither takes an act, and the door
+  opens neither: it reads the answer of an act from the record, by the
+  query, and never from a log. The door holds one number, fixed at the
+  opening: how long a wait sleeps between two reads
   (`softland.store.door.wait`). It keeps nothing between two calls: no
-  act-id that it gave, no thing that it sent, no digest, and no layer's
-  depot.
+  act-id that it gave, no thing that it sent, no digest, no time that it
+  wrote, and no layer's depot.
+
+  The clocks. The door reads two clocks of its JVM. For the time on an act
+  it reads the clock of the server that runs it, once for each thing that
+  it builds (`send-act`, `server-clock`). For a wait it counts with
+  `nanoTime` (`after`). It sets neither.
 
   So any opened door serves any maker. An act-id and a digest that one door
   gave read the answer through another, in this process or a later one. In
@@ -70,8 +76,8 @@
   other. The door makes no person and no id for one.
 
   What goes plain into a depot through the door. Everything. The thing that
-  the door appends is the maker's act as she gave it, with the act-id and
-  the depot added: each value, each id, `:facts` as the vector or the list
+  the door appends is the maker's act as she gave it, with the act-id, the
+  depot and the time added: each value, each id, `:facts` as the vector or the list
   that it is, and each part that the form does not know
   (`softland.store.door.additions`). The door gives no value a normal form.
   A depot keeps the thing for good, whatever a gate decides of it, and any
@@ -84,7 +90,7 @@
   her own; she is not told of the replacement.
 
   What the door can cost when it checks nothing. The door stops no act: it
-  tests what its two additions need and nothing else. So each of these is
+  tests what its additions need and nothing else. So each of these is
   appended, is refused by a gate under its own act-id with the gate's word,
   and leaves no fact in the record: an act of an unknown version; an act
   with no session; an act under a permission of another layer, under one
@@ -111,7 +117,7 @@
   that a fact changed.
 
   Approach. The file has these sections, in this order: the door as a value;
-  the calls of Rama's client; the waits; the five calls."
+  the calls of Rama's client; the clock; the waits; the five calls."
   (:require [com.rpl.rama :as rama]
             [softland.store.door.additions :as additions]
             [softland.store.door.digest :as digest]
@@ -242,6 +248,18 @@
       [:word (words/word :read-the-layers-depot (assoc got :layer layer))]
       [:ok (or got (first-act/depot-at-making layer))])))
 
+;; ------------------------------------------------------------------ the clock
+
+(defn- server-clock
+  "Reads the clock of the server that runs the door: the JVM's
+  `currentTimeMillis`, milliseconds since 1970. `send-act` is the one
+  caller, once for a thing that it builds, and what this gives is the time
+  on the act. It is another clock than the one that the waits count with
+  (`after`): this one says a time of day and can go back when the server's
+  clock is set."
+  []
+  (System/currentTimeMillis))
+
 ;; ------------------------------------------------------------------ the waits
 
 (defn- after
@@ -320,8 +338,8 @@
 
   Four round trips, once for a process and on no act's way: one fetch of a
   client for each of the two depots of acts and the two queries. The
-  module's three other depots, of batch clocks and of each gate's answers,
-  take no act and are not fetched. The door borrows the handles and uses
+  module's two other depots, of batch clocks and of the microbatch gate's
+  answers, take no act and are not fetched. The door borrows the handles and uses
   them from every maker's thread; the opener owns the cluster handle, and
   nothing closes the door.
 
@@ -415,22 +433,44 @@
        the layer's depot; the thing then goes to the depot that it names
        and a gate refuses it there. Not given: one read of the layer's
        depot, and a random uuid: `:read-the-layers-depot`.
-    3. The thing is built, the maker's map with `:act-id` and `:depot`
-       added, and its digest is taken by a walk that tells a throw
-       (`softland.store.door.digest/readable-hex-of`). A thing that throws
-       while it is read ends in `:read-the-act`, and nothing is appended.
+    3. The door reads the clock of its server, once. The thing is built,
+       the maker's map with `:act-id`, `:depot` and `:door-time` added, and
+       its digest is taken by a walk that tells a throw
+       (`softland.store.door.digest/readable-hex-of`). The digest leaves
+       the time out. A thing that throws while it is read ends in
+       `:read-the-act`, and nothing is appended.
     4. One append, to the depot that the act-id names. When it throws:
        `:append-cleanly`, with the act-id and the digest, since the door
        does not know whether the depot holds the thing. It is the one
        word of which \"nothing was appended\" cannot be said. The door
        sends nothing again; the maker reads the record.
 
-  The door changes the act by its two additions and no more. It fills no
+  The door changes the act by its three additions and no more. It fills no
   missing part, reorders no fact, makes no part a vector, gives no value a
-  normal form, and names no permission. So a second send of one act under
-  one act-id is the same thing, with the same digest; and a maker who gives
-  her facts as a list gets another digest than one who gives the same facts
-  as a vector, since the one text writes the two apart.
+  normal form, and names no permission. So a maker who gives her facts as a
+  list gets another digest than one who gives the same facts as a vector,
+  since the one text writes the two apart.
+
+  The time on the act. `:door-time` is the clock of the server that runs
+  the door, in milliseconds since 1970, a fixed-width integer
+  (`server-clock`). The door reads it once in a call, at step 3; a call
+  that ends in a word before that step reads no clock. It is the one read
+  of a clock on the way of an act through a streaming layer: the streaming
+  gate reads no clock, and makes the stamp of its decision of this time.
+  Sid's decision of 13 October 2026 is that no gate reads a clock. The
+  microbatch gate is not built so: it holds this time to its form, and
+  makes its stamps of a clock that it reads once for each batch
+  (`softland.store.module.microbatch-gate`). Two doors on two servers write
+  two clocks, and nothing holds one against the other.
+
+  A second send. A second send of one act under one act-id is the same
+  thing but for its time: it carries the door's clock of the second send,
+  and the door does nothing special for it. The digest leaves the time
+  out, so both sends have one digest and read one answer as their own; a
+  gate decides the first of the two to arrive, with the time of that one.
+  Not decided: kept for now. What a second send of the same act carries as
+  its time is Sid's to say, and this call is the one place where another
+  answer would be made.
 
   The door stops no act. An act that a gate will refuse, under a permission
   that does not stand or into a layer that is not made, goes into its depot
@@ -469,7 +509,7 @@
                                     [:ok [layer got (UUID/randomUUID)]])))]
          (if (= :word outcome)
            act-id
-           (let [built (additions/thing-to-append reading act-id)]
+           (let [built (additions/thing-to-append reading act-id (server-clock))]
              (if (:could-not built)
                built
                (let [thing (:thing built)
@@ -514,9 +554,10 @@
   once.
 
   A maker's own second send reads its answer as her own. A second send of
-  one act under one act-id is the same thing, with the same digest
-  (`send-act`): a gate answers the act-id once, and both sends read that
-  one answer. \"Not mine\" is said only of a thing that differs from the
+  one act under one act-id has the digest of the first, since a digest
+  leaves the time on the act out (`send-act`): a gate answers the act-id
+  once, for the first of the two to arrive, and both sends read that one
+  answer. \"Not mine\" is said only of a thing that differs from the
   one that the answer is of. The door never makes one id twice; it does not
   refuse a second send.
 

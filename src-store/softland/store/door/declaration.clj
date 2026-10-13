@@ -3,10 +3,11 @@
   check of it. Pure code. It needs no cluster.
 
   What arrives on a depot is the maker's act (`softland.store.act`) with the
-  two parts that the door adds: an act-id, and the layer's depot. Each value
-  is plain, as its maker gave it. Anything can append to a depot without the
-  door, so a gate checks each thing that arrives against this declaration,
-  and the gate is the authority.
+  three parts that the door adds: an act-id, the layer's depot, and the time
+  of the door's clock (`time-part`). Each value is plain, as its maker gave
+  it. Anything can append to a depot without the door, so a gate checks each
+  thing that arrives against this declaration, and the gate is the
+  authority.
 
   It is made as `act.clj` is made, of the same three things in the same
   order. Read `shapes` and `rules` first. `shapes` is `act.clj`'s own map of
@@ -38,8 +39,9 @@
     usable-id?    anything -> true for an id within the limit
     act-id-in-layer?  a layer id, and anything -> true for an act-id of it
 
-  The store's namespace, the store keys, the limits and the words of a stray
-  are declared here too, each in one place. The store's keys are in the
+  The store's namespace, the store keys, the limits, the name and the bound
+  of the time on the act, and the words of a stray are declared here too,
+  each in one place. The store's keys are in the
   namespace `softland.store`, and the store owns the whole of it: a fact
   whose key is in that namespace and is no store key is refused. Any other
   key is a plain key, a tool's own. `store-keys` is the table of the store
@@ -53,9 +55,9 @@
   Callers. `softland.store.gate.decision`, `softland.store.record.rows` and the two
   gates (`softland.store.module.streaming-gate`, `softland.store.module.microbatch-gate`).
   The door's additions (`softland.store.door.additions`), for the tests of
-  an id and of an act-id. The rebuild (`softland.store.rebuild`) asks
-  `check` for the one form of a thing that a log says was accepted: it
-  takes the form, and the answer stays the log's. The read path
+  an id and of an act-id, and for the name of the time's part. The digest
+  (`softland.store.door.digest`), for that name: it is the part that a
+  digest leaves out. The read path
   (`softland.store.read-path.query` and the namespaces beside it) asks the
   tests and the text of an id, `store-key?` and `max-builds-on`.
   The door sends; it is the gate that checks.
@@ -128,6 +130,55 @@
   row that is read often: about 8.3 KB of keys and 9 KB of stamps at the
   limits."
   32)
+
+;; ------------------------------------------------------- the time on the act
+
+(def time-part
+  "The name of the part of an arrived thing that holds the time on the act:
+  `:door-time`. The door writes the part (`softland.store.door/send-act`):
+  the clock of the server that runs the door, in milliseconds since 1970.
+  The streaming gate makes the stamp of a decision of it
+  (`softland.store.gate.decision/time-on`), and the digest of a thing
+  leaves it out (`softland.store.door.digest`).
+
+  Not decided: kept for now. What the time on the act is called is Sid's to
+  say; `:door-time` is a working name, a session's. This def is the one
+  place where the name is made: the shape `:arrived-act`, the door's
+  additions, the digest and `time-on` read it from here. The reason word
+  `:no-door-time` is a word of its own and is not read from here."
+  :door-time)
+
+(def max-time
+  "The time on an act must be below this number, 2^46 milliseconds, which is
+  in the year 4199; and it must not be below zero. A stamp holds the time
+  above 16 bits of counter (`softland.store.gate.stamp`), so a time below
+  2^46 gives a stamp below 2^62, the bound of a carried stamp
+  (`softland.store.act/max-carried-stamp`).
+
+  Not decided: kept for now. Where a time that is far ahead is stopped is
+  Sid's to say. Nothing stops one but this range: no check holds the time
+  on an act against a clock. A thing that anything appends with a time far
+  ahead of every clock is accepted when the rest of it is right, and each
+  later stamp of its layer in the streaming gate is later than that time.
+  This number is the one place where a bound on the time is made."
+  (bit-shift-left 1 46))
+
+(defn usable-time
+  "Takes a thing as it arrived, which can be anything. Gives the time on it,
+  what it holds under `time-part`, when that is a time that the shape
+  `:arrived-act` takes: a fixed-width integer that is not below zero and is
+  below `max-time`. Gives nil for anything else: a thing that is no plain
+  map, a thing with no time, and a time that the shape refuses with
+  `:no-door-time`. A gate makes the stamp of a decision of what this gives
+  (`softland.store.gate.decision/time-on`), also for a thing that `check`
+  refuses for another fault: the time is the thing's own whatever else is
+  wrong with it. It never throws: a thing that throws when the part is read
+  has no usable time."
+  [thing]
+  (let [t (try (when (and (map? thing) (not (record? thing))) (get thing time-part))
+               (catch Throwable _ nil))]
+    (when (and (int? t) (<= 0 (long t)) (< (long t) (long max-time)))
+      (long t))))
 
 ;; --------------------------------------------------------- the store keys
 
@@ -247,10 +298,11 @@
   `act.clj` declares it, and five more, in the same language.
 
     :arrived-act   an act as it arrives on a depot: the act-id, the layer's
-                   depot under `:depot`, then the ten parts of the maker's
-                   `:act`, read from `act.clj`'s map in its order and with
-                   its options. Its `:facts` are the maker's own: what
-                   arrives as a fact is `act.clj`'s `:fact`
+                   depot under `:depot`, the time on the act under
+                   `time-part`, then the ten parts of the maker's `:act`,
+                   read from `act.clj`'s map in its order and with its
+                   options. Its `:facts` are the maker's own: what arrives
+                   as a fact is `act.clj`'s `:fact`
     :depot-word    one of the two depot words, `:streaming` and
                    `:microbatch`
     :who-may-see-word  one of the two words for who may see a layer,
@@ -263,15 +315,24 @@
 
   The order of the parts is the order of the checks, as in `act.clj`. A
   `:depot` that is absent or no depot word gives
-  `:depot-not-the-act-ids-depot`; each of the maker's parts gives the word
-  that `act.clj` declares for it. A fact that carries a part that `:fact`
-  does not name gives `:unknown-part`, by the engine's rule for such a
-  part. `:act-id` names no word: a thing whose act-id does not fit is a
-  stray and never reaches `check`."
+  `:depot-not-the-act-ids-depot`. A time that is absent, nil, no
+  fixed-width integer, below zero, or not below `max-time` gives
+  `:no-door-time`: one word for each of them. Each of the maker's parts
+  gives the word that `act.clj` declares for it. A fact that carries a part
+  that `:fact` does not name gives `:unknown-part`, by the engine's rule for
+  such a part. `:act-id` names no word: a thing whose act-id does not fit is
+  a stray and never reaches `check`.
+
+  Not decided: kept for now. What happens to a record that arrives with no
+  time is Sid's to say. Here it is refused, and the refusal is recorded
+  under its act-id: such a thing has a usable act-id, so it is no stray and
+  a gate can answer it. The entry of `time-part` in `:arrived-act` is the
+  one place where another answer would be made."
   (assoc act/shapes
          :arrived-act  (into [:parts
                               [:act-id :act-id]
-                              [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]]
+                              [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
+                              [time-part [:int {:min 0 :below max-time}] {:reason :no-door-time}]]
                              (rest (get act/shapes :act)))
          :depot-word   [:enum :streaming :microbatch]
          :who-may-see-word [:enum :members :everyone]
@@ -334,7 +395,8 @@
 
 (def reasons
   "The words with which `check` refuses. Read from the two declarations:
-  each word that a part or a rule names, `act.clj`'s own among them. And
+  each word that a part or a rule names, `act.clj`'s own among them, and
+  `:no-door-time`, the word of the time's part. And
   four by name: the two that no part names, :malformed and :unknown-part,
   and the two of the last step of the check, :value-too-large and
   :act-too-large (`with-texts`)."
@@ -553,6 +615,9 @@
   of its first fact, and its answer is written on the task of its act-id's
   uuid, which is where that read looks.
 
+  It reads no time. A thing with a usable act-id and no usable time is no
+  stray: `check` refuses it, and the refusal is recorded under its act-id.
+
   It never throws: a thing that throws while it is tested gives :no-act-id."
   [gate-depot thing]
   (try
@@ -649,7 +714,8 @@
 
   The one form on arrival. Each part of `:arrived-act` is there, as the
   engine builds a one form: plain vectors and maps, each fixed-width integer
-  a long, nil or the declared default for a part that was left out. Each
+  a long, nil or the declared default for a part that was left out. The
+  time on the act is there under `time-part`, as it arrived. Each
   fact holds `:e`, `:k`, `:v`, `:replaces` and `:text`. `:text` is the one
   text of the fact's value in its normal form, a String: what the fact's
   row holds. `:v` is the value in its normal form for a fact under a store

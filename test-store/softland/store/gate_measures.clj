@@ -14,18 +14,22 @@
 
   Each line of it starts with MEASURED. The first lines say which tree is
   measured: what `git rev-parse --short HEAD` gives, how many paths under
-  `src-store` differ from that commit, and whether the module has a depot of
-  answers. A set of times is printed as its count, its least, its middle,
-  the time that 9 of 10 are not above, and its most, in milliseconds. It
-  exits 0 unless it cannot run.
+  `src-store` differ from that commit, and whether the module has the
+  microbatch gate's depot of answers. A set of times is printed as its
+  count, its least, its middle, the time that 9 of 10 are not above, and
+  its most, in milliseconds. It exits 0 unless it cannot run.
 
   No live read is open in any measure: the run opens doors and no read path
   (`softland.store.read-path`), and each line of a number says so.
 
-  The same file runs on a tree with no log of answers and on a tree with
-  one. It sends acts through the door and reads answers back, and times
-  that. It reads nothing that a log of answers adds; it only asks the
-  cluster whether a depot of answers is there, to say which tree it is on.
+  Which gate appends an answer. The streaming gate appends nothing: what it
+  decided is in its tables, and the module has no depot of its answers. The
+  microbatch gate appends what a batch decided to its depot of answers,
+  `*microbatch-answer-depot`. The run sends acts through the door and reads
+  answers back, and times that. It reads nothing that a depot of answers
+  adds; it only asks the cluster whether the microbatch gate's depot is
+  there under its name, to say which tree it is on: the same file runs on a
+  tree whose gate has that depot and on a tree whose gate has none.
 
   What is run, on Rama's in-process cluster with 4 tasks, 2 threads and 2
   workers. Every act goes in through the door.
@@ -39,11 +43,13 @@
         shapes of M1 of `softland.store.read-measures`, and its lines stand
         beside the M1 lines of
         `src/proposal/backend-on-rama-2026-10-02/reads/runs/measures-final.txt`
-    D2  what the append of an answer adds, which is the difference of this
-        run on two trees, and no number of one run. For the streaming gate:
-        D1's two streaming lines; and one shape more, the same thing sent a
-        second time under its act-id, so that the gate finds its answer
-        there. For the microbatch gate: D1's base shape through a door whose
+    D2  what a gate's append of an answer adds, which is the difference of
+        this run on two trees, one whose gate appends and one whose gate
+        does not, and no number of one run. On this tree the streaming gate
+        appends nothing and the microbatch gate appends. For the streaming
+        gate: D1's two streaming lines; and one shape more, the same act
+        sent a second time under its act-id, so that the gate finds its
+        answer there. For the microbatch gate: D1's base shape through a door whose
         wait reads every 5 ms, with two times for each act: to the first
         sight of its answer's row by a select of the table, which is the
         commit of its batch on that task; and to the door's \"accepted\",
@@ -106,8 +112,10 @@
   2000)
 
 (def ^:private answer-depots
-  "The names under which the cluster is asked for a depot of answers."
-  ["*streaming-answer-depot" "*microbatch-answer-depot"])
+  "The names under which the cluster is asked for a depot of answers: the
+  one name of the microbatch gate's. The streaming gate has no depot of
+  answers, so no name of one is asked for."
+  ["*microbatch-answer-depot"])
 
 (def ^:private setting
   "The name of Rama's setting that D3 measures."
@@ -341,13 +349,14 @@
 ;; ------------------------------------------------------------------------ D2
 
 (defn- d2-again
-  "D2, the streaming gate, one shape more: the same thing sent a second
+  "D2, the streaming gate, one shape more: the same act sent a second
   time. One maker asks for the act-ids of the series ahead, sends each act
   under its act-id, 100 a second, and then sends each again under the same
   act-id, 100 a second. A second send of one act under one act-id is the
-  same thing with the same digest (`softland.store.door/send-act`), and the
-  door appends it with `:ack`; the gate finds the answer that it gave the
-  first time. Both sends are timed from the call of `send-act` to its
+  same thing but for the time that the door writes on it, and has the
+  digest of the first (`softland.store.door/send-act`); the door appends it
+  with `:ack`, and the gate finds the answer that it gave the first time
+  and decides nothing. Both sends are timed from the call of `send-act` to its
   return. Neither reads the layer's depot, since the act-id is given: so the
   first sends are not D1's shape, and they are printed to stand beside the
   second ones."
@@ -377,7 +386,7 @@
       (measured "D2 the streaming gate, 100 acts a second, each act sent under an act-id asked for ahead, so the send reads no depot of a layer | the first send | from the call of send-act to its return:"
                 (times (:took first-time)) "| sends that came back with a word of the door:" (:words first-time)
                 "| the last act's answer, read once:" (pr-str (:last first-time)))
-      (measured "D2 the streaming gate, the same things sent a second time under the same act-ids, appended with :ack, so the gate finds each answer there | from the call of send-act to its return:"
+      (measured "D2 the streaming gate, the same acts sent a second time under the same act-ids, each with the door's time of its second send, appended with :ack, so the gate finds each answer there | from the call of send-act to its return:"
                 (times (:took second-time)) "| sends that came back with a word of the door:" (:words second-time)
                 "| the last act's answer, read once:" (pr-str (:last second-time))))))
 

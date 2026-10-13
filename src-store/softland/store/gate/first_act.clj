@@ -13,6 +13,8 @@
   Inputs and results, by call:
 
     depot-at-making  a layer id -> the depot that the layer starts with
+    starts-with-the-other-gates-depot?
+                     a gate's depot, and a layer id -> true or false
     making-act?      a gate's depot, and an act in its one form on arrival
                      -> true or false
     starts-with      a layer id, and one of the three store keys that take a
@@ -56,6 +58,24 @@
   decision (F4 C) is code."
   [layer]
   (if (= base layer) :microbatch :streaming))
+
+(defn starts-with-the-other-gates-depot?
+  "Takes the depot of a gate, :streaming or :microbatch, and a layer id.
+  Gives true when the layer starts with the other gate's depot: what
+  `depot-at-making` gives for the layer is not the gate's depot. It reads
+  the layer id and nothing else: no record, of this gate or of the other.
+
+  The streaming gate hands what this gives to
+  `softland.store.gate.decision/standing` and `makes-the-layer?` as whether
+  the layer is the other gate's. So the word of an act on the streaming
+  depot for a layer that starts with the other depot, the base, comes from
+  the act alone, and is the same whenever the gate decides it. That rule is
+  a session's, 14 October 2026; `standing` says what forced it.
+
+  Limit. It says where a layer starts, which in this build is where the
+  layer stays: no act changes a layer's depot."
+  [gate-depot layer]
+  (not= gate-depot (depot-at-making layer)))
 
 (defn making-act?
   "Takes the depot of a gate, and an act in its one form on arrival. Gives

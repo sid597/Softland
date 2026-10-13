@@ -70,7 +70,8 @@
   that reads a shape; the check.
 
   Not here. Act-ids: the door makes them, on request ahead of sending. The
-  depot: the door adds it, from the layer. The standing of a permission, and
+  depot: the door adds it, from the layer. The time on the act: the door
+  writes it, from the clock of its server. The standing of a permission, and
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
   session and the digest of an act: the gates'. The microbatch hash entity:
@@ -114,7 +115,7 @@
 (def max-carried-stamp
   "A carried stamp must be below this number, 2^62. A gate's stamp is later
   than each stamp that the act carries, so a carried stamp near the end of
-  the long range would stop the clock of a task."
+  the long range would leave a gate no later stamp to give."
   (bit-shift-left 1 62))
 
 ;; ------------------------------------------------------- the declared shape
@@ -555,9 +556,9 @@
   a retract. To parse the :ok of a parse gives the same :ok.
 
   It is the check of the maker's act: what a maker gives, before the door
-  adds an act-id and a depot. An act that carries an act-id or a depot, and
-  a fact that carries a part that the form does not name, are refused
-  :unknown-part.
+  adds an act-id, a depot and a time. An act that carries one of those
+  three parts, and a fact that carries a part that the form does not name,
+  are refused :unknown-part.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
   rule about a session beyond its shape. It examines the shape of a

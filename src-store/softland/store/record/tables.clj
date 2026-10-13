@@ -33,16 +33,34 @@
              parts where a place has three, so in one map a key of this
              order could sort into the run of an entity; and in a
              microbatch layer the two are placed by different parts.
-    task     a fixed-keys value for each task: the last stamp that the gate
-             gave on the task, and the strays seen on it. Two things that
-             belong to a task and to no layer, in one PState so that they
-             cost one partition and not two.
+    task     a fixed-keys value for each task, what the streaming gate
+             keeps beside its three tables: under `:last-stamp`, for each
+             layer that the gate has decided a thing of on the task, the
+             last stamp that it gave in that layer; and the strays seen on
+             the task. Two things that are no row of a fact or of an
+             answer, in one PState so that they cost one partition and not
+             two. `:last-stamp` is a map from the printed text of a layer
+             id to a number, subindexed, with size tracking off. A map with
+             one key for each layer, and not one number for the task,
+             because a stamp is counted in its layer (Sid, 13 October
+             2026). The key is the text of the layer id, as in every key of
+             a row, so that the position has one class: a layer id is a
+             keyword or a UUID. Subindexed, because a task holds every
+             layer that hashes to it, a personal layer for each person
+             among them, and a map that is not subindexed is read and
+             written whole at each decision. Size tracking is off: nothing
+             asks how many layers the map holds, and tracking costs a read
+             at each write. The cost of the level: a read of one layer's
+             last stamp goes through the field and then the layer's key,
+             where a row of the three tables is one key; Rama's skill text
+             counts each such level as a read on disk, and no run here
+             measured it.
     microbatch-task
-             the same for the microbatch gate, with four fields more and
-             one changed. `:closed-through`: each row on the task with a stamp
+             what the microbatch gate keeps for a task: the strays as in
+             `task`, four fields more, and a `:last-stamp` that is one
+             number. `:closed-through`: each row on the task with a stamp
              not later than this is of a closed batch, and the door's two
-             reads and the streaming gate's question about the base give no
-             other. `:turns`: the text of the microbatch id that the count
+             reads give no other. `:turns`: the text of the microbatch id that the count
              belongs to, and how many things of that batch the task has
              given a turn. It is durable, and not a count in memory, because
              Rama sets a PState back when an attempt of a batch fails, so a
@@ -137,10 +155,11 @@
   is the same write however often Rama runs the event, and a counter would
   count a stray again at each retry.
 
-  The last stamp is durable state because a stamp must increase through a
+  A last stamp is durable state because a stamp must increase through a
   restart and through a move of the task's leader. The streaming gate reads
-  it from the PState at each decision, the microbatch gate once for each
-  batch; neither keeps it in the memory of a process.
+  the last stamp of the act's layer from the PState at each decision, the
+  microbatch gate its one last stamp once for each batch; neither keeps one
+  in the memory of a process.
 
   State and effects. None: each function gives a schema, a value. The
   PStates that a gate declares with them are durable state of the cluster."
@@ -191,10 +210,22 @@
                               :permission String})})
 
 (defn task
-  "Gives the schema of what a gate keeps for a task as a whole: its last
-  stamp, and by reason word the digests, as hex text, of the strays seen."
+  "Gives the schema of what the streaming gate keeps for a task beside its
+  three tables. `:last-stamp`: a map from the printed text of a layer id
+  (`softland.store.door.declaration/id-text`) to the last stamp that the
+  gate gave in that layer; a layer of which the gate has decided nothing on
+  the task has no key. `:strays`: by reason word, the digests, as hex text,
+  of the strays seen on the task.
+
+  The map of `:last-stamp` is subindexed, with size tracking off. The
+  choice and its reasons are in the namespace docstring: a task can hold
+  very many layers, and the gate reads and writes one layer's number at
+  each decision. What must hold of what is written: the key is a String of
+  `softland.store.door.declaration/max-id-text` characters at most, which
+  the layer of a thing that is no stray keeps, and the value is a Long; a
+  value of another class throws at the write."
   []
-  (fixed-keys-schema {:last-stamp Long
+  (fixed-keys-schema {:last-stamp (map-schema String Long {:subindex-options {:track-size? false}})
                       :strays     (map-schema Keyword (set-schema String {:subindex? true}))}))
 
 (defn microbatch-task

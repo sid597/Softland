@@ -8,9 +8,9 @@
 
 (ns softland.store.module
   "The Rama module `Store`: its two depots of acts and its depot of batch
-  clocks, and the calls that add the two gates, each with its depot of
-  answers, the topology that keeps a batch's clock, and the reads. It
-  requires Rama.
+  clocks, and the calls that add the two gates, the microbatch gate with
+  its depot of answers, the topology that keeps a batch's clock, and the
+  reads. It requires Rama.
 
   What a client of the module opens, by name:
 
@@ -18,12 +18,10 @@
     *microbatch-depot     the depot to append a thing for a microbatch layer
     *batch-clock-depot    the depot of batch clocks. No client can append to
                           it; a client can read its log
-    *streaming-answer-depot
-                          the streaming gate's depot of answers: what that
-                          gate decided. No client can append to it; a
-                          rebuild reads its log
     *microbatch-answer-depot
-                          the same for the microbatch gate
+                          the microbatch gate's depot of answers: what that
+                          gate decided. No client can append to it, and
+                          no code of the store reads it
     answer-by-act-id      the query: the recorded answer under an act-id
     depot-of-layer        the query: the depot of a layer
     $$streaming-task      the PState of the streaming gate's strays, for an
@@ -56,11 +54,12 @@
   module that has a depot, or a mirror of one, under each of the two names
   runs the same gates and reads by this one definition.
 
-  State. The module has five depots. This namespace declares three: `Store`
+  State. The module has four depots. This namespace declares three: `Store`
   the two depots of acts, and `add-gates-and-reads` the depot of batch
-  clocks. Each gate declares its own
-  depot of answers, in its `add-to`, which is handed the module's `setup`
-  for that; no code here names one. Each gate owns the PStates of its
+  clocks. The microbatch gate declares
+  its depot of answers, in its `add-to`, which is handed the module's
+  `setup` for that; no code here names it. The streaming gate declares no
+  depot. Each gate owns the PStates of its
   record: the streaming gate (`softland.store.module.streaming-gate`) those of the
   streaming layers, the microbatch gate (`softland.store.module.microbatch-gate`)
   those of the microbatch layers. The topology that keeps a batch's clock
@@ -68,23 +67,25 @@
   (`softland.store.module.door-reads`) own nothing.
 
   Each depot of acts holds every thing sent for a layer whose depot it is,
-  as it was sent. What a gate decided of a thing is in the gate's depot of
-  answers: the act-id, the stamp, the digest, and the word of a refusal,
-  and for a stray its word, its digest and its task. No value of a fact is
-  there. From a depot of acts and its gate's depot of answers the tables
+  as it was sent. What the streaming gate decided of a thing is in its
+  tables and in no depot: that gate decides from the thing, which holds the
+  time that the door wrote, and from its own rows. What the microbatch
+  gate decided of a thing is in that gate's depot of answers: the act-id,
+  the stamp, the digest, and the word of a refusal, and for a stray its
+  word, its digest and its task. No value of a fact is there. From the
+  microbatch depot and that depot of answers the microbatch gate's tables
   can be made again; the tables stay the record that is read, and no
-  topology of the module has a source on a depot of answers. No depot is
+  topology of the module has a source on the depot of answers. No depot is
   ever trimmed: the module sets no trimming option, and Rama keeps every
   record by default. Every value is plain on a depot of acts: a client of
   the cluster that reads one, or a copy of its log taken alone, holds every
   value that was sent.
 
-  A topology appends in three places, and to no depot of acts: each gate to
-  its depot of answers, and the microbatch gate to the depot of batch
-  clocks. The streaming gate appends an entry behind the commit of its
-  answer's row; the microbatch gate appends what a batch decided in the
-  next run of the gate, on the batch's keeping task. Each gate's namespace
-  says how.
+  A topology appends in two places, and to no depot of acts: the microbatch
+  gate to its depot of answers and to the depot of batch clocks. The
+  streaming gate appends to no depot. The microbatch gate appends what a
+  batch decided in the next run of the gate, on the batch's keeping task;
+  its namespace says how.
 
   The depot of batch clocks takes no act, and no gate decides from it: the
   depots of acts are two, one for each gate. It is declared :disallow, so no
@@ -98,10 +99,8 @@
   that the code is on, so every record is on the one partition of the gate's
   task. The log is what Rama does not set back when an attempt of a batch
   fails; the topology `batch-clock` reads it and keeps the newest batch's
-  clock in one row. No topology reads its old records. A rebuild
-  (`softland.store.rebuild`) is given the log whole, and holds against it
-  the clock that the microbatch gate's depot of answers keeps for a batch.
-  It is never trimmed, as no log of the module is. That the log is kept
+  clock in one row. No topology reads its old records, and no other code
+  of the store does. It is never trimmed, as no log of the module is. That the log is kept
   whole is Sid's decision (src-store/README.md, the decisions of 12 October
   2026, entry 3); that entry says how it reaches this log too.
 
@@ -151,13 +150,13 @@
   a depot, or a mirror of one, under each of the names `*streaming-depot`
   and `*microbatch-depot`. `Store` calls it behind the declarations of its
   two depots; a module that mirrors those two depots and calls it runs the
-  same gates over them from their beginning, into tables, depots of answers
-  and a depot of batch clocks of its own. The depot of batch clocks is
-  declared here and not with the depots of acts because the module's own
+  same gates over them from their beginning, into tables, a depot of
+  answers and a depot of batch clocks of its own. The depot of batch clocks
+  is declared here and not with the depots of acts because the module's own
   topology appends to it, so each module that runs the gates has its own."
   [setup topologies]
   (declare-depot setup *batch-clock-depot :disallow)
-  (streaming-gate/add-to setup topologies)
+  (streaming-gate/add-to topologies)
   (batch-clock/add-to topologies)
   (microbatch-gate/add-to setup topologies)
   (door-reads/add-to topologies))

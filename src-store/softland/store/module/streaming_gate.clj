@@ -1,13 +1,12 @@
-;; Before changing this file, read the plans of this part again:
+;; Before changing this file, read the papers of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/store-module/PLAN-streaming-gate-and-record.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-what-the-gates-keep.md
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-base-for-a-reader.md
-;; src/proposal/backend-on-rama-2026-10-02/before-real-data/PLAN-answers-in-a-log.md
+;; src/proposal/backend-on-rama-2026-10-02/run-again/PROGRESS.md
 
 (ns softland.store.module.streaming-gate
   "The streaming gate: the stream topology that decides each thing of the
-  streaming depot, the four PStates of its record, and its depot of answers.
-  It requires Rama.
+  streaming depot, and the four PStates of its record. It requires Rama.
 
   What it takes. Each thing that arrives on `*streaming-depot`, which the
   module declares (`softland.store.module`) and which partitions by the
@@ -20,61 +19,55 @@
   Their schemas are `softland.store.record.tables`'s and their rows
   `softland.store.record.rows`'s. They are durable state of the cluster. The
   gate keeps nothing in the memory of a process: the row of a layer's marked
-  keys is read from the PState in each event that needs it.
+  keys and the layer's last stamp are read from the PStates in each event
+  that needs them.
 
-  It declares the depot `*streaming-answer-depot`, its depot of answers, and
-  it alone appends to it: the depot is declared :disallow, so no client can
-  append. A record is a map of entries, as
-  `softland.store.record.rows/log-record` makes it. For a thing that has an
-  answer it is {:answers [entry]}, the entry
-  {:act-id [layer depot uuid] :stamp :digest}, with `:refused` and the word
-  for a refusal. For a stray it is {:strays [entry]}, the entry
-  {:stray :digest :task}. No value of a fact is in a record. The gate sets
-  no trimming option, so Rama keeps every record. No topology consumes the
-  depot and no read of the store opens it: the PStates are the record that
-  is read, and the depot is the log of what the gate decided. An append from
-  a topology goes to the partition of the task that the code is on, so a
-  record sits on the partition of the task that decided.
+  What a decision is made of. The thing, and rows of the gate's own record
+  on the task of the event. Nothing else: the gate reads no clock, it
+  borrows no PState and so reads no table of the other gate, and it takes
+  no random number. It declares no depot and appends to none.
 
-  What it borrows. Two PStates of the microbatch gate, to read on its own
-  task: `$$microbatch-facts` and `$$microbatch-task`. It reads them only for
-  an act into a layer of which its own record holds nothing and that starts
-  with the other gate's depot, which is the base.
-
-  Approach. The dataflow reads rows, calls pure functions, writes rows, and
-  at its end appends one record. The test for a stray and the check of what
-  arrived are `softland.store.door.declaration`'s, the checks against the
-  record are `softland.store.gate.decision`'s, and each row and each entry
-  comes from `softland.store.record.rows`. None of them throws, so no thing
-  can stop a partition: a refusal is data, an answer with a reason word.
+  Approach. The dataflow reads rows, calls pure functions and writes rows.
+  The test for a stray and the check of what arrived are
+  `softland.store.door.declaration`'s, the checks against the record and
+  the stamp are `softland.store.gate.decision`'s, and each row comes from
+  `softland.store.record.rows`. None of them throws, so no thing can stop a
+  partition: a refusal is data, an answer with a reason word.
 
   The walk of one event, for one thing:
 
     0. a stray?   A thing with no usable act-id, or whose act-id is of the
                   other gate or of another layer, gets no answer. Its digest
-                  is added to the set of its reason word, and the event goes
-                  to step 8 with what a stray's entry is made of: the word,
-                  the digest and the task of the set.
+                  is added to the set of its reason word on the task, and
+                  the event ends.
     1. check (a)  Read the answer under the act-id. If one is there, the
-                  event decides nothing and writes no row, whether the thing
-                  is the same act again or a different one, and goes to
-                  step 8 with the row that it read. So a repeat is
-                  answered, not decided twice, and one act-id has one
-                  answer.
-    2. the digest of the thing as it arrived, and check (b), the door's
-                  declaration. Its last step makes the one text of each
-                  value and holds the bound on one value and the bound on
-                  the act, so a thing over either is refused here, before
-                  any row of its standing is read.
-    3. the clock, read once; the 10-second rule on a carried stamp.
+                  event decides nothing, writes no row and ends, whether
+                  the thing is the same act again or a different one. So a
+                  repeat is not decided twice, and one act-id has one
+                  answer: that of the first thing to arrive under it.
+    2. the digest of the thing as it arrived, which leaves the time on the
+                  act out (`softland.store.door.digest`), and check (b),
+                  the door's declaration. A thing with no usable time is
+                  refused `:no-door-time` here. The declaration's last step
+                  makes the one text of each value and holds the bound on
+                  one value and the bound on the act, so a thing over
+                  either is refused here, before any row of its standing is
+                  read.
+    3. the time   The time on the act, which the door wrote
+                  (`softland.store.gate.decision/time-on`); nil for a thing
+                  with no usable time. A thing that the declaration refuses
+                  for another fault keeps its time. The 10-second rule
+                  holds each carried stamp against it.
     4. standing   Read the place of `:who`'s permission; only when it is
-                  empty, the place of the layer's depot; only when that is
-                  empty too, and the layer starts with the other gate's
-                  depot, whether the other gate's record holds the layer:
-                  the layer's depot place in `$$microbatch-facts`, which
-                  every task holds, and this task's `:closed-through`. A
-                  permission that stands and says `:see` is refused here,
-                  with no read more: an act needs \"act\".
+                  empty, the place of the layer's depot. When both are
+                  empty and the layer starts with the other gate's depot,
+                  which is the base, the act is refused
+                  `:layer-belongs-to-the-other-gate`, whether or not the
+                  other gate has made the layer: the gate asks the layer id
+                  (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`)
+                  and reads nothing for it. A permission that stands and
+                  says `:see` is refused here, with no read more: an act
+                  needs \"act\".
     5. places     Read the place of each fact that names something to
                   replace and of each fact under
                   `:softland.store/permission`; then checks (e), (f), (g),
@@ -87,46 +80,57 @@
                   place of each fact under a key that the row marks, unless
                   step 5 read it: the row before gives the entry to take out
                   of the facts by value.
-    7. the stamp  Read the task's last stamp. A refusal writes the answer
-                  and the last stamp and nothing else. An accept writes the
-                  row of each fact, with the text of its value, who wrote it
-                  and the permission that the act named; for a fact under a
-                  marked key the entry of its value in the facts by value,
-                  and the entry of the value before taken out; the answer
-                  and the last stamp. The event goes on with the answer's
-                  row as it was written.
-    8. the commit A partitioner to the event's own task. Rama commits the
-                  writes of the steps before it, and then the event goes on.
-    9. the entry  The entry is made here, behind the commit: an answer's
-                  entry of the layer and the uuid of the act-id and the row
-                  that step 7 wrote or step 1 read, or a stray's entry of
-                  what step 0 handed on. Then one append to
-                  `*streaming-answer-depot`, of the record that holds the
-                  entry, with the ack level :append-ack: the event goes on
-                  when the record is on the depot's partition and
-                  replicated. It is the event's last step.
+    7. the stamp  Read the last stamp of the act's layer: the number under
+                  the layer's text in `:last-stamp` of `$$streaming-task`.
+                  The stamp is made of the time on the act, that last
+                  stamp, and the stamps that the act carries
+                  (`softland.store.gate.decision/stamp-of`). A refusal
+                  writes the answer and the layer's last stamp and nothing
+                  else. An accept writes the row of each fact, with the
+                  text of its value, who wrote it and the permission that
+                  the act named; for a fact under a marked key the entry of
+                  its value in the facts by value, and the entry of the
+                  value before taken out; the answer and the layer's last
+                  stamp. The last write is the event's last step.
 
-  A later stage's rows are read only when the earlier checks passed, and no
-  check reads the marked keys. So an act whose permission does not stand
-  costs 4 reads at most, whatever it carries, and an act into the base on
-  this depot 6 at most. A thing that the declaration refuses, a value over
-  the bound among them, costs 2 reads, the answer and the last stamp, and 2
-  row writes. One accepted act with one value under a plain key costs 4
-  reads and 3 row writes: the reads are the answer, the permission, the
-  marked keys and the last stamp; the writes are the fact, the answer and
-  the last stamp. The read of the marked keys is paid by every accepted act
-  that holds a fact under a plain key, also in a layer that marks no key.
-  When the fact's key is marked it
-  costs 5 reads, and with them the row before, and 4 row writes, or 5 when
-  the entry of a value before goes out. An act with no fact under a plain
-  key, a give, a setting or a list, reads no marked
-  keys.
+  The stamp is counted in the layer. Each layer has its own last stamp, so
+  a decision in one layer does not raise the stamps of another layer of the
+  task, and two layers of one task can hold the same stamp. In one layer
+  each stamp is later than the one before, in the order in which the gate
+  decided. A thing with no usable time gets the layer's last stamp plus
+  one, or 0 in a layer with no last stamp.
 
-  Steps 8 and 9 add no read and no row write. Every event pays them, on
-  whichever road it came: one commit boundary, one append that is waited
-  for, and one record that the depot keeps. So a thing under an act-id that
-  has an answer costs 1 read, the boundary and the append, and a stray one
-  add to a set, the boundary and the append.
+  What an event costs, in reads and writes of a row. A later stage's rows
+  are read only when the earlier checks passed, and no check reads the
+  marked keys.
+
+    - A stray: no read, and one add to a set.
+    - A thing under an act-id that has an answer: 1 read, no write.
+    - A thing that the declaration refuses, one with no usable time or with
+      a value over the bound among them: 2 reads, the answer and the layer's
+      last stamp, and 2 writes, the answer and the layer's last stamp.
+    - An act whose permission does not stand: 4 reads at most, whatever it
+      carries, the answer, the two places of its standing and the layer's
+      last stamp, and the same 2 writes. An act into the base on this depot
+      is one of these.
+    - A making act: those 4 reads, and 4 writes: its two facts, the answer
+      and the layer's last stamp.
+    - One accepted act with one value under a plain key: 4 reads and 3
+      writes. The reads are the answer, the permission, the marked keys and
+      the layer's last stamp; the writes are the fact, the answer and the
+      layer's last stamp. The read of the marked keys is paid by every
+      accepted act that holds a fact under a plain key, also in a layer
+      that marks no key. When the fact's key is marked it costs 5 reads,
+      and with them the row before, and 4 writes, or 5 when the entry of a
+      value before goes out.
+    - An act with no fact under a plain key, a give, a setting or a list,
+      reads no marked keys.
+
+  An event makes no hop to another task, appends nothing and waits for
+  nothing. The read and the write of a layer's last stamp are each counted
+  as one above; the number sits one level down in its table, under a field
+  and then the layer's key (`softland.store.record.tables` says what that
+  costs and why it is so).
 
   Between the event's first read and its last write stands nothing that
   gives the task back: no partitioner, no yield, no append. The event starts
@@ -135,26 +139,7 @@
   accepted answer, each fact of its act, the entry that came into the facts
   by value and the entry that went out at once. Rama's docs say this of a
   batch of streaming events on one task. No other event of the task runs
-  between this event's reads and its writes. The event gives its task back
-  at step 8, behind its last write, and while the append of step 9 is
-  waited for. Behind step 8 it reads nothing and writes no row: it makes the
-  entry of what it carried over the boundary, by pure functions, and
-  appends. So nothing that runs on the task meanwhile changes what it
-  decided or what it appends.
-
-  Why the entry and the append stand behind a commit. Rama's docs say that
-  the writes before a partitioner are committed before the event goes past
-  it. So an entry is made and appended only when the row that it copies is
-  committed, and the depot holds no entry of an answer that the PStates do
-  not hold. A reader by act-id can be given an answer a moment before its
-  entry is in the depot, never the other way round. The making of the entry
-  (`softland.store.record.rows/answer-record`, `stray-record`,
-  `log-record`) is the one step of the store's own code between the commit
-  and the append: a failure there, as in the append, leaves a committed
-  answer with no entry, which the next run of the record makes good. Why
-  :append-ack: Rama gives no
-  guarantee that an append with no ack level goes through, and :ack would
-  wait for any stream topology that came to consume the depot.
+  between this event's reads and its writes.
 
   The marked keys. An act is decided with the layer's marks as they were
   before it. So a fact of the act that marks its own key is not in the order
@@ -165,49 +150,44 @@
   When Rama runs an event again. A stream topology can process a record
   again, also after its writes were committed. Each write of a decision is
   behind check (a), and the answer commits with the rest: a second run after
-  a commit finds the answer at check (a), writes no row and appends one copy
-  of its entry. So one act-id has one answer, no stamp is given twice, and
-  no entry of the facts by value that a later act put back is taken out
+  a commit finds the answer at check (a) and writes no row. So one act-id
+  has one answer, a layer's last stamp is not raised twice for one thing,
+  and no entry of the facts by value that a later act put back is taken out
   again. A second run after a discard is the first that counts; the rows of
-  the discarded run were never visible, and it made no append, which stands
-  behind the commit. Its rows are those of the discarded run but for the
-  stamp, which holds the clock: no write of a decision holds anything but
-  what the thing, the rows read and the clock give. The stray's write is not
+  the discarded run were never visible. No write of a decision holds
+  anything but what the thing and the rows read give, and no clock is among
+  them: when the second run reads the rows that the discarded run read, it
+  writes the same rows, with the same stamp. The stray's write is not
   behind check (a); it is an add to a set, the same write however often it
   runs. The source's retry mode is \"all after\": when a record fails, each
   record after it on the partition is processed again, in order.
 
-  The append is the one write that is not the same however often it runs:
-  each run of an event that reaches step 9 leaves one record. Every entry
-  under one act-id is made of the one committed row of that act-id, so all
-  hold the same answer, and a reader of the depot takes one. A stray's entry
-  names a member that the set of its word holds on its task, so the entries
-  of one stray give that member once. The gate cannot tell a sender's second
-  thing under an act-id from Rama's second run of the first, so it appends a
-  copy at every hit of check (a). That copy is what leaves no answer without
-  an entry. When an event fails between the commit of step 8 and the append,
-  its answer is committed and has no entry; the event of its record did not
-  complete, Rama runs the record again, and that run appends the copy. Until
-  that run the answer has no entry, and in a store that never runs again it
-  has none for good.
-
-  What this does not close. Without a failure, the acts of a layer are
-  decided in the depot's order. When something throws while a batch runs,
-  that batch is discarded, and a later record can be decided before the
-  failed one is retried. One setting of Rama would close that window, at a
-  cost in throughput; the store's map, one folder up, names it.
+  What this does not close: the order of a layer's acts after a failure.
+  Without a failure, the acts of a layer are decided in the depot's order.
+  When something throws while a batch of events runs, Rama discards the
+  writes of that batch and processes its records again. It is not shown
+  whether acts of a layer that were on their way then can be decided in
+  another order than the depot's. If they can, their stamps and their
+  answers can differ from those of a run of the gate over the same depot
+  that meets no failure there. A run of this build looks into that (Sid's
+  decision 7 of 13 October 2026), and this docstring says nothing of what
+  it finds. The gate's own code does not throw on what arrives, so such a
+  failure needs a fault of the machine, of Rama or of this module. The
+  store's map, one folder up, names the setting of Rama that orders a
+  layer's acts after a failure, and what it costs.
 
   What the gate rests on and does not test. The depot's partitioner puts a
   thing on its layer's task, and the gate makes no hop. A thing that a
   topology appends to another partition is decided against that task's
-  record; the store's map, one folder up, says what follows.
+  record, with that task's last stamp of the layer; the store's map, one
+  folder up, says what follows.
 
   The source starts from the beginning of the depot, so no thing that is in
   the depot is skipped whenever the topology first runs on a partition.
   Nothing is given back in the ack: the ack is a signal, and the record is
   the truth, read by act-id. A sender's append with the ack level :ack
-  returns when the event is done, and the append of step 9 is the event's
-  last step."
+  returns when the event is done, and the event's last write is its last
+  step."
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :refer :all]
@@ -218,42 +198,18 @@
             [softland.store.record.rows :as record]
             [softland.store.record.tables :as record-pstates]))
 
-(defn other-gates-record-holds-layer?
-  "Takes the row at a layer's depot place in the microbatch gate's record,
-  as this task holds it, or nil; and this task's `:closed-through` of that
-  gate, or nil. Gives whether the other gate's record holds the layer: true
-  for a row that is there and is of a closed batch
-  (`softland.store.record.rows/closed?`). A row of a batch that is not closed
-  does not count. Rama can run that batch again, and the row would be the
-  same on a second attempt: both take the batch's kept clock. The question
-  stays held to closing so that this gate and the read `depot-of-layer` say
-  the same of the base at one moment: if this gate counted the base as made
-  one run earlier, a door could read a refusal that says the layer is made
-  while its own read still says that it is not. The gate asks only when its own record holds nothing for the
-  layer and the layer starts with the other gate's depot. An act into such
-  a layer is refused :layer-belongs-to-the-other-gate once the layer is
-  made, and :layer-not-made before."
-  [other-depot-row closed-through]
-  (record/closed? other-depot-row closed-through))
-
 (defn add-to
-  "Adds the streaming gate to a module. Takes the module's `setup` and its
-  `topologies`. Declares the depot `*streaming-answer-depot`, closed to a
-  client's append; the stream topology `streaming-gate` and its four
-  PStates; and the dataflow of one event, as the namespace docstring walks
-  it. Each write of a decision is a whole row at a fixed key, or a fixed key
-  taken out: the same write however often it runs. The rows are written by a
-  loop that ends, so what stands behind it runs once for the event, on
-  whichever of the three roads the event came: one partitioner to the
-  event's own task; behind it the making of the entry and of its record, of
-  what the event carried over the partitioner; and one append with the ack
-  level :append-ack. Every
-  read, every write and the append of the event are on the task of the
-  depot's partition. What must hold: the module declares the depot
-  `*streaming-depot`, and has the microbatch gate, which declares the two
-  PStates that step 4 borrows."
-  [setup topologies]
-  (declare-depot setup *streaming-answer-depot :disallow)
+  "Adds the streaming gate to a module. Takes the module's `topologies`.
+  Declares the stream topology `streaming-gate` and its four PStates, and
+  the dataflow of one event, as the namespace docstring walks it. Each write
+  of a decision is a whole row at a fixed key, or a fixed key taken out: the
+  same write however often it runs. Every read and every write of the event
+  are on the task of the depot's partition: the event has no partitioner,
+  no append and no wait. The source starts from the beginning of the depot,
+  with the retry mode \"all after\". What must hold: the module declares the
+  depot `*streaming-depot`. The gate needs no other part of the module: it
+  declares no depot and reads no PState of another topology."
+  [topologies]
   (let [gate (stream-topology topologies "streaming-gate")]
     (declare-pstate gate $$streaming-answers (record-pstates/answers))
     (declare-pstate gate $$streaming-facts (record-pstates/facts))
@@ -262,20 +218,17 @@
     (<<sources gate
       (source> *streaming-depot {:start-from :beginning :retry-mode :all-after} :> *thing)
 
-      ;; 0. A stray gets no answer: its digest goes to the set of its word.
-      ;; The event goes on with what step 9 makes a stray's entry of: with
-      ;; the word, the digest and the task of the set.
+      ;; 0. A stray gets no answer: its digest goes to the set of its word,
+      ;; and the event ends.
       (declaration/stray-reason :streaming *thing :> *stray)
       (<<if *stray
         (digest/hex-of *thing :> *stray-digest)
         (local-transform> [(keypath :strays *stray) NONE-ELEM (termval *stray-digest)]
                           $$streaming-task)
-        (ops/current-task-id :> *task)
-        (vector *stray-digest *task :> *entry-parts)
 
        (else>)
         ;; 1. Check (a): an act-id that has an answer is not decided again.
-        ;; The event goes on with the row that it found.
+        ;; The event then writes nothing and ends.
         (get *thing :act-id :> *act-id)
         (nth *act-id 0 :> *layer)
         (nth *act-id 2 :> *act-uuid)
@@ -283,13 +236,16 @@
         (local-select> (keypath *answer-key) $$streaming-answers :> *answered)
         (<<if (nil? *answered)
 
-          ;; 2 and 3. The digest, check (b), the clock, the 10-second rule.
+          ;; 2 and 3. The digest, check (b), the time on the act, the
+          ;; 10-second rule. No clock is read: the time is the thing's own.
           (digest/digest *thing :> *digest)
           (declaration/check *thing :> {*act :ok *declarations-reason :refuse})
-          (System/currentTimeMillis :> *now)
-          (decision/refused-early *now *act *declarations-reason :> *refused-early)
+          (decision/time-on *thing :> *act-time)
+          (decision/refused-early *act-time *act *declarations-reason :> *refused-early)
 
           ;; 4. Standing: checks (c) and (d), and the first act of a layer.
+          ;; Whether the layer is the other gate's is asked of the layer id,
+          ;; and no table of the other gate is read.
           (<<if *refused-early
             (identity *refused-early :> *refused-standing)
             (identity false :> *makes-the-layer)
@@ -301,18 +257,12 @@
               (local-select> (keypath *depot-key) $$streaming-facts :> *depot-row)
              (else>)
               (identity nil :> *depot-row))
-            (<<if (and> (nil? *permission-row)
-                        (nil? *depot-row)
-                        (not= :streaming (first-act/depot-at-making *layer)))
-              (decision/depot-place *act :> *other-depot-key)
-              (local-select> (keypath *other-depot-key) $$microbatch-facts :> *other-depot-row)
-              (local-select> (keypath :closed-through) $$microbatch-task :> *closed-through)
-              (other-gates-record-holds-layer? *other-depot-row *closed-through :> *other-holds)
-             (else>)
-              (identity false :> *other-holds))
-            (decision/standing :streaming *act *permission-row *depot-row *other-holds
+            (first-act/starts-with-the-other-gates-depot? :streaming *layer
+                                                          :> *layer-is-the-other-gates)
+            (decision/standing :streaming *act *permission-row *depot-row *layer-is-the-other-gates
                                :> *refused-standing)
-            (decision/makes-the-layer? :streaming *act *permission-row *depot-row *other-holds
+            (decision/makes-the-layer? :streaming *act *permission-row *depot-row
+                                       *layer-is-the-other-gates
                                        :> *makes-the-layer))
 
           ;; 5. Places: checks (e), (f), (g), who may write a key that takes a
@@ -359,10 +309,11 @@
             (identity {} :> *since-by-place)
             (identity *place-rows :> *rows-in-hand))
 
-          ;; 7. The stamp, and the writes: each a whole row at a fixed key, or
-          ;; a fixed key taken out.
-          (local-select> (keypath :last-stamp) $$streaming-task :> *last-stamp)
-          (decision/stamp-of *now *last-stamp *act *refused :> *stamp)
+          ;; 7. The stamp, of the time on the act and of the layer's last
+          ;; stamp, which is kept under the layer's text.
+          (declaration/id-text *layer :> *layer-text)
+          (local-select> (keypath :last-stamp *layer-text) $$streaming-task :> *last-stamp)
+          (decision/stamp-of *act-time *last-stamp *act *refused :> *stamp)
           ;; What the gate has in hand for an accept; nothing for a refusal.
           ;; A key that this act newly marks gets the act's own stamp.
           (<<if *refused
@@ -373,57 +324,25 @@
                       :level-from *stamp
                       :> *in-hand))
           (decision/writes *act-id *act *refused *stamp *digest *in-hand :> *writes)
-          ;; A loop that ends, so that steps 8 and 9 run once for the event
-          ;; and not once for each row. It does not yield. It gives the
-          ;; answer's row as it was written.
-          (loop<- [*writes-left *writes
-                   *answer-so-far nil
-                   :> *answer-row]
-            (<<if (empty? *writes-left)
-              (:> *answer-so-far)
-             (else>)
-              (first *writes-left :> [*which *key *row])
-              (<<cond
-                (case> (= *which :fact))
-                (local-transform> [(keypath *key) (termval *row)] $$streaming-facts)
+          ;; The writes: each a whole row at a fixed key, or a fixed key taken
+          ;; out. One row at a time, with no yield between two. Nothing
+          ;; stands behind them: the last write is the event's last step.
+          (ops/explode *writes :> [*which *key *row])
+          (<<cond
+            (case> (= *which :fact))
+            (local-transform> [(keypath *key) (termval *row)] $$streaming-facts)
 
-                (case> (and> (= *which :by-value) (nil? *row)))
-                (local-transform> [(keypath *key) NONE>] $$streaming-facts-by-value)
+            (case> (and> (= *which :by-value) (nil? *row)))
+            (local-transform> [(keypath *key) NONE>] $$streaming-facts-by-value)
 
-                (case> (= *which :by-value))
-                (local-transform> [(keypath *key) (termval *row)] $$streaming-facts-by-value)
+            (case> (= *which :by-value))
+            (local-transform> [(keypath *key) (termval *row)] $$streaming-facts-by-value)
 
-                (case> (= *which :answer))
-                (local-transform> [(keypath *key) (termval *row)] $$streaming-answers)
+            (case> (= *which :answer))
+            (local-transform> [(keypath *key) (termval *row)] $$streaming-answers)
 
-                (case> (= *which :last-stamp))
-                (local-transform> [(keypath :last-stamp) (termval *row)] $$streaming-task)
+            (case> (= *which :last-stamp))
+            (local-transform> [(keypath :last-stamp *layer-text) (termval *row)] $$streaming-task)
 
-                (default>)
-                (identity nil :> *no-row))
-              (<<if (= *which :answer)
-                (identity *row :> *answer-now)
-               (else>)
-                (identity *answer-so-far :> *answer-now))
-              (continue> (rest *writes-left) *answer-now)))
-
-         (else>)
-          (identity *answered :> *answer-row))
-        ;; What step 9 makes the answer's entry of.
-        (vector *layer *act-uuid *answer-row :> *entry-parts))
-
-      ;; 8. The commit boundary, behind the event's last write: the rows are
-      ;; committed before an entry is made or appended.
-      (|direct (ops/current-task-id))
-
-      ;; 9. The entry, made here behind the commit, and one append of its
-      ;; record, on the task that decided. No read and no write of a row.
-      (<<if *stray
-        (identity *entry-parts :> [*entry-digest *entry-task])
-        (record/stray-record *stray *entry-digest *entry-task :> *stray-record)
-        (record/log-record nil (vector *stray-record) :> *to-append)
-       (else>)
-        (identity *entry-parts :> [*entry-layer *entry-uuid *entry-row])
-        (record/answer-record :streaming *entry-layer *entry-uuid *entry-row :> *answer-record)
-        (record/log-record (vector *answer-record) nil :> *to-append))
-      (depot-partition-append! *streaming-answer-depot *to-append :append-ack))))
+            (default>)
+            (identity nil :> *no-row)))))))

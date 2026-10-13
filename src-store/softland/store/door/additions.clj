@@ -1,20 +1,24 @@
 (ns softland.store.door.additions
-  "What the door makes of one act: the tests of its own two additions, and
-  the thing to append. Pure code. It needs no cluster.
+  "What the door makes of one act: the tests of its own three additions, and
+  the thing to append. Pure code. It needs no cluster, and it reads no
+  clock: the door hands it the time.
 
-  The door adds two things to a maker's act: an act-id, and the depot that
-  the act-id names. This namespace makes each addition right, or gives one
+  The door adds three things to a maker's act: an act-id, the depot that
+  the act-id names, and the time of the door's clock, under `:door-time`
+  (`softland.store.door.declaration/time-part` holds the name). This
+  namespace makes the act-id and the depot right, or gives one
   of the door's own words (`softland.store.door.words`), and then nothing is
   appended for the act. An addition is right when the door's declaration
   (`softland.store.door.declaration`) takes it and when it wrote over
-  nothing that the maker gave.
+  nothing that the maker gave. The time is added as the door read it and is
+  not tested here: a gate holds it to the declaration's range.
 
   The door checks nothing of the act's form: a gate does, and a gate's
   refusal is in the record. What is tested here is only what the door's own
   additions need:
 
     - the thing is a plain map whose `:layer` can be read;
-    - it does not already hold `:act-id` or `:depot`;
+    - it does not already hold `:act-id`, `:depot` or `:door-time`;
     - its `:layer` is an id that an act-id can hold, and an act-id that the
       maker gives back is an act-id of that layer. A thing that passes is no
       stray on the depot that its act-id names, so a gate answers it. A
@@ -32,8 +36,8 @@
 
     reading          a maker's thing, and the act-id that the maker gives
                      back or nil -> what the door read of it, or a word
-    thing-to-append  a reading, an act-id -> {:thing the thing to append},
-                     or a word
+    thing-to-append  a reading, an act-id, a time -> {:thing the thing to
+                     append}, or a word
     series-word      the count of a series of act-ids -> nil, or a word
 
   State and effects. None. No function throws for what a maker gave: a
@@ -42,7 +46,8 @@
   Callers. `softland.store.door`, and the pure proof.
 
   Not here. The making of an act-id, which needs the layer's depot, a read
-  of the cluster, and a random UUID: `softland.store.door`. The digest of
+  of the cluster, and a random UUID: `softland.store.door`. The read of the
+  clock: `softland.store.door`. The digest of
   the thing: `softland.store.door.digest`, taken by `softland.store.door`.
   The check of the act: a gate's."
   (:require [softland.store.door.declaration :as declaration]
@@ -88,13 +93,21 @@
           {}
           parts-read))
 
+(def ^:private parts-added
+  "The parts of the act that the door adds, in the order in which
+  `own-parts-word` tests them: the act-id, the depot that it names, and the
+  time of the door's clock. The name of the third is the declaration's
+  (`softland.store.door.declaration/time-part`)."
+  [:act-id :depot declaration/time-part])
+
 (defn- own-parts-word
-  "Takes a thing that is a plain map. Gives nil when it holds neither
-  `:act-id` nor `:depot`, the two parts of the act that the door adds; or
-  the word `:add-its-parts` at the part that it holds. A part that is there
-  with nil counts: the door writes over nothing."
+  "Takes a thing that is a plain map. Gives nil when it holds none of
+  `parts-added`, the three parts of the act that the door adds: `:act-id`,
+  `:depot` and `:door-time`; or the word `:add-its-parts` at the first of
+  them that it holds. A part that is there with nil counts: the door writes
+  over nothing."
   [thing]
-  (when-let [part (some (fn [part] (when (contains? thing part) part)) [:act-id :depot])]
+  (when-let [part (some (fn [part] (when (contains? thing part) part)) parts-added)]
     (words/word :add-its-parts {:at part})))
 
 (defn- act-id-word
@@ -140,7 +153,8 @@
 
     1. the thing is a plain map, and its `:layer` can be
        read                                               :read-the-act
-    2. it holds no `:act-id` and no `:depot`              :add-its-parts
+    2. it holds no `:act-id`, no `:depot` and no
+       `:door-time`                                       :add-its-parts
     3. its `:layer` is an id within the limit, and the
        act-id given is an act-id of that layer            :make-an-act-id
 
@@ -153,19 +167,28 @@
 ;; ------------------------------------------------------ the thing to append
 
 (defn thing-to-append
-  "Builds the thing that the door appends for an act. Takes a reading; and
-  the act-id, [layer depot uuid], which the reading's tests passed or the
-  door made for the reading's layer. Gives {:thing the thing}.
+  "Builds the thing that the door appends for an act. Takes a reading; the
+  act-id, [layer depot uuid], which the reading's tests passed or the door
+  made for the reading's layer; and the time that the door read from its
+  clock, in milliseconds since 1970. Gives {:thing the thing}.
 
-  The thing is the maker's map with `:act-id` and `:depot` added, the depot
-  being the second slot of the act-id. Each other part is the maker's own
-  object: the door fills no missing part, reorders nothing, makes no part a
-  vector, gives no value a normal form, names no permission, and carries
-  `:who`, `:session`, `:permission` and `:facts` as given.
+  The thing is the maker's map with three parts added: `:act-id`; `:depot`,
+  the second slot of the act-id; and `:door-time`, the time given, under
+  the name that `softland.store.door.declaration/time-part` holds. Each
+  other part is the maker's own object: the door fills no missing part,
+  reorders nothing, makes no part a vector, gives no value a normal form,
+  names no permission, and carries `:who`, `:session`, `:permission` and
+  `:facts` as given.
 
-  It never throws: a thing that throws while the two parts are added ends
+  It reads no clock and does not test the time: it adds what it is given,
+  and a gate refuses a thing whose time is outside the declaration's range.
+
+  It never throws: a thing that throws while the three parts are added ends
   in the word `:read-the-act`, and that is the one word that it can give."
-  [reading act-id]
+  [reading act-id door-time]
   (try
-    {:thing (assoc (:thing reading) :act-id act-id :depot (nth act-id 1))}
+    {:thing (assoc (:thing reading)
+                   :act-id act-id
+                   :depot (nth act-id 1)
+                   declaration/time-part door-time)}
     (catch Throwable _ (words/word :read-the-act nil))))

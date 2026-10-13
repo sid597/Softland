@@ -75,8 +75,8 @@ it is committed while it fails.
 | Part | What | The run-again proof | State |
 |---|---|---|---|
 | 0 | The proof: a second module over the store's two depots from their beginning, every table compared | fails, committed failing | **done.** On the store as it was before the build 3,064 rows differ (`runs/first-proof-run-again.txt`) |
-| A | The clock before the depot, the number per layer, the streaming gate's depot of answers and the rebuild out | still fails, on the base | its source is being edited |
-| B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes | its Rama claims are being run |
+| A | The clock before the depot, the number per layer, the streaming gate's depot of answers and the rebuild out | still fails, on the base alone: the streaming gate's four tables hold 0 rows that differ | **done.** What it changed is in `PART-A.md`; its runs are `runs/after-a-*.txt` |
+| B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes | its Rama claims are run (`probes-the-bases-gate/RESULTS.md`), its plan is written (`PLAN-the-bases-gate.md`), and a draft of the gate ran on a module of its own with every table the same on a run again. The store's own gate is not changed yet |
 | C | Decision 7 on the store itself: closed, or said on the store's page and named by the proof | passes | a run on a stand-in gate is under way |
 | D | This folder's pages, the queue, the open rows of both receipts, the progress page of the folder above | — | not begun |
 | E | One fresh review of the whole, its fixes, the final runs, one receipt | passes | not begun |
@@ -108,6 +108,21 @@ code, and its docstring says "Not decided: kept for now".
 2. **The proof runs in a detached checkout of the head when it has to prove a tree that
    is not the working tree.** `/mnt/data/projects/Softland-run-again-baseline`, at
    `9c5da833`. It holds a checkout and nothing else.
+
+3. **A refused act keeps its time.** A thing that the form refuses for a fault other
+   than its time still carries a usable time, and the stamp of its refusal holds it. A
+   thing with no usable time gets its layer's last stamp plus one, or 0 in a layer with
+   no stamp yet. Engineering, the session's.
+4. **Where the time stands in the order of the reasons.** A part that the form does not
+   know, and a `:depot` that is no depot word, are told before a missing time; each of
+   the maker's own parts after it. It follows from where the part stands in the shape.
+5. **Two strays that differ only in the time are one stray.** It follows from the
+   digest, which leaves the time out for every thing alike.
+6. **The key of a layer's last stamp is the text of the layer id.** A layer id is a
+   keyword or a UUID, and a table's key has one class.
+7. **The pages of the store are written once, after part B.** `src-store/README.md`,
+   the store's page and the proofs' map still describe the store as it was before the
+   build. The docstrings and the folder maps beside the code are true at each commit.
 
 More are added below as they are made.
 

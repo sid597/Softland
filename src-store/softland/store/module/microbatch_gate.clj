@@ -188,8 +188,8 @@
   A second attempt can give an act into a layer
   of the other gate the other of two words, so a reader could see a word
   that later changes. So each task
-  holds `:closed-through`, and the door's two reads and the streaming
-  gate's question about the base give a row only when the row's stamp
+  holds `:closed-through`, and the door's two reads give a row only when
+  the row's stamp
   is not later than it (`softland.store.record.rows/closed?`). The run after
   a batch closes it. Step 2 knows that it closes a batch by `:to-close`,
   which that batch wrote on the gate's task. It appends what the batch left

@@ -17,9 +17,9 @@ and the gate is the authority: anything can append to a depot without the door.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the test for a stray; the check, whose last step makes the one text of each value and holds the bound on one value and the bound on one act. | None. |
+| [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the name of the part that holds the time on the act, and the range of that time; the test for a stray; the check, whose last step makes the one text of each value and holds the bound on one value and the bound on one act. | None. |
 | [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
-| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text. The door, the gates and the rebuild share it. | None. |
+| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text, with the time on the act left out. The door and the gates share it. | None. |
 
 **The door's own pure parts.** No gate requires these three. They are the rules
 of the door that need no cluster, split from [door.clj](../door.clj) so that the
@@ -28,31 +28,60 @@ a case.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [additions.clj](additions.clj) | What the door makes of one act: the tests of what its two additions need, and the thing to append, which is the maker's act with `:act-id` and `:depot` added. | None. |
+| [additions.clj](additions.clj) | What the door makes of one act: the tests of what its three additions need, and the thing to append, which is the maker's act with `:act-id`, `:depot` and `:door-time` added. It reads no clock: the door hands it the time. | None. |
 | [wait.clj](wait.clj) | The numbers of a maker's wait for an answer: the longest wait that the door counts, and the sleep between two reads of a wait. | None. |
 | [words.clj](words.clj) | Everything that the door says to a maker, as data: its own seven words, the four answers, the two acks. | None. |
 
 ## How the files relate
 
 [text.clj](text.clj) is at the bottom. It requires only [the act](../act.clj),
-for what a value is. [digest.clj](digest.clj) takes the digest of a thing over
-that text. [declaration.clj](declaration.clj) declares what arrives, and reads
-its shapes with the engine of [act.clj](../act.clj); in the last step of its
-check it makes the text of each value with [text.clj](text.clj).
+for what a value is. [declaration.clj](declaration.clj) declares what arrives,
+and reads its shapes with the engine of [act.clj](../act.clj); in the last step
+of its check it makes the text of each value with [text.clj](text.clj).
+[digest.clj](digest.clj) takes the digest of a thing over that text. It
+requires the declaration for one word, the name of the part that it leaves
+out: the time on the act.
 
 [words.clj](words.clj) and [wait.clj](wait.clj) require nothing.
 [additions.clj](additions.clj) requires the declaration, for what an act-id can
-hold, and the words. [door.clj](../door.clj) requires these three and the
+hold and for the name of the time's part, and the words.
+[door.clj](../door.clj) requires these three and the
 digest; outside this folder it requires two pure rules, the depot that a layer
 starts with ([first_act.clj](../gate/first_act.clj)) and the routing id with the
 tests of what a caller passes to a read ([rows.clj](../record/rows.clj)).
+
+## The time on the act
+
+The door writes a third part on each thing that it appends, beside the act-id
+and the depot: the clock of the server that runs the door, in milliseconds
+since 1970. [door.clj](../door.clj) reads that clock once for a thing and hands
+the number on; nothing in this folder reads a clock. The name of the part is
+declared once, in [declaration.clj](declaration.clj), with the range that a
+gate holds the time to. A thing whose time is absent or outside the range is
+refused by a gate with one word, `:no-door-time`, and the refusal is recorded
+under its act-id. The digest leaves the part out, so a maker's second send of
+one act under one act-id, which carries another time, reads the first send's
+answer as its own.
+
+Sid decided the first of these on 13 October 2026: the clock comes before the
+depot, the door writes the time on the act, and the clock is the clock of the
+server that runs the door. Four things beside it are not decided, and each is
+kept for now in one place, whose docstring says so:
+
+| Not decided | The answer kept for now | Where |
+|---|---|---|
+| What the time on the act is called | `:door-time` | `time-part` in [declaration.clj](declaration.clj) |
+| What a second send of the same act carries as its time | The door's clock of the second send | `send-act` in [door.clj](../door.clj) |
+| What happens to a record that arrives with no time | A gate refuses it, with a recorded answer | `shapes` in [declaration.clj](declaration.clj) |
+| Where a time that is far ahead is stopped | Nowhere but at the end of the range | `max-time` in [declaration.clj](declaration.clj) |
 
 ## Boundaries
 
 Nothing in this folder reads the record or calls Rama. Whether a permission
 stands and whether a replaced fact is current need rows of the record: those
 checks are [gate/](../gate/README.md)'s. The door's calls of Rama's client, its
-clock and its waits are in [door.clj](../door.clj).
+two clocks, the server's for the time on an act and the JVM's `nanoTime` for a
+wait, and its waits are in [door.clj](../door.clj).
 
 The door owns no state. It borrows four handles of Rama's client, two depots
 and two queries, and holds one number, fixed at its opening. It keeps nothing
@@ -84,8 +113,16 @@ Before real data is kept (12 October), the entries that the door carries:
 
 | Entry | Decision | Where it shows in the door |
 |---|---|---|
-| 2 | Every value is plain in the log, and the store keeps no locks | The thing that the door appends is the maker's act with `:act-id` and `:depot` added, each value as she gave it (`thing-to-append` in [additions.clj](additions.clj)). The door holds nothing between two calls |
-| 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first | The door's three tests, and no other, in `reading` of [additions.clj](additions.clj): each is of what its own two additions need. It reads no who, no permission and no fact |
+| 2 | Every value is plain in the log, and the store keeps no locks | The thing that the door appends is the maker's act with `:act-id`, `:depot` and `:door-time` added, each value as she gave it (`thing-to-append` in [additions.clj](additions.clj)). The door holds nothing between two calls |
+| 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first | The door's three tests, and no other, in `reading` of [additions.clj](additions.clj): each is of what its own additions need. It reads no who, no permission and no fact |
+
+So that the store comes out the same when it is run again (13 October), the
+decisions that the door carries:
+
+| Decision | What Sid said | Where it shows in the door |
+|---|---|---|
+| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | `send-act` in [door.clj](../door.clj) reads the clock once for a thing, and `thing-to-append` in [additions.clj](additions.clj) adds the time. The gates are [module/](../module/README.md)'s, which says what each of them reads |
+| 8 | "The clock the door carries is the clock of the server that runs the door. What the door does with a thing it cannot label stays as built." | The clock is the JVM's `currentTimeMillis` of the process that runs the door. For a thing that it cannot take, the door has its three tests and its seven words; the test of the parts that it adds holds `:door-time` too |
 
 ## Engineering choices
 
@@ -112,9 +149,10 @@ call, pays the read once.
 **The order of the steps of a send** ([door.clj](../door.clj)). Four steps.
 The reading: the three tests, which need no cluster and come before the first
 round trip. The act-id: the one that the maker gives back, or one made with one
-read of the layer's depot. The thing to append, and its digest. One append. So
-one send is one append, and one read when no act-id was given back; no send
-waits for another send.
+read of the layer's depot. The thing to append, built with one read of the
+server's clock, and its digest. One append. So one send is one append, and one
+read of the cluster when no act-id was given back; no send waits for another
+send.
 
 **What the door does not stop.** The door stops no act. An act whose maker may
 not act, a value that is no value of the form, a value over the bound on one
@@ -161,18 +199,20 @@ made from nothing of the time. No read of this build ranges over act uuids.
 **How each of the door's builder's rules is met.** The numbers are the
 contract's.
 
-1. The door checks nothing of the act's form. What it tests is what its two
-   additions need: a plain map whose `:layer` can be read, no `:act-id` and no
-   `:depot` already there, and a layer that an act-id can hold, with an act-id
-   given back that is of that layer. Its words name what the door could not do.
+1. The door checks nothing of the act's form. What it tests is what its three
+   additions need: a plain map whose `:layer` can be read, no `:act-id`, no
+   `:depot` and no `:door-time` already there, and a layer that an act-id can
+   hold, with an act-id given back that is of that layer. Its words name what
+   the door could not do.
 2. An act-id carries a random uuid, and the door keeps no id that it gave.
 3. The contract's rule is of a request for locks. The door sends no act of its
    own, so nothing here meets it.
 4. The ack is given as a signal. The answer is read from the record by act-id,
    and the door compares the answer's digest with the digest that the maker
-   gives back. A maker's second send of one act under one act-id is the same
-   thing, with one digest, so both sends read the answer as their own; "not
-   mine" is said only of a thing that differs.
+   gives back. A maker's second send of one act under one act-id differs from
+   the first only in its time, which the digest leaves out, so the two have
+   one digest and both sends read the answer as their own; "not mine" is said
+   only of a thing that differs in another part.
 5. A wait is bounded by the maker's word and is one question about one act-id.
 6. The door reads no fact of the record for a maker.
 7. The words are below.
@@ -188,9 +228,13 @@ from the contract and the decisions, not made here: `:act-id`, `:depot`,
 `:digest`, `:stamp`, `:reason`, `:accepted`, `:refused`; the calls `act-id-for`
 and `answer-of`; "nothing yet" and "not mine".
 
+**The time on the act.** `:door-time`, the name of the part, and
+`:no-door-time`, the gate's word for a thing with no usable time. Both are a
+session's working names; what the time is called is not decided.
+
 **Namespaces.** `softland.store.door`, the contract's. `softland.store.door.additions`:
 "additions" is the contract's word for what the door adds to an act, which is
-two things, `:act-id` and `:depot`. `softland.store.door.wait`: the numbers of a
+three things, `:act-id`, `:depot` and `:door-time`. `softland.store.door.wait`: the numbers of a
 maker's wait for an answer. `softland.store.door.words`, and the door's proof,
 `softland.store.door-proof`.
 

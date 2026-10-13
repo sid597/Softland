@@ -16,7 +16,10 @@
   argument that calls the act's code, and what that function must give.
   Where a case reads a declaration, it reads it from `softland.store.act`.
   Where the proof writes the form out a second time, as literals, it does so
-  on purpose: a change of the form is then made in two places.
+  on purpose: a change of the form is then made in two places. One name is
+  read from another namespace: the name of the part that holds the time on
+  the act, which the door writes and which is no part of a maker's act
+  (`softland.store.door.declaration/time-part`).
 
   State. The proof owns one atom: the lines that it showed, for the recap.
 
@@ -28,7 +31,8 @@
   three forms of a permission; ids and values."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
-            [softland.store.act :as act])
+            [softland.store.act :as act]
+            [softland.store.door.declaration :as declaration])
   (:import [java.util UUID]))
 
 (defonce ^{:private true
@@ -178,11 +182,11 @@
     #{:version :who :layer :permission :session :based-on :because-of :claimed-when :subjects :facts}]
    ["the four parts of a fact"
     (fn [] act/fact-parts) #{:e :k :v :replaces}]
-   ["the door's additions and the seal are no parts: no act-id or depot on an act; no seal, lock id, layer or mark on a fact"
+   ["the door's three additions and the seal are no parts: no act-id, depot or time of the door on an act; no seal, lock id, layer or mark on a fact"
     (fn [] (mapv #(contains? %1 %2)
-                 [act/act-parts act/act-parts act/fact-parts act/fact-parts act/fact-parts act/fact-parts]
-                 [:act-id :depot :sealed :lock-id :layer :mark]))
-    [false false false false false false]]
+                 [act/act-parts act/act-parts act/act-parts act/fact-parts act/fact-parts act/fact-parts act/fact-parts]
+                 [:act-id :depot declaration/time-part :sealed :lock-id :layer :mark]))
+    [false false false false false false false]]
    ["the seven reason words, read from the two declarations"
     (fn [] act/reasons)
     #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
@@ -296,6 +300,7 @@
    ["another part" (assoc good :signature "x") :unknown-part]
    ["an act-id: the door makes it, and it is no part" (assoc good :act-id earlier-act-id) :unknown-part]
    ["a depot: the door adds it, and it is no part" (assoc good :depot :streaming) :unknown-part]
+   ["a time of the door: the door writes it, and it is no part" (assoc good declaration/time-part 1760000000000) :unknown-part]
    ["a part for expected versions" (assoc good :expected-versions {}) :unknown-part]
    ;; the version
    ["version 2" (assoc good :version 2) :unknown-version]

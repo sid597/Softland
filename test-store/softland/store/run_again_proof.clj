@@ -18,24 +18,41 @@
   of the kept clock. The checks before it hold the hand and the two waits
   to what this docstring says of them. Beside the check, and held to
   nothing, the proof prints what each module holds of the cases that it
-  added. The proof was written before the store was changed to pass it,
-  and a run on the store of that day fails:
-  src/proposal/backend-on-rama-2026-10-02/run-again/runs/ holds the cut of
-  that run.
+  added.
+
+  On the store as it is the check fails, and for the microbatch gate only.
+  What a run of this proof printed: no row differs in the streaming gate's
+  four tables; rows differ in each of the microbatch gate's four tables,
+  in the stamp and for many answers in the word too, and in the table of
+  the kept clock; and the second module decided the microbatch depot in
+  fewer batches than the first. What the source says of the two gates: the
+  streaming gate decides of the thing, which holds the time that was
+  written on it before the depot, and of its own rows
+  (`softland.store.module.streaming-gate`); the microbatch gate makes its
+  stamps of a clock that it reads for each batch, and gives the acts of a
+  batch that stand on two partitions of the depot an order of its own
+  (`softland.store.module`). So the streaming gate decides the same when
+  it is run again, as far as a run shows, and the microbatch gate does not.
+  src/proposal/backend-on-rama-2026-10-02/run-again/runs/ holds the cuts
+  of the runs.
 
   What it does, on one in-process cluster. It launches `Store` with four
   tasks. A hand sends things of every kind to both depots of acts, some
-  through the door (`softland.store.door`) and some with no door, as the
-  rebuild's proof sends them: an append of a thing that the proof built,
-  act-id and all. To those it adds the cases whose answer depends on the
-  order in which a gate meets the acts, and a load:
+  through the door (`softland.store.door`) and some with no door: an
+  append of a thing that the proof built, act-id, depot word, time and
+  all. To those it adds the cases whose answer depends on the order in
+  which a gate meets the acts, the cases of the time on a thing, and a
+  load:
 
     in a streaming layer   a give and the first act under the given
                            permission; two acts that replace one fact; a
-                           mark of a key and facts under that key; and some
-                           hundreds of acts on a few entities
+                           mark of a key and facts under that key; a thing
+                           with no time on it; an act whose time is an hour
+                           behind the hand's clock; and some hundreds of
+                           acts on a few entities
     in the base            the same three, each act sent when the one before
-                           was decided; some thousands of acts sent without
+                           was decided; a thing with no time on it; some
+                           thousands of acts sent without
                            a wait for the gate, on some hundreds of
                            entities, four of five Alice's under the
                            permission that the system gave her, and every
@@ -55,11 +72,22 @@
   decided every thing of both depots, reads the tables of both, and
   compares.
 
+  The time on a thing. A gate refuses, with `:no-door-time`, a thing that
+  is no stray and holds no usable time
+  (`softland.store.door.declaration/time-part`), and the streaming gate
+  makes the stamp of a decision of that time. The door writes the time on
+  what goes through it. On a thing that it appends with no door the hand
+  writes its own reading of this process's clock at the send, as a door
+  does: a thing that it sends twice holds two times. Three things are
+  appended as the proof built them, and their time is chosen: the two with
+  no time, and the act whose time is an hour behind. A thing that is no
+  map takes no time.
+
   The second module. `StoreAgain` declares a mirror of each of the two
   depots of acts under the depot's own name, and then calls
   `softland.store.module/add-gates-and-reads`, the one function that
   `Store` calls behind its own two depots. So it cannot be another gate than
-  the store's. Its tables, its depots of answers and its depot of batch
+  the store's. Its tables, its depot of answers and its depot of batch
   clocks are its own. Each gate declares its source with
   `{:start-from :beginning}`, so a module that is launched when the depots
   are full reads them whole. That is the way Rama's docs give for making
@@ -97,11 +125,13 @@
   gate's depot of answers, and `:to-close` what the next run has to close:
   on a module at rest the first holds no key and the second is absent. The
   proof reads the last two of both modules, to know that each is at rest,
-  and never `:turns`. The rebuild's proof leaves out the same three. Every
-  other part is compared: the answers, the facts, the facts by value, and
-  of a task's row the last stamp, `:closed-through` and the strays. The
-  table of the kept clock, `$$batch-clock`, is compared too and reported on
-  lines of its own.
+  and never `:turns`. Every other part is compared: the answers, the facts,
+  the facts by value, and what a gate keeps for a task. Of that the
+  streaming gate holds a last stamp for each layer, a map from the text of
+  a layer id to a number, and each layer's number is compared under a key
+  of its own; the microbatch gate holds one last stamp and
+  `:closed-through`; and each holds the strays. The table of the kept
+  clock, `$$batch-clock`, is compared too and reported on lines of its own.
 
   State. The proof owns four atoms: the lines that it showed; how many
   things it appended to the microbatch depot; the act-ids of the acts that
@@ -121,7 +151,9 @@
             [com.rpl.rama.path :as path]
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
+            [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text]
+            [softland.store.gate.stamp :as stamp]
             [softland.store.module :as module]
             [softland.store.record.rows :as record])
   (:import [java.util UUID]))
@@ -162,7 +194,7 @@
   else of `Store` by the store's one definition
   (`softland.store.module/add-gates-and-reads`). It stores no act: its
   gates read the depots of `Store`, from their beginning. Its tables, its
-  two depots of answers and its depot of batch clocks are its own. What must
+  depot of answers and its depot of batch clocks are its own. What must
   hold at its launch: `Store` runs in the same cluster.")
 
 ;; ------------------------------------------------------------------ the hand
@@ -179,15 +211,20 @@
   "What the proof knows of each gate of the store: its depot of acts and
   the ack level of an append by the hand; the names of its four tables; the
   numbers that its row for a task holds; and, for a gate that decides in
-  batches, the name of its topology."
+  batches, the name of its topology. `:numbers` names each part of the
+  row that is one number. `:numbers-by-layer` names each part that is a map
+  from the text of a layer id to a number: the streaming gate's last stamp
+  is counted in the layer."
   {:streaming {:depot "*streaming-depot" :ack :ack
                :tables {:answers "$$streaming-answers" :facts "$$streaming-facts"
                         :facts-by-value "$$streaming-facts-by-value" :task "$$streaming-task"}
-               :numbers [:last-stamp]}
+               :numbers []
+               :numbers-by-layer [:last-stamp]}
    :microbatch {:depot "*microbatch-depot" :ack :append-ack
                 :tables {:answers "$$microbatch-answers" :facts "$$microbatch-facts"
                          :facts-by-value "$$microbatch-facts-by-value" :task "$$microbatch-task"}
                 :numbers [:last-stamp :closed-through]
+                :numbers-by-layer []
                 :topology "microbatch-gate"}})
 
 (def ^:private wait-limit-ms
@@ -255,17 +292,30 @@
   {:version 1 :who who :layer layer :permission permission :session :proof-session :facts (vec facts)})
 
 (defn- arrived
-  "A thing as it arrives with no door: a maker's act with an act-id that
-  the proof makes, under the depot word given, and that word as `:depot`."
+  "A thing as it arrives with no door, but for its time: a maker's act with
+  an act-id that the proof makes, under the depot word given, and that word
+  as `:depot`. It holds no time: `by-hand!` writes one at the send, and a
+  case whose time is chosen adds its own or sends the thing with none."
   [depot layer who permission facts]
   (assoc (act layer who permission facts) :act-id [layer depot (UUID/randomUUID)] :depot depot))
 
-(defn- by-hand!
-  "Appends a thing to a gate's depot of acts with no door, with the ack
-  level of `gates`: for the streaming depot it waits for the gate's event,
-  for the microbatch depot only until the depot holds the thing. Gives
-  :appended, or what the append threw, which it also keeps in
-  `not-appended`."
+(defn- with-the-hands-clock
+  "Takes a thing that the hand is about to append. Gives it with the hand's
+  reading of this process's clock, in milliseconds since 1970, under the
+  part of the time on an act (`softland.store.door.declaration/time-part`):
+  what a door writes at a send. A thing that is no map is given as it is."
+  [thing]
+  (if (map? thing)
+    (assoc thing declaration/time-part (System/currentTimeMillis))
+    thing))
+
+(defn- as-it-is!
+  "Appends a thing to a gate's depot of acts with no door, as the proof
+  built it, with the ack level of `gates`: for the streaming depot it waits
+  for the gate's event, for the microbatch depot only until the depot holds
+  the thing. It writes no time on the thing: a case whose time is chosen
+  calls it. Gives :appended, or what the append threw, which it also keeps
+  in `not-appended`."
   [gate thing]
   (when (= :append-ack (get-in gates [gate :ack]))
     (swap! appended-to-base inc))
@@ -275,6 +325,14 @@
          (let [failed [:append-failed gate (.getSimpleName (class t))]]
            (swap! not-appended conj failed)
            failed))))
+
+(defn- by-hand!
+  "Appends a thing to a gate's depot of acts with no door, with the hand's
+  reading of the clock at this send as the time on it
+  (`with-the-hands-clock`), so a thing that is sent twice holds two times.
+  The append and what it gives are `as-it-is!`'s."
+  [gate thing]
+  (as-it-is! gate (with-the-hands-clock thing)))
 
 (defn- by-door!
   "Sends a maker's act through the door. Gives what the door gave:
@@ -382,15 +440,15 @@
    {:e entity :k :map :v {:a [1 #{2}] "b c" 1.5}}
    {:e entity :k :as-given :v {:b 1.50M :a [1 2N]}}])
 
-;; ------------------------------- what is sent, as the rebuild's proof sends it
+;; ------------------------------------------- what is sent: a thing of each kind
 
 (defn- sends-to-the-streaming-gate!
-  "Sends to the streaming depot what the rebuild's proof sends there, into
-  Alice's layer, some through the door and some by the hand: the first act
-  of the layer, values of several kinds, a mark and facts under it, a
-  retract, a maker who may not act, a refused act, a repeat under one
-  act-id, strays, and a thing that the declaration refuses. Gives what the
-  door gave for each act that went through it."
+  "Sends a thing of each kind to the streaming depot, into Alice's layer,
+  some through the door and some by the hand: the first act of the layer,
+  values of several kinds, a mark and facts under it, a retract, a maker
+  who may not act, a refused act, a repeat under one act-id, strays, and a
+  thing that the declaration refuses. Gives what the door gave for each act
+  that went through it."
   []
   (let [door! (fn [who permission & facts] (by-door! (act :alice who permission facts)))
         hand! (fn [who permission & facts] (by-hand! :streaming (arrived :streaming :alice who permission facts)))
@@ -432,9 +490,9 @@
     through-the-door))
 
 (defn- sends-to-the-microbatch-gate!
-  "Sends to the microbatch depot what the rebuild's proof sends there, into
-  the base, some through the door and some by the hand, and waits for the
-  first module's gate after each batch: the first act of the layer, a give,
+  "Sends a thing of each kind to the microbatch depot, into the base, some
+  through the door and some by the hand, and waits for the first module's
+  gate after each batch: the first act of the layer, a give,
   marks and facts under them in one batch and in several, values of several
   kinds, two acts of one batch on one place, retracts, refused acts,
   repeats under one act-id, strays, and a thing that the declaration
@@ -525,6 +583,28 @@
     (alice! {:e :note-14 :k :title :v "under the new mark"})
     (alice! {:e :note-15 :k :title :v "under the new mark too"})
     first-under-the-give))
+
+(def ^:private behind-ms
+  "How far behind the hand's clock the time of the act with a time behind
+  is: one hour, in milliseconds."
+  3600000)
+
+(defn- times-in-a-streaming-layer!
+  "Sends by the hand, into Alice's layer, two things whose time is chosen,
+  each as the proof built it: an act of Alice with no time on it, and an
+  act of Alice whose time is `behind-ms` behind the hand's reading of the
+  clock. Gives {:no-time :behind}: the two things as they were sent. What
+  must hold for the second to be behind the time in the layer's last
+  stamp: the gate has decided a thing of the layer whose time was a
+  reading of this process's clock in the hour before."
+  []
+  (let [alices (fn [fact] (arrived :streaming :alice :alice alice-own [fact]))
+        no-time (alices {:e :note-16 :k :text :v "no time on it"})
+        behind (assoc (alices {:e :note-17 :k :text :v "a time behind"})
+                      declaration/time-part (- (System/currentTimeMillis) behind-ms))]
+    (as-it-is! :streaming no-time)
+    (as-it-is! :streaming behind)
+    {:no-time no-time :behind behind}))
 
 (defn- order-in-the-base!
   "Sends by the hand, into the base, the same three shapes, each act when
@@ -698,11 +778,34 @@
            (every? (fn [p] (= (first last-stamps) (:closed-through p))) parts)))
     (catch Throwable _ false)))
 
+(defn- numbers-held
+  "Takes a gate, the handle of the table of what it keeps for a task, and
+  the key of one task. Gives the numbers of that task's row, each under a
+  key of its own. A part that `gates` names under `:numbers` is one number,
+  under the part's name. A part that it names under `:numbers-by-layer` is
+  a map from the text of a layer id
+  (`softland.store.door.declaration/id-text`) to a number, and is read
+  entry by entry: each layer's number is under [part text]. So the
+  streaming gate's last stamp of the layer `:alice` is under
+  [:last-stamp \":alice\"]. A part that the task does not hold, and a layer
+  of which the gate decided nothing on the task, gives no key."
+  [gate table k]
+  (let [{:keys [numbers numbers-by-layer]} (get gates gate)]
+    (into {}
+          (concat (keep (fn [part]
+                          (when-let [n (rama/foreign-select-one (path/keypath part) table {:pkey k})]
+                            [part n]))
+                        numbers)
+                  (for [part numbers-by-layer
+                        [layer-text n] (rama/foreign-select [(path/keypath part) path/ALL] table {:pkey k})]
+                    [[part layer-text] n])))))
+
 (defn- decided-so-far
   "Takes a module's handles. Gives, for each gate, what says how far it has
   come, read with small selects: `:answers`, how many answers its table
   holds over the tasks; `:strays`, how many digests of strays; and
-  `:numbers`, the numbers of each task's row. nil when a read threw."
+  `:numbers`, the numbers of each task's row, as `numbers-held` gives them.
+  nil when a read threw."
   [reader]
   (try
     (into {}
@@ -711,10 +814,7 @@
                         :strays (reduce + (for [k index-keys
                                                 word (rama/foreign-select [(path/keypath :strays) path/MAP-KEYS] task {:pkey k})]
                                             (or (rama/foreign-select-one [(path/keypath :strays word) (path/view count)] task {:pkey k}) 0)))
-                        :numbers (mapv (fn [k]
-                                         (mapv (fn [number] (rama/foreign-select-one (path/keypath number) task {:pkey k}))
-                                               (get-in gates [gate :numbers])))
-                                       index-keys)}]))
+                        :numbers (mapv (fn [k] (numbers-held gate task k)) index-keys)}]))
           (:tables reader))
     (catch Throwable _ nil)))
 
@@ -784,17 +884,19 @@
   (walk/postwalk (fn [part] (if (bytes? part) (text/hex part) part)) x))
 
 (defn- task-row-held
-  "What a gate keeps for one task, as the table holds it: the numbers that
-  `gates` names for the gate, each when it is there, and `:strays`, a map
-  from each word to its set of digests, when the task holds a stray.
-  `:turns`, `:to-keep` and `:to-close` are not read: they are left out of
-  the comparison."
+  "What a gate keeps for one task, as the table holds it, in the form of a
+  table of rows: a key for each thing that is compared alone, and its
+  value. The numbers are `numbers-held`'s. The microbatch gate's last stamp
+  is one number, under `:last-stamp`. The streaming gate's `:last-stamp` is
+  a map from the text of a layer id to that layer's last stamp, and it is
+  not compared as one value: each layer's number is under its own key,
+  [:last-stamp text], so the two modules are held against each other layer
+  by layer, and a layer that one module lacks on the task differs alone.
+  `:strays` is a map from each word to its set of digests, there when the
+  task holds a stray. `:turns`, `:to-keep` and `:to-close` are not read:
+  they are left out of the comparison."
   [gate table k]
-  (let [numbers (into {}
-                      (keep (fn [number]
-                              (when-let [n (rama/foreign-select-one (path/keypath number) table {:pkey k})]
-                                [number n])))
-                      (get-in gates [gate :numbers]))
+  (let [numbers (numbers-held gate table k)
         words (rama/foreign-select [(path/keypath :strays) path/MAP-KEYS] table {:pkey k})
         strays (into {}
                      (keep (fn [word]
@@ -808,9 +910,10 @@
   "Takes a module's handles. Gives every row of every table of each gate on
   every task, selected straight from the PStates, with each run of bytes as
   hex text: gate -> table -> task -> key -> row. For the table of what a
-  gate keeps for a task, a key is a part's name and the row its value. One
-  select of a whole part for each table and task; the tables of the proof
-  fit in memory."
+  gate keeps for a task, the keys and their values are `task-row-held`'s: a
+  part's name, or a part's name with the text of a layer id. One select of
+  a whole part for each table and task; the tables of the proof fit in
+  memory."
   [reader]
   (bytes-as-hex
    (into {}
@@ -905,6 +1008,14 @@
         row (row-held held gate :answers (record/answer-key layer act-uuid))]
     (if row (get row :refused :accepted) :no-answer)))
 
+(defn- stamp-held
+  "Takes what a module holds, a gate and a thing that was sent to that
+  gate's depot. Gives the stamp of the answer under its act-id, or nil when
+  the module holds no answer under it."
+  [held gate thing]
+  (let [[layer _ act-uuid] (:act-id thing)]
+    (:stamp (row-held held gate :answers (record/answer-key layer act-uuid)))))
+
 (defn- batches-with-things
   "Takes a module's name. Gives in how many batches its microbatch gate
   decided things, read as the number of records of its depot of batch
@@ -957,17 +1068,21 @@
         alices-on-microbatch-before (arrived :microbatch :alice :alice alice-own [{:e :note-11 :k :text :v "before Alice's layer is made"}])
         _ (by-hand! :streaming base-on-streaming-before)
         _ (alone! alices-on-microbatch-before)
-        ;; what the rebuild's proof sends, and the order in a streaming layer
+        ;; a thing of each kind, the order in a streaming layer, and the chosen times
         by-door-streaming (sends-to-the-streaming-gate!)
         streaming-under-the-give (order-in-a-streaming-layer!)
+        {streaming-with-no-time :no-time streaming-behind :behind} (times-in-a-streaming-layer!)
         {by-door-base :through-the-door :keys [making making-at give give-at]} (sends-to-the-microbatch-gate!)
         ;; the same two acts, now that both layers are made
         base-on-streaming-after (arrived :streaming :base :system system-own [{:e :thing-8 :k :name :v "after the base is made"}])
         alices-on-microbatch-after (arrived :microbatch :alice :alice alice-own [{:e :note-10 :k :text :v "after Alice's layer is made"}])
         _ (by-hand! :streaming base-on-streaming-after)
         _ (alone! alices-on-microbatch-after)
-        ;; the order in the base, the load, and the two acts on one place
+        ;; the order in the base, a thing with no time, the load, and the two acts on one place
         base-under-the-give (order-in-the-base!)
+        base-with-no-time (arrived :microbatch :base :alice alice-in-base [{:e :thing-17 :k :name :v "no time on it"}])
+        _ (as-it-is! :microbatch base-with-no-time)
+        _ (settle!)
         stands (places-to-stand!)
         _ (load!)
         {:keys [x y x-at y-at x-answered by-act-before-y]} (two-acts-on-one-place! stands)
@@ -991,7 +1106,20 @@
                             (cond (nil? by-act) "no act"
                                   (= by-act (nth (:act-id x) 2)) "X"
                                   (= by-act (nth (:act-id y) 2)) "Y"
-                                  :else "another act")))]
+                                  :else "another act")))
+        ;; by how many milliseconds the time in the stamp of the act with a time behind is later than the time on it
+        ahead-of-its-time (fn [held]
+                            (when-let [stamp (stamp-held held :streaming streaming-behind)]
+                              (- (stamp/time-of stamp) (get streaming-behind declaration/time-part))))
+        ;; the streaming gate's last stamp of each layer: task -> the text of the layer id -> the number
+        last-stamps-by-layer (fn [held]
+                               (into (sorted-map)
+                                     (keep (fn [[task rows]]
+                                             (let [of-layers (into (sorted-map)
+                                                                   (keep (fn [[k n]] (when (vector? k) [(second k) n])))
+                                                                   rows)]
+                                               (when (seq of-layers) [task of-layers]))))
+                                     (get-in held [:streaming :task])))]
     ;; what was sent
     (is (every? :act-id through-the-door))
     (is (zero? (count @not-appended)))
@@ -1059,11 +1187,23 @@
            (word-held first-held :microbatch alices-on-microbatch-before) "the run again" (word-held again-held :microbatch alices-on-microbatch-before)
            "| after: the first module" (word-held first-held :microbatch alices-on-microbatch-after)
            "the run again" (word-held again-held :microbatch alices-on-microbatch-after))
+    (shown "the time on a thing that the hand appended as the proof built it | a thing with no time, in the streaming layer: the first module"
+           (word-held first-held :streaming streaming-with-no-time) "the run again" (word-held again-held :streaming streaming-with-no-time)
+           "| in the base: the first module" (word-held first-held :microbatch base-with-no-time)
+           "the run again" (word-held again-held :microbatch base-with-no-time)
+           "| an act in the streaming layer whose time is" behind-ms "ms behind the hand's clock: the first module"
+           (word-held first-held :streaming streaming-behind) "the run again" (word-held again-held :streaming streaming-behind)
+           "| the time in its stamp is later than the time on it by, in ms: the first module" (pr-str (ahead-of-its-time first-held))
+           "the run again" (pr-str (ahead-of-its-time again-held)))
+    (shown "the streaming gate's last stamp of each layer, by task and by the text of the layer id, as each is compared under a key of its own | the first module:"
+           (pr-str (last-stamps-by-layer first-held)) "| the run again:" (pr-str (last-stamps-by-layer again-held)))
     ;; the comparison
-    (let [{:keys [apart clock-apart]} (compared first-held again-held first-clock again-clock)]
+    (let [{:keys [apart clock-apart]} (compared first-held again-held first-clock again-clock)
+          apart-of (fn [gate] (count (filter (fn [row] (= gate (:gate row))) apart)))]
       (is (zero? (count apart)))
       (shown "every row of the answers, the facts, the facts by value and what a gate keeps for a task, of both gates, on each of the"
              tasks "tasks, the first module held against the run again | rows that differ:" (count apart)
+             "| of the streaming gate:" (apart-of :streaming) "| of the microbatch gate:" (apart-of :microbatch)
              "| left out, by name: :turns, :to-keep and :to-close of what the microbatch gate keeps for a task")
       (is (zero? (count clock-apart)))
       (shown "the table of the kept clock | the first module:" (pr-str (:batch-clock first-clock))
