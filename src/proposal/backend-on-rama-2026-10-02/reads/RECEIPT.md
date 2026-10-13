@@ -2,6 +2,15 @@
 
 proven by a hand-played asker, used by no inhabitant yet
 
+> **14 October 2026.** Two builds came after this receipt. The build before real data took the
+> locks out (`../before-real-data/RECEIPT.md`), so a row here that names a lock names a thing that
+> is gone. On 13 October Sid went through that build's receipt and made eight decisions:
+> `src-store/README.md`, "Decisions of 13 October 2026 — the store comes out the same when it is run
+> again". The build "run again" (`../run-again/`) followed, in the night of 13 to 14 October. What
+> this receipt says happened is left as it was written. Each open row below that those decisions or
+> that build closed, changed or made moot has a line that begins "**14 October:**" and says where it
+> stands. Of "What is true now": the base keeps no clock of a batch any more (entry 5 of that day).
+
 Written by the session that finished the build, "session 1" (Opus 5.5), 12 October 2026, for Sid.
 It keeps apart what was run, what was modelled, and what was only read. The working behind each
 line is in the papers that the line names, all in this folder.
@@ -224,6 +233,11 @@ or in the ruling named, and each is yours to change.
   again gets a new stamp; the rows of the earlier marking stay and no read names them (ruling 20).
 - In a microbatch layer the three new keys are on every task, and a mark holds from the batch
   after the one that wrote it (rulings 18, 41, 45).
+
+  **14 October:** changed. Every row of a microbatch layer's facts and of its facts by value is on
+  every task, and its answers, its last stamp and its strays are on the layer's task alone (entry
+  4). A mark holds from the next act, and a newly marked key gets the stamp of the act that marks it
+  (`../run-again/PART-B.md`, section 3).
 - Who wrote a fact and the permission that its act named are two fields of the row, each a text
   (ruling 22). **A fact's value is a String** (ruling 86, 92).
 - A retract under a store key stays refused; a list is emptied and a mark taken off by writing a
@@ -239,6 +253,14 @@ or in the ruling named, and each is yours to change.
 - The door's three reads stay held to closing, so a reader of the tables can see a fact of the base
   up to one run before its maker reads "accepted" at the door (ruling 16).
 
+**14 October:** the three points go. No clock of a batch is kept: the door writes the time on the
+act and no gate reads a clock (entry 1), so the third depot, its topology, its table and the gate's
+one throw are out of the store (entry 5). A gate closes no batch, and the door's reads are held to
+none: a maker of the base reads her answer when its batch is committed on the base's task
+(`../run-again/PART-B.md`, sections 4 and 6). The base's gate is written again: one task decides,
+in the order of the base's one partition, and the rows of an accept are copied to every task
+(entry 4).
+
 **How a read is made.**
 
 - A read asked once reads a layer's fact in the same call as its rights, so the runtime can read up
@@ -246,6 +268,10 @@ or in the ruling named, and each is yours to change.
 - A source, one row or one run of one table under one routing id, is what two askers share. A
   layer's depot, setting, list and marks are one push. Her permission is followed only while the
   layer is "members" (ruling 23 and its readings).
+
+  **14 October:** stands, and it means another thing for the base. A source of the base has the
+  routing id of the layer that the read starts from, so two askers share a source of the base only
+  when their reads start from the same layer. Before, every asker shared one (the queue's V51).
 - When what shapes a read changes, the asker is given the whole answer anew (ruling 69). When a
   layer is no longer rightful for her, her read leaves that layer and says that it is left out
   (ruling 24).
@@ -259,9 +285,21 @@ or in the ruling named, and each is yours to change.
   caller names is turned away (ruling 88).
 - One task of the base is named with `com.rpl.rama.Helpers/genHashingIndexKeys`, which Rama's pages
   show for tests (ruling 62).
+
+  **14 October:** gone. The read path names no task: it asks no task by number, asks Rama for no
+  count of tasks, and uses no class of Rama's. It reads every source of the base under the routing
+  id of the layer that the read starts from, `:from-layer` or the first of `:layers`, so the base
+  is read on the task where the asker's own layer lives. A run across the entities of the base is
+  one call or one push, where it was one for each task (`../run-again/PART-B.md`, section 7).
 - A value that Rama sends anew is handled as the rows that differ (ruling 88).
 - A read asked once takes no value of a push; the function that did is taken out (rulings 89, 95).
 - The read path counts its pushes by table and routing id (rulings 87, 93).
+
+  **14 October:** stands. In the base the routing id is now the layer that the read starts from.
+  So one count holds the pushes on the base of the askers who start from one layer, and the 900
+  bounds those. It does not bound what all such layers of one task hold on the base together, which
+  is what Rama's own bound counts there (`src-store/softland/store/read_path/README.md`, "The read
+  path bounds its own pushes"; the queue's V51).
 
 **The numbers of the build, each kept and not decided.** 256 places in the first read of a run;
 20,000 places in one run; 40,000 checks of nearer layers for a read asked once and 250 for one kept
@@ -297,12 +335,26 @@ so that the other answer is a small change. Nobody decided any of them.
 | "What points at a thing" through layers | At a place that some layer's order gives, the nearest layer that holds a row wins, and the place is given when the winner's value is the thing | `read_path/sources.clj`, `nearer-checks` | One read, or one push, for each such place and each nearer layer. A place at which only a nearer layer says the thing, and which no order holds, is not in the answer |
 | One moment for all the layers of one read | Nothing lines them up | no code | The layers of one answer are read at moments that differ |
 
+**14 October:** none of these is decided, and each stands as built. Three rows carry more now.
+"What a layer starts with": on 13 October he said what he means by the base ("What the base is",
+before the eight entries of that day); that does
+not decide the row (the queue's K14 and V25). "The store's own facts in a tool's read": the base
+holds no request for locks any more, and the rest of the row stands. "One moment for all the layers
+of one read": the tasks show one batch of the base at instants that differ, so a read through a
+layer on another task than the base's can give the base as it was a moment before
+(`src-store/softland/store/read_path/README.md`, "Where a microbatch layer is read"; the queue's
+V52).
+
 ## 9. Where the contract, a ruling or the starter could not be met as written
 
 - **A7's first sentence**, "A read shows no fact of a batch that could still be tried again", is
   read as the contract reads it when it says that the repair "gives both": a read shows no fact
   that a second try could change (ruling 16). A read does show a fact of a batch that Rama could
   still run again; every attempt makes it the same.
+
+  **14 October:** it holds by another means. Every attempt makes a fact the same because a decision
+  holds no clock and nothing of the attempt; it was the kept clock of the batch before
+  (`../run-again/PART-B.md`, section 3).
 - **A1**, "keeps those plain bytes in the fact's row": kept as a String that gives those bytes
   back, since a byte array in the row made every live read a second late (ruling 86).
 - **R4**, "is sent nothing of it": read as "is handed nothing of it". Rama sends the runtime the
@@ -321,6 +373,11 @@ so that the other answer is a small change. Nobody decided any of them.
   client gives no call from a routing id to a task. What it reaches: every push of every asker
   through one streaming layer, which is the case that the measures met. What it does not: two
   streaming layers on one task, the entities of the base that share a task, a second runtime.
+
+  **14 October:** the second of the three is another thing now. No source of the base is read
+  under a routing id of an entity: each is read under the layer that the read starts from. So what
+  the count does not reach in the base is the layers of one task from which the base is read live:
+  each has a count of its own, and Rama's bound counts them together (the queue's V51).
 - **Ruling 87, "before it opens any push"**: held for one round of a read. A live read learns what
   it needs round by round, so a read that is turned away in its third round has opened the pushes
   of its first two, unless another reader held them, and leaves them.
@@ -338,6 +395,11 @@ so that the other answer is a small change. Nobody decided any of them.
 
 Nothing is written into `decisions/OPEN-QUESTIONS.md`. Each is built to the answer in section 8 or
 named beside it.
+
+**14 October:** each is a row of the queue since 12 October. The first row is V24. Rows 1 to 8 are
+V12, V11, V25, V10, V26, V27, V28 and V29. Row 9 is ?6. Rows 10 to 13 are V30 to V33. Rows 14 to 18
+are V34. Rows 10, 11, 13 and 15 have a line below; the others stand as written, and none of them is
+decided.
 
 **The first row.** What does "what points at a thing" mean when a nearer layer holds another fact at
 the place, and by which way are the nearer layers checked (P12, rulings 64, 79, 87)? As built, a
@@ -367,16 +429,31 @@ from it, was worked out on paper: 2 pushes where this needs 10,020 in the plan's
 10. Your decision of 7 October is "Two depots, one for each gate". The module has a third, of the
     clocks of batches, which takes no act and from which no gate decides. Nobody asked you
     (ruling 34).
+
+    **14 October:** answered. Two depots: the depot of batch clocks is gone (entry 5; the queue's
+    V30).
 11. Is the log of batch clocks kept for ever, as the logs of acts are (ruling 50)?
+
+    **14 October:** moot. That log is gone (entry 5; the queue's V31).
 12. Your decision 8 of 6 October names two forms of a permission; the code reads three (ruling 2).
 13. A cheaper form for a streaming layer's write, found and not taken: one row for each layer that
     holds its last stamp and its marks would give an accepted act 4 reads where it now pays 5. It
     changes what a stamp is, from "increasing on its task" to "in its layer" (ruling 55).
+
+    **14 October:** its second half is answered: a number counted per layer (entry 8). A gate keeps
+    one last stamp for each layer. Its first half, one row for a layer's last stamp and its marks,
+    stays open and is not built (the queue's V33). The count of reads here is of the store of 12
+    October.
 14. Is Rama's `pstate.proxy.limit` raised from 1,000, and the read path's 900 with it (rulings 87,
     91)? What a higher value costs a task is not known here.
 15. Should the read path count its pushes by task? It needs a call of Rama's client, or a small
     query of the module, which would be the first query between the read path and the tables
     (ruling 93).
+
+    **14 October:** open, and it bears on more. The base's rows are on every task, and each layer
+    from which the base is read live has a count of its own. Derived, not run: at Rama's default
+    bound that is about 500 such layers for each task, and the read path's count does not see it
+    (the queue's V51).
 16. Entry 4 trusts each program that can reach Rama's ports with the whole store. Such a program
     can also stop a worker with one call: a select with a path that Rama does not serve stopped a
     worker of the in-process cluster (ruling 70). The read path sends five forms of path and no
@@ -404,6 +481,14 @@ from it, was worked out on paper: 2 pushes where this needs 10,020 in the plan's
    found; that it is Java's order of Strings against the order of UTF-8 bytes is a guess that
    nobody verified.
 6. How many threads does Rama's client have on a real cluster? It had two in-process (ruling 75).
+
+**14 October:** the six are kept on a page of the store, `src-store/OPEN-QUESTIONS-rama.md`, with
+what Rama's public sources say of each; nothing was sent to Rama's team. Question 3 fell away: the
+read path names no task and uses no class of Rama's for that (`../run-again/PART-B.md`, section 7).
+Questions 1, 2, 4, 5 and 6 stand. Question 4 bears on more now (the queue's V51). Two questions
+that the base's kept clock raised, of an append with an ack from inside a microbatch and of the id
+of a batch, are on that page and fell away with the clock (entry 5). That page also holds four new
+questions from the build "run again".
 
 ## 12. What was run, what was modelled, what was only read, and what was not run
 
@@ -449,6 +534,12 @@ after one task has shown its part, on the store's module; a module update betwee
 one batch; the gate's one throw inside the gate; a second runtime; Rama ending a push by itself or
 sending a value anew by itself after the first callback; a number of tasks that changes; the base
 on a real cluster; a tool, a view, an inhabitant.
+
+**14 October:** the build "run again" ran one line of this list in part: another number of tasks,
+8 beside 4, as a fresh store that is fed the kept acts
+(`test-store/softland/store/run_again_proof.clj`). One line fell away: the gate's one throw is out
+of the store (entry 5). That build's papers name none of the others as run on the store; its
+receipt, `../run-again/RECEIPT.md`, says what it ran.
 
 ## 13. The sessions' slips
 

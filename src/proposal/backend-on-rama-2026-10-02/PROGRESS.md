@@ -3,7 +3,7 @@
 Read this page first. It says where the work stands, what is written down, how
 firm each part is, and what is open. It is not a ruling. Only Sid decides.
 
-## Now (12 October 2026)
+## Now (14 October 2026)
 
 This section says where the work stands today, and what to read to work on it.
 
@@ -11,45 +11,97 @@ The store that is built to stay is in `src-store/`, with its checks in
 `test-store/`. No form, no name and no call shape in it comes from the rig, the
 server or Inland.
 
+Sid, 13 October, in the first lines of the prompt of the build "run again":
+"The store has to come out the same when it is run again from its depots. Today
+it does not, and it has five depots where I decided two." That build is the
+newest work on the store, and each row below says what it changed.
+
 | Part | State | Where |
 |---|---|---|
-| The act: the one form of what a maker gives to the store | built, 6 October | `src-store/softland/store/act.clj` |
-| The store's module: the depots, the two gates, the record, the reads by act-id | built and reviewed, 8 October | `src-store/softland/store/` |
-| The door: the code that takes an act from a maker into the store | built, with a proof of its own | `src-store/softland/store/door.clj`; its papers in `door/` |
-| The reads: the way out, and what the gates keep for a read | built and reviewed, 12 October. Its receipt says "proven by a hand-played asker, used by no inhabitant yet" | `src-store/softland/store/read_path.clj`; `reads/RECEIPT.md` |
-| Before real data is kept: the locks go, the gates' answers in a log, the tables made again | not built. Sid answered its sheet on 11 and 12 October. Its contract is `BUILD-before-real-data.md` | — |
+| The act: the one form of what a maker gives to the store | built, 6 October. Since the build before real data a permission can be as deep as a value, 32. Since the build "run again" a thing on a depot holds one part more, the time that the door writes | `src-store/softland/store/act.clj`; `src-store/softland/store/door/declaration.clj` |
+| The store's module: two depots, the two gates, the record, the reads by act-id | built and reviewed, 8 October. In the build "run again" both gates decide with one walk, the microbatch gate is written again, and the module has its two depots of acts and no other | `src-store/softland/store/` |
+| The door: the code that takes an act from a maker into the store | built, with a proof of its own. It seals nothing since the build before real data, and writes the time on the act since the build "run again" | `src-store/softland/store/door.clj`; its papers in `door/` |
+| The reads: the way out, and what the gates keep for a read | built and reviewed, 12 October. Its receipt says "proven by a hand-played asker, used by no inhabitant yet". In the build "run again" the base is read on the task of the layer that a read starts from | `src-store/softland/store/read_path.clj`; `reads/RECEIPT.md` |
+| Before real data is kept: the locks go, the gates' answers in a log, the tables made again, a deeper permission | built on 12 and 13 October. Its receipt says "proven by a hand-played maker, used by no inhabitant yet". What stands of it: the store keeps no locks, an act that is refused stays in the log, and a permission can be 32 deep. On 13 October Sid took the logs of answers and the rebuild out again | `before-real-data/RECEIPT.md` |
+| Run again: the store comes out the same when its gates are run again over its two depots | the build of 13 and 14 October, on Sid's eight decisions of 13 October. Its page says which of its parts is done. Its receipt is written at the build's end | `run-again/PROGRESS.md`; `run-again/RECEIPT.md`, when the build has written it |
 | Sign-in, and all that is above the act | not built | — |
 
-The six proofs ran on 12 October with no failure, at the end of the read build:
-act 160 passes, pure 690, module 354, door 199, the read path's pure proof 152,
-the read path on the cluster 482 (`reads/RECEIPT.md`, section 3).
+How each proof of the store is run is in `test-store/README.md`. What each
+showed at the end of the build "run again" is in that build's receipt, and this
+page states no count of it. The counts of the two builds before it are in their
+receipts (`reads/RECEIPT.md`, section 3; `before-real-data/RECEIPT.md`, section
+4); the two proofs of the rebuild that the second names went with the rebuild.
 
 What to read, in this order:
 
-1. `src-store/README.md` — Sid's decisions of 6 to 12 October, in his words. It
-   wins over every contract and over every page of this folder.
-2. `reads/RECEIPT.md` — what the read build left: what is true now, what it
-   chose as provisional, what is not decided, and the rows that it proposes
-   for the queue (section 10).
-3. `BUILD-before-real-data.md` — the contract of the build that comes next.
-4. `decisions/OPEN-QUESTIONS.md` — what is not decided, once each. And
-   `decisions/METHOD.md` — how a question reaches Sid, and how an answer
-   reaches disk.
-5. `decisions/groups/` — the text of each sheet of questions. The printed PDFs
+1. `src-store/README.md` — Sid's decisions of 6 to 13 October, in his words. It
+   wins over every contract and over every page of this folder. Its newest
+   section is "Decisions of 13 October 2026 — the store comes out the same when
+   it is run again".
+2. `run-again/PROGRESS.md` — the page of the build "run again": his eight
+   decisions as he sent them, what he means by the base, what he did not
+   decide, the parts, the working answers that are kept for now, and the
+   decisions that the build session made for him to review. Then
+   `run-again/RECEIPT.md`, when the build has written it. What is built is in
+   `run-again/PART-A.md`, `run-again/PART-B.md` (the later one where they
+   differ) and `run-again/PLAN-the-bases-gate.md`. What was run on Rama is in
+   `run-again/probes-the-bases-gate/RESULTS.md` and
+   `run-again/probes-order-after-a-failure/RESULTS.md`.
+3. `before-real-data/RECEIPT.md` and `reads/RECEIPT.md` — what the two builds
+   before it left. Each says what happened as it was written. Each open row
+   that 13 October or the build "run again" closed, changed or made moot has a
+   line "14 October:".
+4. `decisions/OPEN-QUESTIONS.md` — what is not decided, once each; V35 to V52
+   are new on 14 October. And `decisions/METHOD.md` — how a question reaches
+   Sid, and how an answer reaches disk.
+5. `src-store/OPEN-QUESTIONS-rama.md` — what the store rests on and does not
+   know of Rama.
+6. `decisions/groups/` — the text of each sheet of questions. The printed PDFs
    are in the research depot, `/mnt/data/projects/research/softland/`.
 
-The build of `BUILD-before-real-data.md` comes next. Sid, 12 October, of the
-sheet "Before real data is kept": "all the Z phase can be done after this one
-imo"; and the same day, when the read build was done and the sheet answered:
-"land all what left". A build starts from its contract in a fresh session, by
-the Rama skill's stages, as the three builds before it did.
+The build "run again" ends with one fresh review of the whole, its final runs
+and one receipt (`run-again/PROGRESS.md`, "The parts"). No build after it is
+named, and no contract is cut for one: what is built next is Sid's to say.
 
-What his answers of 12 October leave beside that build, and what each waits
-for:
+What a later build has to keep, from 13 October. The kept acts of both depots
+and the tables that they gave are a fixture, in
+`test-store/softland/store/run_again_fixture/`, and a build gives those tables
+from those acts again, also with another number of tasks (`src-store/README.md`,
+"Decisions of 13 October 2026", the aim). And his decision 6: "A change in what
+a gate accepts is a new version of the act. The old version's rules stay in the
+code. This starts with the first real record." The code still knows one
+version.
+
+What the build "run again" leaves, and what each waits for:
+
+- **For Sid's review.** Four working answers, each kept for now and decided by
+  nobody: what the time on the act is called, what a second send of the same
+  act carries as its time, what happens to a record that arrives with no time,
+  and where a time that is far ahead is stopped (`run-again/PROGRESS.md`; the
+  queue's V43 to V46 and V49). And the decisions that the build session made,
+  which that page lists; the first of them is the queue's V50.
+- **Not decided by him on 13 October:** whether the layer that many people
+  write into is a separate layer from the base (the queue's K14). Nothing is
+  built for a microbatch layer with many writers.
+- **Waits for a run.** His decision 7: a run on a stand-in gate found no
+  failure, of those that could be made in process, that changed the order of a
+  layer's acts on a run again. One failure could not be made in process, and
+  it waits for a cluster with more than one copy, or for Rama's own word (the
+  queue's V47). How much later a reader on another task sees a new fact of the
+  base (V52).
+- **Found by the build, and not decided.** With a copy of the base on every
+  task, two askers share a live read of the base only when their reads start
+  from the same layer. Derived and not run: Rama's default bound on pushes
+  holds about 500 such layers for each task, and the read path's own count
+  does not see it (the queue's V51, with V34).
+- **Not built.** The way to another number of tasks for a store with real data
+  (the queue's V48).
+
+What his answers of 12 October leave, and what each waits for:
 
 - **A session's work, on his yes** (entry 6 of 12 October, the eight of Z5):
   done on 12 and 13 October, but for the first of the eight, which waits for
-  a real cluster, and the fourth, which is in the build.
+  a real cluster. The fourth was built in the build before real data.
   - The pass. Each entry of the decisions page names the line of his that it
     rests on, and a reason that was a session's is marked as a session's
     (`src-store/README.md`). The rulings file of September has a section at
@@ -62,16 +114,21 @@ for:
     10 October taught").
   - The check's six reports are in `check-2026-10-10/`. The queue has a row
     for each thing on the sheet's last page and for each that the read
-    build's receipt proposed: V1 to V34.
+    build's receipt proposed: V1 to V34. Since 14 October it also has the
+    rows that the next receipt proposed and those of the build "run again":
+    V35 to V52.
   - Rama's docs: the copy is, word for word, the docs of 1.6.0, and says so
     (`reference/rama/docs/README.md`). The release notes are new,
     `reference/rama/release-notes.md`.
   - What must be true before real data is kept is one page,
-    `WHAT-MUST-BE-TRUE.md`.
+    `WHAT-MUST-BE-TRUE.md`. On 14 October its line on the tables that are
+    made again still names the log of what a gate decided and the rebuild:
+    that page is not yet brought into line with his decisions of 13 October.
 - **The day a real cluster starts.** Three machines, three copies and Rama's
   own backups (entry 5), one restore from a backup, the number of tasks, who
   may reach Rama's ports, and the proofs on two real nodes. Each is a line of
-  `WHAT-MUST-BE-TRUE.md`, with whose word it is.
+  `WHAT-MUST-BE-TRUE.md`, with whose word it is. The run of his decision 7
+  that needs more than one copy waits for that day too.
 - **Sign-in.** Whose reads are kept is decided (entry 4) and is built when the
   store can tell a model from a person. Before a stranger can reach the door:
   a bound on how much one sender can put into the log, and a way to block a
@@ -79,7 +136,8 @@ for:
   sign-in.
 - **Sid's thoughts of 12 October, not built and not designed.** A depot of its
   own for an organisation. Locks that we host for a charge and also hand to
-  their owners; the store keeps no locks after the next build (entry 2). The
+  their owners; the store keeps no locks since the build before real data
+  (entry 2). The
   three uses of an act that was refused: to raise it to the place that it was
   for, to see what a sender in bad faith does, and to give an author back what
   was refused (entry 7).
@@ -91,6 +149,7 @@ for:
 
 This section is the state of 9 October. For today's, see "Now (12 October
 2026)" at the top. The sections below it are the record of 2 to 5 October.
+[14 October: the section at the top is now "Now (14 October 2026)".]
 
 The store that is built to stay is in `src-store/`, with its checks in
 `test-store/`. No form, no name and no call shape in it comes from the rig, the
@@ -142,7 +201,7 @@ the same day. Older papers of this folder say "class" for "depot".
 | `BUILD-store-module.md` | The contract that the store's module was built from, amended to Sid's answers of 8 October. `src-store/README.md` wins over it. |
 | `BUILD-door.md` | The contract that the door was built from. |
 | `BUILD-reads.md` | The contract that the reads were built from. |
-| `BUILD-before-real-data.md` | The contract of the build that comes next, cut on 12 October. |
+| `BUILD-before-real-data.md` | The contract of the build that comes next, cut on 12 October. [14 October: that build was done on 12 and 13 October, its papers and its receipt are in `before-real-data/`, and the papers of the build after it are in `run-again/`.] |
 | `WHAT-MUST-BE-TRUE.md` | One page of what must be true before real data is kept, each line with whose word it is. It decides nothing. |
 | `check-2026-10-10/` | The six reports of the check of 10 October, as their sessions wrote them. The findings are the sessions'. |
 | `decisions/` | How a question reaches Sid (`METHOD.md`), the queue of open questions (`OPEN-QUESTIONS.md`), and the text of each sheet (`groups/`). |
@@ -159,7 +218,8 @@ An earlier two-sheet print of 3 October is beside it, in
 ## Now (5 October 2026)
 
 This section is the state of 5 October. For today's, see "Now (9 October 2026)"
-at the top.
+at the top. [14 October: today's is "Now (14 October 2026)", the first section
+of this page.]
 
 On 2 October Sid and one session drew the backend from the depots down to resolve.
 On 3 October Sid went up from the depot and the act, one layer at a time, and

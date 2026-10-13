@@ -2,6 +2,14 @@
 
 proven by a hand-played maker, used by no inhabitant yet
 
+> **14 October 2026.** Sid went through this receipt on 13 October. His decisions of that day are in
+> `src-store/README.md`, "Decisions of 13 October 2026 — the store comes out the same when it is run
+> again". The build "run again" (`../run-again/`) followed, in the night of 13 to 14 October. What
+> this receipt says happened is left as it was written. Each open row below that his decisions or
+> that build closed, changed or made moot has a line that begins "**14 October:**" and says where it
+> stands. Of the three things under "What is true now", the second holds no more: the logs of
+> answers and the rebuild are gone (entry 5 of that day).
+
 Written by the build session "z-build" (Opus 5.5), in the night of 12 to 13 October 2026, for Sid.
 It keeps apart what was run, what was counted from the code, what was only read, and what a session
 chose. The working behind each line is in the papers that the line names, all in this folder.
@@ -40,14 +48,25 @@ Nothing was decided for you. These are the things that only you can settle, shor
    about 200 acts a second on this machine, above which it stops answering for a time. The log of
    answers lowers that ceiling: before it, the layer at 1 took 400 a second with every send
    answered. The choice is yours.
+
+   **14 October:** settled. He is against the setting (`src-store/README.md`, "Decisions of 13
+   October 2026", entry 7), and the module keeps Rama's default. The run that he asked for is
+   `../run-again/probes-order-after-a-failure/RESULTS.md`. The one failure that it could not make in
+   process is row V47 of the queue.
 2. **Four names that Rama cannot change once real data is kept.** The two logs of answers are the
    depots `*streaming-answer-depot` and `*microbatch-answer-depot`. The microbatch gate's table has
    two new keys, `:to-keep` and `:to-close`. Each is one word to change today. After real data is
    kept, a depot under a new name starts empty, and a table's key cannot be changed in place.
+
+   **14 October:** gone. The two depots of answers are out of the store, and the keys `:to-keep` and
+   `:to-close` with them (entry 5).
 3. **What the log of answers costs.** About one millisecond on each act of a streaming layer
    (section 5). Under load the middle wait of an act about doubled, and the layer still kept up at
    every rate tried. A cheaper form may exist, one append for several acts that a task decides
    together; it was not designed. If the cost is fine as it is, nothing is to do.
+
+   **14 October:** gone with the depots of answers (entry 5). No gate appends an answer, so no act
+   pays for one.
 4. **What the door still drops.** Three kinds of thing that a maker hands the door are in no log: a
    thing that is no map; a thing that already holds an act-id or a depot; and a thing whose layer
    cannot be in an act-id. The door cannot give such a thing an act-id under which a gate could
@@ -55,8 +74,15 @@ Nothing was decided for you. These are the things that only you can settle, shor
    other answer is to append each as it is, so that a gate keeps it as a stray, and still tell the
    maker. It was not taken, because it would make the door send things under an act-id that a maker
    wrote.
+
+   **14 October:** it stays as built, by his decision: "What the door does with a thing it cannot
+   label stays as built." (entry 8). Since the build "run again" there is a fourth kind: a thing
+   that already holds the part for the time (`../run-again/PART-A.md`, section 1).
 5. **The provisional choices of section 9.** Each was made so that the build did not stop. None is
    written anywhere as yours.
+
+   **14 October:** six of the twelve went, one changed and four stay; of the six small ones of the
+   twelfth, one went. Section 9 has a line at each.
 
 ## 3. The commits
 
@@ -246,6 +272,13 @@ From the rebuild's page (`src-store/softland/store/rebuild/README.md`), which ha
 | The stamp through which a task's rows are of closed batches | The last stamp of the newest batch: what a store at rest holds |
 | The kept clock of a batch | The newest batch's clock, from the gate's log of answers; the log of the clocks of batches is the check |
 
+**14 October:** the rebuild is gone, and every row of this table with it (entry 5). No table is
+made again from a log of answers: there is none. The tables are made again by running the gates
+again over the two depots of acts, and a second run gives the same tables (the aim, before the
+eight entries of that day); the proof is
+`test-store/softland/store/run_again_proof.clj`. The last two rows name things that the store no
+longer has: no batch is closed, and no clock of a batch is kept.
+
 **Not made again, each with its reason.**
 
 - `:turns`, `:to-keep` and `:to-close`: the working state of one run of the microbatch gate. Nothing
@@ -256,6 +289,12 @@ From the rebuild's page (`src-store/softland/store/rebuild/README.md`), which ha
   route.** Rama's client has no call from a route to a task. So a module of one query, `Placing`,
   beside the store, asks Rama's own hash. It is a module of its own and not a query of the store's
   module, so that the log of answers stays no second road to an answer.
+
+**14 October:** `:turns`, `:to-keep` and `:to-close` are out of the store, and `Placing` went with
+the rebuild (entry 5; `../run-again/PART-A.md`, section 8; `../run-again/PART-B.md`, section 4). A
+run again is handed neither of the two things: the second module asks Rama for no task of a route,
+and has a number of tasks of its own. What another number of tasks than the first's does is row
+V48 of the queue.
 
 "Equal" was asked of a store at rest: every appended thing decided, every batch closed. What the
 rebuild gives of a store that is not at rest is said in its docstring and was not compared.
@@ -278,28 +317,58 @@ say so. The first eight are the contract's own list of what the builder chooses.
 
 1. **The form of a thing on a log of acts**: the maker's map with the door's two additions,
    `:act-id` and `:depot`, and nothing else changed. A list of facts goes as a list.
+
+   **14 October:** changed. The door adds a third part, the time (entry 1). It is built as
+   `:door-time`, and what it is called is not decided (`../run-again/PROGRESS.md`, working
+   answer 1).
 2. **One log of answers for each gate**, declared by its gate, closed to a client's append, never
    trimmed, read by no topology.
+
+   **14 October:** went (entry 5).
 3. **An entry**: the act-id as data, the stamp, the digest, and the word when refused. A stray has
    an entry of its own, so that a rebuild never runs the test for a stray again (ruling 8).
+
+   **14 October:** went (entry 5). A run again runs the test for a stray again, and gives the same.
 4. **A gate keeps an answer only after its row is committed.** So no entry of an attempt that did
    not count exists, and every entry under one act-id is the same. The rebuild takes one.
+
+   **14 October:** went (entry 5).
 5. **A copy for each run of an answered act**, in the streaming gate. The gate cannot tell a maker's
    second send from Rama's second run of a record whose append was lost. So the log grows by one
    record, about 135 bytes, for each repeat and for each record that Rama runs again after a
    failure. Nobody has priced the disk.
+
+   **14 October:** went (entry 5). A second run of an answered act writes nothing.
 6. **The microbatch gate keeps a batch's answers in a table of its own**, on one task, and the next
    run of the gate appends them, in records of 256 answers at most.
+
+   **14 October:** went (entry 5). The microbatch gate is written again: it keeps nothing of a batch
+   and closes none (`../run-again/PART-B.md`, sections 3 and 4).
 7. **The form of the rebuild**: pure code that is handed the logs as data, a reader that takes them
    off a module, and `Placing`.
+
+   **14 October:** went (entry 5).
 8. **The bound on the size of an act**: 18,874,368 bytes of text that an accept writes.
+
+   **14 October:** stays, kept and not decided (`max-act-bytes`; the queue's V17).
 9. **The bound on one value**: 65,536 bytes of the text of its normal form, with the word
    `:value-too-large`. It takes values up to 28 bytes longer than before.
+
+   **14 October:** stays, kept and not decided (`max-value-bytes`; the queue's V17).
 10. **A thing in the old sealed form** is refused with the word for a part that the form does not
     know. No word of its own was made. So the code now refuses every value act of a log that the
     code at `13a1d65b` wrote. Nothing real is in one.
+
+    **14 October:** stays. One more of the kind came with the build "run again": a thing that holds
+    no time is refused with the word `:no-door-time`, so the code now refuses every thing of a log
+    that was written before that build (`../run-again/PART-A.md`, section 3; derived, not run on
+    such a log). Nothing real is in one. What happens to a record with no time is not decided (the
+    queue's V44).
 11. **The proof that no code names a lock** tests whether a word of a name begins with lock, seal or
     stock. The literal rule would fail on `clock-record` and `$$batch-clock`.
+
+    **14 October:** stays. The two names went with the batch's clock (entry 5); the door's private
+    `server-clock` is a name of that kind now (`../run-again/PART-A.md`, section 1).
 12. **Small ones, each a line to turn**: a `:who` that throws when it is hashed ends at the door
     with the door's word; the proofs still send `:sealed`, `:lock-id` and
     `:softland.store/lock-request`, as parts that the form refuses; one check of the read path's
@@ -307,6 +376,10 @@ say so. The first eight are the contract's own list of what the builder chooses.
     the store's page and the door's page keep the numbers of three rules that were about a lock;
     two entries under one act-id that differ give no row for that act-id, and the rebuild names it;
     in the measures, "holds a rate" means that the last act is answered within a second.
+
+    **14 October:** the fifth, of two entries under one act-id, went with the rebuild (entry 5). The
+    second, the third and the sixth stay: the proofs and the code that measures hold them as
+    written. The first and the fourth were not held against the code again for this line.
 
 ## 10. Every not-decided thing, as it was built
 
@@ -316,6 +389,11 @@ say so. The first eight are the contract's own list of what the builder chooses.
 | How deep a permission can be | As deep as a value may be, 32 | `act.clj`, `nesting`, whose docstring says "Not decided" |
 | What entry 7 left open | Nothing built: no bound on a sender, no way to block one, no use of a refused act | — |
 | `Placing` beside the store, or a query in the store's module | Beside the store | `rebuild/placing.clj`; the rebuild's page lists it under "Not decided, kept for now" |
+
+**14 October:** the first row is decided: he is against the setting (entry 7), and the module keeps
+Rama's default, as built. The fourth row is moot: `Placing` went with the rebuild (entry 5). The
+second and the third stand as written. What the build "run again" left not decided is on its page,
+`../run-again/PROGRESS.md`, and in the queue as V43 to V52.
 
 ## 11. Where the contract could not be met as written
 
@@ -367,6 +445,13 @@ now: section 5), **V17** (two of the door's limits went with the locks; two new 
   stay, now that the store has no lock?
 - V42. A string with half of a surrogate pair is kept with `?`. Refused, or kept so?
 
+**14 October:** the eight are rows of the queue now, under these ids
+(`../decisions/OPEN-QUESTIONS.md`). V35 is answered: what the door does with such a thing stays as
+built (entry 8). V36, V37, V38 and V39 are moot: the depots of answers and the rebuild are gone
+(entry 5). V40, V41 and V42 are open. Of the rows that this build made stale: V1 is answered
+(entry 7); V30 is answered and V31 is moot (entry 5: the module's depots are two); V17 and act-kept
+say what holds now, and neither is decided.
+
 ## 13. What was run, what was counted, what was only read, and what was not run
 
 **Run on the store's own module**, Rama 1.6.0 in-process, one machine, four tasks, two workers:
@@ -396,6 +481,19 @@ with no entry (about a millisecond in a streaming layer, one run of the gate in 
 of a store whose gates are deciding; a gate that goes on from tables that were made again; a number
 of tasks other than the one that decided the acts; a store larger than memory; a tool, a view, an
 inhabitant.
+
+**14 October:** the build "run again" ran one line of this list. A number of tasks other than the
+one that decided the acts: 8 beside 4, as a fresh store that is fed the kept acts
+(`test-store/softland/store/run_again_proof.clj`, its third check). A second module with another
+number of tasks over the same depots was run on a stand-in gate only
+(`../run-again/probes-the-bases-gate/RESULTS.md`, C7; the queue's V48). Two lines fell away with
+what they were about: a module update between a batch and the run that closes it, and a store that
+is stopped between a row's commit and its entry; no run closes a batch, and no entry is kept
+(entry 5). Two stand in another form and were not run: for a rebuild of a store whose gates are
+deciding, a run again while the first module still takes acts; and a gate that goes on from tables
+that a run again made. Not run by that build either: a cluster of several machines, a killed
+process, a change of a task's leader, a second copy of a row, a store larger than memory, a tool, a
+view, an inhabitant.
 
 ## 14. How the build went, and the session's slips
 
@@ -448,3 +546,7 @@ folder above, in its section "Now (12 October 2026)". The paper-work session wro
 build ran. A line for it, when you say so: "The build before real data is kept is done: the store
 keeps no locks, each gate's answers are in a log, a rebuild makes the tables again from the logs,
 and a permission can be 32 deep; its receipt is `before-real-data/RECEIPT.md`."
+
+**14 October:** `../PROGRESS.md` is brought up to date as a part of the build "run again". Its
+first section is now "Now (14 October 2026)", and it says of this build what stands after 13
+October.
