@@ -22,3 +22,7 @@ Sid, 8 October 2026, at the start of the store-module build, before he went to s
 - New design with a hidden failure mode: runs on the real system first (those found the real faults that day), one plan, then build. A separate adversarial check of a plan is not something he wants, even beside the critical path.
 - Throughput: split a big edit by file ownership among parallel builders working from one plan, run the proofs once when all are done, and send each failure back to its owner.
 - A check that I add "because it costs no wall time" still costs him attention and reads as ceremony. Do not add it.
+
+**14 October 2026, the change "order and time apart".** Four builders split the proofs, and each was told to run its own proof as it worked. Sid, asked about it: "it depends on the changs if each individual is big then it can do its proof run itself but if all are smallish we can do all one at the eng".
+
+**How to apply:** when builders split a change, size each builder's runs to its own change. A builder whose change is big runs its own proof while it works; when the changes are smallish, no builder runs a proof, and every proof runs once at the end. Make anything a proof rests on, such as a fixture, at the end too, just before that run, so it is made from the final source.
