@@ -165,9 +165,11 @@ None is pushed.
 | `0d24b03e` | The two fixes, their tests, the docstrings, the fixture made again, the final runs |
 | the one after | This receipt |
 
-## 6. Scratch that is not committed, and waits for your word
+## 6. Scratch that is not committed
 
-Nothing was deleted. Each is named here so that you can say which goes.
+Deleted on 14 October at your word: every item below but the folder beside this one,
+`../run-again-probe-2026-10-13/`, which is not this build's. The copies of the repository were
+taken out with `git worktree remove`.
 
 - Four detached checkouts beside the repository: `/mnt/data/projects/Softland-run-again-baseline`,
   `-review-gates`, `-review-proofs`, `-review-pure`.
