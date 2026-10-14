@@ -38,6 +38,7 @@ Start with the question you are carrying:
 | How are the tables made again, and how do I know that a second run gives the same? | A second module that mirrors the two depots and calls `add-gates-and-reads` of [module.clj](softland/store/module.clj) runs the store's own gates over them from their beginning. The [verification map](../test-store/README.md) names the proof that does it and compares every table |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
+| What is a stamp, and where is the time on an act? | The namespace docstring of [stamp.clj](softland/store/gate/stamp.clj); [Decisions of 14 October 2026](#decisions-of-14-october-2026--order-and-time-apart), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
 | What does the store rest on in Rama and not know? | [Open questions about Rama](OPEN-QUESTIONS-rama.md) |
 
@@ -179,7 +180,8 @@ session read the photographs and wrote down a mark for each question
     87). He asked on 6 October "is 2^62 big enough" (‹61dbaec7›); the record
     holds no answer to it. Closed by a session on
     6 October, waiting for his word: a carried stamp is not below zero, because
-    no gate gives one.
+    no gate gives one. On 14 October the bound of 2^62 went: no gate reads a
+    carried stamp, so its form alone holds it (entry 2 of that day).
 
 ## Decisions of 7 October 2026 — the store's module
 
@@ -328,7 +330,9 @@ seal.
    "clock-time+counter" (‹f3f530b8›). Whose clock, and what the counter
    counts, are his decisions of 13 October: the clock of the server that runs
    the door, written on the act before the depot, and a number counted per
-   layer (entries 1 and 8 of that day). No gate reads a clock.
+   layer (entries 1 and 8 of that day). No gate reads a clock. Replaced on 14
+   October: order and time are apart, and the stamp holds no time (entry 1 of
+   that day).
 5. **The store's keys in this build are three: the class, a permission, and
    the door's request for locks.** A session proposed the list (K1 A). Sid:
    "idk what else is missing or could be missing, so lets go" (‹751c2af7›). No
@@ -880,7 +884,8 @@ everything is partitioned by the layer key."
    What comes with it:
    - The door adds the time to a maker's thing, beside the act-id and the
      depot. A stamp is made of that time, and the stamp of 8 October stands
-     (entry 4 of that day).
+     (entry 4 of that day). Changed on 14 October: no stamp is made of the
+     time, which is a label beside it (entry 1 of that day).
    - Not decided, his list in the prompt: "what a second send of the same act
      carries as its time"; "what happens to a record that arrives with no
      time"; "what the time on the act is called"; "where a time that is far
@@ -975,3 +980,50 @@ sentence that a session wrote and that he sent on as a line of its own
 (‹932247ec›): "The first proof is the one exception: commit it while it still
 fails, say which part makes it pass, and until that part is in it may go on
 failing."
+
+## Decisions of 14 October 2026 — order and time apart
+
+Sid made these on 14 October 2026, in chat, from a page of his refinements
+that a session wrote at his word
+(`src/proposal/backend-on-rama-2026-10-02/order-and-time/REFINEMENTS.md`), and
+from a session's questions on it. Words in quotation marks with an id of the
+record are lines that he typed. Where he answered with a session's wording,
+it says so.
+
+1. **Order and time are apart, and order never uses the time.** His lines
+   (‹aa212e6b›): "so we also make the order and time different is that what
+   you saying??? btw my intent was the same"; (‹2f80019d›): "so from what i
+   am understanding: order and time are different and we don't use the time
+   for ordering. every thing that goes in depot has a time attached to it"; and, asked whether that was his
+   direction, (‹296a2a7b›): "my intent was the same yes". What comes with it:
+   - A stamp is the layer's count of decisions: the last stamp plus one, or 0
+     for the layer's first, for an accept and a refusal alike.
+   - The time on the act is a label. A gate writes it beside the stamp and no
+     rule reads it. The rule of 10 seconds on a carried stamp went with it,
+     and so did the bound of 2^45 on the time, whose one reason was the
+     time's place in the stamp. Of the four things that 13 October left not
+     decided, "where a time that is far ahead is stopped" fell away: a time
+     far ahead is a wrong label and nothing else.
+   - It replaces entry 4 of 8 October, his answer "clock-time+counter"
+     (‹f3f530b8›) to the sheet's H2 A, "the wall time and a counter, in one
+     integer". What it gives up: one number for "as of 15:00" in every
+     layer. A session's view, which he did not rule on: that can be built
+     later from the depots, which keep every act with its time and what it
+     is based on.
+2. **An act's stamp is not raised above the stamps that it carries, and no
+   check holds a carried stamp against the layer's last stamp.** He answered
+   a session's two questions with that session's wording, "Drop the jump
+   above carried stamps? Yes." and "Keep the own-layer check? Leave it out:
+   one rule fewer, and it protects nothing" (‹296a2a7b›; the words are those
+   of «6c16b53a»), and with his own (‹f6a39dde›): "makes sense both of them".
+   That an act came after what it is based on is read from its `:based-on`,
+   by fact id. No gate reads a carried stamp, so its bound of 2^62 went.
+3. **The time is on the rows and on the answer.** Asked whether the time goes
+   on each fact's row and on the answer, he answered "1) yes" (‹296a2a7b›). A
+   session's, for him to review: a read hands it when the query asks for it,
+   as it hands who wrote a fact; and a refused thing keeps its time in its
+   answer when it held a usable one.
+4. **A thing that arrives with no time is refused.** "2) refuse"
+   (‹296a2a7b›). It was built so on 13 October and kept for his word.
+5. **Time travel is designed later.** "3) time travel will do later"
+   (‹296a2a7b›). The refinements page holds what a session understood of it.

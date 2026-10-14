@@ -9,7 +9,10 @@
 
     an answer   key \"<layer> <act uuid>\"
                 {:refused the reason word, absent when the act was accepted
-                 :stamp   the stamp of the decision
+                 :stamp   the stamp of the decision: its position in the
+                          layer
+                 :time    the time on the thing, a label that no rule
+                          reads; absent when the thing held no usable time
                  :digest  32 bytes, the digest of the thing that was decided}
     a fact      key \"<layer> <entity> <key>\": the current fact of a place
                 {:value       the value, plain, as a String: the one text of
@@ -21,6 +24,8 @@
                  :by-act      the fact that wrote this row, as the uuid of
                  :by-index    its act and its index in that act
                  :stamp       the stamp of that act's decision
+                 :time        the time on that act, a label that no rule
+                              reads
                  :who         the one text of the act's `:who`
                  :permission  the one text of the permission that the act
                               named
@@ -31,8 +36,8 @@
     a fact by value
                 key \"<layer> <key> <since> <value digest> <entity>\": one
                 place under a marked key, in the order of its value
-                {:by-act :by-index :stamp :who :permission}: the fact's row
-                without its value. The value is the one whose digest the key
+                {:by-act :by-index :stamp :time :who :permission}: the
+                fact's row without its value. The value is the one whose digest the key
                 holds
 
   Every accepted fact is a row of the second kind, under a store key or a
@@ -177,23 +182,27 @@
 
 (defn answer-row
   "Takes the reason word of a refusal, or nil for an accepted act; the stamp
-  of the decision; and the digest of the thing, 32 bytes. Gives the answer's
-  row. An accepted act has no `:refused`: there is one row for every act for
-  ever, so the row keeps the smaller form."
-  [refused stamp digest]
+  of the decision; the time on the thing, or nil for a thing with no usable
+  time; and the digest of the thing, 32 bytes. Gives the answer's row. An
+  accepted act has no `:refused`, and a thing with no time no `:time`:
+  there is one row for every act for ever, so the row keeps the smaller
+  form."
+  [refused stamp time-millis digest]
   (cond-> {:stamp (long stamp) :digest digest}
+    (some? time-millis) (assoc :time (long time-millis))
     refused (assoc :refused refused)))
 
 (defn answer-of
   "Takes an answer's row, or nil. Gives the answer as a caller gets it:
   {:verdict :accepted or :refused, :reason the word or nil, :stamp the
-  stamp, :digest the digest as hex text}; or nil for no row, which is
-  \"nothing yet\"."
+  stamp, :time the time or nil, :digest the digest as hex text}; or nil for
+  no row, which is \"nothing yet\"."
   [row]
   (when row
     {:verdict (if (:refused row) :refused :accepted)
      :reason  (:refused row)
      :stamp   (:stamp row)
+     :time    (:time row)
      :digest  (text/hex (:digest row))}))
 
 ;; -------------------------------------------------------------------- facts
@@ -218,8 +227,9 @@
 (defn fact-row
   "Takes one fact of an act, in the act's one form on arrival; the uuid of
   the act's act-id; the fact's index in the act; the stamp of the act's
-  decision; the one text of the act's `:who`; and the one text of the
-  permission that the act named. Gives the row of the fact's place. Its
+  decision; the time on the act; the one text of the act's `:who`; and the
+  one text of the permission that the act named. Gives the row of the
+  fact's place. Its
   `:value` is the fact's `:text`, a String: the one text of the value in its
   normal form, as the declaration's check made it
   (`softland.store.door.declaration/check`), under a plain key and under a
@@ -230,12 +240,12 @@
   text reads back as a UUID. The two texts are given, and not made here, so
   that a caller makes them once for an act and not once for each fact.
 
-  What must hold: the act passed the declaration's check, and the two texts
-  are `softland.store.door.text/text` of its `:who` and of its
-  `:permission`."
-  [fact act-uuid index stamp who-text permission-text]
+  What must hold: the act passed the declaration's check, so the time is a
+  whole number not below zero; and the two texts are
+  `softland.store.door.text/text` of its `:who` and of its `:permission`."
+  [fact act-uuid index stamp time-millis who-text permission-text]
   (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)
-           :who who-text :permission permission-text}
+           :time (long time-millis) :who who-text :permission permission-text}
     (some? (:text fact))
     (assoc :value (:text fact))))
 
@@ -425,15 +435,15 @@
 (defn by-value-row
   "Takes the one text of an act's `:who`; the one text of the permission
   that the act named; the uuid of the act's act-id; the index of one of its
-  facts; and the stamp of the act's decision. Gives the row of that fact in
-  the facts by value: the fact's row without its value. A read of a run
-  then gets who wrote each place and under which permission with no second
-  read, and a fact that is written again with the same value changes the
-  row. What must hold: the two texts are those that the fact's row holds
-  (`fact-row`)."
-  [who-text permission-text act-uuid index stamp]
+  facts; the stamp of the act's decision; and the time on the act. Gives
+  the row of that fact in the facts by value: the fact's row without its
+  value. A read of a run then gets who wrote each place, under which
+  permission and at what time with no second read, and a fact that is
+  written again with the same value changes the row. What must hold: the
+  two texts and the time are those that the fact's row holds (`fact-row`)."
+  [who-text permission-text act-uuid index stamp time-millis]
   {:by-act act-uuid :by-index (long index) :stamp (long stamp)
-   :who who-text :permission permission-text})
+   :time (long time-millis) :who who-text :permission permission-text})
 
 (defn id-of-text
   "Takes the printed text of an id or of a fact's key

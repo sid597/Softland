@@ -236,16 +236,17 @@ shape must hold when each fact is wrong.
   base's own among them. Read from the dataflow; no run made such an append.
 - **The time on an act.** A gate takes the time as it arrived. It cannot tell
   the clock of a door's server from a number that another sender wrote, and it
-  holds the time against no clock: only to its range, 0 or more and below 2^45
-  milliseconds. Two doors on two servers write two clocks. No check holds one
-  clock against the other by itself; the 10-second rule does through a layer's
-  stamps, since an act that carries a true stamp of its layer is refused when
-  that stamp's time is more than 10 seconds ahead of the time on the act. A
-  time that is behind the layer's last stamp does not put a stamp back: the
-  stamp is then the last stamp plus one. A time that is far ahead is taken
-  when the act is accepted, and each later stamp of its layer is later than
-  it; the time on a thing that is refused moves nothing.
-  "Engineering choices" says what is kept there and not decided.
+  holds the time against no clock: only to its form, a whole number not below
+  zero. Two doors on two servers write two clocks, and nothing holds one
+  against the other. The time is a label beside the stamp, and no check reads
+  it: a time that is behind, or far ahead of every clock, is a wrong label on
+  its act and changes no stamp and no decision.
+- **The stamps that an act carries.** A gate reads none of them. A stamp in an
+  act's `:based-on` is what its maker says that it saw, and no gate checks it
+  against the fact that it names: such a stamp of another layer cannot be
+  checked on the act's task, and nothing that the store does rests on one. A
+  reader learns that an act came after a fact that it is based on from the
+  fact id, which names the fact, and not from the carried number.
 - **The order of a layer's acts after a failure.** No check of a gate looks at
   it. "The order of a layer's acts after a failure", below, says what was run,
   what was read and what was not reached.
@@ -309,8 +310,8 @@ shape must hold when each fact is wrong.
   fails, Rama sets the gate's tables back on every task and processes the same
   records again, in the depot's order. A decision is made of the thing and of
   those rows, with no clock and nothing of the attempt in it. So each check
-  gives the same verdict and the same word on every attempt, the 10-second rule
-  too, and each row has the same stamp: a row that a reader was given does not
+  gives the same verdict and the same word on every attempt, and each row has
+  the same stamp: a row that a reader was given does not
   change. That holds while one version of the module's code runs every attempt.
   That a retry makes the same tables was run on a stand-in gate; that a reader
   was given a row before a retry was not run
@@ -508,7 +509,7 @@ Who acts, and what the store reads (8 October):
 | E1·H8 A | The system stands at the top of the base's chain | `system` and `base` in [first_act.clj](gate/first_act.clj) |
 | K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
 | E4 A, E2 A; and E3·H7 B, which is a session's reading and not his answer | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj). Since the read build a holder of a permission that says `:see` cannot give: her give is an act, and is refused `:permission-does-not-allow-acting` |
-| H2 A | A stamp holds the clock time and a counter | [stamp.clj](gate/stamp.clj). The clock time is the time on the act, which the door wrote (decision 1 of 13 October, below) |
+| H2 A | A stamp holds the clock time and a counter | Replaced on 14 October, below: the stamp is the layer's count of decisions, and the time is a label beside it |
 | K1 A | The store's keys of that day are the depot and a permission. The third of his list, the door's request for locks, is none of the store's keys, by entry 2 of 12 October | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those two and the three of the decisions of 11 and 12 October: who may see a layer, what it builds on, its marked keys |
 
 The door's four questions (9 October):
@@ -548,11 +549,13 @@ So that the store comes out the same when it is run again (13 October). Sid sent
 eight decisions that day, and the numbers here are those of his list.
 [The store source entry](../../README.md) holds them in full under "Decisions of
 13 October 2026", each entry under the same number. Each line in quotation
-marks is as he sent it on 13 October 2026.
+marks is as he sent it on 13 October 2026: a session's text, which he pasted
+into his prompt as his decisions, and not his own typing. Decisions 1 and 8
+changed on 14 October, below.
 
-| Decision | What Sid said | What it shapes here |
+| Decision | What Sid sent | What it shapes here |
 |---|---|---|
-| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | The door adds `:door-time` to a maker's thing, beside `:act-id` and `:depot` ([door.clj](door.clj)). The walk takes the time of a decision from the thing (`time-on` in [decision.clj](gate/decision.clj)), and [stamp.clj](gate/stamp.clj) is handed each number. The digest leaves the time out ([digest.clj](door/digest.clj)). No code of the module reads a clock |
+| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | The door adds `:door-time` to a maker's thing, beside `:act-id` and `:depot` ([door.clj](door.clj)). The walk takes the time from the thing (`time-on` in [decision.clj](gate/decision.clj)) and writes it as a label; since 14 October no stamp holds it. The digest leaves the time out ([digest.clj](door/digest.clj)). No code of the module reads a clock |
 | 2 | "There is local ordering: the order Rama gives inside one partition." | The one order that a decision rests on is the order of a layer's partition in its depot. The module makes no order between two partitions or between the two depots: no gate reads a table of the other gate, and a decision reads rows of the act's own layer only |
 | 3 | "Every act is placed by its layer key, the base too. A layer is one line." | [module.clj](module.clj) declares both depots with the hash of the thing's `:layer`. The routing id of an act-id is its layer, for both depots (`routing-id` in [rows.clj](record/rows.clj)), and both reads of the door go to the layer's task ([door_reads.clj](module/door_reads.clj)) |
 | 4 | "The base's rows: a copy on every task. One task decides, in the line's order." | [microbatch_gate.clj](module/microbatch_gate.clj): for each thing of the partition, in the depot's order, the walk on the layer's task, and then the copy of an accept's rows of facts, and of facts by value, to every other task. That the answers and the layer's last stamp stay on the layer's task alone is the builder's, under "Engineering choices" |
@@ -562,6 +565,19 @@ marks is as he sent it on 13 October 2026.
 His decision 6 of that day, on a change in what a gate accepts, is under rule
 19. His decision 7 is the section "The order of a layer's acts after a
 failure", above.
+
+Order and time apart (14 October). Sid's answers to a session's questions, in
+the session that made this change; [the store source entry](../../README.md)
+holds them under "Decisions of 14 October 2026".
+
+| Decision | What it shapes here |
+|---|---|
+| Order and time are apart, and order never uses the time | [stamp.clj](gate/stamp.clj): a stamp is the layer's count of decisions, the last stamp plus one, or 0. The time is a label beside it: the walk writes it in the answer, and in each row of a fact and of the facts by value (`writes` in [decision.clj](gate/decision.clj); [rows.clj](record/rows.clj)). No check reads it, and the declaration holds it to a whole number not below zero (`usable-time` in [declaration.clj](door/declaration.clj)). It replaces H2 A of 8 October |
+| An act's stamp is not raised above the stamps that it carries | `next-stamp` takes the layer's last stamp alone. That an act came after what it is based on is read from its `:based-on`, by fact id. A carried stamp has no bound but its form ([act.clj](act.clj)) |
+| No check holds a carried stamp against the layer's last stamp | No such check: a gate reads no carried stamp |
+| The time is on the rows and on the answer | The door's answer carries `:time` (`answer` in [words.clj](door/words.clj)); a read hands it with `:time` in the query's `:with` (`with-asked-parts` in [answer.clj](read_path/answer.clj)) |
+| A thing that arrives with no time is refused | `:no-door-time`, in the shape `:arrived-act` of [declaration.clj](door/declaration.clj) |
+| Time travel is designed later | Nothing here: every act is kept with its stamp, its time and its `:based-on` |
 
 ## Engineering choices
 
@@ -753,10 +769,8 @@ them would cost up to 31 reads on every act to find what cannot be false.
 record holds rows only for layers of its depot, so a row at the permission's
 place or at the depot's place says that the layer is this gate's.
 
-**The stamp's packing.** Milliseconds since 1970 × 65,536 + a counter. One
-millisecond holds 65,536 stamps for a layer; the packing reaches 2^62 in the year
-4199, and the declaration holds the time on an act below half of that, 2^45
-milliseconds, in the year 3084. A layer's last
+**The stamp is a count.** A layer's stamps are 0, 1, 2 and on, one for each
+decision, an accept or a refusal ([stamp.clj](gate/stamp.clj)). A layer's last
 stamp is read from the record at each decision, by the walk, in both gates, and
 is not kept in memory:
 that would be a cache, and the project's rule sends a cache to its own
@@ -807,34 +821,25 @@ the task's thread for the whole of one act, and a read of the task waits that
 long. No check of a gate looks for a yield at run time: it is a contract of the
 walk's code.
 
-**The time of a decision is the time on the act.** That is Sid's decision 1 of
-13 October, above. The door reads the clock of its server once for a thing and
-writes it under `:door-time`, in milliseconds since 1970
+**The time on the act is a label.** The door reads the clock of its server
+once for a thing and writes it under `:door-time`, in milliseconds since 1970
 ([door.clj](door.clj)); it is the one read of a clock on the way of an act
-through the store. The rest is a session's, each for Sid to review:
+through the store. A gate writes it beside the stamp, in the answer and in each
+row of the act's facts, and no check reads it (Sid's decision of 14 October,
+above). The rest is a session's, each for Sid to review:
 
-- A refused thing moves no layer's time. The stamp of a refusal, whatever its
-  word, is the layer's last stamp plus one, or 0 in a layer with no stamp yet:
-  neither the time on the thing nor a stamp that it carries is in it. Only an
-  act that a gate accepts puts a time into a layer's stamps (`stamp-of` in
-  [decision.clj](gate/decision.clj)). One edge: after a last stamp whose
-  counter is full, "last plus one" carries into the time by one millisecond,
-  which takes 65,536 decisions in the layer in that millisecond. Why: anything can arrive on a depot.
-  Were the time of a refused thing in its stamp, one thing with a time far
-  ahead, from a sender with no permission, would set its layer's stamps ahead
-  for good, and the 10-second rule would then refuse each honest act that
-  carries a true stamp of that layer. The module's proof holds, in both gates,
-  that a refused thing with a time one hour ahead gets the last stamp plus
-  one.
+- A refused thing keeps its time in its answer, when it held a usable one: a
+  label, like an accepted act's. A thing with none has an answer with no
+  `:time`.
 - Where the time stands in the order of the reasons. A part that the form does
   not know, and a `:depot` that is no depot word, are told before a missing
   time; each of the maker's own parts after it. It follows from where the part
   stands in the shape ([declaration.clj](door/declaration.clj)).
 - Two strays that differ only in the time are one stray. It follows from the
   digest, which leaves the time out for every thing alike.
-- The 10-second rule holds a carried stamp against the time on the act, in both
-  gates. With no usable time no carried stamp is too far ahead; such a thing
-  has the declaration's word.
+- A read hands the time only when the query asks for it, with `:time` in its
+  `:with`, as it hands who wrote a fact and the permission
+  ([answer.clj](read_path/answer.clj)).
 
 **What the time on the act is called is not decided.** Kept for now:
 `:door-time`, a session's working name. The one place is `time-part` in
@@ -849,44 +854,22 @@ it. The digest leaves the time out, so both sends read the one answer as their
 own, and a gate decides the first of the two to arrive, with the time of that
 one. The one place is `send-act` in [door.clj](door.clj). It is Sid's to say.
 
-**What happens to a record that arrives with no time is not decided.** Kept for
-now: a gate refuses it `:no-door-time`, and the refusal is recorded under its
-act-id, with a stamp of the layer's last plus one. The same word is for a time
-that is nil, no fixed-width integer, below zero, or 2^45 or more. The one place
-is the entry of the time's part in the shape `:arrived-act`, in `shapes` of
-[declaration.clj](door/declaration.clj). It is Sid's to say.
+**A record that arrives with no time is refused.** Sid's decision of 14
+October, above. A gate refuses it `:no-door-time`, and the refusal is recorded
+under its act-id, with the layer's next stamp. The same word is for a time that
+is nil, no fixed-width integer, or below zero. The one place is the entry of the
+time's part in the shape `:arrived-act`, in `shapes` of
+[declaration.clj](door/declaration.clj).
 
-**Where a time that is far ahead is stopped is not decided.** Kept for now:
-nowhere but at the end of the range. The declaration holds the time to 0 or
-more and below 2^45 milliseconds, and no check holds it against a clock. A
-thing that anything appends with a time far ahead of every clock is accepted
-when the rest of it is right and its sender may act in the layer, and each
-later stamp of its layer is later than that time. A thing that is refused
-moves nothing, whatever time it carries. The one place is `max-time` in
-[declaration.clj](door/declaration.clj). It is Sid's to say.
-
-Why the range ends at 2^45 and not at 2^46, where the packing reaches 2^62: an
-act can carry no stamp of 2^62 or more, so a layer whose stamps reach 2^62 has
-facts that no later act can name. With the time below 2^45 a stamp of the time
-alone is below 2^61. The greatest stamp that an accepted act carries is 10
-seconds ahead of its time, and that plus one is 655,360,000 above 2^61. From
-there only "last plus one" raises a layer's stamps, one for each decision, an
-accept or a refusal: about 2^61 decisions in one layer to reach 2^62. With the
-range at 2^46 it would take one accepted act, with a time of 2^46 less one and
-the greatest stamp of that millisecond carried.
-
-**The stamp is counted in the layer.** That is Sid's decision 8 of 13 October,
-above. A gate keeps one last stamp for each layer, and an act's stamp is the
-greatest of three numbers: the time on the act with a counter of zero, the
-layer's last stamp plus one, and the greatest stamp that the act carries plus
-one. So a stamp is strictly increasing in its layer, in the order in which the
-gate decided, and two layers can hold one stamp, also on one task: a layer's
-stamps do not depend on which layers share its task or on how many tasks the
-module has. Nothing of a batch is in a stamp. The time in a stamp is not always
-the time on its act: an act whose time is not later than the time in its
-layer's last stamp gets that stamp plus one. A session's, for Sid to review:
-the key of a layer's last stamp is the text of the layer id, since a layer id
-is a keyword or a UUID and a table's key has one class
+**The stamp is counted in the layer.** A gate keeps one last stamp for each
+layer, and the stamp of each decision is that stamp plus one, or 0 for the
+layer's first ([stamp.clj](gate/stamp.clj)). So a layer's stamps are 0, 1, 2
+and on with no gap, in the order in which the gate decided, and two layers can
+hold one stamp, also on one task: a layer's stamps do not depend on which
+layers share its task or on how many tasks the module has. Nothing of a batch,
+of the time or of what the act carries is in a stamp. A session's, for Sid to
+review: the key of a layer's last stamp is the text of the layer id, since a
+layer id is a keyword or a UUID and a table's key has one class
 ([tables.clj](record/tables.clj)).
 
 **Where each row of a microbatch layer lives.** Sid decided on 13 October that
@@ -968,9 +951,8 @@ nowhere.
 **The placing of the checks that the contract does not place.** The making and
 the counting of the values' texts is the last step of the declaration's check:
 it is the most costly. The time on the act is a part of the shape of what
-arrives, checked behind `:depot` and before each of the maker's own parts. The 10-second
-rule comes after the declaration, before any row is read. What a store key does
-not take comes after check (g). A
+arrives, checked behind `:depot` and before each of the maker's own parts. What
+a store key does not take comes after check (g). A
 check that examines facts takes them in the act's order.
 
 **How each of the builder's rules is met.** The numbers are the contract's.
@@ -1034,24 +1016,17 @@ check that examines facts takes them in the act's order.
     in both gates.
 16. The gate keeps the one text of each value in the fact's row. The text of a
     value of a refused act is dropped with the decision.
-17. An act that carries a stamp more than 10 seconds ahead of the time on the
-    act is refused, before any stamp is made, in both gates. The rule says "the
-    gate's wall clock", so that a forged stamp cannot push a task's stamps to
-    the end of their range. No gate has a clock: the stamp is held against the
-    time that arrived on the act. So the rule holds a carried stamp to the
-    act's own time, and nothing holds that time to a clock: a thing that is
-    appended with no door can carry a time far ahead and a stamp beside it.
-    Such a thing moves its layer's stamps only when a gate accepts it: the
-    stamp of a refusal is the layer's last stamp plus one.
-    "Where a time that is far ahead is stopped is not decided", above, says
-    what is kept.
+17. No check reads the time on an act or a stamp that the act carries, in
+    either gate. The stamp of a decision is the layer's last stamp plus one
+    (Sid's decisions of 14 October, above), so no number that a thing carries
+    can move a layer's stamps, whoever appended it.
 18. A microbatch act has one stamp, on its answer and on each of its facts, on
     every task that holds a copy. The stamp is later than the last stamp of
     the act's layer, and a layer's rows reach each task in the order of the
     decisions; so on each task where the act writes, its stamp is later than
     each stamp that the layer has there. A stamp is counted in its layer and
-    not on a task ("A number counted per layer", Sid, 13 October 2026): the
-    rule's "last stamp of each task" is read as the layer's last stamp.
+    not on a task: the rule's "last stamp of each task" is read as the
+    layer's last stamp.
 19. The store has no rebuild: no code makes a row from a log of what a gate
     decided, and no depot holds such a log. The record is made again by a
     second run of the gates. `add-gates-and-reads` in [module.clj](module.clj)
@@ -1186,9 +1161,8 @@ is one line" and "run again" are Sid's words, of 13 October. "Batch" and
 |---|---|
 | the time on the act; `:door-time` | The part that the door adds to a maker's thing beside `:act-id` and `:depot`: the clock of the server that runs the door, in milliseconds since 1970. `:door-time` is a working name, kept for now and not decided |
 | `time-part` | In [declaration.clj](door/declaration.clj): the one def that holds the name of that part |
-| `max-time` | In [declaration.clj](door/declaration.clj): the time on an act is below it. 2^45 milliseconds |
 | `usable-time` | In [declaration.clj](door/declaration.clj): a thing as it arrived → its time when the shape takes it, or nil |
-| `:no-door-time` | The reason word of a thing whose time is absent or outside the range; in the list of the declaration's reason words, below |
+| `:no-door-time` | The reason word of a thing whose time is absent, no fixed-width integer, or below zero; in the list of the declaration's reason words, below |
 | `time-on` | In [decision.clj](gate/decision.clj): the time of a decision, which is the usable time of the thing |
 | `starts-with-the-other-gates-depot?` | In [first_act.clj](gate/first_act.clj): a gate's depot and a layer id → whether the layer starts with the other gate's depot. `layer-is-the-other-gates?`, private in [decision.clj](gate/decision.clj), asks it of an act |
 | walk | The decision of one thing, from the test for a stray to the last write, on one task. In code the namespace `softland.store.module.walk` |
@@ -1327,7 +1301,6 @@ fact sits.
 
 | Word | What it is |
 |---|---|
-| `:carried-stamp-too-far-ahead` | The act carries a stamp more than 10 seconds ahead of the time on the act |
 | `:layer-belongs-to-the-other-gate` | The record holds nothing for the layer, and the layer starts with the other gate's depot: the act was sent to the wrong depot. The same word whether or not the other gate has made the layer |
 | `:layer-not-made` | The record holds nothing for the layer, the layer is not the other gate's, and the act is not a right making act |
 | `:who-not-the-permissions-holder` | The holder that the act's permission names is not the act's `:who` |

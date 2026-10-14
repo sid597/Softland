@@ -295,7 +295,7 @@ measures, `softland.store.read-measures`.
 | `:first`, `:last` | The two ends of a layer, as ends of a run |
 | `:asker`, `:not-signed-in` | Who asks |
 | `:layers`, `:from-layer` | Through which layers; the layer to take the list from |
-| `:with`, with `:writer` and `:permission` | The parts of a row that are asked for |
+| `:with`, with `:writer`, `:permission` and `:time` | The parts of a row that are asked for |
 | `:stores-own-facts` | Whether the store's own facts are asked for |
 
 **The words with which the check turns a thing away**, each named for what is

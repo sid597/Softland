@@ -114,12 +114,6 @@
   deep a permission can be."
   32)
 
-(def max-carried-stamp
-  "A carried stamp must be below this number, 2^62. A gate's stamp is later
-  than each stamp that the act carries, so a carried stamp near the end of
-  the long range would leave a gate no later stamp to give."
-  (bit-shift-left 1 62))
-
 ;; ------------------------------------------------------- the declared shape
 
 (def shapes
@@ -195,8 +189,11 @@
         [:tuple :id :id :id :permission-id]
         [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
 
+   ;; The stamp of a fact that the act is based on, as its maker saw it. A
+   ;; label: no gate reads it, and the act's own stamp is not raised above
+   ;; it (`softland.store.gate.stamp`). So it has no bound but its form.
    :carried-stamp
-   [:int {:min 0 :below max-carried-stamp}]})
+   [:int {:min 0}]})
 
 (def ^:private nesting
   "For a named shape, how many times it can be around one place, the place's

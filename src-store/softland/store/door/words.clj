@@ -114,25 +114,31 @@
 (def answers
   "The four answers of the door's `answer-of`, each with what it says.
   \"Nothing yet\" and \"not mine\" are the contract's phrases as keywords."
-  {:accepted    "the record holds an answer under the act-id whose digest is the digest given, and a gate accepted the act; it carries the stamp of the decision"
-   :refused     "the record holds an answer under the act-id whose digest is the digest given, and a gate refused the act; it carries the gate's reason word and the stamp"
+  {:accepted    "the record holds an answer under the act-id whose digest is the digest given, and a gate accepted the act; it carries the stamp of the decision and the time on the act"
+   :refused     "the record holds an answer under the act-id whose digest is the digest given, and a gate refused the act; it carries the gate's reason word, the stamp, and the time on the thing when it held a usable one"
    :nothing-yet "the read gave nothing; it does not mean refused, and it does not mean that no depot holds a thing"
    :not-mine    "the record holds an answer under the act-id whose digest is not the digest given; it says nothing more"})
 
 (defn answer
   "The answer that the door gives from one read by act-id. Takes what the
-  read gave, nil or {:verdict :reason :stamp :digest}, and the digest that
-  the maker gave, the hex text that the door gave it when it sent. Gives:
+  read gave, nil or {:verdict :reason :stamp :time :digest}, and the
+  digest that the maker gave, the hex text that the door gave it when it
+  sent. Gives:
 
-    {:answer :nothing-yet}                     the read gave nil
-    {:answer :not-mine}                        an answer with another digest
-    {:answer :accepted :stamp s}               the maker's own act, accepted
-    {:answer :refused :reason word :stamp s}   the maker's own act, refused
+    {:answer :nothing-yet}                             the read gave nil
+    {:answer :not-mine}                                an answer with
+                                                       another digest
+    {:answer :accepted :stamp s :time t}               the maker's own act,
+                                                       accepted
+    {:answer :refused :reason word :stamp s :time t}   the maker's own act,
+                                                       refused
 
-  It compares two hex texts and takes no digest of anything. A digest that
-  is nil, or is no text, is the digest of no thing: \"not mine\" when an
-  answer is there, \"nothing yet\" when none is. The stamp is part of the
-  record's answer and no fact; a maker needs it to write `:based-on`."
+  `:time` is absent when the answer holds none: a thing that held no usable
+  time. It compares two hex texts and takes no digest of anything. A digest
+  that is nil, or is no text, is the digest of no thing: \"not mine\" when
+  an answer is there, \"nothing yet\" when none is. The stamp is part of
+  the record's answer and no fact; a maker writes it in `:based-on` as what
+  it saw. The time is a label beside it."
   [read digest]
   (cond
     (nil? read)
@@ -142,10 +148,12 @@
     {:answer :not-mine}
 
     (= :accepted (:verdict read))
-    {:answer :accepted :stamp (:stamp read)}
+    (cond-> {:answer :accepted :stamp (:stamp read)}
+      (some? (:time read)) (assoc :time (:time read)))
 
     :else
-    {:answer :refused :reason (:reason read) :stamp (:stamp read)}))
+    (cond-> {:answer :refused :reason (:reason read) :stamp (:stamp read)}
+      (some? (:time read)) (assoc :time (:time read)))))
 
 (def acks
   "The word of the ack of an append, by the depot word of the depot that

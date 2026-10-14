@@ -20,9 +20,9 @@
   word of its first fault. A check that examines facts takes them in the
   act's order.
 
-    early      `refused-early`: the declaration's own word, or the 10-second
-               rule on a carried stamp, held against the time on the act
-               (`time-on`). Nothing of the record is read.
+    early      the declaration's own word
+               (`softland.store.door.declaration/check`), which the walk
+               takes as it is. Nothing of the record is read.
     standing   `standing`: the layer's depot is this gate's (c); the layer
                is made, or the act is a right making act; the act's
                permission stands for its `:who` (d); and that permission
@@ -34,8 +34,9 @@
                write (`who-may-write-fault`); and what a store key does not
                take in this build.
 
-  `places-needed` says which rows `places` needs. `stamp-of` gives the
-  stamp of the decision. `writes` gives each row that the decision writes.
+  `places-needed` says which rows `places` needs. `time-on` gives the time
+  on the act, which `writes` puts beside the stamp as a label. `writes`
+  gives each row that the decision writes.
 
   What an accept reads after the last check, for the order by value. No
   check reads a layer's marked keys, so a refused act pays nothing for them.
@@ -75,49 +76,35 @@
   Not here. Check (a), the answer under the act-id, and the test for a
   stray: the gate makes them before any of these. The bound on one value
   and the bound on an act: they are the last step of the declaration's
-  check, and come to `refused-early` as its word. The other gate's record:
+  check, and come to the walk as its word. The other gate's record:
   no check takes a row of it, and whether a layer is the other gate's is
   asked of the layer id alone
   (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`).
-  Where a layer's last stamp is kept: the walk reads it and gives it to
-  `stamp-of`."
+  The stamp of the decision: the walk makes it of the layer's last stamp
+  (`softland.store.gate.stamp/next-stamp`), and it reads nothing of the
+  act. No check here reads the time on the act or a stamp that the act
+  carries."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text]
             [softland.store.gate.first-act :as first-act]
-            [softland.store.record.rows :as record]
-            [softland.store.gate.stamp :as stamp]))
+            [softland.store.record.rows :as record]))
 
-;; -------------------------------------------------------------------- early
+;; -------------------------------------------------------- the time on the act
 
 (defn time-on
   "Takes a thing as it arrived on a depot. Gives the time on it, in
   milliseconds since 1970, when it holds a usable one
   (`softland.store.door.declaration/usable-time`): the time which the door
   writes from the clock of its server, or whatever else appended the thing
-  wrote there. This code knows only that the part holds a number in the
-  range. Nil for a thing with no usable time, which the declaration refuses
-  `:no-door-time`. A gate gives what this gives to `refused-early`, which
-  holds each carried stamp against it, and to `stamp-of`, which puts it in
-  the stamp of an accept and in no stamp of a refusal. A gate reads no
-  clock for either."
+  wrote there. This code knows only that the part holds a whole number not
+  below zero. Nil for a thing with no usable time, which the declaration
+  refuses `:no-door-time`. A gate gives what this gives to `writes`, which
+  puts it beside the stamp as a label: in the answer's row, and for an
+  accept in each row of a fact and of the facts by value. No check reads
+  it, and no stamp holds it. A gate reads no clock for it."
   [thing]
   (declaration/usable-time thing))
-
-(defn refused-early
-  "The checks that read nothing of the record. Takes the time on the act in
-  milliseconds (`time-on`), nil for a thing with none, in both gates; and
-  what `softland.store.door.declaration/check` gave for the thing, as its
-  two parts: the act, or nil, and the declaration's reason word, or nil.
-  Gives the declaration's word when there is one; or
-  :carried-stamp-too-far-ahead when a stamp that the act carries is more
-  than 10 seconds ahead of that time; or nil. With no time no carried
-  stamp is too far ahead; such a thing has the declaration's word."
-  [time-millis act declarations-reason]
-  (cond
-    declarations-reason declarations-reason
-    (some #(stamp/too-far-ahead? time-millis %) (vals (:based-on act))) :carried-stamp-too-far-ahead
-    :else nil))
 
 ;; ----------------------------------------------------------------- standing
 
@@ -426,43 +413,7 @@
   [since-by-place place-rows]
   (into [] (remove #(contains? place-rows %)) (sort (keys since-by-place))))
 
-;; ------------------------------------------------------ the stamp, the writes
-
-(defn stamp-of
-  "The stamp of one decision. Takes the time on the act in milliseconds
-  (`time-on`), or nil for a thing that has none; the last stamp that the
-  gate gave in the act's layer, or nil before the layer's first decision;
-  the act, or nil for a thing that the declaration refused; and the word of
-  the refusal, or nil for an accept. Gives the stamp
-  (`softland.store.gate.stamp/next-stamp`), which is later than the layer's
-  last stamp for an accept and for a refusal.
-
-  An accept: the greatest of the time on the act, the layer's last stamp
-  plus one, and the greatest stamp that the act carries plus one. So it is
-  also later than each stamp that the act carries.
-
-  A refusal, whatever its word: the layer's last stamp plus one, or 0 in a
-  layer with no last stamp. Neither the time on the thing nor a stamp that
-  it carries is in it, and the time is not read for it. So only an act
-  that a gate accepts moves a layer's time, but for one edge: after a last
-  stamp whose counter is full, \"last plus one\" carries into the time, by
-  one millisecond. That takes 65,536 decisions in the layer in one
-  millisecond. A refused thing costs its
-  layer one stamp, whatever time is written on it and whoever appended it:
-  anything can arrive on a depot, from a sender with no permission and
-  into a layer that is not made, and were its time in the stamp, one such
-  thing with a time far ahead would set the layer's stamps ahead for good.
-  Two things follow. The stamp of a refusal is not later than the stamps
-  that the refused act carries. And the time in it is the time in the
-  layer's last stamp, not the time on the thing: in a layer with no last
-  stamp, the stamps of its first refusals are 0, 1, 2.
-
-  The walk is the one caller, for both gates: no stamp holds anything of a
-  batch."
-  [time-millis last-stamp act refused]
-  (if refused
-    (stamp/next-stamp nil last-stamp nil)
-    (stamp/next-stamp time-millis last-stamp (stamp/greatest-carried act))))
+;; --------------------------------------------------------------- the writes
 
 (defn- level-since-after
   "The stamps of a layer's marked keys after a write of the marks. Takes the
@@ -516,14 +467,15 @@
 (defn- accept-writes
   "The rows that an accept writes, beside the answer and the last stamp. In
   the act's order, for each fact: its row, with the text of its value, who
-  wrote it and the permission that the act named, and for the fact under
-  `:softland.store/marked-keys` the stamps of `level-since-after`; and for
-  a fact under a marked key, the rows of `by-value-writes`. The one text of
+  wrote it, the permission that the act named and the time on the act, and
+  for the fact under `:softland.store/marked-keys` the stamps of
+  `level-since-after`; and for a fact under a marked key, the rows of
+  `by-value-writes`. The one text of
   the act's `:who` and the one text of its permission are made here, once
   for the act, and handed to each row of a fact and of the facts by value.
   The text of a value is not made here: each fact holds its own, from the
   declaration's check. `in-hand` is what `writes` takes."
-  [act act-uuid stamp {:keys [since-by-place place-rows level-from]}]
+  [act act-uuid stamp time-millis {:keys [since-by-place place-rows level-from]}]
   (let [layer (:layer act)
         who-text (text/text (:who act))
         permission-text (text/text (:permission act))]
@@ -532,7 +484,7 @@
            (map-indexed
             (fn [index fact]
               (let [place (record/place-key layer (:e fact) (:k fact))
-                    row (cond-> (record/fact-row fact act-uuid index stamp who-text permission-text)
+                    row (cond-> (record/fact-row fact act-uuid index stamp time-millis who-text permission-text)
                           (and (= :softland.store/marked-keys (:k fact)) (some? (:v fact)))
                           (record/with-level-since
                             (level-since-after (get place-rows place) (:v fact) level-from)))
@@ -541,7 +493,7 @@
                  [[:fact place row]]
                  (when since
                    (by-value-writes act fact (record/plain-bytes-of row) (get place-rows place) since
-                                    (record/by-value-row who-text permission-text act-uuid index stamp)))))))
+                                    (record/by-value-row who-text permission-text act-uuid index stamp time-millis)))))))
            cat)
           (:facts act))))
 
@@ -549,7 +501,8 @@
   "Each row that one decision writes, as data, for the walk to write in one
   call. Takes the act-id under which the thing arrived; the act, or nil for
   a thing that the declaration refused; the word of the refusal, or nil for
-  an accept; the stamp of the decision; the digest of the thing, 32 bytes;
+  an accept; the stamp of the decision; the time on the act (`time-on`), or
+  nil for a thing with no usable time; the digest of the thing, 32 bytes;
   and what the walk has in hand for an accept, a map that is not read for a
   refusal:
 
@@ -577,17 +530,26 @@
                            gate keeps for a task
 
   A refusal writes the answer and the last stamp, and nothing else. An
-  accept writes all of them. Every row is whole, at a fixed key, and a key
-  that is taken out is fixed too; so each write needs no read. No row holds
-  anything but what the thing, the rows read and the stamp give: a second
-  run of the same decision with the same stamp writes the same rows at the
-  same keys.
+  accept writes all of them.
+
+  The time is a label beside the stamp, and no rule reads it. The answer
+  holds it when the thing has a usable one, a refused thing too: a refusal
+  for a fault other than the time keeps the time that the thing carried.
+  Each row of a fact and of the facts by value holds the time of the act
+  that wrote it, so a read gives a fact's time with no second read.
+
+  Every row is whole, at a fixed key, and a key that is taken out is fixed
+  too; so each write needs no read. No row holds anything but what the
+  thing, the rows read and the stamp give: a second run of the same
+  decision with the same stamp writes the same rows at the same keys. The
+  time is the thing's own.
 
   What must hold: the thing is no stray; for an accept, each check gave nil
   for the act, each fact of the act holds its `:text` as the declaration's
-  check gave it, and `:place-rows` holds what the list above says."
-  [act-id act refused stamp digest in-hand]
+  check gave it, `:place-rows` holds what the list above says, and the
+  time is there: the declaration refuses a thing with none."
+  [act-id act refused stamp time-millis digest in-hand]
   (let [[layer _ act-uuid] act-id]
-    (conj (if refused [] (accept-writes act act-uuid stamp in-hand))
-          [:answer (record/answer-key layer act-uuid) (record/answer-row refused stamp digest)]
+    (conj (if refused [] (accept-writes act act-uuid stamp time-millis in-hand))
+          [:answer (record/answer-key layer act-uuid) (record/answer-row refused stamp time-millis digest)]
           [:last-stamp nil (long stamp)])))

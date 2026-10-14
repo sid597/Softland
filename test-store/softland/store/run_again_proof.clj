@@ -76,7 +76,8 @@
   the fixture is absent, each of the two checks fails with the line \"the
   fixture is not made: run make-fixture\" and launches nothing.
 
-  Check 4, after a failure. Sid, 13 October 2026: \"Nobody has shown
+  Check 4, after a failure. The prompt of 13 October 2026, in a session's
+  text that Sid pasted into it and did not type: \"Nobody has shown
   whether a failure in a fast layer can make acts that were in flight come
   out in another order when the store is run again. Run it and find out.\"
   The check runs it on the store's own module and gates, with no option of
@@ -152,20 +153,22 @@
   is written. So the hand sends only what EDN holds. A proof run never
   writes the files.
 
-  When the fixture may be made again. Sid, 13 October 2026: \"A change in
-  what a gate accepts is a new version of the act. The old version's rules
-  stay in the code. This starts with the first real record. Until then the
-  fixture is made again only when a rule is changed on purpose, and the
-  receipt says so.\" A fixture that was made again to make a failing check
-  pass shows nothing.
+  When the fixture may be made again. The rule is a session's text, which
+  Sid pasted into his prompt of 13 October 2026 as his decision 6; he did
+  not type it: \"A change in what a gate accepts is a new version of the
+  act. The old version's rules stay in the code. This starts with the
+  first real record. Until then the fixture is made again only when a rule
+  is changed on purpose, and the receipt says so.\" A fixture that was made
+  again to make a failing check pass shows nothing.
 
-  The time on a thing. A gate reads no clock: the stamp of a decision is
-  made of the time on the thing, of the layer's last stamp, and of the
-  stamps that the act carries. The door writes the time on what goes
-  through it. On a thing that it appends with no door the hand writes its
-  own reading of this process's clock at the send, as a door does. A few
-  things are appended as the proof built them, with a chosen time or with
-  none (`as-it-is!`). A thing that is no map takes no time.
+  The time on a thing. A gate reads no clock, and no rule reads the time:
+  the stamp of a decision is its layer's last stamp plus one, and the time
+  on the thing is a label beside it, in the answer and in the row of each
+  fact of an accepted act. The door writes the time on what goes through
+  it. On a thing that it appends with no door the hand writes its own
+  reading of this process's clock at the send, as a door does. A few things
+  are appended as the proof built them, with a chosen time or with none
+  (`as-it-is!`). A thing that is no map takes no time.
 
   The second module. `StoreAgain` declares a mirror of each of the two
   depots of acts under the depot's own name, and then calls
@@ -228,7 +231,6 @@
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text]
             [softland.store.gate.decision :as decision]
-            [softland.store.gate.stamp :as stamp]
             [softland.store.module :as module]
             [softland.store.record.rows :as record])
   (:import [java.time LocalDate]
@@ -755,44 +757,75 @@
 
 (def ^:private behind-ms
   "How far behind the hand's clock the time of the act with a time behind
-  is, and how far ahead of it the stamp that one act carries too far: one
-  hour, in milliseconds."
+  is: one hour, in milliseconds."
   3600000)
 
-(def ^:private carried-ahead-ms
-  "How far ahead of its act's time the stamp is that one act carries and a
-  gate takes: two seconds, in milliseconds. A gate refuses a carried stamp
-  more than `softland.store.gate.stamp/max-ahead-millis` ahead."
-  2000)
+(def ^:private far-ahead-time
+  "A time far ahead of every clock: 2^45 milliseconds since 1970, which is
+  in the year 3084. What a door whose clock is wrong, or code that appends
+  with no door, can write on a thing. The declaration takes it: a time is
+  any whole number not below zero."
+  (bit-shift-left 1 45))
+
+(def ^:private huge-carried-stamp
+  "The stamp that one act of the hand carries in its `:based-on`: the
+  greatest long, far above any stamp that a layer of the hand comes to.
+  The declaration takes it: a carried stamp is any whole number not below
+  zero, and no gate reads it."
+  Long/MAX_VALUE)
+
+(def ^:private time-cases
+  "The things of `times-in-a-layer!`, in the order in which it sends them."
+  [:no-time :behind :carries :far-ahead :after-the-far-one :names-a-later-fact])
 
 (defn- times-in-a-layer!
-  "Sends by the hand, to the depot of the gate given, four things whose
-  time is chosen, each as the proof built it: an act with no time on it; an
-  act whose time is `behind-ms` behind the hand's reading of the clock; an
-  act that carries a stamp `carried-ahead-ms` ahead of its time, which the
-  time in its own stamp then follows; and an act that carries a stamp
-  `behind-ms` ahead of its time. Takes the gate, a layer that it has made,
-  a maker, her permission in the layer, and the key of the facts. Waits for
-  the microbatch gate when the things are its. Gives
-  {:no-time :behind :carries :carries-too-far}: the four as they were sent.
-  What must hold for the second to be behind the time in the layer's last
-  stamp: the gate has decided a thing of the layer whose time was a reading
-  of this process's clock in the hour before."
+  "Sends by the hand, to the depot of the gate given, six things one behind
+  the other, each with a chosen time or with the hand's reading of the
+  clock, and nothing else of the layer between them:
+
+    :no-time             an act with no time on it
+    :behind              an act whose time is `behind-ms` behind the hand's
+                         reading of the clock
+    :carries             an act with the hand's clock that carries
+                         `huge-carried-stamp`, for a fact of no act
+    :far-ahead           an act whose time is `far-ahead-time`
+    :after-the-far-one   an act with the hand's clock
+    :names-a-later-fact  an act with the hand's clock that is based on the
+                         fact of `:after-the-far-one`, with the stamp of
+                         that act's answer, read through the store's query
+                         when the gate has decided it: what a maker writes
+                         of a fact that she saw
+
+  The last two are an honest act behind one whose time is far ahead, and
+  an honest act that names a fact written after it. Takes the gate, a layer
+  that it has made, a maker, her permission in the layer, and the key of
+  the facts. Waits for the microbatch gate before it reads the answer and
+  at its end, when the things are its. Gives a map from each word of
+  `time-cases` to the thing as it was sent, with its time. What must hold
+  for the second to be behind the time on the acts of its layer before it:
+  the gate has decided an act of the layer whose time was a reading of
+  this process's clock in the hour before."
   [gate layer who permission k]
   (let [now (System/currentTimeMillis)
         mine (fn [entity says] (arrived gate layer who permission [{:e entity :k k :v says}]))
         carried-from [[layer gate (UUID/randomUUID)] 0]
-        sent {:no-time (mine :time-1 "no time on it")
-              :behind (assoc (mine :time-2 "a time behind") declaration/time-part (- now behind-ms))
-              :carries (assoc (mine :time-3 "it carries a stamp ahead of its time")
-                              declaration/time-part now
-                              :based-on {carried-from (stamp/pack (+ now carried-ahead-ms) 7)})
-              :carries-too-far (assoc (mine :time-4 "it carries a stamp too far ahead")
-                                      declaration/time-part now
-                                      :based-on {carried-from (stamp/pack (+ now behind-ms) 0)})}]
-    (run! (fn [which] (as-it-is! gate (get sent which))) [:no-time :behind :carries :carries-too-far])
+        first-five {:no-time (mine :time-1 "no time on it")
+                    :behind (assoc (mine :time-2 "a time behind") declaration/time-part (- now behind-ms))
+                    :carries (assoc (mine :time-3 "it carries a stamp far above any of its layer")
+                                    declaration/time-part now
+                                    :based-on {carried-from huge-carried-stamp})
+                    :far-ahead (assoc (mine :time-4 "a time in the year 3084") declaration/time-part far-ahead-time)
+                    :after-the-far-one (with-the-hands-clock (mine :time-5 "written after the one far ahead"))}
+        _ (run! (fn [which] (as-it-is! gate (get first-five which))) (take 5 time-cases))
+        _ (when (= :microbatch gate) (settle!))
+        later-fact [(get-in first-five [:after-the-far-one :act-id]) 0]
+        seen (:stamp (answer-of (first later-fact)))
+        names-it (with-the-hands-clock
+                   (assoc (mine :time-6 "it names a fact written after the one far ahead")
+                          :based-on {later-fact seen}))]
+    (as-it-is! gate names-it)
     (when (= :microbatch gate) (settle!))
-    sent))
+    (assoc first-five :names-a-later-fact names-it)))
 
 (def ^:private again-later-ms
   "How much later than its first send the time on the second send of the
@@ -874,7 +907,7 @@
   "Sends by the hand, to the depot of the gate given, one act that holds
   each part that an act can leave out: what it is because of, when its
   maker claims it was made, its subjects, and what it is based on, with a
-  stamp that is not ahead of its time. Takes the gate, a layer that it has
+  carried stamp. Takes the gate, a layer that it has
   made, a maker, her permission, and the key of the fact. Waits for the
   microbatch gate when the thing is its. Gives the thing with no time."
   [gate layer who permission k]
@@ -1451,11 +1484,35 @@
   [held cases]
   (let [word (fn [gate thing] (word-held held gate thing))
         by-word (fn [gate things] (into (sorted-map) (frequencies (map (fn [thing] (word gate thing)) things))))
-        ;; by how many milliseconds the time in a thing's stamp is later than the time on it
-        ahead (fn [gate thing]
-                (let [stamp (stamp-held held gate thing)
-                      own (get thing declaration/time-part)]
-                  (when (and stamp own) (- (stamp/time-of stamp) own))))
+        ;; of one of the things whose time is chosen: its word; its stamp less the stamp of the first of
+        ;; them; and the time that its answer holds and that its fact's row holds, :its-own for the time
+        ;; on the thing, :none for a row with no time, :no-row for no row
+        timed (fn [gate things thing]
+                (let [own (get thing declaration/time-part)
+                      [layer _ act-uuid] (:act-id thing)
+                      {:keys [e k]} (first (:facts thing))
+                      label (fn [row] (cond (nil? row) :no-row
+                                            (not (contains? row :time)) :none
+                                            (= own (:time row)) :its-own
+                                            :else (:time row)))
+                      stamp (stamp-held held gate thing)
+                      first-stamp (stamp-held held gate (get things (first time-cases)))]
+                  [(word gate thing)
+                   (when (and stamp first-stamp) (- stamp first-stamp))
+                   (label (row-held held gate :answers (record/answer-key layer act-uuid)))
+                   (label (row-held held gate :facts (record/place-key layer e k)))]))
+        ;; of one gate: each layer's stamps of its answers, and its last stamp, by the text of the layer id
+        stamps-by-layer (fn [gate]
+                          (reduce (fn [out [layer-text n]] (update out layer-text (fnil conj []) n))
+                                  {}
+                                  (for [rows (vals (get-in held [gate :answers]))
+                                        [k row] rows]
+                                    [(first (record/answer-key-parts k)) (:stamp row)])))
+        last-by-layer (fn [gate]
+                        (into {} (for [rows (vals (get-in held [gate :task]))
+                                       [k n] rows
+                                       :when (and (vector? k) (= :last-stamp (first k)))]
+                                   [(second k) n])))
         in-each (fn [f] (into (sorted-map) (map (fn [gate] [gate (f gate)])) gate-order))
         wrote (:by-act (row-held held :microbatch :facts met-place))
         {:keys [x y]} (:x-and-y cases)]
@@ -1466,11 +1523,8 @@
                     ((juxt :making :give :first-under-the-give) (:opening cases)))
      :under-the-give (in-each (fn [gate] (word gate (get-in cases [:under-the-give gate]))))
      :times (in-each (fn [gate]
-                       (let [{:keys [no-time behind carries carries-too-far]} (get-in cases [:times gate])]
-                         {:no-time (word gate no-time)
-                          :behind [(word gate behind) (ahead gate behind)]
-                          :carries [(word gate carries) (ahead gate carries)]
-                          :carries-too-far (word gate carries-too-far)})))
+                       (let [things (get-in cases [:times gate])]
+                         (into (array-map) (map (fn [which] [which (timed gate things (get things which))])) time-cases))))
      :sent-again (in-each (fn [gate]
                             (let [{:keys [by-hand by-door]} (get-in cases [:sent-again gate])]
                               {:by-hand (word gate by-hand) :by-door (word gate by-door)})))
@@ -1496,7 +1550,16 @@
                                                                  (keep (fn [[k n]] (when (and (vector? k) (= :last-stamp (first k))) [(second k) n])))
                                                                  rows)]
                                              (when (seq of-layers) [task of-layers]))))
-                                   (get-in held [gate :task]))))}))
+                                   (get-in held [gate :task]))))
+     :counted (in-each (fn [gate]
+                         (let [lasts (last-by-layer gate)
+                               of-layers (stamps-by-layer gate)]
+                           {:layers (count of-layers)
+                            :not-counted (vec (sort (keep (fn [[layer-text stamps]]
+                                                            (when-not (and (= (sort stamps) (range (count stamps)))
+                                                                           (= (get lasts layer-text) (dec (count stamps))))
+                                                              layer-text))
+                                                          of-layers)))})))}))
 
 (def ^:private cases-in-words
   "The names of what `what-the-cases-gave` gives, in the order of the
@@ -1506,9 +1569,11 @@
    [:other-gate "an act for a layer of the other gate, on each depot, before that layer is made and after"]
    [:opening "the base's making act, the give to Alice, and her first act under it"]
    [:under-the-give "the first act under a permission that was given later, by gate"]
-   [:times (str "the things whose time is chosen, by gate: a thing with no time; an act whose time is an hour behind, "
-                "with by how many ms the time in its stamp is later than its own; an act that carries a stamp 2000 ms "
-                "ahead of its time, with the same; an act that carries a stamp an hour ahead")]
+   [:times (str "the things whose time is chosen, sent one behind the other, by gate, each as [word, its stamp less "
+                "the stamp of the first, the time in its answer, the time in its fact's row], with :its-own for the time "
+                "on the thing: a thing with no time; an act whose time is an hour behind; an act that carries the "
+                "greatest long as a stamp; an act whose time is in the year 3084; an honest act behind it; and an honest "
+                "act based on the fact of that one, with the stamp of its answer")]
    [:sent-again "an act sent twice under one act-id with two times, by the hand and through the door: the word of its one answer, by gate"]
    [:chains "the chain of acts that each replace the fact of the one before, under a marked key, with a retract at its end: how many of its acts hold each word, by gate"]
    [:each-part "an act with each optional part, by gate"]
@@ -1517,7 +1582,9 @@
    [:strays "the strays that each gate keeps: how many digests under each word"]
    [:x-and-y "the place that X wrote and then Y holds the fact of"]
    [:layers-by-task "the layers that the streaming gate made, by the task that holds them"]
-   [:last-stamps "each gate's last stamp of each layer, by task and by the text of the layer id"]])
+   [:last-stamps "each gate's last stamp of each layer, by task and by the text of the layer id"]
+   [:counted (str "in each layer, whether the stamps of its answers are 0, 1, 2 and on with no gap and its last stamp "
+                  "is the greatest of them: how many layers hold answers, and the layers where that does not hold, by gate")]])
 
 ;; ----------------------------------------------------- the form with no task
 
@@ -1779,10 +1846,12 @@
   {:acts "acts.edn" :tables "tables.edn"})
 
 (def ^:private made-again-when
-  "When the fixture may be made again: one sentence of Sid's, 13 October
-  2026, with what its first words point back to. Each file's head holds
-  it."
-  (str "Sid, 13 October 2026, of a change in what a gate accepts, before the first real record: "
+  "When the fixture may be made again: one sentence of a rule that Sid
+  pasted into his prompt of 13 October 2026 as his decision 6, a session's
+  text that he did not type, with what its first words point back to. Each
+  file's head holds it."
+  (str "A session's text, which Sid pasted into his prompt of 13 October 2026 as his decision 6, "
+       "of a change in what a gate accepts, before the first real record: "
        "\"Until then the fixture is made again only when a rule is changed on purpose, and the receipt says so.\""))
 
 (def ^:private head-order
@@ -2891,14 +2960,23 @@
       (= [:accepted :accepted :accepted] (:opening gave))]
      ["the first act under a permission that was given later is accepted, in each gate"
       (each-gate? (fn [gate] (= :accepted (get-in gave [:under-the-give gate]))))]
-     ["a thing with no time is refused :no-door-time, in each gate"
-      (each-gate? (fn [gate] (= :no-door-time (get-in gave [:times gate :no-time]))))]
-     ["the act whose time is far behind its layer's last stamp is accepted, with a time in its stamp that is later than its own, in each gate"
-      (each-gate? (fn [gate] (let [[word ahead] (get-in gave [:times gate :behind])] (and (= :accepted word) (some? ahead) (pos? ahead)))))]
-     ["the act that carries a stamp ahead of its time is accepted, with a time in its stamp that is as far ahead, in each gate"
-      (each-gate? (fn [gate] (let [[word ahead] (get-in gave [:times gate :carries])] (and (= :accepted word) (some? ahead) (<= carried-ahead-ms ahead)))))]
-     ["the act that carries a stamp an hour ahead is refused, in each gate"
-      (each-gate? (fn [gate] (not (contains? #{:accepted :no-answer} (get-in gave [:times gate :carries-too-far])))))]
+     ["a thing with no time is refused :no-door-time, and its answer holds no time, in each gate"
+      (each-gate? (fn [gate] (let [[word _ in-answer] (get-in gave [:times gate :no-time])]
+                               (and (= :no-door-time word) (= :none in-answer)))))]
+     ["the act whose time is an hour behind the acts of its layer before it is accepted, and its answer and its fact's row hold its own time, in each gate"
+      (each-gate? (fn [gate] (let [[word _ in-answer in-fact] (get-in gave [:times gate :behind])]
+                               (and (= :accepted word) (= :its-own in-answer in-fact)))))]
+     ["the act that carries the greatest long as a stamp is accepted, and its answer and its fact's row hold its own time, in each gate"
+      (each-gate? (fn [gate] (let [[word _ in-answer in-fact] (get-in gave [:times gate :carries])]
+                               (and (= :accepted word) (= :its-own in-answer in-fact)))))]
+     ["the act whose time is in the year 3084 is accepted, and its answer and its fact's row hold that time, in each gate"
+      (each-gate? (fn [gate] (let [[word _ in-answer in-fact] (get-in gave [:times gate :far-ahead])]
+                               (and (= :accepted word) (= :its-own in-answer in-fact)))))]
+     ["behind the act in the year 3084, an honest act is accepted, and an honest act based on its fact, with the stamp of its answer, is accepted too, in each gate"
+      (each-gate? (fn [gate] (= [:accepted :accepted]
+                                (mapv (fn [which] (first (get-in gave [:times gate which]))) [:after-the-far-one :names-a-later-fact]))))]
+     ["the six things whose time is chosen have the stamps of the first plus 0, 1, 2, 3, 4 and 5, in the order in which they were sent: a thing with no time, a time behind, a carried stamp and a time far ahead each take the layer's next stamp and no other, in each gate"
+      (each-gate? (fn [gate] (= [0 1 2 3 4 5] (mapv (fn [which] (second (get-in gave [:times gate which]))) time-cases))))]
      ["the act that was sent twice under one act-id has an answer, and its depot holds two records under that act-id with two times, by the hand and through the door, in each gate"
       (each-gate? (fn [gate]
                     (let [{:keys [by-hand by-door]} (get-in cases [:sent-again gate])]
@@ -2917,6 +2995,9 @@
       (each-gate? (fn [gate] (<= 8 (count (dissoc (get-in gave [:words gate]) :accepted)))))]
      ["two layers that the streaming gate made live on one task"
       (boolean (some (fn [[_ layers]] (<= 2 (count layers))) (:layers-by-task gave)))]
+     ["in each layer of each gate the stamps of the answers are 0, 1, 2 and on, one for each answer with no gap, and the layer's last stamp is the greatest of them"
+      (each-gate? (fn [gate] (let [{:keys [layers not-counted]} (get-in gave [:counted gate])]
+                               (and (pos? layers) (empty? not-counted)))))]
      ["the place that X wrote and then Y holds the fact of Y"
       (= "Y" (:x-and-y gave))]]))
 

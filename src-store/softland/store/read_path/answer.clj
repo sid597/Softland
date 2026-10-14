@@ -49,8 +49,10 @@
   `:fact` is the fact id `[[layer depot uuid] index]`, which a writer names
   in `:replaces`; `:stamp` is the stamp of that fact's decision, which a
   writer carries in `:based-on`. With `:writer` in the query's `:with` a
-  place-answer also holds `:writer`, and with `:permission` it holds
-  `:permission`; a read that asked for neither is handed neither.
+  place-answer also holds `:writer`, with `:permission` it holds
+  `:permission`, and with `:time` it holds `:time`, the time on the act
+  that wrote the fact, a label; a read that asked for none is handed
+  none.
 
   What points at a thing, through layers. A place is found through an
   order: the read looks at a place when the order by value of some layer
@@ -112,14 +114,15 @@
 
 (defn- with-asked-parts
   "Takes a query, a row and a place-answer. Gives the place-answer with the
-  parts of the row that the query asked for: who wrote the fact, and the
-  permission that its act named. The one place where either is put in. Rama
-  sends the runtime the whole row either way; a caller is handed a part
-  only when she asked."
+  parts of the row that the query asked for: who wrote the fact, the
+  permission that its act named, and the time on that act. The one place
+  where any of them is put in. Rama sends the runtime the whole row either
+  way; a caller is handed a part only when she asked."
   [query row place-answer]
   (cond-> place-answer
     (contains? (:with query) :writer)     (assoc :writer (rows/who-of row))
-    (contains? (:with query) :permission) (assoc :permission (rows/permission-of row))))
+    (contains? (:with query) :permission) (assoc :permission (rows/permission-of row))
+    (contains? (:with query) :time)       (assoc :time (:time row))))
 
 (defn- fact-id
   "Takes a layer and a row. Gives the id of the fact that wrote the row:

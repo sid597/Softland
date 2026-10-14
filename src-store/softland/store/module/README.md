@@ -23,9 +23,9 @@ decision once: it reads rows, calls pure functions and writes rows. The checks
 are [gate/](../gate/README.md)'s, the form of what arrived is
 [door/](../door/README.md)'s, and each row and each schema is
 [record/](../record/README.md)'s. A decision is made of the thing and of rows
-of the calling gate's own record on the task of the call. The time of the
-decision is the time on the act, which the door wrote, and the stamp is counted
-in the act's layer. Neither gate reads a clock or a table of the other gate: for
+of the calling gate's own record on the task of the call. The stamp is counted
+in the act's layer, and the time on the act, which the door wrote, is a label
+beside it that no check reads. Neither gate reads a clock or a table of the other gate: for
 a layer that starts with the other depot a gate answers from the layer id alone.
 
 Each depot partitions by the thing's layer, so a layer is one partition and its

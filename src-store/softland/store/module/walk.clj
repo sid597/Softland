@@ -67,8 +67,8 @@
     3. the time   The time on the act, which the door writes, or whatever
                   else appended the thing
                   (`softland.store.gate.decision/time-on`); nil for a thing
-                  with no usable time. The 10-second rule holds each
-                  carried stamp against it.
+                  with no usable time. It is a label for the rows of step
+                  7: no check reads it.
     4. standing   Read the place of `:who`'s permission; only when it is
                   empty, the place of the layer's depot. When both are
                   empty and the layer starts with the other gate's depot,
@@ -94,28 +94,25 @@
                   of the facts by value.
     7. the stamp  Read the last stamp of the act's layer: the number under
                   the layer's text in `:last-stamp` of the task's table.
-                  The stamp of an accept is made of the time on the act,
-                  that last stamp, and the stamps that the act carries.
-                  The stamp of a refusal is that last stamp plus one, or 0
-                  with none, whatever the thing carries
-                  (`softland.store.gate.decision/stamp-of`). A refusal
-                  writes the answer and the layer's last stamp and nothing
-                  else. An accept writes the row of each fact, with the
-                  text of its value, who wrote it and the permission that
-                  the act named; for a fact under a marked key the entry of
+                  The stamp of the decision, an accept or a refusal, is
+                  that last stamp plus one, or 0 with none
+                  (`softland.store.gate.stamp/next-stamp`): nothing of the
+                  thing is in it. A refusal writes the answer and the
+                  layer's last stamp and nothing else. An accept writes
+                  the row of each fact, with the text of its value, who
+                  wrote it, the permission that the act named and the time
+                  on the act; for a fact under a marked key the entry of
                   its value in the facts by value, and the entry of the
                   value before taken out; the answer and the layer's last
-                  stamp. The last write is the walk's last step before it
+                  stamp. The answer holds the time when the thing has a
+                  usable one. The last write is the walk's last step before it
                   gives its result.
 
   The stamp is counted in the layer, in both gates. Each layer has its own
   last stamp, so a decision in one layer does not raise the stamps of
   another layer of the task, and two layers of one task can hold the same
-  stamp. In one layer each stamp is later than the one before, in the order
-  in which the walk was called. A refused thing, one with no usable time
-  among them, gets the layer's last stamp plus one, or 0 in a layer with
-  no last stamp: only an accept moves a layer's time, but for the edge of
-  a full counter (`softland.store.gate.decision/stamp-of`).
+  stamp. In one layer the stamps are 0, 1, 2 and on, one for each
+  decision, in the order in which the walk was called.
 
   The marked keys. An act is decided with the layer's marks as they were
   before it. So a fact of the act that marks its own key is not in the order
@@ -234,6 +231,7 @@
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
             [softland.store.gate.decision :as decision]
+            [softland.store.gate.stamp :as stamp]
             [softland.store.record.rows :as record]))
 
 (defn copies-of
@@ -290,18 +288,17 @@
       (identity [] :> *copies)
 
      (else>)
-      ;; 2 and 3. The digest, check (b), the time on the act, the
-      ;; 10-second rule. No clock is read: the time is the thing's own.
+      ;; 2 and 3. The digest, check (b), and the time on the act, a label
+      ;; that no check reads. No clock is read: the time is the thing's own.
       (digest/digest *thing :> *digest)
       (declaration/check *thing :> {*act :ok *declarations-reason :refuse})
       (decision/time-on *thing :> *act-time)
-      (decision/refused-early *act-time *act *declarations-reason :> *refused-early)
 
       ;; 4. Standing: checks (c) and (d), and the first act of a layer.
       ;; Whether the layer is the other gate's is asked of the layer id, in
       ;; `standing` itself, and no table of the other gate is read.
-      (<<if *refused-early
-        (identity *refused-early :> *refused-standing)
+      (<<if *declarations-reason
+        (identity *declarations-reason :> *refused-standing)
         (identity false :> *makes-the-layer)
        (else>)
         (decision/permission-place *act :> *permission-key)
@@ -358,11 +355,11 @@
         (identity {} :> *since-by-place)
         (identity *place-rows :> *rows-in-hand))
 
-      ;; 7. The stamp, of the time on the act and of the layer's last
-      ;; stamp, which is kept under the layer's text.
+      ;; 7. The stamp: the layer's last stamp, which is kept under the
+      ;; layer's text, plus one.
       (declaration/id-text *layer :> *layer-text)
       (local-select> (keypath :last-stamp *layer-text) $$task :> *last-stamp)
-      (decision/stamp-of *act-time *last-stamp *act *refused :> *stamp)
+      (stamp/next-stamp *last-stamp :> *stamp)
       ;; What the walk has in hand for an accept; nothing for a refusal.
       ;; A key that this act newly marks gets the act's own stamp.
       (<<if *refused
@@ -372,7 +369,7 @@
                   :place-rows *rows-in-hand
                   :level-from *stamp
                   :> *in-hand))
-      (decision/writes *act-id *act *refused *stamp *digest *in-hand :> *writes)
+      (decision/writes *act-id *act *refused *stamp *act-time *digest *in-hand :> *writes)
       ;; The writes: each a whole row at a fixed key, or a fixed key taken
       ;; out. One row at a time, in the order given, with no yield between
       ;; two. The loop ends when each is written, and then the walk gives

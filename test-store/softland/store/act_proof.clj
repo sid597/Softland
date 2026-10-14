@@ -169,7 +169,7 @@
    :permission-id [:or [:tuple :id :id :id]
                        [:tuple :id :id :id :permission-id]
                        [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
-   :carried-stamp [:int {:min 0 :below 4611686018427387904}]})
+   :carried-stamp [:int {:min 0}]})
 
 (def ^:private parts-cases
   "The two declarations, and what they say as sets. Each is written out here
@@ -192,9 +192,9 @@
     (fn [] act/reasons)
     #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
       :permission-not-in-layer}]
-   ["the version that this code knows, and the three limits: subjects, collections, a carried stamp"
-    (fn [] [act/version act/max-subjects act/max-depth act/max-carried-stamp])
-    [1 256 32 (bit-shift-left 1 62)]]
+   ["the version that this code knows, and the two limits: subjects, collections. A carried stamp has no limit of its own: no gate reads it, so its form is its one bound"
+    (fn [] [act/version act/max-subjects act/max-depth])
+    [1 256 32]]
    ["the one shape with a number of its own for how often it may hold itself is a permission id, and its number is the value's: 32"
     (fn [] [@#'act/nesting (= act/max-depth (:permission-id @#'act/nesting))])
     [{:permission-id 32} true]]])
@@ -438,9 +438,12 @@
    ["257 subjects" (assoc good :subjects (subjects 257)) :malformed]
    ["a value inside 32 collections" (act-of (assoc a-fact :v (nested 32))) :ok]
    ["a value inside 33 collections" (act-of (assoc a-fact :v (nested 33))) :malformed]
-   ["a carried stamp of 2^62 - 1" (assoc good :based-on {[earlier-act-id 0] (dec act/max-carried-stamp)}) :ok]
-   ["a carried stamp of 2^62" (assoc good :based-on {[earlier-act-id 0] act/max-carried-stamp}) :malformed]
+   ["a carried stamp of zero" (assoc good :based-on {[earlier-act-id 0] 0}) :ok]
+   ["a carried stamp of -1" (assoc good :based-on {[earlier-act-id 0] -1}) :malformed]
    ["a carried stamp below zero" (assoc good :based-on {[earlier-act-id 0] -5}) :malformed]
+   ["a carried stamp of 2^62: no gate reads a carried stamp, so no number of a long is too great" (assoc good :based-on {[earlier-act-id 0] (bit-shift-left 1 62)}) :ok]
+   ["a carried stamp of 2^63 - 1, the greatest long" (assoc good :based-on {[earlier-act-id 0] Long/MAX_VALUE}) :ok]
+   ["a carried stamp of 2^63, a big integer and no fixed-width integer" (assoc good :based-on {[earlier-act-id 0] (inc (bigint Long/MAX_VALUE))}) :malformed]
    ["a permission five deep" (assoc good :permission (deep-permission 5)) :ok]
    ["a permission 32 deep" (assoc good :permission (deep-permission 32)) :ok]
    ["a permission 33 deep" (assoc good :permission (deep-permission 33)) :malformed]
@@ -541,7 +544,7 @@
   (shown "the rule:" (pr-str act/rules))
   (shown "read from the declarations:" (count act/act-parts) "parts on an act," (count act/fact-parts)
          "on a fact," (count act/reasons) "reason words | version" act/version
-         "| limits:" (pr-str [act/max-subjects act/max-depth act/max-carried-stamp])
+         "| limits:" (pr-str [act/max-subjects act/max-depth])
          "| how often a shape may hold itself:" (pr-str @#'act/nesting)))
 
 (deftest the-declaration-drives-the-check

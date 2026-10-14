@@ -29,13 +29,16 @@
   proof's hand builds holds one time, `now`, under the name that
   `softland.store.door.declaration/time-part` holds; a thing without it, or
   with another time, is built so on purpose. The proof holds: what the
-  declaration takes as a time, the word for a thing with none, and where
-  that word stands among the others; that the test for a stray reads no
-  time; that the digest leaves the time out at the top level of a plain map
-  and nowhere else; that the door's additions add the time that they are
-  handed and test nothing of it; and that the stamp of a decision is made
-  of the time on the thing, or counts on from the layer's last stamp for a
-  thing with none, in a layer of either gate. The name of the part is
+  declaration takes as a time, with no bound above, the word for a thing
+  with none, and where that word stands among the others; that the test for
+  a stray reads no time; that the digest leaves the time out at the top
+  level of a plain map and nowhere else; that the door's additions add the
+  time that they are handed and test nothing of it; that the time is a
+  label, which a decision writes beside the stamp in the answer and in each
+  row that an accept writes, and which no check reads; and that the stamp
+  is the layer's count of decisions, which neither the time on the thing
+  nor a stamp that the act carries moves, in a layer of either gate. The
+  name of the part is
   written out as a literal in three places, each held against the
   declaration's: the second writing of the shape, the text of the door's
   word, and the first field of the record `Timed`. That a door writes its
@@ -61,9 +64,10 @@
   wrote, and holds the word of each answer, the rows, the stamps and the
   strays. It holds that a second run of a decision from the same record
   gives the same writes, and that a run on the record that the first left
-  finds the answer and writes nothing; that the stamps of a line rise
-  whatever the times on its acts do; and that a mark of a key holds from
-  the next act, in a layer of each gate. What this shows is what the pure
+  finds the answer and writes nothing; that the stamps of a layer are 0, 1,
+  2 and on with no gap, for an accept and for a refusal, whatever the times
+  on its acts and the stamps that they carry; and that a mark of a key
+  holds from the next act, in a layer of each gate. What this shows is what the pure
   functions give when they are called in that order. That the walk on a
   cluster calls them so, that a gate hands it the things of a partition in
   the depot's order, and that the microbatch gate copies the rows of an
@@ -217,6 +221,14 @@
   of its server. The cases of the decision give it as the time on the act,
   for an act of either gate."
   1700000000000)
+
+(def ^:private far-ahead
+  "A time far ahead of every clock: 2^50 milliseconds since 1970, more than
+  30,000 years after `now`. Whatever appends a thing can write such a time
+  under `softland.store.door.declaration/time-part`. The cases hold that it
+  is a usable time, that a decision writes it as it is, and that it moves
+  no stamp."
+  (bit-shift-left 1 50))
 
 (def ^:private alice-own "Alice's permission in her own layer." [:alice :alice :alice])
 (def ^:private bobs "Bob's permission in Alice's layer, beneath hers." [:bob :alice :alice alice-own])
@@ -494,12 +506,12 @@
 (def ^:private declared-shapes
   "The five shapes that the door adds, written out here a second time. What
   arrives holds the time on the act after the depot: a fixed-width integer
-  of 0 or more and below 2^45."
+  of 0 or more, with no bound above."
   {:arrived-act
    [:parts
     [:act-id :act-id]
     [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
-    [:door-time [:int {:min 0 :below 35184372088832}] {:reason :no-door-time}]
+    [:door-time [:int {:min 0}] {:reason :no-door-time}]
     [:version [:enum 1] {:reason :unknown-version}]
     [:who :id]
     [:layer :id]
@@ -560,11 +572,10 @@
    ["the five shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
     (fn [] (apply dissoc declaration/shapes (keys act/shapes)))
     declared-shapes]
-   ["the name of the part that holds the time on the act, and the bound that the time must be below, 2^45 ms: each is what the shape of what arrives holds"
+   ["the name of the part that holds the time on the act is the one that the shape of what arrives holds, and that shape takes any fixed-width integer not below zero: it has no bound above"
     (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
-             [declaration/time-part declaration/max-time (= declaration/max-time (bit-shift-left 1 45))
-              (= part declaration/time-part) (= (:below (second shape)) declaration/max-time)]))
-    [:door-time 35184372088832 true true true]]
+             [declaration/time-part (= part declaration/time-part) shape]))
+    [:door-time true [:int {:min 0}]]]
    ["the seventeen rules, the maker's first, each with its reason; the six of the keys that take a second write stand after the rules of a permission fact"
     (fn [] declaration/rules)
     declared-rules]
@@ -808,21 +819,22 @@
   "The least thing with each kind of time on it. For each: the thing; the
   time that `softland.store.door.declaration/usable-time` gives for it, nil
   for none; and the word of the check. A double and a big integer hold the
-  number of `now`, so their class alone is the fault."
-  (let [bound (bit-shift-left 1 45)]
-    [["no time" (without-time good) nil :no-door-time]
-     ["a time that is nil" (at-time nil) nil :no-door-time]
-     ["a time that is a string" (at-time "1700000000000") nil :no-door-time]
-     ["a time that is a double" (at-time 1.7E12) nil :no-door-time]
-     ["a time that is a big integer" (at-time 1700000000000N) nil :no-door-time]
-     ["a time that is a Java big integer" (at-time (java.math.BigInteger. "1700000000000")) nil :no-door-time]
-     ["a time of -1" (at-time -1) nil :no-door-time]
-     ["a time of 2^45" (at-time bound) nil :no-door-time]
-     ["a time that is the greatest long" (at-time Long/MAX_VALUE) nil :no-door-time]
-     ["a time of 2^45 less one" (at-time (dec bound)) (dec bound) :ok]
-     ["a time of 0" (at-time 0) 0 :ok]
-     ["a time that is a narrow integer" (at-time (int 1700001)) 1700001 :ok]
-     ["the time of the proof's things" good now :ok]]))
+  number of `now`, so their class alone is the fault. Below zero is the one
+  bound: a time far ahead of every clock, and the greatest long, are
+  usable."
+  [["no time" (without-time good) nil :no-door-time]
+   ["a time that is nil" (at-time nil) nil :no-door-time]
+   ["a time that is a string" (at-time "1700000000000") nil :no-door-time]
+   ["a time that is a double" (at-time 1.7E12) nil :no-door-time]
+   ["a time that is a big integer" (at-time 1700000000000N) nil :no-door-time]
+   ["a time that is a Java big integer" (at-time (java.math.BigInteger. "1700000000000")) nil :no-door-time]
+   ["a time of -1" (at-time -1) nil :no-door-time]
+   ["a time that is the least long" (at-time Long/MIN_VALUE) nil :no-door-time]
+   ["a time of 0" (at-time 0) 0 :ok]
+   ["a time that is a narrow integer" (at-time (int 1700001)) 1700001 :ok]
+   ["the time of the proof's things" good now :ok]
+   ["a time far ahead of every clock, 2^50 ms" (at-time far-ahead) far-ahead :ok]
+   ["a time that is the greatest long" (at-time Long/MAX_VALUE) Long/MAX_VALUE :ok]])
 
 (def ^:private doors-rows
   "One thing for each word that a part or a rule of the door's declaration
@@ -1012,9 +1024,8 @@
    ["no time, and a fact with a part that the form does not name: that fault is inside a part of the maker's"
     (without-time (arrived 1 (assoc (value-at :note-1 :text) :layer :bob))) :no-door-time]
    ["no time, and a depot word that is not the act-id's: the shape comes before a rule" (assoc (without-time good) :depot :microbatch) :no-door-time]
-   ["a time of 2^46, and a value over the bound: the shape comes before the last step"
-    (assoc (arrived 1 (value-at :note-1 :text over-the-bound)) declaration/time-part (bit-shift-left 1 46)) :no-door-time]
-   ["a wrong version, and facts that are no sequence" (assoc good :version 2 :facts 5) :unknown-version]
+   ["a time of -1, and a value over the bound: the shape comes before the last step"
+    (assoc (arrived 1 (value-at :note-1 :text over-the-bound)) declaration/time-part -1) :no-door-time]   ["a wrong version, and facts that are no sequence" (assoc good :version 2 :facts 5) :unknown-version]
    ["a wrong version, and facts that throw when they are read" (assoc good :version 2 :facts (throwing)) :unknown-version]
    ["a good version, and facts that throw when they are read" (assoc good :facts (throwing)) :malformed]
    ["no session, and a value over the bound: the shape comes before the last step"
@@ -1061,6 +1072,9 @@
    ["257 facts" (many-facts 257) :too-many-facts]
    ["1,024 entries of based-on" (assoc good :based-on (into {} (map (fn [i] [[(act-id 2) i] 1])) (range 1024))) :ok]
    ["1,025 entries of based-on" (assoc good :based-on (into {} (map (fn [i] [[(act-id 2) i] 1])) (range 1025))) :too-many-based-on]
+   ["a carried stamp of 2^62, and one that is the greatest long: a carried stamp has no bound above, since no gate reads it"
+    (assoc good :based-on {[(act-id 2) 0] (bit-shift-left 1 62) [(act-id 2) 1] Long/MAX_VALUE}) :ok]
+   ["a carried stamp of -1: no stamp is below zero" (assoc good :based-on {[(act-id 2) 0] -1}) :malformed]
    ["a value whose one text is 65,536 bytes, in 21,848 characters" (arrived 1 (value-at :note-1 :text at-the-bound)) :ok]
    ["a value whose one text is 65,537 bytes, in 21,849 characters: the bound counts bytes" (arrived 1 (value-at :note-1 :text over-the-bound)) :value-too-large]
    ["a string of 65,534 letters, 65,536 bytes of text" (arrived 1 (value-at :note-1 :text (text-of-bytes 65536))) :ok]
@@ -1118,88 +1132,26 @@
 ;; ------------------------------------------------------------------ the stamp
 
 (def ^:private stamp-cases
-  "The cases of the stamp: the packing; the next stamp, of the time that a
-  gate gives, the last stamp and the greatest carried stamp, with each of
-  the three there and not there; the 10-second rule, with a time and with
-  none; the greatest carried stamp; the year, and the bound of the time on
-  an act."
-  (let [t now
-        s (fn [millis counter] (stamp/pack millis counter))]
-    [["the packing: milliseconds x 65,536 + counter, and back"
-      (fn [] [(stamp/pack 3 5) (stamp/time-of (stamp/pack t 77)) (stamp/counter-of (stamp/pack t 77))])
-      [(+ (* 3 65536) 5) t 77]]
-     ["the first decision in a layer, of a thing with a time: the time, with a counter of zero"
-      (fn [] (stamp/next-stamp t nil nil))
-      (s t 0)]
-     ["the time is later than the time in the last stamp: the time, with a counter of zero"
-      (fn [] (stamp/next-stamp (+ t 5) (s t 9) nil))
-      (s (+ t 5) 0)]
-     ["a second decision with the same time: the last stamp plus one"
-      (fn [] (stamp/next-stamp t (s t 0) nil))
-      (s t 1)]
-     ["a time earlier than the time in the last stamp, as of a door whose clock is behind or went back: the last stamp plus one all the same"
-      (fn [] (stamp/next-stamp (- t 60000) (s t 3) nil))
-      (s t 4)]
-     ["more decisions with one time than the counter holds: the stamp carries into the time and still increases"
-      (fn [] (let [next (stamp/next-stamp t (s t 65535) nil)]
-               [(> next (s t 65535)) (stamp/time-of next) (stamp/counter-of next)]))
-      [true (inc t) 0]]
-     ["an act carries a stamp ahead of its time and of the last stamp: later than it"
-      (fn [] (stamp/next-stamp t (s t 3) (s (+ t 2000) 8)))
-      (s (+ t 2000) 9)]
-     ["an act carries a stamp behind its time: the time"
-      (fn [] (stamp/next-stamp t nil (s (- t 2000) 8)))
-      (s t 0)]
-     ["65,537 decisions in a row with one time: each stamp later than the one before"
-      (fn [] (let [stamps (reductions (fn [last _] (stamp/next-stamp t last nil)) (stamp/next-stamp t nil nil) (range 65536))]
-               [(count stamps) (apply < stamps)]))
-      [65537 true]]
-     ["a thing with no time: the last stamp plus one; the greatest carried stamp plus one; the greater of the two, in either order"
-      (fn [] [(stamp/next-stamp nil (s t 3) nil) (stamp/next-stamp nil nil (s t 8))
-              (stamp/next-stamp nil (s t 3) (s (+ t 2000) 8)) (stamp/next-stamp nil (s (+ t 2000) 8) (s t 3))])
-      [(s t 4) (s t 9) (s (+ t 2000) 9) (s (+ t 2000) 9)]]
-     ["nothing in each place, one at a time, with the two others there: no time, no last stamp, no carried stamp"
-      (fn [] [(stamp/next-stamp nil (s t 3) (s (- t 2000) 8)) (stamp/next-stamp t nil (s (+ t 2000) 8))
-              (stamp/next-stamp (+ t 5) (s t 3) nil)])
-      [(s t 4) (s (+ t 2000) 9) (s (+ t 5) 0)]]
-     ["nothing in all three places: the stamp is 0, a long; and 65,537 decisions in a row with no time count on from it, one by one"
-      (fn [] (let [first-stamp (stamp/next-stamp nil nil nil)
-                   stamps (reductions (fn [last _] (stamp/next-stamp nil last nil)) first-stamp (range 65536))]
-               [first-stamp (.getSimpleName (class first-stamp)) (= stamps (range 65537))]))
-      [0 "Long" true]]
-     ["a time of 0 is a time: its stamp is 0 too, and the last stamp plus one passes it"
-      (fn [] [(stamp/next-stamp 0 nil nil) (stamp/next-stamp 0 41 nil)])
-      [0 42]]
-     ["the 10-second rule at its edge: 10,000 ms ahead of the time is not too far, 10,001 is"
-      (fn [] [(stamp/too-far-ahead? t (s (+ t 10000) 65535)) (stamp/too-far-ahead? t (s (+ t 10001) 0))
-              (stamp/too-far-ahead? t (s (- t 5) 0)) (stamp/too-far-ahead? t (dec act/max-carried-stamp))])
-      [false true false true]]
-     ["the 10-second rule with no time: false for each carried stamp, the greatest that an act can carry too, since there is nothing to hold it against"
-      (fn [] [(stamp/too-far-ahead? nil (s (+ t 10001) 0)) (stamp/too-far-ahead? nil (dec act/max-carried-stamp))
-              (stamp/too-far-ahead? nil 0)])
-      [false false false]]
-     ["the greatest stamp that an act carries: of its based-on, never claimed-when"
-      (fn [] [(stamp/greatest-carried {:based-on {[(act-id 2) 0] 5 [(act-id 2) 1] 9} :claimed-when 99})
-              (stamp/greatest-carried {:based-on {} :claimed-when 99})])
-      [9 nil]]
-     ["the packing reaches 2^62, which no act can carry, when the time reaches 2^46 ms, in the year 4199. The bound of the time on an act is half of that, 2^45 ms, in the year 3084: the greatest time that the declaration takes, with a full counter, is the last stamp below 2^61. An act with that time is accepted with the greatest stamp that the 10-second rule lets it carry, and its own stamp is that one plus one, 655,360,000 above 2^61 and below 2^62; a carried stamp one millisecond later is too far ahead"
-      (fn [] (let [year-of (fn [millis] (.getYear (.atZone (java.time.Instant/ofEpochMilli millis) java.time.ZoneOffset/UTC)))
-                   greatest-time (dec declaration/max-time)
-                   greatest-carried (stamp/pack (+ greatest-time stamp/max-ahead-millis) 65535)
-                   accepted (stamp/next-stamp greatest-time nil greatest-carried)]
-               [(= act/max-carried-stamp (stamp/pack (bit-shift-left 1 46) 0) (bit-shift-left 1 62))
-                (year-of (bit-shift-left 1 46))
-                (= declaration/max-time (bit-shift-left 1 45))
-                (year-of declaration/max-time)
-                (= (stamp/pack greatest-time 65535) (dec (bit-shift-left 1 61)))
-                (stamp/too-far-ahead? greatest-time greatest-carried)
-                (- accepted (bit-shift-left 1 61))
-                (< accepted act/max-carried-stamp)
-                (stamp/too-far-ahead? greatest-time (inc greatest-carried))]))
-      [true 4199 true 3084 true false 655360000 true true]]
-     ["a stamp of today is below 2^62"
-      (fn [] (< (stamp/next-stamp t nil nil) act/max-carried-stamp))
-      true]]))
+  "The cases of the stamp: the first stamp of a layer, the next one, a run
+  of them, the class of a stamp, its limit, and what the function takes. A
+  stamp holds no time: what a stamp is not made of is held where a decision
+  is made, in `writes-cases` and `stamp-line-cases`."
+  [["the first decision in a layer, with no last stamp: the stamp is 0, a long"
+    (fn [] (let [first-stamp (stamp/next-stamp nil)] [first-stamp (.getSimpleName (class first-stamp))]))
+    [0 "Long"]]
+   ["a decision after a last stamp: that stamp plus one, a long also when the last stamp is given as an Integer"
+    (fn [] (mapv (fn [last-stamp] (let [s (stamp/next-stamp last-stamp)] [s (.getSimpleName (class s))])) [0 41 (int 41)]))
+    [[1 "Long"] [42 "Long"] [42 "Long"]]]
+   ["1,000 decisions in a row in one layer: the stamps are 0, 1, 2 and on to 999, with no gap"
+    (fn [] (= (range 1000) (take 1000 (iterate stamp/next-stamp (stamp/next-stamp nil)))))
+    true]
+   ["the limit: after the greatest long the next stamp wraps to the least, and nothing throws"
+    (fn [] (stamp/next-stamp Long/MAX_VALUE))
+    Long/MIN_VALUE]
+   ["the stamp's namespace gives one function, and it takes the layer's last stamp alone: no time, and nothing of the act, goes into a stamp"
+    (fn [] [(vec (sort (map name (keys (ns-publics 'softland.store.gate.stamp)))))
+            (:arglists (meta #'stamp/next-stamp))])
+    [["next-stamp"] '([last-stamp])]]])
 
 ;; -------------------------------------------------------------- the first act
 
@@ -1316,17 +1268,18 @@
 (defn- fact-row
   "The row of a fact's place, as `softland.store.record.rows/fact-row` gives
   it. Takes the texts of who and of the permission as a pair; a fact in its
-  one form on arrival; the uuid of its act; its index; and the stamp."
-  [[who-text permission-text] fact act-uuid index stamp]
-  (record/fact-row fact act-uuid index stamp who-text permission-text))
+  one form on arrival; the uuid of its act; its index; the stamp; and the
+  time on the act."
+  [[who-text permission-text] fact act-uuid index stamp time-millis]
+  (record/fact-row fact act-uuid index stamp time-millis who-text permission-text))
 
 (defn- by-value-row
   "A fact's row in the facts by value, as
   `softland.store.record.rows/by-value-row` gives it. Takes the texts of who
   and of the permission as a pair; the uuid of the act; the fact's index;
-  and the stamp."
-  [[who-text permission-text] act-uuid index stamp]
-  (record/by-value-row who-text permission-text act-uuid index stamp))
+  the stamp; and the time on the act."
+  [[who-text permission-text] act-uuid index stamp time-millis]
+  (record/by-value-row who-text permission-text act-uuid index stamp time-millis))
 
 (defn- digest-of-text
   "The SHA-256 of the UTF-8 of a string, as hex: what the order by value must
@@ -1340,14 +1293,14 @@
   reads, the routing id of an act-id, and the parts of an answer's key."
   (let [u (uuid 5)
         digest (digest/digest good)
-        value-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} u (int 2) (int 900))
-        plain-row (fact-row writer {:e :alice :k :softland.store/depot :v :streaming :replaces nil :text ":streaming"} u 0 900)
-        retract-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text nil} u 1 900)
+        value-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} u (int 2) (int 900) (int 1700001))
+        plain-row (fact-row writer {:e :alice :k :softland.store/depot :v :streaming :replaces nil :text ":streaming"} u 0 900 now)
+        retract-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text nil} u 1 900 now)
         uuid-who "#uuid \"00000000-0000-0000-0000-00000000004d\""
         by-uuid (fact-row [uuid-who (str "[" uuid-who " :alice :alice [:alice :alice :alice] :see-and-act]")]
-                          {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} u 0 900)
+                          {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} u 0 900 now)
         marks-row (record/with-level-since
-                   (fact-row writer (arrived-fact :alice :softland.store/marked-keys #{:on :tool/parent}) u 0 900)
+                   (fact-row writer (arrived-fact :alice :softland.store/marked-keys #{:on :tool/parent}) u 0 900 now)
                    {:on 100 :tool/parent 140})
         row-holding (fn [a-text] {:value a-text :by-act u :by-index 0 :stamp 900})
         the-bytes (fn [& xs] (byte-array (map unchecked-byte xs)))
@@ -1364,36 +1317,42 @@
                [(count (record/answer-key id u)) (count (record/place-key id id id))
                 (count (record/by-value-key id id Long/MAX_VALUE (record/value-digest (byte-array 0)) id))]))
       [293 770 855]]
-     ["an accepted answer's row has no :refused; a refused one has its word; each field of its declared class"
-      (fn [] [(classes (record/answer-row nil (int 900) digest)) (classes (record/answer-row :layer-not-made 900 digest))])
-      [{:stamp "Long" :digest "byte[]"} {:stamp "Long" :digest "byte[]" :refused "Keyword"}]]
-     ["an answer as a caller gets it, accepted and refused; no row is nothing yet"
-      (fn [] [(record/answer-of (record/answer-row nil 900 digest))
-              (record/answer-of (record/answer-row :layer-not-made 901 digest))
+     ["an accepted answer's row has no :refused; a refused one has its word; each holds the time on the thing beside the stamp; each field of its declared class"
+      (fn [] [(classes (record/answer-row nil (int 900) (int 1700001) digest)) (classes (record/answer-row :layer-not-made 900 now digest))])
+      [{:stamp "Long" :time "Long" :digest "byte[]"} {:stamp "Long" :time "Long" :digest "byte[]" :refused "Keyword"}]]
+     ["the time in an answer's row is the time given, as it is: a time of 0 and a time far ahead of every clock; a thing with no usable time gives a row with no :time, refused or accepted"
+      (fn [] [(:time (record/answer-row nil 900 0 digest)) (:time (record/answer-row nil 900 far-ahead digest))
+              (record/answer-row :no-door-time 900 nil digest) (contains? (record/answer-row nil 900 nil digest) :time)])
+      [0 far-ahead {:refused :no-door-time :stamp 900 :digest digest} false]]
+     ["an answer as a caller gets it, accepted and refused, with the time on the thing; a nil time for a row with none; no row is nothing yet"
+      (fn [] [(record/answer-of (record/answer-row nil 900 now digest))
+              (record/answer-of (record/answer-row :layer-not-made 901 now digest))
+              (record/answer-of (record/answer-row :no-door-time 902 nil digest))
               (record/answer-of nil)])
-      [{:verdict :accepted :reason nil :stamp 900 :digest (text/hex digest)}
-       {:verdict :refused :reason :layer-not-made :stamp 901 :digest (text/hex digest)}
+      [{:verdict :accepted :reason nil :stamp 900 :time now :digest (text/hex digest)}
+       {:verdict :refused :reason :layer-not-made :stamp 901 :time now :digest (text/hex digest)}
+       {:verdict :refused :reason :no-door-time :stamp 902 :time nil :digest (text/hex digest)}
        nil]]
-     ["the row of a fact with a value under a plain key: its value is the fact's text as it is, a String, and the row gives the UTF-8 of it back; the fact that wrote it, the stamp, who wrote it and the permission that the act named; each field of its declared class, and none a byte array"
+     ["the row of a fact with a value under a plain key: its value is the fact's text as it is, a String, and the row gives the UTF-8 of it back; the fact that wrote it, the stamp, the time on the act, who wrote it and the permission that the act named; each field of its declared class, and none a byte array"
       (fn [] [value-row (classes value-row) (record/plain-bytes-of value-row)])
-      [(merge {:value "\"a text\"" :by-act u :by-index 2 :stamp 900} written-by-alice)
-       {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String"}
+      [(merge {:value "\"a text\"" :by-act u :by-index 2 :stamp 900 :time 1700001} written-by-alice)
+       {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :time "Long" :who "String" :permission "String"}
        (utf8 "\"a text\"")]]
-     ["the row of a fact under a store key: the text of its value as a String, whose bytes the row gives back; the fact that wrote it, the stamp, who and the permission, and no other field"
+     ["the row of a fact under a store key: the text of its value as a String, whose bytes the row gives back; the fact that wrote it, the stamp, the time, who and the permission, and no other field"
       (fn [] [plain-row (record/plain-bytes-of plain-row)])
-      [(merge {:value ":streaming" :by-act u :by-index 0 :stamp 900} written-by-alice)
+      [(merge {:value ":streaming" :by-act u :by-index 0 :stamp 900 :time now} written-by-alice)
        (utf8 ":streaming")]]
      ["the row takes the fact's text and reads nothing of the fact's value: a fact that holds a value and no text gives the row of a retract, and one that holds a text and another value gives the text"
-      (fn [] [(contains? (fact-row writer {:e :note-1 :k :text :v :a-value :replaces nil :text nil} u 0 900) :value)
-              (:value (fact-row writer {:e :alice :k :softland.store/depot :v :streaming :replaces nil :text ":another"} u 0 900))])
+      (fn [] [(contains? (fact-row writer {:e :note-1 :k :text :v :a-value :replaces nil :text nil} u 0 900 now) :value)
+              (:value (fact-row writer {:e :alice :k :softland.store/depot :v :streaming :replaces nil :text ":another"} u 0 900 now))])
       [false ":another"]]
      ["the plain bytes of a row's String are its UTF-8, written out here byte by byte: characters of two, three and four bytes; a String that begins with U+0000 has that byte first; nothing for no row and for the row of a retract"
       (fn [] [(record/plain-bytes "é✓𝄞") (record/plain-bytes "\u0000a")
               (record/plain-bytes-of nil) (record/plain-bytes-of retract-row)])
       [(the-bytes -61 -87 -30 -100 -109 -16 -99 -124 -98) (the-bytes 0 97) nil nil]]
-     ["the row of a retract: no value, and the row is there; it holds who retracted and under which permission, and no other field"
+     ["the row of a retract: no value, and the row is there; it holds who retracted, under which permission and at what time, and no other field"
       (fn [] retract-row)
-      (merge {:by-act u :by-index 1 :stamp 900} written-by-alice)]
+      (merge {:by-act u :by-index 1 :stamp 900 :time now} written-by-alice)]
      ["who wrote a row and the permission that its act named are each the one text, so a who that is a UUID reads back as a UUID; nothing for no row, for a row with neither, and for a text that is no id or no permission"
       (fn [] [(record/who-of value-row) (record/permission-of value-row)
               (:who by-uuid) (record/who-of by-uuid) (record/permission-of by-uuid)
@@ -1452,7 +1411,7 @@
               (record/marked-keys-of {:level-since "(((("}) (record/marked-keys-of {:level-since "[:on 100]"})
               (record/marked-keys-of {:level-since "{:on \"100\"}"}) (record/marked-keys-of {:level-since "{\"on\" 100}"})])
       ["{:on 100 :tool/parent 140}"
-       {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String" :level-since "String"}
+       {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :time "Long" :who "String" :permission "String" :level-since "String"}
        {:on 100 :tool/parent 140} #{:on :tool/parent}
        {} {} {} {} {} {}]]
      ["the value digest: the SHA-256 of a row's value bytes, 64 hex characters; of a value, the digest of the UTF-8 of its one text"
@@ -1462,15 +1421,17 @@
       [d-c1 64
        d-c1 (digest-of-text "#uuid \"00000000-0000-0000-0000-000000000009\"") (digest-of-text "\"a string with spaces\"")
        (digest-of-text "42") (digest-of-text "{:a [2 3] :b 1}") (digest-of-text "42")]]
-     ["a key of the facts by value: layer, key, the stamp since which the key is marked, the value digest, then the entity; its row is the fact's row without its value, with the two texts as they were given"
-      (fn [] (let [row (by-value-row writer u (int 2) (int 900))]
+     ["a key of the facts by value: layer, key, the stamp since which the key is marked, the value digest, then the entity; its row is the fact's row without its value, with the two texts and the time as they were given"
+      (fn [] (let [row (by-value-row writer u (int 2) (int 900) (int 1700001))]
                [(record/by-value-key :alice :on 100 d-c1 :b1)
                 (record/by-value-key (uuid 1) :tool/on 140 d-c1 (uuid 2))
-                row (classes row)]))
+                row (classes row)
+                (= (dissoc value-row :value) row)]))
       [(str ":alice :on 100 " d-c1 " :b1")
        (str "00000000-0000-0000-0000-000000000001 :tool/on 140 " d-c1 " 00000000-0000-0000-0000-000000000002")
-       (merge {:by-act u :by-index 2 :stamp 900} written-by-alice)
-       {:by-act "UUID" :by-index "Long" :stamp "Long" :who "String" :permission "String"}]]
+       (merge {:by-act u :by-index 2 :stamp 900 :time 1700001} written-by-alice)
+       {:by-act "UUID" :by-index "Long" :stamp "Long" :time "Long" :who "String" :permission "String"}
+       true]]
      ["the run of one value: from the run's text with a space to the same text with an exclamation mark; a key of that value is in it, whatever its entity"
       (fn [] (let [[from to] (record/by-value-run :alice :on 100 :c1)
                    in? (fn [k] (and (<= (compare from k) 0) (neg? (compare k to))))]
@@ -1576,13 +1537,14 @@
 ;; --------------------------------------------------------------- the decision
 
 (defn- permission-row
-  "The row of a permission fact, as an accept writes it."
+  "The row of a permission fact, as an accept writes it: by the making act
+  of Alice's layer, with the stamp 0 and the time `now`."
   [permission]
-  (fact-row writer (arrived-fact (first permission) :softland.store/permission permission) (uuid 90) 1 (stamp/pack now 0)))
+  (fact-row writer (arrived-fact (first permission) :softland.store/permission permission) (uuid 90) 1 0 now))
 
 (def ^:private depot-row
   "The row of the depot fact of Alice's layer."
-  (fact-row writer (arrived-fact :alice :softland.store/depot :streaming) (uuid 90) 0 (stamp/pack now 0)))
+  (fact-row writer (arrived-fact :alice :softland.store/depot :streaming) (uuid 90) 0 0 now))
 
 (def ^:private bobs-see
   "Bob's permission in Alice's layer, beneath hers, that says see."
@@ -1617,9 +1579,9 @@
         base-making (making :base :system :system)
         systems-texts [":system" "[:system :base :base]"]
         a-depot-row-of-the-base (fact-row systems-texts (arrived-fact :base :softland.store/depot :microbatch)
-                                          (uuid 90) 0 (stamp/pack now 0))
+                                          (uuid 90) 0 0 now)
         a-permission-row-of-the-base (fact-row systems-texts (arrived-fact :system :softland.store/permission [:system :base :base])
-                                               (uuid 90) 1 (stamp/pack now 0))]
+                                               (uuid 90) 1 0 now)]
     [["the act's permission is at its holder's place" alices (permission-row alice-own) nil nil false]
      ["an act under a permission given beneath another, at its holder's place" bobs-act (permission-row bobs) nil nil false]
      ["the place holds another permission of the same holder" (assoc alices :permission [:alice :alice :alice [:x :alice :alice]])
@@ -1672,11 +1634,10 @@
    [["the places that the standing reads: who's permission, then the layer's depot"
      (fn [] [(decision/permission-place (act-of good)) (decision/depot-place (act-of good))])
      [":alice :alice :softland.store/permission" ":alice :alice :softland.store/depot"]]
-    ["an act into the base on the streaming depot is no stray there, the declaration's check takes it, and no early check refuses it: it is the standing that has the word"
+    ["an act into the base on the streaming depot is no stray there, and the declaration's check, the one check before the standing, takes it: it is the standing that has the word"
      (fn [] [(declaration/stray-reason :streaming base-on-the-streaming-depot)
-             (verdict (declaration/check base-on-the-streaming-depot))
-             (decision/refused-early (decision/time-on base-on-the-streaming-depot) (act-of base-on-the-streaming-depot) nil)])
-     [nil :ok nil]]
+             (verdict (declaration/check base-on-the-streaming-depot))])
+     [nil :ok]]
     ["what a permission allows, read from its one form: a first permission and one given without the slot read as see and act; with the slot, what the slot says; the slot of a permission above it is not read"
      (fn [] (mapv act/allows [alice-own bobs bobs-see bobs-see-and-act [:carol :alice :alice bobs-see]]))
      [:see-and-act :see-and-act :see :see-and-act :see-and-act]]]
@@ -1688,69 +1649,52 @@
         standing-rows)))
 
 (def ^:private early-cases
-  "The cases of the checks that read nothing of the record: the time on a
-  thing, which the walk gives to them for both gates; the declaration's
-  word; and the 10-second rule, held against that time. The checks take no
-  gate's depot: `line-cases` holds the rule for an act of the base as the
-  walk in memory decides it."
-  (let [carrying-at (fn [t millis] (assoc (at-time t) :based-on {[(act-id 2) 0] (stamp/pack millis 0)}))
-        carrying (fn [millis] (act-of (carrying-at now millis)))
-        early (fn [thing] (let [checked (declaration/check thing)]
-                            (decision/refused-early (decision/time-on thing) (:ok checked) (:refuse checked))))]
-    [["the time on a thing is the usable time that it holds: `now` for the least thing"
-      (fn [] (decision/time-on good))
-      now]
-     ["a thing that the declaration refuses for another fault keeps its time: a wrong version, a part that the form does not know, facts that throw when they are read, a value over the bound; each with the check's word"
-      (fn [] (mapv (fn [x] [(decision/time-on x) (verdict (declaration/check x))])
-                   [(assoc good :version 2) (assoc good :owner 1) (assoc good :facts (throwing))
-                    (arrived 1 (value-at :note-1 :text over-the-bound))]))
-      [[now :unknown-version] [now :unknown-part] [now :malformed] [now :value-too-large]]]
-     ["a thing with no usable time has none: no time, a nil one, a double, a time of 2^46; and a thing that is no map, or that throws when it is read"
-      (fn [] (mapv decision/time-on [(without-time good) (at-time nil) (at-time 1.7E12) (at-time (bit-shift-left 1 46))
-                                     nil 5 (throwing)]))
-      [nil nil nil nil nil nil nil]]
-     ["the declaration's word comes first"
-      (fn [] (decision/refused-early now nil :value-too-large))
-      :value-too-large]
-     ["a thing with no time, as the walk hands it, with nil for the time and the declaration's word"
-      (fn [] (early (without-time good)))
-      :no-door-time]
-     ["an act that carries no stamp, or one in the past, or one 10 seconds ahead, goes on"
-      (fn [] [(decision/refused-early now (act-of good) nil)
-              (decision/refused-early now (carrying (- now 5000)) nil)
-              (decision/refused-early now (carrying (+ now 10000)) nil)])
-      [nil nil nil]]
-     ["an act that carries a stamp more than 10 seconds ahead of the time on it is refused"
-      (fn [] (decision/refused-early now (carrying (+ now 10001)) nil))
-      :carried-stamp-too-far-ahead]
-     ["the rule is held against the thing's own time: one carried stamp, 10,001 ms after `now`, on a thing whose time is `now` and on a thing whose time is one millisecond later"
-      (fn [] [(early (carrying-at now (+ now 10001))) (early (carrying-at (inc now) (+ now 10001)))])
-      [:carried-stamp-too-far-ahead nil]]
-     ["with nil for the time the rule refuses nothing, an act that carries a stamp an hour ahead goes on; the same thing with its time taken off gets the declaration's word, so no act goes on without a time"
-      (fn [] [(decision/refused-early nil (carrying (+ now 3600000)) nil)
-              (early (without-time (carrying-at now (+ now 3600000))))])
-      [nil :no-door-time]]
-     ["claimed-when far ahead is a claim: no refusal"
-      (fn [] (decision/refused-early now (act-of (assoc good :claimed-when Long/MAX_VALUE)) nil))
-      nil]]))
+  "The cases of what the walk takes before it reads the record: the time on
+  a thing, which the walk hands to `writes` for both gates, and the
+  declaration's word, which the walk takes as it is. No check reads the
+  time on the act or a stamp that the act carries: before the record, a
+  thing is refused for its form alone."
+  [["the time on a thing is the usable time that it holds: `now` for the least thing"
+    (fn [] (decision/time-on good))
+    now]
+   ["a thing that the declaration refuses for another fault keeps its time: a wrong version, a part that the form does not know, facts that throw when they are read, a value over the bound; each with the check's word"
+    (fn [] (mapv (fn [x] [(decision/time-on x) (verdict (declaration/check x))])
+                 [(assoc good :version 2) (assoc good :owner 1) (assoc good :facts (throwing))
+                  (arrived 1 (value-at :note-1 :text over-the-bound))]))
+    [[now :unknown-version] [now :unknown-part] [now :malformed] [now :value-too-large]]]
+   ["a thing with no usable time has none: no time, a nil one, a double, a time below zero; and a thing that is no map, or that throws when it is read"
+    (fn [] (mapv decision/time-on [(without-time good) (at-time nil) (at-time 1.7E12) (at-time -1)
+                                   nil 5 (throwing)]))
+    [nil nil nil nil nil nil nil]]
+   ["a time far ahead of every clock is the time on the thing as it is, and the declaration takes the thing: nothing holds the time against a clock or a bound"
+    (fn [] (let [thing (at-time far-ahead)] [(decision/time-on thing) (verdict (declaration/check thing))]))
+    [far-ahead :ok]]
+   ["an act with no time gets the declaration's word, whatever stamp it carries: no act goes on without a time"
+    (fn [] (verdict (declaration/check (without-time (assoc good :based-on {[(act-id 2) 0] Long/MAX_VALUE})))))
+    :no-door-time]
+   ["claimed-when far ahead is a claim: no refusal"
+    (fn [] (verdict (declaration/check (assoc good :claimed-when Long/MAX_VALUE))))
+    :ok]])
 
 (defn- row-by
   "The row that the fact `index` of the act `(act-id n)` wrote: a value at
-  :note-1 :text."
+  :note-1 :text. Its stamp is 200, later than the stamp 100 since which the
+  cases mark a key, so that such a row before under a marked key has an
+  entry in the facts by value; and its time is `now`."
   [n index]
-  (fact-row writer (arrived-fact :note-1 :text "a text before") (uuid n) index (stamp/pack now 0)))
+  (fact-row writer (arrived-fact :note-1 :text "a text before") (uuid n) index 200 now))
 
 (defn- setting-row
   "The row that the fact 0 of the act `(act-id n)` wrote under a store key on
-  Alice's layer."
+  Alice's layer, with the stamp and the time of `row-by`."
   [n k v]
-  (fact-row writer (arrived-fact :alice k v) (uuid n) 0 (stamp/pack now 0)))
+  (fact-row writer (arrived-fact :alice k v) (uuid n) 0 200 now))
 
 (def ^:private places-rows
   "For each: the facts of Alice's act, the rows of the places read (by
   entity and key), and the word of `places`."
   (let [replacing (fn [fact-id] (assoc (value-at :note-1 :text) :replaces fact-id))
-        retract-row (fact-row writer (arrived-fact :note-1 :text) (uuid 8) 0 (stamp/pack now 0))
+        retract-row (fact-row writer (arrived-fact :note-1 :text) (uuid 8) 0 200 now)
         see :softland.store/who-may-see
         on :softland.store/builds-on
         marks :softland.store/marked-keys]
@@ -1860,11 +1804,13 @@
      :replaced-fact-not-current]]))
 
 (def ^:private writes-cases
-  "The cases of the stamp of a decision and of the rows that a decision
-  writes: a refusal, an accept, a making act, a retract, and a write of the
-  marked keys, with the stamp of a newly marked key as the walk hands it
-  for an act of either gate."
-  (let [stamp (stamp/pack now 0)
+  "The cases of the rows that a decision writes: a refusal, an accept, a
+  making act, a retract, and a write of the marked keys, with the stamp of a
+  newly marked key as the walk hands it for an act of either gate; and the
+  time on the act, which a decision writes beside the stamp as a label.
+  `writes` makes no stamp: it writes the one that the walk gives it. The
+  stamp here is 300, later than the rows before of `row-by`."
+  (let [stamp 300
         digest (digest/digest good)
         value-act (act-of good)
         answer-key (record/answer-key :alice (uuid 1))
@@ -1873,103 +1819,99 @@
         marking (fn [keys] (act-of (arrived 1 {:e :alice :k :softland.store/marked-keys :v keys})))
         marks-before (record/with-level-since (setting-row 7 :softland.store/marked-keys #{:on :gone}) {:on 100 :gone 100})
         level-since-of (fn [act row-before level-from]
-                         (let [[[_ _ row]] (decision/writes (act-id 1) act nil stamp digest
+                         (let [[[_ _ row]] (decision/writes (act-id 1) act nil stamp now digest
                                                             {:place-rows {marks-place row-before} :level-from level-from})]
                            (record/marked-keys-of row)))
+        ;; the stamp of a marked key and a row before, in hand for an accept of `value-act`
+        in-hand {:since-by-place {note-place 100} :place-rows {note-place (row-by 7 0)} :level-from stamp}
         uuid-who "#uuid \"00000000-0000-0000-0000-00000000004d\""]
-    [["the stamp of a decision. An accept's is later than the layer's last stamp and than each stamp that the act carries. A refusal's is the layer's last stamp plus one, or 0 in a layer with no last stamp, with nothing of the time on the thing or of a stamp that it carries: a thing that the declaration refused, and an act that carries a later stamp and is refused for its standing"
-      (fn [] (let [carrying (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack (+ now 3000) 5)}))]
-               [(decision/stamp-of now nil nil :malformed)
-                (decision/stamp-of now (stamp/pack now 4) (act-of good) nil)
-                (decision/stamp-of now (stamp/pack now 4) carrying nil)
-                (decision/stamp-of now (stamp/pack now 4) carrying :layer-not-made)]))
-      [0 (stamp/pack now 5) (stamp/pack (+ now 3000) 6) (stamp/pack now 5)]]
-     ["a refused thing moves no layer's time: a thing with a wrong version and a time one hour after `now`, its time read with `time-on`. In a layer with no last stamp its stamp is 0, which holds no time; after a last stamp of the time `now` it is that stamp plus one, an hour before the time on the thing; after a last stamp of a later time it is that stamp plus one too"
-      (fn [] (let [hour 3600000
-                   refused (assoc (at-time (+ now hour)) :version 2)
-                   word (:refuse (declaration/check refused))
-                   stamp-after (fn [last-stamp] (decision/stamp-of (decision/time-on refused) last-stamp nil word))]
-               [word (- (decision/time-on refused) now) (stamp-after nil) (stamp/time-of (stamp-after nil)) (stamp-after (stamp/pack now 4))
-                (stamp-after (stamp/pack (+ now hour 9) 4))]))
-      [:unknown-version 3600000 0 0 (stamp/pack now 5) (stamp/pack (+ now 3600009) 5)]]
-     ["the stamp of a refused thing that has no time: the layer's last stamp plus one, and 0 in a layer with no last stamp"
-      (fn [] (let [refused (without-time good)
-                   word (:refuse (declaration/check refused))
-                   stamp-after (fn [last-stamp] (decision/stamp-of (decision/time-on refused) last-stamp nil word))]
-               [word (decision/time-on refused) (stamp-after (stamp/pack now 4)) (stamp-after nil)]))
-      [:no-door-time nil (stamp/pack now 5) 0]]
-     ["an act refused for a carried stamp too far ahead gets the stamp of any refusal, the layer's last stamp plus one"
-      (fn [] (decision/stamp-of now (stamp/pack now 4)
-                                (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack (+ now 60000) 0)}))
-                                :carried-stamp-too-far-ahead))
-      (stamp/pack now 5)]
-     ["a refusal writes the answer and the last stamp, and nothing else; what the walk has in hand is not read: with the stamp of a marked key and a row before in hand, an accept of the same act writes the fact's row and two rows of the facts by value beside them"
-      (fn [] (let [in-hand {:since-by-place {note-place 100} :place-rows {note-place (row-by 7 0)} :level-from stamp}]
-               [(decision/writes (act-id 1) value-act :replaced-fact-not-current stamp digest {})
-                (decision/writes (act-id 1) value-act :replaced-fact-not-current stamp digest in-hand)
-                (mapv first (decision/writes (act-id 1) value-act nil stamp digest in-hand))]))
-      [[[:answer answer-key {:refused :replaced-fact-not-current :stamp stamp :digest digest}]
+    [["a refusal writes the answer, with the time on the thing, and the last stamp, and nothing else; what the walk has in hand is not read: with the stamp of a marked key and a row before in hand, an accept of the same act writes the fact's row and two rows of the facts by value beside them"
+      (fn [] [(decision/writes (act-id 1) value-act :replaced-fact-not-current stamp now digest {})
+              (decision/writes (act-id 1) value-act :replaced-fact-not-current stamp now digest in-hand)
+              (mapv first (decision/writes (act-id 1) value-act nil stamp now digest in-hand))])
+      [[[:answer answer-key {:refused :replaced-fact-not-current :stamp stamp :time now :digest digest}]
         [:last-stamp nil stamp]]
-       [[:answer answer-key {:refused :replaced-fact-not-current :stamp stamp :digest digest}]
+       [[:answer answer-key {:refused :replaced-fact-not-current :stamp stamp :time now :digest digest}]
         [:last-stamp nil stamp]]
        [:fact :by-value :by-value :answer :last-stamp]]]
-     ["a thing that the declaration refused, which is no act, writes the same two"
-      (fn [] (decision/writes (act-id 1) nil :malformed stamp digest {}))
-      [[:answer answer-key {:refused :malformed :stamp stamp :digest digest}]
+     ["a thing that the declaration refused, which is no act, writes the same two, and its answer keeps the time that the thing carried"
+      (fn [] (decision/writes (act-id 1) nil :malformed stamp now digest {}))
+      [[:answer answer-key {:refused :malformed :stamp stamp :time now :digest digest}]
        [:last-stamp nil stamp]]]
-     ["an accept of one value writes three rows: the fact, with the one text of its value, who wrote it and the permission that the act named; the answer; the last stamp"
-      (fn [] (decision/writes (act-id 1) value-act nil stamp digest {}))
-      [[:fact note-place (merge {:value "\"a text\"" :by-act (uuid 1) :by-index 0 :stamp stamp} written-by-alice)]
-       [:answer answer-key {:stamp stamp :digest digest}]
+     ["a thing with no usable time, as the walk hands it, with what `time-on` gives and the declaration's word: the same two writes, and its answer holds no :time"
+      (fn [] (let [thing (without-time good)
+                   time-millis (decision/time-on thing)
+                   word (:refuse (declaration/check thing))]
+               [time-millis word (decision/writes (act-id 1) nil word stamp time-millis digest {})]))
+      [nil :no-door-time
+       [[:answer answer-key {:refused :no-door-time :stamp stamp :digest digest}]
+        [:last-stamp nil stamp]]]]
+     ["an accept of one value writes three rows: the fact, with the one text of its value, the time on the act, who wrote it and the permission that the act named; the answer, with the time on the act; the last stamp"
+      (fn [] (decision/writes (act-id 1) value-act nil stamp now digest {}))
+      [[:fact note-place (merge {:value "\"a text\"" :by-act (uuid 1) :by-index 0 :stamp stamp :time now} written-by-alice)]
+       [:answer answer-key {:stamp stamp :time now :digest digest}]
        [:last-stamp nil stamp]]]
-     ["the fact's row holds the text of the value in its normal form, whatever form its maker gave: its String as written out here, the value that it reads back as, its plain bytes, and the six fields of the row"
+     ["the time is a label beside the stamp in each row that an accept writes: the fact's row, the entry of its value in the facts by value, and the answer each hold the stamp given and the time on the act, as [stamp, time]; the entry of the value before is taken out and holds nothing"
+      (fn [] (mapv (fn [[which _ row]] [which (if (map? row) [(:stamp row) (:time row)] row)])
+                   (decision/writes (act-id 1) value-act nil stamp now digest in-hand)))
+      [[:fact [stamp now]] [:by-value nil] [:by-value [stamp now]] [:answer [stamp now]] [:last-stamp stamp]]]
+     ["a time far ahead of every clock is written as it is and changes nothing else: an accept, and a refusal, with the time 2^50 ms give the rows that they give with the time `now`, but for :time; the stamp is the one given"
+      (fn [] (let [without-the-time (fn [writes] (mapv (fn [[which k row]] [which k (if (map? row) (dissoc row :time) row)]) writes))
+                   accept-at (fn [t] (decision/writes (act-id 1) value-act nil stamp t digest in-hand))
+                   refusal-at (fn [t] (decision/writes (act-id 1) value-act :layer-not-made stamp t digest {}))]
+               [(= (comparable (without-the-time (accept-at far-ahead))) (comparable (without-the-time (accept-at now))))
+                (= (comparable (without-the-time (refusal-at far-ahead))) (comparable (without-the-time (refusal-at now))))
+                (vec (keep (fn [[_ _ row]] (when (map? row) (:time row))) (accept-at far-ahead)))
+                (mapv (fn [[which _ row]] (if (map? row) (:stamp row) row)) (refusal-at far-ahead))]))
+      [true true [far-ahead far-ahead far-ahead] [stamp stamp]]]
+     ["the fact's row holds the text of the value in its normal form, whatever form its maker gave: its String as written out here, the value that it reads back as, its plain bytes, and the seven fields of the row"
       (fn [] (let [act (act-of (arrived 1 (value-at :note-1 :text (array-map :b 1.50M :a [(int 1) 2N]))))
-                   [[_ _ row]] (decision/writes (act-id 1) act nil stamp digest {})]
+                   [[_ _ row]] (decision/writes (act-id 1) act nil stamp now digest {})]
                [(:value row) (record/read-value row) (record/plain-bytes-of row) (sort (keys row))]))
       ["{:a [1 2] :b 1.5M}" [:value {:a [1 2] :b 1.5M}] (utf8 "{:a [1 2] :b 1.5M}")
-       [:by-act :by-index :permission :stamp :value :who]]]
+       [:by-act :by-index :permission :stamp :time :value :who]]]
      ["the texts of who and of the permission are made once for the act and each row holds them: an act by a who that is a UUID, with a value and a retract"
       (fn [] (let [act (act-of (assoc (arrived 1 (value-at :note-1 :text) {:e :note-2 :k :text})
                                       :who (uuid 77) :permission [(uuid 77) :alice :alice alice-own :see-and-act]))]
                (mapv (fn [[_ _ row]] (select-keys row [:who :permission]))
-                     (take 2 (decision/writes (act-id 1) act nil stamp digest {})))))
+                     (take 2 (decision/writes (act-id 1) act nil stamp now digest {})))))
       (vec (repeat 2 {:who uuid-who :permission (str "[" uuid-who " :alice :alice [:alice :alice :alice] :see-and-act]")}))]
-     ["an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the layer and the permission that the act named"
-      (fn [] (decision/writes [:team :streaming (uuid 1)] (making :team :alice :alice) nil stamp digest {}))
+     ["an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the layer, the permission that the act named and the time on the act"
+      (fn [] (decision/writes [:team :streaming (uuid 1)] (making :team :alice :alice) nil stamp now digest {}))
       [[:fact ":team :team :softland.store/depot"
-        {:value ":streaming" :by-act (uuid 1) :by-index 0 :stamp stamp :who ":alice" :permission "[:alice :team :team]"}]
+        {:value ":streaming" :by-act (uuid 1) :by-index 0 :stamp stamp :time now :who ":alice" :permission "[:alice :team :team]"}]
        [:fact ":team :alice :softland.store/permission"
-        {:value "[:alice :team :team]" :by-act (uuid 1) :by-index 1 :stamp stamp :who ":alice" :permission "[:alice :team :team]"}]
-       [:answer (record/answer-key :team (uuid 1)) {:stamp stamp :digest digest}]
+        {:value "[:alice :team :team]" :by-act (uuid 1) :by-index 1 :stamp stamp :time now :who ":alice" :permission "[:alice :team :team]"}]
+       [:answer (record/answer-key :team (uuid 1)) {:stamp stamp :time now :digest digest}]
        [:last-stamp nil stamp]]]
      ["the system makes a personal layer for its person: the rows hold the system as who, and the person's permission"
       (fn [] (mapv (fn [[_ _ row]] (select-keys row [:who :permission]))
-                   (take 2 (decision/writes [:alice :streaming (uuid 1)] (making :alice :system :alice) nil stamp digest {}))))
+                   (take 2 (decision/writes [:alice :streaming (uuid 1)] (making :alice :system :alice) nil stamp now digest {}))))
       [{:who ":system" :permission "[:alice :alice :alice]"} {:who ":system" :permission "[:alice :alice :alice]"}]]
-     ["an accept of a retract and a permission given writes a row for each: the retract's has no value; each holds who and the permission"
+     ["an accept of a retract and a permission given writes a row for each: the retract's has no value; each holds who, the permission and the time"
       (fn [] (mapv (fn [[which key row]] [which key (if (map? row) (dissoc row :by-act :stamp) row)])
                    (decision/writes (act-id 1)
                                     (act-of (arrived 1 {:e :note-1 :k :text} {:e :bob :k :softland.store/permission :v bobs}))
-                                    nil stamp digest {})))
-      [[:fact note-place (merge {:by-index 0} written-by-alice)]
+                                    nil stamp now digest {})))
+      [[:fact note-place (merge {:by-index 0 :time now} written-by-alice)]
        [:fact ":alice :bob :softland.store/permission"
-        (merge {:value "[:bob :alice :alice [:alice :alice :alice]]" :by-index 1} written-by-alice)]
-       [:answer answer-key {:digest digest}]
+        (merge {:value "[:bob :alice :alice [:alice :alice :alice]]" :by-index 1 :time now} written-by-alice)]
+       [:answer answer-key {:time now :digest digest}]
        [:last-stamp nil stamp]]]
      ["a give with the slot writes the permission's whole text, slot and all: what the gate later compares with the permission that an act names"
       (fn [] (let [[[_ k row]] (decision/writes (act-id 1) (act-of (arrived 1 {:e :bob :k :softland.store/permission :v bobs-see}))
-                                                nil stamp digest {})]
+                                                nil stamp now digest {})]
                [k (:value row) (record/holds-value? row bobs-see) (record/holds-value? row bobs)]))
       [":alice :bob :softland.store/permission" "[:bob :alice :alice [:alice :alice :alice] :see]" true false]]
      ["a give of a permission 32 deep writes its whole text, as Clojure prints the permission, with its 32 vectors; the row holds that permission and not the one above it"
       (fn [] (let [given (reduce (fn [parent _] [:bob :alice :alice parent]) alice-own (range 31))
                    [[_ _ row]] (decision/writes (act-id 1) (act-of (arrived 1 {:e :bob :k :softland.store/permission :v given}))
-                                                nil stamp digest {})]
+                                                nil stamp now digest {})]
                [(= (:value row) (pr-str given)) (count (re-seq #"\[" (:value row)))
                 (record/holds-value? row given) (record/holds-value? row (nth given 3))]))
       [true 32 true false]]
      ["a write of the marked keys: the row holds the set that the maker wrote and, derived at the write, the stamp of each key; a newly marked key gets the number under :level-from, here 500, which is not the stamp of the act, so that the two are told apart"
-      (fn [] (let [[[which k row] & more] (decision/writes (act-id 1) (marking #{:on :tool/parent}) nil stamp digest
+      (fn [] (let [[[which k row] & more] (decision/writes (act-id 1) (marking #{:on :tool/parent}) nil stamp now digest
                                                            {:place-rows {marks-place nil} :level-from 500})]
                [which k (:value row) (record/read-value row) (record/marked-keys-of row) (mapv first more)]))
       [:fact marks-place "#{:on :tool/parent}" [:value #{:on :tool/parent}] {:on 500 :tool/parent 500} [:answer :last-stamp]]]
@@ -1977,7 +1919,7 @@
       (fn [] (mapv (fn [thing]
                      (let [act (act-of thing)
                            place (decision/marked-keys-place act)
-                           [[_ k row]] (decision/writes (:act-id thing) act nil stamp (digest/digest thing)
+                           [[_ k row]] (decision/writes (:act-id thing) act nil stamp (decision/time-on thing) (digest/digest thing)
                                                         {:place-rows {place nil} :level-from stamp})]
                        [k (:stamp row) (record/marked-keys-of row)]))
                    [(arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on}})
@@ -1995,7 +1937,7 @@
                    (take 2 (decision/writes (act-id 1)
                                             (act-of (arrived 1 {:e :alice :k :softland.store/who-may-see :v :everyone}
                                                              {:e :alice :k :softland.store/builds-on :v [:base :team]}))
-                                            nil stamp digest {}))))
+                                            nil stamp now digest {}))))
       [[":alice :alice :softland.store/who-may-see" ":everyone" [:value :everyone] false]
        [":alice :alice :softland.store/builds-on" "[:base :team]" [:value [:base :team]] false]]]]))
 
@@ -2010,7 +1952,8 @@
   a newly marked key. Takes the record, {:facts :by-value}, each a map from
   key to row; the number of the act's act-id; its stamp; and its facts as a
   maker gives them. The act goes through the declaration's check, which
-  gives each value its text. Gives the record after, with :writes, the rows
+  gives each value its text, and its time, `now`, goes to `writes` as the
+  walk hands it. Gives the record after, with :writes, the rows
   of the decision but the answer and the last stamp."
   [record n stamp & facts]
   (let [thing (apply arrived n facts)
@@ -2022,7 +1965,7 @@
                           (map (fn [k] [k (get-in record [:facts k])]))
                           (decision/rows-before-needed since {}))
         writes (remove (fn [[which]] (contains? #{:answer :last-stamp} which))
-                       (decision/writes (act-id n) act nil stamp (digest/digest thing)
+                       (decision/writes (act-id n) act nil stamp (decision/time-on thing) (digest/digest thing)
                                         {:since-by-place since :place-rows rows-before :level-from stamp}))]
     (assoc (reduce (fn [record [which k row]]
                      (case which
@@ -2080,7 +2023,7 @@
       [{:on 100}
        [[:fact ":alice :b1 :on" true] [:by-value (entry-key 100 :c1 :b1) true]]
        #{(str ":alice :on 100 " (digest-of-text ":c1") " :b1")}
-       (merge {:by-index 0 :stamp 110} written-by-alice)
+       (merge {:by-index 0 :stamp 110 :time now} written-by-alice)
        ":c1"]]
      ["the mark is taken off: no key is marked, and the row stays; a fact that is then replaced writes nothing in that order, so the row that stays is of a fact that is no longer current"
       (fn [] [(stamps-of s3) (keys-of s3) (which-keys s4) (keys-of s4) (record/read-value (get-in s4 [:facts ":alice :b1 :on"]))])
@@ -2199,14 +2142,26 @@
   permission in the base holds: of who and of the permission."
   [":system" "[:system :base :base]"])
 
+(def ^:private before-the-line
+  "The last stamp of the base in each record that a line of the proof starts
+  from, 30: thirty-one decisions of the base came before the line, from 0.
+  It is also the stamp of each row that such a record holds but the rows of
+  facts from before a mark of their key (`marks-line`)."
+  30)
+
+(def ^:private time-before-the-line
+  "The time on each act whose rows a record before a line holds: five
+  seconds before `now`."
+  (- now 5000))
+
 (def ^:private base-depot-row
   "The row of the depot fact of the base."
-  (fact-row base-writer (arrived-fact :base :softland.store/depot :microbatch) (uuid 800) 0 (stamp/pack (- now 5000) 0)))
+  (fact-row base-writer (arrived-fact :base :softland.store/depot :microbatch) (uuid 800) 0 before-the-line time-before-the-line))
 
 (defn- base-permission-row
   "The row of a permission fact of the base, as an accept writes it."
   [permission]
-  (fact-row base-writer (arrived-fact (first permission) :softland.store/permission permission) (uuid 800) 1 (stamp/pack (- now 5000) 0)))
+  (fact-row base-writer (arrived-fact (first permission) :softland.store/permission permission) (uuid 800) 1 before-the-line time-before-the-line))
 
 (def ^:private carols-see
   "Carol's permission in the base, beneath the system's, that says see."
@@ -2221,7 +2176,7 @@
   [since-by-key]
   (record/with-level-since
    (fact-row base-writer (arrived-fact :base :softland.store/marked-keys (set (keys since-by-key))) (uuid 800) 2
-             (stamp/pack (- now 5000) 0))
+             before-the-line time-before-the-line)
    since-by-key))
 
 (def ^:private base-made
@@ -2229,12 +2184,6 @@
   [table key row]: the depot fact and the system's permission."
   [[:facts ":base :base :softland.store/depot" base-depot-row]
    [:facts ":base :system :softland.store/permission" (base-permission-row system-own)]])
-
-(def ^:private before-the-line
-  "The last stamp of the base in each record that a line of the proof starts
-  from: of a time five seconds before `now`, the stamp of the rows of
-  `base-made`."
-  (stamp/pack (- now 5000) 0))
 
 (def ^:private base-standing-rows
   "For each: an act into the base as it arrives on the microbatch depot, the
@@ -2318,9 +2267,8 @@
 
 (def ^:private other-gate-cases
   "The cases of a layer of the other gate, for both gates: one for each row
-  of `other-gate-rows`. Each thing is no stray on its depot, the
-  declaration's check takes it and no early check refuses it, so the
-  standing has the word. `standing` and `makes-the-layer?` are handed nil
+  of `other-gate-rows`. Each thing is no stray on its depot and the
+  declaration's check takes it, so the standing has the word. `standing` and `makes-the-layer?` are handed nil
   for both rows: the word comes from the gate's depot and the act alone.
   They take no row of the other gate's record, so whether the other gate
   has made the layer cannot change it."
@@ -2330,13 +2278,12 @@
                        other-gate (if (= :streaming gate) :microbatch :streaming)]
                    [(declaration/stray-reason gate thing)
                     (verdict (declaration/check thing))
-                    (decision/refused-early (decision/time-on thing) act nil)
                     (first-act/starts-with-the-other-gates-depot? gate (:layer act))
                     (first-act/making-act? gate act)
                     (first-act/making-act? other-gate act)
                     (decision/standing gate act nil nil)
                     (decision/makes-the-layer? gate act nil nil)]))
-          [nil :ok nil other? form-here? form-there? word makes?]])
+          [nil :ok other? form-here? form-there? word makes?]])
        other-gate-rows))
 
 ;; ------------------------------------------ the walk of one thing, in memory
@@ -2381,13 +2328,15 @@
 
   The steps. A stray's digest goes to the set of its word. A thing under an
   act-id that has an answer changes nothing. Else: the declaration's check,
-  the time on the thing and the early checks; the row of who's permission,
-  and the row of the layer's depot only when the first is nil; the rows
-  that `places-needed` names; for an act that no check refused and that
-  reads the marked keys, the marks row and the rows before that are still
-  to be read; the layer's last stamp, the stamp, and the writes, with the
-  act's own stamp as the stamp of a newly marked key. The last stamp is
-  kept under the text of the thing's layer.
+  whose word the walk takes as it is, and the time on the thing; the row of
+  who's permission, and the row of the layer's depot only when the first is
+  nil; the rows that `places-needed` names; for an act that no check
+  refused and that reads the marked keys, the marks row and the rows before
+  that are still to be read; the layer's last stamp, the stamp
+  (`softland.store.gate.stamp/next-stamp` of that last stamp alone), and
+  the writes, with the time on the thing and with the act's own stamp as
+  the stamp of a newly marked key. The last stamp is kept under the text
+  of the thing's layer.
 
   It is the proof's own function. What it shows is what the pure functions
   give when they are called in this order, each against the rows that the
@@ -2405,7 +2354,7 @@
               rows-at (fn [ks] (into {} (map (fn [k] [k (get facts k)])) ks))
               {act :ok reason :refuse} (declaration/check thing)
               time-millis (decision/time-on thing)
-              early (decision/refused-early time-millis act reason)
+              early reason
               permission-row (when-not early (get facts (decision/permission-place act)))
               depot-row (when (and (not early) (nil? permission-row)) (get facts (decision/depot-place act)))
               no-standing (or early (decision/standing gate act permission-row depot-row))
@@ -2422,8 +2371,8 @@
                                     marks-key marks-row)
                              place-rows)
               layer-text (declaration/id-text layer)
-              stamp (decision/stamp-of time-millis (get-in record [:last-stamp layer-text]) act refused)
-              writes (decision/writes act-id act refused stamp (digest/digest thing)
+              stamp (stamp/next-stamp (get-in record [:last-stamp layer-text]))
+              writes (decision/writes act-id act refused stamp time-millis (digest/digest thing)
                                       (if refused {} {:since-by-place since :place-rows rows-in-hand :level-from stamp}))]
           (assoc (reduce (fn [record [which k row]]
                            (case which
@@ -2501,7 +2450,8 @@
   one fact; two that write one place and name nothing; a give and an act
   under it, in both orders; a value alone on its entity; a repeat; one
   act-id under two things; two acts for layers of the other gate; a plain
-  value under a plain key; two strays; acts with no standing; an act with
+  value under a plain key; two strays; acts with no standing, one of which
+  carries the greatest stamp there is; an act with
   three values that is accepted, and one that is refused whole; an act that
   writes a place and names nothing, then one that replaces the fact that
   was there before the line; and two things that the declaration refuses."
@@ -2511,9 +2461,9 @@
     {:record
      (task-with
       (into base-made
-            [[:facts ":base :p1 :title" (fact-row base-writer (arrived-fact :p1 :title "the fact before") (uuid 802) 0 before)]
-             [:facts ":base :p2 :old" (fact-row base-writer (arrived-fact :p2 :old) (uuid 803) 0 before)]
-             [:answers (record/answer-key :base (uuid 801)) (record/answer-row nil before (digest/digest answered))]])
+            [[:facts ":base :p1 :title" (fact-row base-writer (arrived-fact :p1 :title "the fact before") (uuid 802) 0 before time-before-the-line)]
+             [:facts ":base :p2 :old" (fact-row base-writer (arrived-fact :p2 :old) (uuid 803) 0 before time-before-the-line)]
+             [:answers (record/answer-key :base (uuid 801)) (record/answer-row nil before time-before-the-line (digest/digest answered))]])
       {":base" before})
      :things
      [;; two acts that replace one fact
@@ -2542,8 +2492,8 @@
       (base-thing 17 :system system-own {:e :p1 :k :plain :v "a plain value"})
       5
       stray-of-the-other-gate
-      ;; no standing: with a stamp too far ahead, with a permission that no act gives, by a who that is not the holder
-      (assoc (base-thing 19 :mallory carols {:e :p3 :k :m}) :based-on {[(base-id 802) 0] (stamp/pack (+ now 60000) 0)})
+      ;; no standing: by a who that is not the holder, carrying the greatest stamp there is; with a permission that no act gives; by a who that is not the holder
+      (assoc (base-thing 19 :mallory carols {:e :p3 :k :m}) :based-on {[(base-id 802) 0] Long/MAX_VALUE})
       (base-thing 20 :mallory mallorys {:e :p3 :k :m})
       (base-thing 21 :mallory system-own {:e :p3 :k :m})
       ;; an act with three values, accepted; and one refused whole
@@ -2582,24 +2532,27 @@
   builds on that name the same fact to replace; a holder of see who acts,
   who names her permission without its slot, who gives, and who sends a
   value under a marked key; a retract of the marks; marks on another
-  entity. `:since` is the stamp since which the two keys are marked."
-  (let [since (stamp/pack (- now 9000) 0)
+  entity. `:since` is the stamp since which the two keys are marked, 20:
+  a fact written before the mark has an earlier stamp, 10, and a fact
+  written since it a later one, the base's last stamp before the line."
+  (let [since 20
         before before-the-line
-        older (stamp/pack (- now 20000) 0)
+        older 10
         fact-before (fn [e k v n stamp]
-                      [:facts (record/place-key :base e k) (fact-row base-writer (arrived-fact e k v) (uuid n) 0 stamp)])
+                      [:facts (record/place-key :base e k)
+                       (fact-row base-writer (arrived-fact e k v) (uuid n) 0 stamp time-before-the-line)])
         entry-before (fn [e k v n]
                        [:by-value (record/by-value-key :base k since (record/value-digest-of v) e)
-                        (by-value-row base-writer (uuid n) 0 before)])]
+                        (by-value-row base-writer (uuid n) 0 before time-before-the-line)])]
     {:since since
      :record
      (task-with
       (into base-made
             [[:facts ":base :carol :softland.store/permission"
-              (fact-row base-writer (arrived-fact :carol :softland.store/permission carols-see) (uuid 806) 0 before)]
+              (fact-row base-writer (arrived-fact :carol :softland.store/permission carols-see) (uuid 806) 0 before time-before-the-line)]
              [:facts base-marks-place (base-marks-row {:on since :gone since})]
              [:facts ":base :base :softland.store/builds-on"
-              (fact-row base-writer (arrived-fact :base :softland.store/builds-on [:older-base]) (uuid 804) 0 before)]
+              (fact-row base-writer (arrived-fact :base :softland.store/builds-on [:older-base]) (uuid 804) 0 before time-before-the-line)]
              (fact-before :p1 :on :c0 810 before) (entry-before :p1 :on :c0 810)
              (fact-before :q1 :on :c0 811 before) (entry-before :q1 :on :c0 811)
              (fact-before :r1 :on :from-before-the-mark 812 older)
@@ -2674,21 +2627,21 @@
   The accept is of one act with a fact under a plain key, a fact under a
   marked key that takes the entry of the value before out and puts its own
   in, and a write of the marks."
-  (let [stamp (stamp/pack now 0)
+  (let [stamp 300
         thing (arrived 1 (value-at :note-1 :text) (value-at :b1 :on :c1) {:e :alice :k :softland.store/marked-keys :v #{:on :new}})
         act (act-of thing)
         note-place ":alice :note-1 :text"
         on-place ":alice :b1 :on"
         marks-place ":alice :alice :softland.store/marked-keys"
         marks-before (record/with-level-since (setting-row 7 :softland.store/marked-keys #{:on}) {:on 100})
-        row-before (fact-row writer (arrived-fact :b1 :on :c0) (uuid 6) 0 200)
+        row-before (fact-row writer (arrived-fact :b1 :on :c0) (uuid 6) 0 200 now)
         entry (fn [v] (record/by-value-key :alice :on 100 (record/value-digest-of v) :b1))
-        accept (decision/writes (act-id 1) act nil stamp (digest/digest thing)
+        accept (decision/writes (act-id 1) act nil stamp now (digest/digest thing)
                                 {:since-by-place (decision/since-by-place act marks-before)
                                  :place-rows {on-place row-before marks-place marks-before}
                                  :level-from stamp})
-        refusal (decision/writes (act-id 1) act :replaced-fact-not-current stamp (digest/digest thing) {})
-        no-act (decision/writes (act-id 1) nil :malformed stamp (digest/digest thing) {})
+        refusal (decision/writes (act-id 1) act :replaced-fact-not-current stamp now (digest/digest thing) {})
+        no-act (decision/writes (act-id 1) nil :malformed stamp now (digest/digest thing) {})
         shape (fn [writes] (mapv (fn [[which k row]] [which k (some? row)]) writes))
         of-the-lines (fn [] (concat (writes-of-line (:record line) :microbatch (:things line))
                                     (writes-of-line (:record marks-line) :microbatch (:things marks-line))))]
@@ -2732,10 +2685,11 @@
   (let [alice-made (task-with [[:facts ":alice :alice :softland.store/depot" depot-row]
                                [:facts ":alice :alice :softland.store/permission" (permission-row alice-own)]
                                [:facts ":alice :note-1 :text" (row-by 7 0)]]
-                              {":alice" (stamp/pack now 0)})
+                              {":alice" 200})
         base-with-a-fact (task-with (conj base-made
                                           [:facts ":base :doc-1 :title"
-                                           (fact-row base-writer (arrived-fact :doc-1 :title "before") (uuid 802) 0 before-the-line)])
+                                           (fact-row base-writer (arrived-fact :doc-1 :title "before") (uuid 802) 0 before-the-line
+                                                     time-before-the-line)])
                                     {":base" before-the-line})]
     [["at the streaming gate, the making act of a group's layer" :streaming empty-task (as-sent (making :team :alice :alice) :streaming)
       [:fact :fact :answer :last-stamp] nil]
@@ -2793,60 +2747,83 @@
 ;; ----------------------------------------------------- the stamp in a line
 
 (def ^:private stamp-line-cases
-  "The cases of the stamp in a line: `softland.store.gate.decision/stamp-of`
-  folded over ten acts of one layer, each with the stamp before it as the
-  layer's last stamp, for a layer of each gate. The times on the acts, as
-  milliseconds after `now`: they rise, stand still, go back by two
-  milliseconds and by a minute, and rise again."
-  (let [offsets [0 5 5 5 3 -60000 5 6 6 2000]
-        ;; each stamp as [milliseconds after `now`, counter], written out
-        expected [[0 0] [5 0] [5 1] [5 2] [5 3] [5 4] [5 5] [6 0] [6 1] [2000 0]]
-        timed (fn [thing offset] (assoc thing declaration/time-part (+ now offset)))
-        alices (vec (map-indexed (fn [i offset] (timed (arrived (+ 400 i) (value-at (keyword (str "n" i)) :text)) offset)) offsets))
-        bases (vec (map-indexed (fn [i offset] (timed (base-thing (+ 400 i) :system system-own (value-at (keyword (str "n" i)) :text)) offset))
-                                offsets))
-        folded (fn [things]
-                 (vec (rest (reductions (fn [last-stamp thing]
-                                          (let [checked (declaration/check thing)
-                                                time-millis (decision/time-on thing)
-                                                refused (decision/refused-early time-millis (:ok checked) (:refuse checked))]
-                                            (decision/stamp-of time-millis last-stamp (:ok checked) refused)))
-                                        nil
-                                        things))))
-        halves (fn [stamps] (mapv (fn [s] [(- (stamp/time-of s) now) (stamp/counter-of s)]) stamps))
-        ;; the proof's own rule, over the times alone: the time x 65,536 when that is later than the last stamp, else the last plus one
-        by-the-rule (fn [] (vec (rest (reductions (fn [last-stamp offset]
-                                                    (let [of-the-time (* (+ now offset) 65536)]
-                                                      (if (or (nil? last-stamp) (< last-stamp of-the-time)) of-the-time (inc last-stamp))))
-                                                  nil
-                                                  offsets))))
+  "The cases of the stamp in a line, each decided by the walk in memory, in
+  a layer of each gate: ten acts whose times rise, stand still, go back by
+  two milliseconds and by a minute, leap far ahead, come back, fall to 0,
+  leap to the greatest long and rise again; the same ten acts all with the
+  time `now`; a line of accepts and refusals, one of them with no time and
+  one with a time far ahead, and an act that carries the greatest stamp
+  there is; and an act with a time far ahead, then two acts after it that
+  each replace the fact before and carry the stamp that its answer gave.
+  Alice's layer is made with the stamp 0, so its line counts on from 1; the
+  base's from `before-the-line` plus one."
+  (let [times [now (+ now 5) (+ now 5) (+ now 3) (- now 60000) far-ahead (+ now 6) 0 Long/MAX_VALUE (+ now 2000)]
+        timed (fn [thing t] (assoc thing declaration/time-part t))
+        alices-at (fn [times] (vec (map-indexed (fn [i t] (timed (arrived (+ 400 i) (value-at (keyword (str "n" i)) :text)) t)) times)))
+        bases-at (fn [times] (vec (map-indexed (fn [i t] (timed (base-thing (+ 400 i) :system system-own (value-at (keyword (str "n" i)) :text)) t))
+                                               times)))
+        alices (alices-at times)
+        bases (bases-at times)
         alice-made (task-with [[:facts ":alice :alice :softland.store/depot" depot-row]
                                [:facts ":alice :alice :softland.store/permission" (permission-row alice-own)]]
-                              {":alice" before-the-line})
+                              {":alice" 0})
         base-is-made (task-with base-made {":base" before-the-line})
-        stamps-in (fn [record things]
-                    (mapv (fn [thing] (let [[layer _ act-uuid] (:act-id thing)]
-                                        (:stamp (get-in record [:answers (record/answer-key layer act-uuid)]))))
-                          things))]
-    [["ten acts of a streaming layer: each stamp is later than the one before, and the stamps, as [milliseconds after `now`, counter], are those that the proof writes out"
-      (fn [] (let [stamps (folded alices)] [(count stamps) (apply < stamps) (halves stamps)]))
-      [10 true expected]]
-     ["ten acts of the base, with the same times: the same stamps"
-      (fn [] (let [stamps (folded bases)] [(count stamps) (apply < stamps) (halves stamps) (= stamps (folded alices))]))
-      [10 true expected true]]
-     ["each stamp holds its act's time, with a counter of zero, when that is later than the last stamp, and is the last stamp plus one when it is not: the proof's own rule over the times gives the same ten stamps; five of the ten hold their act's time"
-      (fn [] (let [stamps (folded alices)]
-               [(= stamps (by-the-rule))
-                (mapv (fn [s offset] (= s (* (+ now offset) 65536))) stamps offsets)]))
-      [true [true true false false false false false true false true]]]
-     ["the same ten acts decided one after the other by the walk in memory, in a layer of each gate whose last stamp is of an earlier time: each is accepted, the stamps of the answers are those ten, and the last stamp kept for the layer is the last of them"
-      (fn [] (let [of-alices (walked-line alice-made :streaming alices)
-                   of-the-base (walked-line base-is-made :microbatch bases)]
-               [(vec (vals (words-by-number of-alices))) (= (stamps-in of-alices alices) (folded alices))
-                (halves [(get-in of-alices [:last-stamp ":alice"])])
-                (vec (vals (words-by-number of-the-base))) (= (stamps-in of-the-base bases) (folded bases))
-                (halves [(get-in of-the-base [:last-stamp ":base"])])]))
-      [(vec (repeat 10 :accepted)) true [[2000 0]] (vec (repeat 10 :accepted)) true [[2000 0]]]]]))
+        answer-in (fn [record thing] (let [[layer _ act-uuid] (:act-id thing)] (get-in record [:answers (record/answer-key layer act-uuid)])))
+        stamps-in (fn [record things] (mapv #(:stamp (answer-in record %)) things))
+        times-in (fn [record things] (mapv #(:time (answer-in record %)) things))
+        fact-times (fn [record layer] (mapv (fn [i] (:time (get-in record [:facts (record/place-key layer (keyword (str "n" i)) :text)])))
+                                            (range 10)))
+        of-alices (walked-line alice-made :streaming alices)
+        of-the-base (walked-line base-is-made :microbatch bases)
+        ;; accepts and refusals in Alice's layer, one after the other
+        mixed [(arrived 510 (value-at :m1 :text))
+               (without-time (arrived 511 (value-at :m2 :text)))
+               (arrived 512 (value-at :m3 :text))
+               (assoc (timed (arrived 513 (value-at :m4 :text)) far-ahead) :version 2)
+               (assoc (arrived 514 (value-at :m5 :text)) :who :mallory)
+               (arrived 515 (assoc (value-at :m1 :text "b") :replaces [(act-id 999) 0]))
+               (assoc (arrived 516 (value-at :m6 :text)) :based-on {[(act-id 510) 0] Long/MAX_VALUE})
+               (arrived 517 (value-at :m7 :text))]
+        of-mixed (walked-line alice-made :streaming mixed)
+        ;; an act with a time far ahead; then an act that replaces its fact and carries its stamp; then one that does the same for that act
+        honest-after-far (fn [gate thing-of id-of record]
+                           (let [layer (first (id-of 520))
+                                 last-stamp (get-in record [:last-stamp (declaration/id-text layer)])
+                                 things [(timed (thing-of 520 (value-at :k1 :text "a")) far-ahead)
+                                         (assoc (thing-of 521 (assoc (value-at :k1 :text "b") :replaces [(id-of 520) 0]))
+                                                :based-on {[(id-of 520) 0] (+ last-stamp 1)})
+                                         (assoc (thing-of 522 (assoc (value-at :k1 :text "c") :replaces [(id-of 521) 0]))
+                                                :based-on {[(id-of 521) 0] (+ last-stamp 2)})]
+                                 after (walked-line record gate things)]
+                             [(vec (vals (words-by-number after))) (mapv #(- % last-stamp) (stamps-in after things)) (times-in after things)
+                              (:value (get-in after [:facts (record/place-key layer :k1 :text)]))]))]
+    [["ten acts of a streaming layer, whose times go back, leap ahead to 2^50 ms and to the greatest long, and fall to 0: each is accepted, the stamps of their answers are 1 to 10 after the making act's 0, and the last stamp kept for the layer is 10"
+      (fn [] [(vec (vals (words-by-number of-alices))) (stamps-in of-alices alices) (get-in of-alices [:last-stamp ":alice"])])
+      [(vec (repeat 10 :accepted)) (vec (range 1 11)) 10]]
+     ["the same ten acts in the base: the stamps count on from the base's last stamp before them, one by one"
+      (fn [] [(vec (vals (words-by-number of-the-base))) (stamps-in of-the-base bases) (get-in of-the-base [:last-stamp ":base"])])
+      [(vec (repeat 10 :accepted)) (vec (range (+ before-the-line 1) (+ before-the-line 11))) (+ before-the-line 10)]]
+     ["each answer and each row of a fact holds the time on its act as it is, beside the stamp, in a layer of each gate: the time far ahead, the greatest long and 0 among them"
+      (fn [] [(times-in of-alices alices) (fact-times of-alices :alice) (times-in of-the-base bases) (fact-times of-the-base :base)])
+      [times times times times]]
+     ["the times move no stamp and change no other field: the same ten acts with the time `now` on each give records that differ only in :time, in the answers and the rows of the nine acts whose time is not `now`, and the same last stamps, at a gate of each kind"
+      (fn [] (mapv (fn [[of-the-times of-now]]
+                     (let [differ (rows-that-differ (rows-by-place of-the-times) (rows-by-place of-now))]
+                       [(count differ) (set (vals differ)) (= (:last-stamp of-the-times) (:last-stamp of-now))]))
+                   [[of-alices (walked-line alice-made :streaming (alices-at (repeat 10 now)))]
+                    [of-the-base (walked-line base-is-made :microbatch (bases-at (repeat 10 now)))]]))
+      [[18 #{#{:time}} true] [18 #{#{:time}} true]]]
+     ["accepts and refusals of one layer take their stamps by one rule: an accept, a thing with no time, an accept, a wrong version with a time far ahead, an act by a who that is not the holder, an act that names a fact that is not current, an accept that carries the greatest stamp there is, and an accept after it get the stamps 1 to 8 in their order, with no gap; each answer holds the time on its thing, and the one with no time holds none"
+      (fn [] [(words-by-number of-mixed) (stamps-in of-mixed mixed) (times-in of-mixed mixed)
+              (contains? (answer-in of-mixed (second mixed)) :time)])
+      [{510 :accepted 511 :no-door-time 512 :accepted 513 :unknown-version 514 :who-not-the-permissions-holder
+        515 :replaced-fact-not-current 516 :accepted 517 :accepted}
+       (vec (range 1 9)) [now nil now far-ahead now now now now] false]]
+     ["an accepted act with a time far ahead shuts no one out: after it, an act with the time `now` that replaces its fact and carries the stamp that its answer gave is accepted, and so is the act after that one; their stamps are the next two, and the place holds the last value. As [words, stamps after the last stamp before them, times, the value], at a gate of each kind"
+      (fn [] [(honest-after-far :streaming arrived act-id alice-made)
+              (honest-after-far :microbatch (fn [n & facts] (apply base-thing n :system system-own facts)) base-id base-is-made)])
+      [[[:accepted :accepted :accepted] [1 2 3] [far-ahead now now] "\"c\""]
+       [[:accepted :accepted :accepted] [1 2 3] [far-ahead now now] "\"c\""]]]]))
 
 ;; ------------------------------------------- a mark holds from the next act
 
@@ -2855,20 +2832,23 @@
   layer of each gate: by hand over `softland.store.gate.decision/writes`,
   where the stamp of each place of the second act is taken from the mark's
   row as the first act wrote it; and by the walk in memory, for both gate
-  words."
-  (let [of-the-mark (stamp/pack now 1)
-        of-the-fact (stamp/pack now 2)
+  words. In a layer that the line makes, the making act has the stamp 0,
+  the mark 1 and the fact 2."
+  (let [of-the-mark 1
+        of-the-fact 2
         by-hand (fn [mark-thing fact-thing]
                   (let [mark-act (act-of mark-thing)
                         marks-key (decision/marked-keys-place mark-act)
-                        [[_ _ marks-row]] (decision/writes (:act-id mark-thing) mark-act nil of-the-mark (digest/digest mark-thing)
+                        [[_ _ marks-row]] (decision/writes (:act-id mark-thing) mark-act nil of-the-mark (decision/time-on mark-thing)
+                                                           (digest/digest mark-thing)
                                                            {:since-by-place (decision/since-by-place mark-act nil)
                                                             :place-rows {marks-key nil}
                                                             :level-from of-the-mark})
                         fact-act (act-of fact-thing)
                         since (decision/since-by-place fact-act marks-row)
                         rows-before (into {marks-key marks-row} (map (fn [k] [k nil])) (decision/rows-before-needed since {}))
-                        writes (decision/writes (:act-id fact-thing) fact-act nil of-the-fact (digest/digest fact-thing)
+                        writes (decision/writes (:act-id fact-thing) fact-act nil of-the-fact (decision/time-on fact-thing)
+                                                (digest/digest fact-thing)
                                                 {:since-by-place since :place-rows rows-before :level-from of-the-fact})]
                     [(record/marked-keys-of marks-row) since (mapv (fn [[which k row]] [which k (:stamp row)]) (to-copy writes))]))
         marks (fn [layer keys] {:e layer :k :softland.store/marked-keys :v keys})
@@ -2916,41 +2896,43 @@
 
 ;; ----------------------------------------- a line, decided in memory: cases
 
-(def ^:private edge-act
-  "An act of the base at the edge of the 10 seconds: it carries a stamp whose
-  time is 10,400 ms after `now`. With the time `now` on it, it is refused;
-  with a time one second later, it is accepted."
+(def ^:private far-act
+  "An act of the base that carries the greatest stamp there is, for the fact
+  of act 802 that a record before a line holds. `line-cases` decides it with
+  the time `now` on it and with a time far ahead."
   (assoc (base-thing 70 :system system-own {:e :z3 :k :edge})
-         :based-on {[(base-id 802) 0] (stamp/pack (+ now 10400) 0)}))
+         :based-on {[(base-id 802) 0] Long/MAX_VALUE}))
 
 (def ^:private line-cases
   "The cases of `line` and of `making-line`, each decided by the walk in
   memory at the microbatch gate, one thing after the other in the order of
   the depot: the word of each answer, the rows, the stamps and the strays;
   the line decided a second time; a line of strays alone and one of repeats
-  alone; and `edge-act` with two times on it."
+  alone; and `far-act` with two times on it. `s` gives the stamp of the
+  n-th decision of the base in a line, counted from 0."
   (let [{:keys [record things]} line
         after (walked-line record :microbatch things)
         words (words-by-number after)
         facts (:facts after)
-        s (fn [n] (stamp/pack now n))
+        s (fn [n] (+ before-the-line 1 n))
         rows-by (fn [n] (filter (fn [[_ row]] (= (uuid n) (:by-act row))) facts))
         made (walked-line (:record making-line) :microbatch (:things making-line))
         base-is-made (task-with base-made {":base" before-the-line})
         repeat-a (base-thing 801 :system system-own {:e :k1 :k :note})
         repeat-b (base-thing 802 :system system-own {:e :k2 :k :note})
         answered-twice (task-with (into base-made
-                                        [[:answers (record/answer-key :base (uuid 801)) (record/answer-row nil before-the-line (digest/digest repeat-a))]
+                                        [[:answers (record/answer-key :base (uuid 801))
+                                          (record/answer-row nil before-the-line time-before-the-line (digest/digest repeat-a))]
                                          [:answers (record/answer-key :base (uuid 802))
-                                          (record/answer-row :layer-not-made before-the-line (digest/digest repeat-b))]])
+                                          (record/answer-row :layer-not-made before-the-line time-before-the-line (digest/digest repeat-b))]])
                                   {":base" before-the-line})
-        answer-of-edge (fn [thing] (let [row (get-in (walked base-is-made :microbatch thing) [:answers (record/answer-key :base (uuid 70))])]
-                                     [(:refused row) (:stamp row)]))]
+        answer-of-far (fn [thing] (let [row (get-in (walked base-is-made :microbatch thing) [:answers (record/answer-key :base (uuid 70))])]
+                                    [(:refused row) (:stamp row) (:time row)]))]
     [["the word of each answer after the line, by the number of its act-id; the two strays have none"
       (fn [] words)
       {1 :accepted 2 :replaced-fact-not-current 3 :accepted 4 :accepted 5 :accepted 6 :accepted 7 :permission-does-not-stand
        8 :accepted 9 :accepted 14 :accepted 15 :layer-belongs-to-the-other-gate 16 :layer-belongs-to-the-other-gate
-       17 :accepted 19 :carried-stamp-too-far-ahead 20 :permission-does-not-stand 21 :who-not-the-permissions-holder
+       17 :accepted 19 :who-not-the-permissions-holder 20 :permission-does-not-stand 21 :who-not-the-permissions-holder
        22 :accepted 23 :replaced-fact-not-current 25 :accepted 26 :replaced-fact-not-current 27 :store-key-not-known
        28 :value-too-large 801 :accepted}]
      ["two acts that replace the same fact: the first in the depot's order is accepted and the second is stale; the place holds the first one's value"
@@ -2979,9 +2961,9 @@
       (fn [] [(words 18) (:strays after)])
       [nil {:no-act-id #{(sha-256 (utf8 "5"))}
             :act-id-of-the-other-gate #{(sha-256 (utf8 (text/text stray-of-the-other-gate)))}}]]
-     ["no standing: the 10-second rule first, a permission that no act gave, a who that is not the holder"
+     ["no standing: a who that is not the holder, whose act carries the greatest stamp there is and gets the word of its standing, since no check reads a carried stamp; a permission that no act gave; a who that is not the holder"
       (fn [] (mapv words [19 20 21]))
-      [:carried-stamp-too-far-ahead :permission-does-not-stand :who-not-the-permissions-holder]]
+      [:who-not-the-permissions-holder :permission-does-not-stand :who-not-the-permissions-holder]]
      ["an act with three values is accepted whole: each fact has its row, written by the act, with the text of its value. An act whose third fact is stale is refused whole: no row of it is in the record"
       (fn [] [(words 22) (mapv (fn [e] (select-keys (get facts (record/place-key :base e :text)) [:by-act :by-index :value])) [:r1 :r2 :r3])
               (words 23) (count (rows-by 23)) (mapv (fn [e] (get facts (record/place-key :base e :text))) [:z1 :q2 :q3])])
@@ -2997,14 +2979,14 @@
      ["no refusal writes a fact: each row of a fact after the line was written by an act that was accepted, or was there before the line; the numbers of the acts whose rows the record holds"
       (fn [] (vec (sort (distinct (map (fn [[_ row]] (.getLeastSignificantBits ^UUID (:by-act row))) facts)))))
       [1 4 5 6 8 9 14 17 22 25 800]]
-     ["the stamps of the base's answers: each decision has a stamp later than the one before it in the order of the depot, 20 stamps that count on from the time on the acts, a refusal's too; the numbers of the act-ids in the order of their stamps are the order of the line"
+     ["the stamps of the base's answers: the 20 decisions of the line have the stamps that count on from the base's last stamp before it, one by one with no gap, in the order of the depot, a refusal's as an accept's; the numbers of the act-ids in the order of their stamps are the order of the line"
       (fn [] (let [stamped (sort-by second
                                     (keep (fn [[k row]] (when (and (str/starts-with? k ":base ") (not= before-the-line (:stamp row)))
                                                           [(.getLeastSignificantBits (UUID/fromString (subs k (- (count k) 36)))) (:stamp row)]))
                                           (:answers after)))]
                [(mapv first stamped) (= (mapv second stamped) (mapv s (range 20)))]))
       [[1 2 3 4 5 6 7 8 9 14 17 19 20 21 22 23 25 26 27 28] true]]
-     ["the last stamp is kept for a layer: the base's is the stamp of its last decision; each layer of the other gate, of which one thing was decided and refused, has 0, the stamp of a refusal in a layer with no last stamp, which holds nothing of the time on the thing. So a decision in one layer does not raise the stamps of another"
+     ["the last stamp is kept for a layer: the base's is the stamp of its last decision; each layer of the other gate, of which one thing was decided and refused, has 0, the stamp of the first decision of a layer. So a decision in one layer does not raise the stamps of another"
       (fn [] (:last-stamp after))
       {":base" (s 19) ":alice" 0 ":nobody" 0}]
      ["the line decided a second time from the same record gives the same record: no row differs in any field, the last stamps and the strays are the same, and more than 20 rows are rows that the line wrote"
@@ -3035,21 +3017,22 @@
       (fn [] [(= (comparable answered-twice) (comparable (walked-line answered-twice :microbatch [repeat-a repeat-b repeat-a])))
               (writes-of-line answered-twice :microbatch [repeat-a repeat-b repeat-a])])
       [true [[] [] []]]]
-     ["the time on the act decides, at the microbatch gate too: an act that carries a stamp 10,400 ms after `now` is refused with the time `now` on it, and its stamp is the base's last stamp plus one, with nothing of its time or of the stamp that it carries; with a time one second later it is accepted, with a stamp later than the one that it carries. As [word, stamp]"
-      (fn [] [(answer-of-edge edge-act) (answer-of-edge (assoc edge-act declaration/time-part (+ now 1000)))])
-      [[:carried-stamp-too-far-ahead (inc before-the-line)] [nil (stamp/pack (+ now 10400) 1)]]]]))
+     ["neither the time on the act nor a stamp that it carries decides, at the microbatch gate too: an act that carries the greatest stamp there is is accepted with the time `now` on it and with a time far ahead; each time its stamp is the base's last stamp plus one, and its answer holds the time on it. As [word, stamp, time]"
+      (fn [] [(answer-of-far far-act) (answer-of-far (assoc far-act declaration/time-part far-ahead))])
+      [[nil (inc before-the-line) now] [nil (inc before-the-line) far-ahead]]]]))
 
 (def ^:private marks-line-cases
   "The cases of `marks-line`, decided by the walk in memory at the
   microbatch gate, one thing after the other in the order of the depot: the
   word of each answer, the facts by value after the line, and that a mark
-  holds from the act after it."
+  holds from the act after it. `s` gives the stamp of the n-th decision of
+  the line, counted from 0."
   (let [{:keys [record things since]} marks-line
         after (walked-line record :microbatch things)
         words (words-by-number after)
         facts (:facts after)
         entries (:by-value after)
-        s (fn [n] (stamp/pack now n))
+        s (fn [n] (+ before-the-line 1 n))
         entry (fn [k since v e] (record/by-value-key :base k since (record/value-digest-of v) e))
         run-of (fn [k since v] (let [[from to] (record/by-value-run :base k since v)]
                                  (vec (sort (filter #(and (<= (compare from %) 0) (neg? (compare % to))) (keys entries))))))
@@ -3130,16 +3113,16 @@
 
 (def ^:private read-accepted
   "What the read by act-id gives for an accepted act whose digest is \"aa\"."
-  {:verdict :accepted :reason nil :stamp 77 :digest "aa"})
+  {:verdict :accepted :reason nil :stamp 77 :time now :digest "aa"})
 
 (def ^:private read-refused
   "What the read by act-id gives for a refused act whose digest is \"aa\"."
-  {:verdict :refused :reason :layer-not-made :stamp 78 :digest "aa"})
+  {:verdict :refused :reason :layer-not-made :stamp 78 :time now :digest "aa"})
 
 (def ^:private door-words-cases
   "The cases of the door's words: the table of the seven; that none is a
   gate's word; a word as a maker gets it; the four answers from what a read
-  gave; the two acks."
+  gave, and the time in them; the two acks."
   [["the door's seven words, each with whether nothing was appended for the act or the door does not know"
     (fn [] (into {} (map (fn [[w entry]] [w (:appended entry)])) words/words))
     door-words]
@@ -3164,12 +3147,23 @@
    ["a word that the table does not hold is not made: one of the four answers, a gate's reason word, nothing"
     (fn [] [(words/word :refused {:at :layer}) (words/word :layer-not-made nil) (words/word nil nil)])
     [nil nil nil]]
-   ["the answer from a read of an accept with the digest given: accepted, with its stamp"
+   ["the answer from a read of an accept with the digest given: accepted, with its stamp and the time on the act"
     (fn [] (words/answer read-accepted "aa"))
-    {:answer :accepted :stamp 77}]
-   ["the answer from a read of a refusal with the digest given: refused, with the gate's reason word and its stamp"
+    {:answer :accepted :stamp 77 :time now}]
+   ["the answer from a read of a refusal with the digest given: refused, with the gate's reason word, its stamp and the time on the thing"
     (fn [] (words/answer read-refused "aa"))
-    {:answer :refused :reason :layer-not-made :stamp 78}]
+    {:answer :refused :reason :layer-not-made :stamp 78 :time now}]
+   ["the answer from a read of a refusal of a thing that held no usable time: refused, with the word and the stamp, and no :time"
+    (fn [] (words/answer (assoc read-refused :reason :no-door-time :time nil) "aa"))
+    {:answer :refused :reason :no-door-time :stamp 78}]
+   ["from an answer's row to the maker's answer, through the read's form: the stamp and the time of the row as they are, a time far ahead too; a row with no time gives no :time"
+    (fn [] (let [digest (digest/digest good)
+                 through (fn [row] (words/answer (record/answer-of row) (text/hex digest)))]
+             [(through (record/answer-row nil 77 now digest))
+              (through (record/answer-row nil 77 far-ahead digest))
+              (through (record/answer-row :no-door-time 78 nil digest))]))
+    [{:answer :accepted :stamp 77 :time now} {:answer :accepted :stamp 77 :time far-ahead}
+     {:answer :refused :reason :no-door-time :stamp 78}]]
    ["the answer from a read that gave nothing: nothing yet"
     (fn [] (words/answer nil "aa"))
     {:answer :nothing-yet}]
@@ -3472,12 +3466,12 @@
                 (= (without-time (:thing made)) (without-time (thing-at 1235)))
                 (get (thing-at 1235) declaration/time-part)]))
       [[:thing] true {:act-id (given :microbatch) :depot :microbatch declaration/time-part 1234} true true 1235]]
-     ["the time is added as the door hands it and is not tested here: a nil, a string and a time of 2^45 are in the thing as given, and it is the declaration's check that refuses each; a time of 2^45 less one goes in"
+     ["the time is added as the door hands it and is not tested here: a nil, a string and a time of -1 are in the thing as given, and it is the declaration's check that refuses each; a time far ahead, 2^50 ms, goes in"
       (fn [] (let [reading (additions/reading (maker value-fact) nil)]
                (mapv (fn [t] (let [thing (:thing (additions/thing-to-append reading (act-id 70) t))]
                                [(contains? thing declaration/time-part) (= t (get thing declaration/time-part))
                                 (verdict (declaration/check thing))]))
-                     [nil "a time" (bit-shift-left 1 45) (dec (bit-shift-left 1 45))])))
+                     [nil "a time" -1 far-ahead])))
       [[true true :no-door-time] [true true :no-door-time] [true true :no-door-time] [true true :ok]]]
      ["a value is in the thing as its maker gave it and not in its normal form; the declaration's check takes the thing, and its one form holds the text of the normal form"
       (fn [] (let [v (array-map :b 1.50M :a [1 2N])
@@ -3825,14 +3819,13 @@
     (shown "the order of the declarations gives the reason," n "things with two faults:" (words order-rows))))
 
 (deftest the-time-on-the-act
-  (let [n (holds time-cases)
-        bound (bit-shift-left 1 45)]
-    (shown "the time on the act," n "cases. Its part is" declaration/time-part "and a usable time is a fixed-width integer of 0 or more and below"
-           declaration/max-time "| the usable time of the least thing, by its time:"
+  (let [n (holds time-cases)]
+    (shown "the time on the act," n "cases. Its part is" declaration/time-part "and a usable time is a fixed-width integer of 0 or more, with no bound above"
+           "| the usable time of the least thing, by its time:"
            (str/join " | " (map (fn [[what x _ _]] (str what " " (pr-str (declaration/usable-time x)))) time-rows)))
-    (shown "the usable time and the check's word at the edges of the range, as [time usable-time word]:"
+    (shown "the usable time and the check's word at the edge of the range and far above it, as [time usable-time word]:"
            (pr-str (mapv (fn [t] [t (declaration/usable-time (at-time t)) (verdict (declaration/check (at-time t)))])
-                         [-1 0 (dec bound) bound]))
+                         [-1 0 far-ahead Long/MAX_VALUE]))
            "| a thing that is no plain map, and a sorted map with string keys, which throws when the part is read:"
            (pr-str (mapv declaration/usable-time [nil 5 (->Timed now :note-1) (sorted-map "a" 1 (name declaration/time-part) now)])))
     (shown "where the time's word stands: a thing with no time and"
@@ -3866,12 +3859,9 @@
 
 (deftest the-stamp
   (let [n (holds stamp-cases)]
-    (shown "the stamp," n "cases: milliseconds x 65,536 + counter; the next stamp is later than the last when the time that the gate gives is the same, is earlier, or has more than 65,536 decisions; later than a carried stamp; 10,000 ms ahead of the time is the edge of the 10-second rule; the packing reaches 2^62 in the year 4199, and the time on an act is held below half of that, 2^45 ms, in the year 3084")
-    (shown "a stamp of the time" now "with the counter 0 is" (stamp/pack now 0)
-           "| with no time the stamp is the last plus one, the greatest carried plus one, or 0 with neither, as [time last carried stamp]:"
-           (pr-str (mapv (fn [[t last carried]] [t last carried (stamp/next-stamp t last carried)])
-                         [[nil nil nil] [nil 41 nil] [nil nil 41] [nil 41 77] [now 41 nil]]))
-           "| with no time no carried stamp is too far ahead:" (pr-str (stamp/too-far-ahead? nil (dec act/max-carried-stamp))))))
+    (shown "the stamp," n "cases: the layer's count of decisions, 0 for the first and the last stamp plus one after it, a long; it takes the last stamp alone, so no time and nothing of the act is in it")
+    (shown "the stamp after each last stamp, as [last stamp, stamp]:"
+           (pr-str (mapv (juxt identity stamp/next-stamp) [nil 0 1 41 (dec Long/MAX_VALUE) Long/MAX_VALUE])))))
 
 (deftest the-first-act
   (holds first-act-cases)
@@ -3884,7 +3874,7 @@
 
 (deftest the-records-rows
   (let [n (holds record-cases)
-        value-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} (uuid 5) 2 900)]
+        value-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} (uuid 5) 2 900 now)]
     (shown "the record's rows," n "cases: the keys" (pr-str [(record/answer-key :alice (uuid 5)) (record/place-key :alice :note-1 :text)])
            "; each field of a row of its declared class; a retract is a row with no value; every value is kept plain and as a String, the one text of the value in its normal form, which the row takes from the fact as it is; each row of a fact holds who wrote it and the permission that the act named; the heads of the two reads give nothing for what is no id or no act-id")
     (shown "the routing id of an act-id is its layer, for an act-id of each depot:"
@@ -3912,18 +3902,19 @@
   (holds places-cases)
   (holds writes-cases)
   (holds by-value-cases)
-  (shown "the time that a gate decides with is the time on the thing, and it is in the stamp of an accept alone: a refusal's stamp is the last plus one, or 0. As [what, the time, the check's word, the stamp in a layer with no last stamp, the stamp after the last stamp 41]:"
+  (shown "the time on the thing is a label: a decision writes it in the answer beside the stamp, here the stamp 42 after a last stamp of 41, and a thing with no usable time has none. As [what, the time, the check's word, the answer's row without its digest]:"
          (pr-str (mapv (fn [[what thing]]
-                         (let [checked (declaration/check thing)
+                         (let [{act :ok word :refuse} (declaration/check thing)
                                time-millis (decision/time-on thing)
-                               refused (decision/refused-early time-millis (:ok checked) (:refuse checked))]
-                           [what time-millis (or refused :goes-on)
-                            (decision/stamp-of time-millis nil (:ok checked) refused)
-                            (decision/stamp-of time-millis 41 (:ok checked) refused)]))
+                               [[_ _ answer]] (filter (fn [[which]] (= :answer which))
+                                                      (decision/writes (:act-id thing) act word (stamp/next-stamp 41) time-millis
+                                                                       (digest/digest thing) {}))]
+                           [what time-millis (or word :ok) (dissoc answer :digest)]))
                        [["the least thing" good]
                         ["a wrong version" (assoc good :version 2)]
                         ["no time" (without-time good)]
-                        ["a time of 2^46" (at-time (bit-shift-left 1 46))]])))
+                        ["a time below zero" (at-time -1)]
+                        ["a time far ahead" (at-time far-ahead)]])))
   (shown "the standing of an act, at the streaming gate's depot:"
          (str/join " | " (map (fn [[what _ _ _ word makes?]] (str what " " (or word (if makes? "makes the layer" "stands")))) standing-rows)))
   (shown "the standing of an act into the base, at the microbatch gate's depot:"
@@ -3936,9 +3927,9 @@
                        other-gate-rows)))
   (shown "the checks of the places:"
          (str/join " | " (map (fn [[what _ _ word]] (str what " " (or word "passes"))) places-rows)))
-  (shown "the writes of a decision: a refusal writes the answer and the last stamp; an accept of one value writes 3 rows, the fact, the answer and the last stamp, and the fact's row holds the one text of its value, who wrote it and the permission that the act named:"
+  (shown "the writes of a decision: a refusal writes the answer and the last stamp; an accept of one value writes 3 rows, the fact, the answer and the last stamp, and the fact's row holds the one text of its value, the time on the act, who wrote it and the permission that the act named:"
          (pr-str (mapv (fn [[which k row]] [which k (if (map? row) (dissoc row :digest) row)])
-                       (decision/writes (act-id 1) (act-of good) nil 5 (digest/digest good) {}))))
+                       (decision/writes (act-id 1) (act-of good) nil 5 now (digest/digest good) {}))))
   (shown "what a permission allows:" (pr-str (mapv (juxt identity act/allows) [alice-own bobs bobs-see bobs-see-and-act]))
          "| a holder of see who names her permission as the row has it, without the slot, and with see and act in it:"
          (pr-str (mapv (fn [named] (decision/standing :streaming (assoc (act-of good) :who :bob :permission named)
@@ -3946,11 +3937,11 @@
                        [bobs-see bobs bobs-see-and-act])))
   (shown "a value given as {:b 1.50M, :a [1 2N]} is in its fact's row as"
          (pr-str (:value (nth (first (decision/writes (act-id 1) (act-of (arrived 1 (value-at :note-1 :text (array-map :b 1.50M :a [1 2N]))))
-                                                      nil 5 (digest/digest good) {}))
+                                                      nil 5 now (digest/digest good) {}))
                               2)))
          "and the row reads back as"
          (pr-str (record/read-value (nth (first (decision/writes (act-id 1) (act-of (arrived 1 (value-at :note-1 :text (array-map :b 1.50M :a [1 2N]))))
-                                                                 nil 5 (digest/digest good) {}))
+                                                                 nil 5 now (digest/digest good) {}))
                                          2))))
   (shown "the order by value," (count by-value-cases) "cases, each act decided as steps 6 and 7 of the walk decide it: a key of that order is"
          (pr-str (entry-key 100 :c1 :b1))
@@ -3962,28 +3953,28 @@
         stamps (holds stamp-line-cases)
         marks (holds mark-cases)
         copies-of (copies-of-as-written)
-        writes-of (fn [refused] (decision/writes (act-id 1) (act-of good) refused 5 (digest/digest good) {}))
-        offsets [0 5 5 5 3 -60000 5 6 6 2000]
-        in-a-line (rest (reductions (fn [last-stamp offset] (decision/stamp-of (+ now offset) last-stamp (act-of good) nil)) nil offsets))]
+        writes-of (fn [refused] (decision/writes (act-id 1) (act-of good) refused 5 now (digest/digest good) {}))
+        times [now (+ now 5) (- now 60000) far-ahead 0]
+        timed-acts (vec (map-indexed (fn [i t] (assoc (arrived (+ 450 i) (value-at (keyword (str "t" i)) :text)) declaration/time-part t))
+                                     times))
+        after-the-acts (walked-line empty-task :streaming (cons (as-sent (making :alice :alice :alice) :streaming) timed-acts))]
     (shown "what a gate may copy to other tasks," copies "cases: of the writes of a decision, each row of a fact and of the facts by value, in their order, a key that is taken out among them, and never the answer or the last stamp; nothing of a refusal. `copies-of`, read as data from the source file of the walk and made a function here with no Rama, gives what the proof's own filter gives. Of the writes of an accept of one value, and of a refusal, as the kinds of the writes and of what is copied:"
            (pr-str (mapv (fn [writes] [(mapv first writes) (mapv first (copies-of writes))]) [(writes-of nil) (writes-of :layer-not-made)])))
     (shown "a second run of one decision," again "cases, by the walk in memory: from the same record it gives the same writes in every field; on the record that the first run left it finds the answer under the act-id, writes nothing and leaves every table as it was. As [what, the kinds of the writes, the word]:"
            (str/join " | " (map (fn [[what _ _ _ kinds word]] (str what " " (pr-str kinds) " " (or word "accepted"))) second-run-rows)))
-    (shown "the stamp in a line," stamps "cases: ten acts of one layer with times that rise, stand still and go back, as milliseconds after" now (pr-str offsets)
-           "get stamps that each are later than the one before, as [milliseconds after that time, counter]:"
-           (pr-str (mapv (fn [s] [(- (stamp/time-of s) now) (stamp/counter-of s)]) in-a-line))
-           "| the same for a layer of each gate, and for the walk in memory")
+    (shown "the stamp in a line," stamps "cases, by the walk in memory, for a layer of each gate: a layer's stamps are 0, 1, 2 and on, an accept's and a refusal's alike, whatever the times on its acts and the stamps that they carry. Five acts after the making act of Alice's layer, with times that rise, go back by a minute, leap 2^50 ms ahead and fall to 0, as [time, stamp] from their answers:"
+           (pr-str (mapv (fn [thing] ((juxt :time :stamp) (get-in after-the-acts [:answers (record/answer-key :alice (nth (:act-id thing) 2))])))
+                         timed-acts)))
     (shown "a mark holds from the next act," marks "cases, for a layer of each gate: the key gets the stamp of the act that marks it; a fact under the key in that act is in no run; a fact under it in the next act has its entry in the facts by value under that stamp")))
 
 (deftest a-line-is-decided-in-the-depots-order
   (let [n (holds line-cases)
-        after (walked-line (:record line) :microbatch (:things line))
-        halves (fn [s] [(- (stamp/time-of s) now) (stamp/counter-of s)])]
+        after (walked-line (:record line) :microbatch (:things line))]
     (shown "a line of" (count (:things line)) "things into a base that is made, decided in memory one thing after the other in the order of the depot, with the pure functions in the walk's order;" n
            "cases with a line into a base that is not made, a line of strays, a line of repeats, and the line decided a second time. The word of each answer, by the number of its act-id:"
            (pr-str (words-by-number after)))
-    (shown "after that line, the last stamp kept for each layer, as [milliseconds after the time on the acts, counter]:"
-           (pr-str (into (sorted-map) (map (fn [[layer s]] [layer (halves s)])) (:last-stamp after)))
+    (shown "after that line, the last stamp kept for each layer, the base's" before-the-line "before it:"
+           (pr-str (into (sorted-map) (:last-stamp after)))
            "| the strays, how many digests under each word:"
            (pr-str (into (sorted-map) (map (fn [[word digests]] [word (count digests)])) (:strays after))))
     (shown "a line into a base that is not made: an act before the making, two making acts, acts after:"

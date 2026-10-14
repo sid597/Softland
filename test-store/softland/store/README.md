@@ -37,7 +37,10 @@ group observed. This page does not retell the checks.
 - facts that are a sequence with no end, for which the check does not come back;
 - an act of many facts, and how long the check takes;
 - the use of the act by a gate, and what a gate does with a permission that
-  says see: the pure proof and the module's proof, below, show it.
+  says see: the pure proof and the module's proof, below, show it;
+- a carried stamp held against a stamp that was given: the form takes any long
+  from zero, and no gate reads a carried stamp, so a stamp that no decision had
+  is taken too (`softland.store.gate.stamp`).
 
 ## The pure proof
 
@@ -53,7 +56,11 @@ content.
 A thing on a depot holds the time on the act, and the declaration refuses a
 thing with no usable one. So each thing that the proof's hand builds holds one
 time, under the name that the door's declaration holds for that part; a thing
-without it, or with another time, is built so on purpose.
+without it, or with another time, is built so on purpose. The time has no
+bound above. The proof holds that a decision writes the time beside the stamp
+as a label, in the answer and in each row of a fact, and that the stamp is the
+layer's count of decisions, which neither the time nor a stamp that the act
+carries moves.
 
 Both gates decide a thing with one walk. Where a group decides things one after
 the other, a function of the proof's own makes the reads, the calls and the
@@ -84,9 +91,18 @@ group observed. This page does not retell the checks.
 - a thing after Rama serialised it;
 - a clock: each case gives the time as a number. That a door writes its
   server's clock on an act, and that no gate reads a clock, need a cluster. The
-  door's proof holds the time that the door wrote, and the time in the stamp
-  of an accepted act against it; the run-again proof holds that the gates give
-  the same stamps when they are run again over the depots;
+  door's proof holds the time that the door wrote against the time in the
+  act's answer; the run-again proof holds that the gates give the same stamps
+  when they are run again over the depots;
+- the walk's own call of the stamp on a cluster: the proof's `walked` gives
+  `next-stamp` the layer's last stamp alone and the time to `writes` only. A
+  reading of the walk's source, like those of `what-no-run-in-process-can-see`,
+  could hold that no time and no carried stamp reaches `next-stamp`;
+- a layer past 2^63 − 1 decisions: the proof holds that `next-stamp` wraps
+  there, and not what the order by value, which compares stamps, does after a
+  wrap;
+- a read that asks for `:time` in `:with`: that is the read path's pure
+  proof's;
 - how long a check takes;
 - of the door: anything that needs a cluster, a clock or a second thread. The
   waits are the door's proof's to show, as far as it does;
@@ -124,8 +140,10 @@ the two runs, added.
 On the first cluster the checks run in one order, and later checks build on the layers,
 the facts and the permissions that earlier ones made. The hand writes a time on
 each thing, as the door does: a reading of the proof's own clock, or a time
-that a check chose. A check of a stamp chooses the time, in both gates, so that
-the stamp is a number that the proof makes itself from that time. The hand
+that a check chose. A check of the time chooses it, in both gates, so that the
+time that an answer and a row hold is a number that the proof wrote out. A
+stamp holds no time: the proof works out each stamp that it holds from the
+order in which it sent the things of a layer. The hand
 reads each answer back through the module's own queries, by act-id, with the
 act-id's layer as the routing id, for both depots. For a streaming layer it
 reads after an append that waited for the gate. For the base no ack carries an
@@ -145,7 +163,7 @@ of a streaming layer it shows of the base, group for group. Two things are held
 once, for the streaming depot: the kinds of value that Rama carries on a depot,
 and what the two reads give for a thing that is no id. Beside them stand the
 checks of what only the base has: the line, the copies on every task, the stamp
-by the proof's own arithmetic for each thing that the gate decided, a mark and
+by the proof's own count for each thing that the gate decided, a mark and
 the facts after it in one batch, and an attempt of a batch that fails and runs
 again.
 
@@ -169,7 +187,9 @@ No check holds a number of milliseconds.
   most, and the proof's function sleeps 300 ms before the throw in the batch.
 - The proof reads the clock for the time that the hand writes on a thing when
   no check chose one, and to end a loop that watches a table. Where a check
-  holds a stamp to a number, the hand chose the time.
+  holds a time to a number, the hand chose that time. No stamp that a check
+  holds rests on a time: the proof works each one out from the order in which
+  the hand sent the things of its layer.
 
 ### What the module's proof does not reach
 
@@ -214,10 +234,9 @@ No check holds a number of milliseconds.
   runs the new code, and can make other rows from the same things;
 - a second failure of one batch or of one event: each of the two groups of
   the second cluster forces one failure, of its own kind;
-- the greatest time that the declaration takes, in the base: it would set the
-  base's last stamp to the end of the range for the rest of the run. The test `the-time-on-the-act`
-  holds it in a streaming layer of its own, and both gates have one
-  declaration and one rule for the stamp;
+- a time on the depot that is not a long: the hand writes longs, and nil, -1
+  and 1.5, which are refused. It does not send an Integer, which the
+  declaration takes as a time, or a big integer, which it refuses;
 - a microbatch layer beside the base: no layer but the base starts with the
   microbatch depot. So the second layer of the test `the-time-on-the-act-in-the-base` is a layer of the other
   gate, whose acts this gate refuses: it has stamps and answers there, and no
@@ -348,8 +367,16 @@ has none of these ways.
 - a worker of another process, and a thing of a type that it does not have;
 - a door in another process: the door of the test `the-door-holds-nothing` is one more door in the
   proof's own JVM;
-- a door on another server, with another clock: the proof and its doors run in
-  one process and read one clock;
+- a door on another server, with another clock, or a clock that is far ahead:
+  the proof and its doors run in one process and read one clock. A wrong clock
+  gives a wrong time in the answer and in the rows and changes no stamp
+  (`softland.store.gate.stamp`); no check of this proof sets a clock to show
+  it;
+- an answer with no `:time`: every thing that the door sends holds a time, so
+  each answer of this proof carries one. A thing that something else appends
+  with no usable time is refused `:no-door-time`, with no `:time` in its
+  answer (the pure proof and the run-again proof hold it); the door's proof
+  sends none;
 - where a batch is cut: the proof cannot see it, and nothing of a batch is in
   an answer. That the batch after a pause holds every act that was sent
   meanwhile is what Rama's test docs say;
@@ -379,10 +406,16 @@ machine, read its numbers before the door.
 
 The time on an act is held between two readings of the clock round the call of
 the door, which holds only because the proof and the door read one clock.
-Where a check holds that the time in a stamp is the time on its act, it says
-why: the act is the first of its layer, or it was sent after each earlier act
-of its layer. Of acts that 16 threads send into one layer at once the proof
-holds only what holds in every order (the test `many-makers-at-once`). The time of the test `how-long-an-act-of-the-base-takes` is
+A check of the time in an answer holds it against the time that the log holds
+under the same act-id, so it rests on no clock but the one read round the send.
+A check that holds a stamp as a count, 0 for a layer's first decision and one
+more for each decision after it, rests on the order of the proof's own sends
+and not on a time: the proof sends the acts of that layer one after the other.
+Of acts that 16 threads send into one layer at once the proof holds only what
+holds in every order (the test `many-makers-at-once`): each answer carries its
+own act's time, and the 400 stamps are the 400 numbers after the making act's.
+How many acts next to each other by stamp have times that go back is printed
+and held to nothing. The time of the test `how-long-an-act-of-the-base-takes` is
 printed and held to nothing but the bound of a wait.
 
 ## The read path's pure proof
@@ -421,7 +454,10 @@ group observed. This page does not retell the checks.
 - that every task holds the base's rows, and a read on a task: no task is
   played. The read path's proof, below, reads the base on the task of an
   asker's own layer;
-- more than four writes in one played world.
+- more than four writes in one played world;
+- the time on a row as a gate writes it from the time on the act: the proof
+  makes its rows' times itself, of the stamp, running back as the stamp runs
+  on.
 
 ## The read path's proof
 
@@ -498,6 +534,12 @@ Rama's test tool, and lets it go on.
 
 ### What the read path's proof does not reach
 
+- A query whose `:with` holds `:time`: no check of this proof asks for it, so
+  no run holds that a place-answer on the cluster carries the time that the
+  door wrote on its act. The read path's pure proof holds it on rows of its
+  own. An idea for a check: one act through the door, its place read with
+  `:with #{:time}`, and the place-answer's `:time` held against the `:time` of
+  the door's answer;
 - A cluster of several machines, a network between the runtime and Rama, a move
   of a task's leader, a killed process, a restart of the runtime;
 - Rama ending a push by itself, and Rama leaving a reader out of a change and
@@ -570,9 +612,10 @@ another gate than the store's. Its tables are its own. Each gate declares its
 source from the beginning of the depot, so a module that is launched when the
 depots are full reads them whole.
 
-The time on a thing. A gate reads no clock: the stamp of a decision is made of
-the time on the thing, of the layer's last stamp, and of the stamps that the
-act carries. The door writes the time on what goes through it. On a thing that
+The time on a thing. A gate reads no clock, and no rule reads the time: the
+stamp of a decision is its layer's last stamp plus one, and the time on the
+thing is a label beside it, in the answer and in the row of each fact of an
+accepted act. The door writes the time on what goes through it. On a thing that
 it appends with no door the hand writes its own reading of the clock at the
 send, as a door does. A few things are appended as the proof built them, with a
 chosen time or with none.
@@ -683,7 +726,12 @@ layer, is a race: the check says how it went.
 - two acts of one layer with one stamp: the naming rule names an act whose
   stamp is higher than one behind it or lower than one before it, and an equal
   stamp is neither. The module's proof holds that the stamps rise strictly in
-  each layer.
+  each layer, and the making of the fixture that each layer's stamps are 0, 1,
+  2 and on, one for each answer;
+- that the things whose time is chosen are decided as the rules say, in a run
+  of the proof: check 1 prints what each module gave of them and holds it to
+  nothing; the making of the fixture holds the store to them, and checks 2 and
+  3 hold a store to the rows that the making gave.
 
 ## The measures
 

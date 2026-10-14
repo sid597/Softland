@@ -57,24 +57,25 @@ The door writes a third part on each thing that it appends, beside the act-id
 and the depot: the clock of the server that runs the door, in milliseconds
 since 1970. [door.clj](../door.clj) reads that clock once for a thing and hands
 the number on; nothing in this folder reads a clock. The name of the part is
-declared once, in [declaration.clj](declaration.clj), with the range that a
-gate holds the time to. A thing whose time is absent or outside the range is
+declared once, in [declaration.clj](declaration.clj), with its form: a whole
+number not below zero. A thing whose time is absent or of another form is
 refused by a gate with one word, `:no-door-time`, and the refusal is recorded
-under its act-id. The digest leaves the part out, so a maker's second send of
+under its act-id. The time is a label: a gate writes it beside the stamp, and
+no rule reads it. The digest leaves the part out, so a maker's second send of
 one act under one act-id, which carries another time, reads the first send's
 answer as its own.
 
-Sid decided the first of these on 13 October 2026: the clock comes before the
-depot, the door writes the time on the act, and the clock is the clock of the
-server that runs the door. Four things beside it are not decided, and each is
-kept for now in one place, whose docstring says so:
+Sid sent the first of these as his decision on 13 October 2026: the clock comes
+before the depot, the door writes the time on the act, and the clock is the
+clock of the server that runs the door. On 14 October he decided that order and
+time are apart, and that a thing with no time is refused. Two things beside
+them are not decided, and each is kept for now in one place, whose docstring
+says so:
 
 | Not decided | The answer kept for now | Where |
 |---|---|---|
 | What the time on the act is called | `:door-time` | `time-part` in [declaration.clj](declaration.clj) |
 | What a second send of the same act carries as its time | The door's clock of the second send | `send-act` in [door.clj](../door.clj) |
-| What happens to a record that arrives with no time | A gate refuses it, with a recorded answer | `shapes` in [declaration.clj](declaration.clj) |
-| Where a time that is far ahead is stopped | Nowhere but at the end of the range | `max-time` in [declaration.clj](declaration.clj) |
 
 ## Boundaries
 

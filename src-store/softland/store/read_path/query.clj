@@ -18,8 +18,8 @@
      :from-layer       layer                      first: exactly one of these
                                                   two. The second takes the
                                                   list from the layer
-     :with             #{:writer :permission}   which parts of a row she asks
-                                                  for; left out: none
+     :with             #{:writer :permission    which parts of a row she asks
+                         :time}                   for; left out: none
      :stores-own-facts true}                    left out: the store's own
                                                   facts are not given
 
@@ -193,8 +193,8 @@
   The shape holds `:asks` only to being there and to being a value: `check`
   then holds the whole of it to the shape of its word (`words`), so that a
   word that is not known and a known word with a wrong part get two
-  different reasons. `:with` is a set of the two parts of a row that can be
-  asked for. A part that is left out holds nil in the one form, or the
+  different reasons. `:with` is a set of the three parts of a row that can
+  be asked for. A part that is left out holds nil in the one form, or the
   default that the shape gives."
   (assoc act/shapes
          :query   [:parts
@@ -203,7 +203,7 @@
                    [:not-signed-in    [:enum true]    {:optional true :reason :no-one-asker}]
                    [:layers           [:seq-of :id]   {:optional true :reason :layers-not-a-list-of-layers}]
                    [:from-layer       :id             {:optional true :reason :from-layer-is-no-layer}]
-                   [:with             [:set-of [:enum :writer :permission] {:max 2}]
+                   [:with             [:set-of [:enum :writer :permission :time] {:max 3}]
                     {:optional true :default #{} :reason :part-of-a-row-not-known}]
                    [:stores-own-facts [:enum true false] {:optional true :default false}]]
          :run-end [:or [:enum :first :last] [:tuple :id] [:tuple :id :key]]))

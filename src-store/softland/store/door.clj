@@ -456,15 +456,14 @@
   (`server-clock`). The door reads it once in a call, at step 3; a call
   that ends in a word before that step reads no clock. It is the one read
   of a clock on the way of an act through the store, in a streaming layer
-  and in the base alike: no gate reads a clock (Sid's decision of 13
-  October 2026), and each gate makes the stamp of its decision of this
-  time and of the layer's last stamp (`softland.store.module.walk`). Two
-  doors on two servers write two clocks. No check holds one clock against
-  the other by itself, and the 10-second rule does through a layer's
-  stamps: an act that carries a true stamp of its layer is refused
-  `:carried-stamp-too-far-ahead` when the act that got that stamp came
-  through a door whose clock is more than 10 seconds ahead of this door's
-  (`softland.store.gate.stamp/max-ahead-millis`).
+  and in the base alike. No gate reads a clock: a gate's decisions are a
+  function of its depot's order, so that a run again gives the same
+  record. The time is a label. A gate puts it beside the stamp, in the
+  answer and in each row of the act's facts, and no rule reads it: the
+  stamp is the layer's count of decisions and holds no time
+  (`softland.store.gate.stamp`; Sid's decision of 14 October 2026). Two
+  doors on two servers write two clocks, and nothing holds one against
+  the other: a wrong clock gives a wrong label, and nothing else.
 
   A second send. A second send of one act under one act-id is the same
   thing but for its time: it carries the door's clock of the second send,
@@ -549,10 +548,12 @@
   (`softland.store.door.words/answer`), or the word `:read-the-answer` when
   a read threw: a read that failed has not said \"nothing yet\".
 
-    {:answer :accepted :stamp s}              the record's answer is of the
+    {:answer :accepted :stamp s :time t}      the record's answer is of the
                                               thing with that digest
-    {:answer :refused :reason word :stamp s}  the same, with the gate's
-                                              reason word
+    {:answer :refused :reason word :stamp s :time t}
+                                              the same, with the gate's
+                                              reason word; no `:time` when
+                                              the thing held no usable one
     {:answer :nothing-yet}                    the read gave nothing
     {:answer :not-mine}                       the record holds an answer
                                               under the act-id with another

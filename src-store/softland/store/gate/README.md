@@ -22,15 +22,16 @@ record, are in [module/](../module/README.md).
 |---|---|---|
 | [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data, those of the facts by value among them. | None. It reads no PState. |
 | [first_act.clj](first_act.clj) | The depot that a layer starts with, whether that is the other gate's depot, the form of a making act, and what a layer starts with when no fact says who may see it, what it builds on or which keys it marks. | None. |
-| [stamp.clj](stamp.clj) | The stamp: a time and a counter in one integer; the next stamp, of the time on the act, the layer's last stamp and the stamps that the act carries; the 10-second rule. | None. It reads no clock. |
+| [stamp.clj](stamp.clj) | The stamp: the position of a decision in its layer, the layer's last stamp plus one. It holds no time and nothing that the act carries. | None. It reads no clock. |
 
 ## How the files relate
 
 [decision.clj](decision.clj) holds each check. It asks
 [first_act.clj](first_act.clj) whether an act has the form of a making act and
 whether the act's layer starts with the other gate's depot,
-[the act](../act.clj) what the act's permission allows, and
-[stamp.clj](stamp.clj) for the stamp of a decision. Whether a layer is the other
+and [the act](../act.clj) what the act's permission allows. The walk asks
+[stamp.clj](stamp.clj) for the stamp of a decision; no check reads a stamp
+that an act carries, or the time on the act. Whether a layer is the other
 gate's is asked of the layer id alone, in both gates: no check reads the other
 gate's record.
 

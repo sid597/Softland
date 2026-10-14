@@ -39,9 +39,10 @@
              `:last-stamp` is a map from the printed text of a layer id to
              a number, subindexed, with size tracking off. A map with one
              key for each layer, and not one number for the task, because
-             a stamp is counted in its layer (Sid, 13 October 2026). The
-             key is the text of the layer id, as in every key of a row, so
-             that the position has one class: a layer id is a keyword or a
+             a stamp is counted in its layer
+             (`softland.store.gate.stamp`). The key is the text of the
+             layer id, as in every key of a row, so that the position has
+             one class: a layer id is a keyword or a
              UUID. Subindexed, because a task of the streaming gate holds
              every layer that hashes to it, a personal layer for each
              person among them, and a map that is not subindexed is read
@@ -72,8 +73,9 @@
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
   does not have is absent: `:value` in the row of a retract, `:level-since`
-  in every row but the one at a layer's marked-keys place. A fact's value,
-  who wrote it, the permission that its act named and the stamps of the
+  in every row but the one at a layer's marked-keys place, `:time` in the
+  answer of a thing that held no usable time. A fact's value, who wrote
+  it, the permission that its act named and the stamps of the
   marked keys are each held as a String, the one text of what it is: the
   text of a value is the one that the declaration's check made
   (`softland.store.door.declaration/check`). The two tables that a reader is kept
@@ -110,6 +112,7 @@
   []
   {String (fixed-keys-schema {:refused Keyword
                               :stamp   Long
+                              :time    Long
                               :digest  byte-array-class})})
 
 (defn facts
@@ -127,6 +130,7 @@
                               :by-act      UUID
                               :by-index    Long
                               :stamp       Long
+                              :time        Long
                               :who         String
                               :permission  String
                               :level-since String})})
@@ -139,6 +143,7 @@
   {String (fixed-keys-schema {:by-act     UUID
                               :by-index   Long
                               :stamp      Long
+                              :time       Long
                               :who        String
                               :permission String})})
 

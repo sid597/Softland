@@ -110,20 +110,30 @@
   [tables gate table-name]
   (get tables [gate table-name] (sorted-map-by by-code-point)))
 
+(defn- time-of
+  "The time on the act of a write in this proof, in milliseconds since
+  1970, which a gate puts in each row of the act's facts. Takes the act's
+  stamp. A time of the proof's own, made of the stamp so that two writes
+  have two times. It runs back as the stamp runs on: order and time are
+  apart, and the proof does not let the two agree by chance."
+  [stamp]
+  (- 1760000000000 (* 1000 (long stamp))))
+
 (def ^:private fact-row*
   "Makes the row of a fact as a gate would keep it, and remembers it. Takes
   the layer, who wrote it, the entity, the key, the value (nil for a
   retract) and the stamp. The fact is given to
   `softland.store.record.rows/fact-row` in its one form on arrival: with the
   one text of its value in its normal form, which the row keeps, and with
-  the value itself under a store key alone. The row holds the texts of who
-  wrote it and of a first permission of that who in the layer."
+  the value itself under a store key alone. The row holds the time on its
+  act (`time-of`), and the texts of who wrote it and of a first permission
+  of that who in the layer."
   (memoize
    (fn [layer who e k v stamp]
      (let [fact {:e e :k k :replaces nil
                  :v (when (declaration/store-key? k) v)
                  :text (when (some? v) (text/text (act/normal-value v)))}]
-       (rows/fact-row fact (UUID. 0 (long stamp)) 0 stamp (text/text who) (text/text [who layer layer]))))))
+       (rows/fact-row fact (UUID. 0 (long stamp)) 0 stamp (time-of stamp) (text/text who) (text/text [who layer layer]))))))
 
 (def ^:private marks-row*
   "Makes the row of a layer's marked keys, with the stamp since which each
@@ -135,10 +145,11 @@
       since-by-key))))
 
 (def ^:private by-value-row*
-  "Makes the row of a fact in the order by value, and remembers it."
+  "Makes the row of a fact in the order by value, with the time on its act
+  (`time-of`), and remembers it."
   (memoize
    (fn [layer who stamp]
-     (rows/by-value-row (text/text who) (text/text [who layer layer]) (UUID. 0 (long stamp)) 0 stamp))))
+     (rows/by-value-row (text/text who) (text/text [who layer layer]) (UUID. 0 (long stamp)) 0 stamp (time-of stamp)))))
 
 (defn- put
   "Puts a row under a key of one table."
@@ -668,7 +679,9 @@
                "a whole layer"           {:asks [:run :first :last] :not-signed-in true :layers [:base]}
                "a run to a place"        {:asks [:run :first [:e :k]] :asker (UUID. 1 2) :layers '(:team)}
                "what points at a thing"  {:asks [:points-at :parent (UUID. 0 7)] :asker :alice :layers [:team]
-                                          :with #{:writer :permission} :stores-own-facts true}}
+                                          :with #{:writer :permission} :stores-own-facts true}
+               "a place, with each part of a row" {:asks [:place :note-41 :text] :asker :alice :layers [:team]
+                                                   :with #{:writer :permission :time}}}
         faults [["no map"                          5                                                [:not-a-query nil]]
                 ["a record"                        (->Thing [:place :note-41 :text] :alice [:team]) [:not-a-query nil]]
                 ["a part that the form does not hold" (assoc good :live true)                     [:part-not-known :live]]
@@ -722,6 +735,8 @@
     (check "the one form of a query: each part there, an asker of nil for a person who is not signed in, one of the two ways of naming layers nil, a set, true or false"
            {:asks [:run :first :last] :asker nil :not-signed-in true :layers [:base] :from-layer nil :with #{} :stores-own-facts false}
            (q (get forms "a whole layer")))
+    (check "a :with that asks for each of the three parts of a row, the writer, the permission and the time, is a known query, and its one form keeps the three"
+           #{:writer :permission :time} (:with (q (get forms "a place, with each part of a row"))))
     (check "a list of layers that is no vector, and a thing that is a UUID, come out in the one form"
            [[:team] true]
            (let [one (q (get forms "a run to a place"))] [(:layers one) (vector? (:layers one))]))
@@ -1159,7 +1174,7 @@
                         [:fact :team :bob :note-9 :text "only the team" 713]
                         [:fact :base :system :note-9 :size 9 330]])
         tables (put tables :microbatch :facts (rows/place-key :base :note-9 :raw)
-                    {:value "(not a value" :by-act (UUID. 0 9) :by-index 0 :stamp 331
+                    {:value "(not a value" :by-act (UUID. 0 9) :by-index 0 :stamp 331 :time (time-of 331)
                      :who ":system" :permission "[:system :base :base]"})
         ask (fn [who asks layers & more]
               (:answer (play-once tables (q (merge {:asks asks :layers layers} (if who {:asker who} {:not-signed-in true})
@@ -1203,6 +1218,25 @@
            [(set (keys (place :alice [:place :note-9 :text] [:team])))
             ((juxt :writer :permission) (place :alice [:place :note-9 :text] [:team] :with #{:writer}))
             ((juxt :writer :permission) (place :alice [:place :note-9 :text] [:team] :with #{:writer :permission}))])
+    (check "a place-answer holds the time on the act that wrote its fact only when the query asks for :time: not with the writer and the permission; with :time alone, the time and neither of the two; with all three, all three"
+           [false
+            [nil nil (time-of 713)]
+            [:bob [:bob :team :team] (time-of 713)]]
+           [(contains? (place :alice [:place :note-9 :text] [:team] :with #{:writer :permission}) :time)
+            ((juxt :writer :permission :time) (place :alice [:place :note-9 :text] [:team] :with #{:time}))
+            ((juxt :writer :permission :time) (place :alice [:place :note-9 :text] [:team] :with #{:writer :permission :time}))])
+    (check "a run through three layers that asks for :time: each place-answer holds the :time of the row that it came from, in the nearest layer that holds the place; the same run with no :with holds no time, and is the first with the time taken out"
+           [{[:note-41 :text] (time-of 20) [:note-41 :title] (time-of 311) [:note-9 :text] (time-of 713)
+             [:note-9 :size] (time-of 330) [:note-9 :raw] (time-of 331)}
+            true true true]
+           (let [with-time (:places (ask :alice [:run [:note-41] [:note-9]] [:alice-notes :team :base] :with #{:time}))
+                 without (:places (ask :alice [:run [:note-41] [:note-9]] [:alice-notes :team :base]))
+                 row-of (fn [[e k] {:keys [layer]}]
+                          (get (table tables (first-act/depot-at-making layer) :facts) (rows/place-key layer e k)))]
+             [(into {} (map (fn [[p a]] [p (:time a)])) with-time)
+              (every? (fn [[p a]] (= (:time a) (:time (row-of p a)))) with-time)
+              (not-any? (fn [[_ a]] (contains? a :time)) without)
+              (= without (into {} (map (fn [[p a]] [p (dissoc a :time)])) with-time))]))
     (check "the store's own facts are left out of a run unless the query asks: the entity of a holder, and of the layer itself"
            [{} #{:softland.store/permission}
             {} #{:softland.store/depot :softland.store/marked-keys}]
@@ -1235,7 +1269,7 @@
            [{:layer :alice-notes :not-marked true} {:layer :team :level-since 700} {:layer :base :level-since 300}]
            (:orders (ask :alice [:points-at :parent :canvas-1] [:alice-notes :team :base])))
     (shown "what a read gives: the four things that a place can hold are told apart; the nearest layer that holds a fact wins, also with nothing here; each place of a run comes from the nearest layer that holds it; a layer that is left out is named with why and nothing of it is given")
-    (shown "a place-answer holds no writer and no permission unless asked; the store's own facts are in no answer that did not ask for them; a run across entities of the base gives each place once, and a read of the base gives the same from the base itself and through another home")))
+    (shown "a place-answer holds no writer, no permission and no time unless asked; the store's own facts are in no answer that did not ask for them; a run across entities of the base gives each place once, and a read of the base gives the same from the base itself and through another home")))
 
 (deftest which-changes-reach-an-asker
   (let [tables (reduce write traces [[:fact :alice-notes :alice :note-41 :text "from her notes" 20]])

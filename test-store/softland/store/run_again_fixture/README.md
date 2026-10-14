@@ -33,23 +33,56 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 14 October 2026, by the build "run again": the build
-in which both depots came to place an act by its layer, and the base's gate
-came to decide each act on the layer's task in the depot's order. It is that
-day's second making. The first followed the build's part B. The second
-replaced it at the build's end, for two rules that were changed on purpose
-after the build's review:
+This fixture was made on 14 October 2026. It is that day's third making. The
+first two were made by the build "run again", in which both depots came to
+place an act by its layer and the base's gate came to decide each act on the
+layer's task in the depot's order: the first after the build's part B, the
+second at the build's end, for two rules changed after the build's review
+(`src/proposal/backend-on-rama-2026-10-02/run-again/RECEIPT.md`). The third
+replaced the second for the rules that Sid's decisions of 14 October 2026
+changed on purpose: order and time are kept apart, and order never uses the
+time.
 
-- the stamp of a refusal is its layer's last stamp plus one, or 0, and holds
-  nothing of the time on the thing: a refused thing moves no layer's time;
-- the time on an act is below 2^45 milliseconds, where it was 2^46.
+- the stamp of a decision, an accept or a refusal, is its layer's count of
+  decisions: the layer's last stamp plus one, or 0. It holds no time, and an
+  act's stamp is not raised above the stamps that the act carries;
+- the time on a thing is a label beside the stamp: the answer holds it when
+  the thing held a usable one, a refused thing too, and each row of a fact and
+  of the facts by value holds the time of the act that wrote it;
+- no rule reads the time or a stamp that an act carries: the rule that refused
+  an act carrying a stamp more than 10 seconds ahead of its time is gone, with
+  its word `:carried-stamp-too-far-ahead`;
+- the time on an act and a carried stamp have no upper bound: each is any
+  whole number not below zero.
 
-Before the first making was replaced, the store with the two rules was held
-against it: 14 of its 475 rows had another value, with 4 tasks and with 8. They
-were the stamps of 12 refused answers and the last stamps of 2 layers whose last
-decision is a refusal. No row of a fact and no row of the facts by value
-differed. The build's receipt says the same
-(`src/proposal/backend-on-rama-2026-10-02/run-again/RECEIPT.md`).
+The hand changed with the rules. Its things whose time is chosen are now an
+act with no time, an act with a time an hour behind, an act that carries the
+greatest long as a stamp, an act with a time in the year 3084, and two honest
+acts behind it, the second based on the fact of the first.
+
+No run held the store with these rules against the second making. What
+follows is derived from the rules and the second making's `tables.edn`, not
+run. Fed the second making's records, the store would give another value in
+463 of its 475 rows: every answer (its stamp, or a `:time` that it did not
+hold), every row of a fact and of the facts by value (`:time`, and the stamps
+in it), and the last stamp of each layer but two. A key of the facts by value
+holds the stamp of its key's marking, so none of those keys would be found.
+Twelve rows would keep their value: the ten rows of strays, whose digests do
+not hold a stamp, and the last stamps of the two layers whose only decisions
+are two refusals (`:base` in the streaming gate, `:alice` in the microbatch
+gate), which a refusal already counted 0 and 1. The second making's act that
+carried a stamp an hour ahead of its time was refused; it would be accepted,
+and write a fact's row in each gate and a row of the facts by value in the
+streaming gate.
+
+The third making ran on 14 October 2026 at 14:48 IST. It wrote `acts.edn`,
+104,788 bytes, 337 records (the streaming depot's four partitions 132, 0, 17
+and 5; the microbatch depot's 7, 0, 176 and 0), and `tables.edn`, 90,418
+bytes, 488 rows: in the streaming gate 142 answers, 61 facts, 25 facts by
+value and 14 rows of the task's table; in the microbatch gate 169, 64, 6 and
+7. The run of all seven proofs after it passed, the two checks of this
+fixture among them. The receipt of the change says that the fixture was made
+again, and why (`src/proposal/backend-on-rama-2026-10-02/order-and-time/RECEIPT.md`).
 
 From the repository root, behind the lock of this machine's cluster runs:
 
@@ -63,14 +96,15 @@ and writes the two files here. It writes nothing when the store does not hold
 what the fixture is for, or when a file's text does not read back as its value.
 A folder named behind `make-fixture` gets the files in place of this one; that
 is how a second making is held against the first. A making gives other uuids and
-other times, and so other stamps and digests, than the one before: the two files
-of two makings are not the same text.
+other times, and so other digests and other labels of time, than the one before:
+the two files of two makings are not the same text.
 
 A run of the proof never writes here.
 
 ## When it may be made again
 
-Sid, 13 October 2026:
+The rule is a session's text, which Sid pasted into his prompt of 13 October
+2026 as his decision 6. The record shows that he did not type it:
 
 > A change in what a gate accepts is a new version of the act. The old version's
 > rules stay in the code. This starts with the first real record. Until then the
