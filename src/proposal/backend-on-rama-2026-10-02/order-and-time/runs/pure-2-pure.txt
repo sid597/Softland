@@ -1,0 +1,733 @@
+The proof "pure", on the tree "pure-2" (2026-10-14T09:15Z, head bb6b6cc1), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store -m softland.store.pure-proof
+The whole output is raw-pure-2-pure.txt beside this file, and is not committed. The run took 3 seconds.
+
+PASSED the text of nil
+PASSED the text of true
+PASSED the text of false
+PASSED the text of a string, escaped
+PASSED the text of a readable keyword
+PASSED the text of a UUID
+PASSED the text of a long
+PASSED the text of a narrow integer
+PASSED the text of a big integer
+PASSED the text of a Java big integer
+PASSED the text of a double
+PASSED the text of minus zero
+PASSED the text of a double that is not finite
+PASSED the text of a decimal, without its trailing zeros
+PASSED the text of a run of bytes
+PASSED the text of a vector
+PASSED the text of a list
+PASSED the text of a set, sorted by text
+PASSED the text of a map, sorted by the text of the key
+PASSED the text of a keyword that does not read back
+PASSED the text of a record
+PASSED the text of a symbol
+PASSED the text of a ratio
+PASSED the text of a float
+PASSED the text of a Java list
+PASSED the text of a thing that throws when it is read
+PASSED the text of a thing that throws, inside a map
+PASSED one text for an Integer and a Long of one value
+PASSED one text for minus zero and zero
+PASSED one text for a subvector and a vector
+PASSED one text for a map built in two orders
+PASSED one text for a sorted map and a hash map
+PASSED one text for a decimal with and without trailing zeros
+PASSED one text for two keys of one text, in two orders
+PASSED one digest for an Integer and a Long of one value
+PASSED one digest for minus zero and zero
+PASSED one digest for a subvector and a vector
+PASSED one digest for a map built in two orders
+PASSED one digest for a sorted map and a hash map
+PASSED one digest for a decimal with and without trailing zeros
+PASSED one digest for two keys of one text, in two orders
+PASSED two texts for a list and a vector
+PASSED two texts for a long and a big integer
+PASSED two texts for a long and a double
+PASSED two texts for a keyword and a string
+PASSED two texts for a string and a UUID
+PASSED two texts for a record and a map
+PASSED two texts for two runs of bytes that differ in one bit
+PASSED two texts for bytes and their hex as a string
+PASSED two texts for nil and the keyword :nil
+PASSED two texts for a map and a vector of its entries
+PASSED two digests for a list and a vector
+PASSED two digests for a long and a big integer
+PASSED two digests for a long and a double
+PASSED two digests for a keyword and a string
+PASSED two digests for a string and a UUID
+PASSED two digests for a record and a map
+PASSED two digests for two runs of bytes that differ in one bit
+PASSED two digests for bytes and their hex as a string
+PASSED two digests for nil and the keyword :nil
+PASSED two digests for a map and a vector of its entries
+PASSED the text of the value true reads back as the value
+PASSED the text of the value "a \"text\"" reads back as the value
+PASSED the text of the value :tool/class reads back as the value
+PASSED the text of the value #uuid "00000000-0000-0000-0000-000000000003" reads back as the value
+PASSED the text of the value 42 reads back as the value
+PASSED the text of the value -7 reads back as the value
+PASSED the text of the value 100000000000000000000N reads back as the value
+PASSED the text of the value 1.5 reads back as the value
+PASSED the text of the value 0.0 reads back as the value
+PASSED the text of the value 1.5M reads back as the value
+PASSED the text of the value 1E+2M reads back as the value
+PASSED the text of the value [1 [2 #{3}]] reads back as the value
+PASSED the text of the value {:a {:b [1 2]}, "k" nil} reads back as the value
+PASSED the text of the value #{3 "b" :a} reads back as the value
+PASSED the text of the value [:agent-1 :alice :alice [:alice :alice :alice]] reads back as the value
+PASSED a part inside 65 collections is written #too-deep, and one inside 64 is written out
+PASSED the id of a row's key: a keyword as it prints, a UUID as its 36 characters
+PASSED the hex text of bytes
+PASSED the UTF-8 of the one text
+PASSED the count of the UTF-8 bytes of a string, with no array made: no character, a character of one byte, of two, of three, a pair of surrogates, and the four with spaces between; each is the length of what Java gives
+PASSED half of a pair of surrogates that stands alone counts one byte, as Java writes it
+PASSED a digest is 32 bytes, and its hex text 64 characters
+PASSED for a thing with no bytes and no time, the digest is the SHA-256 of the UTF-8 of its one text
+PASSED the digest of {:a 1} is the SHA-256 of the six characters {:a 1}
+PASSED a run of bytes, which is a part that is no value, is fed as #bytes, its count and the bytes themselves, not as hex
+PASSED the digest of a thing that throws when it is read is the digest of the text #unreadable
+PASSED the comparison of a sender that still holds its thing: the digest of the thing sent, of a thing with another entity, and no digest; and the thing sent, held without its time
+PASSED the same act built twice has one digest, so a maker's second send of one act reads the answer of the first; the act with another value has another digest
+PASSED the digest that tells a throw: the hex text that `hex-of` gives, for a thing that is read to its end; nothing for a thing that throws when it is read
+PASSED two things that differ only in the time on the act have one digest, by `digest`, by `hex-of` and by `readable-hex-of`: the least thing with a time one millisecond later, as a second send carries, with a nil time, and with no time
+PASSED the digest of a thing with a time is the SHA-256 of the one text of the thing without it; the text of the thing holds the time, and the digest is not of that text
+PASSED a thing that differs in anything else has another digest, with the same time on it: another value, another act-id, another who, a part more that holds the same number as the time
+PASSED a time deeper than the top level is not left out: two things that differ only in a time inside a value, inside a fact, or inside a vector have two digests, by `hex-of` and by `readable-hex-of`; the digest of the vector is the SHA-256 of its whole text
+PASSED a sorted map with string keys, from which Clojure cannot take a keyword's part, keeps a digest of its own: the SHA-256 of its own text, by each of the three functions; two such maps with different content have two digests; neither has the digest of #unreadable
+PASSED a record is not changed: a record with a field of the time's name has the digest of a record, the SHA-256 of its text, by each of the three functions; with the field taken out it would be a plain map, which has another digest
+PASSED the door's map of shapes holds each shape of act.clj as act.clj declares it
+PASSED the five shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write
+PASSED the name of the part that holds the time on the act is the one that the shape of what arrives holds, and that shape takes any fixed-width integer not below zero: it has no bound above
+PASSED the seventeen rules, the maker's first, each with its reason; the six of the keys that take a second write stand after the rules of a permission fact
+PASSED the words with which the check refuses, read from the two declarations, the word of the time's part among them, and the two of its last step
+PASSED the five words of a stray, in the order tested
+PASSED the seven limits: facts, entries of based-on, the bytes of one value's text, the bytes of text that one act writes into the rows of its facts, the text of an id, the layers that a layer builds on, the keys that a layer marks
+PASSED the bound on an act is 256 values at the bound of one value, and 8,192 bytes of who and permission for each of 256 facts
+PASSED the five store keys, the shape of the value of each, which is a setting, and which is written again; a key in the store's namespace that is none of the five, and a bare word, is no store key
+PASSED the store's namespace, and each store key is in it
+PASSED a stray? a number
+PASSED a stray? nil
+PASSED a stray? a vector
+PASSED a stray? a record
+PASSED a stray? a map with no act-id
+PASSED a stray? a map whose act-id is nil
+PASSED a stray? a map that throws when its act-id is tested
+PASSED a stray? an act-id of two slots
+PASSED a stray? an act-id of four slots
+PASSED a stray? an act-id with a depot word that is none
+PASSED a stray? an act-id whose last slot is no UUID
+PASSED a stray? an act-id whose layer is a string
+PASSED a stray? an act-id that is a list
+PASSED a stray? an act-id whose layer prints to 257 characters
+PASSED a stray? an act-id of the depot microbatch
+PASSED a stray? an act-id of another layer
+PASSED a stray? a thing with an act-id and no layer
+PASSED a stray? an act-id of the depot microbatch and of another layer: the depot is told first
+PASSED a stray? a good act
+PASSED a stray? a thing that is no act, with a usable act-id
+PASSED a stray? an act-id whose layer prints to 256 characters
+PASSED the test takes the gate's depot: the same microbatch act-id at the microbatch gate is no stray
+PASSED and a streaming act-id at the microbatch gate is a stray
+PASSED the test for a stray reads no time: each of the 17 plain maps of the rows above, 16 of which hold a time, has one word at a gate, with its time as it is, without it, with a nil one and with a string; held at each gate's depot
+PASSED a thing with a usable act-id and no time is no stray on its act-id's depot: the check has the word for it, so a gate answers it under its act-id
+PASSED the least thing in its one form on arrival: each part, the time on the act as it arrived, and its fact with its five parts, the text of the value in the place of the value
+PASSED a thing with each part, given with subvectors, narrow integers and a list of facts: a fact under a plain key holds the text of its value's normal form and no value, a fact with no value holds neither, a fact under a store key holds both
+PASSED its one form has plain vectors and longs, the text is a String, and the time, given as a narrow integer, is a long
+PASSED the text of a value under a plain key is the one text of its normal form, and the one form keeps no value beside it: an Integer, a decimal with a trailing zero, a sorted map, a UUID, a keyword, a string with a quote and a character of three bytes
+PASSED false, an empty string, an empty map and an empty vector are values and no retract: each has its text; a fact with a nil :v has none, as a fact with no :v
+PASSED a making act: two facts under store keys, each with its value and the text of it
+PASSED a retract under a plain key: no value
+PASSED each of the five store keys is known: a fact under each, with a right value, passes
+PASSED the text of a set under a store key is sorted: the marked keys, with the set beside it
+PASSED the values that the three keys of a second write take: each word of who may see; a list of layers that is empty, names the layer itself, names a layer twice or names a layer that nobody made; a set of keys that is empty
+PASSED a mark of a key in a namespace that only begins with the store's is a mark of a plain key: the store's namespace is taken exactly
+PASSED a fact with no value under each of the three keys of a second write passes the declaration, as under the others: a gate refuses the retract
+PASSED a permission fact whose value says what it allows passes: see, and see and act
+PASSED a tool's own fact under the bare word :class is not read as the store's: it passes as a fact under a plain key, and of its value the one form keeps the text alone
+PASSED a tool's own fact under the bare word :permission passes; so does one under :lock-request and one under :depot
+PASSED a tool's own fact under one of the store's words in another namespace passes; a namespace that only begins with the store's is another namespace
+PASSED a key that looks like a store key and is none is a plain key: a value under it passes, one that the store's own key would not take too, and a retract under it passes
+PASSED a part that neither the maker nor the door names
+PASSED a fact with a part that the form does not name
+PASSED a fact with a value that carries :sealed: a fact has no such part
+PASSED a fact with a value that carries :lock-id
+PASSED a fact with no value that carries :sealed and :lock-id
+PASSED a fact whose :sealed is nil: the part is there
+PASSED a version that the code does not know
+PASSED no permission
+PASSED no session
+PASSED no fact
+PASSED a permission for another layer
+PASSED a who that is a string
+PASSED a permission 33 deep
+PASSED a value that is no value of the form: a ratio
+PASSED a value inside 33 collections
+PASSED facts that are no sequence
+PASSED a fact that is no map
+PASSED no depot
+PASSED a depot that is no depot word
+PASSED a depot that is not the depot slot of the act-id
+PASSED a value under a key in the store's namespace that the store does not know
+PASSED a retract under such a key
+PASSED the word class in the store's namespace: the store's key is depot
+PASSED a fact under :softland.store/lock-request: the store has no such key
+PASSED a depot fact whose value is no depot word
+PASSED a permission fact whose value is no permission
+PASSED a permission fact that does not sit on its holder
+PASSED who may see a layer, with a word that is neither
+PASSED who may see a layer, as a string
+PASSED who may see a layer, as a set of people
+PASSED what a layer builds on, as one layer and no list
+PASSED what a layer builds on, as a set: a set has no order
+PASSED what a layer builds on, with a string in it
+PASSED what a layer builds on, 65 layers
+PASSED the marked keys of a layer, as a vector
+PASSED the marked keys of a layer, as one key
+PASSED the marked keys of a layer, with a UUID in the set: a key is a keyword
+PASSED the marked keys of a layer, 33 keys
+PASSED a mark of a key of the store's own namespace
+PASSED a mark of a key in the store's namespace that the store does not know
+PASSED two facts on one place
+PASSED a fact that replaces a fact of its own act
+PASSED no time
+PASSED a time that is nil
+PASSED a time that is a string
+PASSED a time that is a double
+PASSED a time that is a big integer
+PASSED a time that is a Java big integer
+PASSED a time of -1
+PASSED a time that is the least long
+PASSED a time of 0
+PASSED a time that is a narrow integer
+PASSED the time of the proof's things
+PASSED a time far ahead of every clock, 2^50 ms
+PASSED a time that is the greatest long
+PASSED who
+PASSED the session
+PASSED a subject
+PASSED an entity
+PASSED a fact's key
+PASSED who and the holder of the act's permission
+PASSED granted-in, in the act's permission
+PASSED the layer of the act-id in because-of
+PASSED the layer of a fact id in based-on
+PASSED the layer of a replaced fact
+PASSED the holder in a permission that is given
+PASSED granted-in, in a permission that is given
+PASSED who, in the permission above one that is given with the slot that says what it allows
+PASSED a layer in the list that a layer builds on
+PASSED a key in the set that a layer marks
+PASSED 256 facts
+PASSED 257 facts
+PASSED 1,024 entries of based-on
+PASSED 1,025 entries of based-on
+PASSED a carried stamp of 2^62, and one that is the greatest long: a carried stamp has no bound above, since no gate reads it
+PASSED a carried stamp of -1: no stamp is below zero
+PASSED a value whose one text is 65,536 bytes, in 21,848 characters
+PASSED a value whose one text is 65,537 bytes, in 21,849 characters: the bound counts bytes
+PASSED a string of 65,534 letters, 65,536 bytes of text
+PASSED a string of 65,535 letters, 65,537 bytes of text
+PASSED an act whose accept would write 18,874,368 bytes of text into the rows of its facts
+PASSED the same act with one byte more in one value
+PASSED an entity of 256 characters
+PASSED an entity of 257 characters
+PASSED what a layer builds on, 64 layers
+PASSED what a layer builds on, 65 layers
+PASSED 32 marked keys
+PASSED 33 marked keys
+PASSED a layer of 256 characters in the list that a layer builds on, and a marked key of 256
+PASSED an act under its own permission five deep
+PASSED an act under its own permission 32 deep
+PASSED an act under its own permission 32 deep that says what it allows
+PASSED an act under its own permission 33 deep
+PASSED a permission fact whose value is five deep
+PASSED a permission fact whose value is 32 deep
+PASSED a permission fact whose value is 32 deep and says what it allows
+PASSED a permission fact whose value is 33 deep: it is no value of the form, so the shape's word and not the rule's
+PASSED ids that are UUIDs: who, the layer, an entity
+PASSED a part that is not named, and a wrong version
+PASSED no depot, and a wrong version
+PASSED a part that is not named, and no time: the part that the form does not know
+PASSED a depot that is no depot word, and no time: the depot is declared before the time
+PASSED no depot, and no time
+PASSED no time, and a wrong version: the time is declared before each of the maker's parts
+PASSED no time, and a who that is a string
+PASSED no time, and no permission
+PASSED no time, and no fact
+PASSED no time, and facts that throw when they are read
+PASSED no time, and a fact with a part that the form does not name: that fault is inside a part of the maker's
+PASSED no time, and a depot word that is not the act-id's: the shape comes before a rule
+PASSED a time of -1, and a value over the bound: the shape comes before the last step
+PASSED a wrong version, and facts that are no sequence
+PASSED a wrong version, and facts that throw when they are read
+PASSED a good version, and facts that throw when they are read
+PASSED no session, and a value over the bound: the shape comes before the last step
+PASSED a fact that is no map, and another that carries :sealed: the first fact's
+PASSED the same two, the other way round
+PASSED a permission for another layer, and a depot that is not the act-id's
+PASSED 257 facts, each with a value over the bound: the limit of the facts, before one text is made
+PASSED a depot fact whose value is no depot word, and a key in the store's namespace that the store does not know: the key gives the word
+PASSED a wrong word of who may see, and a permission fact that does not sit on its holder: the rules of a permission come first
+PASSED a wrong word of who may see, and a list that is no list: the rules of the three keys in their order
+PASSED 65 layers, and marked keys that are no set: the limit of the list before the shape of the marks
+PASSED 33 marked keys with one of the store's namespace among them: the limit first
+PASSED a mark of a key of the store's namespace, and a value over the bound under a plain key: a rule comes before the last step
+PASSED a value over the bound, and two facts on one place: the rule's word
+PASSED a list of layers with a long id in it, and two facts on one place: the long id is the last rule
+PASSED a value over the bound on an entity whose id is too long: the last rule comes before the last step
+PASSED a value over its bound in an act that is over its bound: the value's word, the first of the two
+PASSED the same with the value as the last fact of the act: the value's word still
+PASSED the usable time of the least thing with no time
+PASSED the usable time of the least thing with a time that is nil
+PASSED the usable time of the least thing with a time that is a string
+PASSED the usable time of the least thing with a time that is a double
+PASSED the usable time of the least thing with a time that is a big integer
+PASSED the usable time of the least thing with a time that is a Java big integer
+PASSED the usable time of the least thing with a time of -1
+PASSED the usable time of the least thing with a time that is the least long
+PASSED the usable time of the least thing with a time of 0
+PASSED the usable time of the least thing with a time that is a narrow integer
+PASSED the usable time of the least thing with the time of the proof's things
+PASSED the usable time of the least thing with a time far ahead of every clock, 2^50 ms
+PASSED the usable time of the least thing with a time that is the greatest long
+PASSED a usable time is a long, whatever fixed-width class the thing held: a long, an Integer, a Short, a Byte
+PASSED a thing that is no plain map has no usable time: nil, a number, a string, a vector that holds the part's name and a time, a record that holds the part, a record with a field of the part's name
+PASSED nothing throws: a sorted map with string keys throws when a keyword's part is read from it, and has no usable time; neither has a sequence that throws when it is read, or a map whose time is such a sequence
+PASSED the time's word stands after the word of a part that the form does not know, and before the word of each of the maker's own parts: of the things of `makers-rows` with the time taken off, the first, whose fault is such a part of the thing itself, keeps its word, and each of the other sixteen, whose fault is in a part of the maker's, gets the time's
+PASSED the time's word stands after the word of a depot that is absent or no depot word, and before each rule: of the things of `doors-rows` with the time taken off, the first two keep the depot's word, and each of the other twenty-three, whose fault a rule finds, gets the time's; a depot word that is not the act-id's is one of them
+PASSED the proof's own count of the bytes of the two values at the edge of the bound on one value, and of their characters
+PASSED the value at the bound is kept whole: its text in the one form is the 65,536 bytes that the proof counts, and it reads back as the value
+PASSED the proof's own count of the bytes that the act at the edge of the bound on an act would write, and of the act one byte over; for each fact, of who and permission
+PASSED the bytes of who and permission are counted for a fact with no value too: an act of 255 values and one retract, which is one byte over the bound only when the retract's row is counted, is refused; with one byte less it passes
+PASSED a thing that the last step refuses gives its word and no act: no part of its one form comes out
+PASSED nil
+PASSED a number
+PASSED a string
+PASSED a record
+PASSED a sequence that throws
+PASSED a map with only an act-id
+PASSED an act whose facts throw when they are read
+PASSED an act whose based-on throws
+PASSED an id that a key can be made of: a keyword, a UUID; not a string, nil, a long keyword, a keyword that does not read back
+PASSED an act-id of a layer: its shape and its layer slot; anything else is none, and nothing throws
+PASSED the first decision in a layer, with no last stamp: the stamp is 0, a long
+PASSED a decision after a last stamp: that stamp plus one, a long also when the last stamp is given as an Integer
+PASSED 1,000 decisions in a row in one layer: the stamps are 0, 1, 2 and on to 999, with no gap
+PASSED the limit: after the greatest long the next stamp wraps to the least, and nothing throws
+PASSED the stamp's namespace gives one function, and it takes the layer's last stamp alone: no time, and nothing of the act, goes into a stamp
+PASSED the depot that a layer starts with: microbatch for the base, streaming for any other
+PASSED a layer that starts with the other gate's depot: at the streaming gate's depot the base, and no other layer, a keyword or a UUID; at the microbatch gate's depot each layer but the base
+PASSED no act that has the form of a making act for a gate is for a layer that starts with the other gate's depot: each of the five such rows below, at its gate; and the base's making act at the streaming gate's depot is for such a layer
+PASSED the two ids that the form knows
+PASSED the making acts of these cases are in the one form on arrival: each is what the declaration's check gives for the same act as its maker sends it
+PASSED what a layer starts with, where no fact says it: the base is seen by everyone and any other layer by its members; a layer builds on nothing; no key is marked; nothing for any other key
+PASSED a making act? a personal layer, made by the system for its person
+PASSED a making act? a group's layer, made by the person who creates it
+PASSED a making act? the two facts in the other order
+PASSED a making act? a layer whose first holder is the system
+PASSED a making act? the base, made by the system
+PASSED a making act? the base
+PASSED a making act? the base by a who that is not the system
+PASSED a making act? the base with a first permission that is not the system's
+PASSED a making act? the base, made by a person who holds its first permission herself: she is the holder, as for a group's layer, and for the base the holder is the system
+PASSED a making act? a layer that is not the base
+PASSED a making act? a who that is neither the holder nor the system
+PASSED a making act? no depot fact
+PASSED a making act? no permission fact
+PASSED a making act? one fact only
+PASSED a making act? a third fact beside the two
+PASSED a making act? a third fact that says who may see the layer: nothing is written at the making but the depot and the first permission
+PASSED a making act? the depot microbatch for a layer that is not the base
+PASSED a making act? a depot fact on an entity that is not the layer
+PASSED a making act? a permission fact that is not the permission that the act names
+PASSED a making act? a first permission with a permission above it
+PASSED a making act? a first permission granted in another layer
+PASSED a making act? a permission that says what it allows, see and act: it has a permission above it and a slot, so it is no first permission
+PASSED the two keys: an answer, a place
+PASSED the longest keys that the limits allow: an answer 293 characters, a place 770, a key of the facts by value 855
+PASSED an accepted answer's row has no :refused; a refused one has its word; each holds the time on the thing beside the stamp; each field of its declared class
+PASSED the time in an answer's row is the time given, as it is: a time of 0 and a time far ahead of every clock; a thing with no usable time gives a row with no :time, refused or accepted
+PASSED an answer as a caller gets it, accepted and refused, with the time on the thing; a nil time for a row with none; no row is nothing yet
+PASSED the row of a fact with a value under a plain key: its value is the fact's text as it is, a String, and the row gives the UTF-8 of it back; the fact that wrote it, the stamp, the time on the act, who wrote it and the permission that the act named; each field of its declared class, and none a byte array
+PASSED the row of a fact under a store key: the text of its value as a String, whose bytes the row gives back; the fact that wrote it, the stamp, the time, who and the permission, and no other field
+PASSED the row takes the fact's text and reads nothing of the fact's value: a fact that holds a value and no text gives the row of a retract, and one that holds a text and another value gives the text
+PASSED the plain bytes of a row's String are its UTF-8, written out here byte by byte: characters of two, three and four bytes; a String that begins with U+0000 has that byte first; nothing for no row and for the row of a retract
+PASSED the row of a retract: no value, and the row is there; it holds who retracted, under which permission and at what time, and no other field
+PASSED who wrote a row and the permission that its act named are each the one text, so a who that is a UUID reads back as a UUID; nothing for no row, for a row with neither, and for a text that is no id or no permission
+PASSED which fact wrote a row: the one named; not another index, uuid, layer or depot; not an empty place
+PASSED no fact wrote an empty place
+PASSED a row holds a value when its String is the one text of that value: a depot word, a tool's value, and a map given in another order and with a decimal that has a trailing zero; not another value, not the text of the value as a string, not a retract, not an empty place
+PASSED the first form of a row's String, read back: a depot, a permission, a tool's value; nothing for a retract, for no row, and for a String that reads as no form
+PASSED what a row says of its value, for a reader: no fact; nothing here; the value as its maker gave it; a String that is no value of the form
+PASSED a String that is no value of the form is told so, and nothing throws: no form, a form with more after it, a value in another text than its one text, a list, a symbol, a tag that is not known, a String that begins with U+0000, with a text after it too, and no character at all. Each is a row that the proof writes by hand: no write of a gate gives one
+PASSED a row whose String is no value of the form: a reader is told so, it holds no value that a maker can give, and it is the same row as one with the same String only; a row of a value's text holds that value
+PASSED the row at a layer's marked-keys place holds, beside the set that a maker wrote, the stamp of each marked key as one text; it reads back as a map; nothing is marked for no row, for a row without the field and for a text that is no such map
+PASSED the value digest: the SHA-256 of a row's value bytes, 64 hex characters; of a value, the digest of the UTF-8 of its one text
+PASSED a key of the facts by value: layer, key, the stamp since which the key is marked, the value digest, then the entity; its row is the fact's row without its value, with the two texts and the time as they were given
+PASSED the run of one value: from the run's text with a space to the same text with an exclamation mark; a key of that value is in it, whatever its entity
+PASSED no run holds a row of another value, layer, key or stamp: for a keyword, a UUID, a string with spaces, a number, a map and a value whose text is 65,536 bytes, the keys of the five others, and of the same value in another layer, under another key and under another stamp, are outside its run
+PASSED the two texts of a UUID do not meet: the digest is always taken of its one text, never of its 36 characters; 1 and 1.0 are two values with two runs
+PASSED a key back to its parts: a printed id to the id, a place's key to layer, entity and key, a key of the facts by value to its entity; nothing for a text that is none
+PASSED the head of the read by act-id: the depot and the key; nothing for what is no act-id of the layer
+PASSED the routing id of an act-id is its layer, for an act-id of each depot: a streaming one and a microbatch one, of a layer that is a keyword and of one that is a UUID. The uuid plays no part: two act-ids of one layer have one routing id
+PASSED no routing id for a thing that is no act-id: two slots, four slots, a depot word that is none, a uuid slot that holds a text, a list, a number, a text, nothing, a thing that throws when it is read; and nothing throws
+PASSED the head of the read by act-id, with the routing id: with the act-id's layer it gives the depot and the key, which is what `answer-read` gives, for an act-id of each depot; the routing id of an act-id is the one that its own read takes
+PASSED nothing for another routing id: the act-id's uuid, another layer, nothing; nothing for a thing that is no act-id; nothing for a layer over the limit, whose act-id has a routing id all the same
+PASSED the two parts of an answer's key, for a reader of the answers' keys: the text of the layer and the uuid; the text gives the layer back, a keyword, a keyword with a namespace, a UUID
+PASSED a layer whose text is 256 characters comes back from its key too
+PASSED nothing for a text that is no answer's key: a place's key of three parts, one part, a layer with no text, a uuid that is not written as a UUID prints, a uuid in capitals, no character, nothing, a number, a thing that throws; and nothing throws
+PASSED the head of the read of a depot: the layer's depot place; nothing for what is no id
+PASSED the time on a thing is the usable time that it holds: `now` for the least thing
+PASSED a thing that the declaration refuses for another fault keeps its time: a wrong version, a part that the form does not know, facts that throw when they are read, a value over the bound; each with the check's word
+PASSED a thing with no usable time has none: no time, a nil one, a double, a time below zero; and a thing that is no map, or that throws when it is read
+PASSED a time far ahead of every clock is the time on the thing as it is, and the declaration takes the thing: nothing holds the time against a clock or a bound
+PASSED an act with no time gets the declaration's word, whatever stamp it carries: no act goes on without a time
+PASSED claimed-when far ahead is a claim: no refusal
+PASSED the places that the standing reads: who's permission, then the layer's depot
+PASSED an act into the base on the streaming depot is no stray there, and the declaration's check, the one check before the standing, takes it: it is the standing that has the word
+PASSED what a permission allows, read from its one form: a first permission and one given without the slot read as see and act; with the slot, what the slot says; the slot of a permission above it is not read
+PASSED standing: the act's permission is at its holder's place
+PASSED standing: an act under a permission given beneath another, at its holder's place
+PASSED standing: the place holds another permission of the same holder
+PASSED standing: the place is empty and the layer is made: the record does not hold the permission
+PASSED standing: an act under Alice's permission by a who that is not Alice, in a layer that is made
+PASSED standing: the system acts again in a personal layer that it made
+PASSED standing: a making act by the holder for a layer that is made: its permission stands, and it makes nothing
+PASSED standing: an act into a layer that is not made
+PASSED standing: a right making act of a personal layer, into a layer that is not made
+PASSED standing: a right making act of a group's layer
+PASSED standing: an act into the base, a layer of the other gate, of which this gate's record holds nothing
+PASSED standing: the base's making act, which has the form of a making act for the other gate and not for this one: it makes nothing here, and the word is that of a layer of the other gate, not that of a layer that is not made
+PASSED standing: that a layer is the other gate's counts only when both rows are nil: an act into the base with the row of its permission there stands
+PASSED standing: and with a row at the base's depot place there, the layer reads as made here: the word of a permission that the record does not hold
+PASSED standing: a holder of see who names her permission as the row has it: an act needs act
+PASSED standing: a holder of see who names her permission without the slot: the bytes are not the row's, so naming more does not stand
+PASSED standing: a holder of see who names her permission with see and act in the slot
+PASSED standing: a holder of a permission that says see and act, named as the row has it
+PASSED standing: a holder of a permission that was given without the slot: it reads as see and act
+PASSED standing: a holder of see and act who names her permission with see in the slot: it does not stand, so nobody acts under less by naming less either
+PASSED standing: a holder of see whose act is by another who: the word of the holder comes first
+PASSED standing: a making act whose permission has the slot, into a layer that is not made: it is no making act
+PASSED standing at the microbatch gate's depot: the row holds the act's permission
+PASSED standing at the microbatch gate's depot: the row holds the act's permission, and it says see: an act needs act
+PASSED standing at the microbatch gate's depot: the row holds a permission that says see, and the act names it without the slot
+PASSED standing at the microbatch gate's depot: the row holds another permission
+PASSED standing at the microbatch gate's depot: the place is empty in a base that is made: the record does not hold the permission
+PASSED standing at the microbatch gate's depot: the place is empty, and the holder is not the who
+PASSED standing at the microbatch gate's depot: the record holds nothing of the base, and the act is no making act: the base is this gate's layer, so the word is that of a layer that is not made
+PASSED standing at the microbatch gate's depot: the base's making act, with nothing in the record: it makes the layer
+PASSED standing at the microbatch gate's depot: the base's making act for a base that is made: its permission stands, and it makes nothing
+PASSED a layer of the other gate, from the act alone: an act into the base, on the streaming depot
+PASSED a layer of the other gate, from the act alone: the base's making act, on the streaming depot
+PASSED a layer of the other gate, from the act alone: an act into a personal layer, on the microbatch depot
+PASSED a layer of the other gate, from the act alone: the making act of a personal layer, on the microbatch depot
+PASSED a layer of the other gate, from the act alone: the making act of a group's layer, on the microbatch depot
+PASSED a layer of the other gate, from the act alone: the making act of a layer whose id is a UUID, on the microbatch depot
+PASSED a layer of the other gate, from the act alone: an act into a personal layer that is not made, on the streaming depot, its own
+PASSED a layer of the other gate, from the act alone: the making act of a group's layer, on the streaming depot, its own: it is taken
+PASSED a layer of the other gate, from the act alone: an act into a base that is not made, on the microbatch depot, its own
+PASSED a layer of the other gate, from the act alone: the base's making act, on the microbatch depot, its own: it is taken
+PASSED places: a value that names nothing, on an empty place: never stale
+PASSED places: a value that replaces the current fact of its place
+PASSED places: a retract that replaces the current fact
+PASSED places: a value that replaces a retract, which is the current fact of its place
+PASSED places: a value that replaces an earlier fact of the place
+PASSED places: a value that replaces another index of the same act
+PASSED places: a value that replaces something on an empty place
+PASSED places: a value that replaces a fact of another layer
+PASSED places: a value that replaces a fact of the other depot
+PASSED places: a depot fact on an entity that is not the layer
+PASSED places: a depot retract on an entity that is not the layer
+PASSED places: a permission given straight beneath the act's own, on an empty place
+PASSED places: a holder gives itself a second permission beneath its own: its place holds one
+PASSED places: a permission given for another layer
+PASSED places: a permission given with a granted-in that is not the act's layer
+PASSED places: a permission given with nothing above it, in a layer that is made
+PASSED places: a permission given beneath a permission that is not the act's own
+PASSED places: the same permission given a second time
+PASSED places: a retract of a permission
+PASSED places: a retract of the layer's depot
+PASSED places: the other depot for a layer that is made
+PASSED places: the layer's own depot a second time
+PASSED places: a stale fact and a depot fact on another entity: the stale fact gives the word
+PASSED places: a depot fact on another entity before a permission for another layer: the setting gives the word
+PASSED places: who may see the layer, on an empty place
+PASSED places: what the layer builds on, on an empty place
+PASSED places: the layer's marked keys, on an empty place
+PASSED places: who may see the layer, written a second time on a place that holds one, naming nothing: a second write is taken
+PASSED places: what the layer builds on, written a second time, naming nothing
+PASSED places: the layer's marked keys, written a second time, naming nothing
+PASSED places: who may see the layer, written again naming the fact that is there
+PASSED places: who may see the layer, written again naming a fact that is no longer there: a writer who must not lose a write names what she replaces
+PASSED places: what the layer builds on, written again naming a stale fact
+PASSED places: the layer's marked keys, written again naming a stale fact
+PASSED places: a retract of who may see the layer
+PASSED places: a retract of what the layer builds on: a list is emptied by a second write of []
+PASSED places: a retract of the layer's marked keys: a mark is taken off by a second write of the set without it
+PASSED places: who may see, on an entity that is not the layer
+PASSED places: what a layer builds on, on an entity that is not the layer
+PASSED places: marked keys, on an entity that is not the layer
+PASSED places: a retract of who may see on an entity that is not the layer: the setting gives the word
+PASSED places: a second give to a holder of see, of see and act: a permission's place takes one write, so see stays see
+PASSED places: a permission given with the slot, straight beneath the act's own, on an empty place
+PASSED places: a permission given with the slot beneath a permission that is not the act's own
+PASSED places: a tool's own fact under the bare word :class, on an entity that is not the layer: no setting
+PASSED places: a tool's own fact under the bare word :permission, on an entity that holds a permission: no permission fact
+PASSED places: a fact copied from the log into another act, on the place where it is the current fact: a value like any other, so it is taken
+PASSED the places whose rows are read: of each fact that replaces something and of each permission fact, no other; not of a tool's own fact under the bare word :permission
+PASSED a fact under a key that takes a second write reads its place for the checks only when it names something to replace
+PASSED who may write the setting, the list and the marks: whoever may act in the layer, so the check gives no word; it is kept, and not decided
+PASSED a making act reads no place, and is not held to the check of a permission fact or to one write for a place
+PASSED a making act that names something to replace is stale: nothing is current in a layer that is not made
+PASSED a refusal writes the answer, with the time on the thing, and the last stamp, and nothing else; what the walk has in hand is not read: with the stamp of a marked key and a row before in hand, an accept of the same act writes the fact's row and two rows of the facts by value beside them
+PASSED a thing that the declaration refused, which is no act, writes the same two, and its answer keeps the time that the thing carried
+PASSED a thing with no usable time, as the walk hands it, with what `time-on` gives and the declaration's word: the same two writes, and its answer holds no :time
+PASSED an accept of one value writes three rows: the fact, with the one text of its value, the time on the act, who wrote it and the permission that the act named; the answer, with the time on the act; the last stamp
+PASSED the time is a label beside the stamp in each row that an accept writes: the fact's row, the entry of its value in the facts by value, and the answer each hold the stamp given and the time on the act, as [stamp, time]; the entry of the value before is taken out and holds nothing
+PASSED a time far ahead of every clock is written as it is and changes nothing else: an accept, and a refusal, with the time 2^50 ms give the rows that they give with the time `now`, but for :time; the stamp is the one given
+PASSED the fact's row holds the text of the value in its normal form, whatever form its maker gave: its String as written out here, the value that it reads back as, its plain bytes, and the seven fields of the row
+PASSED the texts of who and of the permission are made once for the act and each row holds them: an act by a who that is a UUID, with a value and a retract
+PASSED an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the layer, the permission that the act named and the time on the act
+PASSED the system makes a personal layer for its person: the rows hold the system as who, and the person's permission
+PASSED an accept of a retract and a permission given writes a row for each: the retract's has no value; each holds who, the permission and the time
+PASSED a give with the slot writes the permission's whole text, slot and all: what the gate later compares with the permission that an act names
+PASSED a give of a permission 32 deep writes its whole text, as Clojure prints the permission, with its 32 vectors; the row holds that permission and not the one above it
+PASSED a write of the marked keys: the row holds the set that the maker wrote and, derived at the write, the stamp of each key; a newly marked key gets the number under :level-from, here 500, which is not the stamp of the act, so that the two are told apart
+PASSED what the walk hands under :level-from is the act's own stamp, for an act of either gate: a write of the marks in a streaming layer, and one in the base under a microbatch act-id, each give the newly marked key the stamp that the row of the marks itself holds
+PASSED a second write of the marked keys: a key that stays marked keeps its stamp, a key that is newly marked gets the new one, a key whose mark is taken off is gone; the empty set marks nothing
+PASSED a setting and a list are written as any fact under a store key: the one text of the value, and no stamps of marked keys
+PASSED a fact under a key that is not marked puts no row in the order by value; a mark puts none either: nothing is filled from before
+PASSED a mark, then a fact under the marked key: one row comes in, under the key's stamp and the digest of the value, which is the proof's own SHA-256 of the three characters :c1; the fact's row holds that text
+PASSED the mark is taken off: no key is marked, and the row stays; a fact that is then replaced writes nothing in that order, so the row that stays is of a fact that is no longer current
+PASSED the key is marked again: it gets a new stamp, so it names other keys; the run of the old value under the new stamp is empty, and the row of the earlier marking is in no run that a read can name
+PASSED a fact written after the second mark, over a fact from before it: the row before is not later than the key's stamp, so nothing is taken out; its row comes in under the new stamp
+PASSED a fact written over a fact of the same marking: the entry of the value before goes out and the new one comes in; a run under the current stamp holds a place exactly when its current fact has that value
+PASSED a mark and a fact under its key in one act: the act is decided with the marks as they were before it, so the fact is in no run; the key gets the act's stamp, and the fact's stamp is not later
+PASSED a fact that is replaced, naming what it replaces or naming nothing: the entry of the value before goes out, the new one comes in, and the rows written are the same either way
+PASSED a fact written again with the same value: one digest, so nothing goes out; the entry is written over, with the new stamp and the new fact
+PASSED a retract: the entry of the value before goes out and nothing comes in; a fact after the retract takes nothing out
+PASSED a retract on a place that holds no fact, under a marked key: nothing in the order
+PASSED each kind of value is kept, by its digest: a keyword, a UUID, a string with spaces, a number, a map, a value whose text is 65,536 bytes; each key holds 64 hex characters, and each value is alone in its run
+PASSED a value that is given in two forms has one entry: a map in another order and with a narrow integer is in the run of the map
+PASSED two places that hold one value under one marked key are neighbours in one run; a place that holds another value is outside it
+PASSED a fact under a key that the layer does not mark, beside a marked one, and a fact under a store key: no row in the order
+PASSED which acts read the layer's marked keys: one with a fact under a plain key, or under the marked keys; not a give, a setting or a list; and the rows before that are still to be read
+PASSED the writes of that accept, in the act's order, as [which, key, whether a row is written]: the fact under the plain key; the fact under the marked key, the entry of the value before taken out, and the entry of the new value; the row of the marks; then the answer and the last stamp
+PASSED what a gate may copy of them, by the proof's own filter: exactly the writes of a fact and of the facts by value, in their order, the row that is nil among them; they are the first five of the seven, each as it was written
+PASSED the answer and the last stamp are never among them; a refusal's writes and those of a thing that the declaration refused give an empty vector
+PASSED `copies-of`, as the source file of the walk writes it: for the accept, the same five writes in the same order, the nil row among them; an empty vector for the refusal, for the thing that the declaration refused, and for no write; and a vector each time
+PASSED over the writes of each thing of the two lines that the proof decides in memory, `copies-of` as written gives what the proof's own filter gives: how many things, how many of them with something to copy, and how many on which the two differ
+PASSED a second run of one decision: at the streaming gate, the making act of a group's layer
+PASSED a second run of one decision: at the streaming gate, a fact with a value
+PASSED a second run of one decision: at the streaming gate, a fact that replaces the current fact of its place
+PASSED a second run of one decision: at the streaming gate, a write of the marks
+PASSED a second run of one decision: at the streaming gate, an act that is refused: its fact names a fact that is not current
+PASSED a second run of one decision: at the microbatch gate, the base's making act
+PASSED a second run of one decision: at the microbatch gate, a fact with a value
+PASSED a second run of one decision: at the microbatch gate, a fact that replaces the current fact of its place
+PASSED a second run of one decision: at the microbatch gate, a write of the marks
+PASSED a second run of one decision: at the microbatch gate, an act that is refused: its fact names a fact that is not current
+PASSED ten acts of a streaming layer, whose times go back, leap ahead to 2^50 ms and to the greatest long, and fall to 0: each is accepted, the stamps of their answers are 1 to 10 after the making act's 0, and the last stamp kept for the layer is 10
+PASSED the same ten acts in the base: the stamps count on from the base's last stamp before them, one by one
+PASSED each answer and each row of a fact holds the time on its act as it is, beside the stamp, in a layer of each gate: the time far ahead, the greatest long and 0 among them
+PASSED the times move no stamp and change no other field: the same ten acts with the time `now` on each give records that differ only in :time, in the answers and the rows of the nine acts whose time is not `now`, and the same last stamps, at a gate of each kind
+PASSED accepts and refusals of one layer take their stamps by one rule: an accept, a thing with no time, an accept, a wrong version with a time far ahead, an act by a who that is not the holder, an act that names a fact that is not current, an accept that carries the greatest stamp there is, and an accept after it get the stamps 1 to 8 in their order, with no gap; each answer holds the time on its thing, and the one with no time holds none
+PASSED an accepted act with a time far ahead shuts no one out: after it, an act with the time `now` that replaces its fact and carries the stamp that its answer gave is accepted, and so is the act after that one; their stamps are the next two, and the place holds the last value. As [words, stamps after the last stamp before them, times, the value], at a gate of each kind
+PASSED in a streaming layer, by hand: the row of the marks holds the stamp of the act that wrote it for the key; the next act's place under that key has that stamp; and among its writes is the fact's entry of the facts by value, under the key's stamp and with the fact's own stamp
+PASSED in the base, by hand: the same
+PASSED at the streaming gate, by the walk in memory: a making act, a write of the marks and a fact under the marked key, one after the other, are accepted; the key's stamp is the stamp of the answer of the act that marked it; the fact's entry is in the facts by value under that stamp; the fact's stamp is later; and the fact's act writes the fact, its entry, the answer and the last stamp
+PASSED at the microbatch gate, by the walk in memory: the same for the base
+PASSED a fact in the act that marks its own key is in no run, at either gate: the act is decided with the marks as they were before it; a fact under that key in the next act is in the order, under the stamp of the act that marked the key
+PASSED the word of each answer after the line, by the number of its act-id; the two strays have none
+PASSED two acts that replace the same fact: the first in the depot's order is accepted and the second is stale; the place holds the first one's value
+PASSED two acts that write one place and name nothing are both accepted, and the place holds the later one's row
+PASSED a give and then an act under it: both accepted. An act and then the give that it needs: the act is refused and the give is accepted, since an act is decided against the record as the acts before it left it
+PASSED a value alone on its entity is accepted: its row holds the act and the text of the value
+PASSED one act-id under two things has one answer, that of the first thing: its fact is in the record and the second thing's is not. A thing under an act-id that had an answer before the line leaves that answer with its stamp, and writes no fact
+PASSED an act for a layer of the other gate has the word of such a layer, for each of two layers that start with the streaming depot: the record of this gate holds nothing of either, and the walk in memory holds no other record to read. Neither writes a fact
+PASSED a plain value under a plain key is accepted, and its row holds the text of the value
+PASSED the strays have no answer: the digest of each is in the set of its word, the proof's own SHA-256 of the thing's text
+PASSED no standing: a who that is not the holder, whose act carries the greatest stamp there is and gets the word of its standing, since no check reads a carried stamp; a permission that no act gave; a who that is not the holder
+PASSED an act with three values is accepted whole: each fact has its row, written by the act, with the text of its value. An act whose third fact is stale is refused whole: no row of it is in the record
+PASSED one act writes a place and names nothing, and the next replaces the fact that was there before the line: the second is stale, and the place holds the first one's row
+PASSED a thing that the declaration refuses has its word under its own act-id and no row of a fact: a key of the store's namespace that the store does not know, and a value over its bound
+PASSED no refusal writes a fact: each row of a fact after the line was written by an act that was accepted, or was there before the line; the numbers of the acts whose rows the record holds
+PASSED the stamps of the base's answers: the 20 decisions of the line have the stamps that count on from the base's last stamp before it, one by one with no gap, in the order of the depot, a refusal's as an accept's; the numbers of the act-ids in the order of their stamps are the order of the line
+PASSED the last stamp is kept for a layer: the base's is the stamp of its last decision; each layer of the other gate, of which one thing was decided and refused, has 0, the stamp of the first decision of a layer. So a decision in one layer does not raise the stamps of another
+PASSED the line decided a second time from the same record gives the same record: no row differs in any field, the last stamps and the strays are the same, and more than 20 rows are rows that the line wrote
+PASSED the comparison of two records tells a row whose value alone differs
+PASSED the line decided again on the record that it left: each thing finds its answer or is a stray, nothing is written, and every table is as it was, the last stamps and the strays too
+PASSED a line into a base that is not made: an act before the making is refused; the first making act makes the base; a second one names a permission that is there and gives one that is not beneath its own; then an act, a give and two acts under it, one after the other, are accepted
+PASSED a line of strays alone: no answer, no fact and no stamp is written, and the last stamp stays; the digest of each stray is in the set of its word, and a thing that arrives twice is in it once
+PASSED a line of repeats alone, an act-id with an accepted answer and one with a refused answer: nothing is written, no stamp is made, and the record is as it was
+PASSED neither the time on the act nor a stamp that it carries decides, at the microbatch gate too: an act that carries the greatest stamp there is is accepted with the time `now` on it and with a time far ahead; each time its stamp is the base's last stamp plus one, and its answer holds the time on it. As [word, stamp, time]
+PASSED the word of each answer after the line, by the number of its act-id
+PASSED the facts by value after the line: of two acts on one place the later one's value alone; a value written again; no row for a retract, of a fact from before the mark or since it; the entry of a replaced fact gone and the new one there; the entry of a fact under the key that an act of the line marked, under that act's stamp; and none under the key whose mark an act of the line took off
+PASSED a key of that order holds the proof's own SHA-256 of the value's text
+PASSED two acts on one place under a marked key are both accepted, and the place holds the later one's value
+PASSED the same value again: the entry is written over with the new fact and its stamp
+PASSED two places that hold one value: their rows are neighbours in one run
+PASSED a retract of a fact from before the mark takes nothing out; a retract of a fact since the mark takes its entry out; each place holds a retract
+PASSED a fact under a marked key that names the fact that it replaces: the entry of the value before goes out and the new one comes in
+PASSED a mark holds from the next act: a write of the marks marks a new key, and the act after it writes a fact under that key. The key's stamp is the stamp of the answer of the act that marked it, the fact is in the order under that stamp, and the fact's own stamp is later
+PASSED two writes of the marks in one line: the row is the later one's; a key from before keeps its stamp, and each newly marked key has the stamp of the act that marked it
+PASSED a fact under a key whose mark an act before it took off: its row is written, and it has no entry in the order
+PASSED a fact under a marked key that names a fact which is not current is refused whole: its value has no row in the order, and the entry of the place is the accepted act's
+PASSED two writes of who may see the layer that name nothing are both accepted, and the row is the later one's
+PASSED two writes of what the layer builds on that name the same fact to replace: the first is accepted, the second is stale, and the row is the first one's
+PASSED a holder of see: her act is refused; naming her permission without the slot does not stand; her give is refused, so no permission is beneath a see
+PASSED a holder of see who sends a value under a marked key: refused with the word under her act's own act-id, and no row of the value, in its place or in the order
+PASSED a retract of the marks and marks on another entity are refused
+PASSED the door's seven words, each with whether nothing was appended for the act or the door does not know
+PASSED each word names the calls that can give it: the three calls that send or make an act-id, the opening of a door, and the read of an answer
+PASSED what a word can carry, by name
+PASSED no word of the door's is a reason word of the act or of the declaration, or a word of a stray
+PASSED a word as a maker gets it holds :could-not, its own :appended and what it carries, and no :answer and no :reason
+PASSED a word that the table does not hold is not made: one of the four answers, a gate's reason word, nothing
+PASSED the answer from a read of an accept with the digest given: accepted, with its stamp and the time on the act
+PASSED the answer from a read of a refusal with the digest given: refused, with the gate's reason word, its stamp and the time on the thing
+PASSED the answer from a read of a refusal of a thing that held no usable time: refused, with the word and the stamp, and no :time
+PASSED from an answer's row to the maker's answer, through the read's form: the stamp and the time of the row as they are, a time far ahead too; a row with no time gives no :time
+PASSED the answer from a read that gave nothing: nothing yet
+PASSED the answer from a read of an answer with another digest: not mine, and nothing more, for an accept and for a refusal
+PASSED a digest that is nil, or is no text, with an answer there: not mine
+PASSED a digest that is nil with no answer there: nothing yet
+PASSED the two acks, by the depot word: the streaming gate ran, the microbatch depot holds the thing
+PASSED no act: no map: nil, a number, a string, a vector
+PASSED no act: a map with no :layer, or a nil one
+PASSED no act: a thing whose :layer cannot be read without a throw: a sorted map with string keys
+PASSED no act: a record with a :layer
+PASSED no act: a :layer that is no id: a string, a number, a keyword that does not read back
+PASSED no act: a :layer that prints to 257 characters; one of 256 is read
+PASSED no act: an act that already carries :act-id, also a nil one
+PASSED no act: an act that already carries :depot
+PASSED no act: an act that already carries the part of the time, also a nil one
+PASSED no act: :facts absent or nil: the thing goes in as given
+PASSED no act: :facts that is no sequence, one fact map, a set, a string: as given, the maker's own object
+PASSED no act: 257 facts, each with a value: the thing goes in, and a gate has the word
+PASSED no act: a fact that is no map, a string, a number, a vector: as given
+PASSED no act: a fact that is a record, with a value and with none: as given
+PASSED no act: a fact that carries :sealed and :lock-id and no :v: as given, the maker's own object, and a gate refuses the part
+PASSED no act: a fact with a value that also holds :sealed, or :lock-id, or a nil :sealed; under a plain key and under a store key
+PASSED no act: a value that is no value of the form: a ratio, a list, a record, a number that is not finite, a value inside 33 collections
+PASSED no act: a fact with a value whose :e is no id, or whose :k is no key: as given
+PASSED no act: a part that the form does not know, on the act and on a fact, and one named as the door's own words are: as given
+PASSED no act: 1,025 entries of :based-on
+PASSED no act: an id of 300 characters that is not the layer
+PASSED no act: a value whose text is 65,537 bytes goes in, and a gate has the word; one of 65,536 is taken
+PASSED no act: a fact under :softland.store/lock-request, as given: a gate refuses the key
+PASSED a reading holds two parts: the maker's own map, and its layer
+PASSED an act-id given back, of the act's layer: used as given
+PASSED an act-id given back, of another layer
+PASSED an act-id given back that is not of the shape: two slots, a string, a depot slot that is no depot word, a word of the door's
+PASSED an act-id given back with the other depot word: used as given, and the thing names that depot
+PASSED a fact under each of the five store keys is the maker's own object in the thing
+PASSED a fact with a value under a key in the store's namespace that is no store key: as given, and a gate refuses it
+PASSED a retract, a fact with no :v, and a fact with a nil :v: each as given
+PASSED one act with a store-key fact, a retract and a value: each fact is the maker's own object at its position, the fact with a value too, and the declaration's check takes the thing
+PASSED two faults, the thing is no plain map and it carries :act-id: the first test gives the word
+PASSED two faults, it carries :act-id and has no :layer: the door's own parts come before the layer
+PASSED two faults, it carries the part of the time and has no :layer: the same order
+PASSED a maker's thing that already holds the part of the time, also a nil one: the reading is the word :add-its-parts with nothing appended, and its place is the name that the declaration holds; the text of the word in the door's table names that part beside the two others
+PASSED the door's own parts are tested in their order, the act-id, the depot, the time: a thing that holds more than one of them, each with nil, gets the word at the first
+PASSED two faults, a :layer that is no id and a value that is no value: the door reads no fact, so the layer gives the word
+PASSED the thing holds :facts as the very object that the maker gave, for a vector, a list and a lazy sequence; the building does not walk the lazy sequence
+PASSED the thing is the maker's map with three parts more: each part that the maker gave is the maker's own object, a part that the form does not know too, and nothing is filled in
+PASSED the thing to append is the maker's map with the three parts added and nothing else changed: with the three taken off again it is equal to the maker's map; the depot is the depot slot of the act-id; the time is the number that the door hands, under the name that the declaration holds. No clock is read: two calls with one time give one thing, and a call with another time gives a thing that differs in that part alone
+PASSED the time is added as the door hands it and is not tested here: a nil, a string and a time of -1 are in the thing as given, and it is the declaration's check that refuses each; a time far ahead, 2^50 ms, goes in
+PASSED a value is in the thing as its maker gave it and not in its normal form; the declaration's check takes the thing, and its one form holds the text of the normal form
+PASSED a thing that the door reads is no stray on the depot that its act-id names; a record that carries a right act-id is one, and the door does not read it
+PASSED the digest of the thing that the door builds follows the form of the facts as the maker gave them: a list and a lazy sequence have one digest, a vector has another, and each is the digest of the same thing as a hand would send it a minute later, since the time is no part of the digest
+PASSED the door comes back for a thing whose facts have no end, for a who that throws when it is hashed and for a permission that throws when it is read: it reads none of them, and builds the thing with each as given
+PASSED nothing throws while the three parts are added: a reading whose thing is a sorted map with string keys, which takes no keyword's part, and an act-id that is no vector, each end in the word :read-the-act
+PASSED the digest that the door takes tells a thing that throws while it is read: nothing for a thing whose facts throw, where the plain digest is that of #unreadable
+PASSED nothing throws for facts that throw when they are read, or for a fact that throws: the door reads no fact, the thing goes in, and the declaration's check gives a word
+PASSED nothing throws for a thing that is anything at all
+PASSED the count of a series of act-ids: a fixed-width integer of 1 or more
+PASSED a count that is no fixed-width integer of 1 or more, a big integer among them: no act-id is made
+PASSED the door's one number, with its default, written out a second time: what an opener who gives nothing gets
+PASSED an opener's number is taken when it is a fixed-width integer of 1 or more, and is held as a long
+PASSED a number that is below 1, or is no fixed-width integer, takes the default: zero, a negative, a number with a fraction, a string, a big integer, nil
+PASSED what an opener gave that is no map, and a map that throws when it is read, give the default, and nothing throws
+PASSED any other name in what an opener gave is not read: the numbers hold the one name
+PASSED a number that the opener gives is cut to the longest wait that the door counts, 2,305,843,009,213 ms; that many milliseconds, as nanoseconds and four times over, stay in the range of a long, and one more does not; it is longer than 70 years
+PASSED names that name a lock: a lock's key, the seal's parts, a stock, the store key of a request, a table of locks, a Java lock, a fact's two parts
+PASSED names that name none: a clock, a block, Clojure's locking, a deadline, the last stamp, a sale
+PASSED the walk of a form finds a name in a list, in a vector, as a key and as a value of a map, in a set and in a type hint; a string and a number are no names
+PASSED of that form, the names that name a lock
+PASSED the streaming gate's source declares the retry mode "all after", which the store's page gives as chosen. A run in process gave the same with "individual", so only a reading of the source holds it; with "individual" put in, the reading says so
+PASSED the microbatch gate copies only for an accept: its copy stands behind a test that the walk gave rows to copy, so a refusal, a repeat and a stray go to no other task. The tables come out the same when they do go, so only a reading of the source holds it; with `some?` in the place of `seq`, the reading fails
+PASSED the microbatch gate's copy passes over the deciding task: each of its writes stands behind a test that the task where the copy arrived is not the task that decided. No run in process showed a row that a copy to itself sets back, so only a reading of the source holds it; with the test made `(some? *this-task)`, the reading fails
+
+THE PROOF, IN ONE PLACE
+SHOWN the one text of 27 kinds of thing: nil nil | true true | false false | a string, escaped "a \"b\"\n\\" | a readable keyword :tool/class | a UUID #uuid "00000000-0000-0000-0000-000000000007" | a long 42 | a narrow integer -7 | a big integer 100000000000000000000N | a Java big integer 7N | a double 1.5 | minus zero 0.0 | a double that is not finite #double "NaN" | a decimal, without its trailing zeros 1.5M | a run of bytes #bytes 2 "01ff" | a vector [1 :a "x"] | a list (1 2) | a set, sorted by text #{10 9 :a :b} | a map, sorted by the text of the key {:a {:c 3 :d 2} :b 1} | a keyword that does not read back #keyword nil "a b" | a record #other softland.store.pure_proof.Thing | a symbol #other clojure.lang.Symbol | a ratio #other clojure.lang.Ratio | a float #other java.lang.Float | a Java list #other java.util.ArrayList | a thing that throws when it is read #unreadable | a thing that throws, inside a map #unreadable
+SHOWN one text and one digest for 7 pairs that no check can tell apart: an Integer and a Long of one value; minus zero and zero; a subvector and a vector; a map built in two orders; a sorted map and a hash map; a decimal with and without trailing zeros; two keys of one text, in two orders
+SHOWN two texts and two digests for 10 pairs that a check tells apart: a list and a vector; a long and a big integer; a long and a double; a keyword and a string; a string and a UUID; a record and a map; two runs of bytes that differ in one bit; bytes and their hex as a string; nil and the keyword :nil; a map and a vector of its entries
+SHOWN the text of each of 15 values that a fact can hold is EDN and reads back as the value
+SHOWN the count of the UTF-8 bytes of a string, with no array made: [0 1 2 3 4] for no character and for a character of one, two, three and four bytes
+SHOWN the digest is SHA-256 over the one text of the thing without the time on the act, 32 bytes; bytes are fed as they are; the digest of the least act is 2a3890333b27c15e76ceb3356b77ebf948123582b083d3b9a44ef69004e8eaec | the same act built a second time has the digest 2a3890333b27c15e76ceb3356b77ebf948123582b083d3b9a44ef69004e8eaec | the digest that tells a throw, for a thing whose facts throw: nil
+SHOWN the digest leaves the time on the act out, the part :door-time at the top level of a plain map: the least act with the time 1700000000000 has the digest above, and so has it with the time 1700000000001 and with none: ["2a3890333b27" "2a3890333b27" "2a3890333b27"] | with another value: "2e0512934248" | a time inside a value is not left out, two times there give: ["d80c565957cf" "4b807c0452de"] | a sorted map with string keys keeps the digest of its own text, two with different content: ["a279e1804f12" "bf22698e7903"] and #unreadable has "c806db4ed09e" | a record with a field of that name keeps the digest of a record: "1cb3259c4122"
+SHOWN the door's declaration: act.clj's 6 shapes as act.clj declares them, and 5 more: (:arrived-act :depot-word :key-set :layer-list :who-may-see-word)
+SHOWN its 17 rules, in order: [:permission-is-in-the-acts-layer :depot-is-the-act-ids-depot :facts-within-the-limit :based-on-within-the-limit :store-key-is-known :depot-fact-holds-a-depot-word :permission-fact-holds-a-permission :permission-fact-sits-on-its-holder :who-may-see-fact-holds-its-word :builds-on-fact-holds-layers :builds-on-within-the-limit :marked-keys-fact-holds-keys :marked-keys-within-the-limit :marked-keys-are-plain-keys :place-named-once :no-fact-replaces-a-fact-of-its-act :ids-within-the-limit]
+SHOWN the 5 store keys: (:softland.store/builds-on :softland.store/depot :softland.store/marked-keys :softland.store/permission :softland.store/who-may-see) the settings, which a gate takes only on the layer's own entity: (:softland.store/builds-on :softland.store/depot :softland.store/marked-keys :softland.store/who-may-see) the keys that take a second write: (:softland.store/builds-on :softland.store/marked-keys :softland.store/who-may-see) the limits: {:facts 256, :based-on 1024, :value-bytes 65536, :act-bytes 18874368, :id-text 256, :builds-on 64, :marked-keys 32}
+SHOWN the three keys that take a second write, each with a right value and a wrong one: [[:softland.store/who-may-see :everyone :ok] [:softland.store/who-may-see :owner :who-may-see-fact-not-members-or-everyone] [:softland.store/builds-on [:base] :ok] [:softland.store/builds-on #{:base} :builds-on-fact-not-a-list-of-layers] [:softland.store/marked-keys #{:on} :ok] [:softland.store/marked-keys #{:softland.store/permission} :marked-key-in-the-stores-namespace]]
+SHOWN the store's namespace is softland.store | a fact with a value under a key in it that the store does not know: [[:softland.store/owner :store-key-not-known] [:softland.store/class :store-key-not-known] [:softland.store/lock-request :store-key-not-known]] | a tool's own fact with a value under a bare word or under another namespace is a fact under a plain key: [[:class :ok] [:depot :ok] [:permission :ok] [:lock-request :ok] [:tool/depot :ok] [:tool/permission :ok] [:tool/lock-request :ok] [:softland/depot :ok] [:softland.store.tool/depot :ok]]
+SHOWN a stray, by word: a number :no-act-id | nil :no-act-id | a vector :no-act-id | a record :no-act-id | a map with no act-id :no-act-id | a map whose act-id is nil :no-act-id | a map that throws when its act-id is tested :act-id-malformed | an act-id of two slots :act-id-malformed | an act-id of four slots :act-id-malformed | an act-id with a depot word that is none :act-id-malformed | an act-id whose last slot is no UUID :act-id-malformed | an act-id whose layer is a string :act-id-malformed | an act-id that is a list :act-id-malformed | an act-id whose layer prints to 257 characters :id-too-long | an act-id of the depot microbatch :act-id-of-the-other-gate | an act-id of another layer :act-id-of-another-layer | a thing with an act-id and no layer :act-id-of-another-layer | an act-id of the depot microbatch and of another layer: the depot is told first :act-id-of-the-other-gate | a good act no stray | a thing that is no act, with a usable act-id no stray | an act-id whose layer prints to 256 characters no stray
+SHOWN the one form on arrival of the least thing: {:claimed-when nil, :who :alice, :act-id [:alice :streaming #uuid "00000000-0000-0000-0000-000000000001"], :permission [:alice :alice :alice], :depot :streaming, :layer :alice, :because-of nil, :subjects #{}, :facts [{:e :note-1, :k :text, :v nil, :replaces nil, :text "\"a text\""}], :version 1, :door-time 1700000000000, :based-on {}, :session :alice-s1}
+SHOWN the one form on arrival of a thing with a value that is not in its normal form, a retract and a permission given: each fact as [:k :v :text] [[:text nil "{:a [1 2] :b 1.5M}"] [:text nil nil] [:softland.store/permission [:bob :alice :alice [:alice :alice :alice]] "[:bob :alice :alice [:alice :alice :alice]]"]]
+SHOWN the check gives the word that the proof holds for 98 things, each with one fault, or at the edge of a limit or of the time's range. act.clj's words, by the maker's own faults: a part that neither the maker nor the door names :unknown-part | a fact with a part that the form does not name :unknown-part | a fact with a value that carries :sealed: a fact has no such part :unknown-part | a fact with a value that carries :lock-id :unknown-part | a fact with no value that carries :sealed and :lock-id :unknown-part | a fact whose :sealed is nil: the part is there :unknown-part | a version that the code does not know :unknown-version | no permission :no-permission | no session :no-session | no fact :empty-act | a permission for another layer :permission-not-in-layer | a who that is a string :malformed | a permission 33 deep :malformed | a value that is no value of the form: a ratio :malformed | a value inside 33 collections :malformed | facts that are no sequence :malformed | a fact that is no map :malformed
+SHOWN the door's words: no depot :depot-not-the-act-ids-depot | a depot that is no depot word :depot-not-the-act-ids-depot | a depot that is not the depot slot of the act-id :depot-not-the-act-ids-depot | a value under a key in the store's namespace that the store does not know :store-key-not-known | a retract under such a key :store-key-not-known | the word class in the store's namespace: the store's key is depot :store-key-not-known | a fact under :softland.store/lock-request: the store has no such key :store-key-not-known | a depot fact whose value is no depot word :depot-fact-not-a-depot-word | a permission fact whose value is no permission :permission-fact-not-a-permission | a permission fact that does not sit on its holder :permission-fact-not-on-its-holder | who may see a layer, with a word that is neither :who-may-see-fact-not-members-or-everyone | who may see a layer, as a string :who-may-see-fact-not-members-or-everyone | who may see a layer, as a set of people :who-may-see-fact-not-members-or-everyone | what a layer builds on, as one layer and no list :builds-on-fact-not-a-list-of-layers | what a layer builds on, as a set: a set has no order :builds-on-fact-not-a-list-of-layers | what a layer builds on, with a string in it :builds-on-fact-not-a-list-of-layers | what a layer builds on, 65 layers :builds-on-too-many-layers | the marked keys of a layer, as a vector :marked-keys-fact-not-a-set-of-keys | the marked keys of a layer, as one key :marked-keys-fact-not-a-set-of-keys | the marked keys of a layer, with a UUID in the set: a key is a keyword :marked-keys-fact-not-a-set-of-keys | the marked keys of a layer, 33 keys :too-many-marked-keys | a mark of a key of the store's own namespace :marked-key-in-the-stores-namespace | a mark of a key in the store's namespace that the store does not know :marked-key-in-the-stores-namespace | two facts on one place :place-named-twice | a fact that replaces a fact of its own act :replaces-own-fact
+SHOWN the time on the act, the least thing with each kind of time: no time :no-door-time | a time that is nil :no-door-time | a time that is a string :no-door-time | a time that is a double :no-door-time | a time that is a big integer :no-door-time | a time that is a Java big integer :no-door-time | a time of -1 :no-door-time | a time that is the least long :no-door-time | a time of 0 :ok | a time that is a narrow integer :ok | the time of the proof's things :ok | a time far ahead of every clock, 2^50 ms :ok | a time that is the greatest long :ok
+SHOWN an id that prints to 257 characters is refused :id-too-long in each place: who; the session; a subject; an entity; a fact's key; who and the holder of the act's permission; granted-in, in the act's permission; the layer of the act-id in because-of; the layer of a fact id in based-on; the layer of a replaced fact; the holder in a permission that is given; granted-in, in a permission that is given; who, in the permission above one that is given with the slot that says what it allows; a layer in the list that a layer builds on; a key in the set that a layer marks
+SHOWN the limits at their edges: 256 facts :ok | 257 facts :too-many-facts | 1,024 entries of based-on :ok | 1,025 entries of based-on :too-many-based-on | a carried stamp of 2^62, and one that is the greatest long: a carried stamp has no bound above, since no gate reads it :ok | a carried stamp of -1: no stamp is below zero :malformed | a value whose one text is 65,536 bytes, in 21,848 characters :ok | a value whose one text is 65,537 bytes, in 21,849 characters: the bound counts bytes :value-too-large | a string of 65,534 letters, 65,536 bytes of text :ok | a string of 65,535 letters, 65,537 bytes of text :value-too-large | an act whose accept would write 18,874,368 bytes of text into the rows of its facts :ok | the same act with one byte more in one value :act-too-large | an entity of 256 characters :ok | an entity of 257 characters :id-too-long | what a layer builds on, 64 layers :ok | what a layer builds on, 65 layers :builds-on-too-many-layers | 32 marked keys :ok | 33 marked keys :too-many-marked-keys | a layer of 256 characters in the list that a layer builds on, and a marked key of 256 :ok | an act under its own permission five deep :ok | an act under its own permission 32 deep :ok | an act under its own permission 32 deep that says what it allows :ok | an act under its own permission 33 deep :malformed | a permission fact whose value is five deep :ok | a permission fact whose value is 32 deep :ok | a permission fact whose value is 32 deep and says what it allows :ok | a permission fact whose value is 33 deep: it is no value of the form, so the shape's word and not the rule's :malformed | ids that are UUIDs: who, the layer, an entity :ok
+SHOWN each of the 26 reason words comes from a thing that earns it
+SHOWN for 17 faults of the maker's form, the door's check gives the word that act.clj's own parse gives for the maker's part, which is the thing without :act-id, :depot, :door-time
+SHOWN the order of the declarations gives the reason, 32 things with two faults: a part that is not named, and a wrong version :unknown-part | no depot, and a wrong version :depot-not-the-act-ids-depot | a part that is not named, and no time: the part that the form does not know :unknown-part | a depot that is no depot word, and no time: the depot is declared before the time :depot-not-the-act-ids-depot | no depot, and no time :depot-not-the-act-ids-depot | no time, and a wrong version: the time is declared before each of the maker's parts :no-door-time | no time, and a who that is a string :no-door-time | no time, and no permission :no-door-time | no time, and no fact :no-door-time | no time, and facts that throw when they are read :no-door-time | no time, and a fact with a part that the form does not name: that fault is inside a part of the maker's :no-door-time | no time, and a depot word that is not the act-id's: the shape comes before a rule :no-door-time | a time of -1, and a value over the bound: the shape comes before the last step :no-door-time | a wrong version, and facts that are no sequence :unknown-version | a wrong version, and facts that throw when they are read :unknown-version | a good version, and facts that throw when they are read :malformed | no session, and a value over the bound: the shape comes before the last step :no-session | a fact that is no map, and another that carries :sealed: the first fact's :malformed | the same two, the other way round :unknown-part | a permission for another layer, and a depot that is not the act-id's :permission-not-in-layer | 257 facts, each with a value over the bound: the limit of the facts, before one text is made :too-many-facts | a depot fact whose value is no depot word, and a key in the store's namespace that the store does not know: the key gives the word :store-key-not-known | a wrong word of who may see, and a permission fact that does not sit on its holder: the rules of a permission come first :permission-fact-not-on-its-holder | a wrong word of who may see, and a list that is no list: the rules of the three keys in their order :who-may-see-fact-not-members-or-everyone | 65 layers, and marked keys that are no set: the limit of the list before the shape of the marks :builds-on-too-many-layers | 33 marked keys with one of the store's namespace among them: the limit first :too-many-marked-keys | a mark of a key of the store's namespace, and a value over the bound under a plain key: a rule comes before the last step :marked-key-in-the-stores-namespace | a value over the bound, and two facts on one place: the rule's word :place-named-twice | a list of layers with a long id in it, and two facts on one place: the long id is the last rule :place-named-twice | a value over the bound on an entity whose id is too long: the last rule comes before the last step :id-too-long | a value over its bound in an act that is over its bound: the value's word, the first of the two :value-too-large | the same with the value as the last fact of the act: the value's word still :value-too-large
+SHOWN the time on the act, 18 cases. Its part is :door-time and a usable time is a fixed-width integer of 0 or more, with no bound above | the usable time of the least thing, by its time: no time nil | a time that is nil nil | a time that is a string nil | a time that is a double nil | a time that is a big integer nil | a time that is a Java big integer nil | a time of -1 nil | a time that is the least long nil | a time of 0 0 | a time that is a narrow integer 1700001 | the time of the proof's things 1700000000000 | a time far ahead of every clock, 2^50 ms 1125899906842624 | a time that is the greatest long 9223372036854775807
+SHOWN the usable time and the check's word at the edge of the range and far above it, as [time usable-time word]: [[-1 nil :no-door-time] [0 0 :ok] [1125899906842624 1125899906842624 :ok] [9223372036854775807 9223372036854775807 :ok]] | a thing that is no plain map, and a sorted map with string keys, which throws when the part is read: [nil nil nil nil]
+SHOWN where the time's word stands: a thing with no time and a part that the form does not know :unknown-part | a depot that is no depot word :depot-not-the-act-ids-depot | a depot word that is not the act-id's :no-door-time | a wrong version :no-door-time | no permission :no-door-time | no fact :no-door-time | the test for a stray reads no time: the least thing with no time is "no stray"
+SHOWN the two bounds of the check's last step, 5 cases. One value: a text of 65536 bytes at most, counted in UTF-8, under a plain key; the proof's own count of the two values at the edge is [65536 65537] bytes, in [21848 21849] characters, and the check gives [:ok :value-too-large]
+SHOWN one act: 18874368 bytes of text at most in the rows of its facts, the text of each value and, for each fact, of who and of the permission; the proof's own count of the two acts at the edge is [18874368 18874369] and the check gives [:ok :act-too-large] | a value over its bound in an act over its bound: :value-too-large
+SHOWN nothing throws. The check refuses 8 things that are no acts: nil :malformed | a number :malformed | a string :malformed | a record :malformed | a sequence that throws :malformed | a map with only an act-id :depot-not-the-act-ids-depot | an act whose facts throw when they are read :malformed | an act whose based-on throws :malformed
+SHOWN the stamp, 5 cases: the layer's count of decisions, 0 for the first and the last stamp plus one after it, a long; it takes the last stamp alone, so no time and nothing of the act is in it
+SHOWN the stamp after each last stamp, as [last stamp, stamp]: [[nil 0] [0 1] [1 2] [41 42] [9223372036854775806 9223372036854775807] [9223372036854775807 -9223372036854775808]]
+SHOWN the form of a making act: a personal layer, made by the system for its person [streaming gate] true | a group's layer, made by the person who creates it [streaming gate] true | the two facts in the other order [streaming gate] true | a layer whose first holder is the system [streaming gate] true | the base, made by the system [microbatch gate] true | the base [streaming gate] false | the base by a who that is not the system [microbatch gate] false | the base with a first permission that is not the system's [microbatch gate] false | the base, made by a person who holds its first permission herself: she is the holder, as for a group's layer, and for the base the holder is the system [microbatch gate] false | a layer that is not the base [microbatch gate] false | a who that is neither the holder nor the system [streaming gate] false | no depot fact [streaming gate] false | no permission fact [streaming gate] false | one fact only [streaming gate] false | a third fact beside the two [streaming gate] false | a third fact that says who may see the layer: nothing is written at the making but the depot and the first permission [streaming gate] false | the depot microbatch for a layer that is not the base [streaming gate] false | a depot fact on an entity that is not the layer [streaming gate] false | a permission fact that is not the permission that the act names [streaming gate] false | a first permission with a permission above it [streaming gate] false | a first permission granted in another layer [streaming gate] false | a permission that says what it allows, see and act: it has a permission above it and a slot, so it is no first permission [streaming gate] false
+SHOWN a layer that starts with the other gate's depot, as [gate's depot, layer, the answer]: [[:streaming :base true] [:streaming :alice false] [:streaming :team false] [:streaming #uuid "00000000-0000-0000-0000-000000000001" false] [:microbatch :base false] [:microbatch :alice true] [:microbatch :team true] [:microbatch #uuid "00000000-0000-0000-0000-000000000001" true]]
+SHOWN the record's rows, 34 cases: the keys [":alice 00000000-0000-0000-0000-000000000005" ":alice :note-1 :text"] ; each field of a row of its declared class; a retract is a row with no value; every value is kept plain and as a String, the one text of the value in its normal form, which the row takes from the fact as it is; each row of a fact holds who wrote it and the permission that the act named; the heads of the two reads give nothing for what is no id or no act-id
+SHOWN the routing id of an act-id is its layer, for an act-id of each depot: [[[:alice :streaming #uuid "00000000-0000-0000-0000-000000000005"] :alice] [[:base :microbatch #uuid "00000000-0000-0000-0000-000000000005"] :base]] | the head of the read by act-id with that routing id, and with the act-id's uuid in its place: [[:microbatch ":base 00000000-0000-0000-0000-000000000005"] nil] | an act-id's layer and uuid come back from the text of its answer's key, for a layer that is a keyword and one that is a UUID: [[:alice #uuid "00000000-0000-0000-0000-000000000005"] [#uuid "00000000-0000-0000-0000-000000000003" #uuid "00000000-0000-0000-0000-000000000005"]]
+SHOWN the row of a fact whose text is "a text" in its quotes: {:by-act #uuid "00000000-0000-0000-0000-000000000005", :by-index 2, :stamp 900, :time 1700000000000, :who ":alice", :permission "[:alice :alice :alice]", :value "\"a text\""} | its plain bytes, read as UTF-8: "\"a text\""
+SHOWN what a row says of its value, for a reader: [[:no-fact] [:nothing-here] [:value :canvas-1] [:not-a-value] [:not-a-value]]
+SHOWN the facts by value: a key is ":alice :on 100 405b0f24e86bce25bc5763e4ab43a387695f5341090b6926d8748050a3dba934 :b1" | the run of the value :c1 under the key :on since the stamp 100 is [":alice :on 100 405b0f24e86bce25bc5763e4ab43a387695f5341090b6926d8748050a3dba934 " ":alice :on 100 405b0f24e86bce25bc5763e4ab43a387695f5341090b6926d8748050a3dba934!"] | a keyword, a UUID, a string with spaces, a number, a map and a value whose text is 65,536 bytes each have one digest of 64 hex characters, and no run holds a key of another value, layer, key or stamp
+SHOWN the time on the thing is a label: a decision writes it in the answer beside the stamp, here the stamp 42 after a last stamp of 41, and a thing with no usable time has none. As [what, the time, the check's word, the answer's row without its digest]: [["the least thing" 1700000000000 :ok {:stamp 42, :time 1700000000000}] ["a wrong version" 1700000000000 :unknown-version {:stamp 42, :time 1700000000000, :refused :unknown-version}] ["no time" nil :no-door-time {:stamp 42, :refused :no-door-time}] ["a time below zero" nil :no-door-time {:stamp 42, :refused :no-door-time}] ["a time far ahead" 1125899906842624 :ok {:stamp 42, :time 1125899906842624}]]
+SHOWN the standing of an act, at the streaming gate's depot: the act's permission is at its holder's place stands | an act under a permission given beneath another, at its holder's place stands | the place holds another permission of the same holder :permission-does-not-stand | the place is empty and the layer is made: the record does not hold the permission :permission-does-not-stand | an act under Alice's permission by a who that is not Alice, in a layer that is made :who-not-the-permissions-holder | the system acts again in a personal layer that it made :who-not-the-permissions-holder | a making act by the holder for a layer that is made: its permission stands, and it makes nothing stands | an act into a layer that is not made :layer-not-made | a right making act of a personal layer, into a layer that is not made makes the layer | a right making act of a group's layer makes the layer | an act into the base, a layer of the other gate, of which this gate's record holds nothing :layer-belongs-to-the-other-gate | the base's making act, which has the form of a making act for the other gate and not for this one: it makes nothing here, and the word is that of a layer of the other gate, not that of a layer that is not made :layer-belongs-to-the-other-gate | that a layer is the other gate's counts only when both rows are nil: an act into the base with the row of its permission there stands stands | and with a row at the base's depot place there, the layer reads as made here: the word of a permission that the record does not hold :permission-does-not-stand | a holder of see who names her permission as the row has it: an act needs act :permission-does-not-allow-acting | a holder of see who names her permission without the slot: the bytes are not the row's, so naming more does not stand :permission-does-not-stand | a holder of see who names her permission with see and act in the slot :permission-does-not-stand | a holder of a permission that says see and act, named as the row has it stands | a holder of a permission that was given without the slot: it reads as see and act stands | a holder of see and act who names her permission with see in the slot: it does not stand, so nobody acts under less by naming less either :permission-does-not-stand | a holder of see whose act is by another who: the word of the holder comes first :who-not-the-permissions-holder | a making act whose permission has the slot, into a layer that is not made: it is no making act :layer-not-made
+SHOWN the standing of an act into the base, at the microbatch gate's depot: the row holds the act's permission stands | the row holds the act's permission, and it says see: an act needs act :permission-does-not-allow-acting | the row holds a permission that says see, and the act names it without the slot :permission-does-not-stand | the row holds another permission :permission-does-not-stand | the place is empty in a base that is made: the record does not hold the permission :permission-does-not-stand | the place is empty, and the holder is not the who :who-not-the-permissions-holder | the record holds nothing of the base, and the act is no making act: the base is this gate's layer, so the word is that of a layer that is not made :layer-not-made | the base's making act, with nothing in the record: it makes the layer makes the layer | the base's making act for a base that is made: its permission stands, and it makes nothing stands
+SHOWN a layer of the other gate, from the gate's depot and the act alone, with no row of the layer, as [the gate's depot, what arrives, the word or what the act does]: [[:streaming "an act into the base, on the streaming depot" :layer-belongs-to-the-other-gate] [:streaming "the base's making act, on the streaming depot" :layer-belongs-to-the-other-gate] [:microbatch "an act into a personal layer, on the microbatch depot" :layer-belongs-to-the-other-gate] [:microbatch "the making act of a personal layer, on the microbatch depot" :layer-belongs-to-the-other-gate] [:microbatch "the making act of a group's layer, on the microbatch depot" :layer-belongs-to-the-other-gate] [:microbatch "the making act of a layer whose id is a UUID, on the microbatch depot" :layer-belongs-to-the-other-gate] [:streaming "an act into a personal layer that is not made, on the streaming depot, its own" :layer-not-made] [:streaming "the making act of a group's layer, on the streaming depot, its own: it is taken" :makes-the-layer] [:microbatch "an act into a base that is not made, on the microbatch depot, its own" :layer-not-made] [:microbatch "the base's making act, on the microbatch depot, its own: it is taken" :makes-the-layer]]
+SHOWN the checks of the places: a value that names nothing, on an empty place: never stale passes | a value that replaces the current fact of its place passes | a retract that replaces the current fact passes | a value that replaces a retract, which is the current fact of its place passes | a value that replaces an earlier fact of the place :replaced-fact-not-current | a value that replaces another index of the same act :replaced-fact-not-current | a value that replaces something on an empty place :replaced-fact-not-current | a value that replaces a fact of another layer :replaced-fact-not-current | a value that replaces a fact of the other depot :replaced-fact-not-current | a depot fact on an entity that is not the layer :setting-not-on-the-layer | a depot retract on an entity that is not the layer :setting-not-on-the-layer | a permission given straight beneath the act's own, on an empty place passes | a holder gives itself a second permission beneath its own: its place holds one :store-key-takes-one-write | a permission given for another layer :permission-fact-for-another-layer | a permission given with a granted-in that is not the act's layer :permission-fact-granted-in-another-layer | a permission given with nothing above it, in a layer that is made :permission-fact-not-beneath-the-acts-own | a permission given beneath a permission that is not the act's own :permission-fact-not-beneath-the-acts-own | the same permission given a second time :store-key-takes-one-write | a retract of a permission :ending-a-permission-not-decided | a retract of the layer's depot :store-key-retract-not-built | the other depot for a layer that is made :changing-a-depot-not-decided | the layer's own depot a second time :store-key-takes-one-write | a stale fact and a depot fact on another entity: the stale fact gives the word :replaced-fact-not-current | a depot fact on another entity before a permission for another layer: the setting gives the word :setting-not-on-the-layer | who may see the layer, on an empty place passes | what the layer builds on, on an empty place passes | the layer's marked keys, on an empty place passes | who may see the layer, written a second time on a place that holds one, naming nothing: a second write is taken passes | what the layer builds on, written a second time, naming nothing passes | the layer's marked keys, written a second time, naming nothing passes | who may see the layer, written again naming the fact that is there passes | who may see the layer, written again naming a fact that is no longer there: a writer who must not lose a write names what she replaces :replaced-fact-not-current | what the layer builds on, written again naming a stale fact :replaced-fact-not-current | the layer's marked keys, written again naming a stale fact :replaced-fact-not-current | a retract of who may see the layer :store-key-retract-not-built | a retract of what the layer builds on: a list is emptied by a second write of [] :store-key-retract-not-built | a retract of the layer's marked keys: a mark is taken off by a second write of the set without it :store-key-retract-not-built | who may see, on an entity that is not the layer :setting-not-on-the-layer | what a layer builds on, on an entity that is not the layer :setting-not-on-the-layer | marked keys, on an entity that is not the layer :setting-not-on-the-layer | a retract of who may see on an entity that is not the layer: the setting gives the word :setting-not-on-the-layer | a second give to a holder of see, of see and act: a permission's place takes one write, so see stays see :store-key-takes-one-write | a permission given with the slot, straight beneath the act's own, on an empty place passes | a permission given with the slot beneath a permission that is not the act's own :permission-fact-not-beneath-the-acts-own | a tool's own fact under the bare word :class, on an entity that is not the layer: no setting passes | a tool's own fact under the bare word :permission, on an entity that holds a permission: no permission fact passes | a fact copied from the log into another act, on the place where it is the current fact: a value like any other, so it is taken passes
+SHOWN the writes of a decision: a refusal writes the answer and the last stamp; an accept of one value writes 3 rows, the fact, the answer and the last stamp, and the fact's row holds the one text of its value, the time on the act, who wrote it and the permission that the act named: [[:fact ":alice :note-1 :text" {:by-act #uuid "00000000-0000-0000-0000-000000000001", :by-index 0, :stamp 5, :time 1700000000000, :who ":alice", :permission "[:alice :alice :alice]", :value "\"a text\""}] [:answer ":alice 00000000-0000-0000-0000-000000000001" {:stamp 5, :time 1700000000000}] [:last-stamp nil 5]]
+SHOWN what a permission allows: [[[:alice :alice :alice] :see-and-act] [[:bob :alice :alice [:alice :alice :alice]] :see-and-act] [[:bob :alice :alice [:alice :alice :alice] :see] :see] [[:bob :alice :alice [:alice :alice :alice] :see-and-act] :see-and-act]] | a holder of see who names her permission as the row has it, without the slot, and with see and act in it: [:permission-does-not-allow-acting :permission-does-not-stand :permission-does-not-stand]
+SHOWN a value given as {:b 1.50M, :a [1 2N]} is in its fact's row as "{:a [1 2] :b 1.5M}" and the row reads back as [:value {:a [1 2], :b 1.5M}]
+SHOWN the order by value, 16 cases, each act decided as steps 6 and 7 of the walk decide it: a key of that order is ":alice :on 100 405b0f24e86bce25bc5763e4ab43a387695f5341090b6926d8748050a3dba934 :b1" | a mark at stamp 100, a fact, the mark off, the fact replaced, the mark again at 140, the fact replaced twice: the rows after each act are those of the plan's table, and the row of the first marking stays under 100 where no read names it
+SHOWN what a gate may copy to other tasks, 5 cases: of the writes of a decision, each row of a fact and of the facts by value, in their order, a key that is taken out among them, and never the answer or the last stamp; nothing of a refusal. `copies-of`, read as data from the source file of the walk and made a function here with no Rama, gives what the proof's own filter gives. Of the writes of an accept of one value, and of a refusal, as the kinds of the writes and of what is copied: [[[:fact :answer :last-stamp] [:fact]] [[:answer :last-stamp] []]]
+SHOWN a second run of one decision, 10 cases, by the walk in memory: from the same record it gives the same writes in every field; on the record that the first run left it finds the answer under the act-id, writes nothing and leaves every table as it was. As [what, the kinds of the writes, the word]: at the streaming gate, the making act of a group's layer [:fact :fact :answer :last-stamp] accepted | at the streaming gate, a fact with a value [:fact :answer :last-stamp] accepted | at the streaming gate, a fact that replaces the current fact of its place [:fact :answer :last-stamp] accepted | at the streaming gate, a write of the marks [:fact :answer :last-stamp] accepted | at the streaming gate, an act that is refused: its fact names a fact that is not current [:answer :last-stamp] :replaced-fact-not-current | at the microbatch gate, the base's making act [:fact :fact :answer :last-stamp] accepted | at the microbatch gate, a fact with a value [:fact :answer :last-stamp] accepted | at the microbatch gate, a fact that replaces the current fact of its place [:fact :answer :last-stamp] accepted | at the microbatch gate, a write of the marks [:fact :answer :last-stamp] accepted | at the microbatch gate, an act that is refused: its fact names a fact that is not current [:answer :last-stamp] :replaced-fact-not-current
+SHOWN the stamp in a line, 6 cases, by the walk in memory, for a layer of each gate: a layer's stamps are 0, 1, 2 and on, an accept's and a refusal's alike, whatever the times on its acts and the stamps that they carry. Five acts after the making act of Alice's layer, with times that rise, go back by a minute, leap 2^50 ms ahead and fall to 0, as [time, stamp] from their answers: [[1700000000000 1] [1700000000005 2] [1699999940000 3] [1125899906842624 4] [0 5]]
+SHOWN a mark holds from the next act, 5 cases, for a layer of each gate: the key gets the stamp of the act that marks it; a fact under the key in that act is in no run; a fact under it in the next act has its entry in the facts by value under that stamp
+SHOWN a line of 26 things into a base that is made, decided in memory one thing after the other in the order of the depot, with the pure functions in the walk's order; 23 cases with a line into a base that is not made, a line of strays, a line of repeats, and the line decided a second time. The word of each answer, by the number of its act-id: {1 :accepted, 2 :replaced-fact-not-current, 3 :accepted, 4 :accepted, 5 :accepted, 6 :accepted, 7 :permission-does-not-stand, 8 :accepted, 9 :accepted, 14 :accepted, 15 :layer-belongs-to-the-other-gate, 16 :layer-belongs-to-the-other-gate, 17 :accepted, 19 :who-not-the-permissions-holder, 20 :permission-does-not-stand, 21 :who-not-the-permissions-holder, 22 :accepted, 23 :replaced-fact-not-current, 25 :accepted, 26 :replaced-fact-not-current, 27 :store-key-not-known, 28 :value-too-large, 801 :accepted}
+SHOWN after that line, the last stamp kept for each layer, the base's 30 before it: {":alice" 0, ":base" 50, ":nobody" 0} | the strays, how many digests under each word: {:act-id-of-the-other-gate 1, :no-act-id 1}
+SHOWN a line into a base that is not made: an act before the making, two making acts, acts after: {30 :layer-not-made, 31 :accepted, 32 :permission-fact-not-beneath-the-acts-own, 33 :accepted, 34 :accepted, 35 :accepted, 36 :accepted}
+SHOWN a line of 22 things into a base that marks two keys, decided in memory one thing after the other in the order of the depot, 17 cases. The word of each answer, by the number of its act-id: {40 :accepted, 41 :accepted, 42 :accepted, 43 :accepted, 44 :accepted, 45 :accepted, 46 :accepted, 47 :accepted, 48 :accepted, 49 :accepted, 50 :accepted, 51 :replaced-fact-not-current, 52 :permission-does-not-allow-acting, 53 :permission-does-not-stand, 54 :permission-does-not-allow-acting, 55 :accepted, 56 :accepted, 57 :store-key-retract-not-built, 58 :setting-not-on-the-layer, 59 :accepted, 60 :replaced-fact-not-current, 61 :permission-does-not-allow-acting}
+SHOWN the stamps of the marked keys after that line: {:in 36, :late 38, :on 20} where the key from before the line keeps 20 and each key that an act of the line marked has the stamp of that act; a fact under such a key in the act after is in the order by value, which holds 5 rows after the line
+SHOWN the door's words, 15 cases. Its own seven, each read after "the door could not": :add-its-parts :append-cleanly (the door does not know whether the depot holds the thing) :find-the-module :make-an-act-id :read-the-act :read-the-answer :read-the-layers-depot | none is a gate's reason word or a word of a stray | what a word can carry: (:act-id :at :digest :layer :module :said :threw)
+SHOWN the four answers from what a read by act-id gave: {:answer :accepted, :stamp 77, :time 1700000000000} {:answer :refused, :reason :layer-not-made, :stamp 78, :time 1700000000000} {:answer :nothing-yet} {:answer :not-mine} | the two acks: {:streaming :gate-ran, :microbatch :depot-holds}
+SHOWN what the door makes of one act, 52 cases. 23 of them are things that are no act, one kind after the other: a thing ends in one of the door's words and nothing is appended, or it goes in and a gate's check has the word: a map with no :layer, or a nil one -> [{:could-not :make-an-act-id, :appended :nothing, :at :layer} {:could-not :make-an-act-id, :appended :nothing, :at :layer}] | a thing whose :layer cannot be read without a throw -> {:could-not :read-the-act, :appended :nothing, :at :layer} | a record with a :layer -> {:could-not :read-the-act, :appended :nothing} | an act that already carries :depot -> {:could-not :add-its-parts, :appended :nothing, :at :depot} | an act that already carries the part of the time, also a nil one -> [{:could-not :add-its-parts, :appended :nothing, :at :door-time} {:could-not :add-its-parts, :appended :nothing, :at :door-time}] | 257 facts, each with a value -> [:goes-in :too-many-facts] | a fact that is a record, with a value and with none -> [[:goes-in :malformed] [:goes-in :malformed]] | a fact that carries :sealed and :lock-id and no :v -> [[:goes-in :unknown-part] true] | a value that is no value of the form -> [[:goes-in :malformed] [:goes-in :malformed] [:goes-in :malformed] [:goes-in :malformed] [:goes-in :malformed]] | 1,025 entries of :based-on -> [:goes-in :too-many-based-on] | a value whose text is 65,537 bytes goes in, and a gate has the word; one of 65,536 is taken -> [[:goes-in :value-too-large] [:goes-in :ok]]
+SHOWN a reading of a maker's act holds (:layer :thing) | the thing that the door builds is the maker's act with :act-id, :depot and the time that the door hands, here 1700000000000 under :door-time, each other part as given: {:who :alice, :act-id [:alice :streaming #uuid "00000000-0000-0000-0000-000000000046"], :permission [:alice :alice :alice], :depot :streaming, :layer :alice, :facts [{:e :note-1, :k :text, :v {:b 1.50M, :a [1 2N]}} {:e :note-2, :k :text}], :version 1, :door-time 1700000000000, :session :alice-s1} | the declaration's check takes it, and gives the value the text "{:a [1 2] :b 1.5M}" | a maker's thing that already holds that part, also with nil: {:at :door-time, :could-not :add-its-parts, :appended :nothing} | the word says: "the thing already holds a part that the door adds, :act-id, :depot or :door-time on the act; the door writes over nothing"
+SHOWN the digest of the thing with its facts as a list, as a lazy sequence and as a vector: ["430ed05faa05" "430ed05faa05" "599425eaafb9"]
+SHOWN the numbers of a maker's wait, 6 cases: the door's one number is {:read-every-ms 200} ; an opener's number is taken when it is a fixed-width integer of 1 or more, and no other name is read: {:read-every-ms 50} | the longest wait that the door counts is 2305843009213 ms, and a greater number is cut to it: {:read-every-ms 2305843009213}
+SHOWN no code of the store names a lock, 4 cases of the test of a name, then the source read as data: 24 files under the directory that holds softland/store/act.clj, 11025 symbols and keywords, of which 0 name a lock, a seal or a stock []
+SHOWN the proofs read the same way: 9 files under the directory that holds this proof, 66892 symbols and keywords, of which 44 name a lock, a seal or a stock, each of them meant where it stands; not meant: [] | by file: {"softland/store/act_proof.clj" 2, "softland/store/door_proof.clj" 4, "softland/store/module_proof.clj" 8, "softland/store/pure_proof.clj" 30}
+SHOWN what the gates' code holds that no run in process can see, 3 cases, each a reading of the source and the same reading with the bug that a review put in: the streaming gate's retry mode, :all-after | the microbatch gate's copy, only for an accept and never to the deciding task: [true true]
+{:test 20, :pass 685, :fail 0, :error 0}
+
+exit status: 0

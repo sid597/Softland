@@ -1,0 +1,259 @@
+The proof "read-path", on the tree "drp-2" (2026-10-14T09:07Z, head bb6b6cc1), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store-module -m softland.store.read-path-proof
+The whole output is raw-drp-2-read-path.txt beside this file, and is not committed. The run took 52 seconds.
+
+PASSED a read path opened on a name under which no module runs: the word, by a real throw of Rama's client, and no read path
+PASSED the right name gives a read path and no word; so does the same name with numbers of the read path's given
+PASSED a read path prints as the words read-path and the module's name, whatever prints it: pr, str, println, a pretty-printer
+PASSED a read path that was just opened holds no live read and no push
+PASSED read-once and read-live each give the word :read-the-query for a thing that is no query, with the check's word under :why
+PASSED no call was made to Rama for any of them, and no live read is open
+PASSED a place of :main: the value that the accepted act wrote, the layer, the fact id that the door's act-id and the fact's index make, and the stamp of the door's answer
+PASSED an entity of :main: its five places, each with its value and its fact
+PASSED a run of :main across twelve entities: its twelve places
+PASSED what points at a thing in :main: the three places under the marked key
+PASSED since which stamp the order of :main is level: the stamp of the act that marked the key, in a streaming layer and in the base; and earlier than the facts that are in the order
+PASSED a place of :base: the value that the accepted act wrote, the layer, the fact id that the door's act-id and the fact's index make, and the stamp of the door's answer
+PASSED an entity of :base: its five places, each with its value and its fact
+PASSED a run of :base across twelve entities: its twelve places
+PASSED what points at a thing in :base: the three places under the marked key
+PASSED since which stamp the order of :base is level: the stamp of the act that marked the key, in a streaming layer and in the base; and earlier than the facts that are in the order
+PASSED a place with no fact
+PASSED a place whose current fact is a retract: nothing here, with the layer, the fact and the stamp of the retract
+PASSED a value reads back as its maker gave it: a string with spaces, a map, a UUID, a string of 60,000 characters
+PASSED each of those places says that it holds a value, asked once; and one of them, kept live, says the same as it does asked once
+PASSED the system's making of a personal layer for its person is accepted
+PASSED a place asked with no part of its row: the place-answer holds neither who wrote it nor the permission
+PASSED asked with the writer: who wrote it, and no permission
+PASSED asked with both: they are the act's who and the permission that it named
+PASSED for the system's making of a personal layer the two differ: the system wrote the fact, under the person's permission
+PASSED the entity of a holder, asked without the store's own facts: nothing; with them: her permission
+PASSED the entity of the layer itself: nothing; with the store's own facts: its depot and its marked keys
+PASSED a run across the whole layer, after values were written: no permission, setting or mark in the answer that did not ask; with the store's own facts the layer's depot, its holder's permission and its marked keys are there, and no fact under any other key of the store
+PASSED a place under one of the store's own keys, asked without them, is turned away with a word, and no call is made
+PASSED a place that only the farthest layer holds comes from there, and the answer says which layer won
+PASSED when a nearer layer holds a fact there too, the nearer wins
+PASSED when the nearest holds a retract, the nearest wins with nothing here
+PASSED a run that three layers hold in parts: each place from the nearest layer that holds it
+PASSED from a layer: the layer, then the layers of its own fact, in order; the read uses the newest list
+PASSED a list that names a layer twice is read with each layer once, at its first place
+PASSED an asker with no permission in the middle layer: the answer names the layer and why
+PASSED every other part of the answer equals the answer of the same query without that layer; nothing of the layer is given: the place that the middle layer held comes from the farthest
+PASSED a layer that is not made is named with another word
+PASSED a start layer that she may not see: that one layer is left out, its list is not used, and nothing else is given
+PASSED a person who is not signed in sees the base, which is everyone, and nothing of a members layer
+PASSED what the working answer for the store's own facts gives a person who is not signed in, when she asks for them: in the base, which is everyone, a holder's permission; in a members layer nothing, and the layer is left out
+PASSED the system is a who like any other: it holds no permission in a person's layer, and sees the base
+PASSED a query with no asker, with both, and with an asker of 300 characters is turned away with its word
+PASSED a farther layer points at the thing: the place comes from the farther layer's order
+PASSED the nearer layer moves the block: it is hidden from what points at the first thing, and shown, from the nearer layer, for the second
+PASSED the nearer layer takes the block away, with a retract: it stays hidden
+PASSED the nearer layer moves it back: it is shown from the nearer layer's own order
+PASSED a nearer layer that does not mark the key and writes another thing hides the place
+PASSED when it writes the same thing, the place is shown from the nearer layer's row, with its layer, its fact and its stamp, under not-marked
+PASSED a nearer fact that says the same thing and was written before its layer's mark: the place comes from the nearer layer's row, whose stamp is not later than the stamp since which that layer's order is level
+PASSED then the farther layer moves the place away: no order holds it, and it is not in the answer, though the nearer fact still says the thing
+PASSED facts that were written before the mark are not given through that layer's own order: level-since is the stamp of the act that marked the key, and the answer holds no place
+PASSED the mark taken off: the layer says not-marked. Put on again: another stamp, and a fact that is written after it is in the order
+PASSED a place through three layers: three calls, in one round
+PASSED the same place asked once while a live read holds a push open on each of its sources: the same three calls in one round, and the same answer. A read asked once reads the tables and takes no value of a push
+PASSED that live read has left, and none is open
+PASSED the same from a layer: three calls in two rounds, the start layer's call first
+PASSED an entity of five keys: one call
+PASSED a run across entities of the base, from the base itself: one call, in one round, with the rights in it
+PASSED the same run through her own layer and the base: two calls in one round, one for each layer
+PASSED what points at a thing through three layers: the rights, the orders of the two layers that mark the key, the checks in the two nearer layers
+PASSED 300 places of a farther order, each checked in a nearer layer by one call of 300 paths: each place is given from the nearer layer's own fact, so the values came in the paths' order
+PASSED with a first read of 4 places and at most 10 places for one run: a run of 3 places is one call
+PASSED a run of 8 places is three calls: the first read, the size by a bounded walk, the run whole
+PASSED a run of 12 places is two calls, and then the word, with no place
+PASSED a run of 12 places in a layer that the asker may not see: one call, no size, no word; the layer is left out
+PASSED the widest thing that a query can name, a whole layer, ends in the word within two calls
+PASSED a read that needs 7 checks of a nearer layer, where one read may have 6, ends in the word
+PASSED kept live, the same run of 12 places ends in the word and holds no push
+PASSED a run of 8 places is kept live, and then an act takes it to 11, one more than one read may hold: the read ends with the word and why, and holds nothing
+PASSED a source of a kind that the read path builds no path for, and a step that it does not know: no path, and no call is made
+PASSED asked once, from the base itself: the twelve places come whole from one task, in one call under the base's routing id
+PASSED kept live: the same answer now, and two pushes, the run and the base's own rows, both under the base's routing id
+PASSED one write in the run gives one change, with the place that was written
+PASSED a run that reaches the base's own entity, asked with the store's own facts: the base's depot row is in the answer; asked without, no row of the store's is
+PASSED the proof found a layer of alice's on each of the four tasks; and a layer of alice's, a layer of bob's and the base on three different tasks, each by selects of its own
+PASSED asked once through a layer on each task, a place of the base is given as it is from the base itself: its value, its layer, its fact and its stamp
+PASSED each of those reads made one call on the base's facts, under the routing id of the layer that it starts from, so on that layer's task; none was made under the base's routing id
+PASSED bob, through his own layer, is given the same place, by one call on the base's facts under his layer's routing id
+PASSED a run across entities of the base comes back whole from the one task of each asker's layer: the places that the base's own task gives, by one call on the base's facts under her layer's routing id
+PASSED what points at a thing in the base, its order by value, comes back whole from that one task too: the places that the base's own task gives, by one call on the base's facts, for its rights and its marks, and one on its facts by value, both under her layer's routing id
+PASSED those two answers hold places: the twelve of the run and the three under the marked key
+PASSED a fact of the base is given through each layer and from the base itself, within the proof's wait after its maker's answer
+PASSED kept live by two askers whose layers are on two tasks, and by one who reads from the base itself: each has the value now; the three hold 12 pushes, and the base's row has three of them, one under each read's home
+PASSED a new fact of the base is told to each of the three on the task of her read's home: one change for each of two acts, with the fact and the stamp of its act
+PASSED a run across entities of the base and what points at a thing in it, kept live through two layers on two tasks: each opens with the whole that the base's own task gives
+PASSED one act of the base with a fact in the run and a fact under the marked key: each asker of the run is told the one place of the run, and each asker of what points at the thing the one new place, once
+PASSED when each of them has left, the read path holds no live read and no push
+PASSED 20 acts of the base, each followed at once by a read asked once through a layer on another task: each was given within the proof's wait; how many were given at once is shown and not held
+PASSED one asker through her layer holds 3 pushes on that layer's facts and 2 on the base's, its own rows and the place, counted under her layer's routing id; a second asker with the same home adds his permission in that layer and shares the two pushes on the base
+PASSED an asker with another home holds pushes of his own on the base, under his layer's routing id: the base's row has two pushes, one for each home, where three askers look at it
+PASSED one write to the base's row calls each of the three functions once, with the fact of that act
+PASSED the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held
+PASSED :l14, :place, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :l14, :place: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :l14, :entity, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :l14, :entity: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :l14, :run, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :l14, :run: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :l14, :points-at, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :l14, :points-at: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :base, :place, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :base, :place: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :base, :entity, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :base, :entity: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :base, :run, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :base, :run: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED :base, :points-at, kept live: the answer now is what a read asked once gives; the first call of the function is that answer
+PASSED :base, :points-at: an act inside gives one change, with the place and the fact of that act; an act outside gives none; a second act inside gives the second change
+PASSED an act in a farther layer at a place that a nearer layer holds gives the asker nothing: the witness, who holds the same push, has the second of two such acts, and the asker's function was not called
+PASSED twenty acts on one place in quick turn, in two layers by turns: the asker's screen ends at what a read asked once gives; no count of changes is asserted
+PASSED no live read is left open
+PASSED an asker with no permission in the nearer layer: the layer is left out, a write in it gives her nothing, and the place comes from the farther layer
+PASSED a permission that says see is given to her under her open read: the whole answer comes anew, the layer joins, and the place comes from it
+PASSED a members layer goes to everyone under the open read of an asker with no permission: the layer joins, and the whole answer comes anew
+PASSED the layer goes back to members: she is told a whole answer that says that the layer is left out, with what now wins the place, and nothing of the layer's facts
+PASSED after the layer left, a write in it gives that asker nothing, and the other asker of the same push her change
+PASSED the start layer's list is written again under an open read: layers join and leave by the new list, each time with the whole answer anew
+PASSED a key is marked under an open read of what points at a thing: before it the layer says not-marked; after it the whole answer comes anew with the stamp of the mark and no place, since the fact from before the mark is not in the order
+PASSED a fact under the marked key gives one change; the mark taken off gives the answer anew with not-marked; put on again, another stamp, and the fact of before is not in the new order
+PASSED for an asker who may not see a layer of her list, that layer's list written again, the asked key's mark taken off and the key marked again give her nothing: the other asker, who holds the same push, was told the last of them
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+PASSED the base's setting goes to members under the open read of an asker who holds no permission there: the base is left out, and she is given no fact
+PASSED an asker who holds a permission in the base is given an answer anew that says what it said
+PASSED while the base is members, a write in it gives the asker who may not see it nothing; back to everyone, the whole answer comes anew with that fact
+PASSED no live read is left open
+PASSED one asker of a place in a members layer holds three pushes: the layer's own rows, her permission, the place
+PASSED a second asker of the same place joins the two pushes that are open and opens only his own permission
+PASSED a write to the place: each function is called once; the asker who asked for the writer is handed it, the other is not
+PASSED the first leaves: her permission's push is closed, and the two shared pushes stay; the last leaves: nothing is held; a read that has left is not open
+PASSED each push that the read path opened is closed when its last reader has left: Rama says terminated of all four
+PASSED a third asker after the last one left opens new pushes, three, and gets a fresh value
+PASSED what the read path holds for a live read and for a push: who looks at what, what each asked for, the pushes, and one mark; no field for a row, a value or an answer
+PASSED 50 times, two threads open the same thing at once: one opening for each thing, four pushes for the two, and each is closed when both have left
+PASSED 50 times, one joins while the last one leaves, and a write follows: the one who joined gets the write's change each time, so nobody was handed a push that is closed; the map of pushes holds no entry without a reader
+PASSED Rama's opening of a push was called as often as its close, and nothing is held at the end
+PASSED a read path that may hold 3 pushes on one table under one routing id: one live read of a place in a members layer holds 3 there, the layer's own rows, her permission and the place; the count is the count of the map's entries
+PASSED a live read of another place of that layer needs one push more: it is turned away at once with the read path's own word, which carries what was too many and the bound; no push was opened for it and none closed
+PASSED after it was turned away, the read path holds what it held: the first read and its 3 pushes
+PASSED a read asked once is not held to that bound: it reads the same place
+PASSED a second live read of the same thing opens: it shares the 3 pushes, and a push that is open already is not counted again
+PASSED the pushes of another layer are under another routing id and are counted apart: a read through it opens while the first layer is full
+PASSED when the readers of a layer have left, its count is gone, and the read that was turned away opens
+PASSED when every reader has left, nothing is held and no count is left
+PASSED 20 times, eight threads each open a read of another place of one layer at once, where 3 pushes may be held: one opens and seven are turned away with the word, the count stands at the bound, and nothing is held when the one has left
+PASSED the two tables of one layer are counted apart: what points at a thing through two layers holds 3 pushes on the nearer layer's facts, its own rows, her permission and the one check; 2 on the farther layer's facts; and 1 on its facts by value, the order
+PASSED a second place comes into the farther order under that open read, so it comes to need a second check, one push more than the read path may hold on the nearer layer's facts: the read ends with the word and why, and holds nothing
+PASSED a read that starts from the base holds the base's own rows and a place, both counted under the base's routing id
+PASSED in the base the count is of the pushes of one home: two reads of two places through one home that is not made hold 3 pushes on the base's facts under that home, its own rows and the two places, and 1 on the home's own rows
+PASSED a third place of the base through that home needs one push more than the read path may hold there: it is turned away with the word, and no push was opened or closed for it
+PASSED the same place opens through another home, and from the base itself: each home has a count of its own on the base, and the full home's count stands
+PASSED when those readers have left, nothing is held and no count is left
+PASSED the checks of one read that is kept live have a number of their own: where one such read may need 1 check, what points at a thing with two places in the farther order is given whole when asked once, and kept live it is turned away with the word; 5 pushes were opened, for the rights of the two layers and the one order, none for a check, and each was closed
+PASSED where one read kept live may need 1 check: a read of what points at a thing opens with one place in the farther order, so with one check; a second place comes into that order, so it comes to need two: the read ends with the word and why, and holds nothing
+PASSED an act that the gate refuses at a place gives a live asker of that place nothing: she has the change of the accepted act that followed, and no other
+PASSED every value that she was given is of an act that a gate accepted, by the door's answer for the act of its fact
+PASSED when every asker has left, the read path holds no reader, no push and no count of a push
+PASSED a select that throws: the word :reach-the-store, with what Rama's client threw; the call does not throw
+PASSED a select that does not come back within a wait of 300 ms: the word, and the call returns after about that long
+PASSED the opening of a push that an open read came to need throws: the read ends with its word and why, and holds no push; the map of pushes holds no entry of the failed opening
+PASSED the opening of a push that an open read came to need never comes back: after the wait the read ends, on a thread that is not the caller's
+PASSED Rama ends a push, by the diff that its pages name, handed to the push's callback by the proof: each read on it ends with the word and why
+PASSED a value that Rama sends anew after the first callback of a push, by Rama's own diff for it, made by the proof and handed to the callback of a run's push that holds two places: with the rows as they are, the asker is told nothing; with one row that differs, she is told that one place, with what the read gives there, and not the other, and no whole answer
+PASSED 40 times, Rama's ending diff is handed to the callback of a read's first push while the read opens, on another thread. Each time one of two things holds, and no other: the read was not opened yet, read-live gives a word, and the function was not called at all; or the read was opened, the function was given the whole answer first and then {:ended}. Never {:ended} before the answer, and never {:ended} alone. Nothing is held afterwards
+PASSED a function that throws when it is given a change, and throws again when it is given {:ended}: the read ends, nothing is held, and no call throws
+PASSED a function that throws at its first call: read-live still gives the answer, the read is ended, and its handle is not open
+PASSED a thing that is no function, where read-live takes a function, is as a function that throws at its first call, for nil, a number and a string: read-live gives the answer, the handle is not open, nothing is held, and no call throws
+PASSED leave of a thing that is no handle of this read path gives :not-open and does not throw: nil, a number, a string, a map, and the handle of a read of another read path, which stays open there until it is left there
+PASSED 200 acts from 4 threads on one entity, each of which the door sent and the gate accepted: the asker's screen ends at what a read asked once gives, a place for each act
+PASSED the first call of the function is on the caller's own thread; every later call is on another thread, a thread of Rama's client
+PASSED the calls for one read come one at a time: no call began while another was running
+PASSED straight after the 200 acks, a read asked once gives every place, through the read path that holds an open push on that very run and through a read path that holds none: each reads the table, and neither is given the value of a push
+PASSED the three reading calls of Rama's client are named in the read path's one file and in no other file of the store's source
+PASSED the read path's file names no append and no depot
+PASSED entities whose ids hold letters outside ASCII, of Latin, Cyrillic and Han: a run between two of them gives the places that the table's order holds between its ends, which is the order by code point
+PASSED an entity whose id holds a letter from U+E000 on, and one whose id holds a letter outside the first plane: each is read as an entity, and gives its own place and no other
+PASSED a run between two entities that a caller names is turned away when an end holds such a letter: a range of Rama's between such ends was seen to give fewer places than the table holds, and the read path reads none
+PASSED the whole of the layer holds every entity, those with such letters too
+PASSED Java's own order of Strings would put the letter outside the first plane before the one at U+FB00; the read path's order, and the table's, do not
+PASSED the run of an entity holds no place of an entity whose text begins with its text
+PASSED a layer whose text is the start of another's, on the same task: the whole of the first layer holds no place of the second
+PASSED a function that calls leave on its own read, inside its call: leave gives :left and returns, the read gets no call after it, and nothing is held
+PASSED a function that leaves another read: that read is not open afterwards
+PASSED 50 times, two reads on one push, each leaving the other inside its function: nothing stands still, and nothing is held afterwards
+PASSED a function that calls read-once and read-live inside its call, at its first call on the caller's thread and at each change on Rama's: both are turned away with the word of their own; the read whose function asked goes on to its next change
+PASSED no call was made to Rama for a read that was turned away: the selects are none, and the pushes are the three of the one read that opened
+PASSED 50 times, a maker writes one place 20 times in quick turn while read-live opens on it: each time the screen, made only from what the function was given, ends at the value of the last act
+PASSED each time the first thing that the function is given is the whole answer, the same that :now holds: no change is lost between the opening of the pushes and that answer, and none is told before it
+PASSED a read of another asker, asked while one asker's function stays for 2 s, gives an answer or a word and does not throw
+PASSED of every live read that this proof opened with its noting function: the first call of the function was the whole answer that read-live gave under :now, on the caller's own thread
+PASSED no call of any of them overlapped another call for the same read
+PASSED a read asked once straight after the module was started again gives an answer or a word, and does not throw
+PASSED an open read gets the change of an act that was sent after it, or ends with a word; it does not throw
+PASSED a read asked once after that gives the newest value, or a word
+PASSED the proof found a layer of alice's on another task than the base's, by selects of its own
+PASSED the proof made one throw, in the decision of the act that came after in the batch; the act that wrote the place was decided twice, each time with a row for the place; the third decision with a row for the place is that of the act that was sent after
+PASSED the row that the second attempt made for the place is the first attempt's row, in every field, the stamp too
+PASSED under the open read from the base itself the function was called once for that place, with the first attempt's row: the stamp of the row that the first attempt made, and the fact of the act; the next call is of the act that was sent after
+PASSED under the open read through a layer on another task, where the first attempt's copy of that row was sent: the same two calls and no other
+
+THE PROOF, IN ONE PLACE
+SHOWN a read path opened on a wrong module name: {:could-not :find-the-module, :module "no.such/Module", :threw "org.apache.thrift.TException"} | a real throw of Rama's client
+SHOWN an opened read path prints as #<read-path softland.store.module/Store> and holds {:live-reads 0, :pushes 0}
+SHOWN a thing that is no query: 10 faults, each handed to read-once and to read-live, give :read-the-query with the check's word, [:not-a-query :part-not-known :asks-no-word-known :place-not-named :no-one-asker :layers-not-named-one-way :too-many-layers :run-ends-out-of-order :store-key-not-asked-for :id-over-the-limit] | calls of Rama's client, counted by a function of the proof's in their place: 0
+SHOWN each word of a query, asked once in :main (the streaming gate): a place gives the value that an accepted act wrote, with its layer, its fact id and the stamp 2 of the door's answer; an entity gives its 5 places; a run across entities its 12 ; what points at a thing its 3 places and the stamp since which the order is level
+SHOWN each word of a query, asked once in :base (the microbatch gate): a place gives the value that an accepted act wrote, with its layer, its fact id and the stamp 2 of the door's answer; an entity gives its 5 places; a run across entities its 12 ; what points at a thing its 3 places and the stamp since which the order is level
+SHOWN the three things that a gate's write leaves at a place are told apart: no fact {:holds :no-fact} | a retract :nothing-here | a value as its maker gave it, of four kinds, the longest of 60,000 characters | not reached here: a row that holds no value of the form, which no gate's write makes; the read path's pure proof holds what a reader is told of one
+SHOWN a part of a row is handed over only when the query asks: with no :with the place-answer's parts are (:fact :holds :layer :stamp :value) | with :writer it holds :alice | with both, the act's who and its permission | the depot fact of a personal layer that the system made: {:writer :system, :permission [:dora :dora :dora]}
+SHOWN the store's own facts are in no answer that did not ask for them: the whole layer gives 26 places and none under a key of the store; asked with :stores-own-facts it gives 29 | a place under a store key, asked without, gives {:could-not :read-the-query, :why :store-key-not-asked-for} with no call to Rama
+SHOWN through three layers the nearest layer that holds a fact wins: only the farthest holds it [:value :f7 "from the farthest"] | a nearer one too [:value :m7 "from the middle"] | the nearest holds a retract [:nothing-here :n7 nil] | a run in parts gives each place from its nearest layer
+SHOWN from a layer the read takes the layer's own list, and the newest one: [:n7 :m7 :f7] and, after the list was written again, [:n7 :f7] | a list that names a layer twice is read as [:n7 :m7 :f7]
+SHOWN a layer that the asker may not see is left out, and the read says so: [{:layer :m7, :why :may-not-see}] | a layer that is not made: [{:layer :nowhere, :why :not-made}] | a start layer that she may not see gives {:layers [:m7], :left-out [{:layer :m7, :why :may-not-see}], :place {:holds :no-fact}}
+SHOWN who asks is what the caller says: a person who is not signed in sees the base and no members layer, [{:layer :main, :why :may-not-see}] | :system is a who like any other | no asker, both, and an asker of 300 characters: [:no-one-asker :no-one-asker :id-over-the-limit] | asked for the store's own facts, a person who is not signed in is given the system's permission in the base, [:system :base :base] , and nothing of a permission in a members layer
+SHOWN what points at a thing through two layers, asked once: the farther layer's place [:far10 2] is hidden when a nearer layer moves the block or takes it away, and shown from the nearer layer when it moves it back, [:near10 4]
+SHOWN a nearer layer that does not mark the key hides the place with another thing, and with the same thing gives the place from its own row, [:plain10 2] under {:layer :plain10, :not-marked true} | a nearer fact from before its layer's mark gives the place with a stamp 1 that is not later than level-since 2 | once the farther layer moves away, the place is not in the answer
+SHOWN the mark of a key: level-since is the stamp of the act that marked it, 2 ; taken off, the layer says :not-marked; put on again it is 4 and only facts written after it are in the order
+SHOWN the calls of a read asked once, counted by functions of the proof's in the place of Rama's select and of the read path's rounds: a place through three layers [3] | the same while a live read held 9 pushes open on its sources [3] | from a layer [1 2] | an entity [1] | a run across entities of the base [1] | the same through her own layer [2] | what points at a thing through three layers [3 2 2]
+SHOWN a call of 300 paths gives its values in the paths' order: each of 300 places came with the fact of its own nearer row
+SHOWN a run is bounded before it is read whole, by the calls of Rama's select: a run of 3 places 1 call; of 8 places 3 calls; of 12 places 2 calls and {:could-not :serve-a-read-that-large, :what :places-of-one-run, :most 10} | in a layer that she may not see 1 call and no word
+SHOWN the widest thing that a query can name, a whole layer, ends in a word within 2 calls; a read that needs 7 checks, where 6 are allowed, gives {:could-not :serve-a-read-that-large, :what :checks-of-one-read, :most 6} | a source of a kind that the read path knows no path for makes no call
+SHOWN a run across entities of the base comes whole from one task: asked once from the base itself it gives 12 places by the calls [[:microbatch :facts :base]] ; kept live it holds 2 pushes, the run and the base's own rows, under #{[:microbatch :facts :base]} ; one write in the run gave 1 change | the calls are noted by functions of the proof's in the place of Rama's
+SHOWN the base is read where the asker's layer lives: the base's acts are decided on task 2 ; through a layer of alice's on each of the tasks [0 1 2 3] a place of the base was given as from the base itself, each by the calls [[[:microbatch :facts :home-1]] [[:microbatch :facts :home-12]] [[:microbatch :facts :home-2]] [[:microbatch :facts :home-0]]] on the base's tables | the tasks are found by selects of the proof's own, the calls noted by functions of the proof's in the place of Rama's
+SHOWN a run across entities of the base and what points at a thing in it come back whole from one task: through alice's layer :home-1 on task 0 and bob's layer :bobs-7 on task 1 each gave the 12 places of the run and the 3 places of the order, by the calls [[[:microbatch :facts :home-1]] [[:microbatch :facts :home-1] [:microbatch :facts-by-value :home-1]] [[:microbatch :facts :bobs-7]] [[:microbatch :facts :bobs-7] [:microbatch :facts-by-value :bobs-7]]]
+SHOWN kept live, a new fact of the base is told on each asker's task: three reads of one row of the base, with the homes #{:bobs-7 :home-1 :base} , held 12 pushes, three of them on that row; each of two acts gave each reader one change; one act with a fact in a run and one under a marked key gave each of four readers one change
+SHOWN straight after the maker's answer of an act of the base, a read asked once through a layer on another task gave the new value at once 20 times of 20, and each time within the proof's wait | Rama's pages say that two tasks show a batch at two instants; this run saw a read that was ahead of the copy 0 times
+SHOWN the count of pushes on the base is by the read's home: two askers with one home share its pushes, {[:streaming :facts :home-1] 4, [:microbatch :facts :home-1] 2} ; an asker with another home holds his own, {:bobs-7 1, :home-1 1} on the one row; the openings on the base's tables were {[:microbatch :facts :home-1] 2, [:microbatch :facts :bobs-7] 2}
+SHOWN each word kept live, for each gate: an act inside gives one change with that act's fact, an act outside gives none, a second act inside the second change: [[:l14 :place 2] [:l14 :entity 2] [:l14 :run 2] [:l14 :points-at 2] [:base :place 2] [:base :entity 2] [:base :run 2] [:base :points-at 2]]
+SHOWN an act in a farther layer under a nearer layer's fact gave the asker 0 calls, while a witness on the same push got both acts | twenty acts in quick turn on one place in two layers: the screen ends at the last value, after 11 calls
+SHOWN what shapes a read changes under it, each as a whole answer anew: a permission given {:layers [:m15 :t15], :left-out []} | a members layer to everyone, and back: [{:layer :m15, :why :may-not-see}] | after the layer left, a write in it gave that asker 0 calls
+SHOWN the start layer's list written again: [:home15 :m15 :t15] then [:home15] | a key marked: [{:layer :x15, :level-since 2}] | a fact under it: one change | the mark off: [{:layer :x15, :not-marked true}] | on again: [{:layer :x15, :level-since 5}]
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+SHOWN those who look at the same thing share one push: one asker of a place holds 3 pushes, two askers 4 ; one write called each function once, and only the asker who asked for the writer was handed it; when the first left 3 pushes stayed, when the last left none, and Rama says (:terminated) of each push
+SHOWN what the read path holds for a live read: (:opened? :owed? :query :sources :tell :turn) and for a push: (:called :opening :readers) | read from the fields of its type; no field holds a row, a value or an answer
+SHOWN 50 times two threads opened the same thing at once: 200 openings of a push in all, four each time, and as many closes | 50 times one joined while the last one left, with a write after: the joiner got the write's change each time; openings 300 and closes 300 | counted by functions of the proof's in the place of Rama's
+SHOWN the read path's own bound on its pushes, with 3 for one table under one routing id: a read that needs one more is turned away with {:what :pushes-under-one-routing-id, :most 3, :could-not :keep-more-reads-live} after 0 openings of a push; a read asked once of the same place still answers; a second reader of an open thing is not counted again | eight threads at once, 20 times: each time one opened and seven were turned away | an open read that came to need one push more ended with :no-room-for-a-push-it-came-to-need
+SHOWN the counts, read from the read path's own memory: what points at a thing through two layers {[:streaming :facts :f87] 2, [:streaming :facts :n87] 3, [:streaming :facts-by-value :f87] 1} | a place of the base, from the base itself {[:microbatch :facts :base] 2} | at each moment the counts were the counts of the map's entries
+SHOWN on the base the bound holds the pushes of one home: with 3 for one table under one routing id, two places of the base through one home filled its count, {[:streaming :facts :unmade-87a] 1, [:microbatch :facts :unmade-87a] 3} ; a third place through that home was turned away with :keep-more-reads-live after 0 openings, and opened through another home and from the base itself: {[:streaming :facts :unmade-87a] 1, [:microbatch :facts :unmade-87a] 3, [:streaming :facts :unmade-87b] 1, [:microbatch :facts :unmade-87b] 2, [:microbatch :facts :base] 2}
+SHOWN kept live, a read that needs more checks than one live read may is turned away before a check is opened: {:what :checks-of-one-read, :most 1, :could-not :serve-a-read-that-large} after 5 openings; asked once the same read gave 2 places
+SHOWN nothing is shown before it is in the tables: a refused act at a watched place gave the asker nothing; each of 2 values that she was given is of an accepted act; after every asker left the read path's three maps are {:pushes {}, :counts {}, :reads {}}
+SHOWN reads that fail, each with a function of the proof's in the place of a call of Rama's client: a select that throws gives :reach-the-store | one that never comes back gives {:waited-ms 300, :could-not :get-an-answer-within-its-wait} after 300 ms
+SHOWN under an open read: an opening that throws ends the read with {:could-not :keep-the-read-live, :because :a-read-it-came-to-need-failed} | one that never comes back ends it after its wait, on the thread CompletableFutureDelayScheduler | an UngracefulTerminationDiff of Rama's class, made by the proof and handed to the callback, ends it with :the-store-ended-a-push | a ResyncDiff of Rama's class, made by the proof and handed to the callback of a run's push: with the same rows the asker was told 0 things, with one row that differs 1 change, of the places [[[:sheet :a]]] | the same diff while a read opened, 40 times: 4 times the read was not opened yet, read-live gave a word and the function was not called; 36 times it was opened, and the function was given the answer and then {:ended} | a function that throws ends it with :its-function-threw | no call threw, and after each the read path held no push
+SHOWN a read asked once reads the table, also where a push is open on its source: straight after the acks of 200 acts it gave 200 of 200 places through the read path that holds the push, and 200 through a read path that holds none
+SHOWN the function of a live read, under 200 acts from 4 threads: 188 calls, the first on the caller's thread main , the others on ("clientside-cluster-manager-executor-pool-1-0") | no two calls for the read overlapped
+SHOWN one reader of facts in the store's source, by a search of 24 files as text: foreign-pstate, foreign-select and foreign-proxy are in read_path.clj and in no other; it holds no foreign-append! and no foreign-depot | the proofs' own handles are the stated exception
+SHOWN the order of the store's own table is by code point: a run between entities with letters outside ASCII gives (":xä" ":xя" ":x水") | an entity whose id holds a letter from U+E000 on or outside the first plane is read as an entity and gives its own place; a run between two ends that a caller names, one of which holds such a letter, gives [:read-the-query :run-end-not-ordered] | the entity :a holds no place of :a! or :ab | the whole of the layer :pfx holds no place of :pfx!3 , which the proof found on the same task by a select of its own
+SHOWN a function may leave inside its own call: its own read,  ({:changed {[:note :text] {:holds :value, :layer :l24, :fact [[:l24 :streaming #uuid "01e69561-c59a-435d-b19e-29c825d4436f"] 0], :stamp 2, :value "v1"}}} :left) , and another read; 50 times two reads on one push each left the other and nothing stood still
+SHOWN a read asked from inside an asker's function is turned away at once: ((:read-inside-an-askers-function :read-inside-an-askers-function)) | selects made meanwhile: 0 | the read whose function asked went on and was told 3 times
+SHOWN the opening: 50 times a maker wrote one place 20 times in quick turn while a live read opened on it; the first call of the function was the whole answer each time, and the screen ended at the last value; the value in the first answer was {:one-between 45, :no-fact-yet 5}
+SHOWN while one asker's function stayed for 2 s, a read of another asker gave an answer after 1 ms; held to no number
+SHOWN the first thing that a function is given is the whole answer: of 325 live reads that the proof opened, each first call was {:anew answer}, equal to :now, on the caller's thread, before any change
+SHOWN the module was started again under an open read, by Rama's module update with the unchanged module: a read asked once straight after gave an answer | the open read got the change of an act that was sent after it | a read asked once after that gave "after"
+SHOWN a batch of the base ran a second time under two open reads of a place that it writes, on a cluster of its own in which the proof replaced one pure function of the gates' walk and threw once, in the decision of a later act of the batch: 2 decisions made a row for the place, the same row in every field; the function of the read from the base itself was called 2 times in all, and that of the read through the layer :elsewhere-0 on task 0 (the base is on task 2) 2 times: once for that act with the stamp 2 of the first attempt's row, and once for the act after it
+{:test 28, :pass 553, :fail 0, :error 0}
+
+exit status: 0

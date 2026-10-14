@@ -1,0 +1,248 @@
+The proof "read-path-pure", on the tree "drp-1" (2026-10-14T09:07Z, head bb6b6cc1), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store -m softland.store.read-path-pure-proof
+The whole output is raw-drp-1-read-path-pure.txt beside this file, and is not committed. The run took 5 seconds.
+
+PASSED a query is taken: a place, with each part of a row
+PASSED a query is taken: a place
+PASSED a query is taken: what points at a thing
+PASSED a query is taken: an entity
+PASSED a query is taken: a run of entities
+PASSED a query is taken: a run from an entity on
+PASSED a query is taken: a run of keys
+PASSED a query is taken: a whole layer
+PASSED a query is taken: a run to a place
+PASSED the one form of a query: each part there, an asker of nil for a person who is not signed in, one of the two ways of naming layers nil, a set, true or false
+PASSED a :with that asks for each of the three parts of a row, the writer, the permission and the time, is a known query, and its one form keeps the three
+PASSED a list of layers that is no vector, and a thing that is a UUID, come out in the one form
+PASSED a query is turned away: no map
+PASSED a query is turned away: a record
+PASSED a query is turned away: a part that the form does not hold
+PASSED a query is turned away: no :asks
+PASSED a query is turned away: a word that is not known
+PASSED a query is turned away: an :asks that is no vector
+PASSED a query is turned away: a place with no key
+PASSED a query is turned away: an entity that is no id
+PASSED a query is turned away: a run with one end
+PASSED a query is turned away: a run whose end is no end
+PASSED a query is turned away: what points at, with no thing
+PASSED a query is turned away: what points at nil
+PASSED a query is turned away: an asker that is no id
+PASSED a query is turned away: no asker
+PASSED a query is turned away: an asker, and not signed in
+PASSED a query is turned away: not signed in, said with false
+PASSED a query is turned away: layers that are no list
+PASSED a query is turned away: a layer that is no id
+PASSED a query is turned away: a start layer that is no id
+PASSED a query is turned away: no layers
+PASSED a query is turned away: a list and a start layer
+PASSED a query is turned away: an empty list
+PASSED a query is turned away: 66 layers
+PASSED a query is turned away: a part of a row that is not known
+PASSED a query is turned away: a :with that is no set
+PASSED a query is turned away: an asker of 300 characters
+PASSED a query is turned away: a layer of 300 characters
+PASSED a query is turned away: an entity of 300 characters
+PASSED a query is turned away: a key of 300 characters
+PASSED a query is turned away: a run whose ends are out of order
+PASSED a query is turned away: a run that starts at :last
+PASSED a query is turned away: a run that ends at :first
+PASSED a query is turned away: a run whose end holds a letter outside the first plane
+PASSED a query is turned away: a run whose end holds a letter from U+E000 on
+PASSED a query is turned away: a place under a store key, not asked for
+PASSED a query is turned away: what points at, under a store key
+PASSED a query is turned away: a :stores-own-facts that is no true or false
+PASSED each of the check's words was given, and each is declared
+PASSED the check never throws: a thing that throws when it is read, of two kinds, and things that are no map
+PASSED a list of layers with no end is turned away after 66, and its layers are not read
+PASSED the numbers: a default for each that is left out or is none; a number that is given is taken
+PASSED the read path's seven numbers, written out a second time: a read kept live may need 250 checks of nearer layers where one asked once may need 40,000, and the read path holds 900 pushes on one table under one routing id, under the 1,000 that Rama opens on one table on one task
+PASSED the words of a query, what each reads in one layer, and how its rows are put together have the same keys
+PASSED the layers of a list: each once, at its first place
+PASSED from a layer: the layer, then the layers of its fact, in the fact's order, and no further
+PASSED a list that names its own layer and a layer twice: each once, the start layer first
+PASSED a start layer with no fact: the layer alone
+PASSED a start layer whose rows, or her standing in it, are not known yet: nothing can be said
+PASSED a start layer that she may not see, or that is not made: the layer alone, and its list is not used
+PASSED the home of a read is the layer that it starts from: the first layer of a list, also of a list that names it a second time, and of a list of one; the start layer of a query that takes its list from a layer
+PASSED the home is read from the query alone: it is the same for each word of a query, for a person who is not signed in, and for a start layer that is not made or that she may not see, where the list is the layer alone
+PASSED the standing: the seven lines of its table
+PASSED what no fact reads as: a layer with no setting is members, the base is everyone, a list is nothing, no key is marked
+PASSED a person who is not signed in sees the base and no members layer; the system is a who like any other
+PASSED a setting that is written again with the same word: the row differs, and its meaning does not
+PASSED a list, and a mark of the asked key, that are written in a layer that she may not see mean the same before and after
+PASSED for an asker who may see the layer, a list that is written again and a mark that is taken off mean another thing
+PASSED a setting that goes to members for an asker who holds a permission means another thing, though her standing stays yes
+PASSED what an answer says of a layer that it left out: the layer and why, and nothing else
+PASSED the layer's own rows: one run of the layer's own entity under the store's namespace. A streaming layer's routing id is the layer, whatever the home; the base's is the home
+PASSED her permission: one row, on its holder; in the base under the home
+PASSED a place: the layer routes a streaming layer, the home a microbatch layer, and never the entity
+PASSED an entity: one run, under the home in the base
+PASSED a run of keys of one entity, a run across entities and a whole layer are each one source in the base, under the home; in a streaming layer each is one source under the layer
+PASSED the ends of a run: a place is in the run that ends at it; a whole layer is a run and no table
+PASSED what points at a thing: the thing's run in the facts by value, by the stamp of the mark, one source; in the base under the home, and never under the value's digest; a layer that does not mark the key reads nothing
+PASSED a check of a nearer layer at a place is the source of that place, in a streaming layer and in the base; a check of the base has the home as its routing id
+PASSED a source of a streaming layer is the same under every home: the layer's own rows, a permission, a place, a check, a run and the order by value
+PASSED every source of the base that a read asked once comes to read has the read's home as its routing id, for each word and each kind of run: through her notes and the team, through her notes with the team behind the base, through the team alone, and from the base itself
+PASSED each word reads the base as one fact source, and the base's rights as two: its own rows and her permission
+PASSED two reads with one home have equal sources for the base: a list, a longer list and a start layer whose list is the longer one; two askers with one home share the base's own rows and the place, and each has her own permission row
+PASSED two reads with two homes share no source of the base, though each reads the same rows of it; the sources of the team, a streaming layer, are shared
+PASSED two askers of one thing who ask for different parts have equal sources
+PASSED which sources are a layer's rights, and which a check, in a streaming layer and in the base under a home
+PASSED a source is a map of five parts and no other, in a streaming layer and in the base
+PASSED asked once: a place in one layer is one call in one round; through three layers three calls in one round; from a layer one call and then two
+PASSED asked once: an entity of the base is one call, with the rights in it; a run across entities of the base is one call too, and so is a whole layer
+PASSED asked once through her own layer: the base is one call more, under her layer's routing id, for a place, an entity, a run across entities and a whole layer
+PASSED asked once: what points at a thing through three layers is three rounds, the rights, the orders, the checks; from a layer four
+PASSED kept live: a place through an everyone layer opens in two rounds; through members layers in three; what points at a thing through a given list in four. From a start layer that is members it is six: the list of a start layer is read only when she may see the layer, and that needs her permission, one round after the layer's own rows. None takes more than six
+PASSED the worked case of the plan: a place kept live through three layers, of which two are members, holds eight pushes
+PASSED a read asked once wants the place with the rights, in its first round; a live read does not
+PASSED with the one predicate of that choice giving false, a read asked once reads the rights first, and gives the same answer
+PASSED the calls of one round: a layer's rights and its fact are one call, in the base under the home's routing id
+PASSED the calls of one round through her own layer: one call for each of the two tables, both under her layer's routing id, each with the rights and the fact
+PASSED each call holds sources of one table under one routing id, and each source is in one call: every source of what points at a thing through three layers, the base among them
+PASSED the calls of one round are cut at the greatest count of paths of one call
+PASSED a check is wanted in each layer nearer than the nearest order that holds the place, and in no other: the base's two places in both nearer layers; the place of the team's own order in the nearest layer alone
+PASSED the base's block-1 is checked in the team too, where another thing was written: it is hidden; block-2 comes from the base, block-3 from the team's own order
+PASSED a place that two orders hold, with a layer between them: no check in the layer between, since the nearer order wins before it is reached; the farther order's own place is checked in both nearer layers
+PASSED with the one function of the checks put aside, the runs are joined: no check is wanted, and the place that a nearer layer moved is shown from the farther order
+PASSED the checks of one read are bounded, by one number when it is asked once and by another when it is kept live: past its own number the read wants none of them and says that it is too large, with that number; the other number does not bound it
+PASSED how many checks one read may need, by how it is asked, at the defaults
+PASSED a check's row that holds another thing hides the place; one that says nothing here hides it; one that holds the asked thing gives the place from the nearer layer's row
+PASSED a row holds a thing exactly when its String is the thing's one text: a UUID, a string with spaces, a decimal with trailing zeros; not another thing, not a retract, not no row, not a String that is no value of the form, in a row that the proof writes by hand
+PASSED the four things that a place can hold, told apart: no fact; nothing here; a value as its maker gave it; a String that is no value of the form, in a row that the proof puts in the table by hand, since no write of a gate gives one
+PASSED the nearest layer that holds a fact wins, also when that fact says nothing here; a place that only a farther layer holds comes from there
+PASSED a run through layers: each place from the nearest layer that holds it
+PASSED a layer that she may not see, and one that is not made, are named with why, and nothing of them is given: the answer is that of the same query without them
+PASSED a start layer that she may not see: that one layer is left out, and its list is not used
+PASSED a person who is not signed in sees the base, and no members layer
+PASSED a place-answer holds no writer and no permission unless the query asked: neither, the writer, both
+PASSED a place-answer holds the time on the act that wrote its fact only when the query asks for :time: not with the writer and the permission; with :time alone, the time and neither of the two; with all three, all three
+PASSED a run through three layers that asks for :time: each place-answer holds the :time of the row that it came from, in the nearest layer that holds the place; the same run with no :with holds no time, and is the first with the time taken out
+PASSED the store's own facts are left out of a run unless the query asks: the entity of a holder, and of the layer itself
+PASSED a row under a store key does not count for a read that did not ask, and counts for one that did
+PASSED a run across entities of the base, read through her own layer, gives each place of the base once, from its row, and the nearer layer's place where it holds one
+PASSED the answer of a read of the base does not differ by its home: the same place, entity, run and what points at a thing, from the base itself and through a layer that is not made
+PASSED what points at a thing says, for each layer that she may see, since which stamp its order is level, or that it marks nothing
+PASSED a change in the layer that wins the place is told; a change under a nearer row is not
+PASSED a change of the base's row is told to an asker who reads it through her own layer, when no nearer layer holds the place; the source is one that her read holds
+PASSED a change in a layer that she may not see is not told; for her the next layer wins, and its change is told
+PASSED a change of a store key's row is told only to an asker who asked for the store's own facts
+PASSED the places that a change names for a query: the asked place from its row and from no other; each key of a run; no place from a layer's own rows
+PASSED what the base's own rows and her permission mean at a change, for a read through her own layer: each is read beside the other, which the read holds under her layer's routing id
+PASSED the places that a change of the base names, for a read through her own layer: the asked place from its row; each key of a run across entities; the entity of each key of the order by value
+PASSED a fact's step that sees the new setting first joins her permission, tells nothing of its place, and owes
+PASSED when her permission is given, the whole answer comes, with the fact in it, and the mark is taken off
+PASSED a step that leaves an order whose mark was taken off gives the whole answer anew, with not-marked and no place
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 1. the farther order loses p while the nearer layer gets another row at p
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 2. a nearer layer that does not mark the key writes the same thing; then the farther order loses p
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 3. the nearer writes the same thing, the farther moves away and moves back
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 4. the nearer hides, then says the same thing, while the farther is written again
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 5. both mark: the nearer moves p away and back while the farther moves it away
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 6. three layers, all mark: the middle loses p, the nearest gets a row, the farthest is written again
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 7. three layers: the middle loses p and the farthest loses p, then the middle gets it back
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 8. three layers, four writes on one place
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 9. a permission is given: a nearer layer joins, with a place q of its own, over a farther place p
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 10. the same, while the farther layer is written
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 11. a new place in the farther order, with a nearer row there already
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 12. four layers: the second loses p, so checks are asked in the second and the third; then the third gets p
+PASSED what points at a thing, in every order of the callbacks, the screen at the end is what a read asked once gives: 13. a nearer layer joins while a check of a new place is on its way
+PASSED every list of up to three writes on one place in two layers, the nearer marking the key or not, from four starts: 672 lists, none with an order that ends wrong
+PASSED a place through two layers, the nearer with a setting and a permission or none: every list of up to three writes of the setting, the permission and the two facts, 620 lists, none with an order that ends wrong
+PASSED the same for an entity, every list of up to two writes: 120 lists, none with an order that ends wrong
+PASSED a layer that leaves and joins by the start layer's list while its fact and a farther one change: a place, an entity and a whole layer, none with an order that ends wrong
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 1. the farther order loses p while the nearer layer gets another row at p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 2. a nearer layer that does not mark the key writes the same thing; then the farther order loses p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 3. the nearer writes the same thing, the farther moves away and moves back
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 4. the nearer hides, then says the same thing, while the farther is written again
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 5. both mark: the nearer moves p away and back while the farther moves it away
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 6. three layers, all mark: the middle loses p, the nearest gets a row, the farthest is written again
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 7. three layers: the middle loses p and the farthest loses p, then the middle gets it back
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 8. three layers, four writes on one place
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 9. a permission is given: a nearer layer joins, with a place q of its own, over a farther place p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 10. the same, while the farther layer is written
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 11. a new place in the farther order, with a nearer row there already
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 12. four layers: the second loses p, so checks are asked in the second and the third; then the third gets p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the nearest layer; 13. a nearer layer joins while a check of a new place is on its way
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 1. the farther order loses p while the nearer layer gets another row at p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 2. a nearer layer that does not mark the key writes the same thing; then the farther order loses p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 3. the nearer writes the same thing, the farther moves away and moves back
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 4. the nearer hides, then says the same thing, while the farther is written again
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 5. both mark: the nearer moves p away and back while the farther moves it away
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 6. three layers, all mark: the middle loses p, the nearest gets a row, the farthest is written again
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 7. three layers: the middle loses p and the farthest loses p, then the middle gets it back
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 8. three layers, four writes on one place
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 9. a permission is given: a nearer layer joins, with a place q of its own, over a farther place p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 10. the same, while the farther layer is written
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 11. a new place in the farther order, with a nearer row there already
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 12. four layers: the second loses p, so checks are asked in the second and the third; then the third gets p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the second layer; 13. a nearer layer joins while a check of a new place is on its way
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 1. the farther order loses p while the nearer layer gets another row at p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 2. a nearer layer that does not mark the key writes the same thing; then the farther order loses p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 3. the nearer writes the same thing, the farther moves away and moves back
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 4. the nearer hides, then says the same thing, while the farther is written again
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 5. both mark: the nearer moves p away and back while the farther moves it away
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 6. three layers, all mark: the middle loses p, the nearest gets a row, the farthest is written again
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 7. three layers: the middle loses p and the farthest loses p, then the middle gets it back
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 8. three layers, four writes on one place
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 9. a permission is given: a nearer layer joins, with a place q of its own, over a farther place p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 10. the same, while the farther layer is written
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 11. a new place in the farther order, with a nearer row there already
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 12. four layers: the second loses p, so checks are asked in the second and the third; then the third gets p
+PASSED what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: the base is the farthest layer; 13. a nearer layer joins while a check of a new place is on its way
+PASSED the base is read in those worlds, under the routing id of the nearest layer: with the base second, each read that may see it and whose base marks the key holds the base's order by value under the nearest layer's routing id, and the scenario of four layers comes to hold a check of the base under it; with the base nearest, under the base's own
+PASSED a place through her own layer and the base, the base with a setting and a permission or none, each source of the base under her layer's routing id: every list of up to three writes of the setting, the permission and the two facts, 620 lists, none with an order that ends wrong
+PASSED the same for an entity of the base and for the whole of the two layers, every list of up to two writes: 120 lists each, none with an order that ends wrong
+PASSED in those worlds the read holds the base's own rows, her permission and the fact as sources of the microbatch gate under her own layer's routing id, and none under the base's
+PASSED the player can fail. With the mark dropped, so that no step carries an owed answer to a later one, the scenarios in which a layer joins over a farther order end wrong
+PASSED the player can fail. With told-by? counting a check that the same step has just left, the plan's own crossing ends wrong, and so do lists of the small ones
+PASSED the size of a run, from a bounded walk: a full walk whose last key is before the run's end is too large; a full walk that ran on past the run's end is not; a walk that is not full is not; a walk that holds nothing is not
+PASSED the first read of a run is the whole run when it gave no more places than it takes first
+PASSED the order of a table's keys is by code point: a space, !, z, a letter outside ASCII, U+E000, U+FFFF, a letter outside the first plane
+PASSED a text that is the start of another is before it; a text is not before itself; Java's own order puts the letter outside the first plane before U+E000, and this order does not
+PASSED the ends of a run in the facts table: an entity's run holds no place of an entity whose text begins with its text; the layer's own rows are the store's namespace on its own entity
+PASSED a run of two ends: from a place to a place with the last place in it; ends in the wrong order give nothing
+PASSED two rows are the same when each field is equal: a value that is an equal String and not one object; nil and nil; a row and nil; rows that differ in one field; a field that one row has not; no field of a row is a byte array
+PASSED which keys a change names: a row that is the same before and after is dropped, also the row that a second attempt wrote again; the removal of a place that the run never held is no change
+PASSED the row under a key of a run, where the map that holds the run finds keys by another order than the table's: a key with a letter outside the range in which the two orders agree is found by going through the run; a key inside that range is looked up and the run is not gone through
+PASSED an entity whose id holds such a letter is taken as an entity, and so is a run whose ends hold letters outside ASCII and below U+D800
+PASSED the keys of a run whose end holds such a letter are held to the run's two ends, so a key that a range gave from outside them is dropped; the keys of any other run are taken as they came
+PASSED the first read of a run is made only when neither of its ends holds a letter outside the range in which the two orders agree; a run with such an end is read by its size and whole, and not before the asker's standing is known
+PASSED the read path's own eight words
+PASSED the word of the read path's own bound on its pushes is given by a read that is kept live, and by no read asked once
+PASSED each word says what it is and which call gives it; a word that is not declared is not made
+PASSED a word holds :could-not and what it carries, and no part of an answer
+PASSED what a word can carry is declared, and so are the five reasons for which a live read ends and the two words for a layer that is left out
+PASSED no word of the read path is a gate's reason, a word of a stray, or a word with which the check of a query turns a thing away
+PASSED one word is spelled as a word of the door: the opening of each cannot find the module; no other is
+PASSED no word with which the check of a query turns a thing away is a gate's reason or a word of the door
+
+THE PROOF, IN ONE PLACE
+SHOWN the form of a query: 9 queries are taken, one for each word and each kind of end; 37 faults are each turned away with a word and the part, 18 different words, every word that the declaration holds: (:asker-is-no-id :asks-no-word-known :entity-not-named :from-layer-is-no-layer :id-over-the-limit :layers-not-a-list-of-layers :layers-not-named-one-way :no-one-asker :not-a-query :part-not-known :part-of-a-row-not-known :place-not-named :points-at-not-named :run-end-not-ordered :run-ends-out-of-order :run-not-named :store-key-not-asked-for :too-many-layers)
+SHOWN the check never throws: a thing that throws when it is read gives :not-a-query, and a list of layers with no end gives :too-many-layers after 66 are counted
+SHOWN a word of a query is declared in three maps or in none: (:entity :place :points-at :run)
+SHOWN the layers: a list gives each layer once at its first place; from a layer the read looks in the layer and then in the layers of its own fact, and no further; a start layer that she may not see gives itself alone
+SHOWN the home of a read is the layer that it starts from, read from the query alone: the first layer of :layers, or :from-layer, whatever is asked, whoever asks and whatever the tables hold of that layer
+SHOWN the standing: the seven lines of its table hold; a layer with no setting reads as members, the base as everyone; a row that is written again with the same word, and a list or a mark of a layer that she may not see, mean the same before and after
+SHOWN the sources of each word in a streaming layer and in the base hold the table, the routing id and the path that the record's page gives. The routing id is the layer for a streaming layer, under every home; in the base it is the home of the read for every kind of source: the layer's own rows, a permission, a place, a check, an entity, a run of keys, a run across entities, a whole layer and the order by value. Each is one source
+SHOWN two reads with one home have equal sources for the base, so they share each push on it; two reads with two homes share none of them, and read the same rows; a streaming layer's sources are shared whatever the homes
+SHOWN two askers of one thing who ask for different parts of a row have equal sources, so they share each push; a check of a nearer layer at a place is the source of that place
+SHOWN asked once, the base is one call of its table under the home's routing id, with the rights and the fact in it: 1 call from the base itself, also for a run across its entities and for the whole layer; 1 call more than her own layer's when it is read through her layer
+SHOWN the loop ends: asked once, a place is 1 round (1 call in one layer, 3 through three layers), from a layer 2 rounds (1 call, then 2), what points at a thing 3 rounds, from a layer 4; kept live, a place opens in 2 or 3 rounds, what points at a thing through a given list in 4, and from a start layer that is members in 6; none takes more than 6
+SHOWN a read asked once wants the place in the same round as the rights, a live read only when she may see the layer; with before-standing? giving false the read asked once takes the rights first, 2 rounds of 3 calls, and gives the same answer
+SHOWN the checks of nearer layers: one in each layer nearer than the nearest order that holds a place, and in no other; none in a layer between two orders that both hold it; with the one function put aside the runs are joined; past the build's number none is wanted and the read is too large
+SHOWN the nearest row wins, and the place is given from it exactly when it holds the thing: a nearer row with another thing, or a retract, hides the place; a nearer row with the asked thing gives it, from the nearer layer
+SHOWN what a read gives: the four things that a place can hold are told apart; the nearest layer that holds a fact wins, also with nothing here; each place of a run comes from the nearest layer that holds it; a layer that is left out is named with why and nothing of it is given
+SHOWN a place-answer holds no writer, no permission and no time unless asked; the store's own facts are in no answer that did not ask for them; a run across entities of the base gives each place once, and a read of the base gives the same from the base itself and through another home
+SHOWN which changes reach an asker: a change in the layer that wins the place; not one under a nearer row, not one in a layer that she may not see, and one of a store key's row only when she asked for the store's own facts
+SHOWN a step that joins or leaves a source that is no check owes the whole answer: a fact's step that joins her permission tells nothing and owes, and the arrival of her permission gives the answer with the fact; a step that leaves an order gives the answer anew with :not-marked
+SHOWN every order of the callbacks, played on the functions that the read path calls: the thirteen scenarios of what points at a thing, through two, three and four layers, 1755 states and 13 ends; every list of up to three writes on one place in two layers, 672 lists and 22698 states; in each end the asker's screen is what a read asked once gives from the tables
+SHOWN the same for a place through a layer whose setting and permission change, 620 lists and 21223 states; for an entity, 120 lists and 1397 states; and for a place, an entity and a whole layer while the start layer's list drops a layer and takes it back, 1637 states
+SHOWN the base read under the routing id of the asker's own layer, in every order of the callbacks: the thirteen scenarios of what points at a thing, each with the base as the nearest, the second and the farthest layer, 5265 states and 39 ends; a place through her own layer and the base while the base's setting and her permission in it change, 620 lists and 21225 states; an entity, 120 lists and 1397 states; the whole of the two layers, 120 lists and 3236 states; in each end the asker's screen is what a read asked once gives from the tables
+SHOWN the player can fail: with the mark dropped the scenarios ["9" "10" "13"] end wrong; with told-by? counting a check that the step has just left, the scenarios ["1" "2" "8" "11"] and 118 of the 672 small lists end wrong
+SHOWN that Rama's client delivers in these ways and no other is not shown here: the probes of this build ran it, in-process
+SHOWN the size rule of a run: a full bounded walk whose last key is still before the run's end is too large, and no other; the order that a run's two ends are held to is by code point, which is Rama's order of String keys and not Java's
+SHOWN a row that is written again with the same fields is no change, and neither is the removal of a place that a run never held
+SHOWN the read path's eight words are declared, each with what it says: (:find-the-module :get-an-answer-within-its-wait :keep-more-reads-live :keep-the-read-live :reach-the-store :read-inside-an-askers-function :read-the-query :serve-a-read-that-large) | none is a gate's reason or a word of a stray; one, :find-the-module, is spelled as the door's word for its own opening
+{:test 12, :pass 213, :fail 0, :error 0}
+
+exit status: 0

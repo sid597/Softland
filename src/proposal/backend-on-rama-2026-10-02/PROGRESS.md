@@ -14,7 +14,8 @@ server or Inland.
 Sid, 13 October, in the first lines of the prompt of the build "run again":
 "The store has to come out the same when it is run again from its depots. Today
 it does not, and it has five depots where I decided two." That build is the
-newest work on the store, and each row below says what it changed.
+newest build of the store, and each row below says what it changed. After it,
+on 14 October, one change: order and time apart (`order-and-time/RECEIPT.md`).
 
 | Part | State | Where |
 |---|---|---|
@@ -24,6 +25,7 @@ newest work on the store, and each row below says what it changed.
 | The reads: the way out, and what the gates keep for a read | built and reviewed, 12 October. Its receipt says "proven by a hand-played asker, used by no inhabitant yet". In the build "run again" the base is read on the task of the layer that a read starts from | `src-store/softland/store/read_path.clj`; `reads/RECEIPT.md` |
 | Before real data is kept: the locks go, the gates' answers in a log, the tables made again, a deeper permission | built on 12 and 13 October. Its receipt says "proven by a hand-played maker, used by no inhabitant yet". What stands of it: the store keeps no locks, an act that is refused stays in the log, and a permission can be 32 deep. On 13 October Sid took the logs of answers and the rebuild out again | `before-real-data/RECEIPT.md` |
 | Run again: the store comes out the same when its gates are run again over its two depots | the build of 13 and 14 October, on Sid's eight decisions of 13 October. Done on 14 October, with its review cut short: two reviewers of six reported, and what they found is applied. Its page says how each part ended, and its receipt what is true now and what needs Sid | `run-again/PROGRESS.md`; `run-again/RECEIPT.md` |
+| Order and time apart: a stamp is the layer's count of decisions, and the time on the act is a label beside it | done on 14 October, at Sid's decisions of that day, from his refinements page. Every proof passed in one run at the end, and the fixture was made again for it. No review was run | `order-and-time/REFINEMENTS.md`, `order-and-time/RECEIPT.md`; `src-store/README.md`, "Decisions of 14 October 2026" |
 | Sign-in, and all that is above the act | not built | — |
 
 How each proof of the store is run is in `test-store/README.md`. What each
@@ -61,8 +63,10 @@ What to read, in this order:
 
 The build "run again" ended with a review of the whole that was cut short, its
 final runs and one receipt (`run-again/PROGRESS.md`, "The parts";
-`run-again/RECEIPT.md`). No build after it is
-named, and no contract is cut for one: what is built next is Sid's to say.
+`run-again/RECEIPT.md`). After it, the change of 14 October, order and time
+apart, was made at Sid's word (`order-and-time/RECEIPT.md`). No build after
+that is named, and no contract is cut for one: what is built next is Sid's to
+say.
 
 What a later build has to keep, from 13 October. The kept acts of both depots
 and the tables that they gave are a fixture, in
