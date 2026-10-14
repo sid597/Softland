@@ -42,9 +42,11 @@ Each connects to
 nothing outside its process. The cluster keeps its files in a temporary
 directory of Rama's.
 
-Each prints what it observed on lines that start with `SHOWN`, prints those lines
-again together at the end, and exits with a status that is not zero when a check
-fails.
+Each prints the sentence of each check after `PASSED` or `FAILED`, prints what
+it observed on lines that start with `SHOWN`, prints those `SHOWN` lines again
+together at the end, and exits with a status that is not zero when a check
+fails. The run-again proof's assertions have no sentences of their own; its
+namespace docstring says what each of its checks holds.
 
 The seventh reads a fixture, kept acts and the tables that they gave, which
 its own mode makes:

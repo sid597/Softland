@@ -152,10 +152,11 @@
 
 (defn- holds
   "Checks each case of a group: its function must give what the case says.
-  Gives the number of cases."
+  Prints each case's sentence after PASSED or FAILED, so that a run lists
+  what it checked. Gives the number of cases."
   [cases]
   (doseq [[what _ expected :as c] cases]
-    (is (= (comparable expected) (outcome c)) what))
+    (println (if (is (= (comparable expected) (outcome c)) what) "PASSED" "FAILED") what))
   (count cases))
 
 (defn- words

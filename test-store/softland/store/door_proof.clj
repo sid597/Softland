@@ -143,9 +143,11 @@
     (flush)))
 
 (defn- check
-  "Checks that what was observed is what must be. Gives what was observed."
+  "Checks that what was observed is what must be, and prints the check's
+  sentence after PASSED or FAILED, so that a run lists what it checked. Gives
+  what was observed."
   [what expected observed]
-  (is (= expected observed) what)
+  (println (if (is (= expected observed) what) "PASSED" "FAILED") what)
   observed)
 
 ;; ------------------------------------------------------- the proof's own state

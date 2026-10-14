@@ -67,9 +67,22 @@ use. Keep these apart:
 When you claim a retry, an ack or a transaction, say how far the claim reaches.
 
 A source description is not a run. What a check observed belongs to the
-verification tree, `test-store/`, which has the same levels. The map of a check
-says how to run it, what a pass shows, what state it changes outside the code
-that it checks, and what it does not reach.
+checks, under `test-store/`, and not to a page of the source.
+
+## The checks explain themselves
+
+The levels above, a README for each folder and a docstring for each namespace
+and function, are for the source. A check is not explained a second time on a
+page: its sentence, in the test file, says what it checks, and a run prints
+that sentence after `PASSED` or `FAILED`. A page that retells each check must
+change with every check, and when it does not, it says that a thing is checked
+that is not.
+
+The page of a folder of checks says, for each test file: what it checks, in a
+line or two; how to run it; what a pass shows; what state it changes outside
+the code that it checks; and what it does not reach, with ideas for checks that
+are not written yet. What no check reaches is the one thing that a test file
+cannot say of itself, and it is where the next check comes from.
 
 ## Words
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs the store's proofs one after the other, from the repository root, and keeps for each:
 #   raw-<label>-<proof>.txt   the whole output (never opened by a session: it can be very large)
-#   <label>-<proof>.txt       the cut: the command, the time, the SHOWN lines once, the count line,
-#                             and the exit status
+#   <label>-<proof>.txt       the cut: the command, the time, each check's sentence after PASSED or
+#                             FAILED, the SHOWN lines once, the count line, and the exit status
 #
 # Use:  bash run-proofs.sh <label> [<proof> ...]
 #   <label>  a word for the tree that is proven: before, after-<part>, final
@@ -58,6 +58,8 @@ for proof in "${proofs[@]}"; do
     echo "The proof \"$proof\", on the tree \"$label\" ($(date -u +%Y-%m-%dT%H:%MZ), head $(git rev-parse --short HEAD)), cut to its SHOWN lines once, its count line and its exit status."
     echo "Command, from the repository root: clojure -M:$al -m $ns"
     echo "The whole output is raw-$label-$proof.txt beside this file, and is not committed. The run took $((end - start)) seconds."
+    echo
+    grep -a -E '^(PASSED|FAILED) ' "$raw"
     echo
     awk '/^THE PROOF, IN ONE PLACE/ {seen=1} seen && (/^THE PROOF, IN ONE PLACE/ || /^SHOWN/) {print}' "$raw"
     grep -a -E '^\{:test [0-9]+, :pass [0-9]+, :fail [0-9]+, :error [0-9]+\}' "$raw" | tail -1

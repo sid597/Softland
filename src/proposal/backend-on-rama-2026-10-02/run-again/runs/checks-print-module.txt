@@ -1,0 +1,581 @@
+The proof "module", on the tree "checks-print" (2026-10-14T03:21Z, head b9330485), cut to its SHOWN lines once, its count line and its exit status.
+Command, from the repository root: clojure -M:store-module -m softland.store.module-proof
+The whole output is raw-checks-print-module.txt beside this file, and is not committed. The run took 196 seconds.
+
+PASSED the thing was acked
+PASSED the gate's digest of the thing as it arrived is the digest that the door took before the append
+PASSED a thing that is no act, with a usable act-id, gets a recorded refusal
+PASSED the thing holds no time, and it is the first thing that the gate decides in its layer: the stamp of its refusal is 0, and that is the layer's last stamp
+PASSED the record read back from the depot's log is another object than the one sent: it was serialised
+PASSED the digest of what came back from the depot's log is the digest of what was sent
+PASSED a vector comes back a vector, a list a list in its order, a plain map a plain map, bytes the same bytes
+PASSED a keyword with its namespace, a UUID, a big integer, a decimal and a set come back equal
+PASSED before its making, the depot of a layer is nothing
+PASSED an act into a layer that is not made is refused
+PASSED an act with a value into a layer that is not made is refused with the same word, under its own act-id and with the digest of what was sent, and writes no row at its place
+PASSED a making act by a who that is neither the holder nor the system is refused
+PASSED a making act of the base on the streaming depot, while the base is not made, is refused as an act for a layer of the other gate, under its streaming act-id and with the digest of what was sent: the gate tells it from the layer id, and the base has no depot yet
+PASSED a person's layer made by the system for that person: accepted, and its depot is streaming
+PASSED the record holds the depot as a fact on the layer's own entity, and the person's permission on its holder
+PASSED the depot, the permission and the answer hold one stamp
+PASSED a group's layer made by the person who creates it: accepted, and its depot is streaming
+PASSED a layer whose id is a UUID, made by a person whose id is a UUID
+PASSED a making act for a layer that is made, by the system under the person's permission, is refused
+PASSED a making act for a layer that is made, by its holder, is refused: its permission is not beneath its own
+PASSED the system holds no permission in the personal layer that it made: its second act there is refused
+PASSED the first permission of the group's layer is the one that the first making act wrote
+PASSED one act with a plain value lands through the streaming gate and is read back by act-id: accepted, with the digest of what was sent
+PASSED the place holds the value as a String, the one text of the value in its normal form, and gives the UTF-8 of that text back; the fact that wrote it, who wrote it and the permission that the act named, and the stamp of the answer
+PASSED the row holds those six fields and no other
+PASSED the depot's log holds the act's fact as the hand sent it, the value plain, with no part added
+PASSED the depot's log holds the time that the hand wrote on the act, a reading of its clock, and the stamp of the answer is not earlier than that time with a counter of 0
+PASSED an act whose facts came as a list is accepted, each fact has its index in the order sent, and each row holds the text of its value
+PASSED the log holds that act's facts as a sequence that is no vector, the two facts in the order sent, each value plain
+PASSED an act-id that was never sent has no answer: nothing yet
+PASSED an act that is refused for a place gets a recorded refusal: its reason, a stamp and the digest of what was sent
+PASSED a refusal writes nothing at the place
+PASSED a repeat is acked and answered from the record: the same answer, with the stamp of the first decision
+PASSED a repeat of a refused act reads the recorded refusal
+PASSED not decided twice: the layer's last stamp is the same after two repeats
+PASSED two things under one act-id that differ only in the time on them, the second 5 ms later: they are not equal, and they have one digest; the second is acked and reads the one answer, that of the first, which is of its own digest too
+PASSED and it is a repeat: nothing is decided a second time, so the layer's last stamp and the row of the act's fact are as they were
+PASSED a second, different act under a used act-id is told so: the answer it reads is not of its own digest
+PASSED and nothing of the second act is written
+PASSED a thing that is no act uses its act-id: a good act sent under it reads the first thing's refusal
+PASSED a stale replaces is refused: a fact that is not the current fact of the place
+PASSED a fact that names something to replace on an empty place is stale
+PASSED a fact that names the current fact of its place is accepted, and the place then holds the text of its value
+PASSED a second act that names the fact that was replaced is stale
+PASSED a repeat of the accepted replace is still accepted, although its replaces would now be stale
+PASSED a fact that names nothing to replace is never stale: it becomes the current fact of a place that holds one
+PASSED a retract is recorded as the current fact of its place: a row with no value, which holds who retracted and under which permission
+PASSED a later fact can replace the retract
+PASSED a retract on an empty place, and a retract of a retract, are accepted
+PASSED a value that names nothing, on a place that holds a retract, is accepted
+PASSED a value fact on the layer's own entity, under a plain key, is a fact like any other
+PASSED an act names a place once: two facts on one place, and a fact that replaces a fact of its own act, are refused
+PASSED a setting key on another layer is refused, and that layer's depot is as it was
+PASSED an act with a permission for another layer is refused by the form
+PASSED an act under a permission that does not stand is refused
+PASSED a permission given beneath another by its holder is accepted, and sits on its holder as a fact
+PASSED a repeat of the refused act reads its recorded refusal, although the act would now pass
+PASSED an act under it, with a value, is accepted: the row holds the text of the value, who wrote it and the permission that was given
+PASSED a permission given by one who does not hold the one above is refused: it is not beneath the giver's own
+PASSED an act under a permission by a who that is not its holder is refused
+PASSED the refused give gave nothing: an act under that permission is refused
+PASSED a chain of four: each holder gives one beneath its own, and the last acts under it
+PASSED a permission five deep is a permission: the holder of one four deep gives it, it sits on its holder as given, and its holder acts under it with a value, whose row holds the whole permission
+PASSED an act that names as its own a permission six deep that nobody gave is refused for its standing, with the word of a permission that does not stand: its depth is no fault
+PASSED a granted-in that is not the act's layer is refused
+PASSED a permission fact for another layer is refused
+PASSED a permission with nothing above it, in a layer that is made, is refused
+PASSED a permission that stands is not given again: a permission's place takes one write
+PASSED a retract of a permission is refused with the word that says it is not decided
+PASSED a depot fact after the making: the same depot, the other depot, a retract
+PASSED after each of those refusals the permission stands and the depot is as it was
+PASSED an act that gives a permission and names that permission as its own is refused: it does not stand before the act
+PASSED whole or nothing: an act that gives a permission and carries a stale fact is refused, and the permission is not given
+PASSED a tool's own facts under the bare words :class and :permission, on the layer's entity and on a holder's, are accepted as facts under plain keys
+PASSED each sits at its own place, and its row's value reads back as the tool's value; the store's facts are as they were: the layer's depot, Bob's permission, and Bob still acts
+PASSED a fact under a key in the store's namespace that the store does not know is refused, the refusal is recorded, and nothing is written
+PASSED a layer for these checks is made, and its first permission, the first of the proof's chain and of depth 1, sits on its holder
+PASSED each holder gives a permission beneath her own, one at each depth from 2 to 32: the 31 gives are each accepted
+PASSED the permissions of depth 4, 5, 31 and 32 each sit on their holder as they were given
+PASSED the give at depth 33 is refused as malformed: the refusal is recorded under its own act-id with the digest of what was sent, and nothing sits on that holder
+PASSED an act under the permission of depth 5, and one under the permission of depth 32, each with a value, are accepted
+PASSED the row of each holds the whole permission that the act named: it reads back as that permission, its text opens 5 and 32 vectors, and no part of it is cut for its depth
+PASSED an act that names as its own a permission of depth 33, deeper than any that was given, is refused as malformed, and writes nothing
+PASSED a permission of depth 32 with the fifth slot is given, with each of the slot's two words: the row holds the slot; the holder of see and act acts with a value, and the holder of see cannot act
+PASSED a give of depth 33 with the fifth slot is refused as malformed
+PASSED a. five layers are made by hand, each with the one chosen time on its making act: each is accepted, and the stamp of each is that time with a counter of 0, the first stamp of its layer; so five layers hold one stamp
+PASSED a. a second act into one of them, with the same time on it, gets the counter 1, and a third the counter 2; the row of the third's fact holds its stamp
+PASSED b. two of the five layers are on one task, and the three decisions in the one did not raise the other: its last stamp is still its making act's, read on its own task and on the task of the first, which holds it too
+PASSED b. an act into the other layer, with the same time on it, gets the counter 1, that layer's own count, while the first layer of the task stands at the counter 2: two layers of one task each hold an answer with one stamp
+PASSED b. the task keeps a last stamp for each of the two layers, each its own, whichever of the two layers the read is routed by
+PASSED a. an act with a later time on it, one millisecond after the time in its layer's last stamp, gets that time with a counter of 0
+PASSED c. an act whose time is earlier than its layer's last stamp, by 5 seconds, gets the last stamp plus one: the clock went back, and the stamps of the layer did not; an act with the time 0 on it, the earliest there is, the same
+PASSED d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^45, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, under its own act-id with the digest of what was sent, with a stamp of the layer's last plus one, which the layer then keeps; and none writes a row
+PASSED d. a refused thing moves no layer's time. Three things, each with a usable time one hour after the chosen one: one with a part that no form names, whose word comes before the time's in the declaration's order; one whose permission is for another layer, whose word comes after it; and an act of a stranger under a permission that no act gave, which the declaration takes and the gate refuses for its standing. Each gets the layer's last stamp plus one, with nothing of the time on it
+PASSED d. the greatest time that the declaration takes, 2^45 less one, is taken, in a layer of its own: the act is accepted, and its stamp is that time with a counter of 0, which is below 2^61
+PASSED at the end of the walk each of the two layers of one task keeps the stamp of its own last decision: the first layer's is the stamp of its last refusal, of the time one millisecond after the chosen one and not of an hour after it
+PASSED each stray was acked
+PASSED a stray is kept under its word, once however often it comes: five different strays, one of them sent three times
+PASSED what is kept is the digest of the stray thing
+PASSED the count of strays under a word is the number of different ones: a second, different one makes it two more than before
+PASSED a stray gets no answer: an act-id of the other gate, and an act-id whose layer is not the thing's layer
+PASSED a stray writes no fact
+PASSED a stray gets no stamp: after the eight strays the last stamp of the layer :alice is as it was before them
+PASSED an act of 256 facts is accepted, and each fact is a row; one of 257 is refused
+PASSED 1,024 entries of based-on are taken; 1,025 are refused
+PASSED the proof's two strings at the bound of one value, each in its quotes, are 65,536 and 65,537 bytes of UTF-8 by Java's own count, and 21,848 and 21,849 characters
+PASSED a value whose one text is 65,537 bytes is refused by the gate with the word of the bound on one value: the refusal is recorded under its own act-id with the digest of what was sent, no row is written, and the depot's log holds the act whole, the value plain
+PASSED a value whose one text is 65,536 bytes is accepted at the same place, and its row holds those bytes: the string in its quotes, which reads back as the value
+PASSED an act of 256 values at that bound, under a who and a permission of more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no row of it is written
+PASSED an id that prints to more than 256 characters is refused, and the refusal is recorded under the act-id
+PASSED the 10-second rule is held against the time on the act, at its edge: an act that carries a stamp whose time is 10,001 ms after the time on the act, with a counter of 0, is refused
+PASSED its answer holds the stamp of any refusal, the layer's last stamp plus one, which holds neither the time on the act, though that is later than the time in the layer's last stamp, nor the carried stamp
+PASSED claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the time on the act, which no stamp of the layer holds yet, with a counter of 0
+PASSED an act that carries a stamp whose time is exactly 10,000 ms after the time on the act, with the counter full, one stamp below the one that was refused, based on a fact and because of an act that the record does not hold, is accepted, with the carried stamp plus one
+PASSED and the next stamp of the layer, for an act with the same time on it, is one more; it is the layer's last stamp
+PASSED the hand gives nothing itself for what is no id or no act-id, and calls no query
+PASSED the read by act-id, called with what is no act-id of the layer given, gives nothing
+PASSED an act-id of the depot microbatch under a streaming layer, asked for with its layer as the routing id, gets nothing: the microbatch gate's answers hold no row under it
+PASSED the read of a depot, called with what is no id, or with a layer that is not made, gives nothing
+PASSED the same two reads give an answer and a depot for what is one: the act-id of an accepted act with its layer, and a layer that is made
+PASSED the same uuid in two layers is two answers: an answer is found by its layer and its uuid
+PASSED a layer for these checks is made, and an act with a plain value of each kind is accepted
+PASSED each row holds the one text of its value in its normal form, as the proof wrote it out by hand: a keyword, a UUID, a string with spaces, a number, a map, and a map that was not given in its normal form
+PASSED each row gives back the UTF-8 of that text, and holds six fields and no other
+PASSED each row reads back as the value in its normal form: the value that the maker gave, for each that was given so
+PASSED the act in the depot's log is as the hand sent it: each fact holds its value plain, as given and not in its normal form, so the decimal keeps its trailing zero and the big integer is no fixed-width one
+PASSED false, an empty string and an empty map are values and no retract, and a number inside 32 vectors is a value: the act is accepted, each row holds the text of its value, and each reads back as the value
+PASSED a number inside 33 vectors is no value: the act is refused as malformed, the refusal is recorded, and no row is written
+PASSED whole or nothing: an act whose first fact is good and whose second names a fact that is not current is refused whole, with no row at either place
+PASSED each row holds who wrote it and the permission that the act named: the maker of the layer under her first permission
+PASSED a second holder, given a permission in the kept form without the slot, acts: her rows hold her and her permission; a retract's row holds them too; the give's row holds the giver and the giver's permission
+PASSED the system made Alice's personal layer for her: the rows of that making hold the system as who, and Alice's permission; the two differ
+PASSED before any fact says it, the place of each of the three keys holds no row, and the layer reads as: seen by its members, building on nothing, marking no key
+PASSED who may see a layer: written, written a second time, written again naming the fact that is there; then a stale replaces, a retract and a write on another entity are each refused with a recorded word
+PASSED what a layer builds on: the same
+PASSED the keys that a layer marks: the same
+PASSED after each accepted write the place holds that write's value, by that act; after the three refusals it holds the last accepted one
+PASSED the refused write on another entity wrote nothing there
+PASSED the row of a setting holds who wrote it and under which permission
+PASSED the row of the marked keys also holds, derived by the gate, the stamp of each marked key: the stamp of the act that marked it; none when the set is empty; and a new stamp when the key is marked again
+PASSED the rows of the setting and of the list hold no stamps of marked keys
+PASSED a wrong value under each key is refused by the declaration: a word that is neither; a set for a list; 65 layers; a vector for the marks; 33 keys; a key of the store's own namespace
+PASSED 64 layers and 32 marked keys in one act are accepted; a list that names the layer itself, a layer twice and a layer that nobody made is taken as written
+PASSED a permission's place and the layer's depot still take one write
+PASSED who may write the three is whoever may act in the layer, kept and not decided: a second holder of the layer sets it to everyone
+PASSED a setting into a layer that is not made is refused as any act into it; a making act with a third fact, a setting, is no making act: nothing is written at the making but the depot and the first permission
+PASSED a permission is given with the slot that says what it allows, see: accepted, and its row holds the whole text, slot and all
+PASSED the holder of see acts and names her permission as the row has it: refused, an act needs act; the refusal is recorded, and nothing is written
+PASSED she names it without the slot, and with see and act in the slot: the bytes are not the row's, so it does not stand; nobody raises her right by naming it
+PASSED she cannot give: a give is an act; and her act with a value is refused with the same word, under its own act-id with the digest of what was sent, and writes no row
+PASSED an act of hers with a second fault, a stale replaces, gets the word of her permission: the standing comes before the places
+PASSED a second give to her, of see and act, is refused: a permission's place takes one write, so see stays see; her row is as it was, and she still cannot act
+PASSED a permission that says see and act: its holder acts, and gives one beneath her own that says see; the holder of that one cannot act
+PASSED a give to the holder of see by another giver, of see and act: refused with the same word; a holder has one permission in a layer, as built
+PASSED a making act whose permission has the slot is no making act: refused as an act into a layer that is not made; the layer is then made by a right act
+PASSED each of her six refusals got a stamp of its own in the layer: the stamps go up in the order sent, the first later than the layer's last stamp before them
+PASSED each act of this walk is accepted
+PASSED before the mark no key is marked; the mark puts the key in the row of the marked keys with the stamp of the act that marked it
+PASSED nothing is filled from before: the fact that was written before the mark is in no run
+PASSED a fact under the marked key, with a value that is a keyword id: its place is the run of that value, and the row holds the fact that wrote it, its stamp, who and the permission, and no value
+PASSED a fact whose value is a UUID: the run of that thing holds its place
+PASSED the fact is replaced, naming what it replaces: its place is out of the run of the value before, the key of that entry holds no row, and it is in the run of the new value beside the other place
+PASSED the fact is written over with no replaces: the same, out of one run and into another
+PASSED the same value written again: the entry is written over, and holds the later fact
+PASSED a value that is a string with spaces has a run of its own
+PASSED a fact under the marked key that names a fact which is not current is refused whole: the run of the value that is there is as it was, and the refused value has no run
+PASSED an act that took an entry out is sent a second time, after a later act put the entry back: the gate answers it from the record and writes nothing, so the entry is still there and is the later act's
+PASSED a retract: the place is out of the run, and the place holds a fact with no value
+PASSED a fact onto the retract, naming nothing: its place is in the run of its value, and nothing went out
+PASSED the mark is taken off by a second write of the set without the key: no key is marked
+PASSED a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays, though its fact is no longer current, and the new value has no row
+PASSED the key is marked again: it gets a new stamp, later than the first
+PASSED under the new stamp each of the three runs that the hand reads is empty: the row that stayed is under the old stamp, in no run that a read can name, and the fact from before the second mark is not filled in
+PASSED a fact written after the second mark, over a fact from before it: its place is in the run of its value, since the new stamp
+PASSED and replaced again: out of that run, the key of the entry holds no row, in the run of the new value; the row of the first marking is still where it was
+PASSED a mark and a fact under its key in one act: the act is decided with the marks as they were before it, so the fact is in no run, and its stamp is the key's stamp, not a later one
+PASSED a later fact under that key is in the order
+PASSED a fact under a key that the layer does not mark has no row in the order by value
+PASSED before its making, the depot of the base is nothing
+PASSED an act for the base on the streaming depot, before the base is made, is refused as an act for a layer of the other gate, under its streaming act-id with the digest of what was sent: the streaming gate tells it from the layer id, and reads no table of the other gate for it
+PASSED an act into the base before it is made is refused. It was appended alone, with nothing sent after it, and one read by its act-id gave its answer when the gate had processed it: no answer of the base waits for a later run of the gate
+PASSED a making act of the base by a who that is not the system, and one that names a person as the base's holder, are each refused, and the base is not made
+PASSED the line: the base's making act, the give of a permission to a person, and her first act under the given permission, appended one after the other with no wait for the gate between them: each is accepted, with the digest of what was sent
+PASSED their stamps go up in the order in which they were appended
+PASSED a second making act of the base, its two facts in the other order, is refused: the base is made, and the permission that the act gives is not beneath its own
+PASSED the base made by the system: one read of depot-of-layer gives microbatch
+PASSED the depot row and the system's permission row are on every task, each with the stamp of the making act's answer
+PASSED the rows hold the depot as a fact on the layer's own entity, and the system's permission on its holder
+PASSED the row of the permission that was given is on every task with the stamp of the give's answer, and the fact of the first act under it on every task with the stamp of that act's answer
+PASSED after the making, the same act of the system into the base is accepted
+PASSED eight acts of one batch, each with one fact, on eight entities, are each accepted
+PASSED the eight things, whose first facts are on eight different entities, are on one partition of the microbatch depot: the depot places a thing by its layer
+PASSED the fact of each of the eight is on every task, the same row in every field
+PASSED one act with a plain value lands through the microbatch gate and is read back by act-id: accepted, with the digest of what was sent
+PASSED the place holds the value as a String, the one text of the value in its normal form, and gives the UTF-8 of that text back; the fact that wrote it, who wrote it and the permission that the act named, and the stamp of the answer
+PASSED the row holds those six fields and no other, and every task holds it, the same in every field
+PASSED a select of the place gives that row whatever the partitioning key is: the place's entity, another layer's id, a UUID, a text and a number
+PASSED the answer's row is on one task, the task of the base's depot partition; and that task alone keeps a last stamp of the base, which is the stamp of this answer
+PASSED the microbatch depot's log holds the act's fact as the hand sent it, the value plain, with no part added
+PASSED the microbatch depot's log holds the time that the hand wrote on the act, a reading of its clock, and the stamp of the answer is not earlier than that time with a counter of 0
+PASSED an act-id of the base that was never sent has no answer: nothing yet
+PASSED the row of an act's answer shows in the answers table on the base's task; at that first sight one call of answer-by-act-id, with the act-id's layer as its routing id, gives the answer, with the stamp of that row: the read waits for nothing behind the commit that showed the row
+PASSED the answer that the read gave then is the answer that it gives when the gate has processed the thing, with the digest of what was sent
+PASSED the same query, called with the uuid of the act-id as its routing id, gives nothing: the head of the query finds that the routing id is not the act-id's layer and makes no read. `answer-read-by-routing-id`, called by hand with the same two, gives nil; with the layer it gives the depot word and the key of the answer
+PASSED and called with another layer as its routing id it gives nothing either
+PASSED an act that is refused for a place gets a recorded refusal through the microbatch gate: its reason, a stamp and the digest of what was sent
+PASSED a refusal writes nothing at the place, on any task
+PASSED a stale replaces is refused through the microbatch gate, and the place is as it was
+PASSED a repeat is answered from the record: the same answer, with the stamp of the first decision
+PASSED not decided twice: the row of its place is the row of the first decision, with the text of the first value
+PASSED a repeat of a refused act reads the recorded refusal
+PASSED not decided twice: the base's last stamp is the same after the two repeats
+PASSED two things under one act-id that differ only in the time on them, the second 5 ms later: they are not equal, and they have one digest; the second reads the one answer, that of the first, which is of its own digest too
+PASSED and it is a repeat: nothing is decided a second time, so the base's last stamp and the row of the act's fact are as they were
+PASSED a second, different act under a used act-id is told so: the answer it reads is not of its own digest
+PASSED and nothing of the second act is written, on any task
+PASSED one act-id under two different things in one batch: one answer, and it is of the thing that the depot holds first
+PASSED the first thing wrote its fact, on every task, and nothing of the second is written on any
+PASSED eighteen things appended in a row with no wait for the gate, each decided against the rows that the things before it wrote: a thing that is no act uses its act-id, and a good act under it reads that refusal; a fact is written; a replaces on an empty place is stale; the current fact is named and replaced; the replaced fact named again is stale; the accepted replace sent again is still accepted; a fact that names nothing writes over; a retract; a fact that names the retract; a retract on an empty place, twice; a value onto a retract; a value and its retract; a fact on the layer's own entity; a place named twice; and a fact that replaces a fact of its own act
+PASSED each of the eighteen read an answer of its own digest, but the good act under the junk's act-id
+PASSED at the end of the row the walked place holds, on every task, the fact that named the retract; the place of the stale replaces holds nothing; and the place of the value onto a retract holds that value
+PASSED a retract is recorded as the current fact of its place, on every task: a row with no value, which holds who retracted and under which permission
+PASSED the two facts of the place named twice and of the act that replaces its own fact are on no task
+PASSED two acts of one batch that replace the same fact: the one that the depot holds first is accepted, and the second is refused as stale
+PASSED the place holds the first act's fact on every task, with its stamp and the text of its value
+PASSED the second is refused whole, with a later stamp: its other fact is on no task
+PASSED two acts that write one place, appended one after the other with no wait for the gate: both are accepted, and the second names the first one's fact as the one that it replaces, so it was decided against the row that the first wrote
+PASSED the second one's fact is the place's fact, on every task
+PASSED two acts of one batch that write one place and name nothing are both accepted, and the place holds the fact of the second, with its stamp
+PASSED in one batch: a give and then an act under it are both accepted; an act and then the give, the act is refused
+PASSED the same act under the permission, in a later batch, is accepted
+PASSED while the gate was paused, with the 100 acts of the chain on the depot, none of them had an answer
+PASSED a chain of 100 acts appended while the gate was paused, each naming the fact of the act before it as the one that it replaces: every one is accepted, with the digest of what was sent. An act that was decided before the act before it would have been refused as stale
+PASSED the depot holds the 100 in the order in which they were appended, and their stamps increase strictly in that order
+PASSED on every task the place holds the fact of the last act of the chain
+PASSED asked with the uuid of its act-id as the routing id, each of the 100 gives nothing, on whichever task its uuid hashes to: the nothing is the head's
+PASSED the system gave a person a permission in the base, beneath its own: accepted, and it sits on its holder as a fact
+PASSED the permission's row is on every task
+PASSED a person acts in the base under the permission that the system gave, with a value: accepted, and the row holds the text of her value
+PASSED an act under a permission that does not stand is refused
+PASSED an act under a permission by a who that is not its holder is refused
+PASSED a permission given beside the giver's own, not beneath it, is refused, and gives nothing
+PASSED in the base a permission's place and the layer's depot take one write: a permission given again, the end of one, the depot again, another depot
+PASSED a setting key on an entity that is not the layer is refused in the base
+PASSED after those refusals the permission's rows and the depot are as they were
+PASSED a person gives a permission beneath her own, in the same batch as those refusals, and an act under it is accepted
+PASSED a fact under a key in the store's namespace that the store does not know is refused by the microbatch gate too, and nothing is written
+PASSED a tool's own fact under the bare word :permission, on a holder's entity, is accepted in the base: its row is on every task, as any fact's, with the tool's value, beside the store's permission of that holder
+PASSED an act that carries a stamp a minute ahead of the time on it is refused
+PASSED the same under a permission that does not stand is refused with the word of the 10-second rule, as in the streaming gate
+PASSED the refusal holds an ordinary stamp, which does not follow the carried stamp, and the next stamp of the base is later
+PASSED in the base each holder gives a permission beneath her own, one at each depth from 2 to 32, appended one after the other with no wait for the gate: the 31 gives are each accepted, so each was decided against the row that the give before it wrote
+PASSED the permissions of depth 4, 5, 31 and 32 each sit on their holder as they were given, on every task
+PASSED the give at depth 33, appended in the same row, is refused as malformed: the refusal is recorded under its own act-id with the digest of what was sent, and no task holds a row on that holder
+PASSED an act under the permission of depth 5, and one under the permission of depth 32, each with a value, are accepted
+PASSED the row of each holds the whole permission that the act named: it reads back as that permission, its text opens 5 and 32 vectors, and no part of it is cut for its depth
+PASSED an act that names as its own a permission of depth 33, deeper than any that was given, is refused as malformed, and writes nothing on any task
+PASSED a permission of depth 32 with the fifth slot is given, with each of the slot's two words: every row holds the slot; the holder of see and act acts with a value, and the holder of see cannot act
+PASSED a give of depth 33 with the fifth slot is refused as malformed
+PASSED through the microbatch gate, in one batch: an act of 256 facts is accepted, and its last fact is a row on every task, with its index; one of 257 is refused; 1,024 entries of based-on are taken, and 1,025 are refused; and an id that prints to more than 256 characters is refused, the refusal recorded under the act-id
+PASSED through the microbatch gate, a value whose one text is 65,537 bytes is refused with the word of the bound on one value: the refusal is recorded under its own act-id with the digest of what was sent, no task holds a row of it, and the depot's log holds the act whole, the value plain
+PASSED a value whose one text is 65,536 bytes is accepted in the same batch, and its row holds those bytes: the string in its quotes, which reads back as the value; every task holds that row
+PASSED an act of 256 values at that bound, under a who and a permission of more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no task holds a row of it
+PASSED a batch of 400 acts on 20 entities: each is accepted, each with a stamp of its own
+PASSED the base is one line: the stamps of the 400 go up in the order in which they were appended, whatever the entity of each
+PASSED the fact of each act of a sample is on its place on every task, with the stamp of its answer
+PASSED the copies, after the line, the chain and the long batch: `$$microbatch-facts` is the same map on every task: each task holds rows, as many as each other task, and no key has a row that is not the same on all of them, in every field
+PASSED the copies, after the line, the chain and the long batch: `$$microbatch-facts-by-value` is the same map on every task
+PASSED the copies, after the line, the chain and the long batch: `$$microbatch-answers` holds a row only on the task of its layer: no answer is on a task that is not the partition of its layer in the depot's log, and the base's task holds answers
+PASSED the copies, after the line, the chain and the long batch: `$$microbatch-task` keeps a layer's last stamp only on the task of that layer, and the digest of a stray only on the task of the partition where the stray arrived
+PASSED the copies, after the line, the chain and the long batch: each layer that a thing of the microbatch depot names is on one partition of the depot
+PASSED by then each task holds more than 400 rows of the base's facts, and the base's task more than 500 answers
+PASSED seventeen things of the base, with times that the hand chose, are appended while the gate is paused, so one batch takes them; each is answered with the digest of what was sent
+PASSED a. three acts with one time on them, one millisecond later than the time in the base's last stamp: each is accepted; the first gets that time with a counter of 0, the second the counter 1 and the third the counter 2; the row of the third's fact holds its stamp on every task
+PASSED a. an act with a later time on it, one millisecond after the time in the last stamp, gets that time with a counter of 0
+PASSED c. an act whose time is earlier than the base's last stamp, by 5 seconds, gets the last stamp plus one: the clock went back, and the stamps of the base did not; an act with the time 0 on it, the earliest there is, the same
+PASSED d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^45, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, with a stamp of the base's last plus one; and none writes a row on any task
+PASSED d. a refused thing moves no time of the base: a thing with a usable time one hour ahead that the declaration refuses for another fault, one with a part that no form names and one whose permission is for another layer, gets the base's last stamp plus one, with nothing of the time on it
+PASSED the 10-second rule is held against the time on the act, at its edge: an act that carries a stamp whose time is 10,001 ms after the time on the act, with a counter of 0, is refused; its answer holds the stamp of any refusal, the base's last stamp plus one, which holds neither the time on the act nor the carried stamp
+PASSED claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the time on the act, which is the first later than the time in the base's last stamp since the refusals, with a counter of 0
+PASSED an act that carries a stamp whose time is exactly 10,000 ms after the time on the act, with the counter full, one stamp below the one that was refused, is accepted, with the carried stamp plus one
+PASSED and the next stamp of the base, for an act with the same time on it, is one more; it is the base's last stamp
+PASSED b. two layers of one task count apart in the microbatch gate too. A layer that starts streaming and whose id hashes to the base's task gets, for its first act on the microbatch depot, with a time of 2023 on it, a refusal whose stamp is 0: the stamp of a refusal in a layer with no last stamp, which holds nothing of that time; its own count, far below the base's last stamp on that task. An act of the base, appended between, gets the base's last stamp plus one. The layer's second act, refused too, gets 1
+PASSED b. the base's task keeps a last stamp for each of the two layers, each its own, and no other task keeps one for that layer
+PASSED an act of three values on three entities, with its third fact stale, is refused whole
+PASSED no row of it is on any task: none of its three places holds a fact
+PASSED the same act with each fact good is accepted whole
+PASSED each fact's row is on every task, written by the act, with the index of the fact, the one stamp of the answer and the text of its value
+PASSED the refusal took a stamp of the line: it was the base's last stamp before the act; the act's stamp is later, and is the base's last stamp after it
+PASSED three acts appended in a row with no wait: a retract; an act of two facts whose second names that retract as the fact that it replaces; and the same replaces again under a new act-id. The first two are accepted and the third is stale
+PASSED the replaced place holds, on every task, the second fact of the act that replaced it, and nothing of the stale act is written on any task
+PASSED an act for the base, a microbatch layer, sent to the streaming depot after the base is made is refused as an act into a layer of the other gate, under its streaming act-id: the word that such an act got before the base was made
+PASSED an act for a streaming layer that is made, sent to the microbatch depot, is refused the same way, and is read back with its layer as the routing id
+PASSED an act for a layer that starts streaming and that no gate has made, sent to the microbatch depot, gets the same word, and so does a making act of that layer: the microbatch gate tells the layer from its id, and does not make it
+PASSED the streaming gate then makes that layer, and an act for it on the microbatch depot gets the word that it got before the layer was made
+PASSED none wrote a fact, in either record: the base's place in the streaming gate's facts holds nothing, and no task of the microbatch gate holds a fact or a depot row of either streaming layer
+PASSED the refusal of the act for Alice's layer is on one task of the microbatch gate, the partition of her layer on the microbatch depot, and that task keeps the stamp of that refusal as her layer's last stamp there
+PASSED each thing was appended
+PASSED one act-id sent on both depots has one answer, the streaming gate's: the microbatch gate keeps the thing as a stray
+PASSED a stray on the microbatch depot is kept under its word, once however often it comes: five different strays, one for each word, one of them sent twice
+PASSED a stray gets no answer and writes no fact: an act-id whose layer is not the thing's layer has none, and its fact is on no task
+PASSED the digest of each stray is kept on the task of the depot partition where the stray arrived: one partition for each of the five, the base's for the thing whose layer is the base, and the partition of Alice's layer for the thing whose layer is hers
+PASSED a stray gets no stamp: after the six strays the last stamp of the base, and the last stamp that the microbatch gate keeps for Alice's layer, are as they were
+PASSED in the code of the store's source, strings and comments left out: the microbatch gate's file and the walk's name no table of the streaming gate, and hold no `currentTimeMillis` and no `depot-partition-append!`; and the walk's file holds no partitioner, no `yield-if-overtime` and no `:allow-yield?`
+PASSED the search finds each word where it is: the microbatch gate's file names its own tables, the door's file reads the clock, and a text that the proof wrote with the six words in it gives each once
+PASSED the microbatch gate's file holds one partitioner, `|all`, and it stands behind the call of the walk: the copy goes out when the decision is written
+PASSED an act with a plain value of each kind, on one entity of the base, is accepted
+PASSED each row of the base holds the one text of its value in its normal form, as the proof wrote it out by hand
+PASSED each row gives back the UTF-8 of that text, and holds six fields and no other
+PASSED each of those rows is on every task, the same in every field
+PASSED each row reads back as the value in its normal form: the value that the maker gave, for each that was given so
+PASSED the act in the microbatch depot's log is as the hand sent it: each fact holds its value plain, as given and not in its normal form, so the decimal keeps its trailing zero and the big integer is no fixed-width one
+PASSED false, an empty string and an empty map are values and no retract, and a number inside 32 vectors is a value: the act is accepted, each row holds the text of its value, and each reads back as the value
+PASSED a number inside 33 vectors is no value: the act is refused as malformed, the refusal is recorded, and no task holds a row of it
+PASSED whole or nothing: an act whose first fact is good and whose second names a fact that is not current is refused whole, with no row at either place on any task
+PASSED each row holds who wrote it and the permission that the act named: the system's rows the system and its first permission; a person's rows her and the permission that the system gave her; a retract's row too; the give's row the giver
+PASSED before any fact says it, no task holds a row at the place of any of the three keys, and the base reads as: seen by everyone, building on nothing, marking no key
+PASSED each of the three keys is written in the base, in one batch: accepted, and its row is on every task, the same on each
+PASSED each is written a second time, naming nothing: accepted, and every task holds the second write
+PASSED each is written again naming the fact that is there: accepted
+PASSED a stale replaces, a retract, another entity and a wrong value are each refused with a recorded word, for each of the three keys
+PASSED after those fifteen refusals every task holds the rows that the last accepted writes left, with the same stamps
+PASSED the row of the marked keys holds on every task, derived by the gate, the stamp of each marked key: the stamp of the act that marked it; none when the set is empty; and the stamp of the later act when the key is marked again
+PASSED who may write the three is whoever may act in the layer, kept and not decided: a person with a permission in the base sets the base to everyone, on every task
+PASSED a setting for the base sent to the streaming depot is refused as any act into a layer of the other gate, and the base's rows are as they were
+PASSED the system gives a person a permission in the base that says see: accepted, and its row is on every task with the whole text, slot and all
+PASSED her act in the batch of the give, after it, gets the word of a permission that stands and says see, so it was decided against the row that the give wrote in that batch: refused, an act needs act
+PASSED in a later batch her act is refused with the same word, under its own act-id with the digest of what was sent, and no task holds a row of it
+PASSED she names her permission without the slot, and with see and act in it: it does not stand
+PASSED she cannot give, and her act with a value is refused with the same word, under its own act-id with the digest of what was sent, and no task holds a row of it
+PASSED a second give to her, of see and act, is refused: a permission's place takes one write, and her row on each task is as it was, in every field
+PASSED a permission that says see and act, given in the same batch: its holder acts in a later batch
+PASSED each act of this walk is accepted
+PASSED the mark puts the key in the row of the marked keys, on every task, with the stamp of the act that marked it; the key that an earlier check had marked, and that this set does not hold, is marked no more
+PASSED nothing is filled from before: the fact that was written before the mark is in no run
+PASSED two facts on two entities with one value: both places are in the run of that value, each row of the run is on every task, and the row holds the fact that wrote it, its stamp, who and the permission, and no value
+PASSED the fact is replaced, naming what it replaces, with a UUID: its place is out of the run of the value before, no task holds a row under the key of that entry, and it is in the run of the UUID
+PASSED the fact is written over with no replaces: out of the run of the UUID, no row under that key on any task, into the run of the new value
+PASSED the same value written again: the entry is written over, and holds the later fact
+PASSED an earlier act that wrote that entry is appended a second time: the gate answers it from the record, and the run is as the later act left it
+PASSED an act that took an entry out is appended a second time, after a later act put the entry back: the gate answers it from the record and copies nothing, so on every task the entry is still there and is the later act's
+PASSED a retract: the place is out of the run on every task, and holds a fact with no value
+PASSED the mark is taken off by a second write of the set without the key
+PASSED a fact that is replaced while the key is not marked writes nothing in that order: the row of the earlier value stays, on every task, and the new value has no row on any
+PASSED the key is marked again: every task holds the new stamp, the stamp of the act that marked it again, later than the first
+PASSED under the new stamp the run of the place's value and the run of the value of the row that stayed are both empty: that row is under the old stamp, in no run that a read can name
+PASSED a fact written after the second mark, over a fact from before it: its place is in the run of its value, and the run of the value before is empty
+PASSED an act of two facts writes over it: the entry of the value before is out, no task holds a row under its key, and the place is in the run of the new value on every task; the row of the first marking is still there, on every task
+PASSED two acts of one batch on one place under a marked key, each with the place as its own: both are accepted
+PASSED the place holds the second act's value; the entry of the value before the batch is out, the first act's value has no row on any task, and the place is in the run of the second value alone, on every task
+PASSED a mark and the facts after it, appended while the gate was paused: the act that marks a key, the next act with two facts under it, a third fact, a replace of one and a retract of another: each is accepted
+PASSED the key is marked on every task with the stamp of the act that marked it, and the key that was marked before keeps its stamp
+PASSED the mark holds from the next act: on every task the order by value holds, under that key, exactly two entries, the second fact of the act straight after the mark and the entry of the replacing value, each written by its act. The replaced value's entry and the retracted one are out, on every task
+PASSED the act is decided with the marks as they were before it: the fact that the marking act itself holds under the key is in no run, though its row is on every task, with the stamp of the key
+PASSED the retracted place holds a fact with no value on every task
+PASSED a fact under that key in a later batch is accepted, and is in the order on every task, beside the one that stayed
+PASSED two writes of who may see the base in one batch: both accepted, and every task holds one row, the second one's
+PASSED the copies, after the marks: `$$microbatch-facts` is the same map on every task: each task holds rows, as many as each other task, and no key has a row that is not the same on all of them, in every field
+PASSED the copies, after the marks: `$$microbatch-facts-by-value` is the same map on every task
+PASSED the copies, after the marks: `$$microbatch-answers` holds a row only on the task of its layer: no answer is on a task that is not the partition of its layer in the depot's log, and the base's task holds answers
+PASSED the copies, after the marks: `$$microbatch-task` keeps a layer's last stamp only on the task of that layer, and the digest of a stray only on the task of the partition where the stray arrived
+PASSED the copies, after the marks: each layer that a thing of the microbatch depot names is on one partition of the depot
+PASSED asked of the cluster by name, with a select of one key or a call: the two tables of facts and the module's two queries are there; a table and a query that the module never had are not; and neither are a table of locks of either gate, nor the query of a request's locks, called with a streaming act-id and with a microbatch one
+PASSED through the streaming gate: a fact under :softland.store/lock-request is refused as a key of the store's namespace that the store does not know, and a fact that carries :sealed, a value with :lock-id, and a fact with both are each refused as a part that the form does not name; each refusal is recorded under its own act-id with the digest of what was sent
+PASSED through the microbatch gate, in one batch: the same four words, each recorded under its own act-id with the digest of what was sent
+PASSED none of the eight wrote a row at its place, in either record
+PASSED each of the eight is in its depot's log as it was sent, the fact with each part that it carried, a run of bytes by its content
+PASSED a fact with a value is written to a place of the base, and an act that names it replaces it: both accepted
+PASSED from before the append of the replacing act until its row shows on every task, each select of the place, on each of the four tasks, straight from the facts table, gave a row and never nothing
+PASSED each row that a select gave was the fact before or the fact after, with the text of the value before or after; the first round of selects gave the one before on every task, and the last round the one after on every task
+PASSED on each task the place went from the fact before to the fact after once, and never back: no task showed the older row again behind the newer
+PASSED the rows that the last round of selects gave are the rows that the four tasks hold when the gate has processed the act, in every field
+PASSED the answer that was read before is the answer after
+PASSED what the gates keep for a read is as it was: what a reader gets from a row, the layer's marked keys with their stamps, and the run of a value in the facts by value
+PASSED the row of a value from before is the row after, in every field, and holds the text of the value's normal form still
+PASSED a repeat after it is answered from the record: the layer's last stamp is the one from before
+PASSED the last stamps of the two layers that are on one task are as they were, each its own: the two differ
+PASSED the depot and the strays are as they were
+PASSED an act with a value after the start is accepted, and its row holds the text of the value
+PASSED the first stamp after is the layer's last stamp before plus one: the hand wrote the time in that stamp on the act, so the gate counted on from the number that the table kept through the start
+PASSED a permission that was given before stands after
+PASSED the answer, the depot of the base, the base's last stamp, the strays, a permission's rows, the marked keys, a run of the facts by value on each task, the row of a value and what a reader gets from another are as they were
+PASSED the run that is read holds places, the same on every task: the check of the run is of rows
+PASSED the copies are still on every task: each of the gate's four tables holds on each task the rows that it held before the start, in every key and every field
+PASSED the row of a value from before holds the text of the value's normal form still
+PASSED a repeat after it is answered from the record: the same answer, and the base's last stamp is the one from before
+PASSED an act with a value after the start is accepted in the base, and its row holds the text of the value on every task
+PASSED the first stamp after is the base's last stamp before plus one: the hand wrote the time in that stamp on the act, so the gate counted on from the number that its table kept through the start
+PASSED and the next act, with a time on it one millisecond later than the time in that stamp, gets its own time with a counter of 0
+PASSED a permission that the system gave before stands after
+PASSED each value of the act of three facts is in its row still, on every task, as the text of what was sent, written by that act
+PASSED the stamps of the answers increase strictly in each layer, in the order in which the acts were sent
+PASSED the order is the layer's and not the task's: on a task that holds more than one layer the stamps do not all go up in the order sent
+PASSED each stamp is the number that the gate's rule gives, by the proof's own arithmetic: for an accepted act the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one; for a refused thing the stamp before it in its layer plus one, or 0 with none before it. It is held for each of the more than 150 answers that the hand read, and the answer of each act-id that has one is among them
+PASSED the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another
+PASSED each stamp is below 2^62; and the last stamp that the gate keeps for each layer is the stamp of the last answer of that layer
+PASSED the depot holds each thing that was sent: accepted, refused, repeated and stray
+PASSED the layers of the proof are on more than one task
+PASSED each thing is on the depot as it was sent: the digests that the proof takes of the records read back are the digests of the things sent, each as often
+PASSED a digest leaves the time on the act out, so the time is held apart: under each act-id the log holds the time that the hand wrote, or none where the hand wrote none, each as often as it was sent
+PASSED each value is plain on the depot: every value that a fact of a thing sent holds is in the log under its act-id, its entity and its key, as it was given; the hand sent more than 300 of them
+PASSED the module has two depots. Asked of the cluster by name, for the number of its partitions: the two depots of acts are there; a depot of batch clocks, a depot of answers of the microbatch gate, a depot that the module never had and a depot of answers of the streaming gate are not. Asked for a table by name, with a select of one key: the microbatch gate's facts are there, and a table of a batch's clock is not. The same call, made first, appended a thing to the depot of acts
+PASSED in the code of the store's source, strings and comments left out, no file names a depot of answers of either gate, and none names a clock of a batch; the store declares two depots, both in the module's file
+PASSED the code of the streaming gate's file names no table of the microbatch gate, and holds no `depot-partition-append!`, no `currentTimeMillis` and no partitioner; and it does name its own tables. The four searches find each word where it is: a table of the microbatch gate and a partitioner in that gate's file, `currentTimeMillis` in the door's file, and `depot-partition-append!` in a text that the proof wrote
+PASSED no topology of the store reads a depot of answers, and neither the door nor the read path: no `source>` names one, and neither `door.clj` nor `read_path.clj` holds the word answer-depot, in its code or in a docstring; the same search finds the `source>` of each gate's depot of acts, and the word depot in each of the two files
+PASSED each thing of the microbatch depot that is no stray has an answer under its act-id: the gate decided more than 600 things, and none is without one
+PASSED the stamps of the answers increase strictly in each layer of the microbatch depot, in the depot's order
+PASSED each stamp is the number that the gate's rule gives, by the proof's own arithmetic, as for the streaming gate: for an accepted act the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one; for a refused thing the stamp before it in its layer plus one, or 0 with none before it. It is held for each thing that the microbatch gate decided, in the depot's order
+PASSED the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another
+PASSED each stamp is below 2^62; and the last stamp that the gate keeps for each layer, on the layer's task, is the stamp of the last answer of that layer
+PASSED the microbatch depot holds each thing that was sent to it: accepted, refused, repeated and stray
+PASSED each thing is on the microbatch depot as it was sent: the digests that the proof takes of the records read back are the digests of the things sent, each as often
+PASSED the things of the base are on one partition of the depot, in the order in which the hand appended them: more than 600 things, whose first facts are on more than 50 different entities
+PASSED both depots put a thing on the partition of its layer: on each depot the things of every layer are on one partition, and each layer that has things on both depots is on the partition of one number in both
+PASSED a digest leaves the time on the act out, so the time is held apart: under each act-id the microbatch depot's log holds the time that the hand wrote, or none where the hand wrote none, as often as it was sent
+PASSED each value is plain on the microbatch depot: every value that a fact of a thing sent holds is in the log under its act-id, its entity and its key, as it was given; the hand sent more than 300 of them
+PASSED the copies, at the end of the run: `$$microbatch-facts` is the same map on every task: each task holds rows, as many as each other task, and no key has a row that is not the same on all of them, in every field
+PASSED the copies, at the end of the run: `$$microbatch-facts-by-value` is the same map on every task
+PASSED the copies, at the end of the run: `$$microbatch-answers` holds a row only on the task of its layer: no answer is on a task that is not the partition of its layer in the depot's log, and the base's task holds answers
+PASSED the copies, at the end of the run: `$$microbatch-task` keeps a layer's last stamp only on the task of that layer, and the digest of a stray only on the task of the partition where the stray arrived
+PASSED the copies, at the end of the run: each layer that a thing of the microbatch depot names is on one partition of the depot
+PASSED on the second cluster, with the proof's two functions in the vars of the store's `writes` and `stray-reason`: a streaming layer is made; the base is made by a making act whose two facts are in the other order; and a key of the base is marked
+PASSED the proof's function threw once, at the 21st act of a batch of 40 that was appended while the gate was paused; before the throw it had handed the walk one extra row for each of the 20 acts before it, at a key that no act writes
+PASSED the failed attempt walked the acts in the depot's order up to the throw and no further: `writes` was called twice for each of the first 21 acts, once in each attempt, and once for each of the 19 behind the throw; each call before the throw was armed, and no call behind it
+PASSED the second attempt made each row as the first made it: for each of the 21 acts that both attempts decided, both calls were given the same stamp and no word of a refusal, and the store's own function gave the same writes, row for row
+PASSED after the retry all 40 are accepted, each with the digest of what was sent, and each stamp is the number that the rule gives: the time on its act with a counter of 0
+PASSED no task holds one of the rows that only the failed attempt was handed: a select of each of the 20 keys gives nothing on every task, and no key of the facts on any task names their entity
+PASSED the copies, after the failed attempt and its retry: `$$microbatch-facts` is the same map on every task: each task holds rows, as many as each other task, and no key has a row that is not the same on all of them, in every field
+PASSED the copies, after the failed attempt and its retry: `$$microbatch-facts-by-value` is the same map on every task
+PASSED the copies, after the failed attempt and its retry: `$$microbatch-answers` holds a row only on the task of its layer: no answer is on a task that is not the partition of its layer in the depot's log, and the base's task holds answers
+PASSED the copies, after the failed attempt and its retry: `$$microbatch-task` keeps a layer's last stamp only on the task of that layer, and the digest of a stray only on the task of the partition where the stray arrived
+PASSED the copies, after the failed attempt and its retry: each layer that a thing of the microbatch depot names is on one partition of the depot
+PASSED the order by value holds, on every task, the last entry of each of the 5 places and no entry of an earlier act of the batch
+PASSED each of the 5 places holds, on every task, the fact of the last act that wrote it
+PASSED each thing that the microbatch gate decided on this cluster has the stamp that the rule gives, by the proof's own arithmetic; and the base's last stamp is the stamp of the last act of the batch
+PASSED the gate goes on behind the retry: the next act of the base, with the next millisecond on it, is accepted with that time and a counter of 0
+PASSED the check of those rows can fail: one more act, decided with the proof's function armed and no throw, is accepted, and the row that it was handed at such a key is on every task, written by that act. A row that the walk is handed this way is written and copied, so the 20 rows went with the attempt that failed
+PASSED five acts are sent to the streaming gate right before the throw, with their events watched: each is accepted, the event of each ran once, and each was decided once
+PASSED the stand-in of `writes` was called twice for the act: the first call threw, behind the event's reads and before its first write, and Rama ran the record again. The second run reached `writes` too, so it found no answer under the act-id: the run that threw left none
+PASSED the two runs made one decision. Each accepted the act, whose fact names the fact that it replaces: the second run found that place as the first run had found it, so the run that threw left no row there. Each was given the same stamp, the layer's last stamp from before plus one: the second run read the layer's last stamp as it was before the first, and no clock was read between the two
+PASSED and each run made the same three writes, row for row: a fact, an answer and the layer's last stamp
+PASSED the second run is the one that counts: its three writes are what the tables hold, row for row; the read by act-id gives the act as accepted, with the digest of what was sent and the stamp of both runs; the place holds the text of its value, written by it; and the layer's last stamp is that stamp
+PASSED Rama ran the records before it again too: the event of each of the five acts began at least a second time, after its rows were committed and its append acked. None was decided a second time: a run that finds an answer under the act-id decides nothing. The answer of each is as it was, and so is the row of each of the four whose place the failed act did not replace
+PASSED the act is decided once: appended a second time by hand, it is acked and reads the same answer; its event ran once more, `writes` has still two calls for it, and the layer's last stamp is the stamp of its answer
+
+THE PROOF, IN ONE PLACE
+SHOWN each kind of value comes back from the depot's log with the digest it was sent with: 3ad6ed00f2a7a2602443d154e66b4cbe853403c6e481f1a1973b20a7ebcf1788 | partition 2 | the classes that came back: {:big-integer "BigInt", :bytes "byte[]", :decimal "BigDecimal", :keyword "Keyword", :list "PersistentList", :map "PersistentArrayMap", :minus-zero "Double", :narrow-integer "Integer", :nothing nil, :set "PersistentHashSet", :string "String", :subvector "PersistentVector", :uuid "UUID", :vector "PersistentVector"}
+SHOWN the gate took the same digest of the thing as it arrived, and recorded it with its refusal: 7aba0fa8 :unknown-part stamp 0
+SHOWN an act into a layer that is not made refused: f85b64ea :layer-not-made stamp 0 | one with a value, the same: 37cb0820 :layer-not-made stamp 1 | the row at its place: nil | a making act of the base on the streaming depot, while the base is not made: ee0dd9c7 :layer-belongs-to-the-other-gate stamp 0
+SHOWN a person's layer made by the system for that person, with the depot streaming: fcb0502e :accepted stamp 117437107989315584 | depot-of-layer :alice = :streaming
+SHOWN a group's layer made by the person who creates it: 8454b7a0 :accepted stamp 117437107990167552 | depot-of-layer :team = :streaming
+SHOWN a making act for a layer that is made is refused: by the system :who-not-the-permissions-holder | by its holder :permission-fact-not-beneath-the-acts-own | a second act of the system in a personal layer :who-not-the-permissions-holder
+SHOWN one act with a plain value landing through the streaming gate and read back by act-id: {:verdict :accepted, :reason nil, :stamp 117437107995672576, :digest "9c60a02378c1a1650ac5c5c840c3da54ec69c76a9a25c3fe4b7ed637577af9d3"}
+SHOWN its place in the record: written by 822529f6-e0bb-4c61-9197-a5542e861afe index 0 stamp 117437107995672576 | the text that the row holds: "\"the first text\"" | read back: [:value "the first text"] | who wrote it: :alice under [:alice :alice :alice] | the fields of the row: [:by-act :by-index :permission :stamp :value :who]
+SHOWN the depot's log holds the value plain, as the hand sent it: [{:e :note-1, :k :text, :v "the first text"}] | facts sent as a list are in the log as a PersistentList | the time on the act, in the log: 1791948059016
+SHOWN a refusal recorded with its reason: {:verdict :refused, :reason :replaced-fact-not-current, :stamp 117437107997376513, :digest "773c1f38cfc35f4620f87d55b1599419305e0d0b3851c5558057eaded4438f12"}
+SHOWN a repeat of that refused act reads the recorded refusal: {:verdict :refused, :reason :replaced-fact-not-current, :stamp 117437107997376513, :digest "773c1f38cfc35f4620f87d55b1599419305e0d0b3851c5558057eaded4438f12"}
+SHOWN a repeat (same act-id sent twice) answered from the record, not decided twice: stamp before 117437107995672576 after 117437107995672576 | the layer's last stamp before 117437107997376513 after 117437107997376513
+SHOWN the same act under its act-id with another time on it, 5 ms later, is a repeat: one digest 9c60a02378c1a165 | it reads the first's answer, stamp 117437107995672576 | the layer's last stamp after it 117437107997376513
+SHOWN a second, different act under a used act-id told so: the digest of the answer 9c60a02378c1a165 is not the digest of what was sent c3253a4bdf53a5d3
+SHOWN a stale replaces refused: 681ab557 :replaced-fact-not-current stamp 117437107997376515 | the current fact named: 18722eda :accepted stamp 117437108003340288 | the replaced fact named again: 8d9d60da :replaced-fact-not-current stamp 117437108003340289
+SHOWN a place named twice: :place-named-twice | a fact that replaces a fact of its own act: :replaces-own-fact
+SHOWN a fact that names nothing is never stale: d77533f0 :accepted stamp 117437108004978688 | a retract is the current fact of its place: 2b58cd5d :accepted stamp 117437108005699584 | a later fact replaces the retract: f12fe2f5 :accepted stamp 117437108006617088 (second fact id 18722eda )
+SHOWN a setting key on another layer refused: f5efe192 :setting-not-on-the-layer stamp 117437108009238531
+SHOWN an act with a permission for another layer refused: 520265d7 :permission-not-in-layer stamp 117437108009238532
+SHOWN an act under a permission that does not stand refused: fdb18524 :permission-does-not-stand stamp 117437108009238533
+SHOWN a permission given beneath another by its holder: 0dd3e703 :accepted stamp 117437108013236224 | and an act under it accepted: 9714670b :accepted stamp 117437108014546944
+SHOWN a permission given by one who does not hold the one above refused: bedbdca3 :permission-fact-not-beneath-the-acts-own stamp 117437108014546945 | by a who that is not the holder of the permission it names: 8542b6e7 :who-not-the-permissions-holder stamp 117437108014546946
+SHOWN a chain four deep stands: :accepted :accepted :accepted | a fifth is given and acted under: :accepted :accepted | the permission in the row of that act: [:eve :alice :alice [:dave :alice :alice [:carol :alice :alice [:bob :alice :alice [:alice :alice :alice]]]]] | an own permission six deep that nobody gave: :permission-does-not-stand
+SHOWN granted-in must be the act's layer: :permission-fact-granted-in-another-layer | a permission's place takes one write: :store-key-takes-one-write | ending a permission: :ending-a-permission-not-decided | a depot after the making: :store-key-takes-one-write :changing-a-depot-not-decided :store-key-retract-not-built
+SHOWN whole or nothing: a give with a stale fact :replaced-fact-not-current | an act under the permission that was not given :permission-does-not-stand
+SHOWN a tool's own facts under the bare words :class and :permission, accepted as facts under plain keys: dfac1b2f :accepted stamp 117437108028768256 | depot-of-layer :alice = :streaming | an act under Bob's permission after: :accepted | a key in softland.store that the store does not know refused: 6dd3ec7e :store-key-not-known stamp 117437108029358081
+SHOWN a permission deeper than four, through the streaming gate: the gives at depth 2 to 32: {:accepted 31} | the give at depth 33: 49e41da5 :malformed stamp 117437108048691201 | an act under depth 5: bc69be83 :accepted stamp 117437108049477632 | under depth 32: 699d68f3 :accepted stamp 117437108049870848
+SHOWN the row of the act under depth 32 holds its permission whole: 787 characters of text that open 32 vectors | an own permission of depth 33: 74545c26 :malformed stamp 117437108049870849 | the fifth slot at depth 32: :accepted :accepted | its holders act: :accepted :permission-does-not-allow-acting | the fifth slot at depth 33: :malformed
+SHOWN the time on the act makes the stamp, in the streaming gate. Five layers made with the chosen time 1700000000000 on their making acts, each with the stamp 111411200000000000 | in one of them the same time again: 379737d0 :accepted stamp 111411200000000001 | 5f5b9a35 :accepted stamp 111411200000000002 | a later time: cf9ac3a9 :accepted stamp 111411200000065536 | a time 5 s earlier, and the time 0: 3f4649f0 :accepted stamp 111411200000065537 | 472e7ce0 :accepted stamp 111411200000065538
+SHOWN two layers of one task count apart, :timed-0 and :timed-2 | after three decisions in the first the other stood at [111411200000000000 111411200000000000] | its next act: 52d188f1 :accepted stamp 111411200000000001 | the last stamps that the task keeps, of the first and of the other, read by each layer: [111411200000000002 111411200000000001 111411200000000002 111411200000000001]
+SHOWN a thing with no usable time is refused, with the layer's last stamp plus one: no time, nil, 2^45, below zero, no integer: [[:no-door-time 111411200000065539] [:no-door-time 111411200000065540] [:no-door-time 111411200000065541] [:no-door-time 111411200000065542] [:no-door-time 111411200000065543]] | refused for another fault, with a time one hour ahead, the last stamp plus one too: 79cc8ad9 :unknown-part stamp 111411200000065544 | 4bc08970 :permission-not-in-layer stamp 111411200000065545 | 246fc000 :permission-does-not-stand stamp 111411200000065546 | the greatest time, 2^45 less one: 4ba8d31a :accepted stamp 2305843009213628416
+SHOWN a stray is kept under its word and gets no answer; strays seen, by word: {:no-act-id 1, :act-id-malformed 1, :id-too-long 1, :act-id-of-the-other-gate 1, :act-id-of-another-layer 1} | the same stray sent three times counts once | answer of a stray: nil
+SHOWN a thing over each limit is refused: :too-many-facts :too-many-based-on :value-too-large :act-too-large :id-too-long | at each limit accepted: :accepted :accepted :accepted
+SHOWN the bound on one value, through the streaming gate: a text of 65,537 bytes d087b5f2 :value-too-large stamp 117437108071497730 | of 65,536 bytes a25dfcb1 :accepted stamp 117437108075560960 | its row holds 65536 bytes in 21848 characters
+SHOWN the bound on an act, through the streaming gate: an act whose rows would hold 19078912 bytes of text, over 18874368: 7c02d702 :act-too-large stamp 117437108075560961 | in the log whole, with 256 values plain
+SHOWN the 10-second rule, against the time 1791948060236 on the act | a carried stamp 10,001 ms after it, counter 0: 82185025 :carried-stamp-too-far-ahead stamp 117437108075560963 | one stamp below, 10,000 ms after it with the counter full: 04bbaa86 :accepted stamp 117437108731052032 carried 117437108731052031 | claimed-when far ahead: 5a441d0c :accepted stamp 117437108075626496 | the next stamp of the layer: 117437108731052033
+SHOWN the two reads, of an answer and of a depot, give nothing for what is no id, no act-id, another layer's act-id or the other depot, and do not fail | for an act-id that was accepted and a layer that is made they give: :accepted :streaming
+SHOWN a value of each kind, kept by the streaming gate as its one text in its row: {:as-given "{:a [1 2] :b 1.5M}", :kw ":canvas-1", :map "{\"b c\" 1.5 :a [1 #{2}]}", :number "42", :string "\"a string with spaces\"", :uuid "#uuid \"0b0f1c6e-5a52-4c8e-9a43-6f1d2e7c8a90\""}
+SHOWN the act in the depot's log holds each value plain, as given: the map that was not in its normal form is {:b 1.50M, :a [1 2N]} in the log and {:a [1 2] :b 1.5M} in its row
+SHOWN the edges of a value, each accepted with its text in its row: {:empty-map "{}", :empty-string "\"\"", :false "false", :inside-32 "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"} | a number inside 33 vectors: 7a8c0400 :malformed stamp 117437108124909569
+SHOWN who wrote a fact, and under which permission: [:grace [:grace :canvas :canvas [:alice :canvas :canvas]]] | the system's making of a personal layer: [:system [:alice :alice :alice]]
+SHOWN an act refused for its second fact leaves no row of its first: bfb76755 :replaced-fact-not-current stamp 117437108124909570
+SHOWN the three keys that take a second write, in a streaming layer. For each: written, written again, written again naming the fact there, a stale replaces, a retract, another entity: #:softland.store{:who-may-see [:accepted :accepted :accepted :replaced-fact-not-current :store-key-retract-not-built :setting-not-on-the-layer], :builds-on [:accepted :accepted :accepted :replaced-fact-not-current :store-key-retract-not-built :setting-not-on-the-layer], :marked-keys [:accepted :accepted :accepted :replaced-fact-not-current :store-key-retract-not-built :setting-not-on-the-layer]}
+SHOWN no fact reads as: [:members [] #{}] | a wrong value under each: [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-layers :builds-on-too-many-layers :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys :marked-key-in-the-stores-namespace]
+SHOWN the stamps of the marked keys, derived by the gate: after the first write {:plan 117437108133036032} after the set was emptied {} after the key was marked again {:plan 117437108134084608}
+SHOWN a permission a second time: :store-key-takes-one-write | a depot after the making: :store-key-takes-one-write | a second holder of the layer writes who may see it: :accepted
+SHOWN a permission that says see, as its row holds it: [:bob :canvas :canvas [:alice :canvas :canvas] :see] | its holder acts: c607de12 :permission-does-not-allow-acting stamp 117437108143915009 | names it without the slot: :permission-does-not-stand | with see and act: :permission-does-not-stand | gives: :permission-does-not-allow-acting | sends a value: 60599182 :permission-does-not-allow-acting stamp 117437108143915013
+SHOWN see stays see: a second give of see and act :store-key-takes-one-write | a holder of see and act acts and gives: :accepted :accepted | a making act whose permission has the slot: :layer-not-made
+SHOWN what points at a thing, in a streaming layer. The key :on is marked since 117437108149747712 | a fact with a keyword id, one with a UUID: [":canvas :on 117437108149747712 41bd445832925a1cbf853d6630ae218d53f0d3f7b13cbdee46ce76dba1e8dbea :b1"] | the place [:b2] points at the UUID
+SHOWN the fact replaced, written over, written again, retracted; after each, the run of the value before, the key of the entry that went out, the run of the new value: [[] nil [:b1 :b2]] [[:b2] nil [:b1]] | the same value again is the later fact's: true | after the retract: [[] [:nothing-here]]
+SHOWN the same act appended a second time, after a later act put back the entry that it had taken out: the run is as the later act left it: [[:b9] [] #uuid "dab0579c-68f7-4d0c-9d45-b0ed7ca5d740"]
+SHOWN the mark taken off, the fact replaced, the key marked again since 117437108156760064 : every run under the new stamp is empty [[] [] []] | the stale row stays under 117437108149747712 | then a fact written and replaced: [[:b2] []] [[] nil [:b2] true]
+SHOWN a mark and a fact under it in one act: the fact is in no run [[] 117437108157939712] | a later fact is: [:b6]
+SHOWN an act into the base before it is made refused: cd4c2b9a :layer-not-made stamp 0 | read by one call when the gate had processed it, with nothing sent after it | a making act of the base by a stranger: :layer-not-made | for a holder that is not the system: :layer-not-made
+SHOWN the line: the base's making act, a give, and the first act under the given permission, appended with no wait between them: ff4f21ba :accepted stamp 117437108178911232 | d698e42e :accepted stamp 117437108178911233 | 3772f3e2 :accepted stamp 117437108178911234
+SHOWN the base made by the system, with the depot microbatch: depot-of-layer :base = :microbatch | the depot row is on 4 tasks, the system's permission on 4 | a second making act, its facts in the other order: :permission-fact-not-beneath-the-acts-own
+SHOWN one act with a plain value landing through the microbatch gate and read back by act-id: {:verdict :accepted, :reason nil, :stamp 117437108221968384, :digest "43ebc6bebf49649780fd55d79024fd5f255dc687578f344fa499dbe3d5657bc8"}
+SHOWN eight things of the base with eight different first entities are on one partition of the microbatch depot, partition 2 | the fact of each is on [4 4 4 4 4 4 4 4] tasks
+SHOWN a value of the base kept as its one text in its row, the same row on 4 tasks: "\"the first text of the base\"" | read back: [:value "the first text of the base"] | the fields of the row: [:by-act :by-index :permission :stamp :value :who] | its answer is on task [2] | the base's last stamp by task: {2 117437108221968384} | the microbatch depot's log holds the value plain: [{:e :doc-1, :k :title, :v "the first text of the base"}]
+SHOWN an answer of the base is readable when its batch is committed on the base's task: the row showed at select 102 with stamp 117437108231208960 | one call of answer-by-act-id with the layer as routing id gave then: {:verdict :accepted, :reason nil, :stamp 117437108231208960, :digest "81b922a814fbfdda7c974afc32a7ac36ed5a387d6096a9733146b4d694ef5675"} | with the uuid as routing id: nil (the head makes no read)
+SHOWN a refusal through the microbatch gate, recorded with its reason: {:verdict :refused, :reason :replaced-fact-not-current, :stamp 117437108231208961, :digest "1825181432b22e416e50000fbd288c37881d36f5f132104f0c4dd4ce7803c17e"} | a repeat of that refused act reads: {:verdict :refused, :reason :replaced-fact-not-current, :stamp 117437108231208961, :digest "1825181432b22e416e50000fbd288c37881d36f5f132104f0c4dd4ce7803c17e"}
+SHOWN a stale replaces refused through the microbatch gate: 3f11da62 :replaced-fact-not-current stamp 117437108231208962
+SHOWN a repeat (same act-id sent twice to the microbatch depot) answered from the record, not decided twice: stamp before 117437108221968384 after 117437108221968384 | the stamp of its place before 117437108221968384 after 117437108221968384 | the base's last stamp before 117437108231208962 after 117437108231208962
+SHOWN the same act of the base under its act-id with another time on it, 5 ms later, is a repeat: one digest 43ebc6bebf496497 | it reads the first's answer, stamp 117437108221968384 | the base's last stamp after it 117437108231208962
+SHOWN a second, different act under a used act-id of the base told so: the digest of the answer 43ebc6bebf496497 is not the digest of what was sent 2a7286ba761a6a94
+SHOWN one act-id under two things in one batch: one answer, of the first thing in the depot's order; written by the first on 4 tasks, by the second on 0
+SHOWN the walk of a place in the base, eighteen things appended in a row with no wait: [:unknown-part :unknown-part :accepted :replaced-fact-not-current :accepted :replaced-fact-not-current :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :place-named-twice :replaces-own-fact]
+SHOWN two acts of one batch that replace the same fact: the first in the depot's order wins: c0a339ba :accepted stamp 117437108308606976 | 56c92ea7 :replaced-fact-not-current stamp 117437108308606977
+SHOWN two acts that write one place, appended with no wait, the second naming the first's fact: 1e364b7e :accepted stamp 117437108320665600 | c0444d9e :accepted stamp 117437108320665601 | the place is written by c0444d9e on 4 tasks
+SHOWN two acts of one batch that write one place and name nothing: c5cad487 :accepted stamp 117437108330364928 | d917680b :accepted stamp 117437108330430464 | the place holds stamp 117437108330430464
+SHOWN a give and an act under it in one batch, in both orders: :accepted :accepted | :permission-does-not-stand :accepted
+SHOWN a chain of 100 acts in one batch, each replacing the fact of the act before it: {:accepted 100} | answered while the gate was paused: 0 | stamps strictly increasing in the depot's order, from 117437108367654912 to 117437108369162242
+SHOWN a person acting in the base under a permission that the system gave: d698e42e :accepted stamp 117437108178911233 | the permission's row is on 4 tasks | her act, with a value: 0a1f4e55 :accepted stamp 117437108392361984
+SHOWN in the base, an act under a permission that does not stand: :permission-does-not-stand | by a who that is not the holder: :who-not-the-permissions-holder | a permission given beside the giver's own: :permission-fact-not-beneath-the-acts-own
+SHOWN a permission's place takes one write in the base: :store-key-takes-one-write | ending a permission: :ending-a-permission-not-decided | the depot again: :store-key-takes-one-write :changing-a-depot-not-decided | a setting key on another entity: :setting-not-on-the-layer | a permission beneath a person's, and an act under it: :accepted :accepted
+SHOWN in the base, a key in softland.store that the store does not know: :store-key-not-known | a tool's own fact under the bare word :permission: :accepted | its row is on 4 tasks, the store's permission of the same holder on 4
+SHOWN a carried stamp too far ahead, in the base: 734e4eba :carried-stamp-too-far-ahead stamp 117437108409663492 | the same with no standing: :carried-stamp-too-far-ahead
+SHOWN a permission deeper than four, through the microbatch gate: the gives at depth 2 to 32, appended in a row with no wait: {:accepted 31} | the give at depth 33: 71ce3877 :malformed stamp 117437108439547908 | an act under depth 5: 0b5a4fd7 :accepted stamp 117437108455866368 | under depth 32: 08309e57 :accepted stamp 117437108455866369
+SHOWN in the base, the row of the act under depth 32 holds its permission whole: 726 characters of text that open 32 vectors | an own permission of depth 33: bb52fcca :malformed stamp 117437108455866370 | the fifth slot at depth 32: :accepted :accepted | its holders act: :accepted :permission-does-not-allow-acting | the fifth slot at depth 33: :malformed
+SHOWN the bound on one value, through the microbatch gate: a text of 65,537 bytes 65508f65 :value-too-large stamp 117437108466417666 | of 65,536 bytes 16e2bec1 :accepted stamp 117437108477755392 | its row holds 65536 bytes in 21848 characters, on 4 tasks
+SHOWN the bound on an act, through the microbatch gate: an act whose rows would hold 19062528 bytes of text, over 18874368: 71623bb8 :act-too-large stamp 117437108477755393 | in the log whole, with 256 values plain
+SHOWN in the base a thing over each limit is refused: :too-many-facts :too-many-based-on :id-too-long | at each limit accepted: :accepted :accepted | the 256th fact is on 4 tasks
+SHOWN a batch of 400 acts on 20 entities: each accepted, with 400 stamps, which go up in the order sent over the whole batch
+SHOWN the copies, after the line, the chain and the long batch: the rows of the microbatch gate by task | facts [728 728 728 728] | facts by value [0 0 0 0] | answers [0 0 613 0] | the layers of the last stamps [[] [] [":base"] []] | digests of strays [0 0 0 0] | the base's task is 2
+SHOWN two layers of one task count apart in the microbatch gate: the layer :beside-the-base-2 on the base's task, c669747a :layer-belongs-to-the-other-gate stamp 0 | 0d9e2a07 :layer-belongs-to-the-other-gate stamp 1 | an act of the base between them: 29dd9e59 :accepted stamp 117437109211299842 | the last stamps that the task keeps, of that layer and of the base: [1 117437109211299842]
+SHOWN the time on the act makes the stamp, in the microbatch gate, for seventeen things of one batch. The chosen time 1791948067560 | three acts with it: [117437108555612160 117437108555612161 117437108555612162] | a later time: 0ea9b189 :accepted stamp 117437108555677696 | a time 5 s earlier, and the time 0: 0e342065 :accepted stamp 117437108555677697 | 92b32003 :accepted stamp 117437108555677698
+SHOWN in the base a thing with no usable time is refused, with the last stamp plus one: no time, nil, 2^45, below zero, no integer: [[:no-door-time 117437108555677699] [:no-door-time 117437108555677700] [:no-door-time 117437108555677701] [:no-door-time 117437108555677702] [:no-door-time 117437108555677703]] | refused for another fault, with a time one hour ahead, the last stamp plus one too: 497d78f5 :unknown-part stamp 117437108555677704 | b292ba0c :permission-not-in-layer stamp 117437108555677705
+SHOWN the 10-second rule in the base, against the time 1791948067564 on the act | a carried stamp 10,001 ms after it, counter 0: e788f7be :carried-stamp-too-far-ahead stamp 117437108555677706 | one stamp below, 10,000 ms after it with the counter full: 2ff92c71 :accepted stamp 117437109211299840 carried 117437109211299839 | claimed-when far ahead: 51430aeb :accepted stamp 117437108555874304 | the next stamp of the base: 117437109211299841
+SHOWN an act of three values on three entities accepted whole: c6c6adc1 :accepted stamp 117437109211299844 | each of its facts is on [4 4 4] tasks | the text in each row: ["\"the body of doc-1\"" "\"the body of doc-2\"" "\"the body of doc-3\""]
+SHOWN one refused whole with no row of it on any task: f5f05a0b :replaced-fact-not-current stamp 117437109211299843 | rows at its three places: [{} {} {}]
+SHOWN an act of two facts that replaces the fact of the act before it in the line: 129bbd7f :accepted stamp 117437109211299846 | the same replaces again: 4235221f :replaced-fact-not-current stamp 117437109211299847 | the base's last stamp before the act of three values 117437109211299843 after 117437109211299844
+SHOWN rule 7 in both directions: an act for a microbatch layer sent to the streaming depot: 37c38ba2 :layer-belongs-to-the-other-gate stamp 2 | an act for a streaming layer sent to the microbatch depot: 84d1035f :layer-belongs-to-the-other-gate stamp 0 | for a layer that starts streaming, before it is made: :layer-belongs-to-the-other-gate | a making act of it there: :layer-belongs-to-the-other-gate | after the streaming gate made it: :layer-belongs-to-the-other-gate
+SHOWN one act-id on both depots has one answer: 585acacf :accepted stamp 117437108731052034 | strays of the microbatch gate, by word: {:no-act-id 1, :act-id-malformed 1, :id-too-long 1, :act-id-of-the-other-gate 1, :act-id-of-another-layer 1} | the same stray sent twice counts once | each digest is on the task of the partition where its stray arrived: [[:act-id-of-the-other-gate 0] [:no-act-id 0] [:act-id-malformed 2] [:id-too-long 0] [:act-id-of-another-layer 3]]
+SHOWN the code of the microbatch gate and of the walk: tables of the streaming gate, currentTimeMillis, depot-partition-append!, in each file: [0 0 0] [0 0 0] | partitioners, yield-if-overtime and :allow-yield? in the walk: [0 0 0] | partitioners in the microbatch gate: 1
+SHOWN a value of each kind, kept by the microbatch gate as its one text in its row, the same row on every task: {:as-given "{:a [1 2] :b 1.5M}", :kw ":canvas-1", :map "{\"b c\" 1.5 :a [1 #{2}]}", :number "42", :string "\"a string with spaces\"", :uuid "#uuid \"0b0f1c6e-5a52-4c8e-9a43-6f1d2e7c8a90\""}
+SHOWN the act in the microbatch depot's log holds each value plain, as given: the map that was not in its normal form is {:b 1.50M, :a [1 2N]} in the log and {:a [1 2] :b 1.5M} in its row
+SHOWN the edges of a value in the base, each accepted with its text in its row: {:empty-map "{}", :empty-string "\"\"", :false "false", :inside-32 "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"} | a number inside 33 vectors: d6ef4759 :malformed stamp 117437109211299850
+SHOWN who wrote a fact of the base, and under which permission: [:alice [:alice :base :base [:system :base :base]]] | an act refused for its second fact leaves no row of its first: cc92b82c :replaced-fact-not-current stamp 117437109211299851
+SHOWN the three keys that take a second write, in the base: written, written again, written again naming the fact there: [:accepted :accepted :accepted] [:accepted :accepted :accepted] [:accepted :accepted :accepted] | each row is on [4 4 4] tasks | refused, by word: {:setting-not-on-the-layer 3, :marked-keys-fact-not-a-set-of-keys 1, :replaced-fact-not-current 3, :store-key-retract-not-built 3, :marked-key-in-the-stores-namespace 1, :too-many-marked-keys 1, :builds-on-fact-not-a-list-of-layers 1, :builds-on-too-many-layers 1, :who-may-see-fact-not-members-or-everyone 1}
+SHOWN the stamps of the base's marked keys, derived by the gate, the same on every task: after the first write #{{:tag 117437109211299855}} where the stamp of the marking act is 117437109211299855 | after the set was emptied #{{}} | after the key was marked again #{{:tag 117437109211299861}} where the stamp of that act is 117437109211299861
+SHOWN in the base, a permission that says see: [:erin :base :base [:system :base :base] :see] on 4 tasks | its holder acts in the batch of the give: :permission-does-not-allow-acting | in a later batch: d90099a1 :permission-does-not-allow-acting stamp 117437109211299880 | names it without the slot: :permission-does-not-stand | with see and act: :permission-does-not-stand | gives: :permission-does-not-allow-acting | sends a value: aba69474 :permission-does-not-allow-acting stamp 117437109211299886 | a second give of see and act: :store-key-takes-one-write
+SHOWN what points at a thing, in the base. The key :on is marked since 117437109211299889 , the stamp of the act that marked it | two places hold one value: each row of its run is on tasks [0 1 2 3]
+SHOWN the fact replaced, written over, written again, retracted; after each, the run of the value before, the rows under the key of the entry that went out, the run of the new value: [[:doc-2] {} [:doc-1]] [[] {} [:doc-1]] | after the retract, the run on each task: [[] [] [] []]
+SHOWN in the base, an act that took an entry out appended a second time, after a later act put the entry back: the run of the value on each task [[:doc-9] [:doc-9] [:doc-9] [:doc-9]] | of the other value [[] [] [] []]
+SHOWN the mark taken off, a fact replaced, the key marked again since 117437109211299901 : every run under the new stamp is empty [[] []] | then a fact written, and written over by an act of two facts: [[:doc-2] []] [[] {}] | the run that a read then finds: [:doc-2]
+SHOWN the copies, after the marks: the rows of the microbatch gate by task | facts [771 771 771 771] | facts by value [6 6 6 6] | answers [1 3 704 0] | the layers of the last stamps [[":alice"] [":made-later"] [":base" ":beside-the-base-2"] []] | digests of strays [3 0 1 1] | the base's task is 2
+SHOWN two acts of one batch on one place under a marked key: fdc4b5c7 :accepted stamp 117437109211299904 | 3f6f70d4 :accepted stamp 117437109211299905 | the runs of the value before and of the first act's value: [[] []] | of the second's, on each task: [[:doc-2] [:doc-2] [:doc-2] [:doc-2]]
+SHOWN a mark and the facts after it in one batch: the key :in is marked since 117437109211299906 , the stamp of the marking act, on 4 tasks | entries under it on each task: [2 2 2 2] of 2 expected | the marking act's own fact is in no run | with a later fact, the run of the value on each task: [[:m3 :m4] [:m3 :m4] [:m3 :m4] [:m3 :m4]]
+SHOWN two writes of who may see the base in one batch: every task holds the row of c4699992
+SHOWN the module keeps no lock. Asked of the cluster by name: the tables of facts and the two queries [:there :there :there :there] | a table and a query that the module never had [:not-there :not-there] | $$streaming-locks, $$microbatch-locks and locks-of-request, called for each depot [:not-there :not-there :not-there :not-there]
+SHOWN a fact under :softland.store/lock-request, a fact with :sealed, a value with :lock-id, and a fact with both: through the streaming gate [:store-key-not-known :unknown-part :unknown-part :unknown-part] | through the microbatch gate [:store-key-not-known :unknown-part :unknown-part :unknown-part] | each is in its depot's log as sent, and none wrote a row
+SHOWN a place of the base that is replaced never gives nothing to a select that goes straight to the table, on any task: 53 rounds of four selects from before the append until the new row showed on every task | selects that gave the fact before: 206 | the fact after: 6 | rounds in which some tasks showed the fact after and others the fact before, counted and not held to a number: 1 | when every task showed the new row the read by act-id gave its answer
+SHOWN after the module is started again in the cluster, the record is as it was: the same answer, the same row of a value; the layer's last stamp before 117437108731052038 the first stamp after 117437108731052039 | the last stamps of two layers of one task, before and after: [111411200000065546 111411200000000001] [111411200000065546 111411200000000001]
+SHOWN after the module is started again in the cluster, the base's record is as it was: the same answer, depot :microbatch | the same row of a value | each of the four tables the same on each task: [] tables apart | the base's last stamp before 117437109211299919 the first stamp after 117437109211299920 | the stamp of an act with a later time: 117437109211365376
+SHOWN the stamps of 219 answers increase strictly in each of 16 layers, and each is the number that the rule gives; answers by partition: {0 71, 1 6, 2 9, 3 133}
+SHOWN layers by depot partition: {:alice 0, :team 3, :carrier 2} | the depot holds all 237 things sent, each as it was sent, with the time that the hand wrote | each of the 465 values that the hand sent is plain on it
+SHOWN the depots of the module, asked of the cluster by name: *streaming-depot, *microbatch-depot, *batch-clock-depot, *microbatch-answer-depot, one that the module never had, *streaming-answer-depot: [:there :there :not-there :not-there :not-there :not-there] | the tables $$microbatch-facts and $$batch-clock: [:there :not-there]
+SHOWN where the store's code names a depot of answers: of the streaming gate {} | of the microbatch gate {} | a clock of a batch: {} | a source> of a depot of answers: {} | where a depot is declared: {"module.clj" 2}
+SHOWN the copies, at the end of the run: the rows of the microbatch gate by task | facts [775 775 775 775] | facts by value [6 6 6 6] | answers [1 3 713 0] | the layers of the last stamps [[":alice"] [":made-later"] [":base" ":beside-the-base-2"] []] | digests of strays [3 0 1 1] | the base's task is 2
+SHOWN the stamps of 717 answers of the microbatch gate, in 4 layers, increase strictly in each layer in the depot's order, and each is the number that the rule gives
+SHOWN the microbatch depot holds all 733 things sent, each as it was sent | 722 things of the base, with 134 different first entities, are on partition #{2} in the order appended | each of the 535 values that the hand sent is plain on it
+SHOWN layers that have things on both depots, each with its partition on the streaming depot and on the microbatch depot: {":aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" [#{0} #{0}], ":alice" [#{0} #{0}], ":base" [#{2} #{2}], ":made-later" [#{1} #{1}], ":team" [#{3} #{3}]}
+SHOWN the copies, after the failed attempt and its retry: the rows of the microbatch gate by task | facts [11 11 11 11] | facts by value [5 5 5 5] | answers [0 0 44 0] | the layers of the last stamps [[] [] [":base"] []] | digests of strays [0 0 0 0] | the base's task is 2
+SHOWN an attempt of a batch of the store's own microbatch gate failed and ran again: of 40 acts appended while the gate was paused, the proof's function in the var of `writes` threw at the 21 st, on the thread "Worker bb1ad573 00000000@2003 DTT 2 0-task-group-exec-0" | rows handed to the failed attempt only: 20 | calls of writes for each act: {2 21, 1 19} | all acts answered: true , 1196 ms after the topology went on
+SHOWN a row handed to an attempt that commits, with no throw: on 4 tasks | the act: 701431b6 :accepted stamp 117437109750661120
+SHOWN the two attempts: acts whose two decisions were not the same in stamp, word and rows: 0 | after the retry: {:accepted 40} | stamps from 117437109747974144 to 117437109750530048 | rows of the failed attempt left on each task: [0 0 0 0] | entries of the order by value on each task: [5 5 5 5]
+SHOWN an event of the streaming gate failed before its first write and Rama ran its record again: calls of writes for the act 2 | the first threw on the thread "Worker bb1ad573 00000000@2002 DTT 0 0-task-group-exec-0" | the append gave [:append-failed "CallbackException"] | the stamps that the two runs were given: [117437109878128645 117437109878128645] | the layer's last stamp before: 117437109878128644 | the second run decided 327 ms after the throw | the writes of each run, by kind: [{:fact 1, :answer 1, :last-stamp 1} {:fact 1, :answer 1, :last-stamp 1}] | the answer was read 524 ms after the append
+SHOWN the records before the throw: runs of the event of each of the five acts [2 2 2 2 2] | decisions of each [1 1 1 1 1] | runs of the failed act's event before the hand's repeat: 2 | after the repeat: runs 3 | decisions 2 | the layer's last stamp 117437109878128645
+{:test 40, :pass 444, :fail 0, :error 0}
+
+exit status: 0
