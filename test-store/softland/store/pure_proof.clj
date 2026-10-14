@@ -100,6 +100,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
+            [clojure.walk :as walk]
             [softland.store.act :as act]
             [softland.store.gate.decision :as decision]
             [softland.store.door.additions :as additions]
@@ -621,6 +622,8 @@
    ["an act-id of the depot microbatch" (assoc good :act-id [:alice :microbatch (uuid 1)]) :act-id-of-the-other-gate]
    ["an act-id of another layer" (assoc good :act-id [:bob :streaming (uuid 1)]) :act-id-of-another-layer]
    ["a thing with an act-id and no layer" (dissoc good :layer) :act-id-of-another-layer]
+   ["an act-id of the depot microbatch and of another layer: the depot is told first"
+    (assoc good :act-id [:bob :microbatch (uuid 1)]) :act-id-of-the-other-gate]
    ["a good act" good nil]
    ["a thing that is no act, with a usable act-id" {:act-id (act-id 1) :layer :alice :junk 1} nil]
    ["an act-id whose layer prints to 256 characters"
@@ -639,7 +642,7 @@
     ["and a streaming act-id at the microbatch gate is a stray"
      (fn [] (declaration/stray-reason :microbatch good))
      :act-id-of-the-other-gate]
-    ["the test for a stray reads no time: each of the 16 plain maps of the rows above, 15 of which hold a time, has one word at a gate, with its time as it is, without it, with a nil one and with a string; held at each gate's depot"
+    ["the test for a stray reads no time: each of the 17 plain maps of the rows above, 16 of which hold a time, has one word at a gate, with its time as it is, without it, with a nil one and with a string; held at each gate's depot"
      (fn [] (let [maps (filter (fn [x] (and (map? x) (not (record? x)))) (map second stray-rows))
                   word (fn [x] [(declaration/stray-reason :streaming x) (declaration/stray-reason :microbatch x)])]
               [(count maps)
@@ -647,7 +650,7 @@
                (every? (fn [x] (= (word x) (word (without-time x)) (word (assoc x declaration/time-part nil))
                                   (word (assoc x declaration/time-part "no time"))))
                        maps)]))
-     [16 15 true]]
+     [17 16 true]]
     ["a thing with a usable act-id and no time is no stray on its act-id's depot: the check has the word for it, so a gate answers it under its act-id"
      (fn [] [(declaration/stray-reason :streaming (without-time good)) (verdict (declaration/check (without-time good)))])
      [nil :no-door-time]]]))
@@ -1228,6 +1231,8 @@
      ["the base" :streaming base false]
      ["the base by a who that is not the system" :microbatch (assoc base :who :alice) false]
      ["the base with a first permission that is not the system's" :microbatch (making :base :system :alice) false]
+     ["the base, made by a person who holds its first permission herself: she is the holder, as for a group's layer, and for the base the holder is the system"
+      :microbatch (making :base :alice :alice) false]
      ["a layer that is not the base" :microbatch group false]
      ["a who that is neither the holder nor the system" :streaming (assoc group :who :bob) false]
      ["no depot fact" :streaming (assoc group :facts [(fact group 1) (arrived-fact :note :text)]) false]
@@ -4034,6 +4039,100 @@
            "| the longest wait that the door counts is" wait/longest-wait-ms "ms, and a greater number is cut to it:"
            (pr-str (wait/numbers {:read-every-ms Long/MAX_VALUE})))))
 
+;; ------------------------------------------- what no run in process can see
+
+(defn- source-forms
+  "Takes the path of a file of the store's source, as `source-files` gives
+  it. Gives the file's top-level forms, read as data (`forms-of`)."
+  [path]
+  (forms-of (some (fn [[p f]] (when (= path p) f)) (source-files))))
+
+(defn- lists-headed-by
+  "Takes forms and a symbol. Gives each list among them, at any depth, whose
+  first element is that symbol, in the order of a walk of the forms."
+  [forms head]
+  (filter (fn [x] (and (seq? x) (= head (first x)))) (tree-seq coll? seq forms)))
+
+(defn- holds-a?
+  "Takes a form and a symbol. Gives true when a list headed by that symbol
+  is in the form, at any depth."
+  [form head]
+  (boolean (seq (lists-headed-by [form] head))))
+
+(defn- retry-mode-of
+  "Takes the forms of the streaming gate's file. Gives the retry mode that
+  its `source>` declares, or nil when it declares none."
+  [forms]
+  (some (fn [form] (:retry-mode (some #(when (map? %) %) form)))
+        (lists-headed-by forms 'source>)))
+
+(defn- copy-of
+  "Takes the forms of the microbatch gate's file. Gives the copy: the one
+  `<<if` that holds the partitioner `|all`, or nil when there is not one."
+  [forms]
+  (let [found (filter #(holds-a? % '|all) (lists-headed-by forms '<<if))]
+    (when (= 1 (count found)) (first found))))
+
+(defn- copy-goes-only-for-an-accept?
+  "Takes the forms of the microbatch gate's file. Gives true when the copy
+  goes out only behind a test that the walk gave rows to copy: its `<<if`
+  tests `(seq x)`. A refusal, a repeat and a stray give an empty vector,
+  which `seq` turns down, and `some?` would not."
+  [forms]
+  (let [copy (copy-of forms)
+        test-form (second copy)]
+    (boolean (and (seq? test-form) (= 'seq (first test-form))))))
+
+(defn- copy-passes-over-the-deciding-task?
+  "Takes the forms of the microbatch gate's file. Gives true when every
+  write of the copy stands behind one `<<if` whose test is `(not= a b)`,
+  where `a` and `b` are the ids of the task that `ops/current-task-id`
+  gives, one taken before the partitioner `|all` (the deciding task) and one
+  after it (the task where the copy arrived)."
+  [forms]
+  (let [copy (copy-of forms)
+        body (vec (drop 2 copy))
+        at (first (keep-indexed (fn [i x] (when (= '(|all) x) i)) body))
+        task-id (fn [x] (when (and (seq? x) (= 'ops/current-task-id (first x))) (last x)))
+        before (set (keep task-id (take (or at 0) body)))
+        after (set (keep task-id (drop (inc (or at 0)) body)))
+        guards (filter #(holds-a? % 'local-transform>) (drop (inc (or at 0)) body))
+        guard (first guards)
+        [op a b] (when (and (seq? guard) (= '<<if (first guard))) (second guard))
+        writes (fn [form] (count (lists-headed-by [form] 'local-transform>)))]
+    (boolean (and at (= 1 (count guards)) (= 'not= op)
+                  (or (and (before a) (after b)) (and (before b) (after a)))
+                  (pos? (writes guard)) (= (writes copy) (writes guard))))))
+
+(def ^:private unseen-cases
+  "The cases of what the gates' code holds that no run in process can see:
+  each read of the source, on the file as it is and on the same forms with
+  the bug that a review put in on 14 October, which no test that runs the
+  module caught."
+  (let [streaming (source-forms "softland/store/module/streaming_gate.clj")
+        microbatch (source-forms "softland/store/module/microbatch_gate.clj")
+        with (fn [forms smap] (walk/postwalk-replace smap forms))]
+    [["the streaming gate's source declares the retry mode \"all after\", which the store's page gives as chosen. A run in process gave the same with \"individual\", so only a reading of the source holds it; with \"individual\" put in, the reading says so"
+      (fn [] [(retry-mode-of streaming) (retry-mode-of (with streaming {:all-after :individual}))])
+      [:all-after :individual]]
+     ["the microbatch gate copies only for an accept: its copy stands behind a test that the walk gave rows to copy, so a refusal, a repeat and a stray go to no other task. The tables come out the same when they do go, so only a reading of the source holds it; with `some?` in the place of `seq`, the reading fails"
+      (fn [] [(copy-goes-only-for-an-accept? microbatch)
+              (copy-goes-only-for-an-accept? (with microbatch {'(seq *copies) '(some? *copies)}))])
+      [true false]]
+     ["the microbatch gate's copy passes over the deciding task: each of its writes stands behind a test that the task where the copy arrived is not the task that decided. No run in process showed a row that a copy to itself sets back, so only a reading of the source holds it; with the test made `(some? *this-task)`, the reading fails"
+      (fn [] [(copy-passes-over-the-deciding-task? microbatch)
+              (copy-passes-over-the-deciding-task? (with microbatch {'(not= *this-task *deciding-task) '(some? *this-task)}))])
+      [true false]]]))
+
+(deftest what-no-run-in-process-can-see
+  (let [n (holds unseen-cases)]
+    (shown "what the gates' code holds that no run in process can see," n
+           "cases, each a reading of the source and the same reading with the bug that a review put in: the streaming gate's retry mode,"
+           (pr-str (retry-mode-of (source-forms "softland/store/module/streaming_gate.clj")))
+           "| the microbatch gate's copy, only for an accept and never to the deciding task:"
+           (pr-str [(copy-goes-only-for-an-accept? (source-forms "softland/store/module/microbatch_gate.clj"))
+                    (copy-passes-over-the-deciding-task? (source-forms "softland/store/module/microbatch_gate.clj"))]))))
+
 (deftest no-code-of-the-store-names-a-lock
   (let [n (holds lock-name-cases)
         {:keys [files names found] saw-act? :saw?} (lock-names-in (source-files) 'softland.store.act)
@@ -4085,7 +4184,8 @@
   (the-doors-words)
   (the-doors-additions)
   (the-doors-wait)
-  (no-code-of-the-store-names-a-lock))
+  (no-code-of-the-store-names-a-lock)
+  (what-no-run-in-process-can-see))
 
 (defn -main
   "Runs the proof and exits: status 0 when each check holds. It takes no

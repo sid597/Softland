@@ -179,7 +179,8 @@ Nothing was deleted. Each is named here so that you can say which goes.
 - Beside this folder: `../run-again-probe-2026-10-13/`. It was there, untracked, when this
   session began. This session did not make it and did not open it.
 - The reviewer's checkout, `/mnt/data/projects/Softland-review-break-the-store`, with its bugs'
-  diffs and runs in `review-out/` (section 7).
+  diffs and runs in `review-out/` (section 7); and the checkout in which the new tests were held
+  against those bugs, `/mnt/data/projects/Softland-verify-new-tests` (section 8).
 
 ## 7. The one review, after the receipt
 
@@ -196,8 +197,8 @@ two fixes put back, against those files.
   - the streaming gate's retry mode is "individual" instead of "all after";
   - two checks of a stray are made in the other order.
 
-  Two more were caught by a single check each. The six are now on the page about the tests, as
-  ideas for tests not yet written.
+  Two more were caught by a single check each. At your word, each of the six now has a test,
+  and each of those tests fails when its bug is put back (section 8).
 - **The two fixes hold, and the tests notice if either is undone.** Putting the refusal's stamp
   back made 4 checks of the pure test and 15 of the module's fail. Putting the bound back to 2^46
   made 6 of the pure test fail. One edge was found: after a last stamp whose counter is full, a
@@ -212,3 +213,23 @@ two fixes put back, against those files.
   2^45 keeps the stamps below 2^62; it does not stop this. It sits inside your open question of
   where a time that is far ahead is stopped. Run by the reviewer on the pure functions
   (`review-out/part2-probe.clj`), and it follows from the rule in the code.
+
+## 8. Tests for the six gaps
+
+Written after section 7, at your word. Each was held against the reviewer's own bug: put back in
+a checkout of its own (`/mnt/data/projects/Softland-verify-new-tests`), the test that should
+catch it run, and the bug taken out again.
+
+| The gap | The test now | With the bug put back |
+|---|---|---|
+| The deciding task copies to itself | A reading of the microbatch gate's source: each write of the copy stands behind "this task is not the deciding task" | pure: 1 fails, the new one |
+| A refusal, a repeat or a stray is copied | A reading of the same source: the copy goes only when the walk gave rows | pure: 1 fails, the new one |
+| The streaming gate's retry mode | A reading of the streaming gate's source: "all after" | pure: 1 fails, the new one |
+| The order of the checks of a stray | A stray with both faults, the other gate's depot and another layer | pure: 1 fails, the new one |
+| The base made by a holder that is not the system (one check before) | The base made by a person who holds its first permission herself | pure: 2 fail, the old one and the new |
+| A key that stays marked keeps its stamp (one check before, in the base) | The same check in a streaming layer | module: 2 fail, the old one and the new |
+
+The first three are readings of the source, because the tables come out the same with those bugs:
+no run in process can see them. A reading shows how the code is written, not what a cluster does
+with it. Each of the three also holds, in the test, that the same reading of the source with the
+bug in it gives the other answer.

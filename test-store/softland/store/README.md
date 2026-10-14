@@ -94,11 +94,9 @@ group observed. This page does not retell the checks.
   while it runs, and a file that is no `.clj` file: the search of the test `no-code-of-the-store-names-a-lock`
   holds the symbols and the keywords of the code under `src-store/` and under
   `test-store/`, and it reads no page of explanation.
-- ideas for checks not written yet, from the review of 14 October that put
-  bugs into the store: no case sends a stray with two faults, an act-id of the
-  other gate's depot and of another layer, so nothing holds the order of
-  `stray-reason`; and the base's making act needs the system as its holder, held
-  by one case alone.
+- the gates' dataflow: its three readings of the gates' source
+  (`what-no-run-in-process-can-see`) hold how two settings and one guard are
+  written, and run none of them.
 
 ## The module's proof
 
@@ -240,24 +238,14 @@ No check holds a number of milliseconds.
   one update is of the module to itself;
 - a thing nested so deep that a client writes it and a task cannot read it: the
   client and the tasks of the in-process cluster have one stack size.
-- ideas for checks not written yet. On 14 October one reviewer put 19 small
-  bugs into the store, one at a time, and ran the tests that could see each.
-  Three of the four that got past every test are this proof's to catch, and
-  none of them changes what the tables hold:
-  - the deciding task writes a copy of its own decision: the copy passes over
-    the deciding task, and no test sees it when it does not. The stale row that
-    the microbatch gate's docstring gives as the reason was not made to show. A
-    check could make it show, or count the writes of the copy on the deciding
-    task;
-  - a refusal, a repeat or a stray is sent to every task with nothing to write:
-    the tables are the same, so only a count of the copy's messages would see
-    it;
-  - the streaming gate's retry mode: no check holds that it is "all after".
-    "Individual" gave the same here, as the store's page says. A check could
-    read the mode that the topology declares;
-  - and one bug that a single check catches: a key that stays marked keeps
-    its stamp, held only in the base (`one-batch-under-a-marked-key`). The same
-    check in a streaming layer would make it two.
+- three things that leave the tables as they are, so that no run in process
+  sees them: that the microbatch gate's copy passes over the deciding task,
+  that a refusal, a repeat or a stray is copied to no task, and that the
+  streaming gate's retry mode is "all after". The pure proof holds each by a
+  reading of the source (`what-no-run-in-process-can-see`). A reading shows
+  how the code is written, not what a cluster does with it: a row that a copy
+  to itself would set back, or the cost of a copy that writes nothing, is
+  measured by no check.
 
 ## The door's proof
 

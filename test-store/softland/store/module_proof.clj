@@ -2037,6 +2037,7 @@
                   (some? (entry :canvas :on s1 u :b2))]
         both-base (canvas-act [])
         both (decide! (assoc both-base :facts [{:e :canvas :k marks :v #{:on :in}} (value-fact :b5 :in :canvas-1)]))
+        marked-after-both (marked-keys :canvas)
         in-since (get (marked-keys :canvas) :in)
         after-both [(run-of :canvas :in in-since :canvas-1) (:stamp (fact-row :canvas :b5 :in))]
         later (decide! (canvas-act [(value-fact :b6 :in :canvas-1)]))
@@ -2085,6 +2086,8 @@
            [[] nil [:b2] true] after-11)
     (check "a mark and a fact under its key in one act: the act is decided with the marks as they were before it, so the fact is in no run, and its stamp is the key's stamp, not a later one"
            [[] in-since] after-both)
+    (check "the act that marks the keys again with one key more, and names nothing to replace: the key that was marked before keeps its stamp, and the new key gets the stamp of that act, as in the base"
+           {:on s2 :in (:stamp (:answer both))} marked-after-both)
     (check "a later fact under that key is in the order" [:b6] after-later)
     (check "a fact under a key that the layer does not mark has no row in the order by value"
            [] (rama/foreign-select [(path/sorted-map-range ":canvas :text " ":canvas :text!") path/MAP-KEYS] (:by-value-ps *hand*) {:pkey :canvas}))
