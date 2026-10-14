@@ -4,15 +4,28 @@
 
   A gate gives one stamp to each decision, accepted or refused. In both
   gates a stamp is strictly increasing in its layer: it is later than the
-  last stamp that the gate gave in that layer. It is later than each stamp
-  that the act carries, and below 2^62. The order is the layer's and not
-  the task's: two decisions in two layers of one task can have one stamp.
+  last stamp that the gate gave in that layer. The order is the layer's
+  and not the task's: two decisions in two layers of one task can have one
+  stamp.
+
+  Two more things hold of a stamp, each with its exception.
+
+    - The stamp of an accepted act is later than each stamp that the act
+      carries. The stamp of a refusal is not: it is the layer's last stamp
+      plus one, and nothing of what the refused thing carries is in it
+      (`softland.store.gate.decision/stamp-of`).
+    - A stamp is below 2^62, the bound of a stamp that an act can carry,
+      until its layer has had about 2^61 decisions. \"Last plus one\" has
+      no bound of its own; `softland.store.door.declaration/max-time` holds
+      the arithmetic.
 
   Where the time comes from. No gate reads a clock. A gate gives the time
-  on the act, which the door wrote from the clock of the server that runs
-  the door (`softland.store.door/send-act`), and the last stamp of the
-  act's layer. For a thing with no usable time it gives nil, and the stamp
-  is the layer's last stamp plus one. Sid's decisions of 13 October 2026
+  on the act, which the door writes from the clock of the server that runs
+  the door (`softland.store.door/send-act`), or whatever else appended the
+  thing wrote there: this code knows only that the part holds a number in
+  the range. And it gives the last stamp of the act's layer. For a
+  refusal, a thing with no usable time among them, it gives no time, and
+  the stamp is the layer's last stamp plus one. Sid's decisions of 13 October 2026
   say this: \"The door writes the time on the act. No gate reads a
   clock\", and \"A number counted per layer\". Nothing of a batch is in a
   stamp, so a gate that decides the same things in the same order gives
@@ -25,13 +38,15 @@
   of the time that the gate gave because of load. That is what the finding
   asks: plain milliseconds ran ahead under load. The packing reaches 2^62
   when the time reaches 2^46 milliseconds, in the year 4199; the
-  declaration holds the time on an act below that
-  (`softland.store.door.declaration/max-time`).
+  declaration holds the time on an act below half of that, 2^45
+  milliseconds, in the year 3084
+  (`softland.store.door.declaration/max-time` says why half).
 
-  The time in a stamp is not always the time on its act. A stamp is the
-  greatest of three numbers (`next-stamp`), so an act whose time is not
-  later than the time in its layer's last stamp gets that stamp plus one,
-  and an act that carries a later stamp gets that one plus one.
+  The time in a stamp is not always the time on its act. The stamp of an
+  accept is the greatest of three numbers (`next-stamp`), so an act whose
+  time is not later than the time in its layer's last stamp gets that
+  stamp plus one, and an act that carries a later stamp gets that one plus
+  one. The stamp of a refusal never holds the time on its thing.
 
   Inputs and results, by call:
 
@@ -97,13 +112,15 @@
   passes it.
 
   It never throws. What must hold for a stamp below 2^62: the time is below
-  2^46, as the declaration holds the time on an act; and the last and the
-  carried stamp are below 2^62 less one. A carried stamp is below 2^62 by
-  the form, and the gate refuses an act that carries one more than
-  `max-ahead-millis` ahead of its time before it makes a stamp. Limit: in a
-  layer whose last stamp holds a time at the end of that range, \"last plus
-  one\" passes 2^62 when the counter is full, and an act cannot carry such
-  a stamp."
+  2^46, and the last and the carried stamp are below 2^62 less one. The
+  callers hold more than that. The declaration holds the time on an act
+  below 2^45. A carried stamp is below 2^62 by the form, and the gate
+  refuses an act that carries one more than `max-ahead-millis` ahead of its
+  time before it makes a stamp. So the time and the carried stamp plus one
+  give 655,360,000 above 2^61 at most
+  (`softland.store.door.declaration/max-time`). Limit: \"last plus one\"
+  has no bound here. It passes 2^62 after about 2^61 decisions in one
+  layer, and an act cannot carry such a stamp."
   [time-millis last-stamp greatest-carried]
   (let [of-the-time (when time-millis (pack time-millis 0))
         after-the-last (when last-stamp (unchecked-inc (long last-stamp)))

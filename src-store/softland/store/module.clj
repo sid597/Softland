@@ -70,9 +70,12 @@
   with no hop. In a microbatch layer that task decides each act of the
   layer and holds its answers, and the gate copies the rows of its facts
   from there to every task. The partitioner applies the keyword `:layer`
-  to the thing; on a thing that is no map a keyword gives nil and does not
-  throw. It runs on the appending client, so no thing can stop a partition
-  through it.
+  to the thing. On a thing that is no map a keyword gives nil and does not
+  throw. One kind of map is the exception: a sorted map whose keys do not
+  compare with a keyword, one with string keys for one, throws when a
+  keyword is looked up in it. The partitioner runs on the appending
+  client, so that throw is the client's, and no thing can stop a partition
+  through it. No run here made such an append.
 
   What an ack says. A client appends to the streaming depot with the ack
   level :ack: the append returns when the gate has processed the thing and

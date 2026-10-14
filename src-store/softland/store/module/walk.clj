@@ -64,11 +64,11 @@
                   one value and the bound on the act, so a thing over
                   either is refused here, before any row of its standing is
                   read.
-    3. the time   The time on the act, which the door wrote
+    3. the time   The time on the act, which the door writes, or whatever
+                  else appended the thing
                   (`softland.store.gate.decision/time-on`); nil for a thing
-                  with no usable time. A thing that the declaration refuses
-                  for another fault keeps its time. The 10-second rule
-                  holds each carried stamp against it.
+                  with no usable time. The 10-second rule holds each
+                  carried stamp against it.
     4. standing   Read the place of `:who`'s permission; only when it is
                   empty, the place of the layer's depot. When both are
                   empty and the layer starts with the other gate's depot,
@@ -94,8 +94,10 @@
                   of the facts by value.
     7. the stamp  Read the last stamp of the act's layer: the number under
                   the layer's text in `:last-stamp` of the task's table.
-                  The stamp is made of the time on the act, that last
-                  stamp, and the stamps that the act carries
+                  The stamp of an accept is made of the time on the act,
+                  that last stamp, and the stamps that the act carries.
+                  The stamp of a refusal is that last stamp plus one, or 0
+                  with none, whatever the thing carries
                   (`softland.store.gate.decision/stamp-of`). A refusal
                   writes the answer and the layer's last stamp and nothing
                   else. An accept writes the row of each fact, with the
@@ -110,8 +112,9 @@
   last stamp, so a decision in one layer does not raise the stamps of
   another layer of the task, and two layers of one task can hold the same
   stamp. In one layer each stamp is later than the one before, in the order
-  in which the walk was called. A thing with no usable time gets the
-  layer's last stamp plus one, or 0 in a layer with no last stamp.
+  in which the walk was called. A refused thing, one with no usable time
+  among them, gets the layer's last stamp plus one, or 0 in a layer with
+  no last stamp: only an accept moves a layer's time.
 
   The marked keys. An act is decided with the layer's marks as they were
   before it. So a fact of the act that marks its own key is not in the order
@@ -119,44 +122,53 @@
   fact with a later stamp under that key is in the order. The order of the
   calls is the order of a mark and of a fact after it.
 
-  What one call costs, in reads and writes of a row. A later stage's rows
-  are read only when the earlier checks passed, and no check reads the
-  marked keys.
+  What one call costs, in reads and writes. A later stage's rows are read
+  only when the earlier checks passed, and no check reads the marked keys.
 
-    - A stray: no read, and one add to a set.
+  How a read is counted: as Rama's skill text counts a read on disk, one
+  for each level of a path. A row of the answers or of the facts is one
+  key, so one read. A layer's last stamp is two: the number sits one level
+  down in its table, under a field and then the layer's key
+  (`softland.store.record.tables` says why it is kept so). A write is one
+  for each row, the last stamp too: each is a whole value at a fixed key,
+  which reads nothing. Counted from the dataflow; no run here measured a
+  read on disk.
+
+    - A stray: no row is read, and one add to a set. The add is not free
+      of a read: the set tracks its size, and Rama's docs say that size
+      tracking adds a read on disk to each write.
     - A thing under an act-id that has an answer: 1 read, no write.
     - A thing that the declaration refuses, one with no usable time or with
-      a value over the bound among them: 2 reads, the answer and the layer's
-      last stamp, and 2 writes, the answer and the layer's last stamp.
-    - An act whose permission does not stand: 4 reads at most, whatever it
-      carries, the answer, the two places of its standing and the layer's
-      last stamp, and the same 2 writes. An act into a layer of the other
-      gate is one of these.
-    - A making act: those 4 reads, and 4 writes: its two facts, the answer
+      a value over the bound among them: 3 reads, the answer and the two of
+      the layer's last stamp, and 2 writes, the answer and the layer's last
+      stamp.
+    - An act whose permission does not stand: 5 reads at most, whatever it
+      carries, the answer, the two places of its standing and the two of
+      the layer's last stamp, and the same 2 writes. An act into a layer of
+      the other gate is one of these.
+    - A making act: those 5 reads, and 4 writes: its two facts, the answer
       and the layer's last stamp.
-    - A give, one fact under `:softland.store/permission`: 4 reads, the
+    - A give, one fact under `:softland.store/permission`: 5 reads, the
       answer, the giver's permission, the place of the permission given and
-      the layer's last stamp, and 3 writes.
-    - One accepted act with one value under a plain key: 4 reads and 3
+      the two of the layer's last stamp, and 3 writes.
+    - One accepted act with one value under a plain key: 5 reads and 3
       writes. The reads are the answer, the permission, the marked keys and
-      the layer's last stamp; the writes are the fact, the answer and the
-      layer's last stamp. A fact that names something to replace costs the
-      read of its place more. The read of the marked keys is paid by every
-      accepted act that holds a fact under a plain key, also in a layer
-      that marks no key. When the fact's key is marked it costs 5 reads,
-      and with them the row before, and 4 writes, or 5 when the entry of a
-      value before goes out.
+      the two of the layer's last stamp; the writes are the fact, the
+      answer and the layer's last stamp. A fact that names something to
+      replace costs the read of its place more. The read of the marked keys
+      is paid by every accepted act that holds a fact under a plain key,
+      also in a layer that marks no key. When the fact's key is marked it
+      costs 6 reads, and with them the row before, and 4 writes, or 5 when
+      the entry of a value before goes out.
     - An act with no fact under a plain key, a give, a setting or a list,
       reads no marked keys.
 
-  The read and the write of a layer's last stamp are each counted as one
-  above; the number sits one level down in its table, under a field and
-  then the layer's key (`softland.store.record.tables` says what that costs
-  and why it is so). The greatest call: an act holds 256 facts at most
+  The greatest call: an act holds 256 facts at most
   (`softland.store.door.declaration/max-facts`), and each place is read
-  once, so a call makes 260 reads at most and 770 writes at most, three
-  for each fact and two more. Each of its three loops is over the act's own
-  rows and ends.
+  once, so a call makes 261 reads at most, the 256 places, the answer, the
+  permission, the marked keys and the two of the last stamp, and 770
+  writes at most, three for each fact and two more. Each of its three
+  loops is over the act's own rows and ends.
 
   It never gives its task back. Between the first read and the last write
   stands no partitioner, no yield, no read that may yield and no append:
@@ -252,7 +264,7 @@
   on the task that holds the rows of the thing's layer; and the things of
   one partition are handed to it in the depot's order, one call ended
   before the next begins. Limits: it holds the task's thread from its
-  first read to its last write, for 260 reads and 770 writes at most. It
+  first read to its last write, for 261 reads and 770 writes at most. It
   holds no partitioner, no yield, no read that may yield and no append, and
   none may be added: the namespace docstring says why."
   [$$answers $$facts $$facts-by-value $$task *gate *thing]

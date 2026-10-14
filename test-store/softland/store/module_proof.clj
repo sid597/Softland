@@ -321,8 +321,8 @@
 
 (def ^:private greatest-time
   "The greatest time that the declaration takes on an act, written out:
-  2^46 less one, 70,368,744,177,663 milliseconds."
-  70368744177663)
+  2^45 less one, 35,184,372,088,831 milliseconds."
+  35184372088831)
 
 (defn- send!
   "Appends a thing to the streaming depot with the ack level :ack, and keeps
@@ -547,26 +547,24 @@
   proof's own arithmetic. Takes first answers as `first-answers` keeps the
   streaming gate's, or as `decided-on-the-microbatch-depot` gives the
   microbatch gate's, in the order decided. For each it makes the stamp that the
-  rule gives: the greatest of the time on the thing with a counter of 0,
-  the stamp of the answer before it in its layer plus one, and the greatest
-  stamp that the thing carries plus one; each only when it is there, and 0
-  when none is. A thing has a time when it holds a fixed-width integer that
-  is not below zero and not above `greatest-time`. The stamps that
-  a thing carries, the values of its `:based-on`, count when a check of the
-  record decided it: not when its word is one of the declaration's, and not
-  when it is :carried-stamp-too-far-ahead. The stamp before is the one that
+  rule gives. For an accepted act: the greatest of the time on the thing
+  with a counter of 0, the stamp of the answer before it in its layer plus
+  one when there is one, and the greatest stamp that the thing carries, the
+  values of its `:based-on`, plus one when it carries one. For a refused
+  thing, whatever its word: the stamp of the answer before it in its layer
+  plus one, or 0 for the first answer of its layer; neither the time on it
+  nor a stamp that it carries counts. The stamp before is the one that
   the answer before holds, so each answer is held alone. Gives
   [short act-id, the stamp of the answer, the stamp by the rule] for each
   answer whose stamp is another: an empty vector when each is the rule's."
   [answers]
   (:apart
    (reduce (fn [{:keys [last apart]} {:keys [act-id layer stamp thing word]}]
-             (let [t (time-on thing)
-                   t (when (and (int? t) (<= 0 t greatest-time)) t)
-                   carried (when-not (or (= :carried-stamp-too-far-ahead word) (contains? declaration/reasons word))
-                             (some->> (:based-on thing) vals seq (reduce max)))
-                   given (remove nil? [(when t (stamp-at t 0)) (some-> (get last layer) inc) (some-> carried inc)])
-                   by-the-rule (if (seq given) (reduce max given) 0)]
+             (let [after-the-last (some-> (get last layer) inc)
+                   carried (some->> (:based-on thing) vals seq (reduce max))
+                   by-the-rule (if (= :accepted word)
+                                 (reduce max (remove nil? [(stamp-at (time-on thing) 0) after-the-last (some-> carried inc)]))
+                                 (or after-the-last 0))]
                {:last (assoc last layer stamp)
                 :apart (if (= by-the-rule stamp) apart (conj apart [(short-id act-id) stamp by-the-rule]))}))
            {:last {} :apart []}
@@ -1560,6 +1558,7 @@
 
 (deftest the-time-on-the-act
   (let [t chosen-time
+        hour 3600000
         layers (mapv #(keyword (str "timed-" %)) (range 5))
         own (fn [layer] [:alice layer layer])
         act-in (fn [layer e] (thing layer :alice (own layer) [(value-fact e :text (str "the text of " (name e)))]))
@@ -1584,13 +1583,14 @@
         at-zero (decide! (at-time (act-in l1 :at-zero) 0))
         no-times [(dissoc (act-in l1 :no-time) declaration/time-part)
                   (at-time (act-in l1 :nil-time) nil)
-                  (at-time (act-in l1 :time-2-to-the-46) (inc greatest-time))
+                  (at-time (act-in l1 :time-2-to-the-45) (inc greatest-time))
                   (at-time (act-in l1 :time-below-zero) -1)
                   (at-time (act-in l1 :time-no-integer) 1.5)]
         without (mapv decide! no-times)
         last-after-without (last-stamp l1)
-        unknown-part (decide! (at-time (assoc (act-in l1 :unknown-part) :a-part-that-no-form-names 1) (+ t 2)))
-        other-layers-permission (decide! (at-time (thing l1 :alice (own l2) [(value-fact :another-fault :text "x")]) (+ t 3)))
+        unknown-part (decide! (at-time (assoc (act-in l1 :unknown-part) :a-part-that-no-form-names 1) (+ t hour)))
+        other-layers-permission (decide! (at-time (thing l1 :alice (own l2) [(value-fact :another-fault :text "x")]) (+ t hour)))
+        stranger (decide! (at-time (thing l1 :mallory [:mallory l1 l1] [(value-fact :a-strangers :text "x")]) (+ t hour)))
         greatest (decide! (at-time (act-in l3 :greatest-time) greatest-time))
         lasts-at-the-end [(last-stamp l1) (last-stamp l2)]]
     (swap! kept assoc :timed {:layers [l1 l2] :last-stamps lasts-at-the-end})
@@ -1612,29 +1612,30 @@
     (check "c. an act whose time is earlier than its layer's last stamp, by 5 seconds, gets the last stamp plus one: the clock went back, and the stamps of the layer did not; an act with the time 0 on it, the earliest there is, the same"
            [[:accepted :accepted] [(stamp-at (inc t) 1) (stamp-at (inc t) 2)]]
            [(mapv :word [earlier at-zero]) (mapv (comp :stamp :answer) [earlier at-zero])])
-    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^46, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, under its own act-id with the digest of what was sent, with a stamp of the layer's last plus one, which the layer then keeps; and none writes a row"
+    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^45, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, under its own act-id with the digest of what was sent, with a stamp of the layer's last plus one, which the layer then keeps; and none writes a row"
            [(vec (repeat 5 :no-door-time)) (vec (repeat 5 true)) (mapv #(stamp-at (inc t) %) (range 3 8)) (stamp-at (inc t) 7)
             (vec (repeat 5 nil))]
            [(mapv :word without) (mapv :mine? without) (mapv (comp :stamp :answer) without) last-after-without
             (mapv (fn [x] (fact-row l1 (:e (first (:facts x))) :text)) no-times)])
-    (check "d. a thing with a usable time that the declaration refuses for another fault keeps its time in the stamp of its refusal: one with a part that no form names, whose word comes before the time's in the declaration's order, and one whose permission is for another layer, whose word comes after it"
-           [[:unknown-part (stamp-at (+ t 2) 0)] [:permission-not-in-layer (stamp-at (+ t 3) 0)]]
+    (check "d. a refused thing moves no layer's time. Three things, each with a usable time one hour after the chosen one: one with a part that no form names, whose word comes before the time's in the declaration's order; one whose permission is for another layer, whose word comes after it; and an act of a stranger under a permission that no act gave, which the declaration takes and the gate refuses for its standing. Each gets the layer's last stamp plus one, with nothing of the time on it"
+           [[:unknown-part (stamp-at (inc t) 8)] [:permission-not-in-layer (stamp-at (inc t) 9)] [:permission-does-not-stand (stamp-at (inc t) 10)]]
            [[(:word unknown-part) (:stamp (:answer unknown-part))]
-            [(:word other-layers-permission) (:stamp (:answer other-layers-permission))]])
-    (check "d. the greatest time that the declaration takes, 2^46 less one, is taken, in a layer of its own: the act is accepted, and its stamp is that time with a counter of 0, which is below 2^62"
+            [(:word other-layers-permission) (:stamp (:answer other-layers-permission))]
+            [(:word stranger) (:stamp (:answer stranger))]])
+    (check "d. the greatest time that the declaration takes, 2^45 less one, is taken, in a layer of its own: the act is accepted, and its stamp is that time with a counter of 0, which is below 2^61"
            [:accepted (stamp-at greatest-time 0) true]
-           [(:word greatest) (:stamp (:answer greatest)) (< (:stamp (:answer greatest)) act/max-carried-stamp)])
-    (check "at the end of the walk each of the two layers of one task keeps the stamp of its own last decision"
-           [(stamp-at (+ t 3) 0) (stamp-at t 1)] lasts-at-the-end)
+           [(:word greatest) (:stamp (:answer greatest)) (< (:stamp (:answer greatest)) (quot act/max-carried-stamp 2))])
+    (check "at the end of the walk each of the two layers of one task keeps the stamp of its own last decision: the first layer's is the stamp of its last refusal, of the time one millisecond after the chosen one and not of an hour after it"
+           [(stamp-at (inc t) 10) (stamp-at t 1)] lasts-at-the-end)
     (shown "the time on the act makes the stamp, in the streaming gate. Five layers made with the chosen time" t
            "on their making acts, each with the stamp" (stamp-at t 0) "| in one of them the same time again:" (told same-1) "|" (told same-2)
            "| a later time:" (told later) "| a time 5 s earlier, and the time 0:" (told earlier) "|" (told at-zero))
     (shown "two layers of one task count apart," l1 "and" l2 "| after three decisions in the first the other stood at" (pr-str other-before)
            "| its next act:" (told other-1) "| the last stamps that the task keeps, of the first and of the other, read by each layer:" (pr-str lasts-then))
-    (shown "a thing with no usable time is refused, with the layer's last stamp plus one: no time, nil, 2^46, below zero, no integer:"
+    (shown "a thing with no usable time is refused, with the layer's last stamp plus one: no time, nil, 2^45, below zero, no integer:"
            (pr-str (mapv (juxt :word (comp :stamp :answer)) without))
-           "| refused for another fault, with a usable time:" (told unknown-part) "|" (told other-layers-permission)
-           "| the greatest time, 2^46 less one:" (told greatest))))
+           "| refused for another fault, with a time one hour ahead, the last stamp plus one too:" (told unknown-part) "|" (told other-layers-permission)
+           "|" (told stranger) "| the greatest time, 2^45 less one:" (told greatest))))
 
 (deftest strays-and-limits
   (let [counts (fn [] (into {} (map (fn [w] [w (strays w)])) declaration/stray-reasons))
@@ -1671,6 +1672,7 @@
         ;; chooses one time for the four acts: one millisecond later than
         ;; the time in the layer's last stamp, so each stamp is exact.
         t (inc (time-of-last :alice))
+        last-before-the-rule (last-stamp :alice)
         fact-id [[:alice :streaming (UUID. 0 1)] 0]
         edge (stamp-at (+ t 10000) 65535)
         far-ahead (decide! (alice [{:e :note-33 :k :text}] {declaration/time-part t :based-on {fact-id (inc edge)}}))
@@ -1714,10 +1716,10 @@
     (check "an id that prints to more than 256 characters is refused, and the refusal is recorded under the act-id" :id-too-long (:word long-entity))
     (check "the 10-second rule is held against the time on the act, at its edge: an act that carries a stamp whose time is 10,001 ms after the time on the act, with a counter of 0, is refused"
            :carried-stamp-too-far-ahead (:word far-ahead))
-    (check "its answer holds an ordinary stamp, not one that follows the carried stamp: the time on the act, which is later than the layer's last stamp, with a counter of 0"
-           (stamp-at t 0) (:stamp (:answer far-ahead)))
-    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the same time on the act gives the counter 1"
-           [:accepted (stamp-at t 1)] [(:word claim) (:stamp (:answer claim))])
+    (check "its answer holds the stamp of any refusal, the layer's last stamp plus one, which holds neither the time on the act, though that is later than the time in the layer's last stamp, nor the carried stamp"
+           (inc last-before-the-rule) (:stamp (:answer far-ahead)))
+    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the time on the act, which no stamp of the layer holds yet, with a counter of 0"
+           [:accepted (stamp-at t 0)] [(:word claim) (:stamp (:answer claim))])
     (check "an act that carries a stamp whose time is exactly 10,000 ms after the time on the act, with the counter full, one stamp below the one that was refused, based on a fact and because of an act that the record does not hold, is accepted, with the carried stamp plus one"
            [:accepted (inc edge)] [(:word at-the-edge) (:stamp (:answer at-the-edge))])
     (check "and the next stamp of the layer, for an act with the same time on it, is one more; it is the layer's last stamp"
@@ -2657,11 +2659,12 @@
         at-zero (act-at :at-zero 0)
         no-times [(dissoc (act-at :no-time t) declaration/time-part)
                   (act-at :nil-time nil)
-                  (act-at :time-2-to-the-46 (inc greatest-time))
+                  (act-at :time-2-to-the-45 (inc greatest-time))
                   (act-at :time-below-zero -1)
                   (act-at :time-no-integer 1.5)]
-        unknown-part (at-time (assoc (system-act [(value-fact :unknown-part :text "x")]) :a-part-that-no-form-names 1) (+ t 2))
-        other-layers-permission (at-time (thing :base :system [:system :alice :alice] [(value-fact :another-fault :text "x")]) (+ t 3))
+        hour 3600000
+        unknown-part (at-time (assoc (system-act [(value-fact :unknown-part :text "x")]) :a-part-that-no-form-names 1) (+ t hour))
+        other-layers-permission (at-time (thing :base :system [:system :alice :alice] [(value-fact :another-fault :text "x")]) (+ t hour))
         ;; The 10-second rule, at its edge, against the time on the act.
         t2 (+ t 4)
         fact-id [[:base :microbatch (UUID. 0 1)] 0]
@@ -2701,27 +2704,27 @@
     (check "c. an act whose time is earlier than the base's last stamp, by 5 seconds, gets the last stamp plus one: the clock went back, and the stamps of the base did not; an act with the time 0 on it, the earliest there is, the same"
            [[:accepted :accepted] [(stamp-at (inc t) 1) (stamp-at (inc t) 2)]]
            [(subvec words 4 6) (subvec stamps 4 6)])
-    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^46, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, with a stamp of the base's last plus one; and none writes a row on any task"
+    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time of 2^45, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, with a stamp of the base's last plus one; and none writes a row on any task"
            [(vec (repeat 5 :no-door-time)) (mapv #(stamp-at (inc t) %) (range 3 8)) (vec (repeat 5 {}))]
            [(subvec words 6 11) (subvec stamps 6 11)
             (mapv (fn [x] (facts-on-every-task (:e (first (:facts x))) :text)) no-times)])
-    (check "d. a thing with a usable time that the declaration refuses for another fault keeps its time in the stamp of its refusal: one with a part that no form names, and one whose permission is for another layer"
-           [[:unknown-part (stamp-at (+ t 2) 0)] [:permission-not-in-layer (stamp-at (+ t 3) 0)]]
+    (check "d. a refused thing moves no time of the base: a thing with a usable time one hour ahead that the declaration refuses for another fault, one with a part that no form names and one whose permission is for another layer, gets the base's last stamp plus one, with nothing of the time on it"
+           [[:unknown-part (stamp-at (inc t) 8)] [:permission-not-in-layer (stamp-at (inc t) 9)]]
            [[(nth words 11) (nth stamps 11)] [(nth words 12) (nth stamps 12)]])
-    (check "the 10-second rule is held against the time on the act, at its edge: an act that carries a stamp whose time is 10,001 ms after the time on the act, with a counter of 0, is refused; its answer holds an ordinary stamp, the time on the act with a counter of 0"
-           [:carried-stamp-too-far-ahead (stamp-at t2 0)] [(nth words 13) (nth stamps 13)])
-    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the same time on the act gives the counter 1"
-           [:accepted (stamp-at t2 1)] [(nth words 14) (nth stamps 14)])
+    (check "the 10-second rule is held against the time on the act, at its edge: an act that carries a stamp whose time is 10,001 ms after the time on the act, with a counter of 0, is refused; its answer holds the stamp of any refusal, the base's last stamp plus one, which holds neither the time on the act nor the carried stamp"
+           [:carried-stamp-too-far-ahead (stamp-at (inc t) 10)] [(nth words 13) (nth stamps 13)])
+    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: the time on the act, which is the first later than the time in the base's last stamp since the refusals, with a counter of 0"
+           [:accepted (stamp-at t2 0)] [(nth words 14) (nth stamps 14)])
     (check "an act that carries a stamp whose time is exactly 10,000 ms after the time on the act, with the counter full, one stamp below the one that was refused, is accepted, with the carried stamp plus one"
            [:accepted (inc edge)] [(nth words 15) (nth stamps 15)])
     (check "and the next stamp of the base, for an act with the same time on it, is one more; it is the base's last stamp"
            [(+ 2 edge) (+ 2 edge)] [(nth stamps 16) last-after])
-    (check "b. two layers of one task count apart in the microbatch gate too. A layer that starts streaming and whose id hashes to the base's task gets, for its first act on the microbatch depot, with a time of 2023 on it, a refusal whose stamp is that time with a counter of 0: its own count, far below the base's last stamp on that task. An act of the base, appended between, gets the base's last stamp plus one. The layer's second act gets the counter 1"
+    (check "b. two layers of one task count apart in the microbatch gate too. A layer that starts streaming and whose id hashes to the base's task gets, for its first act on the microbatch depot, with a time of 2023 on it, a refusal whose stamp is 0: the stamp of a refusal in a layer with no last stamp, which holds nothing of that time; its own count, far below the base's last stamp on that task. An act of the base, appended between, gets the base's last stamp plus one. The layer's second act, refused too, gets 1"
            [true [:layer-belongs-to-the-other-gate :accepted :layer-belongs-to-the-other-gate]
-            [(stamp-at chosen-time 0) (+ 3 edge) (stamp-at chosen-time 1)]]
+            [0 (+ 3 edge) 1]]
            [(some? beside) (mapv :word [beside-1 base-between beside-2]) (mapv (comp :stamp :answer) [beside-1 base-between beside-2])])
     (check "b. the base's task keeps a last stamp for each of the two layers, each its own, and no other task keeps one for that layer"
-           [(stamp-at chosen-time 1) (+ 3 edge) {(:base-task @kept) (stamp-at chosen-time 1)}]
+           [1 (+ 3 edge) {(:base-task @kept) 1}]
            lasts-of-the-task)
     (shown "two layers of one task count apart in the microbatch gate: the layer" beside "on the base's task," (told beside-1) "|" (told beside-2)
            "| an act of the base between them:" (told base-between) "| the last stamps that the task keeps, of that layer and of the base:"
@@ -2729,9 +2732,9 @@
     (shown "the time on the act makes the stamp, in the microbatch gate, for seventeen things of one batch. The chosen time" t
            "| three acts with it:" (pr-str (subvec stamps 0 3)) "| a later time:" (told (nth results 3))
            "| a time 5 s earlier, and the time 0:" (told (nth results 4)) "|" (told (nth results 5)))
-    (shown "in the base a thing with no usable time is refused, with the last stamp plus one: no time, nil, 2^46, below zero, no integer:"
+    (shown "in the base a thing with no usable time is refused, with the last stamp plus one: no time, nil, 2^45, below zero, no integer:"
            (pr-str (mapv vector (subvec words 6 11) (subvec stamps 6 11)))
-           "| refused for another fault, with a usable time:" (told (nth results 11)) "|" (told (nth results 12)))
+           "| refused for another fault, with a time one hour ahead, the last stamp plus one too:" (told (nth results 11)) "|" (told (nth results 12)))
     (shown "the 10-second rule in the base, against the time" t2 "on the act | a carried stamp 10,001 ms after it, counter 0:" (told (nth results 13))
            "| one stamp below, 10,000 ms after it with the counter full:" (told (nth results 15)) "carried" edge
            "| claimed-when far ahead:" (told (nth results 14)) "| the next stamp of the base:" (nth stamps 16))))
@@ -3405,7 +3408,7 @@
            true (every? (fn [[_ of-the-layer]] (apply < (map :stamp of-the-layer))) by-layer))
     (check "the order is the layer's and not the task's: on a task that holds more than one layer the stamps do not all go up in the order sent"
            true (boolean (some (fn [[_ on-the-task]] (not (apply < (map :stamp on-the-task)))) by-partition)))
-    (check "each stamp is the number that the gate's rule gives, by the proof's own arithmetic: the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one. It is held for each of the more than 150 answers that the hand read, and the answer of each act-id that has one is among them"
+    (check "each stamp is the number that the gate's rule gives, by the proof's own arithmetic: for an accepted act the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one; for a refused thing the stamp before it in its layer plus one, or 0 with none before it. It is held for each of the more than 150 answers that the hand read, and the answer of each act-id that has one is among them"
            [true (count answered) []]
            [(< 150 (count answers)) (count answers) apart-from-the-rule])
     (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another"
@@ -3539,7 +3542,7 @@
            [true []] [(< 600 (count decided)) (vec (keep (fn [d] (when (= :nothing-yet (:word d)) (short-id (:act-id d)))) decided))])
     (check "the stamps of the answers increase strictly in each layer of the microbatch depot, in the depot's order"
            true (every? (fn [[_ of-the-layer]] (apply < (map :stamp of-the-layer))) by-layer))
-    (check "each stamp is the number that the gate's rule gives, by the proof's own arithmetic, as for the streaming gate: the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one. It is held for each thing that the microbatch gate decided, in the depot's order"
+    (check "each stamp is the number that the gate's rule gives, by the proof's own arithmetic, as for the streaming gate: for an accepted act the greatest of the time that the hand wrote on the thing with a counter of 0, the stamp before it in its layer plus one, and the greatest stamp that the thing carries plus one; for a refused thing the stamp before it in its layer plus one, or 0 with none before it. It is held for each thing that the microbatch gate decided, in the depot's order"
            [] apart-from-the-rule)
     (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another"
            [true (short-id (:act-id (nth decided 1)))]

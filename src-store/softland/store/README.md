@@ -231,14 +231,20 @@ shape must hold when each fact is wrong.
   microbatch depot such a thing finds the layer's facts, which every task
   holds, and not the layer's last stamp or its answers: it is decided out of
   the layer's line, and its answer is on a task where no read by its act-id
-  looks.
+  looks. When its permission stands it is accepted there, and the copies of
+  its facts write over the rows of the same places on every other task, the
+  base's own among them. Read from the dataflow; no run made such an append.
 - **The time on an act.** A gate takes the time as it arrived. It cannot tell
   the clock of a door's server from a number that another sender wrote, and it
-  holds the time against no clock: only to its range, 0 or more and below 2^46
-  milliseconds. Two doors on two servers write two clocks, and nothing holds
-  one against the other. A time that is behind the layer's last stamp does not
-  put a stamp back: the stamp is then the last stamp plus one. A time that is
-  far ahead is taken, and each later stamp of its layer is later than it;
+  holds the time against no clock: only to its range, 0 or more and below 2^45
+  milliseconds. Two doors on two servers write two clocks. No check holds one
+  clock against the other by itself; the 10-second rule does through a layer's
+  stamps, since an act that carries a true stamp of its layer is refused when
+  that stamp's time is more than 10 seconds ahead of the time on the act. A
+  time that is behind the layer's last stamp does not put a stamp back: the
+  stamp is then the last stamp plus one. A time that is far ahead is taken
+  when the act is accepted, and each later stamp of its layer is later than
+  it; the time on a thing that is refused moves nothing.
   "Engineering choices" says what is kept there and not decided.
 - **The order of a layer's acts after a failure.** No check of a gate looks at
   it. "The order of a layer's acts after a failure", below, says what was run,
@@ -310,10 +316,12 @@ shape must hold when each fact is wrong.
   was given a row before a retry was not run
   ([door_reads.clj](module/door_reads.clj)).
 - **What an act with no permission costs a gate.** For an act in a made layer
-  whose `:who` holds no permission there: 4 reads and 2 row writes, whatever
+  whose `:who` holds no permission there: 5 reads and 2 row writes, whatever
   the act carries, in either gate. It reads the answer, the two places of its
-  standing and the layer's last stamp, and writes the answer and the layer's
-  last stamp. The door is no guard of it: it stops no act. Each act
+  standing and the layer's last stamp, which is two reads, and writes the
+  answer and the layer's last stamp. Its refusal raises the layer's last stamp
+  by one and moves no time of the layer, whatever time it carries. The door is
+  no guard of it: it stops no act. Each act
   of such a who reaches the gate and is recorded, refused under its own act-id
   (entry 7 of 12 October). In the base each is decided on the layer's task, in
   the layer's one line.
@@ -591,31 +599,34 @@ Counted from the dataflow, not measured.
 
 | | Reads | Row writes |
 |---|---|---|
-| The key not marked, or no key of the layer marked | 4: the answer, the permission, the marked keys, the layer's last stamp | 3: the fact, the answer, the layer's last stamp |
-| The key marked | 5: and the row before | 4: and the entry in. 5 when the entry of a value before goes out |
+| The key not marked, or no key of the layer marked | 5: the answer, the permission, the marked keys, and two for the layer's last stamp | 3: the fact, the answer, the layer's last stamp |
+| The key marked | 6: and the row before | 4: and the entry in. 5 when the entry of a value before goes out |
 
-Without the order by value it would be 3 reads. The one read more, of the
+Without the order by value it would be 4 reads. The one read more, of the
 layer's marked keys, is paid by every accepted act with a fact under a plain
 key, also in a layer that marks no key: a gate must know whether the key is
 marked where it writes the fact. An act with no fact under a plain key, a
 give, a setting or a list, reads no marked keys. A refused act reads none
 either: no check reads the marked keys. An act that the declaration refuses, a
 value or an act over its bound and a thing with no usable time among them,
-costs 2 reads, the answer and the layer's last stamp, and 2 row writes. Keeping
+costs 3 reads, the answer and the two of the layer's last stamp, and 2 row writes. Keeping
 the marks in memory
 between two events would be a cache, which the project's rule sends to its own
 examination. The marks are a fact of the layer, in the table of facts, and the
-layer's last stamp is in what the gate keeps for a task; so they are two reads.
-A form that would give 3 reads again was found and is not built: one row for
-each layer that holds the layer's last stamp and its marks. Kept as built, and
-not decided.
+layer's last stamp is in what the gate keeps for a task; so they are three
+reads, one for the marks and two for the last stamp. A form that would give 3
+reads for the whole act, where the count is 5, was found and is not built: one
+row for each layer that holds the layer's last stamp and its marks. Kept as
+built, and not decided.
 
 A thing under an act-id that has an answer costs 1 read and no write. A stray
-costs no read and one add to a set. The read and the write of a layer's last
-stamp are each counted as one; the number sits one level down in its table,
-under a field and then the layer's key, and [tables.clj](record/tables.clj)
-says what that costs. [walk.clj](module/walk.clj) holds the count for each
-kind of thing. The streaming gate's event is the walk and nothing else, so
+reads no row and costs one add to a set; the set tracks its size, and Rama's
+docs say that size tracking adds a read on disk to each write. The read of a
+layer's last stamp is counted as two: the number sits one level down in its
+table, under a field and then the layer's key, and Rama's skill text counts
+each level of a path as a read on disk ([tables.clj](record/tables.clj) says
+why it is kept so). Its write is one. No run here measured a read on disk.
+[walk.clj](module/walk.clj) holds the count for each kind of thing. The streaming gate's event is the walk and nothing else, so
 this is the whole cost of a thing of a streaming layer.
 
 **A permission fact sits on its holder.** The gate then finds the permission of
@@ -744,7 +755,8 @@ place or at the depot's place says that the layer is this gate's.
 
 **The stamp's packing.** Milliseconds since 1970 × 65,536 + a counter. One
 millisecond holds 65,536 stamps for a layer; the packing reaches 2^62 in the year
-4199, and the declaration holds the time on an act below that. A layer's last
+4199, and the declaration holds the time on an act below half of that, 2^45
+milliseconds, in the year 3084. A layer's last
 stamp is read from the record at each decision, by the walk, in both gates, and
 is not kept in memory:
 that would be a cache, and the project's rule sends a cache to its own
@@ -801,11 +813,17 @@ writes it under `:door-time`, in milliseconds since 1970
 ([door.clj](door.clj)); it is the one read of a clock on the way of an act
 through the store. The rest is a session's, each for Sid to review:
 
-- A refused act keeps its time. A thing that the declaration refuses for a
-  fault other than its time still carries a usable time, and the stamp of its
-  refusal holds it. A thing with no usable time gets its layer's last stamp
-  plus one, or 0 in a layer with no stamp yet (`time-on` in
-  [decision.clj](gate/decision.clj)).
+- A refused thing moves no layer's time. The stamp of a refusal, whatever its
+  word, is the layer's last stamp plus one, or 0 in a layer with no stamp yet:
+  neither the time on the thing nor a stamp that it carries is in it. Only an
+  act that a gate accepts puts a time into a layer's stamps (`stamp-of` in
+  [decision.clj](gate/decision.clj)). Why: anything can arrive on a depot.
+  Were the time of a refused thing in its stamp, one thing with a time far
+  ahead, from a sender with no permission, would set its layer's stamps ahead
+  for good, and the 10-second rule would then refuse each honest act that
+  carries a true stamp of that layer. The module's proof holds, in both gates,
+  that a refused thing with a time one hour ahead gets the last stamp plus
+  one.
 - Where the time stands in the order of the reasons. A part that the form does
   not know, and a `:depot` that is no depot word, are told before a missing
   time; each of the maker's own parts after it. It follows from where the part
@@ -832,17 +850,28 @@ one. The one place is `send-act` in [door.clj](door.clj). It is Sid's to say.
 **What happens to a record that arrives with no time is not decided.** Kept for
 now: a gate refuses it `:no-door-time`, and the refusal is recorded under its
 act-id, with a stamp of the layer's last plus one. The same word is for a time
-that is nil, no fixed-width integer, below zero, or 2^46 or more. The one place
+that is nil, no fixed-width integer, below zero, or 2^45 or more. The one place
 is the entry of the time's part in the shape `:arrived-act`, in `shapes` of
 [declaration.clj](door/declaration.clj). It is Sid's to say.
 
 **Where a time that is far ahead is stopped is not decided.** Kept for now:
 nowhere but at the end of the range. The declaration holds the time to 0 or
-more and below 2^46 milliseconds, so that no stamp passes 2^62, and no check
-holds it against a clock. A thing that anything appends with a time far ahead
-of every clock is accepted when the rest of it is right, and each later stamp
-of its layer is later than that time. The one place is `max-time` in
+more and below 2^45 milliseconds, and no check holds it against a clock. A
+thing that anything appends with a time far ahead of every clock is accepted
+when the rest of it is right and its sender may act in the layer, and each
+later stamp of its layer is later than that time. A thing that is refused
+moves nothing, whatever time it carries. The one place is `max-time` in
 [declaration.clj](door/declaration.clj). It is Sid's to say.
+
+Why the range ends at 2^45 and not at 2^46, where the packing reaches 2^62: an
+act can carry no stamp of 2^62 or more, so a layer whose stamps reach 2^62 has
+facts that no later act can name. With the time below 2^45 a stamp of the time
+alone is below 2^61. The greatest stamp that an accepted act carries is 10
+seconds ahead of its time, and that plus one is 655,360,000 above 2^61. From
+there only "last plus one" raises a layer's stamps, one for each decision, an
+accept or a refusal: about 2^61 decisions in one layer to reach 2^62. With the
+range at 2^46 it would take one accepted act, with a time of 2^46 less one and
+the greatest stamp of that millisecond carried.
 
 **The stamp is counted in the layer.** That is Sid's decision 8 of 13 October,
 above. A gate keeps one last stamp for each layer, and an act's stamp is the
@@ -922,12 +951,15 @@ to replace. Counted from the dataflow, not measured.
 
 | | On the layer's task | On each other task | Messages |
 |---|---|---|---|
-| The key not marked | The walk: 4 reads, 3 row writes | 1 row write: the fact | One to each of the N tasks |
-| The key marked | The walk: 5 reads, 4 row writes, or 5 | 2 row writes: the fact and the entry in. 3 when the entry of a value before goes out | One to each of the N tasks |
+| The key not marked | The walk: 5 reads, 3 row writes | 1 row write: the fact | One to each of the N tasks |
+| The key marked | The walk: 6 reads, 4 row writes, or 5 | 2 row writes: the fact and the entry in. 3 when the entry of a value before goes out | One to each of the N tasks |
 
 The copy reads nothing. For an accept that wrote c rows of facts and of the
 facts by value it is c row writes on each of the N - 1 other tasks: 3 + (N - 1)
-row writes in all for the first row of the table. A refusal, a thing under an
+row writes in all for the first row of the table. Two costs are not in the
+table: each message carries the c rows whole, so the bytes of an accept's rows
+are sent to each other task; and each row of the base's facts is stored once
+on every task, N times what a row of a streaming layer takes. A refusal, a thing under an
 act-id that has an answer and a stray give no rows, and the gate then goes
 nowhere.
 
@@ -1007,6 +1039,8 @@ check that examines facts takes them in the act's order.
     time that arrived on the act. So the rule holds a carried stamp to the
     act's own time, and nothing holds that time to a clock: a thing that is
     appended with no door can carry a time far ahead and a stamp beside it.
+    Such a thing moves its layer's stamps only when a gate accepts it: the
+    stamp of a refusal is the layer's last stamp plus one.
     "Where a time that is far ahead is stopped is not decided", above, says
     what is kept.
 18. A microbatch act has one stamp, on its answer and on each of its facts, on
@@ -1050,7 +1084,7 @@ check that examines facts takes them in the act's order.
     rule or by the test for a stray, before a row key is built from an id. Two
     are held by the last step of the check: the bound on one value, counted of
     its text, and the bound on one act. One is held by the shape: the time on
-    an act is below 2^46 milliseconds. The two of the read build are among the
+    an act is below 2^45 milliseconds. The two of the read build are among the
     five: a layer builds on 64 layers at most, and marks 32 keys at most.
 21. The aims: 1,000 acts a second on one task; 20 ms from the door's append to the
     answer in the door's hand. The contract's third is of the bytes of a lock
@@ -1059,9 +1093,9 @@ check that examines facts takes them in the act's order.
     build time a gate under 100 acts a second on the in-process cluster, with
     every row in memory ([the proofs' map](../../../test-store/softland/store/README.md),
     "The measures"); that is a floor for a round trip and no measure of an aim.
-    By the cost of a cold read, the 4 reads of one accepted act give
-    480 to 770 acts a second on one task, and the 5 of an act under a marked key
-    384 to 616; the first aim is met only when the rows are read from memory.
+    By the cost of a cold read, the 5 reads of one accepted act give
+    384 to 616 acts a second on one task, and the 6 of an act under a marked key
+    320 to 513; the first aim is met only when the rows are read from memory.
     For the microbatch gate: 1,000 acts a second arriving
     on one depot partition, which needs a run of the gate inside a second; and an
     answer readable when the batch that decided the act is committed on the
@@ -1150,7 +1184,7 @@ is one line" and "run again" are Sid's words, of 13 October. "Batch" and
 |---|---|
 | the time on the act; `:door-time` | The part that the door adds to a maker's thing beside `:act-id` and `:depot`: the clock of the server that runs the door, in milliseconds since 1970. `:door-time` is a working name, kept for now and not decided |
 | `time-part` | In [declaration.clj](door/declaration.clj): the one def that holds the name of that part |
-| `max-time` | In [declaration.clj](door/declaration.clj): the time on an act is below it. 2^46 milliseconds |
+| `max-time` | In [declaration.clj](door/declaration.clj): the time on an act is below it. 2^45 milliseconds |
 | `usable-time` | In [declaration.clj](door/declaration.clj): a thing as it arrived → its time when the shape takes it, or nil |
 | `:no-door-time` | The reason word of a thing whose time is absent or outside the range; in the list of the declaration's reason words, below |
 | `time-on` | In [decision.clj](gate/decision.clj): the time of a decision, which is the usable time of the thing |
@@ -1253,7 +1287,7 @@ word.
 | Word | What it is |
 |---|---|
 | `:depot-not-the-act-ids-depot` | `:depot` is absent, is no depot word, or is not the depot slot of the act-id |
-| `:no-door-time` | The time on the act, under `:door-time`, is absent, nil, no fixed-width integer, below zero, or 2^46 milliseconds or more |
+| `:no-door-time` | The time on the act, under `:door-time`, is absent, nil, no fixed-width integer, below zero, or 2^45 milliseconds or more |
 | `:too-many-facts` | More than 256 facts in one act |
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
 | `:store-key-not-known` | A fact's key is in the namespace `softland.store` and is not one of the store keys |

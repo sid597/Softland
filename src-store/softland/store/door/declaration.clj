@@ -138,9 +138,11 @@
   "The name of the part of an arrived thing that holds the time on the act:
   `:door-time`. The door writes the part (`softland.store.door/send-act`):
   the clock of the server that runs the door, in milliseconds since 1970.
-  Each gate makes the stamp of a decision of it
-  (`softland.store.gate.decision/time-on`), and the digest of a thing
-  leaves it out (`softland.store.door.digest`).
+  Anything else that appends a thing writes there what it will: a gate
+  knows that the part holds a number in the range (`usable-time`), and not
+  who wrote it. Each gate makes the stamp of an accept of it and holds
+  each carried stamp against it (`softland.store.gate.decision/time-on`),
+  and the digest of a thing leaves it out (`softland.store.door.digest`).
 
   Not decided: kept for now. What the time on the act is called is Sid's to
   say; `:door-time` is a working name, a session's. This def is the one
@@ -150,19 +152,42 @@
   :door-time)
 
 (def max-time
-  "The time on an act must be below this number, 2^46 milliseconds, which is
-  in the year 4199; and it must not be below zero. A stamp holds the time
-  above 16 bits of counter (`softland.store.gate.stamp`), so a time below
-  2^46 gives a stamp below 2^62, the bound of a carried stamp
-  (`softland.store.act/max-carried-stamp`).
+  "The time on an act must be below this number, 2^45 milliseconds, which is
+  in the year 3084; and it must not be below zero.
+
+  Why 2^45 and not 2^46. A stamp holds the time above 16 bits of counter
+  (`softland.store.gate.stamp`), and an act can carry no stamp of 2^62 or
+  more (`softland.store.act/max-carried-stamp`). So a layer whose stamps
+  reach 2^62 has a fact that no later act can name. The three numbers of
+  which a gate makes the stamp of an accept
+  (`softland.store.gate.stamp/next-stamp`), with the time below 2^45:
+
+    the time           a stamp of the time alone is below 2^61
+    a carried stamp    the gate refuses an act that carries a stamp more
+                       than 10 seconds ahead of its time
+                       (`softland.store.gate.stamp/max-ahead-millis`), so
+                       the greatest carried stamp of an accepted act is
+                       2^61 + 655,359,999, and that plus one is 655,360,000
+                       above 2^61
+    the last plus one  one more for each decision of the layer, an accept
+                       or a refusal
+
+  So a layer's stamps reach 2^62 only by \"last plus one\", after about
+  2^61 decisions in that one layer, which is 2.3 x 10^18. With the bound at
+  2^46 it would take one: an act with a time of 2^46 less one that carries
+  the greatest stamp of that millisecond would be accepted with the stamp
+  2^62 itself. A refusal puts no time in a stamp
+  (`softland.store.gate.decision/stamp-of`), so the three lines above are
+  all that can raise a layer's stamps.
 
   Not decided: kept for now. Where a time that is far ahead is stopped is
   Sid's to say. Nothing stops one but this range: no check holds the time
   on an act against a clock. A thing that anything appends with a time far
-  ahead of every clock is accepted when the rest of it is right, and each
-  later stamp of its layer is later than that time.
+  ahead of every clock is accepted when the rest of it is right and its
+  sender may act in the layer, and each later stamp of its layer is later
+  than that time.
   This number is the one place where a bound on the time is made."
-  (bit-shift-left 1 46))
+  (bit-shift-left 1 45))
 
 (defn usable-time
   "Takes a thing as it arrived, which can be anything. Gives the time on it,
@@ -170,11 +195,12 @@
   `:arrived-act` takes: a fixed-width integer that is not below zero and is
   below `max-time`. Gives nil for anything else: a thing that is no plain
   map, a thing with no time, and a time that the shape refuses with
-  `:no-door-time`. A gate makes the stamp of a decision of what this gives
-  (`softland.store.gate.decision/time-on`), also for a thing that `check`
-  refuses for another fault: the time is the thing's own whatever else is
-  wrong with it. It never throws: a thing that throws when the part is read
-  has no usable time."
+  `:no-door-time`. A gate makes the stamp of an accept of what this gives
+  (`softland.store.gate.decision/time-on`). It gives the time also for a
+  thing that `check` refuses for another fault: the time is the thing's
+  own whatever else is wrong with it. No stamp of a refusal holds it
+  (`softland.store.gate.decision/stamp-of`). It never throws: a thing that
+  throws when the part is read has no usable time."
   [thing]
   (let [t (try (when (and (map? thing) (not (record? thing))) (get thing time-part))
                (catch Throwable _ nil))]

@@ -93,12 +93,14 @@
 (defn time-on
   "Takes a thing as it arrived on a depot. Gives the time on it, in
   milliseconds since 1970, when it holds a usable one
-  (`softland.store.door.declaration/usable-time`): the time that the door
-  wrote from the clock of its server. Nil for a thing with no usable time,
-  which the declaration refuses `:no-door-time`. A thing that the
-  declaration refuses for another fault still has its time, so the stamp of
-  its refusal holds it. A gate gives what this gives to `refused-early` and
-  to `stamp-of`, and reads no clock for either."
+  (`softland.store.door.declaration/usable-time`): the time which the door
+  writes from the clock of its server, or whatever else appended the thing
+  wrote there. This code knows only that the part holds a number in the
+  range. Nil for a thing with no usable time, which the declaration refuses
+  `:no-door-time`. A gate gives what this gives to `refused-early`, which
+  holds each carried stamp against it, and to `stamp-of`, which puts it in
+  the stamp of an accept and in no stamp of a refusal. A gate reads no
+  clock for either."
   [thing]
   (declaration/usable-time thing))
 
@@ -206,10 +208,13 @@
   `:layer-belongs-to-the-other-gate` whether or not the other gate has made
   the layer, and never `:layer-not-made`. The word of an act for a layer of
   the other gate comes from the act alone: a session's rule, 14 October
-  2026, and no decision of Sid's. It is forced by his line that the store
-  comes out the same when it is run again: a word that followed what the
-  other gate had made by then would follow an order across two depots,
-  which no second run gives again."
+  2026, and no decision of Sid's. One half of the rule is forced by his
+  line that the store comes out the same when it is run again: the word
+  cannot follow the other gate's record, since a word that followed what
+  the other gate had made by then would follow an order across two depots,
+  which no second run gives again. The other half is the session's choice:
+  which of the two words is then given. `:layer-not-made` for every such
+  act would hold his line as well."
   [gate-depot act permission-row depot-row]
   (let [permission (:permission act)]
     (cond
@@ -428,22 +433,33 @@
   (`time-on`), or nil for a thing that has none; the last stamp that the
   gate gave in the act's layer, or nil before the layer's first decision;
   the act, or nil for a thing that the declaration refused; and the word of
-  the refusal, or nil. Gives the stamp (`softland.store.gate.stamp/next-stamp`):
-  later than the layer's last stamp, and later than each stamp that the act
-  carries. The one exception is what the 10-second rule is for: an act
-  refused :carried-stamp-too-far-ahead gets an ordinary stamp, which is not
-  later than the stamp that made it be refused.
+  the refusal, or nil for an accept. Gives the stamp
+  (`softland.store.gate.stamp/next-stamp`), which is later than the layer's
+  last stamp for an accept and for a refusal.
 
-  A thing that the declaration refused carries nothing here: its stamp is
-  the greater of its time and the layer's last stamp plus one. A thing with
-  no usable time gets the layer's last stamp plus one, or 0 in a layer with
-  no last stamp. The walk is the one caller, for both gates: no stamp holds
-  anything of a batch."
+  An accept: the greatest of the time on the act, the layer's last stamp
+  plus one, and the greatest stamp that the act carries plus one. So it is
+  also later than each stamp that the act carries.
+
+  A refusal, whatever its word: the layer's last stamp plus one, or 0 in a
+  layer with no last stamp. Neither the time on the thing nor a stamp that
+  it carries is in it, and the time is not read for it. So only an act
+  that a gate accepts moves a layer's time. A refused thing costs its
+  layer one stamp, whatever time is written on it and whoever appended it:
+  anything can arrive on a depot, from a sender with no permission and
+  into a layer that is not made, and were its time in the stamp, one such
+  thing with a time far ahead would set the layer's stamps ahead for good.
+  Two things follow. The stamp of a refusal is not later than the stamps
+  that the refused act carries. And the time in it is the time in the
+  layer's last stamp, not the time on the thing: in a layer with no last
+  stamp, the stamps of its first refusals are 0, 1, 2.
+
+  The walk is the one caller, for both gates: no stamp holds anything of a
+  batch."
   [time-millis last-stamp act refused]
-  (stamp/next-stamp time-millis
-                    last-stamp
-                    (when (and act (not= :carried-stamp-too-far-ahead refused))
-                      (stamp/greatest-carried act))))
+  (if refused
+    (stamp/next-stamp nil last-stamp nil)
+    (stamp/next-stamp time-millis last-stamp (stamp/greatest-carried act))))
 
 (defn- level-since-after
   "The stamps of a layer's marked keys after a write of the marks. Takes the

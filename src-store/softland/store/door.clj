@@ -412,8 +412,9 @@
   act-id (nil is none). Gives {:act-id :digest :ack}, or one of the door's
   own words.
 
-  `:digest` is the digest of the very thing that was appended, as 64 hex
-  characters: the digest that a gate keeps with its answer. `:ack` is
+  `:digest` is the digest of the thing that was appended, taken without
+  its time (`softland.store.door.digest`), as 64 hex characters: the digest
+  that a gate keeps with its answer. `:ack` is
   `:gate-ran` for the streaming depot and `:depot-holds` for the microbatch
   depot (`softland.store.door.words/acks`). It is a signal and never the
   answer: the maker reads the answer with `answer-of`. Once the call
@@ -458,8 +459,12 @@
   and in the base alike: no gate reads a clock (Sid's decision of 13
   October 2026), and each gate makes the stamp of its decision of this
   time and of the layer's last stamp (`softland.store.module.walk`). Two
-  doors on two servers write two clocks, and nothing holds one against the
-  other.
+  doors on two servers write two clocks. No check holds one clock against
+  the other by itself, and the 10-second rule does through a layer's
+  stamps: an act that carries a true stamp of its layer is refused
+  `:carried-stamp-too-far-ahead` when the act that got that stamp came
+  through a door whose clock is more than 10 seconds ahead of this door's
+  (`softland.store.gate.stamp/max-ahead-millis`).
 
   A second send. A second send of one act under one act-id is the same
   thing but for its time: it carries the door's clock of the second send,
@@ -467,8 +472,13 @@
   out, so both sends have one digest and read one answer as their own; a
   gate decides the first of the two to arrive, with the time of that one.
   Not decided: kept for now. What a second send of the same act carries as
-  its time is Sid's to say, and this call is the one place where another
-  answer would be made.
+  its time is Sid's to say. Another answer would be made in three places:
+  this call, which reads the clock at every send; the door's test of its
+  own parts (`softland.store.door.additions/reading`), which ends in
+  `:add-its-parts` for an act that already holds a time, so a maker cannot
+  hand the time of her first send in; and the digest's leaving the time
+  out (`softland.store.door.digest`), which is what makes two sends with
+  two times one thing.
 
   The door stops no act. An act that a gate will refuse, under a permission
   that does not stand or into a layer that is not made, goes into its depot

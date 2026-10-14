@@ -82,8 +82,12 @@
   rows of facts and of the facts by value, one message to each of the N
   tasks, and c writes on each of the N - 1 other tasks. No read. One
   accepted act with one value under a plain key that is not marked is
-  4 reads and 3 writes on the layer's task, by the walk, and 1 write on
-  each other task: 3 + (N - 1) writes in all.
+  5 reads and 3 writes on the layer's task, by the walk and its count of a
+  read (`softland.store.module.walk`), and 1 write on each other task:
+  3 + (N - 1) writes in all. Two costs are not in that count. Each message
+  carries the c rows whole, so the bytes of an accept's rows are sent to
+  each other task. And each row of a microbatch layer's facts is stored
+  once on every task: N times what a streaming layer's row takes.
 
   A second attempt of a batch. When something throws while a batch runs,
   Rama sets each PState of the topology back to what it held before the
@@ -133,7 +137,14 @@
     - The depot's partitioner puts a thing on its layer's task. A thing
       that a topology appends to another partition is decided against that
       task's part of the record: its facts are on every task, and its
-      layer's last stamp and its answers are not.
+      layer's last stamp and its answers are not. So an act of the base
+      on a wrong partition whose permission stands would be accepted
+      there, with a stamp that follows nothing of the base's line, and its
+      copies would write over the rows of the same places on every other
+      task, the base's own among them. No client can put a thing there: a
+      client's append goes through the depot's partitioner, and no
+      topology of this module appends to a depot. Read from the dataflow;
+      no run made such an append.
     - Rama emits the records of one partition in the depot's order, and
       runs the dataflow of one record up to its first partitioner before it
       takes the next. The walk has no partitioner, so a record is decided

@@ -492,12 +492,12 @@
 (def ^:private declared-shapes
   "The five shapes that the door adds, written out here a second time. What
   arrives holds the time on the act after the depot: a fixed-width integer
-  of 0 or more and below 2^46."
+  of 0 or more and below 2^45."
   {:arrived-act
    [:parts
     [:act-id :act-id]
     [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
-    [:door-time [:int {:min 0 :below 70368744177664}] {:reason :no-door-time}]
+    [:door-time [:int {:min 0 :below 35184372088832}] {:reason :no-door-time}]
     [:version [:enum 1] {:reason :unknown-version}]
     [:who :id]
     [:layer :id]
@@ -558,11 +558,11 @@
    ["the five shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
     (fn [] (apply dissoc declaration/shapes (keys act/shapes)))
     declared-shapes]
-   ["the name of the part that holds the time on the act, and the bound that the time must be below, 2^46 ms: each is what the shape of what arrives holds"
+   ["the name of the part that holds the time on the act, and the bound that the time must be below, 2^45 ms: each is what the shape of what arrives holds"
     (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
-             [declaration/time-part declaration/max-time (= declaration/max-time (bit-shift-left 1 46))
+             [declaration/time-part declaration/max-time (= declaration/max-time (bit-shift-left 1 45))
               (= part declaration/time-part) (= (:below (second shape)) declaration/max-time)]))
-    [:door-time 70368744177664 true true true]]
+    [:door-time 35184372088832 true true true]]
    ["the seventeen rules, the maker's first, each with its reason; the six of the keys that take a second write stand after the rules of a permission fact"
     (fn [] declaration/rules)
     declared-rules]
@@ -805,7 +805,7 @@
   time that `softland.store.door.declaration/usable-time` gives for it, nil
   for none; and the word of the check. A double and a big integer hold the
   number of `now`, so their class alone is the fault."
-  (let [bound (bit-shift-left 1 46)]
+  (let [bound (bit-shift-left 1 45)]
     [["no time" (without-time good) nil :no-door-time]
      ["a time that is nil" (at-time nil) nil :no-door-time]
      ["a time that is a string" (at-time "1700000000000") nil :no-door-time]
@@ -813,9 +813,9 @@
      ["a time that is a big integer" (at-time 1700000000000N) nil :no-door-time]
      ["a time that is a Java big integer" (at-time (java.math.BigInteger. "1700000000000")) nil :no-door-time]
      ["a time of -1" (at-time -1) nil :no-door-time]
-     ["a time of 2^46" (at-time bound) nil :no-door-time]
+     ["a time of 2^45" (at-time bound) nil :no-door-time]
      ["a time that is the greatest long" (at-time Long/MAX_VALUE) nil :no-door-time]
-     ["a time of 2^46 less one" (at-time (dec bound)) (dec bound) :ok]
+     ["a time of 2^45 less one" (at-time (dec bound)) (dec bound) :ok]
      ["a time of 0" (at-time 0) 0 :ok]
      ["a time that is a narrow integer" (at-time (int 1700001)) 1700001 :ok]
      ["the time of the proof's things" good now :ok]]))
@@ -1178,12 +1178,21 @@
       (fn [] [(stamp/greatest-carried {:based-on {[(act-id 2) 0] 5 [(act-id 2) 1] 9} :claimed-when 99})
               (stamp/greatest-carried {:based-on {} :claimed-when 99})])
       [9 nil]]
-     ["the packing reaches 2^62 when the time reaches 2^46 ms, in the year 4199; that is the bound of the time on an act, so the greatest time that the declaration takes, with a full counter, is the last stamp below 2^62"
-      (fn [] [(stamp/pack (bit-shift-left 1 46) 0)
-              (.getYear (.atZone (java.time.Instant/ofEpochMilli (bit-shift-left 1 46)) java.time.ZoneOffset/UTC))
-              (= declaration/max-time (bit-shift-left 1 46))
-              (= (stamp/pack (dec declaration/max-time) 65535) (dec act/max-carried-stamp))])
-      [(bit-shift-left 1 62) 4199 true true]]
+     ["the packing reaches 2^62, which no act can carry, when the time reaches 2^46 ms, in the year 4199. The bound of the time on an act is half of that, 2^45 ms, in the year 3084: the greatest time that the declaration takes, with a full counter, is the last stamp below 2^61. An act with that time is accepted with the greatest stamp that the 10-second rule lets it carry, and its own stamp is that one plus one, 655,360,000 above 2^61 and below 2^62; a carried stamp one millisecond later is too far ahead"
+      (fn [] (let [year-of (fn [millis] (.getYear (.atZone (java.time.Instant/ofEpochMilli millis) java.time.ZoneOffset/UTC)))
+                   greatest-time (dec declaration/max-time)
+                   greatest-carried (stamp/pack (+ greatest-time stamp/max-ahead-millis) 65535)
+                   accepted (stamp/next-stamp greatest-time nil greatest-carried)]
+               [(= act/max-carried-stamp (stamp/pack (bit-shift-left 1 46) 0) (bit-shift-left 1 62))
+                (year-of (bit-shift-left 1 46))
+                (= declaration/max-time (bit-shift-left 1 45))
+                (year-of declaration/max-time)
+                (= (stamp/pack greatest-time 65535) (dec (bit-shift-left 1 61)))
+                (stamp/too-far-ahead? greatest-time greatest-carried)
+                (- accepted (bit-shift-left 1 61))
+                (< accepted act/max-carried-stamp)
+                (stamp/too-far-ahead? greatest-time (inc greatest-carried))]))
+      [true 4199 true 3084 true false 655360000 true true]]
      ["a stamp of today is below 2^62"
       (fn [] (< (stamp/next-stamp t nil nil) act/max-carried-stamp))
       true]]))
@@ -1862,27 +1871,28 @@
                                                             {:place-rows {marks-place row-before} :level-from level-from})]
                            (record/marked-keys-of row)))
         uuid-who "#uuid \"00000000-0000-0000-0000-00000000004d\""]
-    [["the stamp of a decision: later than the layer's last stamp and than each stamp that the act carries"
+    [["the stamp of a decision. An accept's is later than the layer's last stamp and than each stamp that the act carries. A refusal's is the layer's last stamp plus one, or 0 in a layer with no last stamp, with nothing of the time on the thing or of a stamp that it carries: a thing that the declaration refused, and an act that carries a later stamp and is refused for its standing"
       (fn [] (let [carrying (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack (+ now 3000) 5)}))]
                [(decision/stamp-of now nil nil :malformed)
                 (decision/stamp-of now (stamp/pack now 4) (act-of good) nil)
                 (decision/stamp-of now (stamp/pack now 4) carrying nil)
                 (decision/stamp-of now (stamp/pack now 4) carrying :layer-not-made)]))
-      [(stamp/pack now 0) (stamp/pack now 5) (stamp/pack (+ now 3000) 6) (stamp/pack (+ now 3000) 6)]]
-     ["the stamp of a refused thing that has a time holds that time: a thing with a wrong version and a time 7 ms after `now`, its time read with `time-on`, in a layer with no last stamp and in a layer whose last stamp is of an earlier time; after a last stamp of a later time it is that stamp plus one"
-      (fn [] (let [refused (assoc (at-time (+ now 7)) :version 2)
+      [0 (stamp/pack now 5) (stamp/pack (+ now 3000) 6) (stamp/pack now 5)]]
+     ["a refused thing moves no layer's time: a thing with a wrong version and a time one hour after `now`, its time read with `time-on`. In a layer with no last stamp its stamp is 0, which holds no time; after a last stamp of the time `now` it is that stamp plus one, an hour before the time on the thing; after a last stamp of a later time it is that stamp plus one too"
+      (fn [] (let [hour 3600000
+                   refused (assoc (at-time (+ now hour)) :version 2)
                    word (:refuse (declaration/check refused))
                    stamp-after (fn [last-stamp] (decision/stamp-of (decision/time-on refused) last-stamp nil word))]
-               [word (stamp-after nil) (stamp/time-of (stamp-after nil)) (stamp-after (stamp/pack now 4))
-                (stamp-after (stamp/pack (+ now 9) 4))]))
-      [:unknown-version (stamp/pack (+ now 7) 0) (+ now 7) (stamp/pack (+ now 7) 0) (stamp/pack (+ now 9) 5)]]
+               [word (- (decision/time-on refused) now) (stamp-after nil) (stamp/time-of (stamp-after nil)) (stamp-after (stamp/pack now 4))
+                (stamp-after (stamp/pack (+ now hour 9) 4))]))
+      [:unknown-version 3600000 0 0 (stamp/pack now 5) (stamp/pack (+ now 3600009) 5)]]
      ["the stamp of a refused thing that has no time: the layer's last stamp plus one, and 0 in a layer with no last stamp"
       (fn [] (let [refused (without-time good)
                    word (:refuse (declaration/check refused))
                    stamp-after (fn [last-stamp] (decision/stamp-of (decision/time-on refused) last-stamp nil word))]
                [word (decision/time-on refused) (stamp-after (stamp/pack now 4)) (stamp-after nil)]))
       [:no-door-time nil (stamp/pack now 5) 0]]
-     ["an act refused for a carried stamp too far ahead gets an ordinary stamp"
+     ["an act refused for a carried stamp too far ahead gets the stamp of any refusal, the layer's last stamp plus one"
       (fn [] (decision/stamp-of now (stamp/pack now 4)
                                 (act-of (assoc good :based-on {[(act-id 2) 0] (stamp/pack (+ now 60000) 0)}))
                                 :carried-stamp-too-far-ahead))
@@ -2988,9 +2998,9 @@
                                           (:answers after)))]
                [(mapv first stamped) (= (mapv second stamped) (mapv s (range 20)))]))
       [[1 2 3 4 5 6 7 8 9 14 17 19 20 21 22 23 25 26 27 28] true]]
-     ["the last stamp is kept for a layer: the base's is the stamp of its last decision; each layer of the other gate, of which one thing was decided, has the stamp of that one decision, which is the first of the base's too, so a decision in one layer does not raise the stamps of another"
+     ["the last stamp is kept for a layer: the base's is the stamp of its last decision; each layer of the other gate, of which one thing was decided and refused, has 0, the stamp of a refusal in a layer with no last stamp, which holds nothing of the time on the thing. So a decision in one layer does not raise the stamps of another"
       (fn [] (:last-stamp after))
-      {":base" (s 19) ":alice" (s 0) ":nobody" (s 0)}]
+      {":base" (s 19) ":alice" 0 ":nobody" 0}]
      ["the line decided a second time from the same record gives the same record: no row differs in any field, the last stamps and the strays are the same, and more than 20 rows are rows that the line wrote"
       (fn [] (let [again (walked-line record :microbatch things)]
                [(rows-that-differ (rows-by-place after) (rows-by-place again))
@@ -3019,9 +3029,9 @@
       (fn [] [(= (comparable answered-twice) (comparable (walked-line answered-twice :microbatch [repeat-a repeat-b repeat-a])))
               (writes-of-line answered-twice :microbatch [repeat-a repeat-b repeat-a])])
       [true [[] [] []]]]
-     ["the time on the act decides, at the microbatch gate too: an act that carries a stamp 10,400 ms after `now` is refused with the time `now` on it, with an ordinary stamp; with a time one second later it is accepted, with a stamp later than the one that it carries. As [word, stamp]"
+     ["the time on the act decides, at the microbatch gate too: an act that carries a stamp 10,400 ms after `now` is refused with the time `now` on it, and its stamp is the base's last stamp plus one, with nothing of its time or of the stamp that it carries; with a time one second later it is accepted, with a stamp later than the one that it carries. As [word, stamp]"
       (fn [] [(answer-of-edge edge-act) (answer-of-edge (assoc edge-act declaration/time-part (+ now 1000)))])
-      [[:carried-stamp-too-far-ahead (s 0)] [nil (stamp/pack (+ now 10400) 1)]]]]))
+      [[:carried-stamp-too-far-ahead (inc before-the-line)] [nil (stamp/pack (+ now 10400) 1)]]]]))
 
 (def ^:private marks-line-cases
   "The cases of `marks-line`, decided by the walk in memory at the
@@ -3456,12 +3466,12 @@
                 (= (without-time (:thing made)) (without-time (thing-at 1235)))
                 (get (thing-at 1235) declaration/time-part)]))
       [[:thing] true {:act-id (given :microbatch) :depot :microbatch declaration/time-part 1234} true true 1235]]
-     ["the time is added as the door hands it and is not tested here: a nil, a string and a time of 2^46 are in the thing as given, and it is the declaration's check that refuses each; a time of 2^46 less one goes in"
+     ["the time is added as the door hands it and is not tested here: a nil, a string and a time of 2^45 are in the thing as given, and it is the declaration's check that refuses each; a time of 2^45 less one goes in"
       (fn [] (let [reading (additions/reading (maker value-fact) nil)]
                (mapv (fn [t] (let [thing (:thing (additions/thing-to-append reading (act-id 70) t))]
                                [(contains? thing declaration/time-part) (= t (get thing declaration/time-part))
                                 (verdict (declaration/check thing))]))
-                     [nil "a time" (bit-shift-left 1 46) (dec (bit-shift-left 1 46))])))
+                     [nil "a time" (bit-shift-left 1 45) (dec (bit-shift-left 1 45))])))
       [[true true :no-door-time] [true true :no-door-time] [true true :no-door-time] [true true :ok]]]
      ["a value is in the thing as its maker gave it and not in its normal form; the declaration's check takes the thing, and its one form holds the text of the normal form"
       (fn [] (let [v (array-map :b 1.50M :a [1 2N])
@@ -3810,7 +3820,7 @@
 
 (deftest the-time-on-the-act
   (let [n (holds time-cases)
-        bound (bit-shift-left 1 46)]
+        bound (bit-shift-left 1 45)]
     (shown "the time on the act," n "cases. Its part is" declaration/time-part "and a usable time is a fixed-width integer of 0 or more and below"
            declaration/max-time "| the usable time of the least thing, by its time:"
            (str/join " | " (map (fn [[what x _ _]] (str what " " (pr-str (declaration/usable-time x)))) time-rows)))
@@ -3850,7 +3860,7 @@
 
 (deftest the-stamp
   (let [n (holds stamp-cases)]
-    (shown "the stamp," n "cases: milliseconds x 65,536 + counter; the next stamp is later than the last when the time that the gate gives is the same, is earlier, or has more than 65,536 decisions; later than a carried stamp; 10,000 ms ahead of the time is the edge of the 10-second rule; the packing reaches 2^62 in the year 4199, at the bound of the time on an act")
+    (shown "the stamp," n "cases: milliseconds x 65,536 + counter; the next stamp is later than the last when the time that the gate gives is the same, is earlier, or has more than 65,536 decisions; later than a carried stamp; 10,000 ms ahead of the time is the edge of the 10-second rule; the packing reaches 2^62 in the year 4199, and the time on an act is held below half of that, 2^45 ms, in the year 3084")
     (shown "a stamp of the time" now "with the counter 0 is" (stamp/pack now 0)
            "| with no time the stamp is the last plus one, the greatest carried plus one, or 0 with neither, as [time last carried stamp]:"
            (pr-str (mapv (fn [[t last carried]] [t last carried (stamp/next-stamp t last carried)])
@@ -3896,7 +3906,7 @@
   (holds places-cases)
   (holds writes-cases)
   (holds by-value-cases)
-  (shown "the time that a gate decides with is the time on the thing, as [what, the time, the check's word, the stamp in a layer with no last stamp, the stamp after the last stamp 41]:"
+  (shown "the time that a gate decides with is the time on the thing, and it is in the stamp of an accept alone: a refusal's stamp is the last plus one, or 0. As [what, the time, the check's word, the stamp in a layer with no last stamp, the stamp after the last stamp 41]:"
          (pr-str (mapv (fn [[what thing]]
                          (let [checked (declaration/check thing)
                                time-millis (decision/time-on thing)

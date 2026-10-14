@@ -33,10 +33,23 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 14 October 2026, by the build "run again", after its
-part B: the build in which both depots came to place an act by its layer, and
-the base's gate came to decide each act on the layer's task in the depot's
-order.
+This fixture was made on 14 October 2026, by the build "run again": the build
+in which both depots came to place an act by its layer, and the base's gate
+came to decide each act on the layer's task in the depot's order. It is that
+day's second making. The first followed the build's part B. The second
+replaced it at the build's end, for two rules that were changed on purpose
+after the build's review:
+
+- the stamp of a refusal is its layer's last stamp plus one, or 0, and holds
+  nothing of the time on the thing: a refused thing moves no layer's time;
+- the time on an act is below 2^45 milliseconds, where it was 2^46.
+
+Before the first making was replaced, the store with the two rules was held
+against it: 14 of its 475 rows had another value, with 4 tasks and with 8. They
+were the stamps of 12 refused answers and the last stamps of 2 layers whose last
+decision is a refusal. No row of a fact and no row of the facts by value
+differed. The build's receipt says the same
+(`src/proposal/backend-on-rama-2026-10-02/run-again/RECEIPT.md`).
 
 From the repository root, behind the lock of this machine's cluster runs:
 

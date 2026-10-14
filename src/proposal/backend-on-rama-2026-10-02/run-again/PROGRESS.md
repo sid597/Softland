@@ -76,10 +76,10 @@ it is committed while it fails.
 |---|---|---|---|
 | 0 | The proof: a second module over the store's two depots from their beginning, every table compared | fails, committed failing | **done.** On the store as it was before the build 3,064 rows differ (`runs/first-proof-run-again.txt`) |
 | A | The clock before the depot, the number per layer, the streaming gate's depot of answers and the rebuild out | still fails, on the base alone: the streaming gate's four tables hold 0 rows that differ | **done.** What it changed is in `PART-A.md`; its runs are `runs/after-a-*.txt` |
-| B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes: 0 rows differ on a run again, and the kept acts give the kept tables with 4 tasks and with 8 | the source is switched and every proof is adapted (`PART-B.md`); the whole set of proofs is run once more before its commit |
+| B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes: 0 rows differ on a run again, and the kept acts give the kept tables with 4 tasks and with 8 | **done.** The source is switched and every proof is adapted (`PART-B.md`); committed as `9a46f81a`, with all seven proofs passing |
 | C | Decision 7 on the store itself: closed, or said on the store's page and named by the proof | passes | **run.** On a stand-in gate of the store's form no failure that could be made in process changed the order, in 87 of 87 runs (`probes-order-after-a-failure/RESULTS.md`). On the store itself three kinds of failure were made inside the run-again proof, a throw in the base, a stall past Rama's timeout and a throw in a streaming layer: after each, a second run gave the same tables, 0 rows differing. One case was reached in neither: a batch that fails with no restart and loses its rows, as a failed copy to a second machine would make it. No cheap way to close that case was found. It is said on the store's page, and the proof names an act that is decided out of its line |
-| D | The pages: the store's page, the source entry's decisions of 13 October, the proofs' map, the queue, the open rows of both receipts, the progress page of the folder above, the questions for Rama's team | — | written from the finished code; the proofs' map is being finished |
-| E | One fresh review of the whole, its fixes, the final runs, one receipt | passes at the last commit | **not finished.** The machine went down at about 02:25 on 14 October, 14 minutes into the review. Two reviewers of six had reported. Their findings are not applied, and the receipt is not written. The section "What is left" below is the whole of it |
+| D | The pages: the store's page, the source entry's decisions of 13 October, the proofs' map, the queue, the open rows of both receipts, the progress page of the folder above, the questions for Rama's team | — | **done.** Written from the finished code, committed as `6dae07ce` |
+| E | One fresh review of the whole, its fixes, the final runs, one receipt | passes at the last commit | **done, with the review cut short.** The machine went down at about 02:25 on 14 October, 14 minutes into the review. Two reviewers of six had reported. A second session (Opus 5.5) applied their findings that morning, lean, as Sid asked: one session, no builders, no reviewers. It did what the section "What was left" below lists, in its order: the two fixes, the docstrings, the fixture made again and the final runs (`runs/final-*.txt`), in one commit; then the receipt, `RECEIPT.md`, in the next. What the review did not reach is in the receipt |
 
 ## Working answers, each kept for now and decided by nobody
 
@@ -93,8 +93,12 @@ code, and its docstring says "Not decided: kept for now".
 3. **A record that arrives with no time is refused, with the word `:no-door-time`.**
    It has an act-id, so it can be answered; its stamp is the layer's last plus one.
 4. **Nothing stops a time that is far ahead.** The form holds the time to 0 or more and
-   below 2^46 milliseconds, so that no stamp passes 2^62; a time outside gets the word
-   of point 3.
+   below 2^45 milliseconds; a time outside gets the word of point 3. The bound was 2^46
+   until the end of the build. At 2^45 a layer's stamps reach 2^62, which no act can
+   carry, only after about 2^61 decisions in that one layer; at 2^46 one accepted act
+   could get the stamp 2^62 itself (`max-time` in `door/declaration.clj` holds the
+   arithmetic). And a thing that a gate refuses moves no time, whatever time it holds
+   (decision 3 below).
 
 ## Decisions that the build session made, for Sid to review
 
@@ -109,10 +113,14 @@ code, and its docstring says "Not decided: kept for now".
    is not the working tree.** `/mnt/data/projects/Softland-run-again-baseline`, at
    `9c5da833`. It holds a checkout and nothing else.
 
-3. **A refused act keeps its time.** A thing that the form refuses for a fault other
-   than its time still carries a usable time, and the stamp of its refusal holds it. A
-   thing with no usable time gets its layer's last stamp plus one, or 0 in a layer with
-   no stamp yet. Engineering, the session's.
+3. **A refused thing moves no layer's time.** The stamp of a refusal, whatever its
+   word, is its layer's last stamp plus one, or 0 in a layer with no stamp yet. Neither
+   the time on the thing nor a stamp that it carries is in it. Engineering, the
+   session's. It reverses the session's first answer, "a refused act keeps its time",
+   which both reviewers who reported found to be a fault, each on their own: one
+   refused thing with a time far ahead, from a sender with no permission, set its
+   layer's stamps ahead for good, and the rule of 10 seconds then refused each honest
+   act that carried a true stamp of that layer.
 4. **Where the time stands in the order of the reasons.** A part that the form does not
    know, and a `:depot` that is no depot word, are told before a missing time; each of
    the maker's own parts after it. It follows from where the part stands in the shape.
@@ -126,7 +134,15 @@ code, and its docstring says "Not decided: kept for now".
 
 More are added below as they are made.
 
-## What is left
+## What was left, and is done
+
+Done on 14 October 2026 by a second session, in the order of point 4 below. Sid's
+word for it: commit when the seven tests pass, then write the receipt. So the receipt,
+`RECEIPT.md` beside this page, is the commit after the one that holds the rest. The
+rest of this section is as the first session wrote it, and each of its points was
+carried out as it says, with one correction of its arithmetic: in point 2 a carried
+stamp within 10 seconds of a time below 2^45 is not below 2^61 but up to 655,359,999
+above it. What follows from it there holds.
 
 Written at the end of the first session, on the morning of 14 October 2026, so that a
 new session can finish from this page alone. Sid's word that morning on how: lean. One
@@ -259,9 +275,12 @@ Each follows from one of his decisions or was met on the way. None is decided.
    accepted, an act that was decided after a worker started again, and an act that
    never reached the depot (run on a stand-in). The door's word for it says so, and
    she reads the record by act-id.
-4. **One thing with a time at the end of the range** (2^46 less one) is accepted and
-   leaves its layer 65,535 stamps before 2^62. It goes with "where a time that is far
-   ahead is stopped".
+4. **One thing with a time at the end of the range** is accepted, when its sender may
+   act in the layer. With the range at 2^46 it left its layer 65,535 stamps before
+   2^62, and none when it carried the greatest stamp of its millisecond. The range now
+   ends at 2^45, and such a thing leaves its layer about 2^61 stamps. That an accepted
+   act can still put its layer's time centuries ahead goes with "where a time that is
+   far ahead is stopped".
 5. **A reader on another task than the base's can see a new fact a moment later.** Read
    in Rama's docs; not seen in a run of this build.
 

@@ -60,7 +60,18 @@
   It never throws. A map that throws when a part is taken out of it comes
   back as it is: a sorted map whose keys cannot be compared with a keyword
   is one, and such a map cannot hold the part. So each such thing keeps a
-  digest of its own."
+  digest of its own.
+
+  Not decided: kept for now. That a digest leaves the time out is one of
+  the three places of the working answer on a second send
+  (`softland.store.door/send-act` names the three); what a second send of
+  the same act carries as its time is Sid's to say. What follows from it
+  beside the second send: a thing with no time and the same thing with a
+  time have one digest. So a thing that was appended without the door and
+  refused `:no-door-time` would be read as her own answer by a maker who
+  later sends the same act through the door under the same act-id. That
+  is derived from this function and the walk's check of the answer under
+  the act-id; no run made it."
   [x]
   (if (and (map? x) (not (record? x)))
     (try (dissoc x declaration/time-part)

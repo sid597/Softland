@@ -32,7 +32,8 @@
   holds what a decision is made of, the steps, what each kind of thing
   costs in reads and writes, how a stamp is counted in its layer, and what
   holds of the marked keys. No gate reads a clock: the time of a decision
-  is the time on the act, which the door wrote. What the walk gives back,
+  is the time on the act, which the door writes, or whatever else appended
+  the thing. What the walk gives back,
   the rows that a gate may copy to other tasks, is not used here: a
   streaming gate that copied would not hold the walk's limit for a gate
   that copies, and a row of a streaming layer lives on one task.
@@ -66,19 +67,39 @@
   \"all after\": when a record fails, each record after it on the partition
   is processed again, in order.
 
-  What this does not close: the order of a layer's acts after a failure.
-  Without a failure, the acts of a layer are decided in the depot's order.
-  When something throws while a batch of events runs, Rama discards the
-  writes of that batch and processes its records again. It is not shown
-  whether acts of a layer that were on their way then can be decided in
-  another order than the depot's. If they can, their stamps and their
-  answers can differ from those of a run of the gate over the same depot
-  that meets no failure there. A run of this build looks into that (Sid's
-  decision 7 of 13 October 2026), and this docstring says nothing of what
-  it finds. The gate's own code does not throw on what arrives, so such a
-  failure needs a fault of the machine, of Rama or of this module. The
-  store's map, one folder up, names the setting of Rama that orders a
-  layer's acts after a failure, and what it costs.
+  The order of a layer's acts after a failure. Without a failure, the acts
+  of a layer are decided in the depot's order. A throw is no quiet retry:
+  Rama treats a throw in an event as fatal for the worker whose task
+  thread ran it and starts that worker again. The writes of the failed
+  batch are gone, and the records are then decided in the depot's order,
+  an act behind the failed one once, after it. Whether any failure can
+  make acts of a layer that were on their way be decided in another order
+  than the depot's, so that their stamps and their answers differ from
+  those of a run of the gate over the same depot that meets no failure,
+  was run for Sid's decision 7 of 13 October 2026. What the runs found:
+
+    - On a stand-in gate of this gate's form, in Rama's in-process
+      cluster, no failure that could be made in process brought a run
+      again out in another order, in 87 of 87 runs: a throw, an answer
+      that Rama could not write, a stall on the task's thread past the
+      stream timeout, a slow write of the batch, a module update under
+      load.
+    - On this gate, inside the run-again proof: after a throw in an act's
+      event, with the next act of the layer right behind it and with the
+      next act in the depot before the event began, and after a stall
+      with the thread held, a run again gave the same tables.
+    - Not reached: a batch that Rama fails with no restart of the worker
+      and whose rows are dropped, while a later act of the layer is in
+      flight behind it. Computed with the stand-in gate's rule and not
+      run: the later act would be decided before the failed one, and a run
+      again would hold other answers for the two. No cheap way to close it
+      was found.
+
+  The gate's own code does not throw on what arrives, so a failure needs a
+  fault of the machine, of Rama or of this module. The store's map, one
+  folder up, holds the runs in full, the setting of Rama that orders a
+  layer's acts after a failure and what it costs, and how the run-again
+  proof names an act that is decided out of its line.
 
   What the gate rests on and does not test. The depot's partitioner puts a
   thing on its layer's task, and the gate makes no hop. A thing that a

@@ -173,7 +173,9 @@ What it checks, group by group:
    the last stamp, is the same, is earlier, and when one millisecond has more
    decisions than the counter holds; a carried stamp; the 10-second rule at its
    edge, held against the time on the act; the year in which the packing
-   reaches 2^62, at the bound of the time on an act. With no time the next
+   reaches 2^62, the bound of the time on an act at half of that, and the
+   stamp of an act with the greatest time and the greatest stamp that it may
+   carry, which is 655,360,000 above 2^61. With no time the next
    stamp is the last plus one, the greatest carried plus one, or 0 with
    neither, and no carried stamp is too far ahead.
 10. The first act: the depot that a layer starts with; what a layer starts with
@@ -202,9 +204,9 @@ What it checks, group by group:
     from the text of its answer's key, for a layer that is a keyword and one
     that is a UUID.
 12. The decision: the time that a gate decides with, which is the time on the
-    thing: a thing that the declaration refuses for another fault keeps its
-    time in the stamp of its refusal, and a thing with no usable time gets its
-    layer's last stamp plus one, or 0 in a layer with no stamp. The standing of
+    thing, and which is in the stamp of an accept alone: a refused thing,
+    whatever time and whatever stamp it carries, gets its layer's last stamp
+    plus one, or 0 in a layer with no stamp. The standing of
     an act in each state of its layer, at the streaming gate's depot and, for
     an act into the base, at the microbatch gate's. A layer of the other gate,
     told from the gate's depot and the act alone, with no row of the layer: the
@@ -478,10 +480,12 @@ What it checks, group by group:
    back, and the stamps of the layer did not. A thing with no time, with a nil
    time, with a time at the bound, with a time below zero and with a time that is
    no integer is each refused with the word of the time, under its own act-id,
-   with a stamp of the layer's last plus one; none writes a row. A thing with a
-   usable time that the declaration refuses for another fault keeps its time in
-   the stamp of its refusal. The greatest time that the declaration takes is
-   taken, in a layer of its own.
+   with a stamp of the layer's last plus one; none writes a row. A refused thing
+   moves no layer's time: two things with a time one hour ahead that the
+   declaration refuses for another fault, and an act of a stranger with such a
+   time that the gate refuses for its standing, each get the layer's last stamp
+   plus one, and the layer's last stamp at the end is not of that hour. The
+   greatest time that the declaration takes is taken, in a layer of its own.
 8. Strays and limits. One stray for each word, kept once however often it comes,
    with no answer and no stamp: the layer's last stamp is as it was before them.
    A thing at and over each limit. A value whose text is 65,536
@@ -489,7 +493,7 @@ What it checks, group by group:
    with the word of a value that is too large. An act over the bound on one act
    is refused with its word. The 10-second rule, held against the time on the
    act, at its edge: an act that carries a stamp 10,001 ms after the time on it is
-   refused, and its answer holds an ordinary stamp; one that carries a stamp
+   refused, and its answer holds the layer's last stamp plus one; one that carries a stamp
    exactly 10,000 ms after it is accepted, with the carried stamp plus one. A
    `claimed-when` far ahead is a claim: the act is accepted, and its stamp does
    not follow it.
@@ -655,12 +659,13 @@ What it checks, group by group:
     7: acts with one time on them get the counters 0, 1 and 2; a later time gets a
     counter of 0; an earlier time, and the time 0, get the base's last stamp plus
     one; a thing with no usable time is refused with the word of the time, and
-    writes no row on any task; a thing that the declaration refuses for another
-    fault keeps its time in the stamp of its refusal. The 10-second rule at its
+    writes no row on any task; a thing with a time one hour ahead that the
+    declaration refuses for another fault gets the base's last stamp plus one.
+    The 10-second rule at its
     edge, as in group 8. And two layers of one task count apart in the microbatch
     gate too: a layer that starts streaming, and whose id hashes to the base's
-    task, gets for its acts on the microbatch depot refusals with stamps of its
-    own count, far below the base's last stamp on that task. The base's task
+    task, gets for its acts on the microbatch depot refusals with the stamps 0
+    and 1, its own count, far below the base's last stamp on that task. The base's task
     keeps a last stamp for each of the two layers, and no other task keeps one
     for that layer.
 26. An act of several facts in the base. Refused whole: an act of three values
@@ -775,9 +780,11 @@ What it checks, group by group:
     each layer, in the order sent. The order is the layer's and not the task's:
     on a task that holds more than one layer the stamps do not all go up in the
     order sent. Each stamp is the number that the gate's rule gives, by the
-    proof's own arithmetic: the greatest of the time that the hand wrote on the
-    thing with a counter of 0, the stamp before it in its layer plus one, and the
-    greatest stamp that the thing carries plus one. That check is shown to fail,
+    proof's own arithmetic: for an accepted act the greatest of the time that
+    the hand wrote on the thing with a counter of 0, the stamp before it in its
+    layer plus one, and the greatest stamp that the thing carries plus one; for
+    a refused thing the stamp before it in its layer plus one, or 0 with none
+    before it. That check is shown to fail,
     on the same answers with one stamp moved by one. The last stamp that the gate
     keeps for each layer is the stamp of the last answer of that layer. The depot
     holds each thing sent, as it was sent,
