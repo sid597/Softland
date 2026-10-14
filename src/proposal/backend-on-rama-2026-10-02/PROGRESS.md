@@ -23,7 +23,7 @@ newest work on the store, and each row below says what it changed.
 | The door: the code that takes an act from a maker into the store | built, with a proof of its own. It seals nothing since the build before real data, and writes the time on the act since the build "run again" | `src-store/softland/store/door.clj`; its papers in `door/` |
 | The reads: the way out, and what the gates keep for a read | built and reviewed, 12 October. Its receipt says "proven by a hand-played asker, used by no inhabitant yet". In the build "run again" the base is read on the task of the layer that a read starts from | `src-store/softland/store/read_path.clj`; `reads/RECEIPT.md` |
 | Before real data is kept: the locks go, the gates' answers in a log, the tables made again, a deeper permission | built on 12 and 13 October. Its receipt says "proven by a hand-played maker, used by no inhabitant yet". What stands of it: the store keeps no locks, an act that is refused stays in the log, and a permission can be 32 deep. On 13 October Sid took the logs of answers and the rebuild out again | `before-real-data/RECEIPT.md` |
-| Run again: the store comes out the same when its gates are run again over its two depots | the build of 13 and 14 October, on Sid's eight decisions of 13 October. Its page says which of its parts is done. Its receipt is written at the build's end | `run-again/PROGRESS.md`; `run-again/RECEIPT.md`, when the build has written it |
+| Run again: the store comes out the same when its gates are run again over its two depots | the build of 13 and 14 October, on Sid's eight decisions of 13 October. Done on 14 October, with its review cut short: two reviewers of six reported, and what they found is applied. Its page says how each part ended, and its receipt what is true now and what needs Sid | `run-again/PROGRESS.md`; `run-again/RECEIPT.md` |
 | Sign-in, and all that is above the act | not built | — |
 
 How each proof of the store is run is in `test-store/README.md`. What each
@@ -42,7 +42,7 @@ What to read, in this order:
    decisions as he sent them, what he means by the base, what he did not
    decide, the parts, the working answers that are kept for now, and the
    decisions that the build session made for him to review. Then
-   `run-again/RECEIPT.md`, when the build has written it. What is built is in
+   `run-again/RECEIPT.md`, its receipt. What is built is in
    `run-again/PART-A.md`, `run-again/PART-B.md` (the later one where they
    differ) and `run-again/PLAN-the-bases-gate.md`. What was run on Rama is in
    `run-again/probes-the-bases-gate/RESULTS.md` and
@@ -59,8 +59,9 @@ What to read, in this order:
 6. `decisions/groups/` — the text of each sheet of questions. The printed PDFs
    are in the research depot, `/mnt/data/projects/research/softland/`.
 
-The build "run again" ends with one fresh review of the whole, its final runs
-and one receipt (`run-again/PROGRESS.md`, "The parts"). No build after it is
+The build "run again" ended with a review of the whole that was cut short, its
+final runs and one receipt (`run-again/PROGRESS.md`, "The parts";
+`run-again/RECEIPT.md`). No build after it is
 named, and no contract is cut for one: what is built next is Sid's to say.
 
 What a later build has to keep, from 13 October. The kept acts of both depots
