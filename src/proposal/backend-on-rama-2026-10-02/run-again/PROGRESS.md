@@ -79,7 +79,7 @@ it is committed while it fails.
 | B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes: 0 rows differ on a run again, and the kept acts give the kept tables with 4 tasks and with 8 | the source is switched and every proof is adapted (`PART-B.md`); the whole set of proofs is run once more before its commit |
 | C | Decision 7 on the store itself: closed, or said on the store's page and named by the proof | passes | **run.** On a stand-in gate of the store's form no failure that could be made in process changed the order, in 87 of 87 runs (`probes-order-after-a-failure/RESULTS.md`). On the store itself three kinds of failure were made inside the run-again proof, a throw in the base, a stall past Rama's timeout and a throw in a streaming layer: after each, a second run gave the same tables, 0 rows differing. One case was reached in neither: a batch that fails with no restart and loses its rows, as a failed copy to a second machine would make it. No cheap way to close that case was found. It is said on the store's page, and the proof names an act that is decided out of its line |
 | D | The pages: the store's page, the source entry's decisions of 13 October, the proofs' map, the queue, the open rows of both receipts, the progress page of the folder above, the questions for Rama's team | — | written from the finished code; the proofs' map is being finished |
-| E | One fresh review of the whole, its fixes, the final runs, one receipt | passes | not begun |
+| E | One fresh review of the whole, its fixes, the final runs, one receipt | passes at the last commit | **not finished.** The machine went down at about 02:25 on 14 October, 14 minutes into the review. Two reviewers of six had reported. Their findings are not applied, and the receipt is not written. The section "What is left" below is the whole of it |
 
 ## Working answers, each kept for now and decided by nobody
 
@@ -125,6 +125,121 @@ code, and its docstring says "Not decided: kept for now".
    build. The docstrings and the folder maps beside the code are true at each commit.
 
 More are added below as they are made.
+
+## What is left
+
+Written at the end of the first session, on the morning of 14 October 2026, so that a
+new session can finish from this page alone. Sid's word that morning on how: lean. One
+session, no fan of builders, no more reviewers, a short receipt. A "proof" is a test
+file; the seven are run with `runs/run-proofs.sh <label>`.
+
+The last commit is `6dae07ce`. All seven tests passed on `9a46f81a`, and the commit
+after it changed pages only. Nothing is uncommitted but this page and two cuts of
+measures.
+
+### 1. One fault to fix: a refused thing moves its layer's time
+
+Found by both reviewers who reported, each on their own. A thing that a gate REFUSES
+still gets a stamp made of the time written on it, and that stamp becomes the layer's
+last stamp. So one refused thing with a time far ahead, from a sender with no
+permission, also into a layer that is not made, sets the layer's stamps ahead for good.
+The rule of 10 seconds then refuses every honest act that carries a true stamp of that
+layer. It was run on the store's module in both gates: a stranger's thing one hour
+ahead was refused; the owner's next act was accepted an hour ahead; her act after that,
+carrying that stamp, was refused `:carried-stamp-too-far-ahead`.
+
+- The fix: in `gate/decision.clj`, `stamp-of`: for a refusal the stamp is the layer's
+  last stamp plus one, or 0 with none. No time, and nothing of what the thing carries.
+  Only an act that a gate accepts can then move a layer's time.
+- It reverses decision 3 of the session's list on this page, "a refused act keeps its
+  time", which was the session's and not Sid's.
+- Tests that hold the old behaviour and change with it: the groups
+  `the-time-on-the-act` and `the-time-on-the-act-in-the-base` of the module's test
+  (the check that a thing refused for another fault keeps its time), and the cases of
+  `stamp-of` for a refused thing in the pure test.
+
+### 2. One bound to move: the time below 2^45, not 2^46
+
+Run by a reviewer: with a time of 2^46 less one and a carried stamp at its own bound,
+one accepted act gets the stamp 2^62 exactly, which no later act can carry. With the
+time below 2^45 a stamp of the time is below 2^61, a carried stamp within 10 seconds
+of it is too, and "last plus one" needs about 2^61 decisions to reach 2^62.
+
+- `door/declaration.clj`, `max-time`, with that arithmetic in its docstring.
+- Tests that name 2^46 change with it: the rows of times in the pure test, and check d
+  of the module's time group.
+
+### 3. Docstrings that say more than the code does
+
+- `gate/stamp.clj`, namespace: "below 2^62" and "later than each stamp that the act
+  carries" are not true of every stamp; say the two exceptions.
+- `door/declaration.clj`, `max-time` and the store's page and working answer 4 on this
+  page: "so that no stamp passes 2^62" is the claim that point 2 makes true.
+- `door.clj`, `send-act`: "nothing holds one clock against the other" is untrue: the
+  rule of 10 seconds does, through a layer's stamps. And "`:digest` is the digest of
+  the very thing that was appended": it is of that thing without its time.
+- `gate/stamp.clj`, `gate/decision.clj` `time-on`, `declaration/time-part`: each says
+  the time is what the door wrote. The code knows only that the part holds a number in
+  range. Say "which the door writes, or whatever else appended the thing".
+- `door.clj`: the second send is said to be answered in one place. It is three: there,
+  the door's test of its own parts, and the digest. Mark the digest's
+  `without-the-time` "Not decided: kept for now" too.
+- `gate/decision.clj`, `standing`: what is forced is that the word cannot follow the
+  other gate's record; which word is given is the session's choice.
+- `module/streaming_gate.clj`: still says a run "looks into" the order after a
+  failure. The run exists: say what it found, and that a throw starts the worker again.
+- `module/walk.clj`, `module/microbatch_gate.clj`, the store's page: "4 reads and 3
+  writes" for an accepted act. By the Rama skill's own count the layer's last stamp is
+  two levels, so 5. A stray is "no read": the set tracks its size, which Rama's docs
+  say costs a read. The cost of the copy leaves out the bytes sent and that the base
+  is stored once on each task.
+- `module/microbatch_gate.clj` and the store's page: a thing of the base on a wrong
+  partition would be accepted there and its copies would write over the rows on the
+  base's own task. No client can put one there; say it.
+- `module.clj`: "on a thing that is no map a keyword gives nil and does not throw" is
+  inexact for a sorted map whose keys do not compare with a keyword.
+
+### 4. Then, in this order
+
+1. Make the fixture again: `clojure -M:store-module -m softland.store.run-again-proof
+   make-fixture`, behind the lock. Points 1 and 2 are rules changed on purpose, and the
+   receipt says so; the fixture folder's map gets the new day and reason.
+2. Run the seven tests: `bash runs/run-proofs.sh final`.
+3. Bring the few page lines that points 1 and 2 touch into line: the store's page on
+   the time, working answer 4 and decision 3 on this page, the queue's row on a time at
+   the end of its range.
+4. Write the receipt, `run-again/RECEIPT.md`, short. Commit.
+
+### 5. What the receipt must tell Sid, beside the usual
+
+- **His to decide, not built.** The rule of 10 seconds is held against the time on the
+  act, so it holds one door's clock against another's, and whoever may act in a layer
+  can push it 10 seconds ahead. A reviewer's other rule: hold a carried stamp of the
+  act's own layer against that layer's last stamp, which needs no clock. It sits inside
+  his open question on where a far time is stopped.
+- **A consequence of the working answer on a second send.** The digest leaves the time
+  out, so a thing with no time and the same thing with a time have one digest. A thing
+  appended without the door and refused for its missing time would be read by its
+  maker's later send as her own answer.
+- **For whoever builds versions (his decision 6).** The time is examined before the
+  version. A rule that differs by version needs the version read first.
+- **Cost, found and not built.** One row for each layer that holds its last stamp and
+  its marks would give an accepted act 3 reads where the count is 5.
+- **Was so before this build.** One very large thing holds a task's thread while it is
+  digested, before any bound is held: 5.7 seconds for 256 MB on the reviewer's run.
+- **The review was cut short.** Not reviewed: the read path, whether the tests notice
+  a broken store, and the pages against the code. The reviewer who breaks the store
+  left partial runs in `/mnt/data/projects/Softland-run-again-review-proofs/review-out/`.
+- **What the session would do otherwise**, as said to Sid that morning: delete first
+  where it separates and let the old tests judge it; change behaviour after, touching
+  only the tests it must break; one reviewer, as he asked; fewer new checks. And the
+  root of the night's size: the tests and their map describe the store's insides, so a
+  simpler inside cost a rewrite of both.
+- **Scratch that is not committed** and waits for his word: four detached checkouts
+  beside the repository (`Softland-run-again-baseline`, `-review-gates`,
+  `-review-proofs`, `-review-pure`); `draft-the-bases-gate/`;
+  `runs/fixture-second-making/`; `runs/falsify-check-4/` and the `falsify-` files; the
+  `raw-` and `try-` files under `runs/`.
 
 ## Found by the build, for Sid to hear of
 
