@@ -3,8 +3,8 @@
 proven by a hand-played maker, used by no inhabitant yet
 
 Written on 14 October 2026 for Sid, by the session that finished the build (Opus 5.5: one
-session, no builders, no reviewers). The build session of the night before did parts 0 to D.
-Short, as he asked. The working is in `PROGRESS.md` beside this page and in the papers that it
+session, no builders; one reviewer at the end, at your word). The build session of the night before did parts 0 to D.
+Short, as the prompt asked. The working is in `PROGRESS.md` beside this page and in the papers that it
 names. Each line says whether a thing was run, derived, or only read. A "test" here is what
 those pages call a proof.
 
@@ -139,10 +139,12 @@ Nothing below is built, and none of your open questions is decided.
 - **The review was cut short.** Not reviewed: the read path, whether the tests notice a store
   that is broken, and the pages against the code. The reviewer who breaks the store left
   partial runs in `/mnt/data/projects/Softland-run-again-review-proofs/review-out/`. This
-  session ran no reviewer, as you asked.
+  session first ran no reviewer, because the prompt you pasted said "no reviewers". That was
+  the night session's proposal, not your word: you had asked why six, not for none. One
+  reviewer then ran, at your word (section 7).
 - **What the build session would do otherwise**, as it said to you that morning: delete first
   where the work separates, and let the old tests judge it; change behaviour after, and touch
-  only the tests that it must break; one reviewer, as you asked; fewer new checks. And the root
+  only the tests that it must break; one reviewer, as the build's prompt asked; fewer new checks. And the root
   of the night's size: the tests and their map describe the store's insides, so a simpler
   inside cost a rewrite of both. This last session saw the same at a small size. The two fixes
   are five lines of code. With the ten corrections of wording, the store's page changed by 118
@@ -176,3 +178,37 @@ Nothing was deleted. Each is named here so that you can say which goes.
   `…-stdout.txt`.
 - Beside this folder: `../run-again-probe-2026-10-13/`. It was there, untracked, when this
   session began. This session did not make it and did not open it.
+- The reviewer's checkout, `/mnt/data/projects/Softland-review-break-the-store`, with its bugs'
+  diffs and runs in `review-out/` (section 7).
+
+## 7. The one review, after the receipt
+
+You asked for it after reading this receipt. One reviewer, given the code and not this session's
+conclusions, worked in a checkout of its own at `b9330485`. It put small bugs into the store, one
+at a time, and ran the tests that could see each. Its diffs and runs are in that checkout's
+`review-out/`. This session checked the four bugs that got past every test, and the runs of the
+two fixes put back, against those files.
+
+- **19 bugs: 15 caught, mostly by several checks. 4 got past every test that could see them.**
+  None of the four changes what the tables hold:
+  - the task that decides an act of the base also writes a copy of it to itself;
+  - a refusal, a repeat or a stray is sent to every task with nothing to write;
+  - the streaming gate's retry mode is "individual" instead of "all after";
+  - two checks of a stray are made in the other order.
+
+  Two more were caught by a single check each. The six are now on the page about the tests, as
+  ideas for tests not yet written.
+- **The two fixes hold, and the tests notice if either is undone.** Putting the refusal's stamp
+  back made 4 checks of the pure test and 15 of the module's fail. Putting the bound back to 2^46
+  made 6 of the pure test fail. One edge was found: after a last stamp whose counter is full, a
+  refusal's "last plus one" carries into the time by one millisecond. That takes 65,536 decisions
+  in one millisecond. The docstrings now say so.
+- **Yours to decide, and it sharpens section 4's first point.** One *accepted* act with a time far
+  ahead still does the harm that the fix removed for refusals. An example: someone who may act in
+  a layer appends an act without the door, with a time one hour ahead, or a door's server clock
+  runs an hour fast. The act is accepted, and every later stamp of that layer is an hour ahead.
+  For that hour, an honest act that names any fact written since is refused "carried stamp too
+  far ahead". With a time at the end of the range, that lasts until the year 3084. The bound at
+  2^45 keeps the stamps below 2^62; it does not stop this. It sits inside your open question of
+  where a time that is far ahead is stopped. Run by the reviewer on the pure functions
+  (`review-out/part2-probe.clj`), and it follows from the rule in the code.

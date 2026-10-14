@@ -817,7 +817,9 @@ through the store. The rest is a session's, each for Sid to review:
   word, is the layer's last stamp plus one, or 0 in a layer with no stamp yet:
   neither the time on the thing nor a stamp that it carries is in it. Only an
   act that a gate accepts puts a time into a layer's stamps (`stamp-of` in
-  [decision.clj](gate/decision.clj)). Why: anything can arrive on a depot.
+  [decision.clj](gate/decision.clj)). One edge: after a last stamp whose
+  counter is full, "last plus one" carries into the time by one millisecond,
+  which takes 65,536 decisions in the layer in that millisecond. Why: anything can arrive on a depot.
   Were the time of a refused thing in its stamp, one thing with a time far
   ahead, from a sender with no permission, would set its layer's stamps ahead
   for good, and the 10-second rule would then refuse each honest act that

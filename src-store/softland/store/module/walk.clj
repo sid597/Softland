@@ -114,7 +114,8 @@
   stamp. In one layer each stamp is later than the one before, in the order
   in which the walk was called. A refused thing, one with no usable time
   among them, gets the layer's last stamp plus one, or 0 in a layer with
-  no last stamp: only an accept moves a layer's time.
+  no last stamp: only an accept moves a layer's time, but for the edge of
+  a full counter (`softland.store.gate.decision/stamp-of`).
 
   The marked keys. An act is decided with the layer's marks as they were
   before it. So a fact of the act that marks its own key is not in the order

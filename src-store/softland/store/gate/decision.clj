@@ -444,7 +444,10 @@
   A refusal, whatever its word: the layer's last stamp plus one, or 0 in a
   layer with no last stamp. Neither the time on the thing nor a stamp that
   it carries is in it, and the time is not read for it. So only an act
-  that a gate accepts moves a layer's time. A refused thing costs its
+  that a gate accepts moves a layer's time, but for one edge: after a last
+  stamp whose counter is full, \"last plus one\" carries into the time, by
+  one millisecond. That takes 65,536 decisions in the layer in one
+  millisecond. A refused thing costs its
   layer one stamp, whatever time is written on it and whoever appended it:
   anything can arrive on a depot, from a sender with no permission and
   into a layer that is not made, and were its time in the stamp, one such

@@ -79,7 +79,7 @@ it is committed while it fails.
 | B | The base's gate, the batch clock and the microbatch gate's depot of answers out, the door's reads, the read path. **This part makes the first proof pass.** The fixture is made here | passes: 0 rows differ on a run again, and the kept acts give the kept tables with 4 tasks and with 8 | **done.** The source is switched and every proof is adapted (`PART-B.md`); committed as `9a46f81a`, with all seven proofs passing |
 | C | Decision 7 on the store itself: closed, or said on the store's page and named by the proof | passes | **run.** On a stand-in gate of the store's form no failure that could be made in process changed the order, in 87 of 87 runs (`probes-order-after-a-failure/RESULTS.md`). On the store itself three kinds of failure were made inside the run-again proof, a throw in the base, a stall past Rama's timeout and a throw in a streaming layer: after each, a second run gave the same tables, 0 rows differing. One case was reached in neither: a batch that fails with no restart and loses its rows, as a failed copy to a second machine would make it. No cheap way to close that case was found. It is said on the store's page, and the proof names an act that is decided out of its line |
 | D | The pages: the store's page, the source entry's decisions of 13 October, the proofs' map, the queue, the open rows of both receipts, the progress page of the folder above, the questions for Rama's team | — | **done.** Written from the finished code, committed as `6dae07ce` |
-| E | One fresh review of the whole, its fixes, the final runs, one receipt | passes at the last commit | **done, with the review cut short.** The machine went down at about 02:25 on 14 October, 14 minutes into the review. Two reviewers of six had reported. A second session (Opus 5.5) applied their findings that morning, lean, as Sid asked: one session, no builders, no reviewers. It did what the section "What was left" below lists, in its order: the two fixes, the docstrings, the fixture made again and the final runs (`runs/final-*.txt`), in one commit; then the receipt, `RECEIPT.md`, in the next. What the review did not reach is in the receipt |
+| E | One fresh review of the whole, its fixes, the final runs, one receipt | passes at the last commit | **done, with the review cut short.** The machine went down at about 02:25 on 14 October, 14 minutes into the review. Two reviewers of six had reported. A second session (Opus 5.5) applied their findings that morning, lean: one session, no builders, no reviewers, as the prompt that Sid pasted said. That prompt was the night session's; Sid had asked why six reviewers, not for none. One reviewer then ran at his word (`RECEIPT.md`, section 7). It did what the section "What was left" below lists, in its order: the two fixes, the docstrings, the fixture made again and the final runs (`runs/final-*.txt`), in one commit; then the receipt, `RECEIPT.md`, in the next. What the review did not reach is in the receipt |
 
 ## Working answers, each kept for now and decided by nobody
 
@@ -136,8 +136,8 @@ More are added below as they are made.
 
 ## What was left, and is done
 
-Done on 14 October 2026 by a second session, in the order of point 4 below. Sid's
-word for it: commit when the seven tests pass, then write the receipt. So the receipt,
+Done on 14 October 2026 by a second session, in the order of point 4 below. The
+prompt that Sid pasted said: commit when the seven tests pass, then write the receipt. So the receipt,
 `RECEIPT.md` beside this page, is the commit after the one that holds the rest. The
 rest of this section is as the first session wrote it, and each of its points was
 carried out as it says, with one correction of its arithmetic: in point 2 a carried
@@ -145,8 +145,10 @@ stamp within 10 seconds of a time below 2^45 is not below 2^61 but up to 655,359
 above it. What follows from it there holds.
 
 Written at the end of the first session, on the morning of 14 October 2026, so that a
-new session can finish from this page alone. Sid's word that morning on how: lean. One
-session, no fan of builders, no more reviewers, a short receipt. A "proof" is a test
+new session can finish from this page alone. The way to finish, as the first session
+proposed it that morning and put in the prompt that Sid pasted: lean. One session, no
+fan of builders, no more reviewers, a short receipt. Sid had asked why six reviewers;
+he did not ask for none. A "proof" is a test
 file; the seven are run with `runs/run-proofs.sh <label>`.
 
 The last commit is `6dae07ce`. All seven tests passed on `9a46f81a`, and the commit
@@ -248,7 +250,7 @@ of it is too, and "last plus one" needs about 2^61 decisions to reach 2^62.
   left partial runs in `/mnt/data/projects/Softland-run-again-review-proofs/review-out/`.
 - **What the session would do otherwise**, as said to Sid that morning: delete first
   where it separates and let the old tests judge it; change behaviour after, touching
-  only the tests it must break; one reviewer, as he asked; fewer new checks. And the
+  only the tests it must break; one reviewer, as the build's prompt asked; fewer new checks. And the
   root of the night's size: the tests and their map describe the store's insides, so a
   simpler inside cost a rewrite of both.
 - **Scratch that is not committed** and waits for his word: four detached checkouts
