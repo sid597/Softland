@@ -1,0 +1,83 @@
+The same check run 40 times without hold-back, HEAD 59b2a703 (store code identical to c90c7bcc), 15 October 2026, each under the cluster lock.
+Runs 01-15: trace printed as it happened; 17-40: trace kept in memory, printed after Erin left; run 16 cut off when switching. Check: PASS = the check passed.
+
+run 01 PASS exit 0 54s {:test 28, :pass 553, :fail 0, :error 0}
+run 02 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 03 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 04 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 05 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 06 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 07 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 08 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 09 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 10 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 11 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 12 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 13 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 14 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 15 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 17 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 18 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 19 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 20 PASS exit 0 92s {:test 28, :pass 553, :fail 0, :error 0}
+run 21 PASS exit 0 53s {:test 28, :pass 553, :fail 0, :error 0}
+run 22 PASS exit 0 51s {:test 28, :pass 553, :fail 0, :error 0}
+run 23 PASS exit 0 53s {:test 28, :pass 553, :fail 0, :error 0}
+run 24 PASS exit 0 95s {:test 28, :pass 553, :fail 0, :error 0}
+run 25 PASS exit 0 147s {:test 28, :pass 553, :fail 0, :error 0}
+run 26 PASS exit 0 81s {:test 28, :pass 553, :fail 0, :error 0}
+run 27 PASS exit 0 104s {:test 28, :pass 553, :fail 0, :error 0}
+run 28 PASS exit 0 94s {:test 28, :pass 553, :fail 0, :error 0}
+run 29 PASS exit 0 80s {:test 28, :pass 553, :fail 0, :error 0}
+run 30 PASS exit 0 52s {:test 28, :pass 553, :fail 0, :error 0}
+run 31 PASS exit 0 72s {:test 28, :pass 553, :fail 0, :error 0}
+run 32 PASS exit 0 96s {:test 28, :pass 553, :fail 0, :error 0}
+run 33 PASS exit 0 79s {:test 28, :pass 553, :fail 0, :error 0}
+run 34 PASS exit 0 104s {:test 28, :pass 553, :fail 0, :error 0}
+run 35 PASS exit 0 117s {:test 28, :pass 553, :fail 0, :error 0}
+run 36 PASS exit 0 54s {:test 28, :pass 553, :fail 0, :error 0}
+run 37 PASS exit 0 58s {:test 28, :pass 553, :fail 0, :error 0}
+run 38 PASS exit 0 76s {:test 28, :pass 553, :fail 0, :error 0}
+run 39 PASS exit 0 115s {:test 28, :pass 553, :fail 0, :error 0}
+run 40 PASS exit 0 54s {:test 28, :pass 553, :fail 0, :error 0}
+
+Arrival steps after the right, per run: source(missing at its step, what it told)
+run-01.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-02.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-03.txt | check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-04.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-05.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-06.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-07.txt | check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-08.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-09.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-10.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m1,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-11.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-12.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-13.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-14.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-15.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-17.txt | check-j15n@:m-1(m3,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-18.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-19.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-20.txt | check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-21.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-22.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-23.txt | check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-24.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-25.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-26.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-27.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m1,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-28.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-29.txt | check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-30.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-31.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-32.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-33.txt | check-j15n@:m-1(m2,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-34.txt | check-j15n@:m-1(m3,nil) > check-j15n@:f-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-35.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-36.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-37.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-38.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > check-j15n@:f-2(m1,nil) > order-j15n(m0,:anew)
+run-39.txt | check-j15n@:f-1(m2,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)
+run-40.txt | check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)

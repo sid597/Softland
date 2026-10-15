@@ -1,0 +1,49 @@
+Erin's function, every call in order, forced run 01 (hold), HEAD 12621884. Each place as [holds value layer].
+
+ERIN-CALL 1 [:anew :places {[:f-1 :parent] [:value :canvas-1 :j15f], [:f-2 :parent] [:value :canvas-1 :j15f], [:m-1 :parent] [:value :canvas-1 :j15m]} :left-out [{:layer :j15n, :why :may-not-see}] :orders [{:layer :j15m, :level-since 1} {:layer :j15f, :level-since 1}]]
+ERIN-CALL 2 [:anew :places {[:f-1 :parent] [:value :canvas-1 :j15f], [:m-1 :parent] [:value :canvas-1 :j15m], [:n-1 :parent] [:value :canvas-1 :j15n]} :left-out [] :orders [{:layer :j15n, :level-since 1} {:layer :j15m, :level-since 1} {:layer :j15f, :level-since 1}]]
+ERIN-CALL 3 [:changed {[:f-2 :parent] [:no-fact nil nil]}]
+ERIN-SCREEN-EQ-ONCE true
+FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+
+Its steps after Alice gives Erin her right in j15n (ms since load, thread, event; owed/missing as each step saw them):
+22483.878 p0-0 CALLBACK :change perm-j15n@:erin
+22484.455 MARK-after-give
+22484.727 p1-0 CALLBACK :anew perm-j15n@:alice
+22484.738 p1-0 GIVEN perm-j15n@:alice
+22484.838 p0-0 ON-CHANGE perm-j15n@:erin owed-before=false joined=1 known=12 missing=1 tell=nil owed-after=true
+22485.020 p0-0 ARRIVAL-WAITS-FOR-TURN perm-j15n@:alice
+22485.058 p0-0 ARRIVAL-IN-TURN perm-j15n@:alice
+22485.649 p0-0 ON-ARRIVAL perm-j15n@:alice owed-before=true joined=4 known=13 missing=4 tell=nil owed-after=true
+22486.122 p1-0 CALLBACK :anew check-j15n@:f-1
+22486.134 p1-0 GIVEN check-j15n@:f-1
+22486.149 p1-0 ARRIVAL-WAITS-FOR-TURN check-j15n@:f-1
+22486.150 p1-0 ARRIVAL-IN-TURN check-j15n@:f-1
+22486.402 p0-0 CALLBACK :anew check-j15n@:m-1
+22486.417 p0-0 GIVEN check-j15n@:m-1
+22486.426 p0-0 ARRIVAL-WAITS-FOR-TURN check-j15n@:m-1
+22486.510 p1-0 ON-ARRIVAL check-j15n@:f-1 owed-before=true joined=0 known=14 missing=3 tell=nil owed-after=true
+22486.533 p0-0 ARRIVAL-IN-TURN check-j15n@:m-1
+22486.654 p1-0 CALLBACK :anew order-j15n
+22486.667 p1-0 GIVEN order-j15n
+22486.795 clojure-agent-send-off-pool-1 HOLD order arrival held until f-2's push is given
+22486.800 p0-0 ON-ARRIVAL check-j15n@:m-1 owed-before=true joined=0 known=15 missing=2 tell=nil owed-after=true
+22486.846 p0-0 CALLBACK :anew check-j15n@:f-2
+22486.859 p0-0 GIVEN check-j15n@:f-2
+22486.947 clojure-agent-send-off-pool-0 HOLD f-2 arrival held until the whole answer is told
+22486.965 clojure-agent-send-off-pool-1 HOLD order arrival released: :f-2-given
+22486.978 clojure-agent-send-off-pool-1 ARRIVAL-WAITS-FOR-TURN order-j15n
+22486.980 clojure-agent-send-off-pool-1 ARRIVAL-IN-TURN order-j15n
+22487.321 clojure-agent-send-off-pool-1 ON-ARRIVAL order-j15n owed-before=true joined=0 known=17 missing=0 tell=:anew owed-after=false
+22487.326 clojure-agent-send-off-pool-1 TELL [:anew ...
+22487.380 clojure-agent-send-off-pool-0 HOLD f-2 arrival released: :told
+22487.396 clojure-agent-send-off-pool-0 ARRIVAL-WAITS-FOR-TURN check-j15n@:f-2
+22487.398 clojure-agent-send-off-pool-0 ARRIVAL-IN-TURN check-j15n@:f-2
+22487.714 clojure-agent-send-off-pool-0 ON-ARRIVAL check-j15n@:f-2 owed-before=false joined=0 known=17 missing=0 tell=:changed owed-after=false
+22487.718 clojure-agent-send-off-pool-0 TELL [:changed ...
+
+Plain run 04 (no hold-back), same snapshot: calls 2.. and arrival order
+ERIN-CALL 2 [:anew :places {[:f-1 :parent] [:value :canvas-1 :j15f], [:m-1 :parent] [:value :canvas-1 :j15m], [:n-1 :parent] [:value :canvas-1 :j15n]} :left-out [] :orders [{:layer :j15n, :level-since 1} {:layer :j15m, :level-since 1} {:layer :j15f, :level-since 1}]]
+ERIN-SCREEN-EQ-ONCE true
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+run-04-plain.txt | perm-j15n@:alice(m4,nil) > check-j15n@:f-1(m3,nil) > check-j15n@:m-1(m2,nil) > order-j15n(m1,nil) > check-j15n@:f-2(m0,:anew)

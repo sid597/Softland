@@ -1,0 +1,10 @@
+The read-path check 'through three layers, a permission is given in the nearest ...' with Erin's arrivals held back.
+Snapshot: detached worktree of HEAD 12621884, tracing and hold-back added there only (read-path-hold-back.diff); worktree removed after.
+Each run: flock .../backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock clojure [-J-Dsoftland.hold=true] -M:store-module -m softland.store.read-path-proof (the whole proof).
+hold: f-2's check arrival step waits (own thread) until Erin is told a whole answer holding n-1; the order's arrival step waits until f-2's push is given; each with a 5 s bound. 'holds:' says what released each (no timeout fired).
+plain: the same snapshot with no hold-back. 15 October 2026.
+
+run 01 hold erin-check:FAIL exit:1 54s | ERIN-LATER-COUNT 2 all-anew? false | ERIN-SCREEN-EQ-ONCE true | holds: HOLD order :f-2-given;HOLD f-2 :told; | {:test 29, :pass 577, :fail 1, :error 0}
+run 02 hold erin-check:FAIL exit:1 67s | ERIN-LATER-COUNT 2 all-anew? false | ERIN-SCREEN-EQ-ONCE true | holds: HOLD order :f-2-given;HOLD f-2 :told; | {:test 29, :pass 577, :fail 1, :error 0}
+run 03 hold erin-check:FAIL exit:1 84s | ERIN-LATER-COUNT 2 all-anew? false | ERIN-SCREEN-EQ-ONCE true | holds: HOLD order :f-2-given;HOLD f-2 :told; | {:test 29, :pass 577, :fail 1, :error 0}
+run 04 plain erin-check:PASS exit:0 66s | ERIN-LATER-COUNT 1 all-anew? true | ERIN-SCREEN-EQ-ONCE true | holds:  | {:test 29, :pass 578, :fail 0, :error 0}

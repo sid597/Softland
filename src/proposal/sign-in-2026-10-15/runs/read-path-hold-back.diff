@@ -1,0 +1,179 @@
+diff --git a/src-store/softland/store/read_path.clj b/src-store/softland/store/read_path.clj
+index 2a364258..0c392801 100644
+--- a/src-store/softland/store/read_path.clj
++++ b/src-store/softland/store/read_path.clj
+@@ -602,6 +602,33 @@
+ 
+ ;; ------------------------------------------------- the pushes, and their sharing
+ 
++(defonce trace-t0 (System/nanoTime))
++(def trace-lock (Object.))
++(defn trace-layer? [source] (boolean (re-find #"j15" (str (:layer source)))))
++(defn short-source [source] [(:table source) (:layer source) (:path source)])
++(def trace-queue (java.util.concurrent.ConcurrentLinkedQueue.))
++(defmacro trc [& xs]
++  `(.add ^java.util.concurrent.ConcurrentLinkedQueue trace-queue
++         [(System/nanoTime) (.getName (Thread/currentThread)) (fn [] [~@xs])]))
++(defn trace-dump! []
++  (locking trace-lock
++    (doseq [[t thread thunk] (sort-by first (vec trace-queue))]
++      (println (apply print-str "TRACE" (format "%.3f" (/ (- t trace-t0) 1e6)) thread (thunk))))
++    (.clear ^java.util.concurrent.ConcurrentLinkedQueue trace-queue)
++    (flush)))
++(defn erin-read? [read] (boolean (re-find #"erin" (str (:asker (:query read))))))
++(defn- place-brief [m] (into (sorted-map-by #(compare (str %1) (str %2))) (map (fn [[p a]] [p ((juxt :holds :value :layer) a)])) m))
++(defn tell-summary [change]
++  (cond (:anew change) [:anew :places (place-brief (:places (:anew change))) :left-out (:left-out (:anew change)) :orders (:orders (:anew change))]
++        (:changed change) [:changed (place-brief (:changed change))]
++        :else [:other change]))
++(defonce anew-with-n-1 (promise))
++(defn hold-on? [] (Boolean/getBoolean "softland.hold"))
++(defn hold-kind [source]
++  (when (re-find #"j15n" (str (:layer source)))
++    (cond (= :facts-by-value (:table source)) :order
++          (and (= :row (first (:path source))) (re-find #":f-2 :parent" (str (second (:path source))))) :f-2)))
++
+ (declare on-callback)
+ 
+ (defn- open-push
+@@ -629,7 +656,7 @@
+   [^ReadPath read-path source ^AtomicBoolean called]
+   (let [numbers (.-numbers read-path)
+         out (CompletableFuture.)
+-        give! (fn [x] (.complete out x))
++        give! (fn [x] (when (trace-layer? source) (trc "GIVEN" (if (:push x) :push (pr-str (:word x))) (pr-str (short-source source)))) (.complete out x))
+         threw! (fn [info] (give! {:word (words/word :reach-the-store info)}))
+         large! (fn [] (give! {:word (too-large read-path)}))
+         run? (= :run (first (:path source)))
+@@ -941,6 +968,8 @@
+   `:its-function-threw`."
+   [read-path id change]
+   (when-let [read (read-of read-path id)]
++    (when (erin-read? read) (trc "TELL" (pr-str (tell-summary change))))
++    (when (and (erin-read? read) (contains? (:places (:anew change)) [:n-1 :parent])) (deliver anew-with-n-1 :told))
+     (when (= :threw (call-marked (:tell read) change))
+       (end-read! read-path id :its-function-threw nil))))
+ 
+@@ -993,8 +1022,23 @@
+           (.whenComplete ^CompletableFuture (force (:opening entry))
+                          (reify BiConsumer
+                            (accept [_ got _thrown]
+-                             (try (on-arrival read-path id source got)
+-                                  (catch Throwable _ nil))))))))))
++                             (let [go! (fn [] (try (on-arrival read-path id source got)
++                                                   (catch Throwable _ nil)))
++                                   r (read-of read-path id)
++                                   hold (when (and (hold-on?) r (erin-read? r)) (hold-kind source))]
++                               (case hold
++                                 :f-2 (future (trc "HOLD f-2 arrival held until the whole answer is told")
++                                              (let [why (deref anew-with-n-1 5000 :timed-out)]
++                                                (trc "HOLD f-2 arrival released:" why))
++                                              (go!))
++                                 :order (future (trc "HOLD order arrival held until f-2's push is given")
++                                                (let [f2 (first (filter #(= :f-2 (hold-kind %)) (:sources (read-of read-path id))))
++                                                      e (get (:pushes (held-now read-path)) f2)
++                                                      why (try (.get ^CompletableFuture (force (:opening e)) 5000 TimeUnit/MILLISECONDS) :f-2-given
++                                                               (catch Throwable t (str "not given: " (.getName (class t)))))]
++                                                  (trc "HOLD order arrival released:" why))
++                                                (go!))
++                                 (go!)))))))))))
+ 
+ (defn- after-step!
+   "Does what a pure function said a step does. Takes the read path, the
+@@ -1019,19 +1063,25 @@
+   `settle!`, and what `softland.store.read-path.answer/after-arrival`
+   says."
+   [read-path id source got]
+-  (when-let [{:keys [turn]} (read-of read-path id)]
++  (when-let [{:keys [turn] :as r0} (read-of read-path id)]
++    (when (erin-read? r0) (trc "ARRIVAL-WAITS-FOR-TURN" (pr-str (short-source source))))
+     (locking turn
+       (let [read (read-of read-path id)]
++        (when (and read (erin-read? read)) (trc "ARRIVAL-IN-TURN" (pr-str (short-source source)) "opened?" (:opened? read) "holds?" (contains? (:sources read) source)))
+         (when (and read (:opened? read) (contains? (:sources read) source))
+           (if-let [word (:word got)]
+             (if (= :serve-a-read-that-large (:could-not word))
+               (end-read! read-path id :a-run-grew-too-large (select-keys word [:what :most]))
+               (end-read! read-path id :a-read-it-came-to-need-failed (dissoc word :could-not)))
+             (when-let [{:keys [reading known joined left]} (settle! read-path id)]
+-              (after-step! read-path id
+-                           (answer/after-arrival (:query read) reading known source joined left
+-                                                 (:owed? (read-of read-path id)))
+-                           joined))))))))
++              (let [owed-before (:owed? (read-of read-path id))
++                    result (answer/after-arrival (:query read) reading known source joined left owed-before)]
++                (when (erin-read? read)
++                  (trc "ON-ARRIVAL" (pr-str (short-source source)) "check?" (sources/check? (:query read) source)
++                       "owed-before" owed-before "joined" (pr-str (mapv short-source joined)) "left" (pr-str (mapv short-source left))
++                       "known-n" (count known) "missing" (pr-str (mapv short-source (:missing reading)))
++                       "-> tell" (pr-str (some-> (:tell result) tell-summary first)) "owed-after" (:owed? result)))
++                (after-step! read-path id result joined)))))))))
+ 
+ (defn- on-change
+   "A push of an opened read changed: the fifth step of a live read, for one
+@@ -1048,13 +1098,19 @@
+         (when (and read (:opened? read) (contains? (:sources read) source))
+           (when-let [{:keys [reading known joined left]} (settle! read-path id)]
+             (let [query (:query read)
+-                  [meant-before meant-after] (answer/meanings query known source old new)]
+-              (after-step! read-path id
+-                           (answer/after-change query reading known source
+-                                                (sources/places-of query source changed)
+-                                                meant-before meant-after joined left
+-                                                (:owed? (read-of read-path id)))
+-                           joined))))))))
++                  [meant-before meant-after] (answer/meanings query known source old new)
++                  owed-before (:owed? (read-of read-path id))
++                  result (answer/after-change query reading known source
++                                              (sources/places-of query source changed)
++                                              meant-before meant-after joined left
++                                              owed-before)]
++              (when (erin-read? read)
++                (trc "ON-CHANGE" (pr-str (short-source source)) "changed" (pr-str changed)
++                     "meaning-moved" (not= meant-before meant-after) "owed-before" owed-before
++                     "joined" (pr-str (mapv short-source joined)) "left" (pr-str (mapv short-source left))
++                     "known-n" (count known) "missing" (pr-str (mapv short-source (:missing reading)))
++                     "-> tell" (pr-str (some-> (:tell result) tell-summary first)) "owed-after" (:owed? result)))
++              (after-step! read-path id result joined))))))))
+ 
+ (defn- keys-of-diff
+   "Takes a diff of Rama's. Gives the keys that it names, as a vector of
+@@ -1119,6 +1175,9 @@
+     (let [entry (get-in (held-now read-path) [:pushes source])
+           kind (diff-kind diff)
+           first? (and (= :anew kind) (.compareAndSet called false true))]
++      (when (trace-layer? source)
++        (trc "CALLBACK" kind (if first? "first-skipped" "") (pr-str (short-source source))
++             "entry?" (some? entry) "same-mark?" (and entry (identical? called (:called entry))) "readers" (count (:readers entry))))
+       (when (and entry (identical? called (:called entry)) (not= :own-close kind) (not first?))
+         (.set called true)
+         (if (= :ended-by-the-store kind)
+diff --git a/test-store/softland/store/read_path_proof.clj b/test-store/softland/store/read_path_proof.clj
+index 0b40f231..a4e431be 100644
+--- a/test-store/softland/store/read_path_proof.clj
++++ b/test-store/softland/store/read_path_proof.clj
+@@ -1233,12 +1233,23 @@
+         _ (put! :alice :j15n [(fact :n-1 :parent :canvas-1) (fact :f-2 :parent :canvas-2)])
+         erin (live {:asks [:points-at :parent :canvas-1] :asker :erin :layers [:j15n :j15m :j15f]})
+         erin-now (:now erin)
+-        _ (give! :j15n :alice :erin)
++        _ (println "ERIN-CALL 1" (pr-str (softland.store.read-path/tell-summary {:anew erin-now})))
++        _ (softland.store.read-path/trc "MARK before give j15n")
++        erin-give (give! :j15n :alice :erin)
++        _ (softland.store.read-path/trc "MARK after give j15n, stamp" (:stamp erin-give))
+         _ (wait-until #(get (:places (screen erin)) [:n-1 :parent]))
+         _ (settled)
+         erin-later (later erin)
+         erin-once (ask {:asks [:points-at :parent :canvas-1] :asker :erin :layers [:j15n :j15m :j15f]})
++        _ (println "ERIN-LATER-COUNT" (count erin-later) "all-anew?" (every? :anew erin-later))
++        _ (doseq [[i c] (map vector (range 2 100) erin-later)] (println "ERIN-CALL" i (pr-str (softland.store.read-path/tell-summary c))))
++        _ (println "ERIN-SCREEN" (pr-str (:places (screen erin))))
++        _ (println "ERIN-ONCE  " (pr-str (:places erin-once)))
++        _ (println "ERIN-SCREEN-EQ-ONCE" (= (:places (screen erin)) (:places erin-once)))
++        _ (softland.store.read-path/trc "MARK erin leaves")
+         _ (leave! erin)
++        _ (Thread/sleep 300)
++        _ (softland.store.read-path/trace-dump!)
+         ;; (g) the base: its setting to members and back
+         _ (put! :system :base [(fact :note-15 :text "in the base")])
+         frank (live {:asks [:place :note-15 :text] :asker :frank :layers [:base]})
