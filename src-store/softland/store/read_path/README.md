@@ -92,8 +92,8 @@ shows: "Where a microbatch layer is read", below.
 
 Sign-in's decisions of 15 October 2026, with the defaults that Sid did not
 strike that day, as the store source entry gives them, show in the read path in
-two places. Rights can be taken back, and ending a right ends what was given
-beneath it: so who holds a right in a members layer is read as a gate reads the
+two places. A right can end (the build page's words for his decision 7, a
+session's), and ending a right ends what was given beneath it: so who holds a right in a members layer is read as a gate reads the
 standing of an act, from her row and the row of each level above her right, by
 the one rule of a chain ([chain.clj](../gate/chain.clj)), in
 [layers.clj](layers.clj); the levels above are sources of their own, in
@@ -399,7 +399,7 @@ others are.
 | `:join`, `:leave`; `:joined`, `:left` | The sources that a live read is to hold and to let go; and those that one step did |
 | `:tell`, `:owed?` | What a step gives back: what to hand the asker's function, and whether the whole answer is owed after it |
 | `:walk`, `:places`, `:holds?`, `:gives`; `:given`, `:none`, `:waits` | How the rows of one word of a query are put together; and the three outcomes of the walk of one place |
-| `:made?`, `:who-may-see`, `:right` with `:stands`, `:none`, `:not-known-yet`, `:levels`, `:builds-on`, `:marked-since` | What a layer's own rows and an asker's right mean for one query; `:levels` holds the mark of each level above her right. `:stands` and `:none` are also what is known of her right: it stands, or her row holds no right of hers whose whole chain stands |
+| `:made?`, `:who-may-see`, `:right` with `:stands`, `:none`, `:not-known-yet`, `:levels`, `:builds-on`, `:marked-since` | What a layer's own rows and an asker's right mean for one query; `:who-may-see` holds the setting's word for an asker who is signed in, and only whether it is everyone for one who is not; `:levels` holds the mark of each level above her right. `:stands` and `:none` are also what is known of her right: it stands, or her row holds no right of hers whose whole chain stands |
 | `:pushes`, with `:opening`, `:readers`, `:called` | What the read path holds for each push: the one call that opens it, the live reads that hold it, and a mark that its first callback came |
 | `:counts` | How many pushes the read path holds on each table under each routing id: what its own bound is held to |
 | `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |

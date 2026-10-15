@@ -287,7 +287,9 @@ shape must hold when each fact is wrong.
   is and whoever claims it; what the place and the value may be, a name's
   letters for one, are not a gate's to check. A layer marks 32 such keys at most. A fact that
   names the current fact of its place replaces it under such a key too, and a
-  retract frees the place: whoever's right allows the key may do either.
+  retract frees the place: whoever's right allows the key may do either, since
+  the store knows no holder of a claim. A claim holds once only where one
+  writer, such as the system, writes the key.
 - **What a list of layers names.** A gate takes the list as written: a layer that
   is not made, the layer itself, a layer named twice, and two lists that name
   each other are all accepted. A read handles them.
@@ -337,7 +339,8 @@ shape must hold when each fact is wrong.
   standing and the layer's last stamp, which is two reads, and writes the
   answer and the layer's last stamp. An act whose own row holds its
   permission, and a level above which has ended, reads one row more for each
-  level above it, 31 at most, and is refused with the same 2 writes. Its refusal raises the layer's last stamp
+  level above it, 31 at most, each of about 16.6 KB at most, about 530 KB in
+  all, and is refused with the same 2 writes. Its refusal raises the layer's last stamp
   by one and moves no time of the layer, whatever time it carries. The door is
   no guard of it: it stops no act. Each act
   of such a who reaches the gate and is recorded, refused under its own act-id
@@ -560,7 +563,7 @@ Before real data is kept (12 October), the entries that show in code:
 |---|---|---|
 | 1 | Every table can be made again from the logs | By a second run of the gates over the two logs of acts. `add-gates-and-reads` in [module.clj](module.clj) adds the gates and the reads to any module that has the two depots, or mirrors of them, under their names; such a module decides every thing again from the beginning of each depot, into tables of its own. Rule 19 says what that rests on. The box that a session had put under this entry, a log of what a gate decided and a rebuild that applies it, is set aside by decision 5 of 13 October: the module holds neither |
 | 2 | Every value is plain in the log, and the store keeps no locks | [door.clj](door.clj) appends the maker's act with `:act-id`, `:depot` and `:door-time` added, and nothing else changed. In [declaration.clj](door/declaration.clj) what arrives as a fact is the maker's fact, and a part that the shape does not name is refused `:unknown-part`. No PState and no query of the module holds a lock |
-| 6, its fourth | The limit of four on the depth of a permission is lifted, and a bound on the size of an act takes its place | `nesting` in [act.clj](act.clj) gives a permission the value's own number, 32. `max-act-bytes` in [declaration.clj](door/declaration.clj), held by the last step of the check with the word `:act-too-large`. "Engineering choices" says what each counts |
+| 6, its fourth | The limit of four on the depth of a permission is lifted, and a bound on the size of an act takes its place | `nesting` in [act.clj](act.clj) gives a permission the value's own number, 32. `max-act-bytes` in [declaration.clj](door/declaration.clj), held by the last step of the check with the word `:act-too-large`. And, since the sign-in build, `max-permission-bytes`: the one text of a permission, the act's own and each one given, holds 8,192 bytes at most, held by a rule with the word `:permission-too-long`; a session's number under this entry, kept and not decided. "Engineering choices" says what each counts |
 | 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first | The door's three tests and no other, `reading` in [additions.clj](door/additions.clj): each is of what its three additions need. `standing` in [decision.clj](gate/decision.clj) refuses such an act under its own act-id, and no fact of it is in the tables |
 
 So that the store comes out the same when it is run again (13 October). Sid sent
@@ -605,10 +608,10 @@ yet (13 October, decision 6): the code knows one version.
 
 | Decision or default | What it shapes here |
 |---|---|
-| Decision 7: rights can be taken back, and blocked down to kinds of act | The end of a right, a retract at its place, and the check of a chain in [chain.clj](gate/chain.clj): `standing` in [decision.clj](gate/decision.clj) reads each level above an act's permission, and the check of an end takes it from above. A right's list of keys in [act.clj](act.clj). The runtime's blocks are not the gate's |
+| Decision 7, which the build page heads "rights can be taken back, and blocked down to kinds of act", a session's words. Sid's line (‹e5a2200e›): "for malicious users we should be able to block as the system … they should also be able to block "type" of actions" | The end of a right, a retract at its place, and the check of a chain in [chain.clj](gate/chain.clj): `standing` in [decision.clj](gate/decision.clj) reads each level above an act's permission, and the check of an end takes it from above. A right's list of keys in [act.clj](act.clj). The runtime's blocks are not the gate's |
 | Default 11: ending a right | Who may end one: an act whose permission is a level above it (`above?` in [chain.clj](gate/chain.clj)). An end reaches down for good, also when the same right is given again above (`stands?`). "See" is raised to "see and act" by an end and then a give: a give onto a place whose right has ended is taken |
 | Default 12: which keys a right allows | The fifth slot of a given permission can be a set of key patterns (`shapes` and `allows-key?` in [act.clj](act.clj)); `places` in [decision.clj](gate/decision.clj) refuses a fact whose key the act's right does not allow, and a give that allows more than the giver's (`allows-within?`). Giving a right and changing a setting are keys like any other, so `who-may-write-fault` gives no word |
-| The store's change d: a key that a layer marks as taking one write per place, for unique names | The store key `:softland.store/one-write-keys` in [declaration.clj](door/declaration.clj), and `claims` in [decision.clj](gate/decision.clj) |
+| The store's change d: a key that a layer marks as taking one write per place, for unique names | The store key `:softland.store/one-write-keys` in [declaration.clj](door/declaration.clj), and `claims` in [decision.clj](gate/decision.clj). It stops a blind second claim; a name stays unique only where one writer, such as the system, writes its key |
 
 ## Engineering choices
 
@@ -652,6 +655,9 @@ measured.
 
 Under a given right each act reads one row more for each level above it: the
 right's chain is read whole at each act, since a level above can have ended.
+Each such row holds the text of its permission and of its giver's, each 8,192
+bytes at most, so the standing of an act under a right of depth 32 reads about
+530 KB at most.
 Without the one-write keys and the order by value it would be 4 reads. The
 read of the one-write keys is paid by every act with a claim that the other
 checks passed, and the read of the marked keys by every accepted act with a
@@ -763,7 +769,15 @@ bytes of text at most into the rows of its facts: for each fact the text of its
 value, and the texts of the act's who and of its permission, which each fact's
 row holds. One over is refused `:act-too-large`; an act with both faults gets
 the first word. The number is 256 facts, each with 65,536 bytes of value and
-8,192 of who and permission. The bound does not count the rows of the facts by
+8,192 of who and permission. The one text of a permission holds 8,192 bytes at
+most, the act's own and each that a fact gives (`:permission-too-long`, a rule
+of the declaration, so before the last step). So an act of 256 values can still
+be over the bound on an act, and an act with a retract can be over it only
+under a who whose letters take more than one byte each. The bound on a permission bounds
+what the standing of each act reads: a level's row holds its permission's text
+and its giver's. Its number is a session's, under Sid's Z5 of 12 October 2026
+(the limit of four on the depth of a permission lifted, "a bound on the size
+of an act takes its place"), kept and not decided. The bound does not count the rows of the facts by
 value: which keys are marked is read only after every check. The step is the
 last because it is the most costly: it makes the text of each value once, and
 the String that it counted is the String that the row holds. Each number is the
@@ -801,7 +815,11 @@ reads the row of the one-write keys only for an act with a claim that every
 other check passed, and then the place of each claim under a marked key. An act
 is decided with the marks as they were before it, as with the marked keys. Two
 claims of one place in one layer's line: the first is taken and the second
-refused, in the order of the line. That is how a name is claimed once.
+refused, in the order of the line. So a one-write key stops a blind second
+claim, and nothing more: a fact that names the current fact, and a retract, are
+taken from any writer whose right allows the key, since the store knows no
+holder of a claim. A claim holds once only where one writer, such as the
+system, writes the key.
 
 **The mark of a key is one fact that holds a set.** A gate then reads the marks
 of an act with one read, where one fact for each key would cost a read for each
@@ -845,6 +863,9 @@ end ends each right beneath it, so the standing of an act reads the row of each
 level above its permission once its holder's row holds it: none under a first
 permission, 31 at most. It reads them at each act and keeps them nowhere
 between two acts. An end writes one row, and no walk of the rights beneath it.
+The bound on the text of a permission bounds these reads in bytes too: about
+16.6 KB a row, about 530 KB for a chain 32 deep, where a chain whose levels
+each listed 64 patterns of 256 characters would cost about 16 MB at each act.
 
 **The depot of a layer costs no read for a layer that is made here.** A gate's
 record holds rows only for layers of its depot, so a row at the permission's
@@ -1144,12 +1165,14 @@ order.
     the page and the fixture; the code still knows one version." So the rule
     stands here and with the proof's fixture, and no code holds two versions
     of a rule.
-20. Eight numbers in [declaration.clj](door/declaration.clj). Six are held by a
-    rule or by the test for a stray, before a row key is built from an id. Two
-    are held by the last step of the check: the bound on one value, counted of
-    its text, and the bound on one act. Three of the six are of the read build
-    and of sign-in: a layer builds on 64 layers at most, marks 32 keys at most,
-    and marks 32 keys at most as taking one write. A ninth is in
+20. Nine numbers in [declaration.clj](door/declaration.clj). Seven are held by
+    a rule or by the test for a stray, before a row key is built from an id or a
+    text is made of a whole act. Two are held by the last step of the check:
+    the bound on one value, counted of its text, and the bound on one act.
+    Four of the seven are of the read build and of sign-in: a layer builds on
+    64 layers at most, marks 32 keys at most, and marks 32 keys at most as
+    taking one write; and the one text of a permission holds 8,192 bytes at
+    most. A tenth is in
     [act.clj](act.clj), held by the shape: a right lists 64 key patterns at
     most. The time on an act has no bound above: it is a label.
 21. The aims: 1,000 acts a second on one task; 20 ms from the door's append to the
@@ -1230,8 +1253,9 @@ order, and "digest" is this store's word since its module.
 
 **The words of the sign-in build, for what a gate accepts.** Each is a
 session's, of 15 October 2026, and Sid's to change. None comes from the rig's
-code. "Taken back", "block" and "type of actions" are Sid's words of that day;
-the words here are the session's for what the gate does of them.
+code. "Block" and "type" of actions are Sid's words of that day (‹e5a2200e›);
+"taken back" is the build page's heading of his decision 7, a session's words.
+The words here are the session's for what the gate does of them.
 
 | Word | What it is |
 |---|---|
@@ -1247,6 +1271,7 @@ the words here are the session's for what the gate does of them.
 | `levels`, `parent-of`, `level-places`, `stands?`, `above?` | In [chain.clj](gate/chain.clj): the levels of a permission, the one above it, their places, whether the whole chain stands, and whether one permission is above another |
 | `levels-needed`, `holds-a-claim?`, `one-write-keys-place`, `claim-places-needed`, `claims` | In [decision.clj](gate/decision.clj): the rows above a permission that the standing reads, and what the check of the claims reads and decides |
 | `max-one-write-keys` | In [declaration.clj](door/declaration.clj): the most keys that a layer marks as taking one write, 32 |
+| `max-permission-bytes` | In [declaration.clj](door/declaration.clj): the most bytes of the one text of a permission, 8,192 |
 
 **The words of the build before real data is kept, for a value and its
 bounds.** Each is a session's. None was taken from the rig's code; whether the
@@ -1377,6 +1402,7 @@ word.
 | `:no-door-time` | The time on the act, under `:door-time`, is absent, nil, no fixed-width integer, or below zero |
 | `:too-many-facts` | More than 256 facts in one act |
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
+| `:permission-too-long` | The one text of the act's own permission, or of a permission that a fact gives, holds more than 8,192 bytes. A word of the sign-in build |
 | `:store-key-not-known` | A fact's key is in the namespace `softland.store` and is not one of the store keys |
 | `:depot-fact-not-a-depot-word` | A `:softland.store/depot` fact's value is not `:streaming` or `:microbatch` |
 | `:permission-fact-not-a-permission` | A `:softland.store/permission` fact's value is not a permission id |
@@ -1399,7 +1425,8 @@ word.
 **The names in the declaration.** Its shapes: `:arrived-act`,
 `:depot-word`, `:who-may-see-word`, `:layer-list`, `:key-set`.
 Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
-`:facts-within-the-limit`, `:based-on-within-the-limit`, `:store-key-is-known`,
+`:facts-within-the-limit`, `:based-on-within-the-limit`,
+`:permission-within-the-limit`, `:store-key-is-known`,
 `:depot-fact-holds-a-depot-word`,
 `:permission-fact-holds-a-permission`, `:permission-fact-sits-on-its-holder`,
 `:who-may-see-fact-holds-its-word`,

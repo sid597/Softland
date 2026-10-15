@@ -169,6 +169,15 @@
       permission, d - 1 under a permission of depth d, 31 at most. The
       counts below are under a first permission. An act whose right above
       has ended pays them, and is refused with the same 2 writes.
+    - What the standing reads, in bytes. The row of a level holds the one
+      text of its own permission, as its value, and of the permission that
+      its giver acted under, each 8,192 bytes at most
+      (`softland.store.door.declaration/max-permission-bytes`), with who
+      wrote it, 256 characters at most, and its numbers: about 16.6 KB at
+      most. So the standing of an act under a right of depth 32 reads 32
+      such rows, its holder's and 31 above, about 530 KB at most, paid by
+      every act under that right, a refused one too. Counted from the
+      bounds, not measured.
     - A making act: those 5 reads, and 4 writes: its two facts, the answer
       and the layer's last stamp.
     - A give, or an end, one fact under `:softland.store/permission`: 5

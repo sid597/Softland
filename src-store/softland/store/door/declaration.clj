@@ -82,6 +82,27 @@
   build, kept and not decided."
   1024)
 
+(def max-permission-bytes
+  "How many bytes the one text of a permission id can have
+  (`softland.store.door.text`), counted as UTF-8: of the act's own
+  `:permission`, and of the value of each fact under
+  `:softland.store/permission`. A number of a session, kept and not
+  decided. It stands under Sid's Z5 of 12 October 2026 (src-store/README.md,
+  entry 6 of that day): the limit of four on the depth of a permission is
+  lifted, \"and a bound on the size of an act takes its place\".
+
+  Why a bound of its own. A permission of depth 32 whose levels each list
+  64 key patterns of 256 characters has a text of about 510 KB, and the
+  row of each level holds the text of its own permission and of its
+  giver's. A check of the standing of an act under such a right reads the
+  row of each level, about 16 MB, and every act under it pays that, a
+  refused one too. With each text at 8,192 bytes at most, a row of a level
+  holds about 16.6 KB, and the 32 rows of a standing about 530 KB. A
+  permission of depth 32 whose ids are like UUIDs is about 4,400 bytes, so
+  the bound leaves room for a deep chain or a long list of patterns, not
+  both at their limits."
+  8192)
+
 (def max-value-bytes
   "How many bytes the value of one fact under a plain key can have: the
   UTF-8 bytes of the one text of the value in its normal form, which are
@@ -103,9 +124,9 @@
   8,192 bytes of who and permission for each of 256 facts. A permission of
   depth 32 whose ids are like UUIDs is about 4,400 bytes with its who, so
   an act that is full under such a permission passes. A permission whose
-  levels list key patterns is longer, by the text of each pattern, and an
-  act under it holds fewer facts within the bound. A number of the
-  build, kept and not decided.
+  levels list key patterns is longer, by the text of each pattern, up to
+  `max-permission-bytes`, and an act under it holds fewer facts within the
+  bound. A number of the build, kept and not decided.
 
   Limit of the count: the rows of the facts by value hold who and
   permission once more for each fact under a marked key, and the bound
@@ -228,12 +249,15 @@
   are a session's, and Sid's to change.
 
   The last, `:softland.store/one-write-keys`, is of the sign-in build: the
-  plain keys under which the layer takes one write for a place, so that a
-  name can be claimed once (src/proposal/sign-in-2026-10-15/BUILD.md, the
-  store's change d). A fact under such a key that names nothing to replace
-  is refused when its place holds a value; one that names the current fact
-  replaces it, and a retract frees the place. The empty set says \"none\".
-  Its word is a session's, and Sid's to change.
+  plain keys under which the layer takes one write for a place
+  (src/proposal/sign-in-2026-10-15/BUILD.md, the store's change d). It
+  stops a blind second claim: a fact under such a key that names nothing to
+  replace is refused when its place holds a value. It does not stop a fact
+  that names the current fact, which replaces it, nor a retract, which
+  frees the place, by any writer whose right allows the key: the store
+  knows no holder of a claim. So a claim holds once only where one writer,
+  such as the system, writes the key. The empty set says \"none\". Its
+  word is a session's, and Sid's to change.
 
   Each is in the namespace `softland.store` (`store-namespace`). Sid decided
   on 9 October 2026 that the store's keys carry a namespace
@@ -371,7 +395,8 @@
   reason for each, in the order in which they are examined. A rule relates
   two places of what arrived, or holds a limit that no shape can say. The
   first is the maker's own, read from `softland.store.act/rules`. Then: the
-  act as a whole; a key in the store's namespace; a fact under a store key;
+  act as a whole, the text of its permission and of each permission that it
+  gives among it; a key in the store's namespace; a fact under a store key;
   what holds between the facts; the text of an id. `rule-checks` holds the
   code of each. A rule about a fact is kept when each fact of the act keeps
   it. No rule reads the value of a fact under a plain key: the bytes of
@@ -397,6 +422,7 @@
         [[:depot-is-the-act-ids-depot          :depot-not-the-act-ids-depot]
          [:facts-within-the-limit              :too-many-facts]
          [:based-on-within-the-limit           :too-many-based-on]
+         [:permission-within-the-limit         :permission-too-long]
          [:store-key-is-known                  :store-key-not-known]
          [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
          [:permission-fact-holds-a-permission  :permission-fact-not-a-permission]
@@ -499,6 +525,13 @@
                       (= :ok (first (act/as-shape shapes shape (:v fact))))))
                 act)))
 
+(defn- permission-within-the-limit?
+  "Takes a permission id, or any value under `:softland.store/permission`.
+  Gives true when the UTF-8 bytes of its one text are `max-permission-bytes`
+  at most. Cost: the making of that text once."
+  [permission]
+  (<= (long (text/utf8-count (text/text permission))) max-permission-bytes))
+
 (defn- count-within?
   "Takes a store key, a limit and an act. Gives true when the value of each
   fact under that key, when the fact has one, holds that many parts at
@@ -575,6 +608,16 @@
 
    :based-on-within-the-limit
    (fn [act] (<= (count (:based-on act)) max-based-on))
+
+   ;; The one text of the act's own permission, and of each permission that
+   ;; a fact gives, holds `max-permission-bytes` at most. The text is made
+   ;; here, and again by the last step of the check for an act that passes.
+   :permission-within-the-limit
+   (fn [act] (and (permission-within-the-limit? (:permission act))
+                  (each-fact? (fn [fact] (or (not= :softland.store/permission (:k fact))
+                                             (nil? (:v fact))
+                                             (permission-within-the-limit? (:v fact))))
+                              act)))
 
    ;; The store owns its whole namespace: a key in it that is no store key is
    ;; refused, whatever the fact holds.

@@ -269,7 +269,11 @@
   right was given beneath that holder. An end at her place, or at a level
   above, is a change of one of those pushes: her standing goes to
   `:may-not-see`, the read leaves the layer's facts, and she is given the
-  whole answer anew, which says that the layer is left out. A level above
+  whole answer anew, which says that the layer is left out. That comes
+  when the end's own push is handled. The pushes of one read call back in
+  no order between them, so until then a fact of the layer that was
+  written after the end can still be told to her, when its push is handled
+  first: as late as the end's push is, and no sooner. A level above
   that is given again does not bring her right back, and tells her
   nothing. A new right given to her is a change of her own row: the levels
   above the new right are joined, and the whole answer comes anew once
@@ -1420,11 +1424,16 @@
   the asker's permission, and the row of each level above her right, only
   while the layer is made and its setting is `:members`; and the facts.
   When what shapes the read changes, an end of her right or of a level
-  above it among them, the asker is given the whole answer anew. When a layer is no longer rightful for
-  her, her read leaves that layer's facts at once; the answer then says
-  that the layer is left out, and nothing of the layer's facts. A fact of
-  that layer that Rama called back before the setting's change reached the
-  read path can still be told: as late as a push is, and no sooner.
+  above it among them, the asker is given the whole answer anew. When a
+  layer is no longer rightful for her, her read leaves that layer's facts
+  at once; the answer then says that the layer is left out, and nothing of
+  the layer's facts. Until then a fact of that layer can still be told:
+  the pushes of one read call back in no order between them, so a fact
+  that was written after a setting went to \"members\", or after an end at
+  her place or above her, is told when its push is handled before the push
+  of the setting or of the end. It is told as late as that push is, and no
+  sooner; the whole answer that comes with that push's step leaves the
+  layer out.
 
   What it costs. One push for each source: for a place through k layers of
   which g are \"members\", k + g + a + k, where a counts the levels above

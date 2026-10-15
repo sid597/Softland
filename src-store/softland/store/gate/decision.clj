@@ -73,13 +73,18 @@
   (d) reads the row at the place of `:who`'s permission, and, when that row
   holds the act's permission, the row of each level above it. A permission
   fact sits on its holder, so the first row holds the act's permission or
-  the act's permission does not stand. A right can end (Sid, 15 October
-  2026: rights can be taken back; src/proposal/sign-in-2026-10-15/BUILD.md,
-  decision 7 and default 11): the end is a retract at the right's place,
+  the act's permission does not stand. A right can end
+  (src/proposal/sign-in-2026-10-15/BUILD.md, decision 7, which the page
+  heads \"rights can be taken back\", a session's words; Sid's line of 15
+  October 2026, ‹e5a2200e›: \"for malicious users we should be able to
+  block as the system … they should also be able to block \"type\" of
+  actions\"; and default 11): the end is a retract at the right's place,
   and ending one ends what was given beneath it. So each level above is
   read, and the act's permission stands only when every level stands
   (`softland.store.gate.chain/stands?`), each written before the level
-  beneath it. A permission of depth d costs d reads.
+  beneath it. A permission of depth d costs d reads, each of a row of
+  about 16.6 KB at most, since the text of a permission is bounded
+  (`softland.store.door.declaration/max-permission-bytes`).
 
   The ends. Who may end a right is a default that a session told Sid on 15
   October 2026 and that he did not strike (BUILD.md, default 11): the one
@@ -102,8 +107,9 @@
   One write for a place under a marked key. A layer can mark plain keys so
   that a place under one takes one write while it holds a value
   (`:softland.store/one-write-keys`; BUILD.md, the store's change d): a
-  claim of such a place is refused while it holds a value, a fact that
-  names the current fact replaces it, and a retract frees it. The layer's
+  blind claim of such a place is refused while it holds a value; a fact
+  that names the current fact replaces it, and a retract frees it, by any
+  writer whose right allows the key. The layer's
   marks are read as they were before the act, as the marked keys are. Two
   claims of one place in one layer's line: the first is taken, the second
   refused, in the order of the line.
@@ -562,8 +568,11 @@
   A place whose row is a retract holds no value, so it can be claimed
   again. A fact that names the current fact of its place replaces it,
   under such a key too: it is no claim, and check (e) holds it. A retract
-  is taken as any retract. So a name is claimed once while it is held, and
-  freed by its holder's retract or changed by a fact that names it.
+  is taken as any retract. So a one-write key stops a blind second claim,
+  and nothing more: a fact that names the current fact, and a retract, are
+  taken from any writer whose right allows the key, since the store knows
+  no holder of a claim. A claim holds once only where one writer, such as
+  the system, writes the key.
 
   What must hold: `standing` and `places` gave nil for the act, which does
   not make its layer."

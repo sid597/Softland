@@ -13,7 +13,11 @@
   nothing above it. Each level sits on its own holder, at the place
   `<layer> <holder> :softland.store/permission`.
 
-  A right can end (Sid, 15 October 2026: rights can be taken back). The
+  A right can end (src/proposal/sign-in-2026-10-15/BUILD.md, decision 7,
+  which the page heads \"rights can be taken back\", a session's words;
+  Sid's line of 15 October 2026, ‹e5a2200e›: \"for malicious users we
+  should be able to block as the system … they should also be able to
+  block \"type\" of actions\"). The
   end is a later fact at the right's place, a retract, and ending one ends
   what was given beneath it. So a permission stands when each of its
   levels stands, and a level stands when:

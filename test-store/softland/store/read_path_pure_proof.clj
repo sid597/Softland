@@ -1566,7 +1566,27 @@
         place (every-small-standing standing-world [:near :far] 3 [:place :p :text] nil
                                     [:members :signed-in :everyone] {:asker :ann})
         nobody-place (every-small-standing standing-world [:near :far] 2 [:place :p :text] nil
-                                           [:members :signed-in :everyone] {:not-signed-in true})]
+                                           [:members :signed-in :everyone] {:not-signed-in true})
+        ;; what each step of a live read tells, every write played to its end in one order
+        tells (fn [setting permission? writes who]
+                (let [told (atom [])]
+                  (with-redefs [answer/after-change (let [after-change answer/after-change]
+                                                      (fn [& args]
+                                                        (let [step (apply after-change args)]
+                                                          (when (:tell step) (swap! told conj (:tell step)))
+                                                          step)))
+                                answer/after-arrival (let [after-arrival answer/after-arrival]
+                                                       (fn [& args]
+                                                         (let [step (apply after-arrival args)]
+                                                           (when (:tell step) (swap! told conj (:tell step)))
+                                                           step)))]
+                    (reduce (fn [world _] (quiet (move world [:write] nil)))
+                            (standing-world setting permission? writes [:place :p :text] who)
+                            writes))
+                  @told))
+        nobody-between (tells :members false [[:setting :signed-in] [:setting :members]] {:not-signed-in true})
+        nobody-to-everyone (tells :members false [[:setting :everyone]] {:not-signed-in true})
+        holder-between (tells :members true [[:setting :signed-in] [:setting :members]] {:asker :ann})]
     (check "a layer set to anyone signed in: an asker whom the query names sees it, with no right of her own, and after its own rows the read wants no right of hers there; a person who is not signed in may not see it"
            [[[] [:near "n0"]] [nil []] [[{:layer :near :why :may-not-see}] [:far "f0"]]]
            [(seen bob)
@@ -1576,6 +1596,11 @@
            [1548 []] [(:lists place) (:wrong place)])
     (check "the same for a person who is not signed in, every list of up to two writes: 252 lists, none with an order that ends wrong"
            [252 []] [(:lists nobody-place) (:wrong nobody-place)])
+    (check "a person who is not signed in is told nothing when a layer that she may not see goes from members to anyone signed in and back: the setting is in what the rows mean for her only as whether it is everyone; the layer going to everyone is told, once, as a whole answer"
+           [[] 1 true]
+           [nobody-between (count nobody-to-everyone) (every? :anew nobody-to-everyone)])
+    (check "an asker whose right stands is told each of those two changes, as a whole answer anew: for her the setting is in the meaning with its word"
+           [2 true] [(count holder-between) (every? :anew holder-between)])
     (shown "who may see a layer, of three settings: anyone signed in sees a signed-in layer with no right read;"
            "a person who is not signed in does not; kept live," (+ (:lists place) (:lists nobody-place)) "lists and"
            (+ (:states place) (:states nobody-place)) "states of setting changes, in each end the screen is what a read asked once gives")))

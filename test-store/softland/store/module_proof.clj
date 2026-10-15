@@ -1159,20 +1159,49 @@
   of one value."
   (str at-the-bound-of-a-value "c"))
 
+(defn- chain-of-long-holders
+  "A permission of a layer, of the depth given, whose holders' ids each print
+  to 256 characters: the first permission's holder is `holder-1`, and each
+  level beneath is held by the next."
+  [layer depth]
+  (let [long-id (fn [i] (keyword (apply str "holder-" i "-" (repeat (- 256 (count (str ":holder-" i "-"))) "h"))))]
+    (reduce (fn [above d] [(long-id d) layer layer above]) [(long-id 1) layer layer] (range 2 (inc depth)))))
+
+(defn- text-bytes
+  "The UTF-8 bytes of a thing as Clojure prints it, which for ids and
+  vectors of them is the one text that the store counts."
+  [x]
+  (count (utf8-of (pr-str x))))
+
+(defn- deepest-within-the-bound
+  "The deepest `chain-of-long-holders` of a layer whose one text holds
+  8,192 bytes at most, the bound on the text of a permission
+  (`softland.store.door.declaration/max-permission-bytes`)."
+  [layer]
+  (last (take-while #(<= (text-bytes %) declaration/max-permission-bytes)
+                    (map #(chain-of-long-holders layer %) (range 1 33)))))
+
 (defn- act-over-its-bound
   "An act into a layer whose accept would write more text into the rows of
   its facts than a gate takes for one act, 18,874,368 bytes: 256 facts, each
   with a value at the bound of one value, 65,536 bytes, under a who of 256
-  characters and a permission of depth 32 whose holders have 256 characters
-  each, which are more than 8,192 bytes for each row. So it is at least
+  characters and the deepest permission of 256-character holders whose text
+  keeps the bound on a permission (`deepest-within-the-bound`): together
+  more than 8,192 bytes for each row. So it is at least
   256 x (65,536 + 8,193) = 18,874,624 bytes. The permission stands nowhere:
   the bound is held before any row of the act's standing is read."
   [layer]
-  (let [long-id (fn [i] (keyword (apply str "holder-" i "-" (repeat (- 256 (count (str ":holder-" i "-"))) "h"))))
-        top [(long-id 1) layer layer]
-        permission (reduce (fn [above d] [(long-id d) layer layer above]) top (range 2 33))]
-    (thing layer (long-id 32) permission
+  (let [permission (deepest-within-the-bound layer)]
+    (thing layer (first permission) permission
            (mapv (fn [i] (value-fact (keyword (str "over-" i)) :text at-the-bound-of-a-value)) (range 256)))))
+
+(defn- permission-over-its-bound
+  "An act into a layer with one small value, under a permission one level
+  deeper than `deepest-within-the-bound`: its one text holds more than
+  8,192 bytes, the bound on the text of a permission."
+  [layer]
+  (let [permission (chain-of-long-holders layer (inc (count (take-while some? (iterate #(nth % 3 nil) (deepest-within-the-bound layer))))))]
+    (thing layer (first permission) permission [(value-fact :under-a-long-permission :text "one small value")])))
 
 ;; ---------------------------------------------------------------- the checks
 
@@ -1685,6 +1714,7 @@
         value-at (decide! (alice [(value-fact :note-32 :text at-the-bound-of-a-value)]))
         at-row (fact-row :alice :note-32 :text)
         act-over (decide! (act-over-its-bound :alice))
+        permission-over (decide! (permission-over-its-bound :alice))
         act-over-bytes (* 256 (+ 65536 (count (utf8-of (pr-str (:who (:thing act-over)))))
                                  (count (utf8-of (pr-str (:permission (:thing act-over)))))))
         records-then (vec (stored))
@@ -1728,10 +1758,15 @@
            [(:word value-at) (count (value-bytes at-row)) (count (:value at-row))
             (= (str "\"" at-the-bound-of-a-value "\"") (:value at-row))
             (= [:value at-the-bound-of-a-value] (record/read-value at-row))])
-    (check "an act of 256 values at that bound, under a who and a permission of more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no row of it is written"
-           [true :acked :act-too-large true true 256 nil nil]
-           [(< 18874368 act-over-bytes) (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
+    (check "an act of 256 values at that bound, under a who of 256 characters and a permission within the bound on the text of a permission, together more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no row of it is written"
+           [true true :acked :act-too-large true true 256 nil nil]
+           [(<= (text-bytes (:permission (:thing act-over))) 8192) (< 18874368 act-over-bytes)
+            (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
             (count (:facts act-over-logged)) (fact-row :alice :over-0 :text) (fact-row :alice :over-255 :text)])
+    (check "an act under a permission whose one text holds more than 8,192 bytes, one level deeper than that one, is refused with the word of the bound on a permission, under its own act-id, and writes nothing"
+           [true :permission-too-long true nil]
+           [(< 8192 (text-bytes (:permission (:thing permission-over)))) (:word permission-over) (:mine? permission-over)
+            (fact-row :alice :under-a-long-permission :text)])
     (check "an id that prints to more than 256 characters is refused, and the refusal is recorded under the act-id" :id-too-long (:word long-entity))
     (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: it is the layer's last stamp plus one"
            [:accepted (inc last-before-the-carried)] [(:word claim) (:stamp (:answer claim))])
@@ -1741,7 +1776,8 @@
            [(+ 3 last-before-the-carried) (+ 3 last-before-the-carried)] [(:stamp (:answer next-one)) (last-stamp :alice)])
     (shown "a stray is kept under its word and gets no answer; strays seen, by word:" (pr-str (merge-with - after before))
            "| the same stray sent three times counts once | answer of a stray:" (pr-str (answer-of (:act-id other-gate))))
-    (shown "a thing over each limit is refused:" (:word facts-257) (:word based-1025) (:word value-over) (:word act-over) (:word long-entity)
+    (shown "a thing over each limit is refused:" (:word facts-257) (:word based-1025) (:word value-over) (:word act-over)
+           (:word permission-over) (:word long-entity)
            "| at each limit accepted:" (:word facts-256) (:word based-1024) (:word value-at))
     (shown "the bound on one value, through the streaming gate: a text of 65,537 bytes" (told value-over) "| of 65,536 bytes" (told value-at)
            "| its row holds" (count (value-bytes at-row)) "bytes in" (count (:value at-row)) "characters")
@@ -2733,6 +2769,7 @@
         at-rows (rows-by-task :mb-facts-ps (record/place-key :base :bound-doc-at :text))
         at-row (base-fact :bound-doc-at :text)
         act-over (decide-in-base! (act-over-its-bound :base))
+        permission-over (decide-in-base! (permission-over-its-bound :base))
         act-over-bytes (* 256 (+ 65536 (count (utf8-of (pr-str (:who (:thing act-over)))))
                                  (count (utf8-of (pr-str (:permission (:thing act-over)))))))
         records (vec (stored-in-base))
@@ -2762,17 +2799,23 @@
             (= (str "\"" at-the-bound-of-a-value "\"") (:value at-row))
             (= [:value at-the-bound-of-a-value] (record/read-value at-row))
             (count at-rows) (count (set (vals at-rows)))])
-    (check "an act of 256 values at that bound, under a who and a permission of more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no task holds a row of it"
-           [true :appended :act-too-large true true 256 {} {}]
-           [(< 18874368 act-over-bytes) (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
+    (check "an act of 256 values at that bound, under a who of 256 characters and a permission within the bound on the text of a permission, together more than 8,192 bytes of text, would write more than 18,874,368 bytes into the rows of its facts, counted by the proof with Clojure's printer: it is refused with the word of the bound on an act, the refusal recorded under its own act-id; the depot's log holds it whole, its 256 values plain; and no task holds a row of it"
+           [true true :appended :act-too-large true true 256 {} {}]
+           [(<= (text-bytes (:permission (:thing act-over))) 8192) (< 18874368 act-over-bytes)
+            (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
             (count (:facts act-over-logged))
             (rows-by-task :mb-facts-ps (record/place-key :base :over-0 :text))
             (rows-by-task :mb-facts-ps (record/place-key :base :over-255 :text))])
+    (check "through the microbatch gate, an act under a permission whose one text holds more than 8,192 bytes is refused with the word of the bound on a permission, under its own act-id, and no task holds a row of it"
+           [true :permission-too-long true {}]
+           [(< 8192 (text-bytes (:permission (:thing permission-over)))) (:word permission-over) (:mine? permission-over)
+            (rows-by-task :mb-facts-ps (record/place-key :base :under-a-long-permission :text))])
     (shown "the bound on one value, through the microbatch gate: a text of 65,537 bytes" (told value-over) "| of 65,536 bytes" (told value-at)
            "| its row holds" (count (value-bytes at-row)) "bytes in" (count (:value at-row)) "characters, on" (count at-rows) "tasks")
     (shown "the bound on an act, through the microbatch gate: an act whose rows would hold" act-over-bytes "bytes of text, over 18874368:"
            (told act-over) "| in the log whole, with" (count (:facts act-over-logged)) "values plain")
     (shown "in the base a thing over each limit is refused:" (:word facts-257) (:word based-1025) (:word long-entity)
+           (:word permission-over)
            "| at each limit accepted:" (:word facts-256) (:word based-1024) "| the 256th fact is on" (count last-of-many) "tasks")))
 
 (deftest a-long-batch

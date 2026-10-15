@@ -260,6 +260,20 @@
   [holder layer n]
   (reduce (fn [parent _] [holder layer layer parent]) [holder layer layer] (range (dec n))))
 
+(defn- permission-of-bytes
+  "A permission in Alice's layer, given beneath hers, that lists key
+  patterns, whose one text is n bytes, all of them ASCII: patterns of 200
+  characters each, and a holder id whose length takes up what is left. What
+  must hold: n is between about 300 and 12,000, so that the patterns are 64
+  at most and the holder's id 256 characters at most."
+  [n]
+  (let [pattern (fn [i] (let [head (str "k" i "-")] (keyword "p" (str head (apply str (repeat (- 197 (count head)) "a"))))))
+        with (fn [holder c] [holder :alice :alice alice-own (into #{} (map pattern) (range c))])
+        size (fn [p] (count (text/text p)))
+        c (quot (- n (size (with :h 0))) 201)
+        short (size (with :h c))]
+    (with (keyword (str "h" (apply str (repeat (- n short) "a")))) c)))
+
 (defn- arrived
   "Alice's act into her own layer as it arrives on the streaming depot, under
   the act-id `(act-id n)`, with the time `now` on it, these facts and no
@@ -538,6 +552,7 @@
    [:depot-is-the-act-ids-depot :depot-not-the-act-ids-depot]
    [:facts-within-the-limit :too-many-facts]
    [:based-on-within-the-limit :too-many-based-on]
+   [:permission-within-the-limit :permission-too-long]
    [:store-key-is-known :store-key-not-known]
    [:depot-fact-holds-a-depot-word :depot-fact-not-a-depot-word]
    [:permission-fact-holds-a-permission :permission-fact-not-a-permission]
@@ -557,11 +572,11 @@
 
 (def ^:private declared-reasons
   "Each word with which the check refuses: `act.clj`'s seven and the door's
-  twenty-two, the word of the time's part and the two of the last step
+  twenty-three, the word of the time's part and the two of the last step
   among them."
   #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
     :permission-not-in-layer
-    :depot-not-the-act-ids-depot :no-door-time :too-many-facts :too-many-based-on
+    :depot-not-the-act-ids-depot :no-door-time :too-many-facts :too-many-based-on :permission-too-long
     :store-key-not-known
     :depot-fact-not-a-depot-word :permission-fact-not-a-permission
     :permission-fact-not-on-its-holder
@@ -585,7 +600,7 @@
     (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
              [declaration/time-part (= part declaration/time-part) shape]))
     [:door-time true [:int {:min 0}]]]
-   ["the twenty rules, the maker's first, each with its reason; the nine of the keys that take a second write stand after the rules of a permission fact"
+   ["the twenty-one rules, the maker's first, each with its reason; the nine of the keys that take a second write stand after the rules of a permission fact"
     (fn [] declaration/rules)
     declared-rules]
    ["the words with which the check refuses, read from the two declarations, the word of the time's part among them, and the two of its last step"
@@ -594,11 +609,16 @@
    ["the five words of a stray, in the order tested"
     (fn [] declaration/stray-reasons)
     [:no-act-id :act-id-malformed :id-too-long :act-id-of-the-other-gate :act-id-of-another-layer]]
-   ["the eight limits: facts, entries of based-on, the bytes of one value's text, the bytes of text that one act writes into the rows of its facts, the text of an id, the layers that a layer builds on, the keys that a layer marks, the keys under which it takes one write"
+   ["the nine limits: facts, entries of based-on, the bytes of one value's text, the bytes of text that one act writes into the rows of its facts, the text of an id, the layers that a layer builds on, the keys that a layer marks, the keys under which it takes one write, the bytes of the one text of a permission"
     (fn [] [declaration/max-facts declaration/max-based-on declaration/max-value-bytes
             declaration/max-act-bytes declaration/max-id-text
-            declaration/max-builds-on declaration/max-marked-keys declaration/max-one-write-keys])
-    [256 1024 65536 18874368 256 64 32 32]]
+            declaration/max-builds-on declaration/max-marked-keys declaration/max-one-write-keys
+            declaration/max-permission-bytes])
+    [256 1024 65536 18874368 256 64 32 32 8192]]
+   ["the proof's permissions at the bound on the text of a permission and one byte over: 8,192 and 8,193 bytes of one text, in ASCII"
+    (fn [] (mapv (fn [n] (let [t (text/text (permission-of-bytes n))] [(count t) (alength (.getBytes ^String t "UTF-8"))]))
+                 [8192 8193]))
+    [[8192 8192] [8193 8193]]]
    ["the bound on an act is 256 values at the bound of one value, and 8,192 bytes of who and permission for each of 256 facts"
     (fn [] (= declaration/max-act-bytes (* 256 (+ 65536 8192))))
     true]
@@ -966,20 +986,24 @@
 
 (defn- full-act
   "An act whose accept would write 18,874,368 + `more` bytes of text into the
-  rows of its facts, so with 0 it is at the bound on an act. Its who, its
-  layer and each id of its permission print to 256 characters, and the
-  permission is 32 deep: 256 + 24,735 bytes of who and permission for each
-  fact. It has 256 facts. The value of each is a string of 48,735 letters,
-  48,737 bytes of text, and the last has `more` letters more. No value is
-  over the bound on one value."
+  rows of its facts, so with 0 it is at the bound on an act. Its who prints
+  to 256 characters, and its permission's one text is 8,192 bytes, at the
+  bound on a permission (`permission-of-bytes`): 8,448 bytes of who and
+  permission for each fact. It has 256 facts. The value of each is a string
+  of 65,278 letters, 65,280 bytes of text, and the last has `more` letters
+  more. No value is over the bound on one value."
   [more]
-  (let [id (long-id 256)
-        value (apply str (repeat 48735 "a"))]
-    {:act-id [id :streaming (uuid 1)] :depot :streaming declaration/time-part now
-     :version 1 :who id :layer id :permission (deep-permission id id 32) :session :alice-s1
+  (let [value (apply str (repeat 65278 "a"))]
+    {:act-id [:alice :streaming (uuid 1)] :depot :streaming declaration/time-part now
+     :version 1 :who (long-id 256) :layer :alice :permission (permission-of-bytes 8192) :session :alice-s1
      :facts (mapv (fn [i] {:e (keyword (str "note-" i)) :k :text
                            :v (if (= i 255) (str value (apply str (repeat more "a"))) value)})
                   (range 256))}))
+
+(def ^:private wide-who
+  "A who whose id prints to 256 characters and 764 bytes: a letter, and 254
+  letters of three bytes each in UTF-8."
+  (keyword (str "a" (apply str (repeat 254 "日")))))
 
 (defn- bytes-in-rows
   "The proof's own count of the bytes of text that an accept of a thing would
@@ -1010,21 +1034,25 @@
    ["the proof's own count of the bytes that the act at the edge of the bound on an act would write, and of the act one byte over; for each fact, of who and permission"
     (fn [] [(bytes-in-rows (full-act 0)) (bytes-in-rows (full-act 1))
             (bytes-in-rows (assoc (full-act 0) :facts [{:e :note-1 :k :text}]))])
-    [18874368 18874369 24991]]
-   ["the bytes of who and permission are counted for a fact with no value too: an act of 255 values and one retract, which is one byte over the bound only when the retract's row is counted, is refused; with one byte less it passes"
+    [18874368 18874369 8448]]
+   ["the bytes of who and permission are counted for a fact with no value too: an act of 255 values and one retract, under a who of 764 bytes, which is one byte over the bound only when the retract's row is counted, is refused; with one byte less it passes. With a who in ASCII no act with a retract is over the bound: 255 values at their own bound and 256 rows of the greatest who and permission are the bound exactly"
     (fn [] (let [letters (fn [n] (apply str (repeat n "a")))
                  with-a-retract (fn [more]
-                                  (update (full-act 0) :facts
-                                          (fn [facts] (vec (map-indexed (fn [i fact]
-                                                                          (cond (= i 255) (dissoc fact :v)
-                                                                                (zero? i) (assoc fact :v (letters (+ 64981 more)))
-                                                                                (< i 3) (assoc fact :v (letters 64981))
-                                                                                :else fact))
-                                                                        facts)))))]
+                                  (-> (full-act 0)
+                                      (assoc :who wide-who)
+                                      (update :facts
+                                              (fn [facts] (vec (map-indexed (fn [i fact]
+                                                                              (cond (= i 255) (dissoc fact :v)
+                                                                                    (zero? i) (assoc fact :v (letters (+ 65281 more)))
+                                                                                    :else (assoc fact :v (letters 65023))))
+                                                                            facts))))))
+                 ascii (update (full-act 0) :facts (fn [facts] (conj (mapv (fn [fact] (assoc fact :v (letters 65534))) (pop facts))
+                                                                     (dissoc (peek facts) :v))))]
              [(bytes-in-rows (with-a-retract 0)) (verdict (declaration/check (with-a-retract 0)))
               (bytes-in-rows (with-a-retract -1)) (verdict (declaration/check (with-a-retract -1)))
-              (- (bytes-in-rows (with-a-retract 0)) (bytes-in-rows (update (with-a-retract 0) :facts pop)))]))
-    [18874369 :act-too-large 18874368 :ok 24991]]
+              (- (bytes-in-rows (with-a-retract 0)) (bytes-in-rows (update (with-a-retract 0) :facts pop)))
+              (bytes-in-rows ascii) (verdict (declaration/check ascii))]))
+    [18874369 :act-too-large 18874368 :ok 8956 18874368 :ok]]
    ["a thing that the last step refuses gives its word and no act: no part of its one form comes out"
     (fn [] [(declaration/check (arrived 1 (value-at :note-1 :text over-the-bound)))
             (declaration/check (full-act 1))])
@@ -1117,8 +1145,14 @@
    ["33 one-write keys" (arrived 1 {:e :alice :k :softland.store/one-write-keys :v (set (map #(keyword (str "key-" %)) (range 33)))}) :too-many-one-write-keys]
    ["a given permission that lists 64 key patterns, one of 256 characters" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own (conj (set (map #(keyword "tool" (str "k" %)) (range 63))) (long-id 256))]}) :ok]
    ["a given permission that lists 65 key patterns: no permission of the form" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own (set (map #(keyword "tool" (str "k" %)) (range 65)))]}) :permission-fact-not-a-permission]
-   ["an act under its own permission 32 deep whose levels each list 64 key patterns"
-    (assoc good :permission (reduce (fn [parent _] [:alice :alice :alice parent (set (map #(keyword "tool" (str "k" %)) (range 64)))]) alice-own (range 31))) :ok]
+   ["an act under its own permission 32 deep whose levels each list 64 key patterns: its text is about 18 KB, over the bound on the text of a permission"
+    (assoc good :permission (reduce (fn [parent _] [:alice :alice :alice parent (set (map #(keyword "tool" (str "k" %)) (range 64)))]) alice-own (range 31))) :permission-too-long]
+   ["an act under its own permission whose one text is 8,192 bytes, the bound" (assoc good :permission (permission-of-bytes 8192)) :ok]
+   ["an act under its own permission whose one text is 8,193 bytes" (assoc good :permission (permission-of-bytes 8193)) :permission-too-long]
+   ["a permission given whose one text is 8,192 bytes" (let [p (permission-of-bytes 8192)] (arrived 1 {:e (first p) :k :softland.store/permission :v p})) :ok]
+   ["a permission given whose one text is 8,193 bytes" (let [p (permission-of-bytes 8193)] (arrived 1 {:e (first p) :k :softland.store/permission :v p})) :permission-too-long]
+   ["a permission given whose own text is short, beneath an act's own whose text is over the bound: the act's own gives the word"
+    (assoc (arrived 1 {:e :bob :k :softland.store/permission :v bobs}) :permission (permission-of-bytes 8193)) :permission-too-long]
    ["an act under its own permission five deep" (assoc good :permission (deep-permission :alice :alice 5)) :ok]
    ["an act under its own permission 32 deep" (assoc good :permission (deep-permission :alice :alice 32)) :ok]
    ["an act under its own permission 32 deep that says what it allows"

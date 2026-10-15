@@ -1046,8 +1046,9 @@ of its own, `src-runtime/`; this section holds only what changes the store.
 The store's page says what each changed in the code
 ([store/](softland/store/README.md), "Decisions this module stands on").
 
-1. **Rights can be taken back, and blocked down to kinds of act.** Sid decided
-   (decision 7 of the build page): "for malicious users we should be able to
+1. **Rights can be taken back, and blocked down to kinds of act.** The heading
+   is the build page's, a session's words for his decision 7. Sid decided
+   (‹e5a2200e›): "for malicious users we should be able to
    block as the system and then the user when giving permissions to different
    agents, tools, layers, gropus etc. should be able to do the same … they
    should also be able to block "type" of actions … we distinguish you from

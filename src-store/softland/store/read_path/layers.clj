@@ -355,21 +355,27 @@
   own rows (nil when not known), her right (`right`: `:stands`, `:none` or
   `:not-known-yet`), the marks of the levels above her right
   (`levels-above`), and whether she is signed in. Gives a map: whether the
-  layer is made; who may see it; her right; the marks of the levels above
-  it; and, only when her standing with these rows is `:yes`, the list that
-  the layer builds on when it is the query's start layer, and the stamp of
-  the asked key's mark when the query asks what points at a thing. For
-  rows that are not known it gives `:not-known-yet`.
+  layer is made; who may see it, as she can tell it; her right; the marks
+  of the levels above it; and, only when her standing with these rows is
+  `:yes`, the list that the layer builds on when it is the query's start
+  layer, and the stamp of the asked key's mark when the query asks what
+  points at a thing. For rows that are not known it gives
+  `:not-known-yet`.
 
   A live read compares the meaning of the rows before and after a change. A
   setting that is written again with the same word means the same, so the
   asker is given nothing. A list or a mark that is written in a layer that
   she may not see means the same too: not even an answer that says what it
   said is given, which would tell her that something of that layer was
-  written. The setting itself is in the meaning whatever her standing: a
-  setting that goes to \"members\" for an asker whose right stands leaves
-  her standing as it was, and a change of a fact that was passed over
-  while her right was read must still be told.
+  written. The setting is in the meaning whatever her standing, as she can
+  tell it. For an asker who is signed in it is its word: a setting that
+  goes to \"members\" for an asker whose right stands leaves her standing
+  as it was, and a change of a fact that was passed over while her right
+  was read must still be told. For a person who is not signed in it is
+  only whether it is `:everyone`: under `:members` and `:signed-in` alike
+  she may not see the layer and no right of hers is read, so a layer that
+  goes from one to the other means the same, and she is told nothing of
+  it.
 
   Her right is in the meaning as its word and as one mark for each level
   above it, each mark read from one row (`levels-above` says why the word
@@ -386,7 +392,8 @@
     (let [seen? (= :yes (standing layer own-rows her-right signed-in?))
           [word k] (:asks query)]
       (cond-> {:made?       (made? own-rows layer)
-               :who-may-see (who-may-see own-rows layer)
+               :who-may-see (let [setting (who-may-see own-rows layer)]
+                              (if signed-in? setting (= :everyone setting)))
                :right       her-right
                :levels      levels}
         (and seen? (= layer (:from-layer query)))
