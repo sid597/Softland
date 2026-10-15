@@ -78,20 +78,36 @@
                   (`softland.store.gate.decision/standing`) and the walk
                   reads nothing for it. For the streaming gate such a
                   layer is the base; for the microbatch gate it is every
-                  other layer. A permission that stands and says `:see` is
-                  refused here, with no read more: an act needs \"act\".
+                  other layer. When the holder's own row holds the act's
+                  permission, read the place of each level above it
+                  (`softland.store.gate.decision/levels-needed`), one read
+                  each: a right stands only when each level of its chain
+                  stands, so the end of a right above reaches it, and it is
+                  refused `:permission-above-has-ended`. A permission that
+                  stands and says `:see` is refused here, with no read
+                  more: an act needs \"act\".
     5. places     Read the place of each fact that names something to
                   replace and of each fact under
-                  `:softland.store/permission`; then checks (e), (f), (g),
-                  who may write a key that takes a second write, and what a
-                  store key does not take.
+                  `:softland.store/permission`, a give or an end; then the
+                  key of each fact against what the act's permission
+                  allows, checks (e), (f), (g), who may write a key that
+                  takes a second write, and what a store key takes, the end
+                  of a right among them. Then, only for an act that those
+                  passed and that holds a claim, a fact with a value under
+                  a plain key that names nothing to replace: read the row
+                  at the layer's one-write-keys place, unless it was read,
+                  and the place of each claim under a key that the row
+                  marks; then the check of the claims. A claim of a place
+                  that holds a value, under such a key, is refused
+                  `:place-takes-one-write`.
     6. the marked keys   Only for an act that no check refused, and only
                   when it holds a fact under a plain key or under
                   `:softland.store/marked-keys`: read the row at the layer's
                   marked-keys place, unless step 5 read it. Then read the
                   place of each fact under a key that the row marks, unless
-                  step 5 read it: the row before gives the entry to take out
-                  of the facts by value.
+                  step 5 read it, a claim's place among them: the row
+                  before gives the entry to take out of the facts by
+                  value.
     7. the stamp  Read the last stamp of the act's layer: the number under
                   the layer's text in `:last-stamp` of the task's table.
                   The stamp of the decision, an accept or a refusal, is
@@ -118,7 +134,11 @@
   before it. So a fact of the act that marks its own key is not in the order
   by value; the key gets the stamp of that act, in both gates; and every
   fact with a later stamp under that key is in the order. The order of the
-  calls is the order of a mark and of a fact after it.
+  calls is the order of a mark and of a fact after it. The one-write keys
+  are read the same way: an act that marks a key as taking one write is not
+  held to that mark itself, and the next act of the layer is. So of two
+  claims of one place in a layer's line, the first is taken and the second
+  refused, in the order of the calls.
 
   What one call costs, in reads and writes. A later stage's rows are read
   only when the earlier checks passed, and no check reads the marked keys.
@@ -140,33 +160,41 @@
       a value over the bound among them: 3 reads, the answer and the two of
       the layer's last stamp, and 2 writes, the answer and the layer's last
       stamp.
-    - An act whose permission does not stand: 5 reads at most, whatever it
-      carries, the answer, the two places of its standing and the two of
-      the layer's last stamp, and the same 2 writes. An act into a layer of
-      the other gate is one of these.
+    - An act whose permission does not stand at its holder's place: 5
+      reads at most, whatever it carries, the answer, the two places of its
+      standing and the two of the layer's last stamp, and the same 2
+      writes. An act into a layer of the other gate is one of these.
+    - The levels above. Each act whose holder's row holds its permission
+      reads one row more for each level above it: none under a first
+      permission, d - 1 under a permission of depth d, 31 at most. The
+      counts below are under a first permission. An act whose right above
+      has ended pays them, and is refused with the same 2 writes.
     - A making act: those 5 reads, and 4 writes: its two facts, the answer
       and the layer's last stamp.
-    - A give, one fact under `:softland.store/permission`: 5 reads, the
-      answer, the giver's permission, the place of the permission given and
-      the two of the layer's last stamp, and 3 writes.
-    - One accepted act with one value under a plain key: 5 reads and 3
-      writes. The reads are the answer, the permission, the marked keys and
-      the two of the layer's last stamp; the writes are the fact, the
-      answer and the layer's last stamp. A fact that names something to
-      replace costs the read of its place more. The read of the marked keys
-      is paid by every accepted act that holds a fact under a plain key,
-      also in a layer that marks no key. When the fact's key is marked it
-      costs 6 reads, and with them the row before, and 4 writes, or 5 when
-      the entry of a value before goes out.
-    - An act with no fact under a plain key, a give, a setting or a list,
-      reads no marked keys.
+    - A give, or an end, one fact under `:softland.store/permission`: 5
+      reads, the answer, the giver's permission, the place of the right
+      given or ended and the two of the layer's last stamp, and 3 writes.
+    - One accepted act with one value under a plain key that names nothing
+      to replace, a claim: 6 reads and 3 writes. The reads are the answer,
+      the permission, the one-write keys, the marked keys and the two of
+      the layer's last stamp; the writes are the fact, the answer and the
+      layer's last stamp. The reads of the one-write keys and of the marked
+      keys are paid by every such act, also in a layer that marks no key.
+      When the fact's key is one-write or marked, or both, it costs 7
+      reads, and with them its place, read once; when it is marked, 4
+      writes, or 5 when the entry of a value before goes out.
+    - A fact that names something to replace is no claim: the act reads its
+      place for check (e) and no one-write keys, 6 reads in all.
+    - An act with no fact under a plain key, a give, an end, a setting or a
+      list, reads no one-write keys and no marked keys.
 
   The greatest call: an act holds 256 facts at most
   (`softland.store.door.declaration/max-facts`), and each place is read
-  once, so a call makes 261 reads at most, the 256 places, the answer, the
-  permission, the marked keys and the two of the last stamp, and 770
-  writes at most, three for each fact and two more. Each of its three
-  loops is over the act's own rows and ends.
+  once, so a call makes 293 reads at most, the 256 places, the answer, the
+  permission, 31 levels above it, the one-write keys, the marked keys and
+  the two of the last stamp, and 770 writes at most, three for each fact
+  and two more. Each of its five loops is over the act's own rows or the
+  levels of its permission, and ends.
 
   It never gives its task back. Between the first read and the last write
   stands no partitioner, no yield, no read that may yield and no append:
@@ -263,7 +291,7 @@
   on the task that holds the rows of the thing's layer; and the things of
   one partition are handed to it in the depot's order, one call ended
   before the next begins. Limits: it holds the task's thread from its
-  first read to its last write, for 261 reads and 770 writes at most. It
+  first read to its last write, for 293 reads and 770 writes at most. It
   holds no partitioner, no yield, no read that may yield and no append, and
   none may be added: the namespace docstring says why."
   [$$answers $$facts $$facts-by-value $$task *gate *thing]
@@ -308,12 +336,28 @@
           (local-select> (keypath *depot-key) $$facts :> *depot-row)
          (else>)
           (identity nil :> *depot-row))
-        (decision/standing *gate *act *permission-row *depot-row :> *refused-standing)
+        ;; The levels above the act's permission, only when the holder's
+        ;; own row holds it: a right that a level above ended does not
+        ;; stand.
+        (decision/levels-needed *act *permission-row :> *level-keys)
+        (loop<- [*levels-left *level-keys
+                 *levels-read {}
+                 :> *level-rows]
+          (<<if (empty? *levels-left)
+            (:> *levels-read)
+           (else>)
+            (first *levels-left :> *level-key)
+            (local-select> (keypath *level-key) $$facts :> *level-row)
+            (continue> (rest *levels-left) (assoc *levels-read *level-key *level-row))))
+        (decision/standing *gate *act *permission-row *depot-row *level-rows :> *refused-standing)
         (decision/makes-the-layer? *gate *act *permission-row *depot-row :> *makes-the-layer))
 
-      ;; 5. Places: checks (e), (f), (g), who may write a key that takes a
-      ;; second write, and what a store key does not take. The last
-      ;; check: what it gives is the act's refusal, or nil.
+      ;; 5. Places: the key of each fact, checks (e), (f), (g), who may
+      ;; write a key that takes a second write, and what a store key takes.
+      ;; Then, only for an act that those passed and that claims a place
+      ;; under a plain key, the layer's one-write keys and the place of each
+      ;; claim under one of them. The last check: what it gives is the
+      ;; act's refusal, or nil.
       (<<if *refused-standing
         (identity *refused-standing :> *refused)
         (identity {} :> *place-rows)
@@ -321,14 +365,35 @@
         (decision/places-needed *act *makes-the-layer :> *place-keys)
         (loop<- [*keys-left *place-keys
                  *rows-read {}
-                 :> *place-rows]
+                 :> *checked-rows]
           (<<if (empty? *keys-left)
             (:> *rows-read)
            (else>)
             (first *keys-left :> *place-key)
             (local-select> (keypath *place-key) $$facts :> *place-row)
             (continue> (rest *keys-left) (assoc *rows-read *place-key *place-row))))
-        (decision/places *gate *act *makes-the-layer *place-rows :> *refused))
+        (decision/places *gate *act *makes-the-layer *checked-rows :> *refused-places)
+        (<<if (and> (nil? *refused-places) (decision/holds-a-claim? *act))
+          (decision/one-write-keys-place *act :> *one-write-key)
+          (<<if (contains? *checked-rows *one-write-key)
+            (get *checked-rows *one-write-key :> *one-write-row)
+           (else>)
+            (local-select> (keypath *one-write-key) $$facts :> *one-write-row))
+          (decision/claim-places-needed *act *one-write-row *checked-rows :> *claim-keys)
+          (loop<- [*claims-left *claim-keys
+                   *claims-read {}
+                   :> *claim-rows]
+            (<<if (empty? *claims-left)
+              (:> *claims-read)
+             (else>)
+              (first *claims-left :> *claim-key)
+              (local-select> (keypath *claim-key) $$facts :> *claim-row)
+              (continue> (rest *claims-left) (assoc *claims-read *claim-key *claim-row))))
+          (assoc (merge *checked-rows *claim-rows) *one-write-key *one-write-row :> *place-rows)
+          (decision/claims *act *place-rows :> *refused)
+         (else>)
+          (identity *checked-rows :> *place-rows)
+          (identity *refused-places :> *refused)))
 
       ;; 6. Only for an act that no check refused: the layer's marked
       ;; keys, and the row before of each place under a marked key. Each

@@ -44,7 +44,9 @@
   plain key: the depot of a layer at
   \"<layer> <layer> :softland.store/depot\", a permission at
   \"<layer> <holder> :softland.store/permission\", and at the layer's own
-  entity who may see it, what it builds on and its marked keys. A value is
+  entity who may see it, what it builds on, its marked keys and its one-write
+  keys. The end of a right is a row there too: a retract at its holder's
+  permission place. A value is
   held as one String, its one text, so the field has one class, a push on
   the row is told each change of it, and \"is this the permission that the
   act names\" is a comparison of two Strings that are equal only when the
@@ -298,7 +300,10 @@
   the row's value read as (`plain-bytes-of`), or nil when there is no row,
   the row holds no value, or its bytes do not read. It never throws.
   `softland.store.module.door-reads` asks it of the row at a depot's place
-  and gets the depot word. It tests nothing of the form that it gives: a
+  and gets the depot word. The gate's checks ask it of the row at a
+  permission's place, for the right that an end names, and of the row of a
+  layer's one-write keys (`softland.store.gate.decision`); each tests the
+  form that it gets. It tests nothing of the form that it gives: a
   reader of a tool's fact calls `read-value`."
   [row]
   (when-let [plain (plain-bytes-of row)]

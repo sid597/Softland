@@ -222,6 +222,13 @@
      (swap! permissions assoc [who layer] given)
      (put! giver layer [{:e who :k :softland.store/permission :v given}]))))
 
+(defn- end!
+  "Ends a who's right in a layer: an act of the ender, under the permission
+  that the proof made for the ender there, whose one fact is a retract at
+  the who's place under `:softland.store/permission`."
+  [layer ender who]
+  (put! ender layer [{:e who :k :softland.store/permission}]))
+
 (defn- fact "A fact with a value, as a maker gives it." [e k v] {:e e :k k :v v})
 
 (defn- setting! "Writes who may see a layer." [layer who word]
@@ -1074,8 +1081,8 @@
     (check "one write to the base's row calls each of the three functions once, with the fact of that act"
            [true (vec (repeat 3 [(change-of [:watched-33 :text] "shared" (:wrote (:result shared)) 0)]))]
            [(some? (:got (:result shared))) (:calls (:result shared))])
-    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
-           [{[:streaming :facts home-a] 3 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
+    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay, and so does the push on her permission row in her layer, the level above his right there; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
+           [{[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {[:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {:pushes {} :counts {} :reads {}}]
            [(:after-alice (:result shared)) (:after-bob (:result shared)) (:at-the-end (:result shared))])
@@ -1303,6 +1310,82 @@
            "calls | a layer that joins over farther orders gave" (count erin-later) "whole answers anew, the last with its own place and what a read asked once gives"
            "| the base to members and back:" (pr-str (:left-out (:anew frank-out))) "then the fact again")))
 
+(deftest a-right-that-ends-and-a-layer-for-anyone-signed-in
+  (let [_ (doseq [layer [:r16 :f16 :s16]] (make! layer :olga))
+        _ (give! :r16 :olga :gus)
+        _ (give! :r16 :gus :ann)
+        _ (setting! :f16 :olga :everyone)
+        _ (put! :olga :r16 [(fact :note :text "from r16")])
+        _ (put! :olga :f16 [(fact :note :text "from f16")])
+        query {:asks [:place :note :text] :asker :ann :layers [:r16 :f16]}
+        seen (fn [answer] [(:left-out answer) ((juxt :layer :value) (:place answer))])
+        sees [[] [:r16 "from r16"]]
+        out [[{:layer :r16 :why :may-not-see}] [:f16 "from f16"]]
+        once-at-first (ask query)
+        ann (live query)
+        ;; Gus reads the same place: his own row is the push that is a level above Ann's right
+        gus (live (assoc query :asker :gus))
+        ;; an end above her: Olga ends Gus's right
+        _ (end! :r16 :olga :gus)
+        _ (wait-until #(and (seq (:left-out (screen ann))) (seq (:left-out (screen gus)))))
+        after-end-above (last (changes ann))
+        once-after-end-above (ask query)
+        ann-count (count (changes ann))
+        ;; Gus's right given again above her: Gus sees again, and Ann is told nothing; a second end of
+        ;; Gus's right, which Gus is told, is the witness that Ann's push has handled the give
+        _ (give! :r16 :olga :gus)
+        _ (wait-until #(empty? (:left-out (screen gus))))
+        once-after-gus-again (ask query)
+        _ (end! :r16 :olga :gus)
+        _ (wait-until #(seq (:left-out (screen gus))))
+        _ (settled)
+        ann-count-after (count (changes ann))
+        ;; Olga ends Ann's right, and gives her a new one beneath her own
+        _ (end! :r16 :olga :ann)
+        once-after-her-end (ask query)
+        _ (give! :r16 :olga :ann)
+        _ (wait-until #(empty? (:left-out (screen ann))))
+        after-new-give (last (changes ann))
+        once-after-new-give (ask query)
+        _ (run! leave! [ann gus])
+        ;; a layer for anyone signed in
+        _ (put! :olga :s16 [(fact :note :text "from s16")])
+        _ (setting! :s16 :olga :signed-in)
+        bob-query {:asks [:place :note :text] :asker :bob :layers [:s16]}
+        bob-once (ask bob-query)
+        nobody-once (ask {:asks [:place :note :text] :not-signed-in true :layers [:s16]})
+        bob (live bob-query)
+        _ (setting! :s16 :olga :members)
+        _ (wait-until #(seq (:left-out (screen bob))))
+        bob-out (last (changes bob))
+        _ (setting! :s16 :olga :signed-in)
+        _ (wait-until #(empty? (:left-out (screen bob))))
+        bob-back (last (changes bob))
+        _ (leave! bob)]
+    (check "a right given beneath a right that was given beneath the layer's first: she sees the members layer, asked once and kept live"
+           [sees sees] [(seen once-at-first) (seen (:now ann))])
+    (check "kept live, an end of the right above hers is told: the whole answer comes anew, the members layer is left out, and the place comes from the farther layer; a read asked once says the same"
+           [out out] [(seen (:anew after-end-above)) (seen once-after-end-above)])
+    (check "the right above hers given again after its end does not bring hers back: asked once she is still left out, and kept live she is told nothing, while the holder of that right sees again"
+           [out ann-count] [(seen once-after-gus-again) ann-count-after])
+    (check "a retract at her place is no right: once her own right is ended she is left out"
+           out (seen once-after-her-end))
+    (check "a new right given to her beneath the layer's first lets her see again: kept live the whole answer comes anew with the members layer's place, and the screen is what a read asked once gives"
+           [sees sees true] [(seen (:anew after-new-give)) (seen once-after-new-give) (= (screen ann) once-after-new-give)])
+    (check "a layer for anyone signed in: an asker whom the query names and who holds no right there sees it; a person who is not signed in does not"
+           [[[] [:s16 "from s16"]] [[{:layer :s16 :why :may-not-see}] {:holds :no-fact}]]
+           [[(:left-out bob-once) ((juxt :layer :value) (:place bob-once))]
+            [(:left-out nobody-once) (:place nobody-once)]])
+    (check "kept live, the layer goes from anyone signed in to members and back for an asker with no right there: each time the whole answer comes anew, the layer left out and then in again"
+           [[{:layer :s16 :why :may-not-see}] [[] "from s16"]]
+           [(:left-out (:anew bob-out)) [(:left-out (:anew bob-back)) (:value (:place (:anew bob-back)))]])
+    (check "no live read is left open" {:live-reads 0 :pushes 0} (read-path/open-count (the-rp)))
+    (shown "a right that ends, kept live: an end above her" (pr-str (:left-out (:anew after-end-above)))
+           "| the right above given again: she was told" (- ann-count-after ann-count) "more | a new right beneath the first:"
+           (pr-str ((juxt :layer :value) (:place (:anew after-new-give))))
+           "| a layer for anyone signed in: a signed-in asker with no right sees" (pr-str (:value (:place bob-once)))
+           ", a person who is not signed in" (pr-str (:left-out nobody-once)))))
+
 (deftest one-push-for-one-thing
   (let [rp (:counted @round)
         _ (make! :t16 :alice)
@@ -1362,7 +1445,7 @@
         closed (wait-until #(= (+ (:opens together) (:opens crossing)) (+ (:closes together) (:closes crossing))))]
     (check "one asker of a place in a members layer holds three pushes: the layer's own rows, her permission, the place"
            {:live-reads 1 :pushes 3} one)
-    (check "a second asker of the same place joins the two pushes that are open and opens only his own permission"
+    (check "a second asker of the same place, whose right she gave, joins the three pushes that are open, her permission row among them as the level above his right, and opens only his own permission"
            [{:live-reads 2 :pushes 4} 4] [two (count (:opened kept))])
     (check "a write to the place: each function is called once; the asker who asked for the writer is handed it, the other is not"
            [[1 1] [:alice nil] ["v1" "v1"] [[(:act-id wrote) 0] [(:act-id wrote) 0]]]
@@ -1370,8 +1453,8 @@
             (mapv (fn [changes] (:writer (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:value (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:fact (first (vals (:changed (first changes)))))) told)])
-    (check "the first leaves: her permission's push is closed, and the two shared pushes stay; the last leaves: nothing is held; a read that has left is not open"
-           [{:live-reads 1 :pushes 3} {:live-reads 0 :pushes 0} [:left :left :not-open]] [after-alice after-bob left])
+    (check "the first leaves: her permission row's push stays, since it is the level above the other's right, and so do the two shared pushes; the last leaves: nothing is held; a read that has left is not open"
+           [{:live-reads 1 :pushes 4} {:live-reads 0 :pushes 0} [:left :left :not-open]] [after-alice after-bob left])
     (check "each push that the read path opened is closed when its last reader has left: Rama says terminated of all four"
            [:terminated :terminated :terminated :terminated] statuses)
     (check "a third asker after the last one left opens new pushes, three, and gets a fresh value" [3 ["v1" :left]] [(:opens third) (:result third)])
@@ -2020,6 +2103,7 @@
   (the-base-is-read-where-the-askers-layer-lives)
   (each-word-kept-live)
   (what-shapes-a-read-changes-under-it)
+  (a-right-that-ends-and-a-layer-for-anyone-signed-in)
   (one-push-for-one-thing)
   (the-read-paths-own-bound-on-its-pushes)
   (nothing-is-shown-that-is-not-in-the-tables)

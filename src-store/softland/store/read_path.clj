@@ -256,6 +256,38 @@
   fewer would give the askers of its homes fewer, and no read would
   notice.
 
+  Who may see a layer, and a right that ends. A layer's setting says who
+  may see it (`softland.store.read-path.layers/standing`): `:everyone`, a
+  person who is not signed in too; `:signed-in`, an asker whom the query
+  names; `:members`, an asker whose right in the layer stands, as a gate
+  reads standing (`softland.store.read-path.layers/right`): her permission
+  row, and the row of each level above her right, whose places her row's
+  value names (`softland.store.gate.chain`). So under `:members` the levels
+  above are sources of their own, wanted once her row is read: asked once,
+  they are fetched in the round after it, in one call for each table under
+  each routing id; kept live, each is a push, shared by every asker whose
+  right was given beneath that holder. An end at her place, or at a level
+  above, is a change of one of those pushes: her standing goes to
+  `:may-not-see`, the read leaves the layer's facts, and she is given the
+  whole answer anew, which says that the layer is left out. A level above
+  that is given again does not bring her right back, and tells her
+  nothing. A new right given to her is a change of her own row: the levels
+  above the new right are joined, and the whole answer comes anew once
+  they are read.
+
+  Two things are told that change nothing that she sees, each an answer
+  anew that says what it said. A step that joins or leaves the levels
+  above owes the whole answer, as every step that moves a source that is
+  no check does: so an end of her own right whose chain was ended already
+  is told. And the meaning of her right holds a mark for each level above
+  it, read from that level's row and her own row alone
+  (`softland.store.read-path.layers/levels-above` says why the word of her
+  right is not enough): so the first change of a level whose mark was
+  still true is told, also when an end farther up had taken her right
+  already. Each is a write in her own right's chain: the end of her right
+  once, and the first change of each level above it once, for as long as
+  her row holds the same right.
+
   Room that this code leaves, each a thing that is not in this build and
   that this code decides nothing of:
 
@@ -266,10 +298,7 @@
     - a record of who read what: nothing is kept of a read;
     - a new word of a query (finding by text, looking back, what stands on
       a fact, everything one person wrote): one entry in each of three maps
-      (`softland.store.read-path.query/words`);
-    - a permission that ends: the push on the asker's permission going from
-      a row to none takes the same road as a setting that goes to
-      \"members\".
+      (`softland.store.read-path.query/words`).
 
   Approach. The file has these sections, in this order: the read path as a
   value; the calls of Rama's client and the five forms of path; a read
@@ -344,12 +373,12 @@
 
 (def ^:private max-rounds
   "At how many rounds a read stops when it does not settle. A round fetches
-  every source that is missing and asks what is wanted again. Five are
-  derived from the five ranks of a source
+  every source that is missing and asks what is wanted again. Eight are
+  derived from the eight ranks of a source
   (`softland.store.read-path.sources`); three more are for a list or a
   setting that is written while a live read opens. A number of the build,
   kept and not decided."
-  8)
+  11)
 
 (defn- now-ms
   "Gives the JVM's steady clock in milliseconds, to bound a wait. It is no
@@ -1223,6 +1252,9 @@
   is three calls in one round; from a layer, one call and then the others;
   what points at a thing, one round for the rights and the marks, one for
   the orders, and one for the checks of nearer layers, each check one seek.
+  A members layer in which her right was given beneath another's costs one
+  round more, for the rows of the levels above her right: one call for
+  each table under each routing id, each level one seek.
   A run of more than `:run-start-places` places costs two calls more. A
   microbatch layer is read on the task of the read's home, in a call of its
   own table: a run across its entities is one call, as in a streaming
@@ -1385,17 +1417,20 @@
   What it follows. Every fact that shapes the read, each by a push that
   those who need it share: the layer's own rows (whether it is made, who
   may see it, what it builds on, its marked keys) as one push for a layer;
-  the asker's permission, only while the layer is made and its setting is
-  `:members`; and the facts. When what shapes the read changes, the asker
-  is given the whole answer anew. When a layer is no longer rightful for
+  the asker's permission, and the row of each level above her right, only
+  while the layer is made and its setting is `:members`; and the facts.
+  When what shapes the read changes, an end of her right or of a level
+  above it among them, the asker is given the whole answer anew. When a layer is no longer rightful for
   her, her read leaves that layer's facts at once; the answer then says
   that the layer is left out, and nothing of the layer's facts. A fact of
   that layer that Rama called back before the setting's change reached the
   read path can still be told: as late as a push is, and no sooner.
 
   What it costs. One push for each source: for a place through k layers of
-  which g are \"members\", k + g + k. For what points at a thing, one push
-  more for each place of a farther order and each nearer layer. Each open
+  which g are \"members\", k + g + a + k, where a counts the levels above
+  her rights in those g layers (none for a first permission). For what
+  points at a thing, one push more for each place of a farther order and
+  each nearer layer. Each open
   push costs its layer's gate at each write. Rama opens a bounded count of
   pushes on one table on one task, and the read path holds a bound of its
   own under that: a read whose pushes would pass it is turned away at once,

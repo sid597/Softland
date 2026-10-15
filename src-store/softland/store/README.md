@@ -114,9 +114,15 @@ give the same rows, with the same stamps, whenever they are decided.
    A thing with no usable time is refused here.
 4. [decision.clj](gate/decision.clj) checks the act against rows that the walk reads
    for it: its standing ([first_act.clj](gate/first_act.clj) knows the form of a making
-   act), which also asks what the act's permission allows; and its places. Of a
-   layer for which the record holds nothing and which starts with the other
-   gate's depot, the check answers from the layer id alone.
+   act), which reads the holder's row and then the row of each level above the
+   act's permission, since a right stands only while its whole chain stands
+   ([chain.clj](gate/chain.clj)), and asks what the act's permission allows; its
+   places, where the key of each fact is held to what that permission allows
+   ([act.clj](act.clj)), and the end of a right is taken from above it; and, for
+   an act that claims a place under a plain key, its claims: the walk reads the
+   row of the layer's one-write keys and the place of each claim under one of
+   them. Of a layer for which the record holds nothing and which starts with the
+   other gate's depot, the check answers from the layer id alone.
 5. Only for an act that no check refused, and only when it holds a fact under a
    plain key or under the layer's marked keys: the walk reads the row of the
    layer's marked keys, and the row before of each place under a marked key.
@@ -266,13 +272,22 @@ shape must hold when each fact is wrong.
   own all the same, because the digest is taken of UTF-8, which makes the same
   replacement. A probe saw that on Rama 1.6.0 in-process, on a module of its
   own and not on this one.
-- **Who may write a layer's setting, its list and its marks.** Not decided, and
-  kept only so that the read build can run: whoever may act in the layer. So any
-  holder of "see and act" in a layer can set that layer to `:everyone`, and any
-  such holder in the base can set the base to `:members`. Sid's word for who
-  writes the setting is "the owner", and no layer names an owner as a fact. The
-  one place for the other answer is `who-may-write-fault` in
+- **Who may write a layer's setting, its list, its marks and its one-write
+  keys.** The key list of a right answers it: each is a store key, and a gate
+  holds the key of each fact to what the act's right allows. So a giver can
+  give a right that allows a tool's keys and none of the store's. A first
+  permission, and a right given without a list or with "see and act", allow
+  every key: any such holder in a layer can set that layer to `:everyone`, and
+  any such holder in the base can set the base to `:members`. Sid's word for
+  who writes the setting is "the owner", and no layer names an owner as a fact.
+  A rule that the key list cannot say would go in `who-may-write-fault` in
   [decision.clj](gate/decision.clj).
+- **What a one-write key holds, and who claims it.** A gate refuses a claim of
+  a place under such a key while the place holds a value, whatever the value
+  is and whoever claims it; what the place and the value may be, a name's
+  letters for one, are not a gate's to check. A layer marks 32 such keys at most. A fact that
+  names the current fact of its place replaces it under such a key too, and a
+  retract frees the place: whoever's right allows the key may do either.
 - **What a list of layers names.** A gate takes the list as written: a layer that
   is not made, the layer itself, a layer named twice, and two lists that name
   each other are all accepted. A read handles them.
@@ -320,7 +335,9 @@ shape must hold when each fact is wrong.
   whose `:who` holds no permission there: 5 reads and 2 row writes, whatever
   the act carries, in either gate. It reads the answer, the two places of its
   standing and the layer's last stamp, which is two reads, and writes the
-  answer and the layer's last stamp. Its refusal raises the layer's last stamp
+  answer and the layer's last stamp. An act whose own row holds its
+  permission, and a level above which has ended, reads one row more for each
+  level above it, 31 at most, and is refused with the same 2 writes. Its refusal raises the layer's last stamp
   by one and moves no time of the layer, whatever time it carries. The door is
   no guard of it: it stops no act. Each act
   of such a who reaches the gate and is recorded, refused under its own act-id
@@ -334,7 +351,8 @@ shape must hold when each fact is wrong.
   for its digest, for all its reads, for the making of the text of each of its
   values, and, under marked keys, for the digests and the writes of the order by
   value. Only the limits of the declaration bound them: up to 256 places, each
-  read once at most, for a check or as the row before; up to 256 values, the
+  read once at most, for a check, for a claim or as the row before; up to 31
+  rows of the levels above the act's permission; up to 256 values, the
   text of each of 65,536 bytes at most; and the bound on the act, 18,874,368
   bytes of text in the rows of its facts. The greatest case that the order by
   value adds: an act of 256 facts, each under a marked key, each a value whose
@@ -510,7 +528,7 @@ Who acts, and what the store reads (8 October):
 | K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
 | E4 A, E2 A; and E3·H7 B, which is a session's reading and not his answer | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj). Since the read build a holder of a permission that says `:see` cannot give: her give is an act, and is refused `:permission-does-not-allow-acting` |
 | H2 A | A stamp holds the clock time and a counter | Replaced on 14 October, below: the stamp is the layer's count of decisions, and the time is a label beside it |
-| K1 A | The store's keys of that day are the depot and a permission. The third of his list, the door's request for locks, is none of the store's keys, by entry 2 of 12 October | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those two and the three of the decisions of 11 and 12 October: who may see a layer, what it builds on, its marked keys |
+| K1 A | The store's keys of that day are the depot and a permission. The third of his list, the door's request for locks, is none of the store's keys, by entry 2 of 12 October | `store-keys` in [declaration.clj](door/declaration.clj). The table holds those two, the three of the decisions of 11 and 12 October: who may see a layer, what it builds on, its marked keys; and the one of the sign-in build, its one-write keys |
 
 The door's four questions (9 October):
 
@@ -579,6 +597,19 @@ holds them under "Decisions of 14 October 2026".
 | A thing that arrives with no time is refused | `:no-door-time`, in the shape `:arrived-act` of [declaration.clj](door/declaration.clj) |
 | Time travel is designed later | Nothing here: every act is kept with its stamp, its time and its `:based-on` |
 
+Sign-in (15 October). Sid's decision 7 of that day, and three defaults that a
+session told him and that he did not strike, in the numbers of the build page
+(`src/proposal/sign-in-2026-10-15/BUILD.md`). Each changes what a gate
+accepts, so each is a new version of the rules on a store that keeps nothing
+yet (13 October, decision 6): the code knows one version.
+
+| Decision or default | What it shapes here |
+|---|---|
+| Decision 7: rights can be taken back, and blocked down to kinds of act | The end of a right, a retract at its place, and the check of a chain in [chain.clj](gate/chain.clj): `standing` in [decision.clj](gate/decision.clj) reads each level above an act's permission, and the check of an end takes it from above. A right's list of keys in [act.clj](act.clj). The runtime's blocks are not the gate's |
+| Default 11: ending a right | Who may end one: an act whose permission is a level above it (`above?` in [chain.clj](gate/chain.clj)). An end reaches down for good, also when the same right is given again above (`stands?`). "See" is raised to "see and act" by an end and then a give: a give onto a place whose right has ended is taken |
+| Default 12: which keys a right allows | The fifth slot of a given permission can be a set of key patterns (`shapes` and `allows-key?` in [act.clj](act.clj)); `places` in [decision.clj](gate/decision.clj) refuses a fact whose key the act's right does not allow, and a give that allows more than the giver's (`allows-within?`). Giving a right and changing a setting are keys like any other, so `who-may-write-fault` gives no word |
+| The store's change d: a key that a layer marks as taking one write per place, for unique names | The store key `:softland.store/one-write-keys` in [declaration.clj](door/declaration.clj), and `claims` in [decision.clj](gate/decision.clj) |
+
 ## Engineering choices
 
 Each is the builder's, with its reason. None is a decision of Sid's. Where a
@@ -610,30 +641,37 @@ layer's task for an answer, and every task for a row of the facts and of the
 facts by value.
 
 **What one accepted act costs the walk**, on the layer's task, in either gate.
-The act: one value under a plain key, on one entity, nothing named to replace.
-Counted from the dataflow, not measured.
+The act: one value under a plain key, on one entity, nothing named to replace,
+a claim, under the layer's first permission. Counted from the dataflow, not
+measured.
 
 | | Reads | Row writes |
 |---|---|---|
-| The key not marked, or no key of the layer marked | 5: the answer, the permission, the marked keys, and two for the layer's last stamp | 3: the fact, the answer, the layer's last stamp |
-| The key marked | 6: and the row before | 4: and the entry in. 5 when the entry of a value before goes out |
+| The key neither one-write nor marked, or no key of the layer so | 6: the answer, the permission, the one-write keys, the marked keys, and two for the layer's last stamp | 3: the fact, the answer, the layer's last stamp |
+| The key one-write, or marked, or both | 7: and its place, read once, for the claim and as the row before | 3, or when marked 4: and the entry in. 5 when the entry of a value before goes out |
 
-Without the order by value it would be 4 reads. The one read more, of the
-layer's marked keys, is paid by every accepted act with a fact under a plain
-key, also in a layer that marks no key: a gate must know whether the key is
-marked where it writes the fact. An act with no fact under a plain key, a
-give, a setting or a list, reads no marked keys. A refused act reads none
-either: no check reads the marked keys. An act that the declaration refuses, a
+Under a given right each act reads one row more for each level above it: the
+right's chain is read whole at each act, since a level above can have ended.
+Without the one-write keys and the order by value it would be 4 reads. The
+read of the one-write keys is paid by every act with a claim that the other
+checks passed, and the read of the marked keys by every accepted act with a
+fact under a plain key, also in a layer that marks no key: a gate must know
+whether the key takes one write before it decides, and whether it is marked
+where it writes the fact. A fact that names what it replaces is no claim, and
+reads its place for check (e) and no one-write keys. An act with no fact under
+a plain key, a give, an end, a setting or a list, reads neither. A refused act
+reads no marked keys: no check reads them. An act that the declaration refuses, a
 value or an act over its bound and a thing with no usable time among them,
 costs 3 reads, the answer and the two of the layer's last stamp, and 2 row writes. Keeping
 the marks in memory
 between two events would be a cache, which the project's rule sends to its own
-examination. The marks are a fact of the layer, in the table of facts, and the
-layer's last stamp is in what the gate keeps for a task; so they are three
-reads, one for the marks and two for the last stamp. A form that would give 3
-reads for the whole act, where the count is 5, was found and is not built: one
-row for each layer that holds the layer's last stamp and its marks. Kept as
-built, and not decided.
+examination, and so would keeping the one-write keys or a right's chain. The
+one-write keys and the marks are two facts of the layer, in the table of facts,
+and the layer's last stamp is in what the gate keeps for a task; so they are
+four reads, one for each fact and two for the last stamp. A form that would
+give 3 reads for the whole act, where the count is 6, is not built: one row for
+each layer that holds the layer's last stamp, its marks and its one-write
+keys. Kept as built, and not decided.
 
 A thing under an act-id that has an answer costs 1 read and no write. A stray
 reads no row and costs one add to a set; the set tracks its size, and Rama's
@@ -653,8 +691,9 @@ one rule of the declaration and the key that the gate reads.
 
 **What a permission allows is a slot of the permission.** A given permission is
 `[who layer granted-in parent]` or `[who layer granted-in parent allows]`, where
-`allows` is `:see` or `:see-and-act`; a first permission has no slot. Without the
-slot a permission reads as "see and act" (`allows` in [act.clj](act.clj)). The
+`allows` is `:see`, `:see-and-act`, or a set of key patterns; a first permission
+has no slot. Without the slot a permission reads as "see and act" (`allows` in
+[act.clj](act.clj)). The
 row of a permission holds the text of the whole permission, slot and all, and
 check (d) stays one read and one comparison, of that text with the text of the
 permission that the act names: so nobody raises her right
@@ -663,9 +702,35 @@ check stands with the standing, before any place is read. A making act names a
 first permission, so one whose permission has the slot is no making act and is
 refused `:layer-not-made`. The other form that was weighed keeps what a
 permission allows beside the permission and not in it; `allows`, the shape and
-check (d) are what it would change. **"See" stays "see"**: a permission's place
-takes one write and nothing ends a permission, so a permission that says `:see`
-cannot be raised. That is kept, and not decided.
+check (d) are what it would change. **"See" is raised by an end and a give**: a
+permission's place takes one write while it holds a right, so the one above
+ends it, and a give onto the ended place is taken.
+
+**A right lists the keys it allows.** The set in the fifth slot holds 64 key
+patterns at most: a key; `:ns/*`, every key of that namespace; `:*`, every
+plain key and never a key of the store's namespace, which only
+`:softland.store/*` or the store key itself allows. So "see and act" allows
+what `#{:* :softland.store/*}` allows, and "see" what the empty set allows. The
+first check of an act's places holds each fact's key, a retract's too, to the
+act's right (`:key-not-allowed`), and check (g) holds each right that the act
+gives to allow no more than the giver's (`allows-within?` in [act.clj](act.clj)).
+A set of keys never covers a whole namespace, however many of its keys it
+names. Each pattern is held to the limit of an id's text, as a key is; a
+permission whose levels list patterns has a longer text, which each fact's row
+holds and the bound on an act counts. The patterns are a session's form.
+
+**The end of a right is a retract at its place.** Taken from an act whose
+permission is one of the levels above the right: its giver, any level above
+that, and the layer's first permission, the system's where the system is at
+the top (`above?` in [chain.clj](gate/chain.clj)). The holder herself is not
+above her right. A place that holds no right gives `:no-right-to-end`, an ender
+who is not above `:end-not-from-above`. Ending a right ends what was given
+beneath it, for good: a right stands only when each level above it holds that
+level at its place and was written at a lower stamp than the level beneath it
+(`stands?`). So the same right given again above, with the same id, has a row
+later than every right that was given beneath it before the end, and those stay
+ended; a right given beneath it after the new give stands. The rule reads the
+stamps of one layer, the layer's count of decisions, and no time.
 
 **How deep a permission can be is not decided.** Kept: as deep as a value may
 be. A permission can hold 32 permission ids, itself counted, as an act's own
@@ -709,19 +774,34 @@ each a String, the one text of what it is: a UUID has two texts, and the one
 text reads back as a UUID. `:who` is what the act claimed; a gate cannot check
 it until sign-in is built.
 
-**The three keys that take a second write.** Who may see a layer, what it builds
-on, and its marked keys are each one fact on the layer's own entity, a setting in
+**The four keys that take a second write.** Who may see a layer, what it builds
+on, its marked keys and its one-write keys are each one fact on the layer's own entity, a setting in
 the code's sense, with a plain value. Each can be written again at any time,
 with `:replaces` or without: two writers at once leave the later one, and a
 writer who must not lose a write names what she replaces. A retract of one is
 refused; a list is emptied, and a mark taken off, by a second write of a value
-that says so. **Who may write them is not decided**; kept: whoever may act in
-the layer (see "What the gate does not check"). **What a layer starts with is
+that says so. Who may write them: whoever's right allows the key (see "What
+the gate does not check"). **What a layer starts with is
 not decided**; kept: a new layer is seen by its members, the base by everyone,
-and a layer builds on nothing and marks no key until a fact says so. No fact is
+and a layer builds on nothing, marks no key and takes a second write under
+every key until a fact says so. No fact is
 written at the making: `starts-with` in [first_act.clj](gate/first_act.clj) reads
 "no fact", and is the one place for the other answer. A later change there
 changes how every layer with no fact reads.
+
+**One write for a place, under the keys that a layer marks so.** The layer's
+one-write keys are one fact on the layer that holds a set of plain keys, 32 at
+most, none of the store's namespace: a store key says for itself how often its
+place takes a write. Under such a key a claim, a fact with a value that names
+nothing to replace, is refused `:place-takes-one-write` while its place holds a
+value. A fact that names the current fact of its place replaces it, held to
+check (e) as any such fact; a retract frees the place, which a claim then takes.
+The check of the claims is the last check of an act, after its places: the walk
+reads the row of the one-write keys only for an act with a claim that every
+other check passed, and then the place of each claim under a marked key. An act
+is decided with the marks as they were before it, as with the marked keys. Two
+claims of one place in one layer's line: the first is taken and the second
+refused, in the order of the line. That is how a name is claimed once.
 
 **The mark of a key is one fact that holds a set.** A gate then reads the marks
 of an act with one read, where one fact for each key would cost a read for each
@@ -760,10 +840,11 @@ of the value before. A table of its own and not more keys of the facts table:
 its key has five parts where a place has three, so in one map a key of this
 order could sort into the run of an entity.
 
-**The gate does not read the permissions above the act's own.** A permission row
-is written only by a right making act or by a give whose own permission stood and
-is exactly the one above, and nothing in this build ends a permission. Reading
-them would cost up to 31 reads on every act to find what cannot be false.
+**The gate reads the permissions above the act's own.** A right can end, and its
+end ends each right beneath it, so the standing of an act reads the row of each
+level above its permission once its holder's row holds it: none under a first
+permission, 31 at most. It reads them at each act and keeps them nowhere
+between two acts. An end writes one row, and no walk of the rights beneath it.
 
 **The depot of a layer costs no read for a layer that is made here.** A gate's
 record holds rows only for layers of its depot, so a row at the permission's
@@ -952,18 +1033,22 @@ nowhere.
 the counting of the values' texts is the last step of the declaration's check:
 it is the most costly. The time on the act is a part of the shape of what
 arrives, checked behind `:depot` and before each of the maker's own parts. What
-a store key does not take comes after check (g). A
-check that examines facts takes them in the act's order.
+a store key does not take comes after check (g). The key of each fact is the
+first check of the places, before check (e); the check of the claims is the
+last check of an act. A check that examines facts takes them in the act's
+order.
 
 **How each of the builder's rules is met.** The numbers are the contract's.
 
 1. Each answer keeps the SHA-256 of its thing. A second, different act under a
    used act-id ends at check (a) and writes nothing; its sender reads an answer
    whose digest is not the digest of what it sent.
-2. A fact that names nothing to replace reads no row for a check and is written
-   as the row of its place. No check can call it stale. Under a marked key the
-   gate reads its place all the same, after the last check, for the order by
-   value; that read refuses nothing.
+2. A fact that names nothing to replace is written as the row of its place, and
+   no check can call it stale. It reads no row for a check but under a key that
+   its layer marks as taking one write, where the check of the claims refuses it
+   while its place holds a value. Under a marked key the gate reads its place
+   all the same, after the last check, for the order by value; that read
+   refuses nothing.
 3. A retract is written as the row of its place, with no value. A later fact that
    names it passes check (e).
 4. The module sets no trimming option on either of its two depots.
@@ -1004,11 +1089,13 @@ check that examines facts takes them in the act's order.
     second, different act.
 12. Two rules of the declaration: `:place-named-once` and
     `:no-fact-replaces-a-fact-of-its-act`.
-13. A second write on a permission's place, each retract under a store key, and a
-    `:softland.store/depot` fact after the making are refused, with four words
-    that say which. A permission fact sits on its holder. The three keys of the
-    read build take a second write and any later one: who may see a layer, what
-    it builds on, and its marked keys.
+13. A second write on a permission's place while it holds a right, each retract
+    under a store key but a permission's, and a `:softland.store/depot` fact
+    after the making are refused, with three words that say which. A retract of
+    a permission is the end of a right: taken from above it, else refused with
+    one of two words. A permission fact sits on its holder. The four keys of the
+    read build and of sign-in take a second write and any later one: who may
+    see a layer, what it builds on, its marked keys and its one-write keys.
 14. `granted-in` must be the act's layer, in a first permission and in one given.
     The gate checks nothing more about a holder; see "What the gate does not
     check".
@@ -1057,12 +1144,14 @@ check that examines facts takes them in the act's order.
     the page and the fixture; the code still knows one version." So the rule
     stands here and with the proof's fixture, and no code holds two versions
     of a rule.
-20. Eight numbers in [declaration.clj](door/declaration.clj). Five are held by a
+20. Eight numbers in [declaration.clj](door/declaration.clj). Six are held by a
     rule or by the test for a stray, before a row key is built from an id. Two
     are held by the last step of the check: the bound on one value, counted of
-    its text, and the bound on one act. One is held by the shape: the time on
-    an act is below 2^45 milliseconds. The two of the read build are among the
-    five: a layer builds on 64 layers at most, and marks 32 keys at most.
+    its text, and the bound on one act. Three of the six are of the read build
+    and of sign-in: a layer builds on 64 layers at most, marks 32 keys at most,
+    and marks 32 keys at most as taking one write. A ninth is in
+    [act.clj](act.clj), held by the shape: a right lists 64 key patterns at
+    most. The time on an act has no bound above: it is a label.
 21. The aims: 1,000 acts a second on one task; 20 ms from the door's append to the
     answer in the door's hand. The contract's third is of the bytes of a lock
     for each value, and the store keeps no lock. Neither of the two is
@@ -1070,9 +1159,11 @@ check that examines facts takes them in the act's order.
     build time a gate under 100 acts a second on the in-process cluster, with
     every row in memory ([the proofs' map](../../../test-store/softland/store/README.md),
     "The measures"); that is a floor for a round trip and no measure of an aim.
-    By the cost of a cold read, the 5 reads of one accepted act give
-    384 to 616 acts a second on one task, and the 6 of an act under a marked key
-    320 to 513; the first aim is met only when the rows are read from memory.
+    By the cost of a cold read, the 6 reads of one accepted act give
+    320 to 513 acts a second on one task, and the 7 of an act under a marked or
+    a one-write key about 275 to 440, under a first permission; each level
+    above a given one is a read more. The first aim is met only when the rows
+    are read from memory.
     For the microbatch gate: 1,000 acts a second arriving
     on one depot partition, which needs a run of the gate inside a second; and an
     answer readable when the batch that decided the act is committed on the
@@ -1096,7 +1187,7 @@ a session's.
 
 The store keys carry the namespace `softland.store`. The two of 8 October are
 `:softland.store/depot` and `:softland.store/permission`; the three of the read
-build are in the table
+build and the one of the sign-in build are in the tables
 below. Sid decided on 9 October that the store's keys
 get a namespace (K4 B), and gave the words: `softland.store` before the slash,
 and "depot". So the bare words are the tools'. A fact of a tool under `:depot`
@@ -1119,7 +1210,7 @@ order, and "digest" is this store's word since its module.
 | Word | What it is |
 |---|---|
 | `:softland.store/who-may-see` | The store key of a layer's setting: who may see the layer |
-| `:members`, `:everyone` | Its two values: whoever holds a permission in the layer, or everyone |
+| `:members`, `:signed-in`, `:everyone` | Its three values: whoever holds a right in the layer that stands, anyone who is signed in, or everyone, a person who is not signed in too. `:signed-in` is a word of the sign-in build, 15 October 2026 |
 | `:softland.store/builds-on` | The store key of the layers that a layer builds on, in the writer's order |
 | `:softland.store/marked-keys` | The store key of the keys that a layer marks |
 | `:see`, `:see-and-act` | The fifth slot of a given permission: what it allows |
@@ -1127,15 +1218,35 @@ order, and "digest" is this store's word since its module.
 | value digest | The SHA-256 of a value's bytes, as 64 hex characters: the value's text in that order |
 | the run of a value | The neighbouring keys of the facts by value that hold one value under one key: what points at that thing |
 | the row before | The row that a place held before a fact was written there |
-| `allows` | In [act.clj](act.clj): a permission → `:see` or `:see-and-act` |
-| `starts-with` | In [first_act.clj](gate/first_act.clj): what a layer reads as under one of the three keys while no fact says it |
-| `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
+| `allows` | In [act.clj](act.clj): a permission → `:see`, `:see-and-act`, or a set of key patterns |
+| `starts-with` | In [first_act.clj](gate/first_act.clj): what a layer reads as under one of the four keys that take a second write while no fact says it |
+| `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the four keys, and what a gate reads for the order by value |
 | `plain-bytes`, `plain-bytes-of` | In [rows.clj](record/rows.clj): the UTF-8 bytes of the String that a fact's row holds for its value; and those bytes of a row's value |
 | `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether a row's value is the one text of a value given, and the first form that a row's value reads as |
 | `read-value`, with `:no-fact`, `:nothing-here`, `:value`, `:not-a-value` | In [rows.clj](record/rows.clj): what a row says of its value, for a reader |
 | `who-of`, `permission-of`, `marked-keys-of` | In [rows.clj](record/rows.clj): a row read back |
 | `with-level-since`, `by-value-key`, `by-value-run`, `by-value-row`, `by-value-entity`, `value-digest-of`, `id-of-text`, `place-of-key` | In [rows.clj](record/rows.clj): the keys and the rows of the order by value, and a key back to its parts |
 | `second-write-keys`, `max-builds-on`, `max-marked-keys` | In [declaration.clj](door/declaration.clj): the keys that take a second write, and the two limits, 64 and 32 |
+
+**The words of the sign-in build, for what a gate accepts.** Each is a
+session's, of 15 October 2026, and Sid's to change. None comes from the rig's
+code. "Taken back", "block" and "type of actions" are Sid's words of that day;
+the words here are the session's for what the gate does of them.
+
+| Word | What it is |
+|---|---|
+| the end of a right; end | A retract under `:softland.store/permission` at a right's place, taken from an act whose permission is above the right |
+| level; the levels above | A permission of a chain: the act's own, its parent, and on to the layer's first permission. `levels` in [chain.clj](gate/chain.clj) |
+| key pattern | A member of the set in the fifth slot of a given permission: a key, `:ns/*` or `:*` |
+| `:*`, `:ns/*` | The two patterns that name more than one key: every plain key, never a store key; every key of the namespace `ns` |
+| `:softland.store/one-write-keys` | The store key of the plain keys under which a layer takes one write for a place |
+| one-write key | A plain key that the layer's one-write keys hold |
+| claim | A fact with a value under a plain key that names nothing to replace: what the check of the claims holds |
+| `max-key-patterns`, `store-namespace` | In [act.clj](act.clj): the most key patterns that a right lists, 64; and the store's namespace, which the pattern `:*` never names. The door's declaration reads the second |
+| `allows-key?`, `allows-within?` | In [act.clj](act.clj): whether what a right allows allows a key; whether one right allows no more than another |
+| `levels`, `parent-of`, `level-places`, `stands?`, `above?` | In [chain.clj](gate/chain.clj): the levels of a permission, the one above it, their places, whether the whole chain stands, and whether one permission is above another |
+| `levels-needed`, `holds-a-claim?`, `one-write-keys-place`, `claim-places-needed`, `claims` | In [decision.clj](gate/decision.clj): the rows above a permission that the standing reads, and what the check of the claims reads and decides |
+| `max-one-write-keys` | In [declaration.clj](door/declaration.clj): the most keys that a layer marks as taking one write, 32 |
 
 **The words of the build before real data is kept, for a value and its
 bounds.** Each is a session's. None was taken from the rig's code; whether the
@@ -1218,7 +1329,7 @@ The same limit of Rama holds of each depot and PState under "Names in Rama".
 `module`.
 Each namespace is `softland.store.`, its folder, and the word: `door.text`,
 `door.digest`, `door.declaration`, `door.additions`, `door.wait`,
-`door.words`; `gate.decision`,
+`door.words`; `gate.decision`, `gate.chain`,
 `gate.first-act`, `gate.stamp`; `record.rows`, `record.tables`;
 `module.walk`, `module.streaming-gate`, `module.microbatch-gate`,
 `module.door-reads`; the five of `read-path` are on its own page. Four
@@ -1263,19 +1374,22 @@ word.
 | Word | What it is |
 |---|---|
 | `:depot-not-the-act-ids-depot` | `:depot` is absent, is no depot word, or is not the depot slot of the act-id |
-| `:no-door-time` | The time on the act, under `:door-time`, is absent, nil, no fixed-width integer, below zero, or 2^45 milliseconds or more |
+| `:no-door-time` | The time on the act, under `:door-time`, is absent, nil, no fixed-width integer, or below zero |
 | `:too-many-facts` | More than 256 facts in one act |
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
 | `:store-key-not-known` | A fact's key is in the namespace `softland.store` and is not one of the store keys |
 | `:depot-fact-not-a-depot-word` | A `:softland.store/depot` fact's value is not `:streaming` or `:microbatch` |
 | `:permission-fact-not-a-permission` | A `:softland.store/permission` fact's value is not a permission id |
 | `:permission-fact-not-on-its-holder` | A `:softland.store/permission` fact's entity is not the holder that its permission names |
-| `:who-may-see-fact-not-members-or-everyone` | A `:softland.store/who-may-see` fact's value is not `:members` or `:everyone` |
+| `:who-may-see-fact-not-a-who-may-see-word` | A `:softland.store/who-may-see` fact's value is not one of its three words. A word of the sign-in build |
 | `:builds-on-fact-not-a-list-of-layers` | A `:softland.store/builds-on` fact's value is not a vector of ids |
 | `:builds-on-too-many-layers` | A `:softland.store/builds-on` fact names more than 64 layers |
 | `:marked-keys-fact-not-a-set-of-keys` | A `:softland.store/marked-keys` fact's value is not a set of keys |
 | `:too-many-marked-keys` | A `:softland.store/marked-keys` fact holds more than 32 keys |
 | `:marked-key-in-the-stores-namespace` | A `:softland.store/marked-keys` fact marks a key in the namespace `softland.store` |
+| `:one-write-keys-fact-not-a-set-of-keys` | A `:softland.store/one-write-keys` fact's value is not a set of keys |
+| `:too-many-one-write-keys` | A `:softland.store/one-write-keys` fact holds more than 32 keys |
+| `:one-write-key-in-the-stores-namespace` | A `:softland.store/one-write-keys` fact holds a key in the namespace `softland.store` |
 | `:place-named-twice` | Two facts of the act are on one entity and key |
 | `:replaces-own-fact` | A fact names a fact of its own act in `:replaces` |
 | `:id-too-long` | An id that the act holds, or a fact's key, prints to more than 256 characters |
@@ -1291,7 +1405,9 @@ Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
 `:who-may-see-fact-holds-its-word`,
 `:builds-on-fact-holds-layers`, `:builds-on-within-the-limit`,
 `:marked-keys-fact-holds-keys`, `:marked-keys-within-the-limit`,
-`:marked-keys-are-plain-keys`, `:place-named-once`,
+`:marked-keys-are-plain-keys`, `:one-write-keys-fact-holds-keys`,
+`:one-write-keys-within-the-limit`, `:one-write-keys-are-plain-keys`,
+`:place-named-once`,
 `:no-fact-replaces-a-fact-of-its-act`,
 `:ids-within-the-limit`. In the table of store keys: `:why`, `:value`,
 `:sits-on`, `:setting`, `:written-again`, and the two words that say where a
@@ -1304,17 +1420,22 @@ fact sits.
 | `:layer-belongs-to-the-other-gate` | The record holds nothing for the layer, and the layer starts with the other gate's depot: the act was sent to the wrong depot. The same word whether or not the other gate has made the layer |
 | `:layer-not-made` | The record holds nothing for the layer, the layer is not the other gate's, and the act is not a right making act |
 | `:who-not-the-permissions-holder` | The holder that the act's permission names is not the act's `:who` |
-| `:permission-does-not-stand` | The record does not hold the act's permission for its holder |
-| `:permission-does-not-allow-acting` | The record holds the act's permission, and it says `:see`: an act needs "act" |
+| `:permission-does-not-stand` | The record does not hold the act's permission for its holder: her place is empty, holds another permission, or her right there has ended |
+| `:permission-above-has-ended` | Her place holds the act's permission, and a level above it does not stand: it has ended, or was ended and given again after this right. A word of the sign-in build |
+| `:permission-does-not-allow-acting` | The act's permission stands, and it says `:see`: an act needs "act" |
+| `:key-not-allowed` | The act's permission does not allow the key of one of its facts. A word of the sign-in build |
 | `:replaced-fact-not-current` | A fact that the act replaces is not the current fact of its place |
 | `:setting-not-on-the-layer` | A fact under a setting key is on an entity that is not the act's layer |
 | `:permission-fact-for-another-layer` | A `:softland.store/permission` fact writes a permission for a layer that is not the act's |
 | `:permission-fact-granted-in-another-layer` | A `:softland.store/permission` fact writes a permission whose `granted-in` is not the act's layer |
 | `:permission-fact-not-beneath-the-acts-own` | A `:softland.store/permission` fact writes a permission that is not straight beneath the one the act acts under |
-| `:ending-a-permission-not-decided` | A `:softland.store/permission` fact with no value: who may end a permission is not decided |
+| `:permission-fact-allows-more-than-the-givers` | A `:softland.store/permission` fact writes a permission that allows a key that the act's own does not. A word of the sign-in build |
+| `:no-right-to-end` | A `:softland.store/permission` fact with no value, at a place that holds no right: empty, or ended. A word of the sign-in build |
+| `:end-not-from-above` | A `:softland.store/permission` fact with no value, by an act whose permission is not above the right at the place. A word of the sign-in build |
 | `:changing-a-depot-not-decided` | A `:softland.store/depot` fact, in a layer that is made, with a depot that is not the layer's |
-| `:store-key-takes-one-write` | A permission fact on a place that already holds one, or a depot fact with the layer's own depot after the making. Not earned by the three keys that take a second write |
+| `:store-key-takes-one-write` | A permission fact on a place that holds a right, or a depot fact with the layer's own depot after the making. Not earned by the four keys that take a second write |
 | `:store-key-retract-not-built` | A fact with no value under any store key but a permission's |
+| `:place-takes-one-write` | A claim under a key that the layer marks as taking one write, of a place that holds a value. A word of the sign-in build |
 
 **Words between the decision and the walk**, for the rows of one decision:
 `:fact`, `:by-value`, `:answer`, `:last-stamp`. A row of

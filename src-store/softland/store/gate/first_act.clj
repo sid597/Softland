@@ -17,7 +17,7 @@
                      a gate's depot, and a layer id -> true or false
     making-act?      a gate's depot, and an act in its one form on arrival
                      -> true or false
-    starts-with      a layer id, and one of the three store keys that take a
+    starts-with      a layer id, and one of the four store keys that take a
                      second write -> what the layer reads as under that key
                      while no fact is there
 
@@ -130,20 +130,26 @@
     :softland.store/builds-on    `[]`: a layer builds on nothing until a
                                  fact says so
     :softland.store/marked-keys  `#{}`: no key is marked
+    :softland.store/one-write-keys
+                                 `#{}`: every place takes a second write
 
-  and nil for any other key. No gate calls it, and no fact is written at the
-  making: a layer that was made before these keys existed holds no such
-  fact, so a reader must read \"no fact\" either way, and the form of a
-  making act stays two facts. A reader of the tables calls it.
+  and nil for any other key. No fact is written at the making: a layer that
+  was made before these keys existed holds no such fact, so a reader must
+  read \"no fact\" either way, and the form of a making act stays two
+  facts. A reader of the tables calls it, and so does the gate's check of
+  the claims (`softland.store.gate.decision/claims`), for the one-write
+  keys of a layer whose place holds no fact.
 
   Not decided. That a new layer is \"members\" and the base \"everyone\" is
   kept only so that the build can run (BUILD-reads.md, \"Not decided\"; with
-  \"everyone\" a person who is not signed in sees the base). This function
-  is the one place where the other answer would be made. A later change
-  here changes how every layer with no fact reads."
+  \"everyone\" a person who is not signed in sees the base). That a layer
+  starts with no one-write key is a session's, of the sign-in build. This
+  function is the one place where the other answer would be made. A later
+  change here changes how every layer with no fact reads."
   [layer k]
   (case k
     :softland.store/who-may-see (if (= base layer) :everyone :members)
     :softland.store/builds-on []
     :softland.store/marked-keys #{}
+    :softland.store/one-write-keys #{}
     nil))

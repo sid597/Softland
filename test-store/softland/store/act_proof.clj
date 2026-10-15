@@ -28,7 +28,9 @@
   optional part, each in its one form; one refused act for each fault, and
   each reason word earned; the order of the checks, which is the order of
   the declarations; that nothing throws; the limits at their edges, and the
-  three forms of a permission; ids and values."
+  three forms of a permission; ids and values; and what a permission
+  allows: the keys that a list of key patterns names, and whether a given
+  right allows no more than its giver's."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
             [softland.store.act :as act]
@@ -142,6 +144,11 @@
   [n]
   (reduce (fn [parent _] [:alice :alice :alice parent]) alice-own (range (dec n))))
 
+(defn- key-patterns
+  "A set of n key patterns, each a key of the namespace :tool."
+  [n]
+  (into #{} (map #(keyword "tool" (str "k" %))) (range n)))
+
 ;; --------------------------------------------------------------- the parts
 
 (def ^:private declared
@@ -168,7 +175,9 @@
    :fact-id [:tuple :act-id [:int {:min 0}]]
    :permission-id [:or [:tuple :id :id :id]
                        [:tuple :id :id :id :permission-id]
-                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
+                       [:tuple :id :id :id :permission-id :allows]]
+   :allows [:or [:enum :see :see-and-act]
+                [:set-of :key {:max 64}]]
    :carried-stamp [:int {:min 0}]})
 
 (def ^:private parts-cases
@@ -197,7 +206,10 @@
     [1 256 32]]
    ["the one shape with a number of its own for how often it may hold itself is a permission id, and its number is the value's: 32"
     (fn [] [@#'act/nesting (= act/max-depth (:permission-id @#'act/nesting))])
-    [{:permission-id 32} true]]])
+    [{:permission-id 32} true]]
+   ["a given permission lists 64 key patterns at most, and the store's namespace, which the pattern :* never names, is made in act.clj and read by the door's declaration"
+    (fn [] [act/max-key-patterns act/store-namespace (= act/store-namespace declaration/store-namespace)])
+    [64 "softland.store" true]]])
 
 (def ^:private whole
   "An act with each optional part. It is built with subvectors, narrow
@@ -528,7 +540,57 @@
                         [:bob :alice :alice alice-own :act]
                         [:bob :alice :alice :see]
                         [:bob :alice :alice alice-own :see :see]]))
-          [true true true false false false]]]))
+          [true true true false false false]]
+         ["permission ids whose slot lists key patterns: a key, :ns/* and :*; the empty set; 64 patterns; above a permission that lists its own; not 65 patterns, not a string in the set, not a vector of keys, not a set in the fourth slot"
+          (fn [] (mapv #(act/has-shape? :permission-id %)
+                       [[:bob :alice :alice alice-own #{:note :tool/* :*}]
+                        [:bob :alice :alice alice-own #{}]
+                        [:bob :alice :alice alice-own (key-patterns 64)]
+                        [:carol :alice :alice [:bob :alice :alice alice-own #{:tool/*}] #{:tool/a}]
+                        [:bob :alice :alice alice-own (key-patterns 65)]
+                        [:bob :alice :alice alice-own #{"note"}]
+                        [:bob :alice :alice alice-own [:note]]
+                        [:bob :alice :alice #{:note}]]))
+          [true true true true false false false false]]
+         ["what a permission allows: a first permission and one without the slot allow see and act; the slot as it is, a set of patterns too; the slot of the permission above is not read"
+          (fn [] (mapv act/allows [alice-own [:bob :alice :alice alice-own] [:bob :alice :alice alice-own :see]
+                                   [:bob :alice :alice alice-own #{:tool/*}]
+                                   [:carol :alice :alice [:bob :alice :alice alice-own #{:tool/*}]]]))
+          [:see-and-act :see-and-act :see #{:tool/*} :see-and-act]]
+         ["the keys that a permission allows: see and act every key, a store key too; see none; a set its keys, exactly"
+          (fn [] [(mapv #(act/allows-key? :see-and-act %) [:note :tool/a :softland.store/permission])
+                  (mapv #(act/allows-key? :see %) [:note :tool/a :softland.store/permission])
+                  (mapv #(act/allows-key? #{:note :tool/a} %) [:note :tool/a :tool/b :notes :softland.store/permission])])
+          [[true true true] [false false false] [true true false false false]]]
+         ["the pattern :ns/* allows each key whose namespace is exactly ns: not a key of a longer namespace, not one with none; :softland.store/* allows each store key"
+          (fn [] [(mapv #(act/allows-key? #{:tool/*} %) [:tool/a :tool/* :tool.x/a :tool :a/tool :*])
+                  (mapv #(act/allows-key? #{:softland.store/*} %) [:softland.store/permission :softland.store/who-may-see :note])])
+          [[true true false false false false] [true true false]]]
+         ["the pattern :* allows every plain key, one with no namespace and one of a longer namespace than the store's among them, and never a key of the store's namespace"
+          (fn [] (mapv #(act/allows-key? #{:*} %)
+                       [:note :tool/a :* :softland.store.x/a :softland.store/permission :softland.store/who-may-see
+                        :softland.store/one-write-keys :softland.store/anything]))
+          [true true true true false false false false]]
+         ["a key that is no keyword is allowed by nothing, and something that allows cannot be is allowed nothing: nothing throws"
+          (fn [] [(act/allows-key? :see-and-act "note") (act/allows-key? #{:*} nil) (act/allows-key? :act :note)
+                  (act/allows-key? nil :note) (act/allows-key? [:note] :note)])
+          [false false false false false]]
+         ["a given right allows no more than its giver's: see and the empty set are within anything; see and act only within see and act, or a set that holds :* and :softland.store/*"
+          (fn [] (mapv (fn [[given givers]] (act/allows-within? given givers))
+                       [[:see :see] [#{} :see] [:see #{:note}] [:see-and-act :see-and-act]
+                        [:see-and-act #{:* :softland.store/*}] [:see-and-act #{:*}] [:see-and-act :see] [#{:note} :see]]))
+          [true true true true true false false false]]
+         ["a pattern is within the giver's when the giver's patterns name every key that it names: a key under its namespace's pattern or :*; :ns/* under itself or :*, but no set of keys holds a whole namespace; :* only under :*; a store key under its own namespace's pattern, never under :*"
+          (fn [] (mapv (fn [[given givers]] (act/allows-within? given givers))
+                       [[#{:tool/a} #{:tool/*}] [#{:tool/a} #{:*}] [#{:tool/*} #{:tool/*}] [#{:tool/*} #{:*}]
+                        [#{:tool/*} #{:tool/a :tool/b}] [#{:*} #{:tool/* :note}] [#{:*} #{:*}]
+                        [#{:softland.store/permission} #{:softland.store/*}] [#{:softland.store/permission} #{:*}]
+                        [#{:softland.store/*} #{:*}] [#{:tool/a :note} #{:tool/* :note}] [#{:tool/a :other} #{:tool/*}]
+                        [#{:* :softland.store/*} :see-and-act]]))
+          [true true true true false false true true false false true false true]]
+         ["what allows cannot be is within nothing, and holds nothing within it"
+          (fn [] [(act/allows-within? :act :see-and-act) (act/allows-within? #{:note} nil) (act/allows-within? [:note] #{:note})])
+          [false false false]]]))
 
 ;; ------------------------------------------------------------- the checks
 
@@ -605,10 +667,10 @@
   (shown "the limits at their edges:" (words limit-rows))
   (shown "a permission has three forms: [who layer granted-in], a first permission;"
          "[who layer granted-in parent], a given one; and [who layer granted-in parent allows],"
-         "a given one that says :see or :see-and-act. The check takes an act under each:"
+         "a given one that says :see, :see-and-act, or the key patterns that it allows. The check takes an act under each:"
          (pr-str (mapv (fn [p] (verdict (act/parse (assoc good :who (first p) :permission p))))
                        [alice-own [:bob :alice :alice alice-own] [:bob :alice :alice alice-own :see]
-                        [:bob :alice :alice alice-own :see-and-act]]))
+                        [:bob :alice :alice alice-own :see-and-act] [:bob :alice :alice alice-own #{:note :tool/* :*}]]))
          "| a third word in the slot, and a word in the place of the permission above:"
          (pr-str (mapv (fn [p] (verdict (act/parse (assoc good :who :bob :permission p))))
                        [[:bob :alice :alice alice-own :act] [:bob :alice :alice :see]]))))

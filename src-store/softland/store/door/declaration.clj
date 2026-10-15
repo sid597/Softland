@@ -39,9 +39,10 @@
     usable-id?    anything -> true for an id within the limit
     act-id-in-layer?  a layer id, and anything -> true for an act-id of it
 
-  The store's namespace, the store keys, the limits, the name and the bound
-  of the time on the act, and the words of a stray are declared here too,
-  each in one place. The store's keys are in the
+  The store keys, the limits, the name and the bound of the time on the
+  act, and the words of a stray are declared here too, each in one place.
+  The store's namespace is read from `softland.store.act`, where what a
+  permission allows needs it. The store's keys are in the
   namespace `softland.store`, and the store owns the whole of it: a fact
   whose key is in that namespace and is no store key is refused. Any other
   key is a plain key, a tool's own. `store-keys` is the table of the store
@@ -101,7 +102,9 @@
   (`max-value-bytes` + 8,192): 256 values at the bound of one value, and
   8,192 bytes of who and permission for each of 256 facts. A permission of
   depth 32 whose ids are like UUIDs is about 4,400 bytes with its who, so
-  an act that is full under such a permission passes. A number of the
+  an act that is full under such a permission passes. A permission whose
+  levels list key patterns is longer, by the text of each pattern, and an
+  act under it holds fewer facts within the bound. A number of the
   build, kept and not decided.
 
   Limit of the count: the rows of the facts by value hold who and
@@ -130,6 +133,14 @@
   fact for each act with a fact under a plain key, so the number bounds a
   row that is read often: about 8.3 KB of keys and 9 KB of stamps at the
   limits."
+  32)
+
+(def max-one-write-keys
+  "How many keys the fact under `:softland.store/one-write-keys` can hold:
+  as many as the marked keys, and for the same reason. A gate reads the row
+  of that fact for each act that claims a place under a plain key, so the
+  number bounds a row that is read often. A number of a session, kept and
+  not decided."
   32)
 
 ;; ------------------------------------------------------- the time on the act
@@ -179,12 +190,13 @@
 
 (def store-namespace
   "The namespace of the store's own keys: `softland.store`. The word is
-  Sid's, of 9 October 2026 (src-store/README.md, K4 B). The store owns the
-  whole of it: a fact whose key has this namespace is under one of
-  `store-keys`, or a gate refuses it (the rule `:store-key-is-known`). A key
-  with another namespace, and a key with none, is a plain key and a tool's
-  own."
-  "softland.store")
+  Sid's, of 9 October 2026 (src-store/README.md, K4 B). It is made in
+  `softland.store.act/store-namespace`, since what a permission allows reads
+  it, and is read from there. The store owns the whole of it: a fact whose
+  key has this namespace is under one of `store-keys`, or a gate refuses it
+  (the rule `:store-key-is-known`). A key with another namespace, and a key
+  with none, is a plain key and a tool's own."
+  act/store-namespace)
 
 (def store-keys
   "The keys that the store itself reads, each with: why it is a store key;
@@ -194,13 +206,19 @@
   arrival, beside the value's text, for the rules and a gate's checks to
   read. A setting is a key whose fact a gate takes only on the layer's own
   entity. A key that is `:written-again` takes a second write on its place,
-  and a third; any other store key takes one write for a place
-  (`softland.store.gate.decision`, what a store key does not take). A
-  retract under any of them is refused.
+  and a third; any other store key takes one write for a place while the
+  place holds a value (`softland.store.gate.decision`, what a store key does
+  not take). A retract under any of them is refused, but under
+  `:softland.store/permission`: that retract is the end of a right, which a
+  gate takes from an act whose permission is above the right, and a place
+  whose right has ended takes a give again.
 
-  The last three are of the read build (src-store/README.md, decisions of
+  Three are of the read build (src-store/README.md, decisions of
   11 and 12 October 2026, entries 1, 2 and 6). Who may see a layer:
-  `:members`, which is whoever holds a permission in it, or `:everyone`.
+  `:members`, whoever holds a right in it that stands; `:signed-in`, anyone
+  who is signed in, a session's word of sign-in (15 October 2026) and Sid's
+  to change; or `:everyone`, a person who is not signed in too. The read
+  path reads it (`softland.store.read-path.layers/standing`); no gate does.
   What a layer builds on: the layers that a read looks through after it, in
   the writer's order; an empty vector says \"nothing\". The keys that a
   layer marks: for each of them a gate keeps every fact in one more order,
@@ -208,6 +226,14 @@
   the set again without it. What each reads as when no fact says it is
   `softland.store.gate.first-act/starts-with`. The three words of the keys
   are a session's, and Sid's to change.
+
+  The last, `:softland.store/one-write-keys`, is of the sign-in build: the
+  plain keys under which the layer takes one write for a place, so that a
+  name can be claimed once (src/proposal/sign-in-2026-10-15/BUILD.md, the
+  store's change d). A fact under such a key that names nothing to replace
+  is refused when its place holds a value; one that names the current fact
+  replaces it, and a retract frees the place. The empty set says \"none\".
+  Its word is a session's, and Sid's to change.
 
   Each is in the namespace `softland.store` (`store-namespace`). Sid decided
   on 9 October 2026 that the store's keys carry a namespace
@@ -257,6 +283,12 @@
     :value         :key-set
     :sits-on       :the-layer
     :setting       true
+    :written-again true}
+   :softland.store/one-write-keys
+   {:why           "a gate must read under which keys a place takes one write"
+    :value         :key-set
+    :sits-on       :the-layer
+    :setting       true
     :written-again true}})
 
 (def setting-keys
@@ -265,9 +297,9 @@
 
 (def second-write-keys
   "The store keys whose fact can be written again on its place, read from
-  `store-keys`: who may see a layer, what it builds on, and its marked
-  keys. A gate asks who may write each of them at one place
-  (`softland.store.gate.decision/who-may-write-fault`)."
+  `store-keys`: who may see a layer, what it builds on, its marked keys,
+  and its one-write keys. A gate asks who may write each of them at one
+  place (`softland.store.gate.decision/who-may-write-fault`)."
   (into #{} (keep (fn [[k entry]] (when (:written-again entry) k))) store-keys))
 
 (defn store-key?
@@ -300,8 +332,8 @@
                    as a fact is `act.clj`'s `:fact`
     :depot-word    one of the two depot words, `:streaming` and
                    `:microbatch`
-    :who-may-see-word  one of the two words for who may see a layer,
-                   `:members` and `:everyone`
+    :who-may-see-word  one of the three words for who may see a layer,
+                   `:members`, `:signed-in` and `:everyone`
     :layer-list    layer ids in an order. A value is never a list, so what
                    fits is a vector
     :key-set       a set of keys
@@ -330,7 +362,7 @@
                               [time-part [:int {:min 0}] {:reason :no-door-time}]]
                              (rest (get act/shapes :act)))
          :depot-word   [:enum :streaming :microbatch]
-         :who-may-see-word [:enum :members :everyone]
+         :who-may-see-word [:enum :members :signed-in :everyone]
          :layer-list   [:seq-of :id]
          :key-set      [:set-of :key]))
 
@@ -345,13 +377,15 @@
   it. No rule reads the value of a fact under a plain key: the bytes of
   such a value are held by the last step of the check (`with-texts`).
 
-  The six rules of the three keys that take a second write stand after the
+  The nine rules of the four keys that take a second write stand after the
   rules of a permission fact: the value under each has its shape; a
-  builds-on fact names `max-builds-on` layers at most and a marked-keys
-  fact holds `max-marked-keys` keys at most; and no marked key is in the
-  store's namespace, so the store's own facts are never kept by value. Each
-  keeps a fact with no value, as the rules beside them do; a gate refuses
-  the retract.
+  builds-on fact names `max-builds-on` layers at most, a marked-keys fact
+  holds `max-marked-keys` keys at most, and a one-write-keys fact
+  `max-one-write-keys`; no marked key is in the store's namespace, so the
+  store's own facts are never kept by value; and no one-write key is in it,
+  since the store's own keys say for themselves how often a place takes a
+  write. Each keeps a fact with no value, as the rules beside them do; a
+  gate refuses the retract.
 
   `:store-key-is-known` holds the store's namespace. A fact whose key is in
   `softland.store` and is not one of `store-keys` is refused
@@ -367,12 +401,15 @@
          [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
          [:permission-fact-holds-a-permission  :permission-fact-not-a-permission]
          [:permission-fact-sits-on-its-holder  :permission-fact-not-on-its-holder]
-         [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-members-or-everyone]
+         [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-a-who-may-see-word]
          [:builds-on-fact-holds-layers         :builds-on-fact-not-a-list-of-layers]
          [:builds-on-within-the-limit          :builds-on-too-many-layers]
          [:marked-keys-fact-holds-keys         :marked-keys-fact-not-a-set-of-keys]
          [:marked-keys-within-the-limit        :too-many-marked-keys]
          [:marked-keys-are-plain-keys          :marked-key-in-the-stores-namespace]
+         [:one-write-keys-fact-holds-keys      :one-write-keys-fact-not-a-set-of-keys]
+         [:one-write-keys-within-the-limit     :too-many-one-write-keys]
+         [:one-write-keys-are-plain-keys       :one-write-key-in-the-stores-namespace]
          [:place-named-once                    :place-named-twice]
          [:no-fact-replaces-a-fact-of-its-act  :replaces-own-fact]
          [:ids-within-the-limit                :id-too-long]]))
@@ -476,23 +513,29 @@
 
 (defn- permission-ids
   "Takes a permission id in its one form. Gives each id that it holds: who,
-  layer and granted-in, of itself and of each permission above it. The
+  layer and granted-in, of itself and of each permission above it; and each
+  key pattern of a level whose fifth slot is a set of them, so that a
+  pattern is held to the limit of an id's text as a fact's key is. The
   permission above is the fourth slot of both given forms, with or without
   the slot that says what the permission allows."
   [permission]
   (when (vector? permission)
     (concat (take 3 permission)
+            (let [allows (nth permission 4 nil)]
+              (when (set? allows) allows))
             (when (<= 4 (count permission)) (permission-ids (nth permission 3))))))
 
 (defn- ids-of
   "Takes an act in the one form that the engine gave. Gives each id that it
   holds, wherever it sits, and each fact's key: who, the layer, the
   session, each subject, each fact's entity, each id inside an act-id, a
-  fact id or a permission id, each layer that a builds-on fact names, and
-  each key that a marked-keys fact holds. A key of a row is built from each
-  of the last two kinds, so they are held to the limit with the rest. The
-  uuid of an act-id is not among them: it prints to 36 characters. What
-  must hold: the rules of the store keys' values passed."
+  fact id or a permission id, each key pattern that a permission lists,
+  each layer that a builds-on fact names, and each key that a marked-keys
+  or a one-write-keys fact holds. A key of a row is built from a layer of a
+  list and from a marked key, so they are held to the limit with the rest;
+  a pattern and a one-write key are held to it as the keys that they name
+  are. The uuid of an act-id is not among them: it prints to 36 characters.
+  What must hold: the rules of the store keys' values passed."
   [act]
   (let [layer-of (fn [act-id] (when act-id [(nth act-id 0)]))]
     (concat [(:who act) (:layer act) (:session act)]
@@ -506,7 +549,8 @@
                               (layer-of (first (:replaces fact)))
                               (when (= :softland.store/permission (:k fact))
                                 (permission-ids (:v fact)))
-                              (when (contains? #{:softland.store/builds-on :softland.store/marked-keys}
+                              (when (contains? #{:softland.store/builds-on :softland.store/marked-keys
+                                                 :softland.store/one-write-keys}
                                                (:k fact))
                                 (:v fact))))
                     (:facts act)))))
@@ -571,6 +615,20 @@
    ;; setting are never kept in the order by value.
    :marked-keys-are-plain-keys
    (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/marked-keys (:k fact))
+                                        (nil? (:v fact))
+                                        (not-any? in-store-namespace? (:v fact))))
+                         act))
+
+   :one-write-keys-fact-holds-keys
+   (fn [act] (value-fits-its-key? :softland.store/one-write-keys act))
+
+   :one-write-keys-within-the-limit
+   (fn [act] (count-within? :softland.store/one-write-keys max-one-write-keys act))
+
+   ;; A store key is never one of a layer's one-write keys: how often the
+   ;; place of a store key takes a write is the store's own rule.
+   :one-write-keys-are-plain-keys
+   (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/one-write-keys (:k fact))
                                         (nil? (:v fact))
                                         (not-any? in-store-namespace? (:v fact))))
                          act))

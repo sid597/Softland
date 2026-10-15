@@ -33,7 +33,42 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 14 October 2026. It is that day's third making. The
+This fixture was made on 15 October 2026, by the sign-in build, for the rules
+that the build changed on purpose (`src/proposal/sign-in-2026-10-15/BUILD.md`,
+"The store's changes", a, b and d):
+
+- a right can end: the end is a retract at the right's place, taken from an
+  act whose permission is above the right; a right stands only while each
+  level of its chain stands, so an end reaches down for good, also when the
+  same right is given again above; a give onto a place whose right has ended
+  is taken, which is how "see" is raised to "see and act";
+- a right can list the keys that it allows (a key, `:ns/*`, `:*`): a fact
+  under a key that the act's right does not allow is refused, and so is a
+  give that allows more than the giver's;
+- a layer can mark keys under which a place takes one write while it holds a
+  value (`:softland.store/one-write-keys`): a second first claim of a place is
+  refused.
+
+A making earlier that day, after those rules were built, decided its acts
+exactly as the making of 14 October had: the hand then sent no act that the new
+rules reach. So the hand gained a case, `rights-and-claims!` in the proof, in
+the streaming layer `:rights` and in the base, and this making holds it. In
+each gate it holds, in the order sent: a right that lists `:tool/*` and the
+store key of a permission given, and one beneath it with two exact keys; a key
+on the list taken and one off it refused `:key-not-allowed`; a give that allows
+more than the giver's refused `:permission-fact-allows-more-than-the-givers`;
+a right of `:*` that takes plain keys and is refused a store key; an end by
+one beneath the right refused `:end-not-from-above`; the end by the giver
+taken, an act under the ended right refused `:permission-does-not-stand` and
+one beneath it `:permission-above-has-ended`; the right given again above, the
+act beneath still refused, the right's own act taken; "see" raised by an end
+and then a give; the one-write keys marked, two first claims of one place, one
+taken and one refused `:place-takes-one-write`, a retract, and a claim after it
+taken. In the base the end and the two acts behind it are one batch, and so
+are the two first claims. The making holds the store to each word
+(`what-the-fixture-must-hold`).
+
+The making of 14 October was that day's third. The
 first two were made by the build "run again", in which both depots came to
 place an act by its layer and the base's gate came to decide each act on the
 layer's task in the depot's order: the first after the build's part B, the
@@ -83,6 +118,16 @@ value and 14 rows of the task's table; in the microbatch gate 169, 64, 6 and
 7. The run of all seven proofs after it passed, the two checks of this
 fixture among them. The receipt of the change says that the fixture was made
 again, and why (`src/proposal/backend-on-rama-2026-10-02/order-and-time/RECEIPT.md`).
+
+The making of 15 October wrote `acts.edn`, 123,261 bytes, 390 records (the
+streaming depot's four partitions 132, 0, 17 and 32; the microbatch depot's 7,
+0, 202 and 0), and `tables.edn`, 106,311 bytes, 566 rows: in the streaming
+gate 169 answers, 74 facts, 25 facts by value and 15 rows of the task's table;
+in the microbatch gate 195, 75, 6 and 7. In each gate it holds one act of each
+of the words `:end-not-from-above`, `:permission-fact-allows-more-than-the-givers`
+and `:place-takes-one-write`, and two of `:key-not-allowed` and of
+`:permission-above-has-ended`. The run of the run-again proof after it passed,
+the two checks of this fixture among them.
 
 From the repository root, behind the lock of this machine's cluster runs:
 

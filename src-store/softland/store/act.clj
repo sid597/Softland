@@ -23,11 +23,26 @@
   permission, with nothing above it. `[who layer granted-in parent]` is a
   given permission, with the permission above it. And
   `[who layer granted-in parent allows]` is a given permission that says
-  what it allows: `:see`, or `:see-and-act`. A permission without that slot
-  allows seeing and acting; `allows` is the one function that reads the
-  slot. That a permission says what it allows is Sid's decision of 11 and 12
-  October 2026 (src-store/README.md, entry 1); that it says so in a slot of
-  its own id is the builder's.
+  what it allows: `:see`; `:see-and-act`; or a set of key patterns, the
+  keys that its holder may write (`shapes`, `:allows`). A permission without
+  that slot allows seeing and acting, under every key; `allows` is the one
+  function that reads the slot, and `allows-key?` and `allows-within?` read
+  what it gives. That a permission says what it allows is Sid's decision of
+  11 and 12 October 2026 (src-store/README.md, entry 1); that it says so in
+  a slot of its own id is the builder's. That a right lists the keys it
+  allows, and that a give allows no more than the giver holds, are defaults
+  that a session told Sid on 15 October 2026 and that he did not strike
+  (src/proposal/sign-in-2026-10-15/BUILD.md, default 12): the kind of an act
+  is the keys it writes, and giving a right and changing a layer's setting
+  are keys of the store like any other. The form of a pattern is a
+  session's, Sid's to change.
+
+  A key pattern is one of three. A key: that key and no other. `:ns/*`:
+  every key of the namespace `ns`, `:softland.store/*` every key of the
+  store's own namespace among them. `:*`: every plain key, and never a key
+  of the store's namespace (`store-namespace`). So `:see-and-act` allows
+  what `#{:* :softland.store/*}` allows, and `:see` what `#{}` allows: no
+  key. Every right that stands allows seeing.
 
   Why the shape is in code and not a fact in the store. Each shape that a
   tool gives enters the store as a fact, inside an act. So the shape of the
@@ -43,7 +58,13 @@
                   -> [:ok the thing in its one form] or [:no reason]
     value?        anything -> true for a value that a fact can hold
     normal-value  a value -> its one normal form
-    allows        a permission id in its one form -> :see or :see-and-act
+    allows        a permission id in its one form -> :see, :see-and-act,
+                  or a set of key patterns
+    allows-key?   what `allows` gave, and a key -> true or false
+    allows-within?
+                  what `allows` gave of a given permission, and what it
+                  gave of the giver's -> true when the first allows no
+                  more than the second
 
   State and effects. The namespace owns no state, and each function is pure.
   Nothing here reads a clock, takes a random id, appends, or reads a
@@ -52,13 +73,17 @@
   Callers. The proof of this namespace. `softland.store.door.declaration`: the
   door's declaration is a map of shapes in the language of `shapes`, with
   the entries of `shapes` in it, and `as-shape` gives it the engine that
-  reads one; it reads `rules` too. `softland.store.door.text` asks
+  reads one; it reads `rules` too, and `store-namespace`.
+  `softland.store.door.text` asks
   `readable-keyword?`. The door's additions
   (`softland.store.door.additions`) ask nothing of it but the shape of an
-  act-id, through the declaration. The standing of an act
-  (`softland.store.gate.decision/standing`, which the walk calls for both
-  gates) asks `allows` of the permission that the act names, and the
-  record's rows
+  act-id, through the declaration. The checks of a gate
+  (`softland.store.gate.decision`, which the walk calls for both gates) ask
+  `allows` of the permission that the act names, in its standing;
+  `allows-key?` of the key of each fact, the first check of its places; and
+  `allows-within?` of each permission that the act gives, beside check (g).
+  The runtime under `src-runtime/` asks `allows-key?` of the keys of a block.
+  The record's rows
   (`softland.store.record.rows`) ask `value?`, `normal-value`,
   `has-shape?` and `readable-keyword?` when they read a row back. The read
   path's check of a query (`softland.store.read-path.query`) declares its
@@ -113,6 +138,23 @@
   so no walk over a value goes deep. `nesting` reads the same number for how
   deep a permission can be."
   32)
+
+(def max-key-patterns
+  "How many key patterns the set in the fifth slot of a given permission can
+  hold (`shapes`, `:allows`). A number of a session, kept and not decided.
+  Each pattern is a key, and the door's declaration holds it to the limit
+  of an id's text, as it holds each key that an act names."
+  64)
+
+(def store-namespace
+  "The namespace of the store's own keys: `softland.store`. The word is
+  Sid's, of 9 October 2026 (src-store/README.md, K4 B). It is made here, the
+  one place, because what a permission allows reads it: the pattern `:*`
+  allows every plain key and never a key of this namespace (`allows-key?`).
+  The door's declaration reads it from here
+  (`softland.store.door.declaration/store-namespace`), and says what the
+  store does with its namespace."
+  "softland.store")
 
 ;; ------------------------------------------------------- the declared shape
 
@@ -182,12 +224,19 @@
    ;; [who layer granted-in]: a first permission. [who layer granted-in
    ;; parent]: a given permission. [who layer granted-in parent allows]: a
    ;; given permission that says what it allows. A tuple fits only its own
-   ;; count, so each thing fits one alternative at most; the slot is a word
-   ;; and no permission, so it does not count toward the nesting limit.
+   ;; count, so each thing fits one alternative at most; the slot is no
+   ;; permission, so it does not count toward the nesting limit.
    :permission-id
    [:or [:tuple :id :id :id]
         [:tuple :id :id :id :permission-id]
-        [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
+        [:tuple :id :id :id :permission-id :allows]]
+
+   ;; What a given permission allows: see; see and act, under every key; or
+   ;; a set of key patterns, each a key, :ns/* or :*, which allows seeing
+   ;; and acting under the keys that its patterns name (`allows-key?`).
+   :allows
+   [:or [:enum :see :see-and-act]
+        [:set-of :key {:max max-key-patterns}]]
 
    ;; The stamp of a fact that the act is based on, as its maker saw it. A
    ;; label: no gate reads it, and the act's own stamp is not raised above
@@ -497,13 +546,14 @@
 
 (defn allows
   "Takes a permission id in its one form. Gives what the permission allows:
-  the word of its fifth slot, `:see` or `:see-and-act`, when it has one;
-  `:see-and-act` for a permission with three or four slots. So a permission
-  that was given before the slot existed reads as \"see and act\", and this
-  is the one place where that is code. A gate refuses an act under a
-  permission that allows `:see`. The read path does not ask it: any
-  permission that is there allows seeing
-  (`softland.store.read-path.layers/standing`).
+  its fifth slot when it has one, `:see`, `:see-and-act` or a set of key
+  patterns; `:see-and-act` for a permission with three or four slots. So a
+  first permission, and one given without the slot, allow every key, and
+  this is the one place where that is code. A gate refuses an act under a
+  permission that allows `:see`, and a fact whose key what this gives does
+  not allow (`allows-key?`). The read path does not ask it: any right that
+  stands, with its whole chain (`softland.store.gate.chain/stands?`), allows
+  seeing.
 
   What must hold: the thing has the shape `:permission-id`. It never throws:
   anything that is no vector of five slots gives `:see-and-act`, so a caller
@@ -512,6 +562,84 @@
   (if (and (vector? permission) (= 5 (count permission)))
     (nth permission 4)
     :see-and-act))
+
+(defn- every-key-of
+  "Takes a key pattern. Gives the namespace, as a string, whose every key
+  the pattern names when it is `:ns/*`; nil for `:*`, for a key, and for
+  anything that is no keyword."
+  [pattern]
+  (when (and (keyword? pattern) (namespace pattern) (= "*" (name pattern)))
+    (namespace pattern)))
+
+(defn allows-key?
+  "Takes what `allows` gave, and a fact's key. Gives true when it allows a
+  fact under that key: `:see-and-act` allows every key, `:see` none, and a
+  set of key patterns a key that one of its patterns names. The key itself
+  names it; `:ns/*` names each key whose namespace is exactly `ns`; `:*`
+  names each key whose namespace is not `store-namespace`, a key with none
+  among them. So `:*` never allows a store key, and only `:softland.store/*`
+  or the store key itself does. Gives false for anything else, a key that
+  is no keyword among them. It never throws.
+
+  A gate asks it of each fact of an act, with what the act's permission
+  allows; a fact whose key it does not allow is refused `:key-not-allowed`
+  (`softland.store.gate.decision/places`). A retract is a fact under its
+  key like any other, so the end of a right needs the key
+  `:softland.store/permission`."
+  [allowed k]
+  (boolean
+   (and (keyword? k)
+        (cond
+          (= :see-and-act allowed) true
+          (set? allowed) (or (contains? allowed k)
+                             (and (some? (namespace k)) (contains? allowed (keyword (namespace k) "*")))
+                             (and (contains? allowed :*) (not= store-namespace (namespace k))))
+          :else false))))
+
+(defn- patterns-of
+  "Takes what `allows` gave. Gives it as a set of key patterns that allows
+  the same keys: `:see` as `#{}`, `:see-and-act` as
+  `#{:* :softland.store/*}`, a set as itself. Nil for anything else."
+  [allowed]
+  (cond
+    (= :see allowed) #{}
+    (= :see-and-act allowed) #{:* (keyword store-namespace "*")}
+    (set? allowed) allowed
+    :else nil))
+
+(defn- pattern-within?
+  "Takes one key pattern and a set of key patterns. Gives true when every
+  key that the pattern names, the set allows. `:*` only under `:*`; `:ns/*`
+  under itself, or under `:*` when `ns` is not the store's namespace; a key
+  when the set allows it (`allows-key?`). A set of keys never holds a whole
+  namespace, however many of its keys it names."
+  [pattern patterns]
+  (cond
+    (= :* pattern) (contains? patterns :*)
+    (every-key-of pattern) (or (contains? patterns pattern)
+                               (and (contains? patterns :*) (not= store-namespace (every-key-of pattern))))
+    :else (allows-key? patterns pattern)))
+
+(defn allows-within?
+  "Takes what `allows` gave of a given permission, and what it gave of the
+  permission of its giver. Gives true when the first allows no more than
+  the second: every key that the first allows, the second allows. `:see`
+  and the empty set allow no key, so they are within anything;
+  `:see-and-act` is within `:see-and-act`, and within a set only when the
+  set holds both `:*` and `:softland.store/*`. A pattern of the given set
+  is within when the giver's patterns name every key that it names
+  (`pattern-within?`). Gives false for anything that `allows` cannot give.
+  It never throws.
+
+  A gate asks it of each permission that an act gives, against the act's
+  own permission, which is the one straight above it; a give that allows
+  more is refused `:permission-fact-allows-more-than-the-givers`
+  (`softland.store.gate.decision/places`). Every permission allows seeing,
+  so seeing is never more."
+  [given givers]
+  (let [wanted (patterns-of given)
+        held (patterns-of givers)]
+    (boolean (and wanted held (every? #(pattern-within? % held) wanted)))))
 
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which
