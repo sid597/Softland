@@ -4,12 +4,12 @@
 
 | File | What it checks | State that it owns or changes |
 |---|---|---|
-| [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, and the check that reads them; and what a permission allows: the keys that a list of key patterns names, and whether a given right allows no more than its giver's. It needs no cluster. | One atom: the lines that it showed. |
-| [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the time on the act, the stamp, the first act of a layer, the record's rows, and the checks of the decision, each alone and as the walk of one thing calls them, one thing after the other: the chain of a right and its end, the keys that a right allows, and one write for a place among them. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and the numbers of its wait. And the source of the store's tree, read as data. It needs no cluster. | One atom: the lines that it showed. It reads the clock for nothing and draws no random number. It reads the source files of the store's tree and of the proofs, and writes none. |
-| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the two reads; rights ended, raised and given again, lists of keys, and claims of a place under a key that a layer marks as taking one write, in a streaming layer and in the base. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts two functions of its own into the vars of two pure functions of the store that the walk of one thing calls, and puts the store's back when that cluster is closed. Its atoms: the lines shown, the things sent to each depot, the first answers of the streaming gate, what later checks come back to, and, for the second cluster, the batch that is to fail and the events of the streaming gate that it watches, each with the calls that were noted for it. It reads the clock for the time that the hand writes on a thing, and to end a loop that watches a table. |
+| [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, and the check that reads them. It needs no cluster. | One atom: the lines that it showed. |
+| [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the time on the act, the stamp, the first act of a layer, the record's rows, and the checks of the decision, each alone and as the walk of one thing calls them, one thing after the other. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and the numbers of its wait. And the source of the store's tree, read as data. It needs no cluster. | One atom: the lines that it showed. It reads the clock for nothing and draws no random number. It reads the source files of the store's tree and of the proofs, and writes none. |
+| [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the two reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts two functions of its own into the vars of two pure functions of the store that the walk of one thing calls, and puts the store's back when that cluster is closed. Its atoms: the lines shown, the things sent to each depot, the first answers of the streaming gate, what later checks come back to, and, for the second cluster, the batch that is to fail and the events of the streaming gate that it watches, each with the calls that were noted for it. It reads the clock for the time that the hand writes on a thing, and to end a loop that watches a table. |
 | [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's five calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens seven doors on the module. It pauses the microbatch gate with Rama's test tool, and lets it go on each time. Three atoms: the lines shown, each result that a door gave, and what later checks come back to. It reads two clocks of its JVM and sets neither. |
-| [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) five pure namespaces: the form of a query and its check, the layers (who may see a layer, in three settings, and whether an asker's right stands with its whole chain), the sources, the answer and the steps of a live read, the words; and the six functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
-| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live; rights given and ended through the gates, and a layer for anyone signed in. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts one function of its own into the var of one pure function that the walk of both gates calls, and puts the store's back. It opens one door and four read paths on each; and on the first, three read paths more: two, each with one small number, for the group of the read path's own bound, and one for the counts of pushes of the group of the base that is read where the asker's layer lives. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of facts of each decision, the place at whose decision a throw is asked, and how many throws were made. |
+| [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) five pure namespaces: the form of a query and its check, the layers, the sources, the answer and the steps of a live read, the words; and the six functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
+| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts one function of its own into the var of one pure function that the walk of both gates calls, and puts the store's back. It opens one door and four read paths on each; and on the first, three read paths more: two, each with one small number, for the group of the read path's own bound, and one for the counts of pushes of the group of the base that is read where the asker's layer lives. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of facts of each decision, the place at whose decision a throw is asked, and how many throws were made. |
 | [run_again_proof.clj](run_again_proof.clj) | That the store comes out the same when it is run again from its depots of acts. A rule that names the acts decided out of their layer's line, held on lines made by hand. Then, on Rama's in-process cluster: a second module that mirrors the two depots and runs the store's own gates over them from their beginning, every row of every table compared; the kept acts of [the fixture](run_again_fixture/README.md) fed to a fresh store with 4 tasks and to one with 8, held against the kept tables; and the run again after failures that the proof makes. | It starts four clusters in its own JVM, one after the other, and closes each. The first and the fourth also hold a module of its own, `StoreAgain`. For the fourth alone it puts three functions of its own into the vars of three pure functions that the walk calls, and puts the store's back. It opens a door, appends by its own hand, and selects every row of every table. Two atoms: the lines shown, and what the check after a failure plans and notes. A run of the proof writes no file; its mode `make-fixture` writes the two files of the fixture. |
 | [read_measures.clj](read_measures.clj) | Nothing: it is a run that is no proof. It measures the gates under acts, with and without live reads, the opening of a canvas, and how late a push is, and holds nothing to a number. | It starts one cluster in its own JVM and closes it. It opens one door and two read paths. It reads the clock and the heap. |
 | [gate_measures.clj](gate_measures.clj) | Nothing: it is a run that is no proof. It measures an act through the door and each gate, with no live read open, and holds nothing to a number. | It starts two clusters in its own JVM, one after the other, and closes each: the first with the module `Store`, the second with a module of its own, `StoreAtOne`, which is `Store` with one setting of Rama at 1. It opens doors and no read path, and no depot and no table itself. It reads the clock, and asks `git` which tree it is on. |
@@ -78,7 +78,7 @@ group observed. This page does not retell the checks.
 - a PState, a depot or a query: each row is a value of this process, and the
   walk of one thing, which reads rows between the checks, is the gates'. The
   proof walks a thing with functions of its own, on a record in memory: the
-  whole walk in the tests `the-walk-of-one-thing-in-memory`, `a-line-is-decided-in-the-depots-order`, `a-line-under-marked-keys` and `a-line-of-rights-and-claims`, and its steps 6 and 7 in the cases of the
+  whole walk in the tests `the-walk-of-one-thing-in-memory`, `a-line-is-decided-in-the-depots-order` and `a-line-under-marked-keys`, and its steps 6 and 7 in the cases of the
   order by value. That the walk on a cluster makes those reads, calls and
   writes in that order is the module's proof's to show;
 - a collision of the value digest: two values with one SHA-256;
@@ -106,15 +106,6 @@ group observed. This page does not retell the checks.
 - how long a check takes;
 - of the door: anything that needs a cluster, a clock or a second thread. The
   waits are the door's proof's to show, as far as it does;
-- a chain whose levels repeat a holder, and a right whose own layer slot is
-  another layer beneath a level of this one: no act that a gate takes makes
-  either, and `stands?` refuses both, which no case holds;
-- a list of key patterns at its full size on every level of a chain 32 deep,
-  as the act's own permission of 256 facts: the case under such a permission
-  has one fact. Where the bound on an act then cuts is counted by no case;
-- the end of a right in a layer whose first permission is the system's, by the
-  system: the cases end rights in Alice's layer; the module's proof ends one in
-  the base;
 - a docstring, a comment or a string that names a lock, a name that code makes
   while it runs, and a file that is no `.clj` file: the search of the test `no-code-of-the-store-names-a-lock`
   holds the symbols and the keywords of the code under `src-store/` and under
@@ -219,13 +210,6 @@ No check holds a number of milliseconds.
   whose digest another value shares;
 - a reader that asks through layers, and whether an asker may see a layer: the
   read path's two proofs, below, show them;
-- a chain 32 deep with an end at its top level, and the 31 reads of the levels
-  above that each act under such a right pays: the groups of ends use chains
-  of two and three levels, and no check counts a read;
-- a claim in the base whose key the base marks in the same batch, before it:
-  the base's one-write group marks the key in a batch of its own, and the
-  streaming group holds that an act is decided with the marks as they were
-  before it;
 - a failure while a batch commits. The forced failure of the test `an-attempt-of-a-batch-fails-and-runs-again` is in the
   walk, before any task commits. Of the time in which one task has committed a
   batch and another has not, the proof holds nothing: the rounds of selects of
@@ -471,11 +455,6 @@ group observed. This page does not retell the checks.
   played. The read path's proof, below, reads the base on the task of an
   asker's own layer;
 - more than four writes in one played world;
-- a gate's rules for a right: the proof's own `write` stands for a gate and
-  takes an end from anyone, and a give onto a place that holds no value; who
-  may end a right is the gates' (the pure proof of the store, above). A chain
-  deeper than three, and a microbatch layer as the layer of the chain, are not
-  played; nor are two live reads that share the push of one level above;
 - the time on a row as a gate writes it from the time on the act: the proof
   makes its rows' times itself, of the stamp, running back as the stamp runs
   on.
@@ -516,7 +495,7 @@ waits until a witness has that second change: a second live read of the proof's
 that holds the same push and is told every change of it. The changes of one push
 come in order, and one callback is handled for every read that holds the push
 before the next callback begins. So when the witness has the second change, the
-first one has been handled for the asker too. The tests `each-word-kept-live`, `what-shapes-a-read-changes-under-it`, `a-right-that-ends-and-a-layer-for-anyone-signed-in`, `nothing-is-shown-that-is-not-in-the-tables` and `a-batch-that-runs-a-second-time` hold
+first one has been handled for the asker too. The tests `each-word-kept-live`, `what-shapes-a-read-changes-under-it`, `nothing-is-shown-that-is-not-in-the-tables` and `a-batch-that-runs-a-second-time` hold
 "nothing" in this way.
 
 ### Where it stands in for a call of Rama's client
@@ -588,12 +567,6 @@ Rama's test tool, and lets it go on.
 - how long after its maker's answer a fact of the base shows on another task
   than the base's: the test `the-base-is-read-where-the-askers-layer-lives` prints how many reads gave it at once, and holds
   only the proof's wait;
-- a right that ends, beyond one chain of three in a streaming layer: no check
-  ends a right in the base, shares the push on one holder's place among many
-  askers beneath her, or reads under a right whose fifth slot lists keys. An
-  idea for a check: ten askers given rights beneath one holder, each read live,
-  the holder's right ended, and each told once, with one push on her place in
-  the read path's map;
 - a tool, a view, an inhabitant;
 - how fast anything is.
 

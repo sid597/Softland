@@ -518,17 +518,13 @@ changes with them. They shape the read build, whose starter is
      from one giver and "act" from another.
    - The setting takes a second write. Who may write it is not said: his word
      is "the owner", and no layer names an owner as a fact (entry 5 of 8
-     October). Since 15 October a right lists the keys it allows, and a
-     setting is a key like any other: whoever holds a right that allows the
-     setting's key may write it (that day's section, entry 2).
+     October).
    - A new layer starts as "members" and the base as "everyone". With the
      reading above, a person who is not signed in then sees the base; that is
      half of the queue's K14.
    - A permission that says "see" cannot later be made "see and act" in that
      layer: a permission's place takes one write, and nothing ends a
      permission. A session read this in `gate/decision.clj`; it was not run.
-     Changed on 15 October: a right can end, and "see" is raised to "see and
-     act" by an end and then a new give (that day's section, entry 1).
 2. **Which layers a read looks through: the layer says, and a view may ask for
    another list.** Sid decided (W2 C): "yes", and "ok" after a session showed
    him two of its follow-ons. On 10 October: "Agrreee". A layer says which
@@ -1031,71 +1027,3 @@ it says so.
    (‹296a2a7b›). It was built so on 13 October and kept for his word.
 5. **Time travel is designed later.** "3) time travel will do later"
    (‹296a2a7b›). The refinements page holds what a session understood of it.
-
-## Decisions of 15 October 2026 — sign-in
-
-Sid made these on 15 October 2026, in chat, with the session that explored
-sign-in; that session wrote them into the build page
-(`src/proposal/sign-in-2026-10-15/BUILD.md`, "Sid's decisions of 15 October
-2026") at his word ("yeah", to that day's write-set). Words in quotation marks
-with an id of the record are lines that he typed; the record holds ‹e5a2200e›
-as a long prompt. The build page also lists defaults that a session told him
-that day and that he did not strike; they are a session's, and are marked so
-here. The runtime that stands in front of the door and the read path is a tree
-of its own, `src-runtime/`; this section holds only what changes the store.
-The store's page says what each changed in the code
-([store/](softland/store/README.md), "Decisions this module stands on").
-
-1. **Rights can be taken back, and blocked down to kinds of act.** The heading
-   is the build page's, a session's words for his decision 7. Sid decided
-   (‹e5a2200e›): "for malicious users we should be able to
-   block as the system and then the user when giving permissions to different
-   agents, tools, layers, gropus etc. should be able to do the same … they
-   should also be able to block "type" of actions … we distinguish you from
-   your intent and we are blocking your intent (since we have fine grained
-   permissions)" (‹e5a2200e›). What comes with it, a session's (defaults 11
-   and 13, not struck):
-   - The end of a right is a later fact at its place, a retract. It is made
-     by the one who gave it, or anyone above it in its chain; the system ends
-     one where its own right tops the chain. In a person's own layer the
-     system keeps no right (default 18), so there it ends nothing through a
-     gate: its blocks are the runtime's.
-   - Ending one ends what was given beneath it. So the check of a right reads
-     each level above it, and a level stands when its place still holds it
-     and it was written before the level beneath it. The second half is the
-     build session's: a right given again above, with the same id, does not
-     bring back what was given beneath it before the end.
-   - The read path reads the same chain: a right that has ended, or whose
-     chain has, lets its holder see nothing that only members may see.
-   - The system's blocks, the limits on each sender and "no agent at the top
-     of a chain" need facts of other layers, so the runtime enforces them,
-     and keeps each as a fact (default 13).
-2. **A right lists the keys it allows.** A session's (default 12, not
-   struck), from his "block "type" of actions": the kind of an act is the
-   keys it writes, and "see" is reading. Giving a right and changing a
-   layer's setting are keys of the store like any other, and a give allows
-   no more than the giver holds. The build session's form: the last slot of
-   a given permission is `:see`, `:see-and-act`, or a set of key patterns,
-   where `:ns/*` is every key of a namespace and `:*` every plain key, never
-   a store key. With it, who may write a layer's setting (entry 1 of 11 and
-   12 October) is whoever holds a right that allows the setting's key.
-3. **Who sees: "signed in" and "not signed in".** Sid decided (decision 8):
-   "By default we make the base readable to all to contribute to it will have
-   a diffrent layer"; "I (sid) has the "full" access to softland base"; "why
-   are we not saying "signed in" "not signed in" … they all are then under
-   these 2 blankets right??" (‹e5a2200e›). Asked whether "all" takes in people
-   who are not signed in: "A. Yes" (‹564310b8›). What comes with it, a
-   session's (default 16, not struck): a layer's setting is one of everyone,
-   anyone signed in, or only those given a right; the base is set to
-   everyone, as built. The word `:signed-in` is the build session's.
-4. **A key that a layer marks as taking one write for a place.** A session's
-   (the build page's change d, for unique names; not struck). Under such a
-   key, a fact with a value that names nothing to replace is refused when its
-   place holds a value. So of two first claims of a name, in one layer's
-   line, one is taken and one refused. A retract frees the place. How long a
-   freed name waits before it is taken again is the runtime's setting.
-
-Each of the four changes what a gate accepts or what a reader sees. On a store
-that keeps nothing yet, each is a new version of the rules (13 October, entry
-6): the code knows one version, and the fixture of the proof that runs the
-gates again was made again on purpose, as the build's receipt says.

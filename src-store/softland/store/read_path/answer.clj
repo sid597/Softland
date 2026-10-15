@@ -418,29 +418,31 @@
 
 (defn meanings
   "Takes a query in its one form, `known`, the source whose push changed,
-  and the push's value before and after. For a rights source
-  (`softland.store.read-path.sources/rights-kind`: a layer's own rows, the
-  asker's permission row, or another holder's permission row, which can be
-  a level above her right) gives [before after]: what the layer's own rows
-  and her right meant for this query before the change and after it
-  (`softland.store.read-path.layers/meaning`). Each is worked out from
-  `known` with the source's value before, and after, in the place of what
-  `known` holds of it; every other source is as `known` holds it. Gives nil
-  for any other source.
-
-  `known` is what the step made again after its joining and leaving. So a
-  source that the step left, such as a level above a right that her row no
-  longer holds, is not in it, and the meaning before can say
-  `:not-known-yet` where her right was known: the two then differ, and the
-  whole answer is owed, as it is for the step's move itself."
+  and the push's value before and after. For the source of a layer's own
+  rows, or of the asker's permission row, gives [before after]: what the
+  rows meant for this query before the change and after it
+  (`softland.store.read-path.layers/meaning`), each beside what `known`
+  holds of the other source. Gives nil for any other source."
   [query known source old new]
-  (when (sources/rights-kind query source)
-    (let [layer (:layer source)
-          signed-in? (some? (:asker query))
-          meant (fn [value]
-                  (let [{:keys [own-rows right levels]} (sources/rights query (assoc known source value) :live layer)]
-                    (layers/meaning query layer own-rows right levels signed-in?)))]
-      [(meant old) (meant new)])))
+  (let [layer (:layer source)
+        home (layers/home query)
+        asker (:asker query)
+        signed-in? (some? asker)]
+    (case (sources/rights-kind query source)
+      :own-rows
+      (let [permission (when signed-in? (sources/permission-source home layer asker))
+            permission-row (if (and permission (contains? known permission))
+                             (get known permission)
+                             :not-known-yet)]
+        [(layers/meaning query layer old permission-row signed-in?)
+         (layers/meaning query layer new permission-row signed-in?)])
+
+      :permission
+      (let [own-rows (get known (sources/own-rows-source home layer))]
+        [(layers/meaning query layer own-rows old signed-in?)
+         (layers/meaning query layer own-rows new signed-in?)])
+
+      nil)))
 
 (defn- owes-for-a-move?
   "Takes a query, and the sources that a step joined and left. Gives true
@@ -474,9 +476,9 @@
   whether the whole answer is owed after the step.
 
   The whole answer is owed from this step on in two cases: the source is a
-  rights source (a layer's own rows, her permission, or a level above her
-  right), and what it means for this query differs; or the step joined or
-  left a source that is no check, whatever source called. While it is owed, no single
+  layer's own rows or her permission, and what it means for this query
+  differs; or the step joined or left a source that is no check, whatever
+  source called. While it is owed, no single
   place is told: the asker gets {:anew answer} when nothing is missing.
 
   Else each place that the change names is told when `told-by?` says so,

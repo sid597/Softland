@@ -20,12 +20,7 @@
   Check 1, the run again. It launches `Store` with four tasks. A hand sends
   things of every kind to both depots of acts (`plays-the-hand!` names
   them), some through the door (`softland.store.door`) and some with no
-  door, and the first module decides them as they arrive. Among them, in a
-  streaming layer and in the base, are acts whose word rests on the rules
-  of sign-in (`rights-and-claims!`): rights that list keys, a give of more
-  than the giver's, ends that reach down and a right given again above, and
-  two first claims of one place under a key that the layer marks as taking
-  one write. When that module
+  door, and the first module decides them as they arrive. When that module
   is at rest the check launches `StoreAgain`, a second module that mirrors
   the two depots and runs the store's own gates and reads over them from
   their beginning. Every row of every table of both gates is then held,
@@ -983,104 +978,13 @@
     (when (= :microbatch gate) (settle!))
     things))
 
-(def ^:private one-write-key "The store key of the keys under which a layer takes one write for a place." :softland.store/one-write-keys)
-
-(defn- rights-and-claims-steps
-  "The acts of `rights-and-claims!` for a gate, in groups, in the order in
-  which they are sent: each group a vector of things, with the word that
-  each must get. In a streaming layer the things of a group are sent one
-  after the other; in the base the things of a group of more than one go
-  in one batch. The streaming gate's layer is `:rights`, which Alice makes
-  first; the base's first permission is the system's. Beneath the first
-  permission: Dora, whose right lists the pattern `:tool/*` and the store
-  key of a permission; Eli beneath Dora, with two exact keys; Finn with the
-  pattern `:*`; Gus with see, then see and act.
-
-  What the groups show, in order: a right that lists keys given, and one
-  beneath it; a key on the list taken, and one not on it refused
-  `:key-not-allowed`; a give that allows more than the giver's refused;
-  `:*` takes plain keys and never a store key; an end by one beneath the
-  right refused `:end-not-from-above`; in one group, the end by the giver
-  taken, an act under the ended right refused, and one beneath it refused
-  `:permission-above-has-ended`; the same right given again above, the act
-  beneath still refused, and the giver acting again; see raised by an end
-  and then a give; and a layer that marks one-write keys, two first claims
-  of one place in one group, one taken and one refused
-  `:place-takes-one-write`, a retract, and a claim after it taken."
-  [gate]
-  (let [streaming? (= :streaming gate)
-        layer (if streaming? :rights :base)
-        first-holder (if streaming? :alice :system)
-        first-right (if streaming? [:alice :rights :rights] system-own)
-        dora [:dora layer layer first-right #{:tool/* permission-key}]
-        eli [:eli layer layer dora #{:tool/a permission-key}]
-        finn [:finn layer layer first-right #{:*}]
-        gus-sees [:gus layer layer first-right :see]
-        gus-acts [:gus layer layer first-right :see-and-act]
-        thing (fn [who permission & facts] (arrived gate layer who permission facts))
-        by-first (fn [& facts] (apply thing first-holder first-right facts))
-        give (fn [right] (by-first {:e (first right) :k permission-key :v right}))
-        end-by (fn [who permission holder] (thing who permission {:e holder :k permission-key}))
-        claim (fn [who permission says] (thing who permission {:e :n-1 :k :name/of :v says}))]
-    (cond->> [[[(give dora) :accepted]]
-              [[(thing :dora dora {:e :eli :k permission-key :v eli}) :accepted]]
-              [[(thing :eli eli {:e :t-1 :k :tool/a :v "a key of Eli's list"}) :accepted]]
-              [[(thing :eli eli {:e :t-1 :k :text :v "a key not on Eli's list"}) :key-not-allowed]]
-              [[(thing :dora dora {:e :hal :k permission-key :v [:hal layer layer dora #{:*}]})
-                :permission-fact-allows-more-than-the-givers]]
-              [[(give finn) :accepted]]
-              [[(thing :finn finn {:e :t-2 :k :tool/x :v "a key of a namespace"} {:e :t-2 :k :text :v "a key of none"}) :accepted]]
-              [[(thing :finn finn {:e layer :k :softland.store/who-may-see :v :everyone}) :key-not-allowed]]
-              [[(end-by :eli eli :dora) :end-not-from-above]]
-              [[(end-by first-holder first-right :dora) :accepted]
-               [(thing :dora dora {:e :t-3 :k :tool/b :v "under the ended right"}) :permission-does-not-stand]
-               [(thing :eli eli {:e :t-4 :k :tool/a :v "beneath the ended right"}) :permission-above-has-ended]]
-              [[(give dora) :accepted]]
-              [[(thing :eli eli {:e :t-5 :k :tool/a :v "beneath the right given again"}) :permission-above-has-ended]]
-              [[(thing :dora dora {:e :t-6 :k :tool/c :v "the right given again acts"}) :accepted]]
-              [[(give gus-sees) :accepted]]
-              [[(thing :gus gus-sees {:e :t-7 :k :text :v "a holder of see"}) :permission-does-not-allow-acting]]
-              [[(give gus-acts) :store-key-takes-one-write]]
-              [[(end-by first-holder first-right :gus) :accepted]]
-              [[(give gus-acts) :accepted]]
-              [[(thing :gus gus-acts {:e :t-8 :k :text :v "see raised to see and act"}) :accepted]]
-              [[(by-first {:e layer :k one-write-key :v #{:name/of}}) :accepted]]
-              [[(claim first-holder first-right "the first claim") :accepted]
-               [(claim :finn finn "a second first claim") :place-takes-one-write]]
-              [[(by-first {:e :n-1 :k :name/of}) :accepted]]
-              [[(claim :finn finn "a claim after the retract") :accepted]]]
-      streaming? (into [[[(thing :alice first-right {:e :rights :k depot-key :v :streaming}
-                                {:e :alice :k permission-key :v first-right})
-                         :accepted]]]))))
-
-(defn- rights-and-claims!
-  "Sends the acts of `rights-and-claims-steps` for the gate given, by the
-  hand, and waits for the microbatch gate when they are its. Gives the
-  things as they were built, in the order sent. The word that each must get
-  is the steps'; `what-the-fixture-must-hold` holds the store to them."
-  [gate]
-  (let [groups (mapv (fn [group] (mapv first group)) (rights-and-claims-steps gate))]
-    (doseq [group groups]
-      (cond
-        (= :streaming gate) (run! (fn [x] (by-hand! :streaming x)) group)
-        (= 1 (count group)) (alone! (first group))
-        :else (in-one-batch! group)))
-    (into [] cat groups)))
-
-(defn- rights-and-claims-words
-  "The words that the acts of `rights-and-claims!` must get in a gate, in
-  the order sent."
-  [gate]
-  (into [] (comp cat (map second)) (rights-and-claims-steps gate)))
-
 (def ^:private rooms
   "Seven small streaming layers, the rooms: for each its id, its first
   holder, and who makes it. Six are Alice's, made by her. The seventh is a
   personal layer of Bob's, made for him by the system; its id is a UUID,
   where every other layer of the hand has a keyword. With Alice's own layer
-  and the layer of rights (`rights-and-claims!`) that is nine layers of the
-  streaming depot, more than a store of four tasks has tasks: so two of
-  them at least live on one task."
+  that is eight layers of the streaming depot, more than a store of four
+  tasks has tasks: so two of them at least live on one task."
   (conj (mapv (fn [i] {:room (keyword (str "room-" i)) :holder :alice :made-by :alice}) (range 1 7))
         {:room #uuid "5a7c0d3e-8f21-4b6a-9c1d-2e3f4a5b6c7d" :holder :bob :made-by :system}))
 
@@ -1224,11 +1128,8 @@
        an act sent twice with two times (`sent-again!`), a chain of acts
        that each replace the one before (`chains!`), an act with each
        optional part (`with-each-optional-part!`), a stray of each word
-       (`strays-of-each-word!`), acts refused for several reasons
-       (`refused-for-several-reasons!`), and rights and claims: rights that
-       list keys, given, ended, given again and raised, and one write for a
-       place (`rights-and-claims!`), in the streaming layer `:rights` and in
-       the base
+       (`strays-of-each-word!`), and acts refused for several reasons
+       (`refused-for-several-reasons!`)
     7. seven more streaming layers, with their acts in turn (`rooms!`)
     8. the load (`load!`), and two acts that write one place
        (`two-acts-on-one-place!`)
@@ -1262,7 +1163,6 @@
         each-part (in-each with-each-optional-part!)
         strays (in-each (fn [gate layer who permission _] (strays-of-each-word! gate layer who permission)))
         refused (in-each refused-for-several-reasons!)
-        rights {:streaming (rights-and-claims! :streaming) :microbatch (rights-and-claims! :microbatch)}
         in-rooms (rooms!)
         _ (load! numbers)
         x-and-y (two-acts-on-one-place!)]
@@ -1280,7 +1180,6 @@
      :each-part each-part
      :strays strays
      :refused refused
-     :rights rights
      :rooms in-rooms
      :x-and-y x-and-y}))
 
@@ -1633,7 +1532,6 @@
      :each-part (in-each (fn [gate] (word gate (get-in cases [:each-part gate]))))
      :rooms (by-word :streaming (mapcat val (:rooms cases)))
      :refused (in-each (fn [gate] (by-word gate (get-in cases [:refused gate]))))
-     :rights (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:rights gate]))))
      :strays (in-each (fn [gate]
                         (apply merge-with + (sorted-map)
                                (for [rows (vals (get-in held [gate :task]))
@@ -1681,8 +1579,6 @@
    [:each-part "an act with each optional part, by gate"]
    [:rooms "the acts into the seven rooms, a making act and a chain in each, sent in turn: how many hold each word"]
    [:refused "the acts that each have one fault of another kind: how many hold each word, by gate"]
-   [:rights (str "rights that list keys, given, ended, given again and raised, and one write for a place: the word of "
-                 "each act in the order sent, by gate")]
    [:strays "the strays that each gate keeps: how many digests under each word"]
    [:x-and-y "the place that X wrote and then Y holds the fact of"]
    [:layers-by-task "the layers that the streaming gate made, by the task that holds them"]
@@ -3091,8 +2987,6 @@
       (each-gate? (fn [gate] (= {:accepted chain-length} (get-in gave [:chains gate]))))]
      ["the act with each optional part is accepted, in each gate"
       (each-gate? (fn [gate] (= :accepted (get-in gave [:each-part gate]))))]
-     ["the acts of rights and claims each get their word, in the order sent, in each gate: a right that lists keys and one beneath it given; a key on the list taken and one off it refused; a give of more refused; :* takes plain keys and no store key; an end from beneath refused; the end by the giver taken, an act under the ended right and one beneath it refused; the right given again, the act beneath still refused, the giver acting; see raised by an end and a give; one-write keys marked, two first claims of one place, one taken and one refused, a retract, a claim after it taken"
-      (each-gate? (fn [gate] (= (rights-and-claims-words gate) (get-in gave [:rights gate]))))]
      ["each act into each room is accepted"
       (= {:accepted (* (count rooms) (inc rounds-in-a-room))} (:rooms gave))]
      ["each gate keeps a stray of each of the five words"

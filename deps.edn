@@ -42,22 +42,6 @@
                            :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
                                           com.rpl/rama {:mvn/version "1.6.0"}}
                            :jvm-opts ["-Xss16m" "-Xmx4g"]}
-            ; The runtime: sign-in, in front of the store's door and read path.
-            ; The store's paths and the runtime's, Clojure, and Nimbus for the
-            ; check of Google's ID token; nothing else of the root.
-            ;   clojure -M:runtime -m softland.runtime.pure-proof
-            :runtime {:replace-paths ["src-store" "src-runtime" "test-runtime"]
-                      :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
-                                     com.nimbusds/nimbus-jose-jwt {:mvn/version "10.10"}}
-                      :jvm-opts ["-Xss16m" "-Xmx4g"]}
-            ; The runtime on a cluster: the same paths, Clojure, Rama and Nimbus.
-            ; A whole alias, as :store-module is, so that :runtime still proves
-            ; the pure code without Rama.
-            :runtime-module {:replace-paths ["src-store" "src-runtime" "test-runtime"]
-                             :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
-                                            com.rpl/rama {:mvn/version "1.6.0"}
-                                            com.nimbusds/nimbus-jose-jwt {:mvn/version "10.10"}}
-                             :jvm-opts ["-Xss16m" "-Xmx4g"]}
             :dev   {:extra-paths ["src-dev" "test"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
