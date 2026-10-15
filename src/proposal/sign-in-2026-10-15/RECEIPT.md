@@ -1,5 +1,13 @@
 # Sign-in: the receipt
 
+**16 October 2026.** The code this receipt describes was taken off `main` by
+3a41c91d: the store, its checks and `deps.edn` are as at 59b2a703, and
+`src-runtime/` and `test-runtime/` are gone. The build went past what Sid asked
+for, "sign-in gives us a bunch of data and we just store that data in rama"
+(‹3165b020›). This page and `PROGRESS.md` stay as the record of what was built
+and taken off; the 17 rows of the queue that `BUILD.md` pointed at itself have
+their 14 October text again. Neither page is a source for the next build.
+
 The build of `BUILD.md`, 15 October 2026, by the build session (Opus 5.5)
 and its builders. The working, step by step, is in `PROGRESS.md`; this page
 says what exists now, what was run, what was not reached, and what waits for
