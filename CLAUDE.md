@@ -93,6 +93,16 @@ Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — c
 
 
 
+### Before building from a page
+
+Before writing any code, the build session sends Sid one short message:
+- what he asked for, in his own words, next to what the page says it will build;
+- which parts of the page are his decisions and which are a session's choices;
+- how many new things the page adds.
+Then it waits for his go. If his words and the page differ, that is the question.
+
+A session does not judge or explain its own build. A fresh session does that.
+
 ### Terminology
 - **"discourse graph" (the data model)** — canonical base against discoursegraphs.com: **Question · Claim · Evidence · Source** nodes; epistemic edges informs/supports/opposes; evidence grounds in sources; locally extensible by practice.  Softland will build its own native discourse graph protocol at some point, it will emerge naturally. This is NOT the Roam/Obsidian plugin — it's a future Softland-native thing.
 - **"discourse graph" (the Roam/Obsidian plugin)** — the existing plugin (the `discourse-graph` MCP tools in this environment belong to it). Same name, completely separate thing — context tells you which.
