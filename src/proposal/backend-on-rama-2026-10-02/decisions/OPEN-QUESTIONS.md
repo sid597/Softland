@@ -140,7 +140,7 @@ A session writes its name under "taken by" on a group before it writes that grou
 | ?8 (G8) | 7 | A designed total language, so that converters and base functions can be data | open | A:1209; RS:105 | listed on RS as not for a ruling yet: needs a proof | |
 | G1 | 7 | Does an inside thing ever pass through an adapter | open | RS:88 | — | |
 | G2 | 7 | Is the one body language grown from Inland's | open | RS:90 | — | |
-| G3 | 7 | Are adapters and converters data | open | RS:92 | — | |
+| G3 | 7 | Are adapters and converters data | answered | RS:92 | see `docs/decisions.md`, "Tools are records over a vocabulary", amended 16 Oct 2026: a converter is a record; one grammar reader in code, each format's grammar a record. Sid, 16 Oct: "it is up to you to take these and apply", after three sessions answered yes to settling it | — |
 | H1 | 8 | R1, forget: "Forget is immediate" | answered | RS:110; `groups/g-door.txt`, question 2 | see src-store/README.md ("Decisions of 9 October 2026", entry 2) | — |
 | H2 (S2) | 8 | R2, the stamp's form: a hybrid of wall milliseconds and a counter | superseded | RS:112; R:206–207 | answered A on 7 Oct (SR, "Decisions of 8 October 2026", entry 4), and replaced on 14 Oct: order and time are apart, the stamp is the layer's count of decisions and holds no time (SR, "Decisions of 14 October 2026", entry 1) | |
 | H3 | 8 | R3, read entries carry a frontier | open | RS:114 | — | |

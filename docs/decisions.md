@@ -156,7 +156,7 @@ and source path relevant to the work.
 
 
 
-## Tools are records over a vocabularyb
+## Tools are records over a vocabulary (settled 2026-09-06, amended 2026-10-16)
 
 
 
@@ -182,6 +182,25 @@ and source path relevant to the work.
   throughput is a compiled runner and not a language change; the layers are
   infinite because a record's output is a value any record can take as
   input.
+- **A converter is a record too.** What turns what arrived into acts (a
+  commit's files, a gesture, a new fact) is a record in a layer, in the
+  form above, run by the one executor; no converter is code in git. The
+  system's own converters, the markdown and code ingesters among them, are
+  records in layers the system writes, and anyone can write their own in
+  their own layer.
+- **A format is a grammar.** One grammar reader, a capability, cuts a file
+  into named parts; each format's grammar (markdown, Clojure, …) is a
+  record it reads. No format gets its own reader in code. A format whose
+  grammar the reader cannot say goes to Sid, as the escape hatch above
+  does.
+- **Why** (Sid's test for the waist): what is like the text shaper, text in
+  position and glyph out, stays below, and what is specific to one case
+  goes above; a markdown reader in code means a Clojure reader in code
+  next, as a box below the waist means a circle. A converter reads nothing
+  outside and runs nothing itself, so a newcomer can describe the
+  converter for their own source without our code. What a converter
+  writes, what counts as one thing and what keeps it the same across
+  commits, is not settled here.
 
 ## Only Sid decides
 
