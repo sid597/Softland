@@ -244,6 +244,14 @@ Where each part comes from:
   This reopens a line of `docs/decisions.md`, "Nothing in a record is a program".
   That line's own escape clause applies: "the leaves gain a designed total
   language, never runtime code, asked of Sid then". See ?8.
+- **16 Oct, decided** (`docs/decisions.md`, "Tools are records over a vocabulary"):
+  a converter is a record in a layer, named steps over capabilities with no
+  program inside, run by the one executor; the system's own converters are
+  records in layers the system writes, and anyone can write their own. A file is
+  cut by one grammar reader in code, and each format's grammar is a record. So
+  "Nothing in a record is a program" is not reopened, and ?8 stays only as that
+  line's escape clause. The other base functions, and "code is only the
+  primitives, the evaluator, and the guarantees", are still his 2 Oct position.
 
 ## 3. The act
 

@@ -5,6 +5,16 @@ Language: ASD-STE100 (Simplified Technical English).
 Status: this document is not a ruling. Only Sid makes decisions. Section 9
 gives the decisions that are open.
 
+Update, 16 October 2026: Sid decided the form of act converters and of
+parsers. Sections 3.2.2 and 3.2.4 and open item ?8 give the decision. Its
+source is `docs/decisions.md`, section "Tools are records over a vocabulary".
+The other parts of this document are as of 2 October. The parts about the
+store are older than Sid's decisions of 6 to 14 October in
+`src-store/README.md`. Examples: the act-id, two depots that are placed by
+the layer, no seal and no locks, the stamp as a count, and a read path that
+reads the tables directly. If this document and that file do not agree, use
+that file.
+
 ## 0. About this document
 
 ### 0.1 What this document is
@@ -404,7 +414,11 @@ The policy that tells which adapters can start a session is a fact. [DRAWING]
 
 #### 3.2.2 Act converters
 
-An act converter is data. [SID: a position, not a ruling]
+An act converter is a record in a layer. The record is named steps over
+capabilities. It contains no program. The one executor runs it. The act
+converters of the system are records in layers that the system writes. Other
+persons can write act converters in their own layers. [SETTLED: 16 October
+2026]
 
 An act converter works in these steps:
 
@@ -455,6 +469,11 @@ A base function is data. Sid writes the first base functions, as the first user
 of Softland. Other people use them, or change copies of them, as in open source.
 [SID: a position, not a ruling]
 
+A parser is a grammar. One grammar reader is code. It is a capability. It
+cuts a file into parts that have names. The grammar of each format is a
+record. The grammar reader reads it. No format has its own reader in code.
+[SETTLED: 16 October 2026]
+
 A primitive is code. It is small and general. Each primitive runs under a grant,
 and each primitive records what it read. [SID: a position, not a ruling]
 
@@ -472,7 +491,11 @@ session, not from Sid. [SID: the record] Bend runs pure code in parallel. It is
 not a tool for proofs. [DERIVED]
 
 The position "all converters and base functions are data" touches two lines of
-the settled ground and of the proposal. Open item ?8 gives them.
+the settled ground and of the proposal. Open item ?8 gives them. On 16 October
+2026, Sid decided the part for act converters and parsers. An act converter is
+a record with no program in it. Thus, the line "Nothing in a record is a
+program" stays. For the other base functions, the statement is still a
+position.
 
 #### 3.2.5 The door
 
@@ -1206,7 +1229,7 @@ costs. (This was ?1.)
 | ?5 | The class of each layer at the start. | The drawing: all layers start as stream layers. The rig: the base is a stream layer until the first group. 24 September: promotions into the base go to the microbatch gate. | [DRAWING + RIG + RULED] |
 | ?6 | Does one read line up the moments of the layers that it read? | Sid's open item (one moment for each store). It applies to each pair of layers. The rig records one moment for each layer that it reads. | [RULED + RIG] |
 | ?7 | The open parts of the act. | They are: where the five parts go, the stamp, the fingerprints, the entity for the microbatch acts depot, and the ids from ingest. The rig took defaults (sections 3.3.13 and 4). New condition: data that leaves a decision must be the same on each attempt, or the runtime must read it again by name. | [RIG + RAN PROBE + DERIVED] |
-| ?8 | A designed total language, so that act converters and base functions can be data. | The escape clause needs a proof: "a record provably cannot say a needed tool twice over". Nobody made that proof. A parser can be data as a grammar that one primitive reads. The repo converter is the test. | [SETTLED + PROPOSAL + DERIVED] |
+| ?8 | A designed total language, so that act converters and base functions can be data. | 16 October 2026: an act converter is a record with no program in it, and a parser is a grammar that one grammar reader reads (`docs/decisions.md`). Thus, the language is only the escape clause now: if a record provably cannot say a needed act converter twice over, the question goes to Sid. The repo converter is the test. | [SETTLED + DERIVED] |
 | ?9 | A re-class with acts in flight. | No test. | [RIG] |
 | ?10 | Promotion out of a microbatch layer. | Not built. It can append only what the previous batch committed. With the rig's stamp, a second attempt makes a different landing with the same name. | [RAMA DOCS + RAN PROBE + RIG + DERIVED] |
 | ?11 | Private record PStates, and bell PStates that are not private. | A design. Nobody built it. The door and Inland read the PStates directly now. | [RAMA DOCS + RAN CHECK + DERIVED] |

@@ -26,7 +26,8 @@ on 14 October, one change: order and time apart (`order-and-time/RECEIPT.md`).
 | Before real data is kept: the locks go, the gates' answers in a log, the tables made again, a deeper permission | built on 12 and 13 October. Its receipt says "proven by a hand-played maker, used by no inhabitant yet". What stands of it: the store keeps no locks, an act that is refused stays in the log, and a permission can be 32 deep. On 13 October Sid took the logs of answers and the rebuild out again | `before-real-data/RECEIPT.md` |
 | Run again: the store comes out the same when its gates are run again over its two depots | the build of 13 and 14 October, on Sid's eight decisions of 13 October. Done on 14 October, with its review cut short: two reviewers of six reported, and what they found is applied. Its page says how each part ended, and its receipt what is true now and what needs Sid | `run-again/PROGRESS.md`; `run-again/RECEIPT.md` |
 | Order and time apart: a stamp is the layer's count of decisions, and the time on the act is a label beside it | done on 14 October, at Sid's decisions of that day, from his refinements page. Every proof passed in one run at the end, and the fixture was made again for it. No review was run | `order-and-time/REFINEMENTS.md`, `order-and-time/RECEIPT.md`; `src-store/README.md`, "Decisions of 14 October 2026" |
-| Sign-in, and all that is above the act | not built | — |
+| Above the act, decided: converters and the cut of a file | decided 16 October, not built. A converter is a record of named steps over capabilities, with no program in it, run by the one executor; the system's own are records in layers the system writes. A file is cut by one grammar reader in code; each format's grammar is a record. What a converter writes is open: the first-maker pages' decisions 2 and 3 | `docs/decisions.md`, "Tools are records over a vocabulary"; the queue's G3 |
+| Sign-in, and the rest of what is above the act | not built | — |
 
 How each proof of the store is run is in `test-store/README.md`. What each
 showed at the end of the build "run again" is in that build's receipt, and this
@@ -301,8 +302,10 @@ This is the drawing Sid pointed at on 3 October as the current architecture map.
 
 Who writes each row, as drawn: nobody writes a source. The inlets, the act's
 form and the depots are code. The adapters and the converters are data. That
-the adapters and converters are data is Sid's position of 2 October. It is not
-ruled.
+was Sid's position of 2 October; he decided it on 16 October (`docs/decisions.md`,
+"Tools are records over a vocabulary"): a converter is a record with no program
+in it, and an adapter's cut is one grammar reader in code, with each format's
+grammar a record.
 
 Two sentences of Sid's from 2 October that the middle rows rest on:
 
