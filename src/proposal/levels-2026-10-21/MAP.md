@@ -22,9 +22,9 @@ Opus 5.5, effort max). Sid extracted the rounds himself.
 |---|---|
 | [01-notebook-reading.md](01-notebook-reading.md) | The first reply to the notebook pages: the agent as the resident builder, the builder's "first light" walk and the protocols it needs, computation and dependency, naming, proof first, and two questions to Sid. |
 | [02-box-and-levels.md](02-box-and-levels.md) | Sid asks whether the "box" holds and pushes for abstraction levels. The reply: the box holds as one level's face; the store is several levels fused; three causes of the spreading; what a level is, and four tests; a first stack; where the session disagreed; why the window is now. |
-| [02b-alt-branch-breakouts.md](02b-alt-branch-breakouts.md) | An alternate branch, titled "Depot Correction & Initial Breakouts". **The session that wrote this page does not hold it in its context.** Read it before relying on the depot claim of round 2 and of breakouts D and G. |
+| [02b-alt-branch-breakouts.md](02b-alt-branch-breakouts.md) | An alternate branch, titled "Depot Correction & Initial Breakouts". It was sent from round 2's reply in place of round 3's prompt, and the session then went on from round 2 to round 3 without it. **The session that wrote this page does not hold it in its context.** Read it before relying on the depot claim of round 2 and of breakouts A (round 3) and G (round 5). It ends with three questions to Sid (under "Questions put to Sid that are still open"). |
 | [03-breakouts-A-to-F.md](03-breakouts-A-to-F.md) | After Sid's few-many-few correction: breakouts A to F in depth, G to J in short, and the first map. |
-| [04-first-few-to-many.md](04-first-few-to-many.md) | A branch the writing session does not hold. Sid asked where we started (the first few) and how the many fit as one system; the reply arranges both without converging. It already begins the convergence's first step. |
+| [04-first-few-to-many.md](04-first-few-to-many.md) | A branch the writing session does not hold. It was sent from round 3's reply in place of round 5's prompt, and the session then went on from round 3 to round 5 without it. Sid asked where we started (the first few) and how the many fit as one system; the reply arranges both without converging. It already begins the convergence's first step. |
 | [05-breakouts-B-E-G-to-M.md](05-breakouts-B-E-G-to-M.md) | B pushed up to levels 8 to 11. E pushed deeper: towers, reflection, containment beside delegation. G to J in depth. Three new branches: K capability security, L biology, M economics. The second map. |
 | [06-three-math-bridges.md](06-three-math-bridges.md) | Three bridges: sharing, and one level for surfaces and components (Poly); diffs as spans and collapsing chains of migrations; the coherence laws and Nix overlays. The fan-out stops and the handoff is proposed. |
 
@@ -50,7 +50,10 @@ The breakouts, by letter:
 
 Photos: [p1](../../../vision/images/2026-10-21-notebook-p1.png),
 [p2](../../../vision/images/2026-10-21-notebook-p2.png). The text below is a
-model transcription of Sid's handwriting; the images are the source.
+model transcription of Sid's handwriting; the images are the source. Sid
+sent them with the line "this is what i have been thinking" (‹8f0e5667›); the
+same words went in the same minute to two other sessions (‹4fba4ead›,
+‹142d89ee›).
 
 Page 1:
 
@@ -121,6 +124,13 @@ After the first reply, typed by Sid (‹87ffd01d›):
    answered with the fractal layer (below), not with a choice.
 4. Nobody answered the order of work that round 1 proposed. Sid moved up to the
    question of levels.
+5. The 02b branch ends with three things "only yours, to carry into the
+   convergence", word for word:
+   - "Is "layer" one word for both the store's space and your fractal unit? I
+     now think it can be. And what is the word for a level?"
+   - "Should interpretation depth still stop at one executor (6 September), or
+     does the VM frame pull you toward a language per level?"
+   - "Which promise words should a typist see?"
 
 ## The stack (derived in rounds 2, 3 and 5)
 
@@ -246,7 +256,14 @@ After it, every slot of the act's form stays in the record forever (round 2).
 As far as the pages said on 15 October, no real record had been kept. The
 window bears on two items:
 
-- The depot inside every act-id (round 2, D, G). Read 02b's correction first.
+- The depot inside every act-id (round 2; breakouts A and G). 02b corrects
+  round 2: `:streaming` and `:microbatch` are Sid's own decided words for the
+  two kinds of depot ("my streaming and microbatch", ‹12c9bd22›,
+  `src-store/README.md:117-118`), and they happen to match Rama's topology
+  names. What stays open is whether the two words "name a promise (how soon a
+  layer's acts are decided) or a mechanism (which Rama topology decides
+  them)" (02b). What still holds: whatever sits in an act-id is copied into
+  every `replaces`, `based-on` and `because-of`.
 - Which slots of the act the store checks, and which it only carries (D).
 
 ## What was checked, and what was not
@@ -291,13 +308,16 @@ window bears on two items:
 
 ## Whose words are whose
 
-- **Typed by Sid:** ‹87ffd01d› (the box and levels question) and ‹9ec182a6›
-  (stop fanning out; converge in a new session).
+- **Typed by Sid:** ‹8f0e5667› ("this is what i have been thinking", with the
+  two notebook photos), ‹87ffd01d› (the box and levels question), ‹f4596ab1›
+  (where we started, the prompt of the 04 branch) and ‹9ec182a6› (stop fanning
+  out; converge in a new session).
 - **His long prompt ‹bb0ad8a0›** (the record cannot tell typed from pasted):
   few-many-few, the fractal layer, and the knobs line. It holds one paste of
   the session's own text ("Some leaks are honest ..."), which is not his.
 - **Session text that Sid pasted, not his typing** (source not traced), quoted
   in the rounds' prompts as it arrived:
+  - the 07:02 prompt of the 02b branch (‹11bdc387›);
   - the 07:26 rewrite of ‹bb0ad8a0›, which round 3 answered;
   - the 11:02 message that asked for round 5;
   - the "three bridges" paste that asked for round 6.
