@@ -1,0 +1,29 @@
+SCAN at c90c7bcc : 414 code files, 1772 markdown files
+CODE  unreadable by the reader here: 0
+CODE  whole file over 65536 bytes: 23
+CODE  cut A (file, ns, each top-level form, 4 facts each), one act per file, over 256 facts: 28 ; most: 896
+CODE  one top-level form over 65536 bytes: 0 ; largest form bytes: 53173
+CODE  files with no ns form: 22
+CODE  top-level forms with no name (comment, do, require ...): 213 in 46 files; named: 9381
+CODE  files where one name is defined twice or more: 28
+CODE  ids :<ns>/<name> that are no readable keyword: 0 ; over the id text limit 256 : 0
+MD    whole file over 65536 bytes: 106
+MD    a section (heading to next heading) over 65536 bytes: 15 ; largest section bytes: 1614180
+MD    a paragraph over 65536 bytes: 2 ; largest paragraph bytes: 346890
+MD    one act per file at sections (4 facts each) over 256 facts: 35
+MD    one act per file at paragraphs (4 facts each) over 256 facts: 482
+MD    files where one heading text is used twice or more: 59
+MD    files where one whole heading path is used twice or more: 18
+PATH  as :file/<path with / as .>: not readable 2 ; over the id text limit 0 ; two paths on one keyword 0
+ACT MAPS
+  d2-1  parse :malformed   door-check :malformed               id = git's blob id, as a keyword: stamp.clj after 0e6182b9
+  d2-2  parse :ok          door-check :ok                      id = git's blob id, as a keyword: stamp.clj before 0e6182b9
+  d2-3  parse :ok          door-check :ok                      id = a random UUID; the path and the blob are facts on it; the base marks :file/path and :code/in
+  d2-4  parse :ok          door-check :ok                      a key that is already an id: the word and grammar of :code/doc as facts on it
+  d2-5  parse :ok          door-check :store-key-not-known     the bottom of keys as ids, put in the store's namespace
+  d2-6  parse :ok          door-check :ok                      a bare key, no vocabulary named
+  blob ids: c57f8910 99ab32f4
+  d2-7  parse :ok          door-check :place-named-twice       cut A over src-store/softland/store/act.clj, one act, 106 facts
+  d2-8  parse :ok          door-check :too-many-facts          cut A over test-store/softland/store/pure_proof.clj, one act, 778 facts
+QUERY d2-q1 check :ok : a run from the namespace's id to the id just after its definitions
+QUERY d2-q2 check :ok : what points at a path under :file/path

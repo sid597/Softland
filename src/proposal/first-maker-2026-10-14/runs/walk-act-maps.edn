@@ -1,0 +1,688 @@
+;; The act maps of the walk pages (walk-1-stamp.md, walk-2-readme.md), each with the
+;; word that softland.store.act/parse gave, and for some the word of the door's check
+;; (softland.store.door.declaration/check) on the act as it would arrive: act-id
+;; [:base :microbatch <instance uuid>], depot :microbatch, a fixed time.
+;; Made by runs/walk-parse.clj on the :store alias, 14-15 October 2026. Every id, key,
+;; session and act-id uuid is an instance value; the owning decision is named on the pages.
+[{:n 0,
+  :page "walk-1",
+  :step 3,
+  :note
+  "Act 0: the making act of the base, in the form making-act? names (first_act.clj 81-122). Needed only if the store the road writes to has no base yet. Instance values: :session (decision 4).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e :base, :k :softland.store/depot, :v :microbatch}
+    {:e :system,
+     :k :softland.store/permission,
+     :v [:system :base :base]}]},
+  :parse-word :ok,
+  :door-check-word :ok}
+ {:n 1,
+  :page "walk-1",
+  :step 3,
+  :note
+  "Act 1: stamp.clj as it was at bb6b6cc1 (the parent of 0e6182b9), instance cut A: file, namespace and eight definitions as entities; readable-keyword keys. Instance values: every id and key (decision 2), :session (decision 4).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e #uuid "a452320e-2b38-3e50-9676-d2aa09aff0ec",
+     :k :file/path,
+     :v "src-store/softland/store/gate/stamp.clj"}
+    {:e #uuid "a452320e-2b38-3e50-9676-d2aa09aff0ec",
+     :k :file/blob,
+     :v "c57f8910216f6cf404b4a23c0d5f83be9fe8602f"}
+    {:e :softland.store.gate.stamp,
+     :k :code/in-file,
+     :v #uuid "a452320e-2b38-3e50-9676-d2aa09aff0ec"}
+    {:e :softland.store.gate.stamp,
+     :k :code/doc,
+     :v
+     "The stamp: one integer that holds a time and a counter. Pure code. It\n  needs no cluster, and it reads no clock: a gate gives each number.\n\n  A gate gives one stamp to each decision, accepted or refused. In both\n  gates a stamp is strictly increasing in its layer: it is later than the\n  last stamp that the gate gave in that layer. The order is the layer's\n  and not the task's: two decisions in two layers of one task can have one\n  stamp.\n\n  Two more things hold of a stamp, each with its exception.\n\n    - The stamp of an accepted act is later than each stamp that the act\n      carries. The stamp of a refusal is not: it is the layer's last stamp\n      plus one, and nothing of what the refused thing carries is in it\n      (`softland.store.gate.decision/stamp-of`).\n    - A stamp is below 2^62, the bound of a stamp that an act can carry,\n      until its layer has had about 2^61 decisions. \"Last plus one\" has\n      no bound of its own; `softland.store.door.declaration/max-time` holds\n      the arithmetic.\n\n  Where the time comes from. No gate reads a clock. A gate gives the time\n  on the act, which the door writes from the clock of the server that runs\n  the door (`softland.store.door/send-act`), or whatever else appended the\n  thing wrote there: this code knows only that the part holds a number in\n  the range. And it gives the last stamp of the act's layer. For a\n  refusal, a thing with no usable time among them, it gives no time, and\n  the stamp is the layer's last stamp plus one. Sid's decisions of 13 October 2026\n  say this: \"The door writes the time on the act. No gate reads a\n  clock\", and \"A number counted per layer\". Nothing of a batch is in a\n  stamp, so a gate that decides the same things in the same order gives\n  the same stamps however its batches are cut.\n\n  The packing. stamp = milliseconds since 1970 x 65,536 + counter: the low\n  16 bits are the counter, the bits above them the time. One millisecond\n  holds 65,536 stamps for a layer, which is far more than a gate decides\n  in one layer in a millisecond; so the time in a stamp does not run ahead\n  of the time that the gate gave because of load. That is what the finding\n  asks: plain milliseconds ran ahead under load. The packing reaches 2^62\n  when the time reaches 2^46 milliseconds, in the year 4199; the\n  declaration holds the time on an act below half of that, 2^45\n  milliseconds, in the year 3084\n  (`softland.store.door.declaration/max-time` says why half).\n\n  The time in a stamp is not always the time on its act. The stamp of an\n  accept is the greatest of three numbers (`next-stamp`), so an act whose\n  time is not later than the time in its layer's last stamp gets that\n  stamp plus one, and an act that carries a later stamp gets that one plus\n  one. The stamp of a refusal never holds the time on its thing.\n\n  Inputs and results, by call:\n\n    next-stamp        the time on the act or nil, the layer's last stamp or\n                      nil, the greatest carried stamp or nil -> the stamp\n    too-far-ahead?    the time on the act or nil, a carried stamp -> true\n                      or false\n    greatest-carried  an act in its one form -> its greatest carried stamp,\n                      or nil\n    pack, time-of, counter-of   the two halves of a stamp\n\n  State and effects. None. Where a last stamp is kept is the gate's: the\n  walk of one thing (`softland.store.module.walk`) reads the layer's from\n  the gate's record at each decision. `next-stamp` takes it as a number."}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/kind,
+     :v :def}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/doc,
+     :v "How many low bits of a stamp are the counter."}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/text,
+     :v
+     "(def counter-bits\n  \"How many low bits of a stamp are the counter.\"\n  16)"}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/kind,
+     :v :def}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/doc,
+     :v
+     "How far ahead of the time on its act a carried stamp can be: 10 seconds.\n  A number of the build, kept and not decided. Without it a carried stamp\n  alone could push a layer's stamps to the end of their range. It holds the\n  carried stamps and not the time on the act itself\n  (`softland.store.door.declaration/max-time` says what holds that). Both\n  gates hold a carried stamp to it."}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/text,
+     :v
+     "(def max-ahead-millis\n  \"How far ahead of the time on its act a carried stamp can be: 10 seconds.\n  A number of the build, kept and not decided. Without it a carried stamp\n  alone could push a layer's stamps to the end of their range. It holds the\n  carried stamps and not the time on the act itself\n  (`softland.store.door.declaration/max-time` says what holds that). Both\n  gates hold a carried stamp to it.\"\n  10000)"}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/pack, :k :code/kind, :v :defn}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/doc,
+     :v
+     "Takes a time in milliseconds and a counter of 0 to 65,535. Gives the\n  stamp that holds both. It never throws; what must hold for a stamp below\n  2^62: the time is not below zero and is below 2^46."}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/text,
+     :v
+     "(defn pack\n  \"Takes a time in milliseconds and a counter of 0 to 65,535. Gives the\n  stamp that holds both. It never throws; what must hold for a stamp below\n  2^62: the time is not below zero and is below 2^46.\"\n  [millis counter]\n  (bit-or (bit-shift-left (long millis) counter-bits) (long counter)))"}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/time-of, :k :code/kind, :v :defn}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/doc,
+     :v
+     "Takes a stamp that is not below zero. Gives the time that it holds, in\n  milliseconds."}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/text,
+     :v
+     "(defn time-of\n  \"Takes a stamp that is not below zero. Gives the time that it holds, in\n  milliseconds.\"\n  [stamp]\n  (bit-shift-right (long stamp) counter-bits))"}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/counter-of, :k :code/kind, :v :defn}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/doc,
+     :v "Takes a stamp. Gives the counter that it holds, 0 to 65,535."}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/text,
+     :v
+     "(defn counter-of\n  \"Takes a stamp. Gives the counter that it holds, 0 to 65,535.\"\n  [stamp]\n  (bit-and (long stamp) (dec (bit-shift-left 1 counter-bits))))"}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/next-stamp, :k :code/kind, :v :defn}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/doc,
+     :v
+     "The stamp of one decision. Takes the time on the act in milliseconds, or\n  nil for a thing with no usable time; the last stamp that the gate gave in\n  the act's layer, or nil before the layer's first decision; and the\n  greatest stamp that the act carries, or nil. Gives the greatest of: the\n  time with a counter of zero, when there is a time; the last stamp plus\n  one, when there is one; the greatest carried stamp plus one, when there\n  is one. With none of the three it gives 0.\n\n  So it is later than the layer's last stamp also when the time on the act\n  is not later than the time in that stamp: when the clock of the act's\n  door is behind the clock that wrote an earlier act's time, or went back;\n  when a thing has no time; and when one millisecond had more decisions\n  than the counter holds. \"Last plus one\" then goes on from the last\n  stamp, into the time bits when the counter is full, and the time in the\n  stamp is ahead of the time on the act until the time on a later act\n  passes it.\n\n  It never throws. What must hold for a stamp below 2^62: the time is below\n  2^46, and the last and the carried stamp are below 2^62 less one. The\n  callers hold more than that. The declaration holds the time on an act\n  below 2^45. A carried stamp is below 2^62 by the form, and the gate\n  refuses an act that carries one more than `max-ahead-millis` ahead of its\n  time before it makes a stamp. So the time and the carried stamp plus one\n  give 655,360,000 above 2^61 at most\n  (`softland.store.door.declaration/max-time`). Limit: \"last plus one\"\n  has no bound here. It passes 2^62 after about 2^61 decisions in one\n  layer, and an act cannot carry such a stamp."}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/text,
+     :v
+     "(defn next-stamp\n  \"The stamp of one decision. Takes the time on the act in milliseconds, or\n  nil for a thing with no usable time; the last stamp that the gate gave in\n  the act's layer, or nil before the layer's first decision; and the\n  greatest stamp that the act carries, or nil. Gives the greatest of: the\n  time with a counter of zero, when there is a time; the last stamp plus\n  one, when there is one; the greatest carried stamp plus one, when there\n  is one. With none of the three it gives 0.\n\n  So it is later than the layer's last stamp also when the time on the act\n  is not later than the time in that stamp: when the clock of the act's\n  door is behind the clock that wrote an earlier act's time, or went back;\n  when a thing has no time; and when one millisecond had more decisions\n  than the counter holds. \\\"Last plus one\\\" then goes on from the last\n  stamp, into the time bits when the counter is full, and the time in the\n  stamp is ahead of the time on the act until the time on a later act\n  passes it.\n\n  It never throws. What must hold for a stamp below 2^62: the time is below\n  2^46, and the last and the carried stamp are below 2^62 less one. The\n  callers hold more than that. The declaration holds the time on an act\n  below 2^45. A carried stamp is below 2^62 by the form, and the gate\n  refuses an act that carries one more than `max-ahead-millis` ahead of its\n  time before it makes a stamp. So the time and the carried stamp plus one\n  give 655,360,000 above 2^61 at most\n  (`softland.store.door.declaration/max-time`). Limit: \\\"last plus one\\\"\n  has no bound here. It passes 2^62 after about 2^61 decisions in one\n  layer, and an act cannot carry such a stamp.\"\n  [time-millis last-stamp greatest-carried]\n  (let [of-the-time (when time-millis (pack time-millis 0))\n        after-the-last (when last-stamp (unchecked-inc (long last-stamp)))\n        after-the-carried (when greatest-carried (unchecked-inc (long greatest-carried)))\n        given (remove nil? [of-the-time after-the-last after-the-carried])]\n    (if (seq given)\n      (long (reduce max given))\n      0)))"}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/kind,
+     :v :defn}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/doc,
+     :v
+     "The 10-second rule. Takes the time on the act in milliseconds, or nil for\n  a thing with no usable time, and a carried stamp. Gives true when the\n  time in the stamp is more than `max-ahead-millis` past the time on the\n  act. False for nil: with no time there is nothing to hold the stamp\n  against."}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/text,
+     :v
+     "(defn too-far-ahead?\n  \"The 10-second rule. Takes the time on the act in milliseconds, or nil for\n  a thing with no usable time, and a carried stamp. Gives true when the\n  time in the stamp is more than `max-ahead-millis` past the time on the\n  act. False for nil: with no time there is nothing to hold the stamp\n  against.\"\n  [time-millis carried-stamp]\n  (boolean (and time-millis\n                (> (time-of carried-stamp) (+ (long time-millis) max-ahead-millis)))))"}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/kind,
+     :v :defn}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/doc,
+     :v
+     "Takes an act in its one form. Gives the greatest stamp that it carries,\n  or nil when it carries none. The stamps that an act carries are the values\n  of its `:based-on`. `:claimed-when` is the maker's claim and is no carried\n  stamp."}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/text,
+     :v
+     "(defn greatest-carried\n  \"Takes an act in its one form. Gives the greatest stamp that it carries,\n  or nil when it carries none. The stamps that an act carries are the values\n  of its `:based-on`. `:claimed-when` is the maker's claim and is no carried\n  stamp.\"\n  [act]\n  (when-let [stamps (seq (vals (:based-on act)))]\n    (reduce max stamps)))"}]},
+  :parse-word :ok,
+  :door-check-word :ok}
+ {:n 2,
+  :page "walk-1",
+  :step 3,
+  :note
+  "K5 side A: next-stamp's docstring under a readable-keyword key. The same fact as act 1 holds, alone.",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e :softland.store.gate.stamp/next-stamp,
+     :k :code/doc,
+     :v
+     "The stamp of one decision. Takes the time on the act in milliseconds, or\n  nil for a thing with no usable time; the last stamp that the gate gave in\n  the act's layer, or nil before the layer's first decision; and the\n  greatest stamp that the act carries, or nil. Gives the greatest of: the\n  time with a counter of zero, when there is a time; the last stamp plus\n  one, when there is one; the greatest carried stamp plus one, when there\n  is one. With none of the three it gives 0.\n\n  So it is later than the layer's last stamp also when the time on the act\n  is not later than the time in that stamp: when the clock of the act's\n  door is behind the clock that wrote an earlier act's time, or went back;\n  when a thing has no time; and when one millisecond had more decisions\n  than the counter holds. \"Last plus one\" then goes on from the last\n  stamp, into the time bits when the counter is full, and the time in the\n  stamp is ahead of the time on the act until the time on a later act\n  passes it.\n\n  It never throws. What must hold for a stamp below 2^62: the time is below\n  2^46, and the last and the carried stamp are below 2^62 less one. The\n  callers hold more than that. The declaration holds the time on an act\n  below 2^45. A carried stamp is below 2^62 by the form, and the gate\n  refuses an act that carries one more than `max-ahead-millis` ahead of its\n  time before it makes a stamp. So the time and the carried stamp plus one\n  give 655,360,000 above 2^61 at most\n  (`softland.store.door.declaration/max-time`). Limit: \"last plus one\"\n  has no bound here. It passes 2^62 after about 2^61 decisions in one\n  layer, and an act cannot carry such a stamp."}]},
+  :parse-word :ok}
+ {:n 3,
+  :page "walk-1",
+  :step 3,
+  :note
+  "K5 side B, a key that is an id as a UUID: the key's word and grammar are facts about it. The key is a UUID; parse is expected to refuse, since a key is a readable keyword only (act.clj leaves, :key).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e #uuid "6b65792d-0000-4000-8000-00000000d0c0",
+     :k :key/word,
+     :v "doc"}
+    {:e #uuid "6b65792d-0000-4000-8000-00000000d0c0",
+     :k :key/grammar,
+     :v :string}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k #uuid "6b65792d-0000-4000-8000-00000000d0c0",
+     :v
+     "The stamp of one decision. Takes the time on the act in milliseconds, or\n  nil for a thing with no usable time; the last stamp that the gate gave in\n  the act's layer, or nil before the layer's first decision; and the\n  greatest stamp that the act carries, or nil. Gives the greatest of: the\n  time with a counter of zero, when there is a time; the last stamp plus\n  one, when there is one; the greatest carried stamp plus one, when there\n  is one. With none of the three it gives 0.\n\n  So it is later than the layer's last stamp also when the time on the act\n  is not later than the time in that stamp: when the clock of the act's\n  door is behind the clock that wrote an earlier act's time, or went back;\n  when a thing has no time; and when one millisecond had more decisions\n  than the counter holds. \"Last plus one\" then goes on from the last\n  stamp, into the time bits when the counter is full, and the time in the\n  stamp is ahead of the time on the act until the time on a later act\n  passes it.\n\n  It never throws. What must hold for a stamp below 2^62: the time is below\n  2^46, and the last and the carried stamp are below 2^62 less one. The\n  callers hold more than that. The declaration holds the time on an act\n  below 2^45. A carried stamp is below 2^62 by the form, and the gate\n  refuses an act that carries one more than `max-ahead-millis` ahead of its\n  time before it makes a stamp. So the time and the carried stamp plus one\n  give 655,360,000 above 2^61 at most\n  (`softland.store.door.declaration/max-time`). Limit: \"last plus one\"\n  has no bound here. It passes 2^62 after about 2^61 decisions in one\n  layer, and an act cannot carry such a stamp."}]},
+  :parse-word :malformed}
+ {:n 4,
+  :page "walk-1",
+  :step 3,
+  :note
+  "K5 side B, a key that is an id as an opaque readable keyword: the same three facts with the key :k-6f1c0d. Its word and grammar still need keys of their own (:key/word, :key/grammar).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e :k-6f1c0d, :k :key/word, :v "doc"}
+    {:e :k-6f1c0d, :k :key/grammar, :v :string}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :k-6f1c0d,
+     :v
+     "The stamp of one decision. Takes the time on the act in milliseconds, or\n  nil for a thing with no usable time; the last stamp that the gate gave in\n  the act's layer, or nil before the layer's first decision; and the\n  greatest stamp that the act carries, or nil. Gives the greatest of: the\n  time with a counter of zero, when there is a time; the last stamp plus\n  one, when there is one; the greatest carried stamp plus one, when there\n  is one. With none of the three it gives 0.\n\n  So it is later than the layer's last stamp also when the time on the act\n  is not later than the time in that stamp: when the clock of the act's\n  door is behind the clock that wrote an earlier act's time, or went back;\n  when a thing has no time; and when one millisecond had more decisions\n  than the counter holds. \"Last plus one\" then goes on from the last\n  stamp, into the time bits when the counter is full, and the time in the\n  stamp is ahead of the time on the act until the time on a later act\n  passes it.\n\n  It never throws. What must hold for a stamp below 2^62: the time is below\n  2^46, and the last and the carried stamp are below 2^62 less one. The\n  callers hold more than that. The declaration holds the time on an act\n  below 2^45. A carried stamp is below 2^62 by the form, and the gate\n  refuses an act that carries one more than `max-ahead-millis` ahead of its\n  time before it makes a stamp. So the time and the carried stamp plus one\n  give 655,360,000 above 2^61 at most\n  (`softland.store.door.declaration/max-time`). Limit: \"last plus one\"\n  has no bound here. It passes 2^62 after about 2^61 decisions in one\n  layer, and an act cannot carry such a stamp."}]},
+  :parse-word :ok}
+ {:n 5,
+  :page "walk-1",
+  :step 2,
+  :note
+  "The cut not chosen for the file's id: the path itself as a keyword. Its name holds '/', which a readable keyword cannot.",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e :src-store/softland/store/gate/stamp.clj,
+     :k :file/blob,
+     :v "c57f8910216f6cf404b4a23c0d5f83be9fe8602f"}]},
+  :parse-word :malformed}
+ {:n 6,
+  :page "walk-1",
+  :step 2,
+  :note
+  "Code as data, not as text: next-stamp's arglist and body as Clojure data (a vector of symbols; a list). Symbols and lists are no values of the form (act.clj value?).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session,
+   :facts
+   [{:e :softland.store.gate.stamp/next-stamp,
+     :k :code/arglist,
+     :v [last-stamp]}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/body,
+     :v (if last-stamp (unchecked-inc (long last-stamp)) 0)}]},
+  :parse-word :malformed}
+ {:n 7,
+  :page "walk-1",
+  :step 6,
+  :note
+  "Act 7: the replacement act for the real change at 0e6182b9 against act 1: changed values replace their fact (:replaces [act-id-of-act-1 index]); the places of the seven deleted definitions are retracted (no :v, with :replaces). Instance: identity by namespace and name (decision 3, not picked).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-2,
+   :facts
+   [{:e #uuid "a452320e-2b38-3e50-9676-d2aa09aff0ec",
+     :k :file/blob,
+     :v "99ab32f4cc7276aa697429db6fdf7629d571cb09",
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      1]}
+    {:e :softland.store.gate.stamp,
+     :k :code/doc,
+     :v
+     "The stamp: the position of one decision in its layer. Pure code. It\n  needs no cluster, and it reads no clock.\n\n  A gate gives one stamp to each decision, accepted or refused: the layer's\n  last stamp plus one, or 0 for the layer's first decision. So the stamps\n  of a layer are 0, 1, 2 and on, with no gap, in the order in which the\n  gate decided the layer's things, which is the order of those things on\n  the layer's depot partition. The order is the layer's and not the\n  task's: a task decides many layers, and two decisions in two layers of\n  one task can have one stamp. A gate that decides the same things in the\n  same order gives the same stamps, however its batches are cut and\n  whenever it runs.\n\n  Why a count and not the depot's own offset. A depot partition holds the\n  things of every layer that hashes to it, so its offsets are no gapless\n  count of one layer; and Rama gives a stream event no offset of its\n  record (a reading of the names in Rama's jar, in the build \"run again\";\n  not a run).\n\n  What a stamp does not hold. Order and time are kept apart, and order\n  never uses the time (Sid's decision of 14 October 2026).\n\n    - No time. The time on an act, which the door writes, is a label beside\n      the stamp, in the answer's row and in each fact's row\n      (`softland.store.gate.decision/writes`). No rule reads it, so a\n      wrong clock gives a wrong label and changes no stamp and no\n      decision.\n    - Nothing of what the act carries. The stamps in an act's `:based-on`\n      are what its maker saw, and no gate reads them: an act's stamp is not\n      raised above them (Sid's decision of 14 October 2026). That an act\n      came after the facts that it is based on is read from its\n      `:based-on`, by their fact ids, and not from the size of two stamps.\n      A stamp of one layer is no measure against a stamp of another.\n\n  Limit. \"Last plus one\" has no bound of its own: it wraps after 2^63 - 1\n  decisions in one layer.\n\n  Inputs and results:\n\n    next-stamp   the layer's last stamp, or nil -> the stamp\n\n  State and effects. None. Where a last stamp is kept is the gate's: the\n  walk of one thing (`softland.store.module.walk`) reads the layer's from\n  the gate's record at each decision and writes the new one.",
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      3]}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/doc,
+     :v
+     "The stamp of one decision, an accept or a refusal. Takes the last stamp\n  that the gate gave in the thing's layer, or nil before the layer's first\n  decision. Gives that stamp plus one, or 0 for nil. It never throws.\n  Limit: it wraps after 2^63 - 1 decisions in one layer.",
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      26]}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/text,
+     :v
+     "(defn next-stamp\n  \"The stamp of one decision, an accept or a refusal. Takes the last stamp\n  that the gate gave in the thing's layer, or nil before the layer's first\n  decision. Gives that stamp plus one, or 0 for nil. It never throws.\n  Limit: it wraps after 2^63 - 1 decisions in one layer.\"\n  [last-stamp]\n  (if last-stamp\n    (unchecked-inc (long last-stamp))\n    0))",
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      27]}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      4]}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      5]}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      6]}
+    {:e :softland.store.gate.stamp/counter-bits,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      7]}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      8]}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      9]}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      10]}
+    {:e :softland.store.gate.stamp/max-ahead-millis,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      11]}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      12]}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      13]}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      14]}
+    {:e :softland.store.gate.stamp/pack,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      15]}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      16]}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      17]}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      18]}
+    {:e :softland.store.gate.stamp/time-of,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      19]}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      20]}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      21]}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      22]}
+    {:e :softland.store.gate.stamp/counter-of,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      23]}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      28]}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      29]}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      30]}
+    {:e :softland.store.gate.stamp/too-far-ahead?,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      31]}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      32]}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      33]}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      34]}
+    {:e :softland.store.gate.stamp/greatest-carried,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"]
+      35]}]},
+  :parse-word :ok,
+  :door-check-word :ok}
+ {:n 8,
+  :page "walk-1",
+  :step 7,
+  :note
+  "Instance (hypothetical, had the road run on 8 October): the real rename of 085bca4a, softland.store.stamp -> softland.store.gate.stamp, under identity by namespace and name: next-stamp's four places retracted under the old id and written under the new; :based-on carries the old fact ids as what the act came from (stamps are instance values).",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-3,
+   :based-on
+   {[[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000080"]
+     26]
+    5,
+    [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000080"]
+     27]
+    5},
+   :facts
+   [{:e :softland.store.stamp/next-stamp,
+     :k :code/in,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000080"]
+      24]}
+    {:e :softland.store.stamp/next-stamp,
+     :k :code/kind,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000080"]
+      25]}
+    {:e :softland.store.stamp/next-stamp,
+     :k :code/doc,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000080"]
+      26]}
+    {:e :softland.store.stamp/next-stamp,
+     :k :code/text,
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000080"]
+      27]}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/in,
+     :v :softland.store.gate.stamp}
+    {:e :softland.store.gate.stamp/next-stamp, :k :code/kind, :v :defn}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/doc,
+     :v
+     "The stamp of one decision. Takes the time on the act in milliseconds, or\n  nil for a thing with no usable time; the last stamp that the gate gave in\n  the act's layer, or nil before the layer's first decision; and the\n  greatest stamp that the act carries, or nil. Gives the greatest of: the\n  time with a counter of zero, when there is a time; the last stamp plus\n  one, when there is one; the greatest carried stamp plus one, when there\n  is one. With none of the three it gives 0.\n\n  So it is later than the layer's last stamp also when the time on the act\n  is not later than the time in that stamp: when the clock of the act's\n  door is behind the clock that wrote an earlier act's time, or went back;\n  when a thing has no time; and when one millisecond had more decisions\n  than the counter holds. \"Last plus one\" then goes on from the last\n  stamp, into the time bits when the counter is full, and the time in the\n  stamp is ahead of the time on the act until the time on a later act\n  passes it.\n\n  It never throws. What must hold for a stamp below 2^62: the time is below\n  2^46, and the last and the carried stamp are below 2^62 less one. The\n  callers hold more than that. The declaration holds the time on an act\n  below 2^45. A carried stamp is below 2^62 by the form, and the gate\n  refuses an act that carries one more than `max-ahead-millis` ahead of its\n  time before it makes a stamp. So the time and the carried stamp plus one\n  give 655,360,000 above 2^61 at most\n  (`softland.store.door.declaration/max-time`). Limit: \"last plus one\"\n  has no bound here. It passes 2^62 after about 2^61 decisions in one\n  layer, and an act cannot carry such a stamp."}
+    {:e :softland.store.gate.stamp/next-stamp,
+     :k :code/text,
+     :v "(defn next-stamp ...)"}]},
+  :parse-word :ok}
+ {:n 9,
+  :page "walk-2",
+  :step 3,
+  :note
+  "Act 9: the section 'Decisions of 14 October 2026' at 0e6182b9 (= HEAD), instance cut A: file, section and five entries as entities with name-based UUIDs of path#anchor[/number]; readable-keyword keys.",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-2,
+   :facts
+   [{:e #uuid "acc0a0bd-8c52-3f95-a05a-02e836171807",
+     :k :file/path,
+     :v "src-store/README.md"}
+    {:e #uuid "acc0a0bd-8c52-3f95-a05a-02e836171807",
+     :k :file/blob,
+     :v "3fa3d402418b9718b2c258e829a0ea7f7eb17bf8"}
+    {:e #uuid "bfbd279d-826d-3a46-aef9-04166110960e",
+     :k :md/in-file,
+     :v #uuid "acc0a0bd-8c52-3f95-a05a-02e836171807"}
+    {:e #uuid "bfbd279d-826d-3a46-aef9-04166110960e",
+     :k :md/heading,
+     :v "Decisions of 14 October 2026 — order and time apart"}
+    {:e #uuid "bfbd279d-826d-3a46-aef9-04166110960e",
+     :k :md/level,
+     :v 2}
+    {:e #uuid "bfbd279d-826d-3a46-aef9-04166110960e",
+     :k :md/text,
+     :v
+     "Sid made these on 14 October 2026, in chat, from a page of his refinements\nthat a session wrote at his word\n(`src/proposal/backend-on-rama-2026-10-02/order-and-time/REFINEMENTS.md`), and\nfrom a session's questions on it. Words in quotation marks with an id of the\nrecord are lines that he typed. Where he answered with a session's wording,\nit says so."}
+    {:e #uuid "b70d9b24-4ece-34e2-9fb2-ca400183f7ca",
+     :k :md/in,
+     :v #uuid "bfbd279d-826d-3a46-aef9-04166110960e"}
+    {:e #uuid "b70d9b24-4ece-34e2-9fb2-ca400183f7ca",
+     :k :md/number,
+     :v 1}
+    {:e #uuid "b70d9b24-4ece-34e2-9fb2-ca400183f7ca",
+     :k :md/title,
+     :v "Order and time are apart, and order never uses the time."}
+    {:e #uuid "b70d9b24-4ece-34e2-9fb2-ca400183f7ca",
+     :k :md/text,
+     :v
+     "1. **Order and time are apart, and order never uses the time.** His lines\n   (‹aa212e6b›): \"so we also make the order and time different is that what\n   you saying??? btw my intent was the same\"; (‹2f80019d›): \"so from what i\n   am understanding: order and time are different and we don't use the time\n   for ordering. every thing that goes in depot has a time attached to it\"; and, asked whether that was his\n   direction, (‹296a2a7b›): \"my intent was the same yes\". What comes with it:\n   - A stamp is the layer's count of decisions: the last stamp plus one, or 0\n     for the layer's first, for an accept and a refusal alike.\n   - The time on the act is a label. A gate writes it beside the stamp and no\n     rule reads it. The rule of 10 seconds on a carried stamp went with it,\n     and so did the bound of 2^45 on the time, whose one reason was the\n     time's place in the stamp. Of the four things that 13 October left not\n     decided, \"where a time that is far ahead is stopped\" fell away: a time\n     far ahead is a wrong label and nothing else.\n   - It replaces entry 4 of 8 October, his answer \"clock-time+counter\"\n     (‹f3f530b8›) to the sheet's H2 A, \"the wall time and a counter, in one\n     integer\". What it gives up: one number for \"as of 15:00\" in every\n     layer. A session's view, which he did not rule on: that can be built\n     later from the depots, which keep every act with its time and what it\n     is based on."}
+    {:e #uuid "b70d9b24-4ece-34e2-9fb2-ca400183f7ca",
+     :k :md/cites-sid,
+     :v #{"296a2a7b" "2f80019d" "aa212e6b" "f3f530b8"}}
+    {:e #uuid "b70d9b24-4ece-34e2-9fb2-ca400183f7ca",
+     :k :md/cites-session,
+     :v #{}}
+    {:e #uuid "f233d6a2-bf7f-38bb-a620-eff233f32a64",
+     :k :md/in,
+     :v #uuid "bfbd279d-826d-3a46-aef9-04166110960e"}
+    {:e #uuid "f233d6a2-bf7f-38bb-a620-eff233f32a64",
+     :k :md/number,
+     :v 2}
+    {:e #uuid "f233d6a2-bf7f-38bb-a620-eff233f32a64",
+     :k :md/title,
+     :v
+     "An act's stamp is not raised above the stamps that it carries, and no check holds a carried stamp against the layer's last stamp."}
+    {:e #uuid "f233d6a2-bf7f-38bb-a620-eff233f32a64",
+     :k :md/text,
+     :v
+     "2. **An act's stamp is not raised above the stamps that it carries, and no\n   check holds a carried stamp against the layer's last stamp.** He answered\n   a session's two questions with that session's wording, \"Drop the jump\n   above carried stamps? Yes.\" and \"Keep the own-layer check? Leave it out:\n   one rule fewer, and it protects nothing\" (‹296a2a7b›; the words are those\n   of «6c16b53a»), and with his own (‹f6a39dde›): \"makes sense both of them\".\n   That an act came after what it is based on is read from its `:based-on`,\n   by fact id. No gate reads a carried stamp, so its bound of 2^62 went."}
+    {:e #uuid "f233d6a2-bf7f-38bb-a620-eff233f32a64",
+     :k :md/cites-sid,
+     :v #{"296a2a7b" "f6a39dde"}}
+    {:e #uuid "f233d6a2-bf7f-38bb-a620-eff233f32a64",
+     :k :md/cites-session,
+     :v #{"6c16b53a"}}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/in,
+     :v #uuid "bfbd279d-826d-3a46-aef9-04166110960e"}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/number,
+     :v 3}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/title,
+     :v "The time is on the rows and on the answer."}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/text,
+     :v
+     "3. **The time is on the rows and on the answer.** Asked whether the time goes\n   on each fact's row and on the answer, he answered \"1) yes\" (‹296a2a7b›). A\n   session's, for him to review: a read hands it when the query asks for it,\n   as it hands who wrote a fact; and a refused thing keeps its time in its\n   answer when it held a usable one."}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/cites-sid,
+     :v #{"296a2a7b"}}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/cites-session,
+     :v #{}}
+    {:e #uuid "70bd27f6-2a6f-34ef-ad08-a950458c7971",
+     :k :md/in,
+     :v #uuid "bfbd279d-826d-3a46-aef9-04166110960e"}
+    {:e #uuid "70bd27f6-2a6f-34ef-ad08-a950458c7971",
+     :k :md/number,
+     :v 4}
+    {:e #uuid "70bd27f6-2a6f-34ef-ad08-a950458c7971",
+     :k :md/title,
+     :v "A thing that arrives with no time is refused."}
+    {:e #uuid "70bd27f6-2a6f-34ef-ad08-a950458c7971",
+     :k :md/text,
+     :v
+     "4. **A thing that arrives with no time is refused.** \"2) refuse\"\n   (‹296a2a7b›). It was built so on 13 October and kept for his word."}
+    {:e #uuid "70bd27f6-2a6f-34ef-ad08-a950458c7971",
+     :k :md/cites-sid,
+     :v #{"296a2a7b"}}
+    {:e #uuid "70bd27f6-2a6f-34ef-ad08-a950458c7971",
+     :k :md/cites-session,
+     :v #{}}
+    {:e #uuid "2d090aec-3025-38f2-ba7f-d573cd690c47",
+     :k :md/in,
+     :v #uuid "bfbd279d-826d-3a46-aef9-04166110960e"}
+    {:e #uuid "2d090aec-3025-38f2-ba7f-d573cd690c47",
+     :k :md/number,
+     :v 5}
+    {:e #uuid "2d090aec-3025-38f2-ba7f-d573cd690c47",
+     :k :md/title,
+     :v "Time travel is designed later."}
+    {:e #uuid "2d090aec-3025-38f2-ba7f-d573cd690c47",
+     :k :md/text,
+     :v
+     "5. **Time travel is designed later.** \"3) time travel will do later\"\n   (‹296a2a7b›). The refinements page holds what a session understood of it."}
+    {:e #uuid "2d090aec-3025-38f2-ba7f-d573cd690c47",
+     :k :md/cites-sid,
+     :v #{"296a2a7b"}}
+    {:e #uuid "2d090aec-3025-38f2-ba7f-d573cd690c47",
+     :k :md/cites-session,
+     :v #{}}]},
+  :parse-word :ok,
+  :door-check-word :ok}
+ {:n 10,
+  :page "walk-2",
+  :step 3,
+  :note
+  "K5 side B for an entry: entry 3's text under a key that is an opaque readable keyword, with its word and grammar as facts.",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-2,
+   :facts
+   [{:e :k-7a2e11, :k :key/word, :v "text"}
+    {:e :k-7a2e11, :k :key/grammar, :v :string}
+    {:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :k-7a2e11,
+     :v
+     "3. **The time is on the rows and on the answer.** Asked whether the time goes\n   on each fact's row and on the answer, he answered \"1) yes\" (‹296a2a7b›). A\n   session's, for him to review: a read hands it when the query asks for it,\n   as it hands who wrote a fact; and a refused thing keeps its time in its\n   answer when it held a usable one."}]},
+  :parse-word :ok}
+ {:n 11,
+  :page "walk-2",
+  :step 6,
+  :note
+  "Act 11, the added instance of a change (hypothetical): a later decision adds a sentence to entry 3, the way 0e6182b9 added one to three earlier entries (README.md 183-184, 333-335, 887-888). The added sentence is a placeholder, not Sid's words.",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-3,
+   :facts
+   [{:e #uuid "2027a87a-5a9c-31d6-ad0f-5f1d9275bf49",
+     :k :md/text,
+     :v
+     "3. **The time is on the rows and on the answer.** Asked whether the time goes\n   on each fact's row and on the answer, he answered \"1) yes\" (‹296a2a7b›). A\n   session's, for him to review: a read hands it when the query asks for it,\n   as it hands who wrote a fact; and a refused thing keeps its time in its\n   answer when it held a usable one. Changed on <a later day>: <what changed> (entry <n> of that day).",
+     :replaces
+     [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000009"]
+      21]}]},
+  :parse-word :ok,
+  :door-check-word :ok}
+ {:n 12,
+  :page "walk-2",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-2,
+   :facts
+   [{:e #uuid "acc0a0bd-8c52-3f95-a05a-02e836171807",
+     :k :file/text,
+     :v
+     "<elided: the whole of src-store/README.md at c90c7bcc, 72,062 bytes; walk-parse.clj builds it from git>"}]},
+  :parse-word :ok,
+  :note
+  "The cut not chosen: the whole README as one value on the file. 72,062 bytes at HEAD. The value is elided in this file; the run used the whole text from git.",
+  :door-check-word :value-too-large,
+  :step 2}
+ {:n 13,
+  :page "walk-2",
+  :step 7,
+  :note
+  "Instance (real file): .claude/skills/rama/references/unique-ids.md has '### Key points' at lines 67 and 93, under two different '##' parents. With a section id made of the bare heading, both sections are one entity and one place.",
+  :act
+  {:version 1,
+   :who :system,
+   :layer :base,
+   :permission [:system :base :base],
+   :session :walk-instance-session-2,
+   :facts
+   [{:e #uuid "11f8af8b-300c-302c-b4cd-d77084c7399f",
+     :k :md/text,
+     :v
+     "### Key points\n\n- Call `.declarePState` on the topology that will generate IDs — this creates a private PState for the counter.\n- Call `(java-macro! (.genId idgen \"*var-name\"))` in the topology body to generate an ID and bind it to a dataflow variable. The variable name is passed as a string.\n- IDs are ascending by default. Call `(.descending idgen)` before `.declarePState` for descending order.\n- IDs are unique across all tasks in the module but ordering is per-task (not globally ordered).\n"}
+    {:e #uuid "11f8af8b-300c-302c-b4cd-d77084c7399f",
+     :k :md/text,
+     :v
+     "### Key points\n\n- Same API as `ModuleUniqueIdPState`: `.declarePState`, `.genId`, `.descending`.\n- Additionally supports `.integerIds` for 4-byte Integer IDs instead of 8-byte Longs.\n- IDs are only unique within a task — do NOT use alone when IDs must be unique across the module.\n- Combine with a partition key to make a globally unique composite ID. For example, a \"post\" can be identified by `[user-id task-unique-post-id]` — the user-id routes to the correct task, and the task-unique-id distinguishes posts within that task. This composite is globally unique because the task-unique part is unique on that task and the partition key determines which task.\n"}]},
+  :parse-word :ok,
+  :door-check-word :place-named-twice}]

@@ -1,0 +1,7 @@
+HEAD c90c7bcc
+files: 2186
+over 65536 bytes: 129 (code 23, md 106)
+in src-store over the bound:
+72062 src-store/README.md
+100980 src-store/softland/store/README.md
+76606 src-store/softland/store/read_path.clj

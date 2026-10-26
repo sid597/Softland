@@ -1,0 +1,8 @@
+src-store/softland/store/gate/batch.clj: gates-class -> gates-depot; beyond the name unchanged: False
+src-store/softland/store/gate/batch.clj: class-place-of -> depot-place-of; beyond the name unchanged: False
+src-store/softland/store/gate/decision.clj: class-place -> depot-place; beyond the name unchanged: False
+src-store/softland/store/gate/first_act.clj: class-at-making -> depot-at-making; beyond the name unchanged: False
+src-store/softland/store/record/rows.clj: class-read -> depot-read; beyond the name unchanged: False
+test-store/softland/store/module_proof.clj: class-of-layer -> depot-of-layer; beyond the name unchanged: False
+test-store/softland/store/pure_proof.clj: class-row -> depot-row; beyond the name unchanged: False
+test-store/softland/store/pure_proof.clj: base-class-row -> base-depot-row; beyond the name unchanged: False

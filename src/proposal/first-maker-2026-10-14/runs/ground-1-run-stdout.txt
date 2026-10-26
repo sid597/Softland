@@ -1,0 +1,6 @@
+checkout /mnt/data/projects/Softland-first-maker-check at c90c7bcc; differing files:
+ M test-store/softland/store/run_again_fixture/README.md
+ M test-store/softland/store/run_again_fixture/acts.edn
+ M test-store/softland/store/run_again_fixture/tables.edn
+proof done in 68 s including any wait for the lock
+compare done in 66 s including any wait for the lock

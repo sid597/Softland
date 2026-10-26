@@ -1,0 +1,19 @@
+act  0 parse recorded :ok          again :ok          SAME | door recorded :ok                  again :ok                  SAME
+act  1 parse recorded :ok          again :ok          SAME | door recorded :ok                  again :ok                  SAME
+act  2 parse recorded :ok          again :ok          SAME | door recorded nil                  again nil                  SAME
+act  3 parse recorded :malformed   again :malformed   SAME | door recorded nil                  again nil                  SAME
+act  4 parse recorded :ok          again :ok          SAME | door recorded nil                  again nil                  SAME
+act  5 parse recorded :malformed   again :malformed   SAME | door recorded nil                  again nil                  SAME
+act  6 parse recorded :malformed   again :malformed   SAME | door recorded nil                  again nil                  SAME
+act  7 parse recorded :ok          again :ok          SAME | door recorded :ok                  again :ok                  SAME
+act  8 parse recorded :ok          again :ok          SAME | door recorded nil                  again nil                  SAME
+act  9 parse recorded :ok          again :ok          SAME | door recorded :ok                  again :ok                  SAME
+act 10 parse recorded :ok          again :ok          SAME | door recorded nil                  again nil                  SAME
+act 11 parse recorded :ok          again :ok          SAME | door recorded :ok                  again :ok                  SAME
+act 12 parse recorded :ok          again :ok          SAME | door recorded :value-too-large     again :ok                  DIFFERS
+act 13 parse recorded :ok          again :ok          SAME | door recorded :place-named-twice   again :place-named-twice   SAME
+query 1 :ok
+query 2 :ok
+query 3 [:place-not-named :asks]
+max-facts 256 max-value-bytes 65536
+act 12 with the real README: 72062 bytes; parse :ok door :value-too-large

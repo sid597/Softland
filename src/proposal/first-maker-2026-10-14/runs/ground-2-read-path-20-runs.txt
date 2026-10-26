@@ -1,0 +1,148 @@
+Ground check part 2: clojure -M:store-module -m softland.store.read-path-proof, twenty runs, each under flock /mnt/data/projects/Softland/src/proposal/backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock, from /mnt/data/projects/Softland, HEAD c90c7bcc.
+Per run: the PASSED/FAILED line of the check 'through three layers', the SHOWN lines holding 'a layer that joins' or 'farther orders' (each distinct line once; the proof prints each SHOWN line twice, inline and in its recap), the count line, every other FAILED line, and for a failing run the clojure.test FAIL report of that check (lines cut to 1500 characters), then the exit status.
+
+=== run 01 (started 18:07:20Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 02 (started 18:08:11Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 03 (started 18:09:02Z, 50 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 04 (started 18:09:52Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 05 (started 18:10:43Z, 111 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 06 (started 18:12:34Z, 65 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 07 (started 18:13:39Z, 51 s including any wait for the lock)
+FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 2 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 552, :fail 1, :error 0}
+--- the FAIL report of that check:
+152:FAIL in (what-shapes-a-read-changes-under-it) (read_path_proof.clj:124)
+153-through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+154-expected: (= expected observed)
+155-  actual: (not (= [#{[:f-1 :parent] [:m-1 :parent] [:f-2 :parent]} true {[:n-1 :parent] {:holds :value, :value :canvas-1, :layer :j15n, :fact [[:j15n :streaming #uuid "4e174c21-6399-4a89-bf97-a5a71a732ac8"] 0], :stamp 2}, [:f-1 :parent] {:holds :value, :value :canvas-1, :layer :j15f, :fact [[:j15f :streaming #uuid "f9bc0471-5d4c-4473-bf56-626f904cf9fa"] 0], :stamp 3}, [:m-1 :parent] {:holds :value, :value :canvas-1, :layer :j15m, :fact [[:j15m :streaming #uuid "f67bdc16-b0b7-462d-86f2-e0684ffd202c"] 0], :stamp 3}} #{[:n-1 :parent] [:f-1 :parent] [:m-1 :parent]}] [#{[:f-1 :parent] [:m-1 :parent] [:f-2 :parent]} false {[:n-1 :parent] {:holds :value, :value :canvas-1, :layer :j15n, :fact [[:j15n :streaming #uuid "4e174c21-6399-4a89-bf97-a5a71a732ac8"] 0], :stamp 2}, [:f-1 :parent] {:holds :value, :value :canvas-1, :layer :j15f, :fact [[:j15f :streaming #uuid "f9bc0471-5d4c-4473-bf56-626f904cf9fa"] 0], :stamp 3}, [:m-1 :parent] {:holds :value, :value :canvas-1, :layer :j15m, :fact [[:j15m :streaming #uuid "f67bdc16-b0b7-462d-86f2-e0684ffd202c"] 0], :stamp 3}} #{[:n-1 :parent] [:f-1 :parent] [:m-1 :parent]}]))
+156-FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+157-PASSED the base's setting goes to members under the open read of an asker who holds no permission there: the base is left out, and she is given no fact
+158-PASSED an asker who holds a permission in the base is given an answer anew that says what it said
+exit status: 1
+
+=== run 08 (started 18:14:30Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 09 (started 18:15:21Z, 52 s including any wait for the lock)
+FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 2 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 552, :fail 1, :error 0}
+--- the FAIL report of that check:
+152:FAIL in (what-shapes-a-read-changes-under-it) (read_path_proof.clj:124)
+153-through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+154-expected: (= expected observed)
+155-  actual: (not (= [#{[:f-1 :parent] [:m-1 :parent] [:f-2 :parent]} true {[:n-1 :parent] {:holds :value, :value :canvas-1, :layer :j15n, :fact [[:j15n :streaming #uuid "f27d2f5f-6c44-424d-b7d4-b68a0842a6c8"] 0], :stamp 2}, [:f-1 :parent] {:holds :value, :value :canvas-1, :layer :j15f, :fact [[:j15f :streaming #uuid "528ca845-190e-4513-9a12-0e3cb02787ef"] 0], :stamp 3}, [:m-1 :parent] {:holds :value, :value :canvas-1, :layer :j15m, :fact [[:j15m :streaming #uuid "51e7fde6-4645-4f87-bf52-08d7ae109a79"] 0], :stamp 3}} #{[:n-1 :parent] [:f-1 :parent] [:m-1 :parent]}] [#{[:f-1 :parent] [:m-1 :parent] [:f-2 :parent]} false {[:n-1 :parent] {:holds :value, :value :canvas-1, :layer :j15n, :fact [[:j15n :streaming #uuid "f27d2f5f-6c44-424d-b7d4-b68a0842a6c8"] 0], :stamp 2}, [:f-1 :parent] {:holds :value, :value :canvas-1, :layer :j15f, :fact [[:j15f :streaming #uuid "528ca845-190e-4513-9a12-0e3cb02787ef"] 0], :stamp 3}, [:m-1 :parent] {:holds :value, :value :canvas-1, :layer :j15m, :fact [[:j15m :streaming #uuid "51e7fde6-4645-4f87-bf52-08d7ae109a79"] 0], :stamp 3}} #{[:n-1 :parent] [:f-1 :parent] [:m-1 :parent]}]))
+156-FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+157-PASSED the base's setting goes to members under the open read of an asker who holds no permission there: the base is left out, and she is given no fact
+158-PASSED an asker who holds a permission in the base is given an answer anew that says what it said
+exit status: 1
+
+=== run 10 (started 18:16:13Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 11 (started 18:17:04Z, 52 s including any wait for the lock)
+FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 2 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 552, :fail 1, :error 0}
+--- the FAIL report of that check:
+152:FAIL in (what-shapes-a-read-changes-under-it) (read_path_proof.clj:124)
+153-through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+154-expected: (= expected observed)
+155-  actual: (not (= [#{[:f-1 :parent] [:m-1 :parent] [:f-2 :parent]} true {[:n-1 :parent] {:holds :value, :value :canvas-1, :layer :j15n, :fact [[:j15n :streaming #uuid "4db91288-cdac-4eb8-8899-884dbe9aad4a"] 0], :stamp 2}, [:f-1 :parent] {:holds :value, :value :canvas-1, :layer :j15f, :fact [[:j15f :streaming #uuid "56c8aa4a-151e-4fb6-884b-75bde2b20393"] 0], :stamp 3}, [:m-1 :parent] {:holds :value, :value :canvas-1, :layer :j15m, :fact [[:j15m :streaming #uuid "72547ff9-7061-4b24-b531-69276255736a"] 0], :stamp 3}} #{[:n-1 :parent] [:f-1 :parent] [:m-1 :parent]}] [#{[:f-1 :parent] [:m-1 :parent] [:f-2 :parent]} false {[:n-1 :parent] {:holds :value, :value :canvas-1, :layer :j15n, :fact [[:j15n :streaming #uuid "4db91288-cdac-4eb8-8899-884dbe9aad4a"] 0], :stamp 2}, [:f-1 :parent] {:holds :value, :value :canvas-1, :layer :j15f, :fact [[:j15f :streaming #uuid "56c8aa4a-151e-4fb6-884b-75bde2b20393"] 0], :stamp 3}, [:m-1 :parent] {:holds :value, :value :canvas-1, :layer :j15m, :fact [[:j15m :streaming #uuid "72547ff9-7061-4b24-b531-69276255736a"] 0], :stamp 3}} #{[:n-1 :parent] [:f-1 :parent] [:m-1 :parent]}]))
+156-FAILED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+157-PASSED the base's setting goes to members under the open read of an asker who holds no permission there: the base is left out, and she is given no fact
+158-PASSED an asker who holds a permission in the base is given an answer anew that says what it said
+exit status: 1
+
+=== run 12 (started 18:17:56Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 13 (started 18:18:47Z, 50 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 14 (started 18:19:37Z, 52 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 15 (started 18:20:29Z, 50 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 16 (started 18:21:19Z, 50 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 17 (started 18:22:09Z, 52 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 18 (started 18:23:01Z, 51 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 19 (started 18:23:52Z, 50 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+=== run 20 (started 18:24:42Z, 50 s including any wait for the lock)
+PASSED through three layers, a permission is given in the nearest while the farther orders hold places: the layer that joins gives a whole answer anew with its own place in it, and the place that it moved is hidden; the screen is what a read asked once gives
+SHOWN a list and a mark that are written in a layer that she may not see gave her 0 calls | a layer that joins over farther orders gave 1 whole answers anew, the last with its own place and what a read asked once gives | the base to members and back: [{:layer :base, :why :may-not-see}] then the fact again
+{:test 28, :pass 553, :fail 0, :error 0}
+exit status: 0
+
+all twenty runs done 18:25:32Z

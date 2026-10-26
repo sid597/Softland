@@ -1,0 +1,21 @@
+RUN 1. A fact with no :replaces on a place that holds a fact (walk claim, decision.clj 233-247)
+  act 1 (stamp.clj at bb6b6cc1, 36 facts): :ok ; next-stamp doc row written by [#uuid "a0000000-0000-4000-8000-000000000001" 26]
+  act 2 (one fact on that place, no :replaces): places read 0 ; word :ok ; row now written by [#uuid "a0000000-0000-4000-8000-000000000002" 0]
+  act 7 after act 2 (names act 1's fact [u1 26]): :replaced-fact-not-current
+RUN 2. The same replacement sent twice, with and without :replaces
+  act 7 with :replaces: first :ok , sent again :replaced-fact-not-current
+  act 7 with every :replaces taken out: first :ok , sent again :ok
+RUN 3. A retract with no :replaces on a place nothing ever wrote
+  word :ok ; the read of that place gives [:nothing-here]
+RUN 4. The real rename 085bca4a (softland.store.stamp -> softland.store.gate.stamp)
+  end A, ids by namespace and name: {:replace 0, :retract 36, :new 36, :total 72} ; parse :ok ; door check :ok
+  end C, ids by content (a name-based uuid of the form's text): definitions whose id is the same across 085bca4a: 8 of 8
+  end C across 0e6182b9: definitions kept by name 1 ; of those, the same id 0
+  end E, a store id with the name as a fact (each definition's :code/in names ns-id, unchanged): {:replace 3, :retract 0, :new 0, :total 3} ; parse :ok ; door check :ok
+  end E, the road finds the entity by its old name: query check :ok (needs :code/name marked; the base marks none, first_act.clj 148)
+  end D, a link fact under a key such as :code/was: parse :ok ; door check :ok
+RUN 5. The same bytes at two paths (blob 7e6c32a9) under ids by content
+  two facts, one per path: door check :place-named-twice
+  one fact with a set of paths: door check :ok
+RUN 6. The system marks :code/name in the base, so that a part can be found by its name (end E)
+  parse :ok ; door check :ok ; checks of the places :ok (standing not run)

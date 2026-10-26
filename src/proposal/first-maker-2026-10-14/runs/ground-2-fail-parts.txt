@@ -1,0 +1,3 @@
+run 07: parts: 4 4 | equal by part: [True, False, True, True] | second part, expected then observed: true false
+run 09: parts: 4 4 | equal by part: [True, False, True, True] | second part, expected then observed: true false
+run 11: parts: 4 4 | equal by part: [True, False, True, True] | second part, expected then observed: true false

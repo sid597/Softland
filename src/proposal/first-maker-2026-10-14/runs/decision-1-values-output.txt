@@ -1,0 +1,5 @@
+md rule, a map of strings and keywords     value? true
+clj rule, a map with a set of strings      value? true
+a Clojure fn written as a list             value? false
+the same fn written as vectors             value? true
+a compiled regex object                    value? false

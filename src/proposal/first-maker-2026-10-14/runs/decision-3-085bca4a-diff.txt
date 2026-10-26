@@ -1,0 +1,735 @@
+diff --git a/src-store/README.md b/src-store/README.md
+index 66f90dbe..68285ef5 100644
+--- a/src-store/README.md
++++ b/src-store/README.md
+@@ -20,2 +20,2 @@ Start with the question you are carrying:
+-| What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/streaming_gate.clj) |
+-| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/microbatch_gate.clj) and [batch.clj](softland/store/batch.clj) |
++| What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
++| What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and [batch.clj](softland/store/gate/batch.clj) |
+diff --git a/src-store/softland/store/README.md b/src-store/softland/store/README.md
+index a9a48b0c..35a35260 100644
+--- a/src-store/softland/store/README.md
++++ b/src-store/softland/store/README.md
+@@ -20 +20 @@ plays it by hand.
+-## The files
++## The parts
+@@ -22 +22 @@ plays it by hand.
+-| File | Responsibility | State and lifetime |
++| Part | Responsibility | State and lifetime |
+@@ -25,13 +25,4 @@ plays it by hand.
+-| [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
+-| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text. The door and the gate share it. | None. |
+-| [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store keys; the limits; the test for a stray; the check. | None. |
+-| [stamp.clj](stamp.clj) | The stamp: clock time and a counter in one integer, the next stamp, the 10-second rule. | None. It reads no clock. |
+-| [seal.clj](seal.clj) | Locks and the seal: a lock's bytes, sealing a value to its place, opening it. | One random source for each process. |
+-| [first_act.clj](first_act.clj) | The class that a layer starts with, and the form of a making act. | None. |
+-| [record.clj](record.clj) | The record's rows: the text of each key, the making and the reading of each row, the routing id of an act-id, and the test of what a caller gave a read. | None. It holds no record. |
+-| [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data. | None. It reads no PState. |
+-| [batch.clj](batch.clj) | The pure code of one batch of the microbatch gate: what the depot derives from a thing, the turn of a thing, what an act asks of other tasks and what they reply, which acts meet, the decision of an act with its rows in hand, the home of each row. | None. It reads no PState. |
+-| [record_pstates.clj](record_pstates.clj) | The record as PStates: the schemas, written once, and what each gate keeps for a task. | None. It declares nothing. |
+-| [streaming_gate.clj](streaming_gate.clj) | The stream topology `streaming-gate` and the dataflow of one event. | It owns the four PStates of the streaming record, durable in the cluster. It borrows two PStates of the microbatch gate to read. Nothing in the memory of a process. |
+-| [microbatch_gate.clj](microbatch_gate.clj) | The microbatch topology `microbatch-gate` and the dataflow of one batch, in four steps. | It owns the four PStates of the microbatch record, durable in the cluster. It borrows one PState of the streaming gate to read. Three temporary PStates of Rama live for one attempt of one batch. Nothing in the memory of a process. |
+-| [door_reads.clj](door_reads.clj) | The three query topologies, for layers of both classes: the answer by act-id, the locks of a request, the class of a layer. | None. It borrows the two gates' PStates to read. |
++| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the seal, the one text of a thing and its digest. The door itself is not built. | One random source for each process, for the seal. |
++| [gate/](gate/README.md) | What a gate decides with, as pure code that both gates call: the checks of one act against rows of the record, the first act of a layer, the stamp, and the steps of one batch of the microbatch gate. | None. It reads no PState and no clock. |
++| [record/](record/README.md) | What the record is made of: its rows, and the schemas of the PStates that hold them. | None. It holds no record and declares nothing. |
++| [module/](module/README.md) | What runs in Rama beside the depots: the two gates' topologies and the three reads. | Each gate owns the PStates of its record, durable in the cluster. |
+@@ -40,2 +31,8 @@ plays it by hand.
+-The first ten are pure code and load with Clojure alone. The last five require
+-Rama.
++[act.clj](act.clj), [door/](door/README.md), [gate/](gate/README.md) and the rows
++of [record/](record/README.md) are pure code and load with Clojure alone.
++[module.clj](module.clj), [module/](module/README.md) and the schemas of
++[record/](record/README.md) require Rama.
++
++Each folder's map says what its files are. The sections below are about the
++module as a whole: how a thing passes through these parts, what a gate does not
++check, the decisions and the builders' choices, and the words.
+@@ -45,4 +42,4 @@ Rama.
+-The two gates share the pure code. Both decide with [declaration.clj](declaration.clj),
+-[digest.clj](digest.clj), [decision.clj](decision.clj),
+-[first_act.clj](first_act.clj), [stamp.clj](stamp.clj), [seal.clj](seal.clj) and
+-[record.clj](record.clj). Where what a function gives depends on the gate, it
++The two gates share the pure code. Both decide with [declaration.clj](door/declaration.clj),
++[digest.clj](door/digest.clj), [decision.clj](gate/decision.clj),
++[first_act.clj](gate/first_act.clj), [stamp.clj](gate/stamp.clj), [seal.clj](door/seal.clj) and
++[rows.clj](record/rows.clj). Where what a function gives depends on the gate, it
+@@ -57 +54 @@ The streaming gate takes the thing there, in one event:
+-1. [declaration.clj](declaration.clj) tests it for a stray. A stray gets no
++1. [declaration.clj](door/declaration.clj) tests it for a stray. A stray gets no
+@@ -61,2 +58,2 @@ The streaming gate takes the thing there, in one event:
+-3. [digest.clj](digest.clj) takes the digest of the thing, over its one text
+-   ([text.clj](text.clj)). [declaration.clj](declaration.clj) checks the thing; it
++3. [digest.clj](door/digest.clj) takes the digest of the thing, over its one text
++   ([text.clj](door/text.clj)). [declaration.clj](door/declaration.clj) checks the thing; it
+@@ -64,6 +61,6 @@ The streaming gate takes the thing there, in one event:
+-4. [decision.clj](decision.clj) checks the act against rows that the gate reads
+-   for it: its standing ([first_act.clj](first_act.clj) knows the form of a making
+-   act), its places, its seals ([seal.clj](seal.clj) opens each sealed value).
+-5. [stamp.clj](stamp.clj) gives the stamp. [decision.clj](decision.clj) gives the
+-   rows to write, each made by [record.clj](record.clj), and the gate writes them
+-   to the PStates whose schemas [record_pstates.clj](record_pstates.clj) gives.
++4. [decision.clj](gate/decision.clj) checks the act against rows that the gate reads
++   for it: its standing ([first_act.clj](gate/first_act.clj) knows the form of a making
++   act), its places, its seals ([seal.clj](door/seal.clj) opens each sealed value).
++5. [stamp.clj](gate/stamp.clj) gives the stamp. [decision.clj](gate/decision.clj) gives the
++   rows to write, each made by [rows.clj](record/rows.clj), and the gate writes them
++   to the PStates whose schemas [tables.clj](record/tables.clj) gives.
+@@ -73 +70 @@ puts it on the task of the entity of its first fact
+-([batch.clj](batch.clj) derives it). The rows of a microbatch layer are on
++([batch.clj](gate/batch.clj) derives it). The rows of a microbatch layer are on
+@@ -82 +79 @@ starts:
+-   its number in the batch. [declaration.clj](declaration.clj) tests it for a
++   its number in the batch. [declaration.clj](door/declaration.clj) tests it for a
+@@ -91 +88 @@ starts:
+-   [decision.clj](decision.clj)'s checks in their order. Acts that meet over a
++   [decision.clj](gate/decision.clj)'s checks in their order. Acts that meet over a
+@@ -96,2 +93,2 @@ starts:
+-[batch.clj](batch.clj) holds each pure part of those steps;
+-[microbatch_gate.clj](microbatch_gate.clj) walks them.
++[batch.clj](gate/batch.clj) holds each pure part of those steps;
++[microbatch_gate.clj](module/microbatch_gate.clj) walks them.
+@@ -105 +102 @@ as an act into a layer of the other gate.
+-**The door reads** through [door_reads.clj](door_reads.clj). Each read goes
++**The door reads** through [door_reads.clj](module/door_reads.clj). Each read goes
+@@ -219 +216 @@ The act (6 October): the twelve decisions of "Decisions of 6 October 2026".
+-[declaration.clj](declaration.clj) contains the maker's shapes and does not write
++[declaration.clj](door/declaration.clj) contains the maker's shapes and does not write
+@@ -229,2 +226,2 @@ The store's module (7 October):
+-| F1 A | The class of a layer is a fact on the layer | The row at the layer's own entity under `:class` ([record.clj](record.clj)) |
+-| F4 C | The base is a microbatch layer; every other layer starts streaming | `class-at-making` in [first_act.clj](first_act.clj) |
++| F1 A | The class of a layer is a fact on the layer | The row at the layer's own entity under `:class` ([rows.clj](record/rows.clj)) |
++| F4 C | The base is a microbatch layer; every other layer starts streaming | `class-at-making` in [first_act.clj](gate/first_act.clj) |
+@@ -232 +229 @@ The store's module (7 October):
+-| Q22 A | The door reads an answer from the record by act-id; the ack is a signal | `answer-by-act-id` in [door_reads.clj](door_reads.clj); the streaming gate gives nothing back in the ack, and an ack of the microbatch depot says only that the depot holds the thing |
++| Q22 A | The door reads an answer from the record by act-id; the ack is a signal | `answer-by-act-id` in [door_reads.clj](module/door_reads.clj); the streaming gate gives nothing back in the ack, and an ack of the microbatch depot says only that the depot holds the thing |
+@@ -234 +231 @@ The store's module (7 October):
+-| F8 C | The gate refuses a setting key on an entity that is not the act's layer | Check (f) in [decision.clj](decision.clj); `setting-keys` in [declaration.clj](declaration.clj) |
++| F8 C | The gate refuses a setting key on an entity that is not the act's layer | Check (f) in [decision.clj](gate/decision.clj); `setting-keys` in [declaration.clj](door/declaration.clj) |
+@@ -241,6 +238,6 @@ Who acts, and what the store reads (8 October):
+-| E1·H8 A | The system stands at the top of the base's chain | `system` and `base` in [first_act.clj](first_act.clj) |
+-| K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](first_act.clj) |
+-| E3·H7 B, E4 A, E2 A | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](decision.clj) |
+-| H2 A | A stamp holds the clock time and a counter | [stamp.clj](stamp.clj) |
+-| K1 A | The store's keys are three: the class, a permission, the door's request for locks | `store-keys` in [declaration.clj](declaration.clj) |
+-| H1 | Open. Working answer: a lock for each value | [seal.clj](seal.clj); the lock's row in [record.clj](record.clj) |
++| E1·H8 A | The system stands at the top of the base's chain | `system` and `base` in [first_act.clj](gate/first_act.clj) |
++| K2 | A signed-in user has a personal layer and a permission in it; the person who creates a group makes its layer | The form of a making act in [first_act.clj](gate/first_act.clj) |
++| E3·H7 B, E4 A, E2 A | Permission is a hierarchy that ties back to one person; each actor acts under its own; whoever holds one can give one beneath it | Checks (d) and (g) in [decision.clj](gate/decision.clj) |
++| H2 A | A stamp holds the clock time and a counter | [stamp.clj](gate/stamp.clj) |
++| K1 A | The store's keys are three: the class, a permission, the door's request for locks | `store-keys` in [declaration.clj](door/declaration.clj) |
++| H1 | Open. Working answer: a lock for each value | [seal.clj](door/seal.clj); the lock's row in [rows.clj](record/rows.clj) |
+@@ -299 +296 @@ no mark of its way of sealing: the lock's row holds the number of its way, 1 in
+-this build, and the word for the way lives in [seal.clj](seal.clj). So the way can
++this build, and the word for the way lives in [seal.clj](door/seal.clj). So the way can
+@@ -451 +448 @@ check that examines facts takes them in the act's order.
+-    [digest.clj](digest.clj) is the one function. The gate writes nothing for a
++    [digest.clj](door/digest.clj) is the one function. The gate writes nothing for a
+@@ -486 +483 @@ check that examines facts takes them in the act's order.
+-20. Five numbers in [declaration.clj](declaration.clj), each held by a rule or by
++20. Five numbers in [declaration.clj](door/declaration.clj), each held by a rule or by
+@@ -540,6 +537,10 @@ tools. Whether they get one is Sid's.
+-**Namespaces**, each `softland.store.` and the word: `text`, `digest`,
+-`declaration`, `stamp`, `seal`, `first-act`, `decision`, `record`, `batch`,
+-`record-pstates`, `streaming-gate`, `microbatch-gate`, `door-reads`, `module`.
+-The table of files says what each is. In `act.clj`, one name is a session's:
+-`as-shape`, which gives the act's engine to another namespace. The two proofs
+-are `pure-proof` and `module-proof`.
++**Folders and namespaces.** Four folders: `door`, `gate`, `record`, `module`.
++Each namespace is `softland.store.`, its folder, and the word: `door.text`,
++`door.digest`, `door.declaration`, `door.seal`; `gate.decision`,
++`gate.first-act`, `gate.stamp`, `gate.batch`; `record.rows`, `record.tables`;
++`module.streaming-gate`, `module.microbatch-gate`, `module.door-reads`. Two
++are at the top with no folder: `act` and `module`. "Rows" and "tables" are
++the words for the record's two files: what a gate writes and reads, and the
++PStates that hold it. Each folder's map says what its files are. In `act.clj`,
++one name is a session's: `as-shape`, which gives the act's engine to another
++namespace. The two proofs are `pure-proof` and `module-proof`.
+@@ -643 +644 @@ Its rules, each named for what must hold: `:class-is-the-act-ids-class`,
+-[batch.clj](batch.clj) and the microbatch gate. No reason word and no word of a
++[batch.clj](gate/batch.clj) and the microbatch gate. No reason word and no word of a
+@@ -671 +672 @@ lists above. "Batch" and "attempt" are Rama's words.
+-`#too-deep`, `#unreadable`. [text.clj](text.clj) says what each marks.
++`#too-deep`, `#unreadable`. [text.clj](door/text.clj) says what each marks.
+diff --git a/src-store/softland/store/act.clj b/src-store/softland/store/act.clj
+index efbe3153..dc983de2 100644
+--- a/src-store/softland/store/act.clj
++++ b/src-store/softland/store/act.clj
+@@ -41 +41 @@
+-  Callers. The proof of this namespace. `softland.store.declaration`: the
++  Callers. The proof of this namespace. `softland.store.door.declaration`: the
+@@ -44 +44 @@
+-  reads one; it reads `rules` too. `softland.store.text` asks
++  reads one; it reads `rules` too. `softland.store.door.text` asks
+diff --git a/src-store/softland/store/door/README.md b/src-store/softland/store/door/README.md
+new file mode 100644
+index 00000000..80342188
+--- /dev/null
++++ b/src-store/softland/store/door/README.md
+@@ -0,0 +1,35 @@
++# Door — what arrives on a depot
++
++[Parent: store](../README.md) · [Store source entry](../../../README.md).
++
++This folder holds what the door and the gates must agree on: the form of a thing
++as it arrives on a depot, how a value is sealed to its place, and how a thing is
++given one text and one digest. The door itself is not built; the
++[module's proof](../../../../test-store/softland/store/README.md) plays it by
++hand. A gate checks each thing that arrives against this folder's declaration,
++and the gate is the authority: anything can append to a depot without the door.
++
++All of it is pure code and loads with Clojure alone.
++
++| File | Responsibility | State and lifetime |
++|---|---|---|
++| [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store keys; the limits; the test for a stray; the check. | None. |
++| [seal.clj](seal.clj) | Locks and the seal: a lock's bytes, sealing a value to its place, opening it. | One random source for each process. |
++| [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
++| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text. The door and the gates share it. | None. |
++
++## How the files relate
++
++[text.clj](text.clj) is at the bottom. It requires only [the act](../act.clj),
++for what a value is. [digest.clj](digest.clj) takes the digest of a thing over
++that text, and [seal.clj](seal.clj) binds a sealed value to the text of its
++place. [declaration.clj](declaration.clj) declares what arrives, and reads its
++shapes with the engine of [act.clj](../act.clj); it requires none of the other
++three.
++
++## Boundaries
++
++Nothing here reads the record. Whether a permission stands, whether a replaced
++fact is current and whether a lock opens a sealed value need rows of the record:
++those checks are [gate/](../gate/README.md)'s. Nothing here writes a lock
++anywhere: a gate writes a lock's row, in [module/](../module/README.md).
+diff --git a/src-store/softland/store/declaration.clj b/src-store/softland/store/door/declaration.clj
+similarity index 98%
+rename from src-store/softland/store/declaration.clj
+rename to src-store/softland/store/door/declaration.clj
+index 24fd58c7..c81b8493 100644
+--- a/src-store/softland/store/declaration.clj
++++ b/src-store/softland/store/door/declaration.clj
+@@ -1 +1 @@
+-(ns softland.store.declaration
++(ns softland.store.door.declaration
+@@ -47,2 +47,2 @@
+-  Callers. `softland.store.decision`, `softland.store.record` and the two
+-  gates (`softland.store.streaming-gate`, `softland.store.microbatch-gate`).
++  Callers. `softland.store.gate.decision`, `softland.store.record.rows` and the two
++  gates (`softland.store.module.streaming-gate`, `softland.store.module.microbatch-gate`).
+@@ -53 +53 @@
+-  record, and are `softland.store.decision`'s. A grammar check is not built."
++  record, and are `softland.store.gate.decision`'s. A grammar check is not built."
+diff --git a/src-store/softland/store/digest.clj b/src-store/softland/store/door/digest.clj
+similarity index 91%
+rename from src-store/softland/store/digest.clj
+rename to src-store/softland/store/door/digest.clj
+index 675eb24a..46be801f 100644
+--- a/src-store/softland/store/digest.clj
++++ b/src-store/softland/store/door/digest.clj
+@@ -1 +1 @@
+-(ns softland.store.digest
++(ns softland.store.door.digest
+@@ -19 +19 @@
+-  bytes. The one text of the thing (`softland.store.text`) is fed to the
++  bytes. The one text of the thing (`softland.store.door.text`) is fed to the
+@@ -31 +31 @@
+-  (:require [softland.store.text :as text])
++  (:require [softland.store.door.text :as text])
+@@ -43 +43 @@
+-  the digest of the text #unreadable, as `softland.store.text/text` gives
++  the digest of the text #unreadable, as `softland.store.door.text/text` gives
+diff --git a/src-store/softland/store/seal.clj b/src-store/softland/store/door/seal.clj
+similarity index 98%
+rename from src-store/softland/store/seal.clj
+rename to src-store/softland/store/door/seal.clj
+index ebeb0124..8d5c43ed 100644
+--- a/src-store/softland/store/seal.clj
++++ b/src-store/softland/store/door/seal.clj
+@@ -1 +1 @@
+-(ns softland.store.seal
++(ns softland.store.door.seal
+@@ -56 +56 @@
+-  (:require [softland.store.text :as text])
++  (:require [softland.store.door.text :as text])
+diff --git a/src-store/softland/store/text.clj b/src-store/softland/store/door/text.clj
+similarity index 96%
+rename from src-store/softland/store/text.clj
+rename to src-store/softland/store/door/text.clj
+index 9ad7f5d5..b405cad8 100644
+--- a/src-store/softland/store/text.clj
++++ b/src-store/softland/store/door/text.clj
+@@ -1 +1 @@
+-(ns softland.store.text
++(ns softland.store.door.text
+@@ -6 +6 @@
+-  (`softland.store.digest`), so that the door and a gate get one digest for
++  (`softland.store.door.digest`), so that the door and a gate get one digest for
+@@ -8,2 +8,2 @@
+-  bytes of this text (`softland.store.record`). The place that a seal is
+-  bound to is the bytes of this text (`softland.store.seal`).
++  bytes of this text (`softland.store.record.rows`). The place that a seal is
++  bound to is the bytes of this text (`softland.store.door.seal`).
+@@ -214 +214 @@
+-  `softland.store.digest/digest` turn a throw into #unreadable."
++  `softland.store.door.digest/digest` turn a throw into #unreadable."
+diff --git a/src-store/softland/store/gate/README.md b/src-store/softland/store/gate/README.md
+new file mode 100644
+index 00000000..3c84dcba
+--- /dev/null
++++ b/src-store/softland/store/gate/README.md
+@@ -0,0 +1,36 @@
++# Gate — the decision, as pure code
++
++[Parent: store](../README.md) · [Store source entry](../../../README.md).
++
++This folder holds what a gate decides with: the checks of one act against rows
++of the record, the form of a layer's first act, the stamp, and the steps of one
++batch of the microbatch gate. It is pure code and loads with Clojure alone.
++
++No function here reads a PState, a clock or a random source. A gate reads the
++rows, calls these functions, and writes what they give. So the same checks serve
++both gates, each gives the same answer when Rama runs the work again, and each is
++proven without a cluster.
++
++The two gates themselves, the topologies that read and write the record, are in
++[module/](../module/README.md).
++
++| File | Responsibility | State and lifetime |
++|---|---|---|
++| [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data. | None. It reads no PState. |
++| [first_act.clj](first_act.clj) | The class that a layer starts with, and the form of a making act. | None. |
++| [stamp.clj](stamp.clj) | The stamp: clock time and a counter in one integer, the next stamp, the 10-second rule. | None. It reads no clock. |
++| [batch.clj](batch.clj) | The pure code of one batch of the microbatch gate: what the depot derives from a thing, the turn of a thing, what an act asks of other tasks and what they reply, which acts meet, the decision of an act with its rows in hand, the home of each row. | None. It reads no PState. |
++
++## How the files relate
++
++[decision.clj](decision.clj) holds each check. It asks
++[first_act.clj](first_act.clj) whether an act has the form of a making act, and
++[stamp.clj](stamp.clj) for the stamp of a decision. [batch.clj](batch.clj) adds
++no check: it puts the things of a batch in one order and calls
++[decision.clj](decision.clj) on one act with all its rows in hand.
++
++## What it borrows
++
++The form of what arrived, and the opening of a sealed value, are
++[door/](../door/README.md)'s. Each row that a check reads or a decision writes is
++made by [record/](../record/README.md).
+diff --git a/src-store/softland/store/batch.clj b/src-store/softland/store/gate/batch.clj
+similarity index 97%
+rename from src-store/softland/store/batch.clj
+rename to src-store/softland/store/gate/batch.clj
+index e1a3afa3..3977d0aa 100644
+--- a/src-store/softland/store/batch.clj
++++ b/src-store/softland/store/gate/batch.clj
+@@ -1 +1 @@
+-(ns softland.store.batch
++(ns softland.store.gate.batch
+@@ -7 +7 @@
+-  The gate (`softland.store.microbatch-gate`) only reads rows, calls these
++  The gate (`softland.store.module.microbatch-gate`) only reads rows, calls these
+@@ -10 +10 @@
+-  check is `softland.store.decision`'s, called with the class :microbatch
++  check is `softland.store.gate.decision`'s, called with the class :microbatch
+@@ -65 +65 @@
+-  Callers. `softland.store.microbatch-gate`, and `softland.store.module`
++  Callers. `softland.store.module.microbatch-gate`, and `softland.store.module`
+@@ -67,5 +67,5 @@
+-  (:require [softland.store.decision :as decision]
+-            [softland.store.digest :as digest]
+-            [softland.store.first-act :as first-act]
+-            [softland.store.record :as record]
+-            [softland.store.stamp :as stamp]))
++  (:require [softland.store.gate.decision :as decision]
++            [softland.store.door.digest :as digest]
++            [softland.store.gate.first-act :as first-act]
++            [softland.store.record.rows :as record]
++            [softland.store.gate.stamp :as stamp]))
+@@ -230 +230 @@
+-                `softland.store.decision/lock-ranges` gives, and the indexes
++                `softland.store.gate.decision/lock-ranges` gives, and the indexes
+@@ -274 +274 @@
+-  `softland.store.declaration/check` gave for it, as the act or nil and the
++  `softland.store.door.declaration/check` gave for it, as the act or nil and the
+@@ -562 +562 @@
+-  `softland.store.decision/writes` gave. Gives a vector of rows, each
++  `softland.store.gate.decision/writes` gave. Gives a vector of rows, each
+@@ -610 +610 @@
+-  `softland.store.decision` in their order: the 10-second rule, the
++  `softland.store.gate.decision` in their order: the 10-second rule, the
+diff --git a/src-store/softland/store/decision.clj b/src-store/softland/store/gate/decision.clj
+similarity index 97%
+rename from src-store/softland/store/decision.clj
+rename to src-store/softland/store/gate/decision.clj
+index 7addab9f..986b90fe 100644
+--- a/src-store/softland/store/decision.clj
++++ b/src-store/softland/store/gate/decision.clj
+@@ -1 +1 @@
+-(ns softland.store.decision
++(ns softland.store.gate.decision
+@@ -11,2 +11,2 @@
+-  (`softland.store.declaration/check`). A row is a row of the record
+-  (`softland.store.record`), or nil for a key that holds none. Each check
++  (`softland.store.door.declaration/check`). A row is a row of the record
++  (`softland.store.record.rows`), or nil for a key that holds none. Each check
+@@ -66,5 +66,5 @@
+-  (:require [softland.store.declaration :as declaration]
+-            [softland.store.first-act :as first-act]
+-            [softland.store.record :as record]
+-            [softland.store.seal :as seal]
+-            [softland.store.stamp :as stamp]))
++  (:require [softland.store.door.declaration :as declaration]
++            [softland.store.gate.first-act :as first-act]
++            [softland.store.record.rows :as record]
++            [softland.store.door.seal :as seal]
++            [softland.store.gate.stamp :as stamp]))
+@@ -76 +76 @@
+-  milliseconds; and what `softland.store.declaration/check` gave for the
++  milliseconds; and what `softland.store.door.declaration/check` gave for the
+diff --git a/src-store/softland/store/first_act.clj b/src-store/softland/store/gate/first_act.clj
+similarity index 97%
+rename from src-store/softland/store/first_act.clj
+rename to src-store/softland/store/gate/first_act.clj
+index 3cab04c1..81daeacc 100644
+--- a/src-store/softland/store/first_act.clj
++++ b/src-store/softland/store/gate/first_act.clj
+@@ -1 +1 @@
+-(ns softland.store.first-act
++(ns softland.store.gate.first-act
+@@ -34 +34 @@
+-  caller's question (`softland.store.decision/standing`).")
++  caller's question (`softland.store.gate.decision/standing`).")
+diff --git a/src-store/softland/store/stamp.clj b/src-store/softland/store/gate/stamp.clj
+similarity index 99%
+rename from src-store/softland/store/stamp.clj
+rename to src-store/softland/store/gate/stamp.clj
+index 0de0789d..e90f7a75 100644
+--- a/src-store/softland/store/stamp.clj
++++ b/src-store/softland/store/gate/stamp.clj
+@@ -1 +1 @@
+-(ns softland.store.stamp
++(ns softland.store.gate.stamp
+diff --git a/src-store/softland/store/module.clj b/src-store/softland/store/module.clj
+index ed1ca0d0..61fa8808 100644
+--- a/src-store/softland/store/module.clj
++++ b/src-store/softland/store/module.clj
+@@ -28,3 +28,3 @@
+-  record: the streaming gate (`softland.store.streaming-gate`) those of the
+-  streaming layers, the microbatch gate (`softland.store.microbatch-gate`)
+-  those of the microbatch layers. The queries (`softland.store.door-reads`)
++  record: the streaming gate (`softland.store.module.streaming-gate`) those of the
++  streaming layers, the microbatch gate (`softland.store.module.microbatch-gate`)
++  those of the microbatch layers. The queries (`softland.store.module.door-reads`)
+@@ -49 +49 @@
+-  first fact (`softland.store.batch/first-entity`). A microbatch layer's
++  first fact (`softland.store.gate.batch/first-entity`). A microbatch layer's
+@@ -67,4 +67,4 @@
+-            [softland.store.batch :as batch]
+-            [softland.store.door-reads :as door-reads]
+-            [softland.store.microbatch-gate :as microbatch-gate]
+-            [softland.store.streaming-gate :as streaming-gate]))
++            [softland.store.gate.batch :as batch]
++            [softland.store.module.door-reads :as door-reads]
++            [softland.store.module.microbatch-gate :as microbatch-gate]
++            [softland.store.module.streaming-gate :as streaming-gate]))
+diff --git a/src-store/softland/store/module/README.md b/src-store/softland/store/module/README.md
+new file mode 100644
+index 00000000..600d1983
+--- /dev/null
++++ b/src-store/softland/store/module/README.md
+@@ -0,0 +1,28 @@
++# Module — what runs in Rama
++
++[Parent: store](../README.md) · [Store source entry](../../../README.md).
++
++This folder holds the topologies of the store's module: the two gates, and the
++three reads by which the door reads the module. Each file requires Rama.
++[module.clj](../module.clj), one folder up, declares the module `Store` and its
++two depots, and calls each of these files to add itself.
++
++| File | Responsibility | State and lifetime |
++|---|---|---|
++| [streaming_gate.clj](streaming_gate.clj) | The stream topology `streaming-gate` and the dataflow of one event. | It owns the four PStates of the streaming record, durable in the cluster. It borrows two PStates of the microbatch gate to read. Nothing in the memory of a process. |
++| [microbatch_gate.clj](microbatch_gate.clj) | The microbatch topology `microbatch-gate` and the dataflow of one batch, in four steps. | It owns the four PStates of the microbatch record, durable in the cluster. It borrows one PState of the streaming gate to read. Three temporary PStates of Rama live for one attempt of one batch. Nothing in the memory of a process. |
++| [door_reads.clj](door_reads.clj) | The three query topologies, for layers of both classes: the answer by act-id, the locks of a request, the class of a layer. | None. It borrows the two gates' PStates to read. |
++
++## How the files relate
++
++Each gate's dataflow only reads rows, calls pure functions and writes rows. The
++checks are [gate/](../gate/README.md)'s, the form of what arrived is
++[door/](../door/README.md)'s, and each row and each schema is
++[record/](../record/README.md)'s.
++
++Each gate reads one thing of the other gate's record: whether it holds a layer
++of which its own record holds nothing. The reads borrow both gates' PStates, and
++they write nothing.
++
++The walk of a thing through each gate, what the gates do not check, and the
++builders' choices are in [the store's map](../README.md).
+diff --git a/src-store/softland/store/door_reads.clj b/src-store/softland/store/module/door_reads.clj
+similarity index 92%
+rename from src-store/softland/store/door_reads.clj
+rename to src-store/softland/store/module/door_reads.clj
+index 5adb0556..0469b838 100644
+--- a/src-store/softland/store/door_reads.clj
++++ b/src-store/softland/store/module/door_reads.clj
+@@ -5 +5 @@
+-(ns softland.store.door-reads
++(ns softland.store.module.door-reads
+@@ -14 +14 @@
+-        digest of what it sent (`softland.store.digest/is-digest-of?`), and
++        digest of what it sent (`softland.store.door.digest/is-digest-of?`), and
+@@ -26 +26 @@
+-        (`softland.store.record/locks-by-index-used-without-bytes`).
++        (`softland.store.record.rows/locks-by-index-used-without-bytes`).
+@@ -30 +30 @@
+-  The routing id is `softland.store.record/routing-id` of the act-id: the
++  The routing id is `softland.store.record.rows/routing-id` of the act-id: the
+@@ -42 +42 @@
+-  `:closed-through` of its task (`softland.store.record/closed?`). Rama can
++  `:closed-through` of its task (`softland.store.record.rows/closed?`). Rama can
+@@ -61 +61 @@
+-  starts with (`softland.store.first-act/class-at-making`): no act of this
++  starts with (`softland.store.gate.first-act/class-at-making`): no act of this
+@@ -64 +64 @@
+-  The head of each query. `softland.store.record`'s
++  The head of each query. `softland.store.record.rows`'s
+@@ -79,2 +79,2 @@
+-            [softland.store.first-act :as first-act]
+-            [softland.store.record :as record]))
++            [softland.store.gate.first-act :as first-act]
++            [softland.store.record.rows :as record]))
+diff --git a/src-store/softland/store/microbatch_gate.clj b/src-store/softland/store/module/microbatch_gate.clj
+similarity index 94%
+rename from src-store/softland/store/microbatch_gate.clj
+rename to src-store/softland/store/module/microbatch_gate.clj
+index 7303659c..9b838122 100644
+--- a/src-store/softland/store/microbatch_gate.clj
++++ b/src-store/softland/store/module/microbatch_gate.clj
+@@ -4 +4 @@
+-(ns softland.store.microbatch-gate
++(ns softland.store.module.microbatch-gate
+@@ -18,2 +18,2 @@
+-  schemas are `softland.store.record-pstates`'s and their rows
+-  `softland.store.record`'s. They are durable state of the cluster. It
++  schemas are `softland.store.record.tables`'s and their rows
++  `softland.store.record.rows`'s. They are durable state of the cluster. It
+@@ -34,2 +34,2 @@
+-  rows. The pure code of a batch is `softland.store.batch`'s; the checks are
+-  `softland.store.declaration`'s and `softland.store.decision`'s, the same
++  rows. The pure code of a batch is `softland.store.gate.batch`'s; the checks are
++  `softland.store.door.declaration`'s and `softland.store.gate.decision`'s, the same
+@@ -88 +88 @@
+-  is not later than it (`softland.store.record/closed?`). Step 2 of each run
++  is not later than it (`softland.store.record.rows/closed?`). Step 2 of each run
+@@ -121,7 +121,7 @@
+-            [softland.store.batch :as batch]
+-            [softland.store.decision :as decision]
+-            [softland.store.declaration :as declaration]
+-            [softland.store.digest :as digest]
+-            [softland.store.record :as record]
+-            [softland.store.record-pstates :as record-pstates]
+-            [softland.store.seal :as seal])
++            [softland.store.gate.batch :as batch]
++            [softland.store.gate.decision :as decision]
++            [softland.store.door.declaration :as declaration]
++            [softland.store.door.digest :as digest]
++            [softland.store.record.rows :as record]
++            [softland.store.record.tables :as record-pstates]
++            [softland.store.door.seal :as seal])
+@@ -132 +132 @@
+-  over `softland.store.batch/gather`. A combiner, so that each task puts its
++  over `softland.store.gate.batch/gather`. A combiner, so that each task puts its
+@@ -202 +202 @@
+-  [which key row] as `softland.store.batch` gives it. For :new-lock it makes
++  [which key row] as `softland.store.gate.batch` gives it. For :new-lock it makes
+diff --git a/src-store/softland/store/streaming_gate.clj b/src-store/softland/store/module/streaming_gate.clj
+similarity index 93%
+rename from src-store/softland/store/streaming_gate.clj
+rename to src-store/softland/store/module/streaming_gate.clj
+index 497abc3c..bc253cb9 100644
+--- a/src-store/softland/store/streaming_gate.clj
++++ b/src-store/softland/store/module/streaming_gate.clj
+@@ -4 +4 @@
+-(ns softland.store.streaming-gate
++(ns softland.store.module.streaming-gate
+@@ -15,2 +15,2 @@
+-  and `$$streaming-task`. Their schemas are `softland.store.record-pstates`'s
+-  and their rows `softland.store.record`'s. They are durable state of the
++  and `$$streaming-task`. Their schemas are `softland.store.record.tables`'s
++  and their rows `softland.store.record.rows`'s. They are durable state of the
+@@ -26,3 +26,3 @@
+-  `softland.store.declaration`'s, the checks against the record are
+-  `softland.store.decision`'s, and each row comes from
+-  `softland.store.record`. None of them throws, so no thing can stop a
++  `softland.store.door.declaration`'s, the checks against the record are
++  `softland.store.gate.decision`'s, and each row comes from
++  `softland.store.record.rows`. None of them throws, so no thing can stop a
+@@ -89 +89 @@
+-  cost in throughput; the folder's README names it.
++  cost in throughput; the store's map, one folder up, names it.
+@@ -94 +94 @@
+-  record; the folder's README says what follows.
++  record; the store's map, one folder up, says what follows.
+@@ -103,7 +103,7 @@
+-            [softland.store.decision :as decision]
+-            [softland.store.declaration :as declaration]
+-            [softland.store.digest :as digest]
+-            [softland.store.first-act :as first-act]
+-            [softland.store.record :as record]
+-            [softland.store.record-pstates :as record-pstates]
+-            [softland.store.seal :as seal]))
++            [softland.store.gate.decision :as decision]
++            [softland.store.door.declaration :as declaration]
++            [softland.store.door.digest :as digest]
++            [softland.store.gate.first-act :as first-act]
++            [softland.store.record.rows :as record]
++            [softland.store.record.tables :as record-pstates]
++            [softland.store.door.seal :as seal]))
+@@ -116 +116 @@
+-  (`softland.store.record/closed?`). A row of a batch that is not closed
++  (`softland.store.record.rows/closed?`). A row of a batch that is not closed
+diff --git a/src-store/softland/store/record/README.md b/src-store/softland/store/record/README.md
+new file mode 100644
+index 00000000..34fde595
+--- /dev/null
++++ b/src-store/softland/store/record/README.md
+@@ -0,0 +1,27 @@
++# Record — what the gates keep
++
++[Parent: store](../README.md) · [Store source entry](../../../README.md).
++
++This folder says what the record is made of: its rows, and the schemas of the
++PStates that hold them. It holds no record and it declares nothing. Each gate
++declares its own PStates with these schemas, because in Rama only the topology
++that owns a PState can write it. Those PStates are durable state of the cluster,
++and they are owned in [module/](../module/README.md).
++
++| File | Responsibility | State and lifetime |
++|---|---|---|
++| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the routing id of an act-id, and the test of what a caller gave a read. Pure code; it loads with Clojure alone. | None. It holds no record. |
++| [tables.clj](tables.clj) | The record as PStates: the schemas, written once, and what each gate keeps for a task. It requires Rama. | None. It declares nothing. |
++
++## How the files relate
++
++[rows.clj](rows.clj) makes each row and reads each row. [tables.clj](tables.clj)
++gives the schemas, which take exactly the classes that those rows hold. A row of
++another class throws at the write, and a throw in a topology stops its
++partition; so a gate writes no row that [rows.clj](rows.clj) did not make.
++Neither file requires the other.
++
++## What it borrows
++
++A row's key is made of the printed texts of its ids, and a plain value is kept
++as the bytes of its one text. Both are [door/](../door/README.md)'s.
+diff --git a/src-store/softland/store/record.clj b/src-store/softland/store/record/rows.clj
+similarity index 97%
+rename from src-store/softland/store/record.clj
+rename to src-store/softland/store/record/rows.clj
+index 9582ca87..d4337f50 100644
+--- a/src-store/softland/store/record.clj
++++ b/src-store/softland/store/record/rows.clj
+@@ -1 +1 @@
+-(ns softland.store.record
++(ns softland.store.record.rows
+@@ -5 +5 @@
+-  (`softland.store.record-pstates`), and a gate reads and writes it.
++  (`softland.store.record.tables`), and a gate reads and writes it.
+@@ -81,2 +81,2 @@
+-  Callers. `softland.store.decision`, `softland.store.batch`, the two gates,
+-  and `softland.store.door-reads`. The proof's hand calls `routing-id` and
++  Callers. `softland.store.gate.decision`, `softland.store.gate.batch`, the two gates,
++  and `softland.store.module.door-reads`. The proof's hand calls `routing-id` and
+@@ -85,2 +85,2 @@
+-            [softland.store.declaration :as declaration]
+-            [softland.store.text :as text])
++            [softland.store.door.declaration :as declaration]
++            [softland.store.door.text :as text])
+@@ -229 +229 @@
+-  "Takes a lock's row. Gives the lock as `softland.store.seal` takes one, and
++  "Takes a lock's row. Gives the lock as `softland.store.door.seal` takes one, and
+diff --git a/src-store/softland/store/record_pstates.clj b/src-store/softland/store/record/tables.clj
+similarity index 95%
+rename from src-store/softland/store/record_pstates.clj
+rename to src-store/softland/store/record/tables.clj
+index 0308d5fb..a6f36d6d 100644
+--- a/src-store/softland/store/record_pstates.clj
++++ b/src-store/softland/store/record/tables.clj
+@@ -1 +1 @@
+-(ns softland.store.record-pstates
++(ns softland.store.record.tables
+@@ -11 +11 @@
+-  `softland.store.record`, which makes and reads the rows. Here is why each
++  `softland.store.record.rows`, which makes and reads the rows. Here is why each
+@@ -54 +54 @@
+-  routes by that part. `softland.store.record` says it row by row.
++  routes by that part. `softland.store.record.rows` says it row by row.
+@@ -59 +59 @@
+-  the rows are made only by `softland.store.record`.
++  the rows are made only by `softland.store.record.rows`.
+@@ -62 +62 @@
+-  keys are the words of `softland.store.declaration/stray-reasons`, a closed
++  keys are the words of `softland.store.door.declaration/stray-reasons`, a closed
+diff --git a/test-store/softland/store/README.md b/test-store/softland/store/README.md
+index 16c656e6..27d9bee7 100644
+--- a/test-store/softland/store/README.md
++++ b/test-store/softland/store/README.md
+@@ -120 +120 @@ content. What it checks, group by group:
+-    of their turns, by the checks of `softland.store.decision` in their order. One
++    of their turns, by the checks of `softland.store.gate.decision` in their order. One
+diff --git a/test-store/softland/store/module_proof.clj b/test-store/softland/store/module_proof.clj
+index 1d00714a..fd55ab43 100644
+--- a/test-store/softland/store/module_proof.clj
++++ b/test-store/softland/store/module_proof.clj
+@@ -60,3 +60,3 @@
+-            [softland.store.declaration :as declaration]
+-            [softland.store.digest :as digest]
+-            [softland.store.first-act :as first-act]
++            [softland.store.door.declaration :as declaration]
++            [softland.store.door.digest :as digest]
++            [softland.store.gate.first-act :as first-act]
+@@ -64,4 +64,4 @@
+-            [softland.store.record :as record]
+-            [softland.store.seal :as seal]
+-            [softland.store.stamp :as stamp]
+-            [softland.store.text :as text])
++            [softland.store.record.rows :as record]
++            [softland.store.door.seal :as seal]
++            [softland.store.gate.stamp :as stamp]
++            [softland.store.door.text :as text])
+diff --git a/test-store/softland/store/pure_proof.clj b/test-store/softland/store/pure_proof.clj
+index 2e980b69..41d46562 100644
+--- a/test-store/softland/store/pure_proof.clj
++++ b/test-store/softland/store/pure_proof.clj
+@@ -20 +20 @@
+-  The batch. Beside the cases of each function of `softland.store.batch`,
++  The batch. Beside the cases of each function of `softland.store.gate.batch`,
+@@ -26 +26 @@
+-  the checks of `softland.store.decision` in their order.
++  the checks of `softland.store.gate.decision` in their order.
+@@ -39,9 +39,9 @@
+-            [softland.store.batch :as batch]
+-            [softland.store.decision :as decision]
+-            [softland.store.declaration :as declaration]
+-            [softland.store.digest :as digest]
+-            [softland.store.first-act :as first-act]
+-            [softland.store.record :as record]
+-            [softland.store.seal :as seal]
+-            [softland.store.stamp :as stamp]
+-            [softland.store.text :as text])
++            [softland.store.gate.batch :as batch]
++            [softland.store.gate.decision :as decision]
++            [softland.store.door.declaration :as declaration]
++            [softland.store.door.digest :as digest]
++            [softland.store.gate.first-act :as first-act]
++            [softland.store.record.rows :as record]
++            [softland.store.door.seal :as seal]
++            [softland.store.gate.stamp :as stamp]
++            [softland.store.door.text :as text])
+@@ -1696 +1696 @@
+-  functions of `softland.store.batch` and none of Rama: the four steps, each
++  functions of `softland.store.gate.batch` and none of Rama: the four steps, each
+@@ -1767 +1767 @@
+-  against one flat record, with the checks of `softland.store.decision` in
++  against one flat record, with the checks of `softland.store.gate.decision` in

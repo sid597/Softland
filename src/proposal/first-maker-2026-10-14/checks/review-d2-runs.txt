@@ -1,0 +1,158 @@
+# Runs behind review-d2-own-thinking.md (the reviewer of decision 2, Opus 5.5, max effort; 15 October 2026, HEAD c90c7bcc).
+# A transcript, not code of the project: each block is the command as run from the repository root, then what it printed.
+# Every blob is read at HEAD through git; src/app/server/env.clj and any runs/raw- file are excluded by name (neither is tracked at HEAD).
+
+## Run A: bytes of the tracked .clj/.cljc/.md files by top folder, and the history's size
+git ls-tree -r -l HEAD | awk -F'\t' '{split($1,m," "); size=m[4]; path=$2; if (path ~ /\.(clj|cljc|md)$/) {split(path,a,"/"); top=a[1]; s[top]+=size; n[top]++; t+=size; c++}} END {for (k in s) printf "%s\t%d files\t%.2f MB\n", k, n[k], s[k]/1048576; printf "TOTAL\t%d files\t%.2f MB\n", c, t/1048576}' | sort -t$'\t' -k3 -g -r | head -8
+TOTAL	2186 files	49.03 MB
+history	976 files	26.87 MB
+src	442 files	11.63 MB
+snapshots	195 files	4.31 MB
+test-store	13 files	1.31 MB
+test	78 files	1.23 MB
+reference	52 files	1.05 MB
+src-store	35 files	0.68 MB
+git rev-list --count HEAD; git log --format= --name-only HEAD | grep -cE '\.(clj|cljc|md)$'
+1858
+8389
+
+## Run B: the code files: sizes, top-level forms per file (a line heuristic, not a reader), and whether ns/name keywords would serve as ids
+clojure -M:store -e "<the prelude below, then the body below>"
+;; prelude (also used by runs C)
+(require '[clojure.string :as str] '[softland.store.act :as act])
+(import '[java.lang ProcessBuilder] '[java.io BufferedInputStream])
+(defn sh-lines [& args] (let [p (.start (ProcessBuilder. ^java.util.List (vec args)))] (str/split-lines (slurp (.getInputStream p)))))
+(def paths (->> (sh-lines "git" "ls-tree" "-r" "--name-only" "HEAD")
+                (filter #(re-find #"\.(clj|cljc|md)$" %))
+                (remove #(re-find #"(^|/)env\.clj$" %))
+                (remove #(re-find #"/runs/raw-" %))))
+(defn read-all [paths]
+  (let [p (.start (ProcessBuilder. ^java.util.List ["git" "cat-file" "--batch"]))
+        out (.getOutputStream p)
+        in (BufferedInputStream. (.getInputStream p))]
+    (future (with-open [w (clojure.java.io/writer out)] (doseq [x paths] (.write w (str "HEAD:" x "\n")))))
+    (doall (for [x paths]
+      (let [hdr (loop [sb (StringBuilder.)] (let [c (.read in)] (if (= c 10) (str sb) (recur (.append sb (char c))))))
+            size (Long/parseLong (last (str/split hdr #" ")))
+            buf (byte-array size)]
+        (loop [off 0] (when (< off size) (recur (+ off (.read in buf off (- size off))))))
+        (.read in)
+        [x (String. buf "UTF-8")])))))
+(def texts (into {} (read-all paths)))
+(defn utf8 [^String s] (alength (.getBytes s "UTF-8")))
+;; body
+(println "files" (count paths) "| over 65536 bytes:" (count (filter #(> (utf8 (texts %)) 65536) paths)) "| largest:" (apply max (map #(utf8 (texts %)) paths)))
+;; HEURISTIC: a top-level form starts at a line that begins with ( or #?( ; a form runs to the next such line
+(def code (filter #(re-find #"\.cljc?$" %) paths))
+(defn forms [text]
+  (let [lines (vec (str/split text #"\n" -1))
+        starts (keep-indexed (fn [i l] (when (re-find #"^(\(|#\?@?\()" l) i)) lines)
+        ends (concat (rest starts) [(count lines)])]
+    (map (fn [s e] (str/join "\n" (subvec lines s e))) starts ends)))
+(def fs (for [x code] (let [f (forms (texts x))] {:path x :n (count f) :max (if (seq f) (apply max (map utf8 f)) 0)})))
+(println "code files" (count code) "| top-level forms" (reduce + (map :n fs)) "| most in one file" (apply max (map :n fs)))
+(println "files with more than 63 forms:" (count (filter #(> (:n %) 63) fs)) "| more than 85:" (count (filter #(> (:n %) 85) fs)) "| more than 255:" (count (filter #(> (:n %) 255) fs)))
+(println "largest one form, bytes:" (apply max (map :max fs)) "| forms over 65536:" (count (filter #(> (:max %) 65536) fs)) "| in" (:path (apply max-key :max fs)))
+(defn ns-of [text] (second (re-find #"(?m)^\(ns\s+(?:\^\S+\s+)*([^\s\)]+)" text)))
+(def defheads #{"def" "defn" "defn-" "defmacro" "defmulti" "defmethod" "defprotocol" "defrecord" "deftype" "defonce" "e/defn" "deftest" "definterface"})
+(defn skip-map [^String r] (loop [i 1 d 1] (cond (>= i (count r)) nil (= (.charAt r i) \{) (recur (inc i) (inc d)) (= (.charAt r i) \}) (if (= d 1) (subs r (inc i)) (recur (inc i) (dec d))) :else (recur (inc i) d))))
+(defn name-after-head [f]
+  (when-let [[_ head rest] (re-find #"(?s)^\((\S+)\s+(.*)" f)]
+    (let [rest (loop [r rest n 0] (cond (> n 5) r
+                                        (str/starts-with? r "^{") (if-let [s (skip-map (subs r 1))] (recur (str/triml s) (inc n)) "")
+                                        (re-find #"^\^\S+\s" r) (recur (str/triml (str/replace-first r #"^\^\S+" "")) (inc n))
+                                        :else r))]
+      [head (re-find #"^[^\s\)\]\}\(\[\"]+" rest)])))
+(def named (for [x code :let [t (texts x) n (ns-of t)] f (forms t) :let [[head nm] (name-after-head f)] :when (and head (defheads head) nm)]
+             {:path x :ns n :head head :name nm :kw (when n (keyword n nm))}))
+(def with-ns (filter :kw named))
+(println "named def-like forms" (count named) "| in files with an ns form" (count with-ns) "| files with no ns form" (count (remove #(ns-of (texts %)) code)))
+(println "ns/name keywords that fail readable-keyword?:" (count (remove #(act/readable-keyword? (:kw %)) with-ns)) "| their namespaces:" (set (map :ns (remove #(act/readable-keyword? (:kw %)) with-ns))) "| over 256 characters:" (count (filter #(> (count (str (:kw %))) 256) with-ns)))
+(println "same ns/name twice in one file:" (map (fn [[k v]] [(second k) (map :head v)]) (->> with-ns (group-by (juxt :path :kw)) (filter #(> (count (val %)) 1)))))
+(def cross (->> with-ns (group-by :kw) (filter #(> (count (set (map :path (val %)))) 1))))
+(println "same ns/name in two or more files:" (count cross) "| namespaces:" (sort (set (map (comp namespace key) cross))) "| e.g." (first (map (fn [[k v]] [k (sort (set (map :path v)))]) cross)))
+;; printed:
+files 2186 | over 65536 bytes: 129 | largest: 6275453
+code files 414 | top-level forms 10059 | most in one file 224
+files with more than 63 forms: 29 | more than 85: 20 | more than 255: 0
+largest one form, bytes: 53173 | forms over 65536: 0 | in src/app/server/rama/object_container.clj
+named def-like forms 9131 | in files with an ns form 9017 | files with no ns form 22
+ns/name keywords that fail readable-keyword?: 29 | their namespaces: #{"} | over 256 characters: 0
+same ns/name twice in one file: ([:softland.store.read-path/print-method (defmethod defmethod)] [:softland.store.read-path/print-dup (defmethod defmethod)])
+same ns/name in two or more files: 20 | namespaces: (probe.cost probe.fail probe.gate probe.order probe.util) | e.g. [:probe.util/say (src/proposal/backend-on-rama-2026-10-02/before-real-data/plan-probes-answers-in-a-log/src/probe/util.clj src/proposal/backend-on-rama-2026-10-02/before-real-data/stream-probe/src/probe/util.clj src/proposal/backend-on-rama-2026-10-02/reads/batch-probe/src/probe/util.clj)]
+
+;; note on Run B: the 29 keywords that fail have the namespace " : the heuristic read (ns ^{:doc "... in reference/electric/source/incseq.cljc as a namespace named \". They are an artifact of the heuristic, not names that fail.
+
+## Run C: the markdown files: headings per file, the size of each piece when cut at every heading, and repeated headings (a line heuristic)
+clojure -M:store -e "<the prelude of Run B, then this body>"
+;; HEURISTIC: a heading is a line of 1-6 # outside ``` or ~~~ fences; a leaf section runs from a heading to the next heading of any level
+(def md (filter #(re-find #"\.md$" %) paths))
+(defn headings [text]
+  (let [lines (vec (str/split text #"\n" -1))]
+    (loop [i 0 fence false out []]
+      (if (>= i (count lines)) {:lines lines :hs out}
+        (let [l (lines i)]
+          (cond (re-find #"^\s{0,3}(```|~~~)" l) (recur (inc i) (not fence) out)
+                fence (recur (inc i) fence out)
+                :else (if-let [[_ hs t] (re-find #"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$" l)]
+                        (recur (inc i) fence (conj out {:i i :level (count hs) :title t}))
+                        (recur (inc i) fence out))))))))
+(def stats (for [x md :let [{:keys [lines hs]} (headings (texts x))
+                            starts (map :i hs) ends (concat (rest starts) [(count lines)])
+                            leaf (map (fn [s e] (utf8 (str/join "\n" (subvec lines s e)))) starts ends)
+                            pre (if (seq hs) (utf8 (str/join "\n" (subvec lines 0 (first starts)))) (utf8 (texts x)))
+                            hpaths (loop [hs hs stack [] out []] (if-let [h (first hs)] (let [st (conj (vec (remove #(>= (:level %) (:level h)) stack)) h)] (recur (rest hs) st (conj out (mapv :title st)))) out))]]
+             {:path x :n (count hs) :maxleaf (if (seq leaf) (apply max leaf) 0) :pre pre :size (utf8 (texts x))
+              :dup-title (- (count hs) (count (set (map :title hs)))) :dup-path (- (count hpaths) (count (set hpaths)))}))
+(println "md files" (count stats) "| with no heading:" (count (filter #(zero? (:n %)) stats)) "| headings:" (reduce + (map :n stats)) "| most in one file:" (apply max (map :n stats)))
+(println "files with more than 63 headings:" (count (filter #(> (:n %) 63) stats)) "| more than 127:" (count (filter #(> (:n %) 127) stats)) "| more than 255:" (count (filter #(> (:n %) 255) stats)))
+(println "md files over 65536 bytes:" (count (filter #(> (:size %) 65536) stats)) "| of them, still a piece over the bound when cut at every heading:" (count (filter #(and (> (:size %) 65536) (or (> (:maxleaf %) 65536) (> (:pre %) 65536))) stats)) "| (a leaf section over:" (count (filter #(> (:maxleaf %) 65536) stats)) "files; text before the first heading over:" (count (filter #(> (:pre %) 65536) stats)) "files)")
+(println "files where a heading title repeats:" (count (filter #(pos? (:dup-title %)) stats)) "| where a whole heading path repeats:" (count (filter #(pos? (:dup-path %)) stats)))
+;; printed:
+md files 1772 | with no heading: 217 | headings: 23247 | most in one file: 702
+files with more than 63 headings: 35 | more than 127: 5 | more than 255: 2
+md files over 65536 bytes: 106 | of them, still a piece over the bound when cut at every heading: 15 | (a leaf section over: 13 files; text before the first heading over: 2 files)
+files where a heading title repeats: 59 | where a whole heading path repeats: 18
+
+## Run D: one file cut so that its parts tile it, as one act, through the act's parse and the door's check; a UUID key; one over-bound piece
+clojure -M:store -e "<this body>"
+(require '[clojure.string :as str] '[softland.store.act :as act] '[softland.store.door.declaration :as decl])
+(defn git-show [p] (let [pr (.start (ProcessBuilder. ^java.util.List ["git" "show" (str "HEAD:" p)]))] (slurp (.getInputStream pr) :encoding "UTF-8")))
+(defn uuid-of [& parts] (java.util.UUID/nameUUIDFromBytes (.getBytes (str/join "\u0000" parts) "UTF-8")))
+;; HEURISTIC tiling: cut before every line that begins with ( except the first; each part keeps the lines up to the next cut
+(defn tile-clj [text]
+  (let [lines (vec (str/split text #"(?<=\n)"))
+        starts (sort (keep-indexed (fn [i l] (when (re-find #"^\(" l) i)) lines))
+        cuts (vec (concat [0] (rest starts) [(count lines)]))]
+    (map (fn [a b] (apply str (subvec lines a b))) cuts (rest cuts))))
+(def path "src-store/softland/store/gate/stamp.clj")
+(def text (git-show path))
+(def parts (tile-clj text))
+(println "stamp.clj bytes" (count (.getBytes text "UTF-8")) "| parts" (count parts) "| the parts in order are the file exactly:" (= text (apply str parts)))
+(def file-id (uuid-of "repo:softland" path))
+(defn part-name [p] (second (re-find #"(?m)^\((?:ns|def\S*)\s+(?:\^\S+\s+)*([^\s\)]+)" p)))
+(def part-ids (map-indexed (fn [i p] (uuid-of (str file-id) (or (part-name p) (str "unnamed-" i)))) parts))
+(def facts (vec (concat
+  [{:e file-id :k :file/path :v path}
+   {:e file-id :k :file/blob :v (str/trim (slurp (.getInputStream (.start (ProcessBuilder. ^java.util.List ["git" "rev-parse" (str "HEAD:" path)])))))}
+   {:e file-id :k :file/parts :v (vec part-ids)}]
+  (mapcat (fn [id p i] [{:e id :k :part/of :v file-id} {:e id :k :part/order :v i} {:e id :k :part/text :v p} {:e id :k :code/name :v (or (part-name p) "")}])
+          part-ids parts (range)))))
+(def act {:version 1 :who :system :layer :base :permission [:system :base :base] :session :review-instance-session :facts facts})
+(println "facts" (count facts) "| parse:" (first (keys (act/parse act))))
+(def arrived (assoc act :act-id [:base :microbatch (java.util.UUID/randomUUID)] :depot :microbatch decl/time-part 1760000000000))
+(println "the door's check:" (let [r (decl/check arrived)] (or (:refuse r) :ok)))
+(println "the same act with one fact under a UUID key, parse:" (:refuse (act/parse (assoc act :facts [{:e file-id :k (uuid-of "key" "text") :v "x"}]))))
+(def big "history/docs/what-softland-is/provenance/exchange-00-commission-and-round0-outputs.md")
+(def bt (git-show big))
+(def secs (let [ls (vec (str/split bt #"(?<=\n)")) st (keep-indexed (fn [i l] (when (re-find #"^#{1,6}\s" l) i)) ls) cuts (vec (concat [0] st [(count ls)]))] (remove str/blank? (map (fn [a b] (apply str (subvec ls a b))) cuts (rest cuts)))))
+(def biggest (apply max-key #(count (.getBytes ^String % "UTF-8")) secs))
+(println "md file" big "| pieces when cut at every heading:" (count secs) "| largest piece, bytes:" (count (.getBytes ^String biggest "UTF-8")))
+(println "that piece as one value, the door's check:" (:refuse (decl/check (assoc arrived :facts [{:e (uuid-of big "s") :k :part/text :v biggest}]))))
+;; printed:
+stamp.clj bytes 2674 | parts 2 | the parts in order are the file exactly: true
+facts 11 | parse: :ok
+the door's check: :ok
+the same act with one fact under a UUID key, parse: :malformed
+md file history/docs/what-softland-is/provenance/exchange-00-commission-and-round0-outputs.md | pieces when cut at every heading: 3 | largest piece, bytes: 108594
+that piece as one value, the door's check: :value-too-large

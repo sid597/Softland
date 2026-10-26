@@ -1,0 +1,47 @@
+P1 "nil" -> [:gave 0 "Long"]
+P1 "false" -> [:gave 0 "Long"]
+P1 "0" -> [:gave 1 "Long"]
+P1 "-5" -> [:gave -4 "Long"]
+P1 "Long/MAX_VALUE" -> [:gave -9223372036854775808 "Long"]
+P1 "1.5 (a double)" -> [:gave 2 "Long"]
+P1 "\"x\" (a string)" -> [:threw "ClassCastException"]
+P1 "(int 41)" -> [:gave 42 "Long"]
+P2 "(short -1)" usable-time nil check :no-door-time agree
+P2 "(byte 0)" usable-time 0 check :ok agree
+P2 "Integer/MAX_VALUE" usable-time 2147483647 check :ok agree
+P2 "(int -1)" usable-time nil check :no-door-time agree
+P2 "1N, a small BigInt" usable-time nil check :no-door-time agree
+P2 "0.0" usable-time nil check :no-door-time agree
+P2 "Double/NaN" usable-time nil check :no-door-time agree
+P2 "1/2, a ratio" usable-time nil check :no-door-time agree
+P2 "true" usable-time nil check :no-door-time agree
+P2 "a keyword" usable-time nil check :no-door-time agree
+P2 "\\a, a char" usable-time nil check :no-door-time agree
+P2 "(Long. 5)" usable-time 5 check :ok agree
+P2 "Long/MAX_VALUE" usable-time 9223372036854775807 check :ok agree
+P3 "same act at two times, one digest:" true
+P3 "same act with no time, the same digest:" true
+P3 "same act with a time of nil, the same digest:" true
+P3 "same act with a time of -1 (refused :no-door-time), the same digest:" true
+P3 "a :door-time inside a fact is kept in the digest:" true
+P4 "refusal with a time:" [[:answer ":alice 00000000-0000-0000-0000-000000000001" {:stamp 7, :digest #object["[B" 0x23b3aa8c "[B@23b3aa8c"], :time 1700000000000, :refused :malformed}] [:last-stamp nil 7]]
+P4 "refusal with no time:" [[:answer ":alice 00000000-0000-0000-0000-000000000001" {:stamp 7, :digest #object["[B" 0x23b3aa8c "[B@23b3aa8c"], :refused :no-door-time}] [:last-stamp nil 7]]
+P4 "refusal of an act whose in-hand holds rows, :layer-not-made:" [:answer :last-stamp]
+P5 "accept writes:" [[:fact ":alice :note-1 :text"] [:answer ":alice 00000000-0000-0000-0000-000000000001"] [:last-stamp nil]]
+P5 "any key holds the time's digits:" false
+P5 "two times, same rows but for :time:" true
+P5 "an accept with no time (the declaration's refusal is what keeps this out):" [:threw "NullPointerException"]
+P6 "by-value-key:" ":alice :text 12 382632c74f3e60e503647f6ae94ba092cb72f79cab0af8a0ee05cba12e32e29a :note-1"
+P6 "by-value-key with a since past the wrap:" ":alice :text -9223372036854775808 d :note-1"
+P7 "before the wrap (since 5, row before at 9):" [[:by-value false] [:by-value true]]
+P7 "across the wrap (since MAX-1, row before at MIN):" [[:by-value true]]
+P8 "timeless, usable act-id" -> nil
+P8 "act-id of the other gate, timeless" -> :act-id-of-the-other-gate
+P8 "act-id of another layer" -> :act-id-of-another-layer
+P8 "no act-id" -> :no-act-id
+P9 ":claimed-when" "-1" -> :ok
+P9 ":claimed-when" "1.5" -> :malformed
+P9 ":claimed-when" "Long/MAX_VALUE" -> :ok
+P10 {:stamp 3, :digest #object["[B" 0x62a4417 "[B@62a4417"], :time 1700000000000, :refused :permission-does-not-stand}
+P10 {:stamp 3, :digest #object["[B" 0x4fad6218 "[B@4fad6218"], :refused :no-door-time}
+P10 "answer-of a refused row:" {:verdict :refused, :reason :no-door-time, :stamp 3, :time nil}

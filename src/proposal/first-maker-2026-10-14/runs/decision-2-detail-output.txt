@@ -1,0 +1,36 @@
+---- DETAIL
+MD sections over bound by top folder: {history 13, src 2}
+MD largest sections
+    1614180 history/old-docs/plans/fable-window-2026-06/data/messages-chronological.md
+    322171 history/proposals/first-record-2026-09-20/corners/bundles/INDEX.md
+    138214 history/docs/sense-line-mvp/dual-read/read-material/18d63935-raw.md
+    118067 history/old-docs/plans/fable-window-2026-06/data/chunks/chunk-04.md
+    108593 history/docs/what-softland-is/provenance/exchange-00-commission-and-round0-outputs.md
+    102196 history/docs/sense-line-mvp/dual-read/fixtures/a535650e-river-blocks.md
+MD largest paragraphs
+    346890 history/old-docs/plans/fable-window-2026-06/data/messages-chronological.md
+    322128 history/proposals/first-record-2026-09-20/corners/bundles/INDEX.md
+    45810 history/proposals/first-record-2026-09-20/corners/bundles/REPORT.md
+MD files over 256 facts at sections, by top folder: {history 20, snapshots 8, src 6, vision 1}
+MD whole file over bound, by top folder: {history 60, reference 2, snapshots 7, src-store 2, src 34, vision 1}
+CODE over 256 facts, by top folder: {reference 4, src 19, test-store 5}
+CODE most facts
+    896 src/app/server/rama/object_container.clj
+    796 src/app/server/episode/llm.clj
+    780 test-store/softland/store/pure_proof.clj
+    724 src/proposal/rig-2026-09-25/test/rig/replay_test.clj
+    724 test-store/softland/store/module_proof.clj
+CODE dup names, by top folder: {history 1, src-inland 5, src-store 3, src 16, test-inland 1, test-store 1, test 1}
+PATH not readable: (history/old-docs/sessions/Session 1: GPU budget tracker.md history/old-docs/sessions/Session 2: Slug implementation.md)
+MD dup heading paths, by top folder: {history 7, reference 10, snapshots 1}
+src-store md: ([src-store/AGENTS.md 9 0] [src-store/CLAUDE.md 1142 9] [src-store/OPEN-QUESTIONS-rama.md 4238 15] [src-store/README.md 13411 9] [src-store/softland/README.md 568 1] [src-store/softland/store/README.md 32377 9] [src-store/softland/store/door/README.md 6373 7] [src-store/softland/store/gate/README.md 1663 3] [src-store/softland/store/module/README.md 2315 2] [src-store/softland/store/read_path/README.md 10370 7] [src-store/softland/store/record/README.md 1962 3])
+src-store clj over 256: ()
+---- THE SAME NAME TWICE IN ONE FILE, store trees
+src-store/softland/store/act.clj ([declare conform 351] [defn- conform 400])
+src-store/softland/store/door/text.clj ([declare feed* 145] [defn- feed* 191])
+src-store/softland/store/read_path.clj ([defmethod print-method 313] [defmethod print-dup 316] [defmethod print-method 332] [defmethod print-dup 335] [declare on-callback 576] [declare on-arrival 951] [defn- on-arrival 984] [defn- on-callback 1066])
+test-store/softland/store/pure_proof.clj ([declare forms-of 2601] [defn- forms-of 3601])
+SRC sections over bound: ([src/proposal/frame-2026-09-15/What-is-this-proposal-about.md 87291] [src/proposal/rig-2026-09-25/RIG.md 65970])
+largest form: [src/app/server/rama/object_container.clj 53173]
+store trees over 256 facts: ([test-store/softland/store/door_proof.clj 344] [test-store/softland/store/module_proof.clj 724] [test-store/softland/store/pure_proof.clj 780] [test-store/softland/store/read_path_proof.clj 304] [test-store/softland/store/run_again_proof.clj 680])
+store trees code files: 33 md: 15

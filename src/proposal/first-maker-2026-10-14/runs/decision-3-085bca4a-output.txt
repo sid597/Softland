@@ -1,0 +1,14 @@
+R098  src-store/softland/store/door/declaration.clj: forms after 28, ns beyond line 1 changed True, definitions kept by name 27, of them changed 0, gone 0, new 0, named twice [], cut-A facts 112
+R091  src-store/softland/store/door/digest.clj: forms after 5, ns beyond line 1 changed True, definitions kept by name 4, of them changed 1, gone 0, new 0, named twice [], cut-A facts 20
+R098  src-store/softland/store/door/seal.clj: forms after 14, ns beyond line 1 changed True, definitions kept by name 13, of them changed 0, gone 0, new 0, named twice [], cut-A facts 56
+R096  src-store/softland/store/door/text.clj: forms after 15, ns beyond line 1 changed True, definitions kept by name 13, of them changed 1, gone 0, new 0, named twice ['feed*'], cut-A facts 60
+R097  src-store/softland/store/gate/batch.clj: forms after 48, ns beyond line 1 changed True, definitions kept by name 47, of them changed 4, gone 0, new 0, named twice [], cut-A facts 192
+R097  src-store/softland/store/gate/decision.clj: forms after 20, ns beyond line 1 changed True, definitions kept by name 19, of them changed 1, gone 0, new 0, named twice [], cut-A facts 80
+R097  src-store/softland/store/gate/first_act.clj: forms after 5, ns beyond line 1 changed True, definitions kept by name 4, of them changed 0, gone 0, new 0, named twice [], cut-A facts 20
+R099  src-store/softland/store/gate/stamp.clj: forms after 9, ns beyond line 1 changed False, definitions kept by name 8, of them changed 0, gone 0, new 0, named twice [], cut-A facts 36
+R092  src-store/softland/store/module/door_reads.clj: forms after 2, ns beyond line 1 changed True, definitions kept by name 1, of them changed 0, gone 0, new 0, named twice [], cut-A facts 8
+R094  src-store/softland/store/module/microbatch_gate.clj: forms after 9, ns beyond line 1 changed True, definitions kept by name 8, of them changed 2, gone 0, new 0, named twice [], cut-A facts 36
+R093  src-store/softland/store/module/streaming_gate.clj: forms after 5, ns beyond line 1 changed True, definitions kept by name 4, of them changed 1, gone 0, new 0, named twice [], cut-A facts 20
+R097  src-store/softland/store/record/rows.clj: forms after 24, ns beyond line 1 changed True, definitions kept by name 23, of them changed 1, gone 0, new 0, named twice [], cut-A facts 96
+R095  src-store/softland/store/record/tables.clj: forms after 7, ns beyond line 1 changed True, definitions kept by name 6, of them changed 0, gone 0, new 0, named twice [], cut-A facts 28
+TOTAL {'files': 13, 'ns-rest-changed': 12, 'defs-after': 178, 'defs-changed': 11, 'files-with-changed-defs': 7, 'facts-cut-a': 764, 'files-over-256': 0}

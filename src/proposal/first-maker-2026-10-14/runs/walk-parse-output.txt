@@ -1,0 +1,80 @@
+ACT MAPS: 14
+  act  0  walk-1 step 3  facts   2  parse :ok          door-check :ok
+  act  1  walk-1 step 3  facts  36  parse :ok          door-check :ok
+  act  2  walk-1 step 3  facts   1  parse :ok          door-check -
+  act  3  walk-1 step 3  facts   3  parse :malformed   door-check -
+  act  4  walk-1 step 3  facts   3  parse :ok          door-check -
+  act  5  walk-1 step 2  facts   1  parse :malformed   door-check -
+  act  6  walk-1 step 2  facts   2  parse :malformed   door-check -
+  act  7  walk-1 step 6  facts  32  parse :ok          door-check :ok
+  act  8  walk-1 step 7  facts   8  parse :ok          door-check -
+  act  9  walk-2 step 3  facts  36  parse :ok          door-check :ok
+  act 10  walk-2 step 3  facts   3  parse :ok          door-check -
+  act 11  walk-2 step 6  facts   1  parse :ok          door-check :ok
+  act 12  walk-2 step 2  facts   1  parse :ok          door-check :value-too-large
+  act 13  walk-2 step 7  facts   2  parse :ok          door-check :place-named-twice
+QUERIES:
+  query 1  check :ok                          One place: next-stamp's docstring in the base, asked by the system.
+  query 2  check :ok                          One entity, every place of next-stamp, with who wrote each fact and its time.
+  query 3  check [:place-not-named :asks]     One place under a key that is a UUID.
+  query 4  check :ok                          One entry of the README section, by its instance id, with the permission.
+VALUE BYTES: stamp.clj before 7579 after 2674 README at HEAD 72062 max-value-bytes 65536
+ACT 7 FACTS: replaced 4 retracted 28 new 0
+    #uuid "a452320e-2b38-3e50-9676-d2aa09aff0ec" :file/blob replace [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 1]
+    :softland.store.gate.stamp :code/doc replace [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 3]
+    :softland.store.gate.stamp/next-stamp :code/doc replace [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 26]
+    :softland.store.gate.stamp/next-stamp :code/text replace [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 27]
+    :softland.store.gate.stamp/counter-bits :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 4]
+    :softland.store.gate.stamp/counter-bits :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 5]
+    :softland.store.gate.stamp/counter-bits :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 6]
+    :softland.store.gate.stamp/counter-bits :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 7]
+    :softland.store.gate.stamp/max-ahead-millis :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 8]
+    :softland.store.gate.stamp/max-ahead-millis :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 9]
+    :softland.store.gate.stamp/max-ahead-millis :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 10]
+    :softland.store.gate.stamp/max-ahead-millis :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 11]
+    :softland.store.gate.stamp/pack :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 12]
+    :softland.store.gate.stamp/pack :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 13]
+    :softland.store.gate.stamp/pack :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 14]
+    :softland.store.gate.stamp/pack :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 15]
+    :softland.store.gate.stamp/time-of :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 16]
+    :softland.store.gate.stamp/time-of :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 17]
+    :softland.store.gate.stamp/time-of :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 18]
+    :softland.store.gate.stamp/time-of :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 19]
+    :softland.store.gate.stamp/counter-of :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 20]
+    :softland.store.gate.stamp/counter-of :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 21]
+    :softland.store.gate.stamp/counter-of :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 22]
+    :softland.store.gate.stamp/counter-of :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 23]
+    :softland.store.gate.stamp/too-far-ahead? :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 28]
+    :softland.store.gate.stamp/too-far-ahead? :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 29]
+    :softland.store.gate.stamp/too-far-ahead? :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 30]
+    :softland.store.gate.stamp/too-far-ahead? :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 31]
+    :softland.store.gate.stamp/greatest-carried :code/in retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 32]
+    :softland.store.gate.stamp/greatest-carried :code/kind retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 33]
+    :softland.store.gate.stamp/greatest-carried :code/doc retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 34]
+    :softland.store.gate.stamp/greatest-carried :code/text retract [[:base :microbatch #uuid "a0000000-0000-4000-8000-000000000001"] 35]
+ONE ACT PER COMMIT, 0e6182b9, approximate facts under cut A: 422 in 25 files of .clj and .md; max-facts 256
+    {:file src-store/README.md, :changed 4, :added 1, :removed 0, :facts-cut-a 8}
+    {:file src-store/softland/store/README.md, :changed 4, :added 0, :removed 0, :facts-cut-a 4}
+    {:file src-store/softland/store/act.clj, :changed 2, :added 0, :removed 1, :facts-cut-a 8}
+    {:file src-store/softland/store/door.clj, :changed 2, :added 0, :removed 0, :facts-cut-a 4}
+    {:file src-store/softland/store/door/README.md, :changed 1, :added 0, :removed 0, :facts-cut-a 1}
+    {:file src-store/softland/store/door/declaration.clj, :changed 3, :added 0, :removed 1, :facts-cut-a 10}
+    {:file src-store/softland/store/door/words.clj, :changed 2, :added 0, :removed 0, :facts-cut-a 4}
+    {:file src-store/softland/store/gate/README.md, :changed 2, :added 0, :removed 0, :facts-cut-a 2}
+    {:file src-store/softland/store/gate/decision.clj, :changed 5, :added 0, :removed 2, :facts-cut-a 18}
+    {:file src-store/softland/store/gate/stamp.clj, :changed 2, :added 0, :removed 7, :facts-cut-a 32}
+    {:file src-store/softland/store/module/README.md, :changed 1, :added 0, :removed 0, :facts-cut-a 1}
+    {:file src-store/softland/store/module/walk.clj, :changed 2, :added 0, :removed 0, :facts-cut-a 4}
+    {:file src-store/softland/store/read_path/README.md, :changed 1, :added 0, :removed 0, :facts-cut-a 1}
+    {:file src-store/softland/store/read_path/answer.clj, :changed 2, :added 0, :removed 0, :facts-cut-a 4}
+    {:file src-store/softland/store/read_path/query.clj, :changed 2, :added 0, :removed 0, :facts-cut-a 4}
+    {:file src-store/softland/store/record/rows.clj, :changed 5, :added 0, :removed 0, :facts-cut-a 10}
+    {:file src-store/softland/store/record/tables.clj, :changed 4, :added 0, :removed 0, :facts-cut-a 8}
+    {:file test-store/softland/store/README.md, :changed 11, :added 0, :removed 0, :facts-cut-a 11}
+    {:file test-store/softland/store/act_proof.clj, :changed 4, :added 0, :removed 0, :facts-cut-a 8}
+    {:file test-store/softland/store/door_proof.clj, :changed 14, :added 2, :removed 3, :facts-cut-a 48}
+    {:file test-store/softland/store/module_proof.clj, :changed 24, :added 4, :removed 4, :facts-cut-a 80}
+    {:file test-store/softland/store/pure_proof.clj, :changed 45, :added 3, :removed 1, :facts-cut-a 106}
+    {:file test-store/softland/store/read_path_pure_proof.clj, :changed 4, :added 1, :removed 0, :facts-cut-a 12}
+    {:file test-store/softland/store/run_again_fixture/README.md, :changed 2, :added 0, :removed 0, :facts-cut-a 2}
+    {:file test-store/softland/store/run_again_proof.clj, :changed 8, :added 3, :removed 1, :facts-cut-a 32}

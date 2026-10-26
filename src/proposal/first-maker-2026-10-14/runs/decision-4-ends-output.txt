@@ -1,0 +1,15 @@
+A making base, microbatch gate: true
+A making base sent by any program as :system (no sender check): same map, standing with empty rows -> nil
+A system's ingest act in base, its permission row there -> nil
+B making Sid's layer by :system, streaming gate -> true
+B later act by :system in Sid's layer under Sid's permission (no row at (L, :system), depot row present) -> :who-not-the-permissions-holder
+B later act by :system in Sid's layer under [:system L L] -> :permission-does-not-stand
+C making :tools by :system on streaming -> true ; on microbatch -> false
+D give in base, check (g) -> nil
+D give into another layer from the base -> :permission-fact-for-another-layer
+D ingester act in base, its row there -> nil
+E Sid in base beneath the system's, his row there -> nil
+D under E: Sid gives the importer a right beneath his own in base, check (g) -> nil
+D under E: the importer's act, its row there -> nil
+D under E: the act's one form passes the declaration's parse -> true
+One id, one person: Carol's give of :ingester-1 in base, place already holding Sid's give -> :store-key-takes-one-write ; place empty -> nil

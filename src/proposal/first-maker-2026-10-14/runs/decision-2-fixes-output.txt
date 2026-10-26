@@ -1,0 +1,11 @@
+SPLIT d2-3: the mark first, the file after
+  d2-3   parse :ok    door-check :ok    one act: the mark and the file
+  d2-3a  parse :ok    door-check :ok    act 1 of 2: the mark alone
+  d2-3b  parse :ok    door-check :ok    act 2 of 2: the file alone
+  since-by-place, d2-3 as one act, marks before it none: {}
+  since-by-place, d2-3b after d2-3a: {":base 3f0c9a52-1d1e-4c7b-9a51-6c2f0b1e7d10 :file/path" 1}
+  marked-keys-of that row: {:code/in 1, :file/path 1}
+ACROSS FILES: :<ns>/<name> ids defined in two files or more: 21 ; in three or more: 9
+  their namespaces: ("probe.cost" "probe.fail" "probe.gate" "probe.order" "probe.util")
+  e.g. [:probe.cost/-main #{"src/proposal/backend-on-rama-2026-10-02/run-again/probes-order-after-a-failure/src/probe/cost.clj" "src/proposal/backend-on-rama-2026-10-02/before-real-data/stream-probe/src/probe/cost.clj" "src/proposal/backend-on-rama-2026-10-02/run-again/probes-the-bases-gate/src/probe/cost.clj"}]
+SET VALUE: digest of #{"296a2a7b"} e4f74481038802b2 | digest of "296a2a7b" f42127937f5abf61 | equal: false
