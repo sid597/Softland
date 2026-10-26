@@ -559,6 +559,7 @@ Nobody deletes any of it without your word.
 
 - `runs/raw-rp-measures-full.txt`, 1.0 GB: Rama's log of 98,794 openings that it refused, from the
   last build's measures (ruling 90). The final measures of this session logged no refused opening.
+  Deleted on 26 October 2026 at your word.
 - The other `runs/raw-wtgk-*`, `raw-bfar-*` and `raw-rp-*` files of the three builds, and four raw
   logs under `plan-probes-read-path/logs/`.
 - Seven files of this session, `runs/raw-review-before-*.txt`: the six proofs on the tree before
