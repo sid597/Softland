@@ -1,0 +1,19 @@
+Rama 1.6.0, in-process cluster, 4 tasks. The gate is a microbatch topology in both cases.
+The same 3,000 claims of 200 names, in the same order, in both cases. No option of Rama is set.
+
+ONE LINE: EVERY CLAIM UNDER THE ONE KEY "BASE"
+  Records in the depot, by partition: 0: 0, 1: 0, 2: 0, 3: 3000
+  Rows of the 200 names, by the task that holds them: 0: 51, 1: 46, 2: 55, 3: 48
+  The first run decided the 3,000 claims in 100 microbatches. The run again decided them in 3 .
+  Names with the same owner in both runs: 200 of 200 . With another owner: 0 .
+  Names whose claims were decided in the same order in both runs: 200 of 200 . In another order: 0 .
+
+SPREAD: EVERY CLAIM UNDER ITS OWN ID AS ITS KEY
+  Records in the depot, by partition: 0: 720, 1: 770, 2: 744, 3: 766
+  Rows of the 200 names, by the task that holds them: 0: 51, 1: 46, 2: 55, 3: 48
+  The first run decided the 3,000 claims in 91 microbatches. The run again decided them in 1 .
+  Names with the same owner in both runs: 67 of 200 . With another owner: 133 .
+  Names whose claims were decided in the same order in both runs: 0 of 200 . In another order: 200 .
+      name-000: the first run gave it to c-0161, the run again to c-0984
+      name-001: the first run gave it to c-0014, the run again to c-1713
+      name-003: the first run gave it to c-0150, the run again to c-0318

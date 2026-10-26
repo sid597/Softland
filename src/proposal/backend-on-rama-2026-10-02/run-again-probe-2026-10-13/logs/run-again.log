@@ -1,0 +1,36 @@
+Rama 1.6.0, in-process cluster. Two modules, 4 tasks each: probe.run-again/First and probe.run-again/Again
+No option of Rama is set. The gate is the same code in both.
+
+WHERE THE CLAIMS STAND IN THE DEPOT
+  X is at position 3004 of partition 3. It was sent first, and decided before Y was sent.
+  Y is at position 1 of partition 1. It was sent last.
+  V and W are both on partition 3, V before the 3000 fillers and W after X.
+  Records in the depot, by partition: 0: 1, 1: 2, 2: 3, 3: 3006
+
+THE FIRST RUN (module First, deciding each claim as it arrived)
+  Before Y was sent, the name claimed from two partitions had: owner by arrival X · owner by time X
+  claimed from two partitions        owner by arrival: X · owner by time: Y
+      X  owns      owner by time after it: X  (microbatch 97, from partition 3)
+      Y  refused   owner by time after it: Y  (microbatch 99, from partition 1)
+  claimed on one partition           owner by arrival: V · owner by time: W
+      V  owns      owner by time after it: V  (microbatch 3, from partition 3)
+      W  refused   owner by time after it: W  (microbatch 97, from partition 3)
+  The fillers were decided in 95 microbatches, at most 111 in one.
+
+THE RUN AGAIN (module Again, the same gate over the same depot, from its beginning)
+  claimed from two partitions        owner by arrival: Y · owner by time: Y
+      Y  owns      owner by time after it: Y  (microbatch 0, from partition 1)
+      X  refused   owner by time after it: Y  (microbatch 3, from partition 3)
+  claimed on one partition           owner by arrival: V · owner by time: W
+      V  owns      owner by time after it: V  (microbatch 0, from partition 3)
+      W  refused   owner by time after it: W  (microbatch 3, from partition 3)
+  The fillers were decided in 4 microbatches, at most 1000 in one.
+
+THE TWO RUNS, HELD AGAINST EACH OTHER
+  two partitions, owner by arrival                     DIFFERENT: the first run X, the run again Y
+  two partitions, the order of the decisions           DIFFERENT: the first run ["X" "Y"], the run again ["Y" "X"]
+  two partitions, owner by time at the end             the same: Y
+  two partitions, owner by time while the first ran    it was X until Y arrived, then Y
+  one partition, owner by arrival                      the same: V
+  one partition, the order of the decisions            the same: ["V" "W"]
+  one partition, owner by time at the end              the same: W

@@ -1,0 +1,14 @@
+;; Two probes, for one question of 13 October 2026: when a gate that decides is
+;; run again over the same depot from its beginning, does it decide the same?
+;; They require nothing of the store's tree. Run from this folder, one at a
+;; time, each behind the lock that the store's proofs wait on:
+;;   flock ../before-real-data/runs/cluster.lock clojure -M:run-again
+;;   flock ../before-real-data/runs/cluster.lock clojure -M:one-line
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        com.rpl/rama        {:mvn/version "1.6.0"}}
+ :aliases {;; two claims of one name on two partitions, and two on one
+           :run-again {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.run-again"]}
+           ;; the same 3,000 claims under one key, and then spread over the partitions
+           :one-line  {:jvm-opts ["-Xss16m" "-Xmx4g"] :main-opts ["-m" "probe.one-line"]}}}
