@@ -89,7 +89,7 @@ change before deciding what to do about caching.
 
 ## Exploration in Chat, Disk at Settlement
 Exploration lives in the conversation. While a question is live, write nothing under `docs/` or memory — no routing, no landing, no commits: a premature artifact breaks the chain of exploration and anchors the rest of the session around defending it. Disk happens at settlement — Sid's word ("land it", "settled", a yes to "settle this?") — or at session end, where the full write-set (including any board/thread status flip) is previewed in one message so Sid can veto in one line before it lands.
-Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — commit freely, code, docs, and law files alike, on `main`, no approval needed; group commits by concern, each big enough to read as one change with a message that says what and why — never a fix-by-fix tail (Sid, 2026-09-02: commits "too small to know anything"). Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
+Commit mechanics once settled: the repo is open source, public on GitHub (Sid, 2026-10-26: "its open soruce we will commit freely"; it had been called closed source since 2026-08-10) — commit freely, code, docs, and law files alike, on `main`, no approval needed, with no condition on what may go public; group commits by concern, each big enough to read as one change with a message that says what and why — never a fix-by-fix tail (Sid, 2026-09-02: commits "too small to know anything"). Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
 
 
 
