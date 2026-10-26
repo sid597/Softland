@@ -42,3 +42,14 @@ src/proposal/**/sources/
 # a runtime kept aside, its store intact (e.g. .inland-runtime-scenes-1-3)
 /.inland-runtime-*/
 resources/electric-manifest.edn
+# Obsidian's own state when docs/ is opened as a vault (machine state, not the docs)
+docs/.obsidian/
+# the whole outputs of proof runs: a run-proofs.sh commits the short summary and
+# leaves the whole output beside it as raw-*; try-* are a builder's own trial
+# runs; cluster.lock is the empty file the runs wait on; probe plans keep their
+# full logs as *-stdout.txt and *-all.log beside the committed short ones
+src/proposal/**/runs/raw-*
+src/proposal/**/runs/try-*
+src/proposal/**/runs/cluster.lock
+src/proposal/**/logs/*-stdout.txt
+src/proposal/**/logs/*-all.log
