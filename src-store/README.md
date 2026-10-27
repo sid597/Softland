@@ -101,11 +101,15 @@ session read the photographs and wrote down a mark for each question
 2. **The one form is the maker's act.** Sid decided. It is what a converter
    gives, before the door touches it. The door's additions (the act-id, the
    class, the seal) are the door's own small declaration, which contains the
-   maker's; a gate checks what arrives against it.
+   maker's; a gate checks what arrives against it. Since then the class is
+   called the depot (9 October), the door also writes the time, and the seal
+   was set aside on 12 October (entry 2 of that day): the door adds the
+   act-id, the depot and the time.
 3. **The seal is below the form.** Sid decided. The act holds plain values. The
    door seals, and a gate refuses an unsealed value by its own rule. So the act
    has no sealed bytes, no lock id, no store keys, no placed keys, no mark, and
-   one kind of fact.
+   one kind of fact. Its half on sealing was set aside on 12 October (entry 2
+   of that day): the door seals nothing, and the store keeps no locks.
 4. **Parts: `:version` and `:session` required; `:because-of` and
    `:claimed-when` optional.** Sid decided. The version is the edition of this
    list of parts, and the code knows 1. `:because-of` is an act-id.
@@ -150,8 +154,9 @@ session read the photographs and wrote down a mark for each question
    A fact, checked on 12 October: the rig's code holds the same limit of four,
    and counts it as "root, session, agent, tool"
    (`src/proposal/rig-2026-09-25/src/rig/store/permit.clj`, line 22). On
-   12 October he said yes to lifting it (entry 6 of that day); the code holds
-   it until that build.
+   12 October he said yes to lifting it (entry 6 of that day). That build is
+   done: a permission is now as deep as a value can be
+   (`softland/store/act.clj`, `nesting`), and how deep stays his to say.
 9. **An id is a readable keyword or a UUID; a key is a readable keyword only.**
    Sid decided the half on an id. The ids are an entity, who, a layer, a
    session, a subject and the layer slot of an act-id. A key is a fact's `:k`.
@@ -346,6 +351,10 @@ seal.
    layer names an owner as a fact. The words are his to change: "class" is borrowed
    (decision 10 of 7 October), and the request for locks is written
    `:lock-request`, a session's plain word, because "lease" is the rig's.
+   Since then the class is the depot (9 October), the request for locks left
+   the store's keys on 12 October (entry 2 of that day), and the read build
+   added three settings (11 and 12 October, entries 1, 2 and 6): the store's
+   keys are five (`softland/store/door/declaration.clj`, `store-keys`).
 
 ## Decisions of 9 October 2026 — the door's four questions
 
@@ -404,6 +413,9 @@ chose, and the fourth waits for two words.
      for each act or for each sitting would not have taken them either. The store owes the one who
      forgets the means to find them (the queue, K11; W8 of the reads sheet
      names "a forget" as an asker).
+   - Set aside on 12 October (entry 2 of that day): the store keeps no locks,
+     and no gate makes one. This entry says how a sealed end would be; the
+     store has none.
 3. **The system can hold many layers.** Sid decided (K3 A): "my preference is
    a uh, system can have uh, many layers" (‹6d5e8c3c›; and "all else A",
    ‹15af6243›). His picture: "what I will be
@@ -450,7 +462,8 @@ chose, and the fourth waits for two words.
    wording s". So the store's keys are
    `:softland.store/depot`, `:softland.store/permission` and
    `:softland.store/lock-request`, and a layer's depot is `:streaming` or
-   `:microbatch`. Two sessions had put options to him; one preferred `store`
+   `:microbatch` (the request for locks left the store's keys on 12 October,
+   entry 2 of that day). Two sessions had put options to him; one preferred `store`
    and `gate`, the other `softland.store` and `depot`. A session's reasons for
    the pair that he chose: the store owns its whole namespace, so the word
    must be one that no tool would reach for; and "depot" says what the slot
@@ -576,8 +589,8 @@ changes with them. They shape the read build, whose starter is
    Sid decided (W10 A): "A", and then "we are keeing everything plain see Z
    sections". The gate keeps the plain bytes that it already has when it
    checks a value. The copy in the log is the other sheet's Z2, under entry 9:
-   that phase comes after the read build, so until then the door seals for the
-   log as built. A layer whose members hold their own locks keeps its values
+   that phase came after the read build, and entry 2 of 12 October then made
+   the log plain too: the door seals nothing. A layer whose members hold their own locks keeps its values
    sealed in the tables too; that kind of layer is not built.
 6. **What can be asked: a query written as data, made of a few words; and one
    more order for the keys that a layer marks.** His position, 11 October:
