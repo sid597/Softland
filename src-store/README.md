@@ -25,10 +25,17 @@ say why, and the [verification map](../test-store/README.md) names the proof.
 The rig (`src/proposal/rig-2026-09-25/`) is an example build, not a source: no
 namespace of this tree requires it.
 
+The store as a model, what it keeps, what can be asked of it, what it promises
+and what cannot be got back from it, is in [MODEL.md](MODEL.md). Read it before
+the parts.
+
 Start with the question you are carrying:
 
 | Question | Enter here |
 |---|---|
+| What does the store keep, what can I ask of it, and what does it promise? | [MODEL.md](MODEL.md) |
+| What can I read back of an act, and what can I not get back? | [MODEL.md](MODEL.md), "What cannot be got back, said plainly" |
+| Which of the store's answers can nobody forge? | [MODEL.md](MODEL.md), "What nobody can forge" |
 | What is in this tree, and what state does each part own? | [softland/](softland/README.md), then [store/](softland/store/README.md) |
 | What is an act, and why is a thing refused as one? | The namespace docstring of [act.clj](softland/store/act.clj), then its two declarations, the shape and the rules |
 | What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
