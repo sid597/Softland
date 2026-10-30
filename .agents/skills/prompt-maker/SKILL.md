@@ -17,11 +17,26 @@ how many sessions.
 
 The raw prompt is the essence of what Sid is asking, in his first person,
 sliced and spliced from the chat. How to present it best is the writer's
-judgment.
+judgment. Keep his meaning and his words, and fix the grammar, the pronouns
+and the scope until every sentence reads one way. Cleaning adds nothing: no
+shape for the answer, no question turned into an inventory.
 
-The flavorings, each one line to append. Output all of them, and beside
-each one sentence tied to this chat: what that room might find that the
-chat is missing. That sentence stays outside the prompt.
+Ask the other model for its view or its answer, never for its "thinking":
+that word trips Opus (Sid, 30 Oct 2026).
+
+Before writing to a session that already exists, look up what it has
+already read: its texts in the record (memtool), never its transcript.
+
+When the answer has to be independent, write two messages. The first asks
+for its view on what it was handed. The second, sent only after it answers,
+says what to read and compare.
+
+The flavorings, each one line to append. Output all of them, the lines
+together in one code block so a copy takes nothing else. Above the block,
+one sentence per flavoring tied to this chat: what that room might find
+that the chat is missing. Those sentences never go inside the prompt. A
+flavoring that says "read nothing on disk" never goes on a message that has
+to load or read files.
 
   claude, widest:
   read nothing on disk, no code, never src/app/server/env.clj.
