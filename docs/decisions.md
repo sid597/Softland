@@ -35,6 +35,9 @@ decides.
 - **Rama is truth.** Workers, agents, and UI actions stream observations and
   requests INTO Rama as events; the UI reads materialized state OUT. No
   side-channel state, no truth outside the log.
+- **The store's own decisions live with its code**, in `src-store/README.md`,
+  in the sections "Decisions of …" (from 6 October 2026). They are not
+  repeated here.
 
 
 

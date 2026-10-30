@@ -12,8 +12,13 @@ session never judges or explains its own build.
 
 **Why:** the sign-in build of 15 October 2026 was asked for as "sign-in gives
 us a bunch of data and we just store that data in rama" and became a
-9,000-line runtime with six system layers. The page said he had agreed; the
-record had no such line. He saw the gap only after it was built.
+9,000-line runtime with six system layers. The page said he had agreed, and he
+had: one word, "yeah" (15 Oct 10:40 UTC), to the write-set that wrote the
+page. A yes to writing a page is not a yes to what a build then makes from it.
+He saw the gap only after it was built. (This note first said the record had
+no such line. The record keeps a repeated line only under its first copy, so
+the "yeah" sits as a re-send of ‹7fbb3f3e› of 29 March, and a search by date
+misses it. Commit 3a41c91d carries the same mistake.)
 
 **How to apply:** one message, before code, every time a page is handed over.
 Not a plan review. When asked to explain or judge something this session

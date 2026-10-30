@@ -132,6 +132,7 @@ A session does not judge or explain its own build. A fresh session does that.
   model + effort
 
 - **Don't present pattern-matches as evidence.** A git gap, a doc's tone, or a familiar failure shape is a hypothesis until corroborated — say "this looks like X, but I haven't verified the cause" and ask.
+- **Ask for a view, not "thinking".** In any prompt you write for another model or session, a subagent's brief included, ask for its view or its answer, never for its "thinking": the word trips Opus (Sid, 30 Oct 2026).
 
 
 
@@ -140,7 +141,7 @@ A session does not judge or explain its own build. A fresh session does that.
 After the architectural pass, do a second pass whose job is to **break** the change. Review for falsification, not coherence.
 
 **Golden rule:** Never approve an optimistic-state change without tracing the full write → render → truth reconciliation → clear lifecycle.
-Use the Staff-level product architect perspective and the Staff-product-architect.md skill for the falsification pass.
+Use the Staff-level product architect perspective for the falsification pass: read `.claude/skills/staff-product-architect.md` (a guide to read; it is not a registered skill).
 
 
 ## Be wary of your own failure modes
