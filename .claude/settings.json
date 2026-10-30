@@ -1,6 +1,29 @@
 {
   "hooks": {
-    "PreCompact":   [{"hooks": [{"type": "command", "command": ".claude/hooks/pre-compact.sh"}]}],
-    "SessionStart": [{"hooks": [{"type": "command", "command": ".claude/hooks/link-memory.sh"}]}]
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/link-memory.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }

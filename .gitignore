@@ -37,6 +37,7 @@ src/proposal/**/sources/
 !.claude/settings.json
 !.claude/hooks/
 !.claude/memory/
+!.claude/agents/
 
 /.inland-runtime/
 # a runtime kept aside, its store intact (e.g. .inland-runtime-scenes-1-3)
