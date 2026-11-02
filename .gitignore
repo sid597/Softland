@@ -54,3 +54,7 @@ src/proposal/**/runs/try-*
 src/proposal/**/runs/cluster.lock
 src/proposal/**/logs/*-stdout.txt
 src/proposal/**/logs/*-all.log
+
+# Rama material: its license forbids redistribution; it lives in the local research depot (/mnt/data/projects/research/rama/) and these are local links to it
+/reference/rama/docs
+/reference/rama/release-notes.md
