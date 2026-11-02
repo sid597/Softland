@@ -153,3 +153,7 @@ Then open http://localhost:8127. Needs Java and Clojure, Node, a Rama distributi
 - [CLAUDE.md](CLAUDE.md) is where an agent starts. `AGENTS.md` points to it.
 
 Research code. It breaks.
+
+## License
+
+Copyright © 2022–2026 Siddharth Yadav and contributors. Softland's own code is distributed under the [Eclipse Public License 2.0](LICENSE). Work you make with or inside Softland is yours, under the terms you set. Third-party material keeps its own terms; see [THIRD-PARTY.md](THIRD-PARTY.md).
