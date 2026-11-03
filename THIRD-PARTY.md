@@ -13,16 +13,18 @@ its jar, its source repository, or the file itself.
 | DejaVu Sans Mono | `resources/public/fonts/dejavu_sans_mono.ttf` | Bitstream, Inc. (Vera); Tavmjong Bah (Arev glyphs); DejaVu changes are public domain | Bitstream Vera and Arev font licences | [dejavu-LICENSE.txt](resources/public/fonts/dejavu-LICENSE.txt) |
 | Noto Sans Regular 2.004 | `resources/public/fonts/noto_sans_regular.ttf` | Google LLC; The Noto Project Authors | SIL Open Font License 1.1 | [noto_sans-OFL.txt](resources/public/fonts/noto_sans-OFL.txt) |
 | Ubuntu Sans 1.006 (variable) | `resources/public/fonts/ubuntu_sans_variable.ttf` | Canonical Ltd. | Ubuntu Font Licence 1.0 | [ubuntu_sans-LICENCE.txt](resources/public/fonts/ubuntu_sans-LICENCE.txt) |
-| Electric tutorial and source copies | `reference/electric/` | Hyperfiddle | Electric v3 "is free for bootstrappers and non-commercial use, but is otherwise a commercial project" (its README); the upstream repository has no licence file | — |
 | Missionary collected reference | `reference/missionary/` | Léo Noel | EPL-2.0 | upstream repository |
 
 ## Kept outside this repository
 
-Rama's documentation extraction and Red Planet Labs' release notes are used
-locally and not published. Rama's licence agreement counts its documentation
-as part of the Software and says "you may not use, copy, or distribute the
-Software without Red Planet Labs's authorization"; the `rama-release-notes`
-repository carries no licence. See [reference/README.md](reference/README.md).
+Rama's documentation extraction, Red Planet Labs' release notes, and copies of
+Electric's tutorial and source are used locally and not published. Rama's
+licence agreement counts its documentation as part of the Software and says
+"you may not use, copy, or distribute the Software without Red Planet Labs's
+authorization"; the `rama-release-notes` repository carries no licence; and
+Hyperfiddle's Electric repository has no licence file, its README saying
+Electric v3 "is free for bootstrappers and non-commercial use, but is
+otherwise a commercial project". See [reference/README.md](reference/README.md).
 
 ## Dependencies
 
