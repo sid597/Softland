@@ -25,5 +25,28 @@
     "commit": "",
     "pr": "",
     "sessionUrl": false
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git grep *)",
+      "Bash(git worktree list*)",
+      "Bash(curl -s http://127.0.0.1*)",
+      "Bash(curl -sf http://127.0.0.1*)",
+      "Bash(/mnt/data/projects/softland-memory/bin/memtool *)",
+      "mcp__softland-memory__search",
+      "mcp__softland-memory__line",
+      "mcp__softland-memory__reply",
+      "mcp__softland-memory__replies",
+      "mcp__softland-memory__around",
+      "mcp__softland-memory__who",
+      "mcp__recall__get_prompt",
+      "mcp__recall__recent_prompts",
+      "mcp__recall__search_prompts",
+      "mcp__recall__session_thread",
+      "mcp__linear-server__get_issue",
+      "mcp__linear-server__list_issues",
+      "mcp__discourse-graph__search_nodes",
+      "mcp__discourse-graph__get_node"
+    ]
   }
 }
