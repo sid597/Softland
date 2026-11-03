@@ -81,7 +81,7 @@ Draw the event boundaries in the proposed topology. Every `(|hash …)` / `(|all
 
 For each PState write, label which event it lives in. Then for each pair of writes the design claims is "atomic," check they are in the same event (between the same partitioners).
 
-Citation: `reference/rama/docs/23-acid-semantics.md` L41-52: *"A stream topology event is all code between partitioner calls."*
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/23-acid-semantics.md` L41-52: *"A stream topology event is all code between partitioner calls."*
 
 ```
 WRITES:
@@ -109,7 +109,7 @@ t=5   side effect fires AGAIN
 
 If t=5 produces a duplicate world effect (second child process, second HTTP POST, second file write) the design is **wrong**. `completable-future>` ties future *delivery* to event success. It does NOT make the world transactional.
 
-Citation: `reference/rama/docs/11-stream-topologies.md` L156, L170: at-least-once retry; on event failure all batch PState writes are discarded but external side effects persist.
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md` L156, L170: at-least-once retry; on event failure all batch PState writes are discarded but external side effects persist.
 
 **Fix patterns** (back-arrow, AOR-style):
 - Topology writes COMMITTED INTENT to a PState (e.g. `:status :pending`).
@@ -123,7 +123,7 @@ Citation: `reference/rama/docs/11-stream-topologies.md` L156, L170: at-least-onc
 
 For every PState in the design, name its single owning topology. Writers from any other topology = design violation.
 
-Citation: `reference/rama/docs/15-pstates.md` L41: *"a PState can only be updated by the ETL topology that owns it."*
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md` L41: *"a PState can only be updated by the ETL topology that owns it."*
 
 ```
 $$compute-runs-by-id   owner: compute-runtime-topology   ✓
@@ -157,7 +157,7 @@ If `(random-uuid)` runs inside topology code, every retry produces a different I
 
 Right pattern: derive from `:request/id` (UUID v5 with namespace), or have the appender mint the ID before `foreign-append!` and put it in the request envelope.
 
-Citation: `reference/rama/docs/11-stream-topologies.md` L156: at-least-once means duplicate processing.
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md` L156: at-least-once means duplicate processing.
 
 ---
 
@@ -171,7 +171,7 @@ For every `foreign-append!` in the design, name the ack level:
 
 A high-volume appender using `:ack` will hit throttle and throw. A confirmation-flow appender using `:append-ack` will succeed before the topology has materialized state, causing UI race.
 
-Citation: `reference/rama/docs/14-depots.md` L198-218; `reference/rama/docs/11-stream-topologies.md` L292-299 (throttling).
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md` L198-218; `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md` L292-299 (throttling).
 
 ---
 
@@ -184,7 +184,7 @@ State which topology type was chosen and why:
 
 If the design needs exactly-once and uses stream — wrong choice (or accept duplicate processing risk explicitly).
 
-Citation: `reference/rama/docs/05-types-of-etls.md` L88 (table).
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/05-types-of-etls.md` L88 (table).
 
 ---
 
@@ -197,7 +197,7 @@ For every `foreign-proxy` in the design:
 - Subscriber calls `close` when done (`ProxyState` server resources leak otherwise).
 - Failure: 10 errors in 120s → forcible termination + `UngracefulTerminationDiff`. Path must not throw.
 
-Citation: `reference/rama/docs/15-pstates.md` L436-540 (proxy semantics, fault handling).
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md` L436-540 (proxy semantics, fault handling).
 
 ---
 
@@ -210,7 +210,7 @@ For every nested `map-schema` / `set-schema` / `list-schema` the design declares
 
 Slice A example: `$$compute-log-by-run` inner `{Long → chunk}` can grow to thousands of chunks per run. MUST be subindexed.
 
-Citation: `reference/rama/docs/15-pstates.md` L92-178.
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md` L92-178.
 
 ---
 
@@ -223,7 +223,7 @@ For each `(declare-depot setup *depot (hash-by …))`, verify the extractor func
 
 Right patterns: keyword extractor on a stable field (`:request/id`, `:run/id`, `:routing/key`), or a top-level `defn` that's deterministic and on the classpath.
 
-Citation: `reference/rama/docs/14-depots.md` L37-65; `reference/rama/docs/28-clj-defining-modules.md` L78-83 (Clojure idiom: keyword or top-level `defn` only).
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md` L37-65; `/mnt/data/projects/research/softland/rama-reference/docs/28-clj-defining-modules.md` L78-83 (Clojure idiom: keyword or top-level `defn` only).
 
 ---
 
@@ -257,9 +257,9 @@ obs depot <- :started/:stdout/:stderr/:heartbeat/:exit <- child process
                          owning topology -> $$compute-runs, $$compute-log
 ```
 
-Citation: `reference/rama/docs/25-integrating.md` L64-131 for task globals,
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/25-integrating.md` L64-131 for task globals,
 L219-268 for async external integration, and
-`reference/rama/docs/28-clj-defining-modules.md` L146-153 for Clojure
+`/mnt/data/projects/research/softland/rama-reference/docs/28-clj-defining-modules.md` L146-153 for Clojure
 `declare-object`.
 
 ---

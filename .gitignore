@@ -54,9 +54,3 @@ src/proposal/**/runs/try-*
 src/proposal/**/runs/cluster.lock
 src/proposal/**/logs/*-stdout.txt
 src/proposal/**/logs/*-all.log
-
-# Rama material: its license forbids redistribution; it lives in the local research depot (/mnt/data/projects/research/rama/) and these are local links to it
-/reference/rama/docs
-/reference/rama/release-notes.md
-# Electric copies: the upstream repository has no licence file; they live in the local research depot (/mnt/data/projects/research/electric/) and this is a local link to it
-/reference/electric

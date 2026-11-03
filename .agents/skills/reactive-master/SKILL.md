@@ -14,8 +14,8 @@ for an audit or explanation.
 Read only the references needed for the immediate problem:
 - `reference/missionary/docs/collected-reference.txt` for Missionary operators,
   cancellation, backpressure, and task/flow semantics.
-- `reference/electric/docs/tutorial.txt` for Electric syntax and placement rules.
-- `reference/electric/source/codebase-snapshot.txt` when behavior depends on Electric
+- `/mnt/data/projects/research/softland/electric-reference/docs/tutorial.txt` for Electric syntax and placement rules.
+- `/mnt/data/projects/research/softland/electric-reference/source/codebase-snapshot.txt` when behavior depends on Electric
   internals or an error points into the library.
 
 ## Core Model

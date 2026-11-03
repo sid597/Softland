@@ -24,7 +24,7 @@ its probes ran stand-in gates on modules of their own, and an entry that names a
 store's own module says so. Never open a file under a `runs/` folder whose name begins `raw-`.
 
 **What was searched, on 12 October 2026.** Rama's pages (the snapshot of 22 March 2026 in
-`reference/rama/docs/`, and the live site, which is at Rama 1.9.0), its Javadoc and Clojure API, its
+`/mnt/data/projects/research/softland/rama-reference/docs/`, and the live site, which is at Rama 1.9.0), its Javadoc and Clojure API, its
 release notes from 1.0.0 to 1.9.0, the mailing list rama-user from August 2023 to September 2026, Red
 Planet Labs' public code, and their Rama skill as this repository holds it (`.claude/skills/rama/`,
 of 5 August 2026). Of Rama's Slack only a public mirror was reached, and it holds 27 May to
@@ -32,7 +32,7 @@ of 5 August 2026). Of Rama's Slack only a public mirror was reached, and it hold
 `/mnt/data/projects/research/softland/rama-questions-2026-10-12/`.
 
 **What was read for questions 11 to 14, on 13 and 14 October 2026.** Rama's pages in
-`reference/rama/docs/` and the Rama skill, by the sessions that ran the probes, and Mastodon's
+`/mnt/data/projects/research/softland/rama-reference/docs/` and the Rama skill, by the sessions that ran the probes, and Mastodon's
 source for question 11. The mailing list, the Slack and Red Planet Labs' other code were not
 searched for these four.
 
@@ -65,7 +65,7 @@ value is supported. How bytes should be kept in a table that is watched.
 **Rama's sources.** None names a byte array in a watched value. The pages say when a `ResyncDiff`
 comes: "diffs are sent back to a `ProxyState` along with a CRC. The CRC is checked after applying
 the diff, and if it doesn't match the `ProxyState` will resync from scratch"
-(`reference/rama/docs/15-pstates.md:718`). The Javadoc of `ResyncDiff` names "module update
+(`/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md:718`). The Javadoc of `ResyncDiff` names "module update
 transitions, leader changes, or network problems". Release 1.4.0 fixed a case "where proxies would
 resync unnecessarily", so Rama's team counts a resync that is not needed as a defect. That the CRC
 fails for a byte array is a guess that nobody ran.
@@ -85,11 +85,11 @@ digest; nothing watches them.
 for it, or the name of the hash.
 
 **Rama's sources.** "`hashPartition`: Chooses target task based on hash of input modded by number of
-tasks in module" (`reference/rama/docs/16-partitioners.md:153`). Nathan Marz, Slack, 5 June 2026:
+tasks in module" (`/mnt/data/projects/research/softland/rama-reference/docs/16-partitioners.md:153`). Nathan Marz, Slack, 5 June 2026:
 "the queries are choosing tasks by hash/mod of the key". No source names the hash, and no public
 call goes from a key to a task, in 1.6.0 or in 1.9.0. A PState can declare a key partitioner of its
 own, "a function taking in as arguments the number of partitions for the PState and the extracted
-key" (`reference/rama/docs/15-pstates.md:238`); the store's declare none.
+key" (`/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md:238`); the store's declare none.
 
 **Seen.** Read, not run: no such call in Rama's public API of 1.6.0 (`reads/FULL_SPEC_REVIEW.md`, "A
 ruling that could not hold as worded"; `reads/PROGRESS.md`, ruling 93).
@@ -139,7 +139,7 @@ with `pstate.proxy.limit=20000` among the module's options
 (https://github.com/redplanetlabs/rama-tpcc, README, 12 March 2026). Rama's configs page says that
 dynamic options "are documented on the Cluster UI"; nobody looked there. On cost the pages give no
 number: "The PState partition uses memory to track the subscription and uses CPU to process diffs
-for the subscription" (`reference/rama/docs/15-pstates.md:724`), and a write processes its
+for the subscription" (`/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md:724`), and a write processes its
 subscribers "synchronously with the transform up to a time limit" (`:1230`).
 
 **Seen.** 1,000 reactive queries opened on one table on one task, the next was refused, and one
@@ -167,7 +167,7 @@ first plane.
 
 **Rama's sources.** Keys on disk follow the bytes: "The way serialized forms are compared on disk is
 with lexicographic order. Rama implements this property as well for built-in serialization for
-relevant types like numbers and strings" (`reference/rama/docs/17-serialization.md:169`). Nathan
+relevant types like numbers and strings" (`/mnt/data/projects/research/softland/rama-reference/docs/17-serialization.md:169`). Nathan
 Marz, rama-user, 27 October 2023: "It's important for any type used as a key that it's serialized
 order matches its unserialized order." (https://groups.google.com/g/rama-user/c/4Nb8OtVxnC4). So the
 pages promise that the two orders agree for a String, and what the store saw looks like a place
@@ -192,9 +192,9 @@ over rows that it does not sort; whether the client's map is of that kind was no
 ## 6. The threads of Rama's client
 
 **Answered for callbacks.** "Every callback for a `proxy` call runs in the background on a dedicated
-thread from a thread pool" (`reference/rama/docs/15-pstates.md:554`). The pool's size is a
+thread from a thread pool" (`/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md:554`). The pool's size is a
 configuration of the client, `foreign.proxy.thread.pool.size`, which "defaults to 2"
-(`reference/rama/docs/26-all-configs.md:72`). That is the two threads that the store counted, and
+(`/mnt/data/projects/research/softland/rama-reference/docs/26-all-configs.md:72`). That is the two threads that the store counted, and
 the same holds on a real cluster unless the client sets it. Nathan Marz, rama-user, 22 April 2026:
 "Everything for the proxy runs on the same thread, so if your callback function is blocking it will
 prevent heartbeats from being sent." (https://groups.google.com/g/rama-user/c/tFEBAnOlUfk). In that
@@ -218,7 +218,7 @@ the read's turn".
 
 **Answered for a whole table.** A reactive query on a whole top-level map or a whole subindexed
 collection is not allowed: "you cannot proxy objects which index their elements separately
-(top-level map or subindexed schemas)" (`reference/rama/docs/15-pstates.md:654`). The 100 seconds
+(top-level map or subindexed schemas)" (`/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md:654`). The 100 seconds
 follow from Rama's rule and the store's own log. The rule: "if a proxy errors 10 times within 120
 seconds, it is forcibly terminated", on the first query too, and "the failure window size and
 threshold can be configured" (`:732`). The log: the server wrote the error every 10 seconds
@@ -242,7 +242,7 @@ store: the door writes the time on the act, and no gate reads a clock (the
 sections 1 and 4). The file that "Meanwhile" names is written again and holds no such step.
 
 **Rama's sources.** What `:ack` waits for: all colocated stream topologies "to process the data,
-including replication of any updated PStates" (`reference/rama/docs/14-depots.md:206`). Nathan Marz,
+including replication of any updated PStates" (`/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md:206`). Nathan Marz,
 rama-user, 24 September 2026, of a client's append: "By "finished processing", it means that all
 PState writes have replicated and are now visible."
 (https://groups.google.com/g/rama-user/c/y2njqXKNMfA). For the call inside a topology, Rama's skill:
@@ -250,7 +250,7 @@ PState writes have replicated and are now visible."
 processing it. DO NOT use `:ack` if depot is consumed by same stream topology as is appending it"
 (`.claude/skills/rama/references/depot-design.md:66`). And a record of an attempt that failed stays,
 while the next attempt appends again: such appends "currently do not have exactly-once semantics in
-the face of failures and retries" (`reference/rama/docs/12-microbatch-topologies.md:130`); "A retry
+the face of failures and retries" (`/mnt/data/projects/research/softland/rama-reference/docs/12-microbatch-topologies.md:130`); "A retry
 re-appends" (`.claude/skills/rama/references/microbatch.md:127`).
 
 **Open.** `:ack` from a batch block of a microbatch topology. No page and no public code shows it:
@@ -275,10 +275,10 @@ its id, not its size, not where it is cut (the docstring of
 decisions of 13 October 2026, entry 5).
 
 **Answered for an attempt and a restart.** "The microbatch ID is a 64 bit value that increments by
-one with each successful microbatch" (`reference/rama/docs/25-integrating.md:336`). A batch that
+one with each successful microbatch" (`/mnt/data/projects/research/softland/rama-reference/docs/25-integrating.md:336`). A batch that
 fails "is re-attempted with the same microbatch ID and an incremented version", and both are "stored
 on an internal PState dedicated to the topology"
-(`reference/rama/docs/12-microbatch-topologies.md:116`). Through a restart: topologies "persist
+(`/mnt/data/projects/research/softland/rama-reference/docs/12-microbatch-topologies.md:116`). Through a restart: topologies "persist
 their consumed offset / microbatch ID and resume from where they left off on restart of worker
 processes" (`.claude/skills/rama/SKILL.md:28`).
 
@@ -300,7 +300,7 @@ of the base could ever be decided: the docstring of `batch-clock` in
 
 **Answered.** A stream topology writes its progress on a depot partition "only ... after a
 configurable number of records have been processed or a configurable amount of time has passed"
-(`reference/rama/docs/11-stream-topologies.md:142`). And: "If a leader restarts or suddenly loses
+(`/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md:142`). And: "If a leader restarts or suddenly loses
 leadership after it has successfully processed some records but before it has checkpointed that
 progress, those records will get retried" (`:166`). So a restart hands again what was processed
 after the last written progress, and not the depot from its start. The two settings are
@@ -309,7 +309,7 @@ after the last written progress, and not the depot from its start. The two setti
 **Open.** The defaults of those two settings; no public page gives them. And whether a restart on
 the in-process cluster is the same as a real one in this. Rama's testing page says "There are no
 differences in module capabilities or execution semantics between an InProcessCluster and a real
-cluster" (`reference/rama/docs/27-testing.md:20`), and its skill names a module update with the
+cluster" (`/mnt/data/projects/research/softland/rama-reference/docs/27-testing.md:20`), and its skill names a module update with the
 unchanged module as the way to stand in for a worker's restart
 (`.claude/skills/rama/references/testing.md:222`).
 
@@ -336,13 +336,13 @@ can run before the second attempt of the failed one.
 **Rama's sources.** With the retry mode "all after", "a failed record will cause all records after
 it on the same depot partition to also be retried (even if they already succeeded). If the order of
 processing is critical ... this mode is appropriate"
-(`reference/rama/docs/11-stream-topologies.md:162`). "Rama also fails a record if its event tree
+(`/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md:162`). "Rama also fails a record if its event tree
 doesn’t succeed within a configurable timeout" (`:164`). After a throw or a crash "all PState writes
 during that batch of execution will be discarded" (`:170`). At a batch's end a leader "replicates
 that entry to followers before making the changes from that entry **visible**"
-(`reference/rama/docs/21-replication.md:41`). The in-process cluster has one copy: "The replication
+(`/mnt/data/projects/research/softland/rama-reference/docs/21-replication.md:41`). The in-process cluster has one copy: "The replication
 factor cannot be configured for a module on an `InProcessCluster`"
-(`reference/rama/docs/27-testing.md:63`). Mastodon's source sets the retry mode "all after" on the
+(`/mnt/data/projects/research/softland/rama-reference/docs/27-testing.md:63`). Mastodon's source sets the retry mode "all after" on the
 sources whose order matters, sets no option for this and uses no offset of a depot
 (`run-again/probes-order-after-a-failure/RESULTS.md`, K4). None of these says whether a batch can
 be failed while its worker stays up and its event's code neither throws nor waits.
@@ -375,13 +375,13 @@ partitioner and no yield. And whether that holds for a batch of any size.
 
 **Rama's sources.** Rama's page on microbatch topologies has no line on the order in which the
 records of a batch are run: the word "order" is not on it
-(`reference/rama/docs/12-microbatch-topologies.md`, searched on 14 October 2026). What was read
+(`/mnt/data/projects/research/softland/rama-reference/docs/12-microbatch-topologies.md`, searched on 14 October 2026). What was read
 speaks of how the order is lost: "Do NOT yield on a path where correctness depends on same-key
 events processing in order" (`.claude/skills/rama/references/dataflow.md:156`), and
 `yieldIfOvertime` yields when an event has used more than `worker.event.target.max.millis`,
-"default 5ms" (`reference/rama/docs/09-intermediate-dataflow.md:209`). A batch reads 1,000 records
+"default 5ms" (`/mnt/data/projects/research/softland/rama-reference/docs/09-intermediate-dataflow.md:209`). A batch reads 1,000 records
 of a partition at most unless `depot.microbatch.max.records` is set
-(`reference/rama/docs/12-microbatch-topologies.md:156`; the number was run).
+(`/mnt/data/projects/research/softland/rama-reference/docs/12-microbatch-topologies.md:156`; the number was run).
 
 **Seen.** On a stand-in gate (`run-again/probes-the-bases-gate/RESULTS.md`, C1 and C2). 3,000
 records of one layer, each replacing the one before it on its key, were all accepted, each with the
@@ -407,7 +407,7 @@ other tasks, and on the sending task itself when it does not pass itself over. A
 
 **Rama's sources.** "Partitioners ensure ordering is maintained between any two tasks. If task A
 sends events 1, 2, and 3 to task B across a partitioner, task B will receive and process those
-events in exactly that order" (`reference/rama/docs/16-partitioners.md:129`). That is the order of
+events in exactly that order" (`/mnt/data/projects/research/softland/rama-reference/docs/16-partitioners.md:129`). That is the order of
 the copies among themselves, and not the moment at which they are written. "Microbatches process
 sequentially, and the next one does not start until all data in the current microbatch finishes
 processing and committing all changes to PStates" (`.claude/skills/rama/references/microbatch.md:30`).
@@ -439,14 +439,14 @@ as a rule and not only as seen. And whether a hop by the key at the head of the 
 supported way for a topology whose order matters.
 
 **Rama's sources.** "Currently Rama does not support changing the number of tasks for a module"
-(`reference/rama/docs/19-operating-rama.md`, "Task scaling", line 483). The manual way, from the
+(`/mnt/data/projects/research/softland/rama-reference/docs/19-operating-rama.md`, "Task scaling", line 483). The manual way, from the
 same section: "launch a new module with the same code and more tasks that recomputes all PStates
 from scratch. This new module would set up a mirror to each depot and set up each topology to start
 processing each depot from the beginning. The processing would also make new depots that are a copy
 of the old depots." And: "This approach only works if your processing is deterministic". On a
 mirror: "Rama assigns each task of the current module to zero or more partitions of each mirrored
-depot or PState" (`reference/rama/docs/18-module-dependencies.md:108`). "The number of tasks
-specified must be a power of two" (`reference/rama/docs/19-operating-rama.md:242`).
+depot or PState" (`/mnt/data/projects/research/softland/rama-reference/docs/18-module-dependencies.md:108`). "The number of tasks
+specified must be a power of two" (`/mnt/data/projects/research/softland/rama-reference/docs/19-operating-rama.md:242`).
 
 **Seen.** On a stand-in gate (`run-again/probes-the-bases-gate/RESULTS.md`, C7 and C8). Rama
 refused to launch a module with 6 tasks and one with 3: "Invalid config: Num tasks must be power of

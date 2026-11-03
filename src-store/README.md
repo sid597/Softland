@@ -131,7 +131,7 @@ session read the photographs and wrote down a mark for each question
    read and not run: the word is in every act-id, and an act-id is in the
    log, with its own act and in each act that names it. Rama can write the
    records of a log again at a module update
-   (`reference/rama/docs/14-depots.md`, line 288). No key of a table holds
+   (`/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md`, line 288). No key of a table holds
    the word (`answer-key` in `softland/store/record/rows.clj`).
 6. **A fact is the named slots `{:e :k :v :replaces}`.** Sid decided:
    `:replaces` is optional, a fact id; `:v` is optional; a fact has no mark.
@@ -567,7 +567,7 @@ changes with them. They shape the read build, whose starter is
    the runtime's memory, and Rama keeps it level; the read path shares one live
    read among those who look at the same thing, and ends it when the last one
    leaves. Rama's own page says "the current cached value" of it
-   (`reference/rama/docs/28-clj-defining-modules.md`); his ruling is on what it
+   (`/mnt/data/projects/research/softland/rama-reference/docs/28-clj-defining-modules.md`); his ruling is on what it
    is. The other follow-ons are a session's, and he struck none: the read path
    is one piece of code in the runtime, and a tool asks it; "trusted and
    verified for their layer" is checked when a live read opens, and the read
@@ -750,7 +750,7 @@ with them. They shape the build whose starter is
      their owners. For the first, read in Rama's docs and not
      run: a depot can be added and destroyed at a module update, trimming can
      be set for one depot, and a cut is declared on one depot
-     (`reference/rama/docs/19-operating-rama.md`, lines 356, 422 and 424;
+     (`/mnt/data/projects/research/softland/rama-reference/docs/19-operating-rama.md`, lines 356, 422 and 424;
      `14-depots.md`, "Migrations"). It takes a deploy by whoever runs the
      store, and cannot be made from data. A gatherer's list of 12 October
      names about twenty places of the store's code that take the depots of
@@ -794,7 +794,7 @@ with them. They shape the build whose starter is
    brings to him as one number before a cluster is launched. A session's,
    read and not run: with entry 1 the number of tasks can be changed later by
    a second run from the logs, with downtime
-   (`reference/rama/docs/19-operating-rama.md`, "Task scaling").
+   (`/mnt/data/projects/research/softland/rama-reference/docs/19-operating-rama.md`, "Task scaling").
 6. **The eight of Z5: yes to each.** Sid, 12 October: "yeah agree", to a
    session's "I would say yes to all eight". They are: backups to storage
    that is not this machine, and one restore, before real data is kept; one

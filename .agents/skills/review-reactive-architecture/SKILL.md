@@ -17,8 +17,8 @@ Inspect only the files needed to trace the reactive path:
 
 Read these references only when you need grounding or precise terminology:
 - `reference/missionary/docs/collected-reference.txt`
-- `reference/electric/docs/tutorial.txt`
-- `reference/electric/source/codebase-snapshot.txt`
+- `/mnt/data/projects/research/softland/electric-reference/docs/tutorial.txt`
+- `/mnt/data/projects/research/softland/electric-reference/source/codebase-snapshot.txt`
 
 ## What To Look For
 
