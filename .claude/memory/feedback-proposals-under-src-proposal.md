@@ -1,6 +1,6 @@
 ---
 name: feedback-proposals-under-src-proposal
-description: "Where working material goes — live handoffs and proposals under src/proposal/<work>*; history/ only when Sid names it (retiring superseded material); big fetched captures in the depot outside the repo, never in git"
+description: "Where working material goes — live handoffs and proposals under src/proposal/<work>*; history/ only when Sid names it (retiring superseded material); big fetched captures and research-only work in the depot /mnt/data/projects/research/<project>/<work>/ with a README, never in the Softland repo and never linked from it"
 metadata: 
   node_type: memory
   type: feedback
@@ -39,3 +39,23 @@ permanent, and he worries about what it does to backups. No symlink from the
 repo into the depot, since a backup that follows links would pull it back in.
 `.gitignore` has `src/proposal/**/sources/`. A research session should fetch
 into the depot in the first place.
+
+**Research-only work goes to the research folder (Sid, 2026-11-03).** He moved
+the loops map and the on-top-of-store kit to `/mnt/data/projects/research/softland/`
+rather than committing them: "it does not add anything that should be
+implemented pov in this project and we do have the memtool to know what was
+done and where to find it .. imo". Before moving a folder like that, check
+that anything in it the build should act on is already recorded where the
+build reads it. For the kit, round 07's store items were already in the store
+docs. When it isn't clear whether a folder adds something to implement, ask
+him.
+
+**The research folder is its own git repository (Sid, 2026-11-03: "we should
+also commit the research folder so it is not lost").** "Out of git" above means
+out of the Softland repo. The research repository has no remote and is never
+pushed anywhere public: it holds Rama's documentation and Electric's source,
+whose terms forbid redistribution, and session transcripts. Nested clones of
+public repositories are listed in its `CLONES.md` rather than committed. On
+2026-11-02 a session linked the repo into the depot because it worked from
+the index line of this note without opening it; the index line now names the
+no-link rule.
