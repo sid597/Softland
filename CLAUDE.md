@@ -3,6 +3,12 @@
 `AGENTS.md` points to this file so Claude and Codex use the same project guidance.
 Paths below are relative to the repository root.
 
+What holds in every kind of session is in this file. What applies only while
+building is in `.claude/output-styles/build.md` and in the files under
+`.claude/rules/`. Claude Code loads those by the kind of session and by the
+folder being worked in. Codex does not load them: at the start of a build, Codex
+reads `.claude/output-styles/build.md` and every file in `.claude/rules/`.
+
 ## Purpose and working approach
 
 Softland is being built as a medium where humans and agents can understand,
@@ -19,59 +25,27 @@ Distinguish the intended system from the verified current implementation.
 Existing code tells us what currently exists and what changing it entails.
 It does not, by itself, determine what should exist.
 
-When claiming that a capability works, show the meaningful action it enables
-and the evidence for that claim. Keep implementation presence, tested behavior,
-and usefulness to its inhabitant distinguishable.
+## Where the vision is
 
-## Reading the project
-
-- Start with `docs/carry-on.md` to understand the vision and the developing
-  question. It is a reference summary, not a task list or a set of permanent
-  requirements. `vision/LOG.md` remains the primary source in Sid's words.
+- `docs/carry-on.md` is the reference summary of the vision and of the
+  developing question. It is not a task list or a set of permanent
+  requirements. `vision/LOG.md` remains the primary source in Sid's words:
+  verbatim and append-only. Read them when the question needs the vision; a
+  session does not have to open with them.
   When a proposal, implementation, or document appears to contradict that
   understanding, present the relevant passages from carry-on and/or the log
   in the conversation, explain the discrepancy, and give your reasoned view.
   Surface differences between the summary and its source too; do not silently
   resolve a contradiction by rewriting the vision or treating an old suggestion
   as a current decision.
-  `BETS.md` is retired; mentions in historical records, quoted prompts, and
-  frozen benchmark material refer to that earlier document, not current guidance.
-- Use `.claude/memory/MEMORY.md` for the retained working preferences. Read it
-  if it is not already in the session context; consult its supporting notes
-  when relevant to the task.
-- At the start of a build session, read `docs/decisions.md` and any task-specific
-  handoff named in the current conversation.
-- `docs/README.md` distinguishes the vision, intended decisions, current build
-  guides, and the account of how we got here. Current code explanations belong
-  with their source. `reference/README.md` indexes dependency documentation and
-  source snapshots; check their provenance and version before applying them.
-  `history/` holds earlier plans,
-  implementation logs, reviews, experiments, and research; consult it when a
-  question needs their rationale or evidence, rather than loading it by default.
-  Labels such as "current", "binding", or "next" inside historical records
-  describe their original context. They do not establish present requirements
-  or authorize unfinished work. Check implementation claims against current
-  source and surface relevant discrepancies using the vision guidance above.
-  The former `meta/` workflow is archived as an experiment, not a standing
-  procedure or a required read before making a prompt. Reuse observations when
-  they help the question without making the entire method compulsory.
-- The rig (`src/proposal/rig-2026-09-25/`), the server (`src/app/server/`) and
-  Inland (`src-inland/`) are examples. Sid: "the instance and server code are
-  just like examples. They should not be the one driving the implementation";
-  the rig "was about testing out the protocol before we build anything on it."
-  A finding of theirs (what Rama forced: refusals as data, the seal before the
-  depot, the stamp) is evidence, cited as a finding. No form, no name, no call
-  shape and no default comes from their code. When a question is undecided, it
-  stays open and goes to Sid; existing code never answers it by default.
-- Before gathering, reviewing, explaining, or changing client or server code,
-  read that source root's guidance and map: `src/app/client/CLAUDE.md` and
-  `src/app/client/README.md`, or `src/app/server/CLAUDE.md` and
-  `src/app/server/README.md`, respectively. Each source root's `AGENTS.md`
-  points to its `CLAUDE.md`, so both agents use the same upkeep instructions.
-  Follow the relevant
-  folder maps, namespace docstrings, and function docstrings into scoped source
-  reads. Keep affected explanations and their immediate parent maps aligned
-  with code changes, as those instructions describe.
+- `.claude/memory/MEMORY.md` holds the retained working preferences and the
+  hard rules. Claude Code loads it at the start of every session. Codex reads
+  it at the start of a session.
+- The rig, the server and Inland are examples, never a source: no form, no
+  name, no call shape and no default comes from their code. When a question is
+  undecided, it stays open and goes to Sid; existing code never answers it by
+  default. The reasons, in Sid's words, are in
+  `.claude/rules/examples-not-sources.md`.
 
 ## Systemic repair and caching
 
@@ -83,66 +57,23 @@ look like the solution. Protect the architecture we want while examining the
 one we have. Establish whether the underlying design or computation should
 change before deciding what to do about caching.
 
-## Vision Interleave
-`vision/LOG.md` is Sid's verbatim vision depot;
-
-
 ## Exploration in Chat, Disk at Settlement
 Exploration lives in the conversation. While a question is live, write nothing under `docs/` or memory — no routing, no landing, no commits: a premature artifact breaks the chain of exploration and anchors the rest of the session around defending it. Disk happens at settlement — Sid's word ("land it", "settled", a yes to "settle this?") — or at session end, where the full write-set (including any board/thread status flip) is previewed in one message so Sid can veto in one line before it lands.
-Commit mechanics once settled: the repo is open source under EPL-2.0 (`LICENSE`, settled 2026-11-02; what it does not cover is in `THIRD-PARTY.md`), public on GitHub (Sid, 2026-10-26: "its open soruce we will commit freely"; it had been called closed source since 2026-08-10) — commit freely, code, docs, and law files alike, on `main`, no approval needed, with no condition on what may go public; group commits by concern, each big enough to read as one change with a message that says what and why — never a fix-by-fix tail (Sid, 2026-09-02: commits "too small to know anything"). Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
+Pushing and merging stay Sid's alone. A commit never carries a Co-Authored-By line or any other attribution line.
 
-
-
-### Before building from a page
-
-Before writing any code, the build session sends Sid one short message:
-- what he asked for, in his own words, next to what the page says it will build;
-- which parts of the page are his decisions and which are a session's choices;
-- how many new things the page adds.
-Then it waits for his go. If his words and the page differ, that is the question.
-
-A session does not judge or explain its own build. A fresh session does that.
-
-### Terminology
+## Terminology
 - **"discourse graph" (the data model)** — canonical base against discoursegraphs.com: **Question · Claim · Evidence · Source** nodes; epistemic edges informs/supports/opposes; evidence grounds in sources; locally extensible by practice.  Softland will build its own native discourse graph protocol at some point, it will emerge naturally. This is NOT the Roam/Obsidian plugin — it's a future Softland-native thing.
 - **"discourse graph" (the Roam/Obsidian plugin)** — the existing plugin (the `discourse-graph` MCP tools in this environment belong to it). Same name, completely separate thing — context tells you which.
 
-### Behavioral Rules
+## Behavioral Rules
 
-- Delegate bulk and routine collection to bounded read-only gatherers to
-  conserve attention. Read the primary passages needed to make your own
-  judgment. Keep synthesis, recommendations, and responsibility with the main
-  session.
-- Routing is two-tier:
-  - deterministic collection
-    (greps, counts, suite runs, exact text collection) rides the cheapest competent
-    lane;
-  - judgment-adjacent reading (doc sweeps feeding a cut, ruling, or
-    amendment) rides Opus-xhigh/fable-low — an UNCERTAINTY row is only as good as its
-    noticer.
-- Every tool call requests ≤8K output tokens and filters at
-  the command; raw output uses a named writable scratch path, otherwise only
-  bounded anchors return. The parent spot-checks decision-changing facts.
-  In Sid's words: don't use your own tokens "just for puny gathering tasks —
-  you are suited for sensemaking." Adjudication, synthesis, and verdicts
-  never delegate. Make model routing explicit; judgment stays home.
-- the JUDGMENT is never outsourced to lower
-  models — contract cuts, rulings, repairs, cross-law composition ride the
-  strongest model, no exceptions; every contract header names its cutter
-  model + effort
+- Bulk and routine collection goes to bounded read-only gatherers. Synthesis,
+  recommendations, verdicts and responsibility stay with the main session:
+  judgment is never outsourced to a lower model. How gathering is routed is in
+  `.claude/output-styles/build.md`.
 
 - **Don't present pattern-matches as evidence.** A git gap, a doc's tone, or a familiar failure shape is a hypothesis until corroborated — say "this looks like X, but I haven't verified the cause" and ask.
 - **Ask for a view, not "thinking".** In any prompt you write for another model or session, a subagent's brief included, ask for its view or its answer, never for its "thinking": the word trips Opus (Sid, 30 Oct 2026).
-
-
-
-### Code Review Protocol — Falsification Pass
-
-After the architectural pass, do a second pass whose job is to **break** the change. Review for falsification, not coherence.
-
-**Golden rule:** Never approve an optimistic-state change without tracing the full write → render → truth reconciliation → clear lifecycle.
-Use the Staff-level product architect perspective for the falsification pass: read `.claude/skills/staff-product-architect.md` (a guide to read; it is not a registered skill).
-
 
 ## Be wary of your own failure modes
 The strongest local signal wins over the governing intent: a crisp instance beats a fuzzy method-ask
@@ -164,5 +95,6 @@ hiding whether the work was done at all. So length is not a cost to save. The
 working is the deliverable. The same failure happens one level down, at the
 sentence.
 
+Working means the thinking at the level of the question, with the directions tried; the evidence collected is not the working.
 
 **"fable tries to make shortcuts and codex only does what is told"**
