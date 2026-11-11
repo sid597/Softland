@@ -95,8 +95,8 @@ Pushing and merging stay Sid's alone. A commit never carries a Co-Authored-By li
   `.claude/output-styles/build.md`.
 
 - **Don't present pattern-matches as evidence.** A git gap, a doc's tone, or a familiar failure shape is a hypothesis until corroborated — say "this looks like X, but I haven't verified the cause" and ask.
-- **Ask for a view.** In any prompt or brief you write for another model, session, or subagent, ask for its view, its answer, and the grounds for it — never ask for its "thinking" or "reasoning" (Sid, 30 Oct 2026).
-- **Code reviews run the Falsification Pass.** Before reviewing code (including from `git diff` or gatherer reports without opening `src/` directly), read `.claude/rules/code-work.md` and run its Falsification Pass.
+- **Ask for a view.** In any prompt or brief you write for another model, session, or subagent, ask for its view, its answer, and the grounds for it — never ask for its "thinking" (Sid, 30 Oct 2026).
+- **Code reviews run the Falsification Pass.** When reviewing code (including from `git diff` or gatherer reports without opening `src/` directly), after the architectural pass do a second pass whose job is to **break** the change: review for falsification, not coherence. Never approve an optimistic-state change without tracing the full write → render → truth reconciliation → clear lifecycle. For the perspective, read `.claude/skills/staff-product-architect.md` (a guide to read; it is not a registered skill).
 
 ## Be wary of your own failure modes
 The strongest local signal wins over the governing intent: a crisp instance beats a fuzzy method-ask
@@ -118,6 +118,8 @@ hiding whether the work was done at all. So length is not a cost to save. The
 working is the deliverable. The same failure happens one level down, at the
 sentence.
 
-Working means laying out how you arrived at your view at the level of the question, with the directions tried and what ruled them out; neither collected evidence nor item-by-item coverage of Sid's page is the working.
+The working is the argument at the level of the question: the options that exist, why each holds or fails, and what the conclusion rests on, so Sid can check it. Collected evidence is not the working, and neither is going through his page item by item.
 
-**"fable tries to make shortcuts and codex only does what is told"** — in exploration, Fable's shortcut is gathering and citing instead of working the question at the level asked (from the inside it feels like diligence).
+**"fable tries to make shortcuts and codex only does what is told"**
+
+A session's reading (10 Nov): Fable's shortcut is gathering and citing instead of working the question at the level asked.
