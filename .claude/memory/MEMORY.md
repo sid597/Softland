@@ -103,7 +103,7 @@ For a question about approach the order is the other way round: form a view firs
   judgment; the tools expose evidence and coverage. Also links the source-backed
   persona and `/ask-as-sid` for a perspective on how Sid might respond.
 - [Softland memory](reference-softland-memory.md) — the record of Sid's lines and session
-  texts since March: start page by hook, six tools through memtool. His exact words, their
+  texts since March: six tools through memtool, start page on request (`bin/page`). His exact words, their
   order, who wrote what. Recall for meaning and for older history.
 - [Requirements noticing is not Sid's job](project-requirements-noticing-not-sids-job.md) — misses are facts inside the medium, a scribe chair extracts them outside it, the main chair adjudicates at settlement (settled 2026-09-13).
 - [Ask before deleting](feedback-ask-before-deleting.md) — name the files, what and why, then wait for Sid's word; even self-made regenerable files; tidiness is not a reason (Sid stopped an rm, 2026-09-21).

@@ -1,6 +1,6 @@
 ---
 name: reference-softland-memory
-description: "The script-built record of Sid's lines and session texts for Softland since March 2026 (start page by hook, six tools through memtool), and when recall is the better road"
+description: "The script-built record of Sid's lines and session texts for Softland since March 2026 (six tools through memtool, start page on request with bin/page), and when recall is the better road"
 metadata:
   node_type: memory
   type: reference
@@ -13,10 +13,11 @@ A script-built record of the Softland conversations lives outside the repo at
 and every text a session wrote, Claude Code and Codex, from March 2026. No model
 writes any of it. A timer refreshes it every few minutes.
 
-- The start page. A Claude Code session that starts in Softland is given it by a
-  hook: his newest lines, each named session's newest text, commits, questions
-  waiting for him, a row a week of how we got here, pointers into vision/LOG.md.
-  Any session can print it with `bin/page` there; Codex sessions are not given it.
+- The start page, on request: `bin/page` there prints his newest lines, each
+  named session's newest text, commits, questions waiting for him, a row a week
+  of how we got here, pointers into vision/LOG.md. No session is given it at
+  start (the hook was taken off on 11 Nov 2026); print it when a question needs
+  where things stand across sessions.
 - The six tools: `bin/memtool <tool> <args>` through Bash, or the `softland-memory`
   tools when a session lists them. search, line, around, replies, reply, who.
 
