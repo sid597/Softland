@@ -24,6 +24,10 @@ the record's original context; they do not establish present requirements or
 authorize work now. Archiving a record does not decide whether all of its ideas
 are obsolete or all of its proposed work was completed.
 
+`BETS.md` is retired; mentions of it in historical records, quoted prompts and
+frozen benchmark material refer to that earlier document, not to current
+guidance.
+
 Check implementation claims against current code. Retain useful reasoning with
 its assumptions and evidence limits when carrying it into current explanations.
 Surface differences from the intended system in conversation, rooted in

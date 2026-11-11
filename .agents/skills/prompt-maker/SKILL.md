@@ -21,8 +21,11 @@ judgment. Keep his meaning and his words, and fix the grammar, the pronouns
 and the scope until every sentence reads one way. Cleaning adds nothing: no
 shape for the answer, no question turned into an inventory.
 
-Ask the other model for its view or its answer, never for its "thinking" or
-"reasoning" (Sid, 30 Oct 2026).
+Ask the other model for its view, its answer and the grounds: what holds,
+what breaks on the case, what is still open. Never ask for its "thinking" or
+"reasoning" (Sid, 30 Oct 2026), or for its "working": on Fable and Opus such
+a request can be stopped by a safeguard. When Sid's own words in the chat
+ask for one of these, carry that as a request for the view and its grounds.
 
 Before writing to a session that already exists, look up what it has
 already read: its texts in the record (memtool), never its transcript.

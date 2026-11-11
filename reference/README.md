@@ -4,7 +4,8 @@ These collections describe dependencies or preserve copies of their source.
 They are reference material, not Softland's design decisions or implementation
 guides. Use [docs/](../docs/README.md) for those project explanations. Each
 collection keeps its owner's terms, not Softland's licence; see
-[THIRD-PARTY.md](../THIRD-PARTY.md).
+[THIRD-PARTY.md](../THIRD-PARTY.md). Check a collection's provenance and
+version before applying it.
 
 | Collection | Kind and provenance | Recorded version or date |
 |---|---|---|

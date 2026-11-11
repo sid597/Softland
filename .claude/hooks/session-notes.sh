@@ -25,4 +25,5 @@ for f in "$root/.claude/settings.local.json" "$root/.claude/settings.json" "$HOM
 done
 echo "Output style: ${style:-default}."
 echo "Kinds of session: /output-style Exploration (exploring with Sid) or /output-style Build."
+echo "If Sid's message reads as the other kind of session, say so in your first reply."
 exit 0
