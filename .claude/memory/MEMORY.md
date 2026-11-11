@@ -24,7 +24,7 @@ still be true in months.
 - [Requirements noticing is not Sid's job](project-requirements-noticing-not-sids-job.md) — when work shows something the medium could not do: who records it and where it lands.
 - [The store offers the spectrum](project-store-offers-the-spectrum.md) — when a store question reads "X or Y": both, with a default, and the default is the end that keeps more; uniformity rules are the one exception.
 - [The record: softland-memory](reference-softland-memory.md) — Sid's exact words, their order and who wrote what, since March 2026: six tools through memtool, and a start page on request (`/mnt/data/projects/softland-memory/bin/page`).
-- [Recall and the persona](reference-recall-prompt-memory.md) — past conversations across Claude Code and Codex, by meaning and for older history; also the source-backed persona and `/ask-as-sid`.
+- [Recall](reference-recall-prompt-memory.md) — past conversations across Claude Code and Codex, by meaning and for older history.
 - [Safeguard stops](reference-safeguard-stops.md) — when a response is stopped by a safeguard: what the category means, what set off the stops of 10 and 11 November 2026, how to list stops from the transcripts, what to do next.
 
 ## While building

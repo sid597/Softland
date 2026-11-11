@@ -1,6 +1,6 @@
 ---
 name: reference-recall-prompt-memory
-description: Recall capabilities, evidence boundaries, and Sid's source-backed persona
+description: Recall capabilities and evidence boundaries; where the retired portrait of Sid is kept
 metadata:
   type: reference
 ---
@@ -34,7 +34,9 @@ Repo: `/mnt/data/projects/recall`. MCP: `recall mcp`. CLI: `recall search "…"`
 Web: http://127.0.0.1:7337. The daemon continuously indexes new transcript material. Operational details and
 evaluation receipts live in Recall's README.
 
-The source-backed persona at `persona/SID.md` supplies a perspective on how Sid might respond; `/ask-as-sid`
-uses it for questions and pushbacks. Its quoted UUIDs open through Recall. Sid's live words take precedence
-over that portrait. Supporting material and regeneration instructions live under `persona/` in the Recall repo.
+A portrait of how Sid responded, built on 23 August 2026 from his prompts, is at `persona/SID.md` in the
+Recall repo, with its supporting material and regeneration instructions. Its quoted UUIDs open through Recall.
+The `ask-as-sid` skill that ran it was retired on 11 November 2026: Sid no longer felt the need for it, and the
+portrait had drifted from him. The skill file is kept beside the portrait as `persona/ask-as-sid-skill.md`.
+Sid's live words take precedence over the portrait.
 Related: [[feedback-preserve-sids-vocabulary]], [[feedback-corpus-terms-never-back-at-sid]].
