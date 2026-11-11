@@ -18,7 +18,8 @@ decides.
 
 - **Sid's requests are approximate** — the simplest, cleanest design outranks
   his literal words; a wall means the design is wrong: re-derive, never patch
-  around (CLAUDE.md top section).
+  around (`CLAUDE.md`, "How we work together" and "Systemic repair and
+  caching").
 - **Settled/Current implementation ≠ frozen.** To change anything below: bring a first-principles
   case or a measurement, straight to Sid — he rules fast. What's not okay is
   re-arguing it session after session with no new substance.
@@ -209,3 +210,6 @@ and source path relevant to the work.
 
 Spending money · pushing/merging the docs branch (never) · `env.clj` (never
 read it)
+
+The whole list, with what a session does without asking, is in `CLAUDE.md`
+under "Who decides what".

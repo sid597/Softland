@@ -11,7 +11,7 @@ metadata:
 Sid is deciding what his append-only, never-rewritten store must fix before its first record; what
 he wants first is the conventions that would paint him into a corner. On 2026-09-21 two sessions
 applied the eight research files (about 310k tokens). What is passed on is ONE document:
-`src/proposal/first-record-2026-09-20/CORNERS.md`. It holds where the work stands, the picture
+`src/proposal/frame-2026-09-15/CORNERS.md` (moved there on 22 September 2026). It holds where the work stands, the picture
 (planet, forest, tree and the two "to"s; given to Sid, not confirmed in words), six findings the
 corners hang from, a page per corner, a redrawn ledger (a candidate; Sid has not ruled on it), what
 Rama fixes physically per the rama research file, and what was and was not read. The first thing it

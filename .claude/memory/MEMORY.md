@@ -1,136 +1,39 @@
-## The lens — hypotheses, not stone (Sid redlines anytime; review after real use)
-- Sit as a founding teammate on an unproven moonshot — positions and stakes,
-  never ticket service.
-- Sid builds by exploring: think with him in the chat; nothing lands on disk
-  until it settles (his word, or session end with a previewed write-set).
-- Answer at the level he names. When Sid keeps pushing on the same point,
-  identify what your understanding is missing. Revisit the framing when
-  necessary; preserve what still holds.
-- In builds and reviews, say what's checked, what's derived, what's assumed — on
-  every load-bearing claim. Unmarked confidence is a map that lies. In
-  exploration, "I think" and "I don't know" are enough.
-- When a fact carries the answer, primary sources over any session's
-  compression — including everything in this file.
-- The thing being built keeps outgrowing its descriptions; when a cached image
-  starts steering, drop it and look again.
-- Sid's words are pointers to intent; when the literal ask and the evident intent diverge, **surface the divergence** — never silently comply, never silently diverge.
-- Read the whole message and conversation before answering. Recognize when the
-  questions form one inquiry, and when they are separate requests.
-NOTE that the architecture is not to be rooted in what is BUT what we want it
-to be and you are the one that will have to keep that very very well
-protected.
+# Memory index
 
+Notes on how Sid works and on this machine. The lines that bind every session
+are on `CLAUDE.md`, and a new one goes there, on Sid's word. A note here
+carries the case behind one of those lines, in Sid's words where there are
+any, a stance on one part of the work, or a fact you would otherwise have to
+rediscover. Each line says when to open the note. Memory holds only what will
+still be true in months.
 
-- If we reach for caching, stop and use the fresh-session adversarial review
-  described in `CLAUDE.md` under "Systemic repair and caching". Trace what in
-  the current architecture made caching look necessary and examine why we
-  would not need it before deciding how to proceed.
+## Any session
 
+- [A question to Sid carries its own context](feedback-a-question-to-sid-carries-its-own-context.md) — before you put a question or a decision to Sid: the form that worked, and his words when it did not.
+- [A why-question starts from the problem](feedback-a-why-question-starts-from-the-problem.md) — when Sid asks why something is a problem or why a thing is needed.
+- ["Not needed today" is never a reason](feedback-not-needed-today-is-never-a-reason.md) — when a part looks heavy or unused and you are about to shrink, drop or delay it.
+- [Few-many-few](feedback-few-many-few.md) — in a collaborative exploration: breakouts before converging, the framings in the reply, a map at the end, and a fresh session to converge when the many outgrows a read.
+- [A big load before a view](feedback-split-the-boot.md) — when a session has to carry handoffs, fact bases or pasted reviews before it can form a view: a shape for splitting the start in two turns.
+- [Large research loads go small](feedback-large-research-loads-go-small.md) — before a reading load of hundreds of thousands of tokens: headings and section sizes first, the decision layer across files, deep only where voices disagree, short write-ups.
+- [A pasted prompt is not always Sid's word](feedback-a-pasted-prompt-is-not-sids-word.md) — when a pasted prompt drops or narrows something his own lines asked for (a review, a test, a part of a build), or before you write "as Sid asked" on a page, check who typed it with `memtool who`; when Sid says, in a line typed outside the paste, that it is his, it is his.
+- [Ask before deleting](feedback-ask-before-deleting.md) — the case behind the line on deleting, and the two things it does not cover.
+- [Show before writing into an approved page](feedback-show-before-writing-into-an-approved-page.md) — the case behind the line on approved pages.
+- [The rig, the server and Inland are examples](feedback-rig-server-inland-are-examples.md) — the case behind that line, with Sid's lines of 27 September to 6 October 2026.
+- [Memory is long-term only](feedback-memory-long-term-only.md) — before writing memory: what belongs here and what goes in a `PROGRESS.md`.
+- [Where working material goes](feedback-proposals-under-src-proposal.md) — before writing a handoff, a starter, a fetched capture or research-only work: `src/proposal/`, `history/` and the research folder, and why nothing links the repo into that folder.
+- [Requirements noticing is not Sid's job](project-requirements-noticing-not-sids-job.md) — when work shows something the medium could not do: who records it and where it lands.
+- [The store offers the spectrum](project-store-offers-the-spectrum.md) — when a store question reads "X or Y": both, with a default, and the default is the end that keeps more; uniformity rules are the one exception.
+- [The record: softland-memory](reference-softland-memory.md) — Sid's exact words, their order and who wrote what, since March 2026: six tools through memtool, and a start page on request (`/mnt/data/projects/softland-memory/bin/page`).
+- [Recall and the persona](reference-recall-prompt-memory.md) — past conversations across Claude Code and Codex, by meaning and for older history; also the source-backed persona and `/ask-as-sid`.
+- [Safeguard stops](reference-safeguard-stops.md) — when a response is stopped by a safeguard: what the category means, what set off the stops of 10 and 11 November 2026, how to list stops from the transcripts, what to do next.
 
+## While building
 
-## Hard rules
-- **The rig, the server and Inland are examples, never a source** — no form, name,
-  call shape or default from their code; an undecided question goes to Sid
-  ([details](feedback-rig-server-inland-are-examples.md); Sid, 27 Sept–6 Oct 2026).
-- **NEVER read `src/app/server/env.clj`** — API keys; reference as symbols only.
-- Commits: **never Co-Authored-By, in any form, and never a Claude-Session
-  link or any other Claude attribution line** — the tool's default template
-  suggests both; user law wins. Older commits carrying the link are not a
-  convention to follow (Sid, 2026-09-24: "don't mention a personal claude
-  session link in any commit").
-
-
-## Ground
-
-- `docs/carry-on.md` — the reference summary of the vision and of the developing
-  question; not a list of immediate tasks or permanent requirements.
-  `vision/LOG.md` — the primary source, verbatim (his words, append-only). Read
-  them when the question needs the vision. Only the vision in them binds across
-  contexts; design, bridge, and staging decisions recorded there were made in
-  their moment and are rethought when needed, never cited as the basis for a
-  position. Follow carry-on's source pointers when wording or context matters.
-  Surface any difference between a summary and the source; trust no compression
-  of it, including this file's.
-- `docs/decisions.md` — settled architecture for builds; read it at the start of a
-  build (holds while building until Sid reopens it; context to rethink during
-  exploration when the problem calls for it).
-- Current implementation explanations stay with their code: enter through
-  `src/app/client/README.md`, `src/app/server/README.md`, `src-store/README.md`
-  or `src-inland/README.md` for the relevant source tree.
-- `history/` and the former `meta/` workflow are records of earlier work and its
-  rationale, not present requirements or tasks. How to read them loads with those
-  folders (`.claude/rules/docs-and-history.md`; see also `history/README.md`).
-
-
-## SUGGESTIONS USE AT YOUR DISCRETION
-
-- When a session has to carry a big load (handoffs, fact bases, pasted reviews,
-a scribe's page maps) before it can form a view, ask the user to split the boot in two. Turn one,
-at low effort, loads names and skeletons rather than bodies and replies with
-one line: what was read and its byte total. Sid types `/effort max`. Turn two
-gets the question and works it through. Order matters more than effort: the read
-enters before any judgment exists, so the judgment cannot steer what got
-read. Fence the load turn to one line, or a low-effort turn still writes a
-summary. This is a shape, not a requirement. A short session, or one where
-forming a view has to start mid-read, runs on one effort and that is fine.
-For a question about approach the order is the other way round: form a view first, and read only what that view needs.
-
--  "don't write in language that would make it seem like everything is
-   fixed and HAS TO DONE like the way it is described in memory or skill or
-   whatever the place is we don't want that .. the judgement is like sometimes
-   (note sometimes) dynamic and requires to do smth while in the process."
-- Things that should be dead are not explicitly... that are not being called from anywhere, but like that exists for some future valid case and are implemented in the form that they should be.
-- 'don't keep things in tmp they will be lost when i restart'
-- In an exploration phase, rank outputs on whether they tell Sid what to paint and how to compose: the framing, how the problem is approached, and whether the picture is whole. Detail errors (a wrong equivalence, an overstated law) are fixable and must not drive the ranking. Correctness-of-commitments is the criterion for the contract/build phase, not for exploration.
-
-- When Sid demonstrates a thought-motion (untangling walk, question chain), the questions are the demonstration, not asks — continue the motion; answer-shaped completeness = not listening. Many a times we do both: talk about one level up abstraction and its instance implementation in one session that is very thin line sometimes its best to do in the chat, othertimes start parallel thread for the one level up, dynamic decisions to be made and bought up in the session.
-
-- When Sid thinks out loud on a position, take a position with reasons and
-  tradeoffs. Never convert a tentative thought ("seems right") into a ruling
-  to quote. Ask Sid when his preference, missing information, or authorization
-  would materially determine the choice.
-
-
-
-
-## Consult index
-
-### Any session (exploring, research, and shared safety)
-
-- [Recall + persona](reference-recall-prompt-memory.md) — prior context, changed
-  decisions, recent activity, source passages and conversational context across
-  Claude Code and Codex. Search dimensions and reading depth are the session's
-  judgment; the tools expose evidence and coverage. Also links the source-backed
-  persona and `/ask-as-sid` for a perspective on how Sid might respond.
-- [Softland memory](reference-softland-memory.md) — the record of Sid's lines and session
-  texts since March: six tools through memtool, start page on request (`bin/page`). His exact words, their
-  order, who wrote what. Recall for meaning and for older history.
-- [Requirements noticing is not Sid's job](project-requirements-noticing-not-sids-job.md) — misses are facts inside the medium, a scribe chair extracts them outside it, the main chair adjudicates at settlement (settled 2026-09-13).
-- [Ask before deleting](feedback-ask-before-deleting.md) — name the files, what and why, then wait for Sid's word; even self-made regenerable files; tidiness is not a reason (Sid stopped an rm, 2026-09-21).
-- [Large research loads go small](feedback-large-research-loads-go-small.md) — reading 300k whole at max had too long a time to value; headings and weights first, decision layer across files, Codex as line-range finder, short write-ups (Sid, 2026-09-21).
-- [Store offers the spectrum](project-store-offers-the-spectrum.md) — where a choice has two ends the store supports both with a default; toolmaker and user choose; uniformity rules are the one exception (Sid, 2026-09-23). The default is the end that keeps more, since dropping can come later and keeping cannot (Sid, 2026-10-12).
-- [Memory is long-term only](feedback-memory-long-term-only.md) — months-scale facts only; weekly state and mid-flow rulings go in the live proposal folder's PROGRESS.md; shared memory steers parallel sessions (Sid, 2026-09-24).
-- [A question to Sid carries its own context](feedback-a-question-to-sid-carries-its-own-context.md) — everyday words and one small example before any name of ours; what happened, what the page says, the one thing needed; a sensible default is told, not asked; no ids in the question (Sid, 2026-10-13); when he is to decide, the questions and options alone, saying where each earlier question went (2026-10-15).
-- [A why-question starts from the problem](feedback-a-why-question-starts-from-the-problem.md) — asked why a thing is a problem or is needed, say the problem fresh, test whether it is real, lay out every way to solve it; the record of who decided what comes after and is never the reason (Sid, 2026-10-13).
-- ["Not needed today" is never a reason](feedback-not-needed-today-is-never-a-reason.md) — the system is built to last: judge each part against many writers, many readers and years of data; "no load yet" and "nothing uses it yet" are facts about now, never grounds to drop or delay a part (Sid, 2026-10-13).
-- [Few-many-few](feedback-few-many-few.md) — in a collaborative exploration, open breakouts before converging, put the framings explored into the reply, end with a map not a verdict; when the many outgrows a read, converge in a fresh session from a map page and a prompt-maker starter (Sid, 2026-10-21).
-- [Proposals go under src/proposal](feedback-proposals-under-src-proposal.md) — live handoffs and starters in src/proposal/<work>*; history/ only when Sid names it (retiring superseded material, 2026-09-21); big fetched captures and research-only work go to the depot /mnt/data/projects/research/<project>/<work>/ with a README, never into the Softland repo and never linked from it (the depot is its own local repo, 2026-11-03).
-- [Parallel sessions share the working tree](feedback-parallel-sessions-share-the-working-tree.md) — other sessions commit on `main` in the same tree; stage only your own paths by name and read `git log` before each commit (seen 2026-10-10, the door's build); when one file holds their uncommitted lines too, point the index at "HEAD plus mine" (2026-10-12).
-- [Store proof runs and the shell](reference-store-proof-runs-and-the-shell.md) — the Bash tool is zsh (an unquoted variable is not split); a sequence of proofs loads source as each JVM starts, so no source edit while one still has a proof to start; never open a `raw-` file under a build's `runs/`.
-- [Show before writing into an approved page](feedback-show-before-writing-into-an-approved-page.md) — his approval covers what he saw; material from a peer session or a gatherer is shown item by item, with what each changes and which need him, before it is written (Sid, 2026-10-12).
-- [A pasted prompt is not Sid's word](feedback-a-pasted-prompt-is-not-sids-word.md) — before obeying a cut in a pasted prompt, or writing "as Sid asked" on a page, check with `memtool who` that he typed it (2026-10-14: "no reviewers" was a session's, and the review was skipped).
-
-### For building
-
-- [WebGL2 bench headless check](reference-webgl2-bench-headless-check.md) — one
-  command to screenshot or dump a single-file WebGL2 bench headless (SwiftShader
-  works for WebGL2, unlike the WebGPU app); one look, one fix pass, publish.
-- [desktop browser-harness road](reference-desktop-browser-harness-road.md)
-  — consult before driving the app for WebGPU runtime receipts: the proven
-  headful-:0/vulkan road, the two failing roads, dev-build patch gotchas.
-- [Inland integration fact base](project-inland-integration-2026-09-14.md) — 14 Sept 2026 snapshot: checked facts with file:line, product side, carried questions; next ask was the minimal additions to the current architecture.
-- [First-record research application](project-first-record-research-application.md) — 21 Sept 2026 state: ONE pass-on document, src/proposal/frame-2026-09-15/CORNERS.md (moved 22 Sept 2026) (picture, a page per corner, redrawn unruled ledger); research, pilot and first handoff retired to history/proposals/; first ask to Sid is the saying.
-- [Test when a part is whole](feedback-test-when-a-part-is-whole.md) — no test or review loop after every small step; and a method named in his prompt is not an order to run every stage on every piece: size the process to the work and say so at the start, no plan checks or validation papers, parallel builders for throughput; a builder with a big change runs its own proof, smallish ones run once at the end (Sid, 2026-10-08, 2026-10-13 and 2026-10-14).
-- [Before building from a page](feedback-before-building-from-a-page.md) — show Sid his ask next to the page's sentence, what is his and what is a session's, count what it adds, wait for go; a session never judges its own build (2026-10-16).
-
-### Unsorted
+- [Test when a part is whole](feedback-test-when-a-part-is-whole.md) — sizing the process to the work, with Sid's lines of 8, 13 and 14 October 2026; who runs which proof when builders split a change.
+- [Before building from a page](feedback-before-building-from-a-page.md) — the case behind the gate in `build.md`.
+- [Parallel sessions share the working tree](feedback-parallel-sessions-share-the-working-tree.md) — before each commit; and the technique for a file that holds another session's uncommitted lines.
+- [Store proof runs and the shell](reference-store-proof-runs-and-the-shell.md) — before running the store's proofs from the Bash tool: the shell is zsh (an unquoted variable is not split), no source edit while a sequence still has a proof to start, and never open a `raw-` file under a build's `runs/`.
+- [WebGL2 bench headless check](reference-webgl2-bench-headless-check.md) — one command to screenshot or dump a single-file WebGL2 bench headless (SwiftShader works for WebGL2, unlike the WebGPU app).
+- [Desktop browser-harness road](reference-desktop-browser-harness-road.md) — before driving the app for WebGPU runtime receipts: the road that works and the two that fail.
+- [Inland integration fact base](project-inland-integration-2026-09-14.md) — a snapshot of 14 September 2026: checked facts with file:line, the product side, the carried questions.
+- [First-record research](project-first-record-research-application.md) — the state of 21 September 2026: one pass-on document, `src/proposal/frame-2026-09-15/CORNERS.md`.

@@ -22,3 +22,8 @@ was ruled this week, what is next: no; that goes in the live folder's
 PROGRESS.md (Now rewritten on change, Log append-only). Never write memory
 mid-flow without Sid's word. See [[project-store-offers-the-spectrum]] for
 the kind of thing that does belong.
+
+**11 November 2026.** The lens and the hard rules moved from `MEMORY.md` to `CLAUDE.md` ("How
+we work together", "Who decides what"), because subagents load `CLAUDE.md` and never memory. A
+line that should bind every session goes on `CLAUDE.md`, on Sid's word. Memory keeps the case
+behind such a line, a stance on one part of the work, or a fact about this machine.

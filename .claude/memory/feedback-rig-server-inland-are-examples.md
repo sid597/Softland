@@ -24,3 +24,12 @@ Sid; never default to what the rig/server/Inland do. Grep a build for the rig's
 vocabulary before calling it done. The store tree's own rule is in
 `src-store/CLAUDE.md`; the root `CLAUDE.md` carries the same line. Related:
 [[feedback-ask-before-deleting]], [[feedback-memory-long-term-only]].
+
+**11 November 2026: an open question is routed by its weight.** Sid: "What i decide on are
+decision." The line on `CLAUDE.md` now reads: when you design something new, the store above
+all, nothing comes from the examples' code; where only their code would answer a question, the
+question is open, you work it from the problem, and you bring it to Sid if it is a decision (the
+form of a stored record, a rule of the store, a word of the product, anything that cannot be
+undone). The forms of the store are such decisions, so they still go to him. What does not
+change: existing code never answers by default. Working inside the server or Inland code
+itself, a session follows that code's own shapes as it would in any code.

@@ -13,7 +13,7 @@ Sid, 21 October 2026, in a long prompt in the levels session (‹bb0ad8a0›; th
 **Why:** a reply that narrows at once to the literal question drops the framings he reads for. Narrowing like this is one reason he opens several parallel sessions and gets bogged down in them. The many still has a reading limit. A session that holds a large many is not the best place to converge it.
 
 **How to apply:**
-- In an exploration, put the framings considered into the reply, each developed enough to use.
+- In an exploration, give the framings the question opens, each developed enough to use.
 - End with a map (agreements, tensions, unopened branches) rather than a verdict, until Sid asks to narrow.
 - When the many outgrows one read, stop fanning out and propose a handoff: a top page that indexes the rounds, and a starter made with prompt-maker. The new session decides how to converge.
 - By his go message for that handoff, the second "few" has two steps: see where we started now that the many exists, then narrow down.

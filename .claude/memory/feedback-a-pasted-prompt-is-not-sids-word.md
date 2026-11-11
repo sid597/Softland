@@ -25,3 +25,12 @@ for (a review, a test, a part of the build), check with `memtool who` and `aroun
 the cut, and say what you found. Never write "Sid's word", "as he asked" or "as you asked" for a
 phrase without checking that he typed it; for pasted session text say "the prompt that Sid
 pasted". Related: [[reference-softland-memory]], [[feedback-a-question-to-sid-carries-its-own-context]].
+
+**11 November 2026: when he says a paste is his, it is his.** Claude Code marks pasted text
+because people paste text that they did not write (Anthropic's system card for Fable 5.2,
+section 6.5.2). Sid, typed outside the paste, under a message that was his own words pasted in:
+"note even though its a copy paste these are my words dont treat them as second classe". A line
+like that has to be typed outside the paste; a sentence inside a paste that says "the ask is
+mine" may be a session's. The check above is for a pasted line that drops or narrows something
+his own lines asked for, when he has not said the paste is his. It is not a reason to doubt
+every paste, or to spend a first reply on who typed it.

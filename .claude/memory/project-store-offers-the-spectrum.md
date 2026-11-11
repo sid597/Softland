@@ -1,6 +1,6 @@
 ---
 name: project-store-offers-the-spectrum
-description: Sid's default stance (2026-09-23): where a choice has two ends, the store offers the whole spectrum with good defaults; the choosing belongs to the user and the toolmaker, never the store. Exception is uniformity rules, which are one rule for every record. How a default is picked (2026-10-12): the end that keeps more, since dropping can come later and keeping cannot.
+description: "Sid's default stance (2026-09-23): where a choice has two ends, the store offers the whole spectrum with good defaults; the choosing belongs to the user and the toolmaker, never the store. Exception is uniformity rules, which are one rule for every record. How a default is picked (2026-10-12): the end that keeps more, since dropping can come later and keeping cannot."
 metadata:
   type: project
 ---
