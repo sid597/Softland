@@ -18,6 +18,12 @@ GEMINI.md
 .gemini/
 .claude/*
 !.claude/skills/
+!.claude/settings.json
+!.claude/hooks/
+!.claude/memory/
+!.claude/agents/
+!.claude/output-styles/
+!.claude/rules/
 external-resources/
 # runtime land state (git-spine cursor + /assert write-ahead log — durable but
 # untracked by contract; replay reconstructs, never git)
@@ -34,10 +40,6 @@ __pycache__/
 # fetched research captures (saved pages, PDFs): they live in a depot beside the
 # repo, /mnt/data/projects/research/<project>/<work>/, never in git
 src/proposal/**/sources/
-!.claude/settings.json
-!.claude/hooks/
-!.claude/memory/
-!.claude/agents/
 
 /.inland-runtime/
 # a runtime kept aside, its store intact (e.g. .inland-runtime-scenes-1-3)

@@ -1,7 +1,7 @@
 #!/bin/bash
-# SessionStart: names the saved output style and the two kinds of session, and
-# adds a note when the hook input names a Fable model. Always exits 0: a missing
-# file, bad JSON or an unknown shape adds nothing and never fails the session.
+# SessionStart: names the saved output style and the two opt-in session styles.
+# Always exits 0: a missing file, bad JSON or an unknown shape adds nothing and
+# never fails the session.
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 # The outputStyle saved in settings file $1, when it is a non-empty string.
@@ -24,26 +24,5 @@ for f in "$root/.claude/settings.local.json" "$root/.claude/settings.json" "$HOM
   [ -n "$style" ] && break
 done
 echo "Output style: ${style:-default}."
-echo "Kinds of session: /output-style exploration (thinking with Sid) or /output-style build."
-
-# The model in the hook input: a string, or an object with an id or display name.
-model=$(python3 -I -c '
-import json, sys
-try:
-    m = json.load(sys.stdin).get("model")
-except Exception:
-    m = None
-if isinstance(m, dict):
-    m = " ".join(str(m.get(k) or "") for k in ("id", "display_name", "displayName"))
-if isinstance(m, str):
-    print(m)
-' 2>/dev/null)
-
-shopt -s nocasematch
-if [[ $model == *fable* ]]; then
-  cat <<'EOF'
-For Fable. Sid's line "fable tries to make shortcuts" means this: your shortcut is to gather and cite instead of thinking at the level asked.
-From the inside it looks like diligence.
-EOF
-fi
+echo "Kinds of session: /output-style Exploration (exploring with Sid) or /output-style Build."
 exit 0
