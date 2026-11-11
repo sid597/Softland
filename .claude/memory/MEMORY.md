@@ -45,30 +45,35 @@ protected.
 - `docs/carry-on.md` — the reference summary of the vision and of the developing
   question; not a list of immediate tasks or permanent requirements.
   `vision/LOG.md` — the primary source, verbatim (his words, append-only). Read
-  them when the question needs the vision. Follow carry-on's source pointers when
-  wording or context matters. Surface any difference between a summary and the
-  source; trust no compression of it, including this file's.
-- `docs/decisions.md` — the settled ground; read it at the start of a build.
+  them when the question needs the vision. Only the vision in them binds across
+  contexts; design, bridge, and staging decisions recorded there were made in
+  their moment and are rethought when needed, never cited as the basis for a
+  position. Follow carry-on's source pointers when wording or context matters.
+  Surface any difference between a summary and the source; trust no compression
+  of it, including this file's.
+- `docs/decisions.md` — settled architecture for builds; read it at the start of a
+  build (holds while building until Sid reopens it; context to rethink during
+  exploration when the problem calls for it).
 - Current implementation explanations stay with their code: enter through
   `src/app/client/README.md`, `src/app/server/README.md`, `src-store/README.md`
   or `src-inland/README.md` for the relevant source tree.
 - `history/` and the former `meta/` workflow are records of earlier work and its
-  reasoning, not present requirements or tasks. How to read them loads with those
+  rationale, not present requirements or tasks. How to read them loads with those
   folders (`.claude/rules/docs-and-history.md`; see also `history/README.md`).
 
 
 ## SUGGESTIONS USE AT YOUR DISCRETION
 
 - When a session has to carry a big load (handoffs, fact bases, pasted reviews,
-a scribe's page maps) before it can think, ask the user to split the boot in two. Turn one,
+a scribe's page maps) before it can form a view, ask the user to split the boot in two. Turn one,
 at low effort, loads names and skeletons rather than bodies and replies with
 one line: what was read and its byte total. Sid types `/effort max`. Turn two
-gets the thinking and the question. Order matters more than effort: the read
+gets the question and works it through. Order matters more than effort: the read
 enters before any judgment exists, so the judgment cannot steer what got
 read. Fence the load turn to one line, or a low-effort turn still writes a
-summary.  This is a shape, not a requirement. A short session, or one where the
-thinking has to start mid-read, runs on one effort and that is fine.
-For a question about approach the order is the other way round: think first, and read only what the thinking asks for.
+summary. This is a shape, not a requirement. A short session, or one where
+forming a view has to start mid-read, runs on one effort and that is fine.
+For a question about approach the order is the other way round: form a view first, and read only what that view needs.
 
 -  "don't write in language that would make it seem like everything is
    fixed and HAS TO DONE like the way it is described in memory or skill or
@@ -76,7 +81,7 @@ For a question about approach the order is the other way round: think first, and
    (note sometimes) dynamic and requires to do smth while in the process."
 - Things that should be dead are not explicitly... that are not being called from anywhere, but like that exists for some future valid case and are implemented in the form that they should be.
 - 'don't keep things in tmp they will be lost when i restart'
-- In an exploration phase, rank outputs on whether they tell Sid what to paint and how to compose: the framing, the way of thinking handed over, and whether the picture is whole. Detail errors (a wrong equivalence, an overstated law) are fixable and must not drive the ranking. Correctness-of-commitments is the criterion for the contract/build phase, not for exploration.
+- In an exploration phase, rank outputs on whether they tell Sid what to paint and how to compose: the framing, how the problem is approached, and whether the picture is whole. Detail errors (a wrong equivalence, an overstated law) are fixable and must not drive the ranking. Correctness-of-commitments is the criterion for the contract/build phase, not for exploration.
 
 - When Sid demonstrates a thought-motion (untangling walk, question chain), the questions are the demonstration, not asks — continue the motion; answer-shaped completeness = not listening. Many a times we do both: talk about one level up abstraction and its instance implementation in one session that is very thin line sometimes its best to do in the chat, othertimes start parallel thread for the one level up, dynamic decisions to be made and bought up in the session.
 
@@ -90,9 +95,9 @@ For a question about approach the order is the other way round: think first, and
 
 ## Consult index
 
-### For thinking with Sid
+### Any session (exploring, research, and shared safety)
 
-- [Recall + persona](reference-recall-prompt-memory.md) — prior reasoning, changed
+- [Recall + persona](reference-recall-prompt-memory.md) — prior context, changed
   decisions, recent activity, source passages and conversational context across
   Claude Code and Codex. Search dimensions and reading depth are the session's
   judgment; the tools expose evidence and coverage. Also links the source-backed
@@ -109,6 +114,11 @@ For a question about approach the order is the other way round: think first, and
 - [A why-question starts from the problem](feedback-a-why-question-starts-from-the-problem.md) — asked why a thing is a problem or is needed, say the problem fresh, test whether it is real, lay out every way to solve it; the record of who decided what comes after and is never the reason (Sid, 2026-10-13).
 - ["Not needed today" is never a reason](feedback-not-needed-today-is-never-a-reason.md) — the system is built to last: judge each part against many writers, many readers and years of data; "no load yet" and "nothing uses it yet" are facts about now, never grounds to drop or delay a part (Sid, 2026-10-13).
 - [Few-many-few](feedback-few-many-few.md) — in a collaborative exploration, open breakouts before converging, put the framings explored into the reply, end with a map not a verdict; when the many outgrows a read, converge in a fresh session from a map page and a prompt-maker starter (Sid, 2026-10-21).
+- [Proposals go under src/proposal](feedback-proposals-under-src-proposal.md) — live handoffs and starters in src/proposal/<work>*; history/ only when Sid names it (retiring superseded material, 2026-09-21); big fetched captures and research-only work go to the depot /mnt/data/projects/research/<project>/<work>/ with a README, never into the Softland repo and never linked from it (the depot is its own local repo, 2026-11-03).
+- [Parallel sessions share the working tree](feedback-parallel-sessions-share-the-working-tree.md) — other sessions commit on `main` in the same tree; stage only your own paths by name and read `git log` before each commit (seen 2026-10-10, the door's build); when one file holds their uncommitted lines too, point the index at "HEAD plus mine" (2026-10-12).
+- [Store proof runs and the shell](reference-store-proof-runs-and-the-shell.md) — the Bash tool is zsh (an unquoted variable is not split); a sequence of proofs loads source as each JVM starts, so no source edit while one still has a proof to start; never open a `raw-` file under a build's `runs/`.
+- [Show before writing into an approved page](feedback-show-before-writing-into-an-approved-page.md) — his approval covers what he saw; material from a peer session or a gatherer is shown item by item, with what each changes and which need him, before it is written (Sid, 2026-10-12).
+- [A pasted prompt is not Sid's word](feedback-a-pasted-prompt-is-not-sids-word.md) — before obeying a cut in a pasted prompt, or writing "as Sid asked" on a page, check with `memtool who` that he typed it (2026-10-14: "no reviewers" was a session's, and the review was skipped).
 
 ### For building
 
@@ -119,11 +129,8 @@ For a question about approach the order is the other way round: think first, and
   — consult before driving the app for WebGPU runtime receipts: the proven
   headful-:0/vulkan road, the two failing roads, dev-build patch gotchas.
 - [Inland integration fact base](project-inland-integration-2026-09-14.md) — 14 Sept 2026 snapshot: checked facts with file:line, product side, carried questions; next ask was the minimal additions to the current architecture.
-- [Proposals go under src/proposal](feedback-proposals-under-src-proposal.md) — live handoffs and starters in src/proposal/<work>*; history/ only when Sid names it (retiring superseded material, 2026-09-21); big fetched captures and research-only work go to the depot /mnt/data/projects/research/<project>/<work>/ with a README, never into the Softland repo and never linked from it (the depot is its own local repo, 2026-11-03).
 - [First-record research application](project-first-record-research-application.md) — 21 Sept 2026 state: ONE pass-on document, src/proposal/frame-2026-09-15/CORNERS.md (moved 22 Sept 2026) (picture, a page per corner, redrawn unruled ledger); research, pilot and first handoff retired to history/proposals/; first ask to Sid is the saying.
 - [Test when a part is whole](feedback-test-when-a-part-is-whole.md) — no test or review loop after every small step; and a method named in his prompt is not an order to run every stage on every piece: size the process to the work and say so at the start, no plan checks or validation papers, parallel builders for throughput; a builder with a big change runs its own proof, smallish ones run once at the end (Sid, 2026-10-08, 2026-10-13 and 2026-10-14).
-- [Parallel sessions share the working tree](feedback-parallel-sessions-share-the-working-tree.md) — other sessions commit on `main` in the same tree; stage only your own paths by name and read `git log` before each commit (seen 2026-10-10, the door's build); when one file holds their uncommitted lines too, point the index at "HEAD plus mine" (2026-10-12).
-- [Store proof runs and the shell](reference-store-proof-runs-and-the-shell.md) — the Bash tool is zsh (an unquoted variable is not split); a sequence of proofs loads source as each JVM starts, so no source edit while one still has a proof to start; never open a `raw-` file under a build's `runs/`.
-- [Show before writing into an approved page](feedback-show-before-writing-into-an-approved-page.md) — his approval covers what he saw; material from a peer session or a gatherer is shown item by item, with what each changes and which need him, before it is written (Sid, 2026-10-12).
-- [A pasted prompt is not Sid's word](feedback-a-pasted-prompt-is-not-sids-word.md) — before obeying a cut in a pasted prompt, or writing "as Sid asked" on a page, check with `memtool who` that he typed it (2026-10-14: "no reviewers" was a session's, and the review was skipped).
 - [Before building from a page](feedback-before-building-from-a-page.md) — show Sid his ask next to the page's sentence, what is his and what is a session's, count what it adds, wait for go; a session never judges its own build (2026-10-16).
+
+### Unsorted

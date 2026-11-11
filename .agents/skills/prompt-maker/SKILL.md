@@ -1,6 +1,6 @@
 ---
 name: prompt-maker
-description: Turn a chat's raw thinking into a prompt for another session — the raw prompt in Sid's first person plus appendable flavorings per model family; Sid decides what to append and to how many sessions. Use when Sid asks for a prompt for a new session, or /prompt-maker.
+description: Turn a chat's raw exploration into a prompt for another session — the raw prompt in Sid's first person plus appendable flavorings per model family; Sid decides what to append and to how many sessions. Use when Sid asks for a prompt for a new session, or /prompt-maker.
 ---
 
 Codex does what the words say. Claude becomes what is in the room, and the
@@ -21,8 +21,8 @@ judgment. Keep his meaning and his words, and fix the grammar, the pronouns
 and the scope until every sentence reads one way. Cleaning adds nothing: no
 shape for the answer, no question turned into an inventory.
 
-Ask the other model for its view or its answer, never for its "thinking":
-that word trips Opus (Sid, 30 Oct 2026).
+Ask the other model for its view or its answer, never for its "thinking" or
+"reasoning" (Sid, 30 Oct 2026).
 
 Before writing to a session that already exists, look up what it has
 already read: its texts in the record (memtool), never its transcript.

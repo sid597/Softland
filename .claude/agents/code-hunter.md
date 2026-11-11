@@ -1,6 +1,6 @@
 ---
 name: code-hunter
-description: Read-only code gatherer for a thinking session that reads no code itself. Reads the client by skeleton then window and returns facts with file:line, inputs, outputs and callers; never judges. Spawn one, keep it, send follow-ups by its id; it remembers what it has read.
+description: Read-only code gatherer for an exploring session that reads no code itself. Reads the client by skeleton then window and returns facts with file:line, inputs, outputs and callers; never judges. Spawn one, keep it, send follow-ups by its id; it remembers what it has read.
 model: inherit
 tools: Read, Grep, Glob, Bash
 permissionMode: bypassPermissions

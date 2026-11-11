@@ -18,8 +18,13 @@ and usefulness to its inhabitant distinguishable.
 
 ## At the start of a build
 
-At the start of a build session, read `docs/decisions.md` and any task-specific
-handoff named in the current conversation.
+At the start of a build session, read `docs/decisions.md`, `.claude/rules/code-work.md`
+(when working in or reviewing code, since path-scoped rules do not load on `Grep`,
+`Glob`, or delegated reads), and any task-specific handoff named in the current
+conversation. Settled architecture in `docs/decisions.md` holds during a build
+until Sid reopens it: if a decision cannot be built as written or hits a
+first-principles wall, bring the case straight to Sid and wait rather than
+building around it.
 
 ## Commit mechanics
 
