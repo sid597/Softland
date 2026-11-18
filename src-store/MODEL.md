@@ -245,7 +245,17 @@ What a gate does not check is said plainly in
 Four things are made by a gate, from the act and its own rows: an act's stamp,
 its verdict, its digest, and the order by value under a marked key, where a read
 finds a place only when a gate wrote that value there. Everything else is what a
-maker said: its `:who`, all that its act carries, and every fact of a tool.
+maker said: all that its act carries, every fact of a tool, and the `:who` of an
+unsigned act.
+
+The `:who` of a signed act is a fifth. A signed act names a who that is a public
+half, and a gate takes the act only with a signature that the private half of
+that pair made of this act under this act-id
+([door/signature.clj](softland/store/door/signature.clj);
+[door/declaration.clj](softland/store/door/declaration.clj), `check`). So no
+sender without that private half has an act accepted under that who. It does not
+say which person or program holds the private half, and it says nothing of an
+unsigned act.
 
 ## What the store promises
 
@@ -281,11 +291,14 @@ maker said: its `:who`, all that its act carries, and every fact of a tool.
   ([record/rows.clj](softland/store/record/rows.clj), `answer-key`), but no read
   is built for them.
 - **Every fact under one key,** in one read.
-- **Who sent an act.** `:who` is a claim. A gate holds it only against the
-  permission that the act names, and a permission is made of public parts: its
-  holder, its layer twice, and the permission above it. Until sign-in is built,
-  anyone can write as anyone
+- **Who sent an unsigned act.** Its `:who` is a claim. A gate holds it only
+  against the permission that the act names, and a permission is made of public
+  parts: its holder, its layer twice, and the permission above it. So in a layer
+  that an unsigned act made, anyone can write as anyone. A signed act is held to
+  the signature of its who, and in a layer that a signed act made each act that a
+  gate accepts is signed
   ([store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly)).
+  Which person or program holds a private half, the store never knows.
 - **A table that only the read path can read.** Each program that can open
   Rama's ports is trusted with the whole store, in any person's name. The one
   check of who may see is in the read path, which is a client

@@ -69,10 +69,15 @@
   thing that is no id makes itself before it calls.
   The door opens no PState, makes no row and no text of a row.
 
-  The sender. The door takes `:who`, `:session` and `:permission` as the
-  maker gives them. It cannot check that the sender is the who that the act
-  names, and does not. Neither can a gate. `:system` is a who like any
-  other. The door makes no person and no id for one.
+  The sender. The door takes `:who`, `:session`, `:permission` and, on a
+  signed act, `:signature` as the maker gives them. It does not check that
+  the sender is the who that the act names, and it signs nothing: a sender
+  signs her act herself, with the act-id that she asked for ahead, since
+  the act-id is inside what is signed (`softland.store.setup`). A gate
+  holds a signed act to the signature of its who
+  (`softland.store.door.declaration/check`). Of an unsigned act neither
+  the door nor a gate holds anything of the sender: `:system` is a who
+  that any sender can name. The door makes no person and no id for one.
 
   What goes plain into a depot through the door. Everything. The thing that
   the door appends is the maker's act as she gave it, with the act-id, the
@@ -108,7 +113,10 @@
       for each act-id that it makes and remembers none;
     - sign-in, in front of the door (K7 to K10, Q16): it would refuse a
       sender before this code runs, and changes none of it;
-    - who may act as the system (K9): `:system` is treated as any who.
+    - who may act as the system (K9): in an unsigned act `:system` is
+      treated as any who. In a store whose base a signed act made, the
+      system is the signing who of that act; the door treats it as any who
+      too, and the gate holds its signature.
 
   The door reads no fact of the record for a maker, and its wait is one
   question about one act-id, with no subscription. A read's steps run in the

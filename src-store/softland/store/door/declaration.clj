@@ -21,7 +21,21 @@
   `softland.store.act/as-shape`; no other way into `act.clj`'s check is
   used. The engine reads every part of what arrived.
 
-  The check has three steps: the shape, the rules, and the values. The last
+  Two editions arrive, as `act.clj` declares two: the unsigned act under
+  `:arrived-act`, and the signed act under `:arrived-signed-act`. A thing
+  is held to the signed one when it says version 2 and names a who in the
+  namespace of the signing whos, and to the unsigned one otherwise
+  (`softland.store.act/shape-of`): so each thing that names no such who is
+  checked as it was before there was a signed act.
+
+  The check has four steps: the shape, the rules, the signature, and the
+  values. The third is for a signed act alone: its signature must fit the
+  who that it names (`softland.store.door.signature/fits?`), taken of the
+  thing as it arrived without its signature and its time
+  (`what-is-signed`). It reads no row: the who of a signed act is its
+  public half. So a gate holds that the sender of a signed act has the
+  private half of its who, and of an unsigned act it holds nothing of the
+  sender. The last
   step makes the one text of each value (`softland.store.door.text`), once,
   and holds two bounds on the bytes of those texts: `max-value-bytes` for
   one value under a plain key, and `max-act-bytes` for the act. It is the
@@ -33,6 +47,7 @@
 
     stray-reason  a gate's depot, and anything -> nil, or the word of a stray
     check         a thing that is no stray -> {:ok act} or {:refuse reason}
+    what-is-signed  a thing as it arrives -> what its signature is made of
     store-key?    a fact's key -> true for one of the store keys
     id-text       an id or a fact's key -> its printed text
     id-within-the-limit?  an id or a fact's key -> true or false
@@ -67,6 +82,7 @@
   replaces is current: those need the record, and are
   `softland.store.gate.decision`'s. A grammar check is not built."
   (:require [softland.store.act :as act]
+            [softland.store.door.signature :as signature]
             [softland.store.door.text :as text]))
 
 ;; ------------------------------------------------------------- the limits
@@ -290,7 +306,7 @@
 
 (def shapes
   "The door's map of shapes: each entry of `softland.store.act/shapes`, as
-  `act.clj` declares it, and five more, in the same language.
+  `act.clj` declares it, and six more, in the same language.
 
     :arrived-act   an act as it arrives on a depot: the act-id, the layer's
                    depot under `:depot`, the time on the act under
@@ -298,6 +314,9 @@
                    read from `act.clj`'s map in its order and with its
                    options. Its `:facts` are the maker's own: what arrives
                    as a fact is `act.clj`'s `:fact`
+    :arrived-signed-act  a signed act as it arrives: the same three parts
+                   of the door, then the eleven parts of the maker's
+                   `:signed-act`, read from `act.clj`'s map likewise
     :depot-word    one of the two depot words, `:streaming` and
                    `:microbatch`
     :who-may-see-word  one of the two words for who may see a layer,
@@ -329,6 +348,12 @@
                               [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
                               [time-part [:int {:min 0}] {:reason :no-door-time}]]
                              (rest (get act/shapes :act)))
+         :arrived-signed-act
+         (into [:parts
+                [:act-id :act-id]
+                [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
+                [time-part [:int {:min 0}] {:reason :no-door-time}]]
+               (rest (get act/shapes :signed-act)))
          :depot-word   [:enum :streaming :microbatch]
          :who-may-see-word [:enum :members :everyone]
          :layer-list   [:seq-of :id]
@@ -338,7 +363,8 @@
   "What a thing that has the shape `:arrived-act` must also keep, with the
   reason for each, in the order in which they are examined. A rule relates
   two places of what arrived, or holds a limit that no shape can say. The
-  first is the maker's own, read from `softland.store.act/rules`. Then: the
+  first two are the maker's own, read from `softland.store.act/rules`.
+  Then: the
   act as a whole; a key in the store's namespace; a fact under a store key;
   what holds between the facts; the text of an id. `rule-checks` holds the
   code of each. A rule about a fact is kept when each fact of the act keeps
@@ -352,6 +378,14 @@
   store's namespace, so the store's own facts are never kept by value. Each
   keeps a fact with no value, as the rules beside them do; a gate refuses
   the retract.
+
+  `:signed-act-gives-to-signing-whos` stands with the rules of a
+  permission fact. A signed act that gives a permission names a signing
+  who as its holder. A permission that a plain id held could be acted
+  under by any sender, with an unsigned act; with this rule, in a layer
+  that a signed act made, each permission is held by a signing who, so
+  each act that a gate accepts there is signed. The rule is the builder's,
+  of 18 November 2026. An unsigned act keeps it whatever it gives.
 
   `:store-key-is-known` holds the store's namespace. A fact whose key is in
   `softland.store` and is not one of `store-keys` is refused
@@ -367,6 +401,7 @@
          [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
          [:permission-fact-holds-a-permission  :permission-fact-not-a-permission]
          [:permission-fact-sits-on-its-holder  :permission-fact-not-on-its-holder]
+         [:signed-act-gives-to-signing-whos    :gives-to-a-who-with-no-public-half]
          [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-members-or-everyone]
          [:builds-on-fact-holds-layers         :builds-on-fact-not-a-list-of-layers]
          [:builds-on-within-the-limit          :builds-on-too-many-layers]
@@ -392,10 +427,10 @@
   "The words with which `check` refuses. Read from the two declarations:
   each word that a part or a rule names, `act.clj`'s own among them, and
   `:no-door-time`, the word of the time's part. And
-  four by name: the two that no part names, :malformed and :unknown-part,
-  and the two of the last step of the check, :value-too-large and
-  :act-too-large (`with-texts`)."
-  (into #{:malformed :unknown-part :value-too-large :act-too-large}
+  five by name: the two that no part names, :malformed and :unknown-part;
+  the word of the check's third step, :signature-does-not-fit; and the two
+  of its last step, :value-too-large and :act-too-large (`with-texts`)."
+  (into #{:malformed :unknown-part :signature-does-not-fit :value-too-large :act-too-large}
         (concat (map second rules)
                 (for [shape (vals shapes)
                       :when (= :parts (first shape))
@@ -517,11 +552,15 @@
   the act keeps the rule. Each may rest on the rules before
   it, since `check` stops at the first that is broken.
 
-  The maker's rule is written here a second time, one line: its code is
-  private to `act.clj`. Its name and its word are read from
+  The maker's first rule is written here a second time, one line: its code
+  is private to `act.clj`. The maker's second is `act.clj`'s own function.
+  The names and the words of both are read from
   `softland.store.act/rules`."
   {:permission-is-in-the-acts-layer
    (fn [act] (= (:layer act) (nth (:permission act) 1)))
+
+   :who-fits-the-version
+   act/who-fits-the-version?
 
    :depot-is-the-act-ids-depot
    (fn [act] (= (:depot act) (nth (:act-id act) 1)))
@@ -551,6 +590,15 @@
                                         (nil? (:v fact))
                                         (= (:e fact) (nth (:v fact) 0))))
                          act))
+
+   ;; For a signed act alone: the holder of each permission that it writes,
+   ;; its own first permission in a making act too, is a signing who.
+   :signed-act-gives-to-signing-whos
+   (fn [act] (or (not= act/signed-version (:version act))
+                 (each-fact? (fn [fact] (or (not= :softland.store/permission (:k fact))
+                                            (nil? (:v fact))
+                                            (act/signing-who? (nth (:v fact) 0))))
+                             act)))
 
    :who-may-see-fact-holds-its-word
    (fn [act] (value-fits-its-key? :softland.store/who-may-see act))
@@ -678,17 +726,41 @@
           {:refuse :act-too-large}
           {:ok (assoc act :facts facts)})))))
 
-(defn- check*
-  "The body of `check`, with no guard around it: the shape, then the rules,
-  then the values (`with-texts`). It can throw; `check` turns each throw
-  into a refusal."
+(defn what-is-signed
+  "Takes a signed act as it arrives on a depot, or as its sender builds it
+  before she signs: the maker's act with the act-id and the depot in it.
+  Gives what its signature is made of: the thing without its `:signature`
+  and without the time on it (`time-part`). The signature cannot be inside
+  what it signs. The time is left out as the digest leaves it out: the
+  door writes it after the sender signed, and a second send of one act
+  carries another time and the same signature. Each other part is in:
+  the act-id, so a signature is good under one act-id; the depot; who,
+  layer, permission, session and the facts.
+
+  A sender calls it on the act with `:act-id` and `:depot` added as the
+  door adds them (`softland.store.door.additions/thing-to-append`), and
+  signs what it gives (`softland.store.door.signature/sign`); `check`
+  calls it on what arrived. What must hold: the thing is a plain map. It
+  can throw, for a map that throws when a part is taken out; `check`
+  guards it."
   [thing]
-  (let [[verdict got] (act/as-shape shapes :arrived-act thing)]
+  (dissoc thing :signature time-part))
+
+(defn- check*
+  "The body of `check`, with no guard around it: the shape of the thing's
+  edition, then the rules, then for a signed act its signature, then the
+  values (`with-texts`). It can throw; `check` turns each throw into a
+  refusal."
+  [thing]
+  (let [signed? (= :signed-act (act/shape-of thing))
+        [verdict got] (act/as-shape shapes (if signed? :arrived-signed-act :arrived-act) thing)]
     (if (= :no verdict)
       {:refuse (or got :malformed)}
       (if-let [reason (some (fn [[rule reason]] (when-not ((get rule-checks rule) got) reason)) rules)]
         {:refuse reason}
-        (with-texts got)))))
+        (if (and signed? (not (signature/fits? (:who got) (:signature got) (what-is-signed thing))))
+          {:refuse :signature-does-not-fit}
+          (with-texts got))))))
 
 (defn check
   "The check of what arrived. Takes a thing that is no stray
@@ -696,11 +768,17 @@
   form on arrival, or {:refuse reason}, with one of `reasons`. It never
   throws: as in `softland.store.act/parse`, each throw becomes :malformed.
 
-  First the shape: the thing must have the declared shape `:arrived-act`,
+  First the shape: the thing must have the declared shape of its edition,
+  `:arrived-act` or `:arrived-signed-act`,
   and the first part that is wrong, in the declared order, gives its reason.
   Then the rules, in their order, and the first that the act breaks gives
   its reason. So a fault of the maker's form comes out with `act.clj`'s own
-  word. Then the values: the text of each value is made and counted, and a
+  word. Then, for a signed act, the signature: one that does not fit the
+  who that the act names, over the thing as it arrived
+  (`what-is-signed`), gives `:signature-does-not-fit`. A signed act that
+  `check` takes was sent by a holder of the private half of its `:who`;
+  of an unsigned act the check holds nothing of the sender. Then the
+  values: the text of each value is made and counted, and a
   value or an act over its bound gives `:value-too-large` or
   `:act-too-large` (`with-texts`). So of a thing with a fault that a rule
   names and a value over the bound, the rule's word is the one given.
@@ -715,10 +793,13 @@
   key, and nil for a fact under a plain key. A fact with no value holds nil
   for both. So a fact has a value exactly when its `:text` is not nil.
 
+  A signed act's one form holds `:signature` too, as it arrived.
+
   Limits. It reads no record: the standing of a permission and a replaced
   fact are the gate's. It reads a thing over a limit once before its rule
   refuses it, and it makes the text of a value over the bound before it
-  refuses the value."
+  refuses the value. A signed act is walked once more, for the hash that
+  its signature is held against; what that costs is not measured."
   [thing]
   (try (check* thing)
        (catch Throwable _ {:refuse :malformed})))

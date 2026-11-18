@@ -10,8 +10,9 @@ that are kept apart.
 
 All of this folder is pure code and loads with Clojure alone.
 
-**What the door and the gates agree on.** A gate requires these three. They say
-the form of a thing as it arrives on a depot, and how a thing is given one text
+**What the door and the gates agree on.** A gate requires these four. They say
+the form of a thing as it arrives on a depot, whether the signature of a signed
+act fits its who, and how a thing is given one text
 and one digest. A gate checks each thing that arrives against the declaration,
 and the gate is the authority: anything can append to a depot without the door.
 
@@ -20,6 +21,7 @@ and the gate is the authority: anything can append to a depot without the door.
 | [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the name of the part that holds the time on the act, and the range of that time; the test for a stray; the check, whose last step makes the one text of each value and holds the bound on one value and the bound on one act. | None. |
 | [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
 | [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text, with the time on the act left out. The door and the gates share it. | None. |
+| [signature.clj](signature.clj) | The signature of a signed act: the bytes that are signed, the making of a signature by a keeper, and the test that a signature fits the public half that the act's who holds. It reads no record. | None. It never holds a private half: a keeper is a function that it is handed. |
 
 **The door's own pure parts.** No gate requires these three. They are the rules
 of the door that need no cluster, split from [door.clj](../door.clj) so that the
@@ -41,6 +43,13 @@ of its check it makes the text of each value with [text.clj](text.clj).
 [digest.clj](digest.clj) takes the digest of a thing over that text. It
 requires the declaration for one word, the name of the part that it leaves
 out: the time on the act.
+
+[signature.clj](signature.clj) requires [the act](../act.clj), for the public
+half that a signing who holds, and [text.clj](text.clj), for the text that it
+hashes. [declaration.clj](declaration.clj) requires it: the third step of its
+check asks whether a signed act's signature fits. It does not use
+[digest.clj](digest.clj): what is signed leaves the signature out as well as
+the time, and the digest of a thing has the signature in it.
 
 [words.clj](words.clj) and [wait.clj](wait.clj) require nothing.
 [additions.clj](additions.clj) requires the declaration, for what an act-id can
@@ -90,6 +99,9 @@ two depots and its two queries, and holds one number, fixed at its opening. It
 keeps nothing
 between two calls: an act-id and a digest that a maker kept read her answer
 through any door that is opened on the module.
+
+The door signs nothing. A sender signs her act before she hands it to the door,
+with the act-id that she asked for ahead; [setup.clj](../setup.clj) does so.
 
 The door is not a check of the act, not sign-in, not a network edge, not a
 reader of facts for a screen, and not a bell. It is in-process Clojure, and in
@@ -247,7 +259,8 @@ and `answer-of`; "nothing yet" and "not mine".
 `:no-door-time`, the gate's word for a thing with no usable time. Both are a
 session's working names; what the time is called is not decided.
 
-**Namespaces.** `softland.store.door`, the contract's. `softland.store.door.additions`:
+**Namespaces.** `softland.store.door`, the contract's. `softland.store.door.signature`:
+the signature of a signed act. `softland.store.door.additions`:
 "additions" is the contract's word for what the door adds to an act, which is
 three things, `:act-id`, `:depot` and `:door-time`. `softland.store.door.wait`: the numbers of a
 maker's wait for an answer. `softland.store.door.words`, and the door's proof,

@@ -100,6 +100,11 @@
 (def ^:private alice-own "Alice's permission in her own layer." [:alice :alice :alice])
 (def ^:private a-fact "One fact with a plain value." {:e :note-1 :k :note :v "a text"})
 
+(def ^:private a-signing-who
+  "A signing who: the id that holds the public half of the first pair that
+  RFC 8032 writes out (section 7.1)."
+  :who/ed25519.d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a)
+
 ;; A record, for the checks that a record is no act, no fact and no value.
 (defrecord Thing [e k])
 
@@ -120,6 +125,12 @@
   "The least act: version, who, layer, permission, session and one fact. Each
   refused act differs from it in one thing."
   (act-of a-fact))
+
+(def ^:private good-signed
+  "The least signed act: version 2, a signing who, and the text of a
+  signature. The check of the form does not ask whether the signature
+  fits, so the text is any text."
+  (assoc good :version 2 :who a-signing-who :signature "a text that is no signature"))
 
 (defn- nested
   "The number 1 inside n vectors."
@@ -159,6 +170,18 @@
          [:claimed-when :int {:optional true}]
          [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
          [:facts [:seq-of :fact] {:empty :empty-act}]]
+   :signed-act [:parts
+                [:version [:enum 2] {:reason :unknown-version}]
+                [:who :signing-who {:reason :who-holds-no-public-half}]
+                [:layer :id]
+                [:permission :permission-id {:absent :no-permission}]
+                [:session :id {:absent :no-session}]
+                [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
+                [:because-of :act-id {:optional true}]
+                [:claimed-when :int {:optional true}]
+                [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
+                [:facts [:seq-of :fact] {:empty :empty-act}]
+                [:signature :signature-text {:reason :no-signature}]]
    :fact [:parts
           [:e :id]
           [:k :key]
@@ -176,11 +199,44 @@
   a second time, so a change of the form is made in two places on purpose."
   [["the declared shape of an act and of each thing that an act holds"
     (fn [] act/shapes) declared]
-   ["the one rule, with its reason"
-    (fn [] act/rules) [[:permission-is-in-the-acts-layer :permission-not-in-layer]]]
+   ["the two rules, each with its reason"
+    (fn [] act/rules) [[:permission-is-in-the-acts-layer :permission-not-in-layer]
+                       [:who-fits-the-version :who-needs-a-signature]]]
    ["the ten parts of an act"
     (fn [] act/act-parts)
     #{:version :who :layer :permission :session :based-on :because-of :claimed-when :subjects :facts}]
+   ["the eleven parts of a signed act: the ten of an act, and the signature"
+    (fn [] [act/signed-act-parts (= act/signed-act-parts (conj act/act-parts :signature))])
+    [#{:version :who :layer :permission :session :based-on :because-of :claimed-when :subjects :facts :signature} true]]
+   ["the edition that a thing is held to: the signed act for a plain map that says version 2, as a narrow integer or a big one too, and names a who in the namespace of the signing whos, a signing who or not; the act for anything else: version 2 with a plain who or with none, version 1 with a signing who, another version, a version that is no integer, and what is no plain map"
+    (fn [] (mapv act/shape-of [good-signed {:version 2 :who a-signing-who} {:version (int 2) :who a-signing-who} {:version 2N :who :who/bob}
+                               {:version 2 :who :alice} {:version 2} {:version 1 :who a-signing-who} good
+                               {:version 3 :who a-signing-who} {:version 2.0 :who a-signing-who} {:version "2" :who a-signing-who}
+                               {} nil 2 [:version 2]]))
+    [:signed-act :signed-act :signed-act :signed-act
+     :act :act :act :act
+     :act :act :act
+     :act :act :act :act]]
+   ["a signing who is the keyword :who/ed25519. and 64 lower-case hex characters, and nothing else is one: hex of another case or length, another kind of proof, a bare name, another namespace, a string, a UUID, nil"
+    (fn [] (let [hex "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"]
+             [(act/public-half-hex a-signing-who)
+              (mapv act/signing-who?
+                    [a-signing-who
+                     (keyword "who" (str "ed25519." (.toUpperCase hex)))
+                     (keyword "who" (str "ed25519." (subs hex 1)))
+                     (keyword "who" (str "ed25519." hex "00"))
+                     (keyword "who" (str "p256." hex))
+                     (keyword (str "ed25519." hex))
+                     (keyword "whos" (str "ed25519." hex))
+                     :who/bob
+                     (str a-signing-who)
+                     (uuid 1)
+                     nil])]))
+    ["d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+     [true false false false false false false false false false false]]]
+   ["the id of a signing who is a readable keyword of 77 characters, the colon counted, and it reads back as itself"
+    (fn [] [(act/readable-keyword? a-signing-who) (count (str a-signing-who)) (= a-signing-who (read-string (pr-str a-signing-who)))])
+    [true 77 true]]
    ["the four parts of a fact"
     (fn [] act/fact-parts) #{:e :k :v :replaces}]
    ["the door's three additions and the seal are no parts: no act-id, depot or time of the door on an act; no seal, lock id, layer or mark on a fact"
@@ -188,13 +244,14 @@
                  [act/act-parts act/act-parts act/act-parts act/fact-parts act/fact-parts act/fact-parts act/fact-parts]
                  [:act-id :depot declaration/time-part :sealed :lock-id :layer :mark]))
     [false false false false false false false]]
-   ["the seven reason words, read from the two declarations"
+   ["the ten reason words, read from the two declarations: three of them are of the signed act"
     (fn [] act/reasons)
     #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
-      :permission-not-in-layer}]
-   ["the version that this code knows, and the two limits: subjects, collections. A carried stamp has no limit of its own: no gate reads it, so its form is its one bound"
-    (fn [] [act/version act/max-subjects act/max-depth])
-    [1 256 32]]
+      :permission-not-in-layer
+      :who-holds-no-public-half :no-signature :who-needs-a-signature}]
+   ["the two versions that this code knows, the unsigned and the signed, and the three limits: subjects, collections, the characters of a signature's text. A carried stamp has no limit of its own: no gate reads it, so its form is its one bound"
+    (fn [] [act/version act/signed-version act/max-subjects act/max-depth act/max-signature-text])
+    [1 2 256 32 1024]]
    ["the one shape with a number of its own for how often it may hold itself is a permission id, and its number is the value's: 32"
     (fn [] [@#'act/nesting (= act/max-depth (:permission-id @#'act/nesting))])
     [{:permission-id 32} true]]])
@@ -305,7 +362,22 @@
    ["a part for expected versions" (assoc good :expected-versions {}) :unknown-part]
    ;; the version
    ["version 2" (assoc good :version 2) :unknown-version]
+   ["version 3" (assoc good :version 3) :unknown-version]
    ["no version" (dissoc good :version) :unknown-version]
+   ["a thing with a signature whose version is 2.0: it is held to the unsigned act, which has no such part" (assoc good-signed :version 2.0) :unknown-part]
+   ;; the signed act
+   ["a thing with a signature that says version 2 and names a plain who: it is held to the unsigned act, as each thing of version 2 was before there was a signed act"
+    (dissoc (assoc good-signed :who :alice) :signature) :unknown-version]
+   ["a thing that says version 2 and names no who" (dissoc good-signed :who :signature) :unknown-version]
+   ["a signed act whose who is in the namespace of the signing whos and holds no public half" (assoc good-signed :who :who/bob) :who-holds-no-public-half]
+   ["a signed act whose who has its hex in capitals"
+    (assoc good-signed :who :who/ed25519.D75A980182B10AB7D54BFED3C964073A0EE172F3DAA62325AF021A68F707511A) :who-holds-no-public-half]
+   ["a signed act with no signature" (dissoc good-signed :signature) :no-signature]
+   ["a signed act whose signature is an empty text" (assoc good-signed :signature "") :no-signature]
+   ["a signed act whose signature is a number" (assoc good-signed :signature 7) :no-signature]
+   ["a signed act whose signature has 1025 characters" (assoc good-signed :signature (apply str (repeat 1025 "a"))) :no-signature]
+   ["an unsigned act that names a signing who" (assoc good :who a-signing-who) :who-needs-a-signature]
+   ["an unsigned act that names any who in the namespace of the signing whos" (assoc good :who :who/bob) :who-needs-a-signature]
    ;; who and the layer
    ["no :who" (dissoc good :who) :malformed]
    ["a :who that is a string" (assoc good :who "alice") :malformed]
@@ -378,6 +450,14 @@
   [["another part, and version 2: a part that the form does not name, first"
     (assoc good :signature "x" :version 2) :unknown-part]
    ["version 2, and no permission" (-> good (assoc :version 2) (dissoc :permission)) :unknown-version]
+   ["a signed act whose who holds no public half, and no signature: the who is declared first"
+    (-> good-signed (assoc :who :who/bob) (dissoc :signature)) :who-holds-no-public-half]
+   ["a signed act with no session, and no signature: the signature is the last part"
+    (dissoc good-signed :session :signature) :no-session]
+   ["a signed act with no signature, and a permission in another layer: the shape comes before the rule"
+    (-> good-signed (dissoc :signature) (assoc :permission [a-signing-who :bob :bob])) :no-signature]
+   ["an unsigned act that names a signing who, and a permission in another layer: the first rule's word"
+    (assoc good :who a-signing-who :permission [:alice :bob :bob]) :permission-not-in-layer]
    ["a :who that is a string, and no permission" (-> good (assoc :who "alice") (dissoc :permission)) :malformed]
    ["no permission, and no session" (dissoc good :permission :session) :no-permission]
    ["no session, and no fact" (-> good (dissoc :session) (assoc :facts [])) :no-session]
@@ -564,6 +644,20 @@
           (str "a fact without " part ": taken when the part is optional, else the declared reason"))
       (is (= reason (verdict (act/parse (act-of (assoc fact part (Object.))))))
           (str "a fact with a thing of no shape in " part ": the declared reason"))))
+  ;; The signed act, part by part, from the signed form of the same act. Its
+  ;; version and its who are left out of the walk: the two choose the
+  ;; edition, so a thing without one of them, or with a thing of no shape
+  ;; there, is held to the other edition, which `refusal-rows` holds.
+  (let [signed-form (assoc whole-form :version 2 :who a-signing-who :signature "a text that is no signature")]
+    (doseq [[part _ opts] (rest (:signed-act act/shapes))
+            :when (not (contains? #{:version :who} part))]
+      (let [reason (:reason opts :malformed)]
+        (is (= (if (:optional opts) :ok (:absent opts reason)) (verdict (act/parse (dissoc signed-form part))))
+            (str "a signed act without " part ": taken when the part is optional, else the declared reason"))
+        (is (= reason (verdict (act/parse (assoc signed-form part (Object.)))))
+            (str "a signed act with a thing of no shape in " part ": the declared reason"))))
+    (is (= {:ok signed-form} (act/parse signed-form))
+        "the signed act that these are made from is taken, and its one form holds its signature as given"))
   (is (= :ok (verdict (act/parse whole-form))) "the act that these are made from is taken")
   (shown "the check reads the declaration: for each of the" (count act/act-parts) "parts of an act and the"
          (count act/fact-parts) "parts of a fact, a thing without the part and a thing with a thing of no shape in it"
