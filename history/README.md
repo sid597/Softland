@@ -12,6 +12,9 @@ revisit an assumption, or understand recorded evidence.
 | `docs/meta/` | [Parallel build-and-review workflow experiment](workflow-experiments/parallel-build-review/README.md) |
 | Original `docs/build-softland-in-softland/` records | [Inland build history](docs/build-softland-in-softland/); use [the maintained guide](../docs/builds/inland/README.md) to run the build. |
 | `src/proposal/first-record-2026-09-20/` research files, pilot, first handoff and Codex line-range mechanics | [First-record research](proposals/first-record-2026-09-20/README.md); what is passed on from it is [CORNERS.md](../src/proposal/first-record-2026-09-20/CORNERS.md). |
+| `docs/decisions.md`, retired 18 November 2026 | [docs/decisions.md](docs/decisions.md). Its render-boundary section continues as [the client's intended design](../src/app/client/intended-design.md); what Sid decided, and why, is read from the record. |
+| `docs/carry-on.md`, a session's reading of the vision log through 7 September 2026, retired 18 November 2026 | [docs/carry-on.md](docs/carry-on.md) |
+| Seventeen notes from `.claude/memory/` on how Sid works and on earlier cases, retired 18 November 2026 | [memory-notes/](memory-notes/) |
 
 [How we got here](../docs/how-we-got-here.md) provides a selective account of the
 questions and changes leading to Inland. The workflow experiment is preserved
@@ -31,7 +34,7 @@ guidance.
 Check implementation claims against current code. Retain useful reasoning with
 its assumptions and evidence limits when carrying it into current explanations.
 Surface differences from the intended system in conversation, rooted in
-[carry-on](../docs/carry-on.md) and/or [the vision log](../vision/LOG.md).
+[the vision log](../vision/LOG.md).
 
 Records retain their original wording and historical path references except for
 navigation links and executable path references repaired during the move.

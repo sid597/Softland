@@ -3,7 +3,7 @@
 Inland is the current authored-workbench build under `src-inland/`. It uses
 Electric, Rama, and Softland's renderers to test editing and reusing definitions
 inside the running environment. This guide describes that build's use and scope;
-the larger aim remains in [carry-on](../../carry-on.md).
+the larger aim remains in [the vision log](../../../vision/LOG.md).
 
 For implementation questions, start at the [source map](../../../src-inland/README.md).
 The [intended design](intended-design.md) describes the experiment's construction

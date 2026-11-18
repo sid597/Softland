@@ -4,8 +4,8 @@ Choose the entrypoint for the question:
 
 | Question | Start here |
 |---|---|
-| What are we trying to make possible? | [Carry-on](carry-on.md), the vision reference summary; [vision/LOG.md](../vision/LOG.md) is the primary source. |
-| Which intended choices do we currently hold? | [Decisions](decisions.md). |
+| What are we trying to make possible? | [vision/LOG.md](../vision/LOG.md), the vision in Sid's words. The record (softland-memory) has what he has said since. |
+| What has Sid decided, and why? | The record (softland-memory) has his words, dated. What a tree is meant to become stays with its code: the store's "Decisions of …" sections in [src-store/README.md](../src-store/README.md), the client's [intended design](../src/app/client/intended-design.md). |
 | Why did our understanding and implementation change? | [How we got here](how-we-got-here.md), with links to the original attempts. |
 | How do I run and use the current Inland build? | [Inland guide](builds/inland/README.md) and its scoped [intended design](builds/inland/intended-design.md). |
 | What settled for the Inland integration, and what is its first workpiece? | [Inland integration starter](builds/inland/integration.md). |

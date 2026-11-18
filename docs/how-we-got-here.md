@@ -2,8 +2,8 @@
 
 This account follows the questions and changes that led from the rendering work
 to the Inland build. It is a selective explanation of that path, not a complete
-project history or a new set of requirements. The [vision summary](carry-on.md)
-and [primary vision log](../vision/LOG.md) describe the larger aim. The
+project history or a new set of requirements. The
+[vision log](../vision/LOG.md) describes the larger aim. The
 [Inland guide](builds/inland/README.md) and source maps describe the implementation.
 
 ## Rendering made a further question concrete

@@ -144,8 +144,7 @@ Then open http://localhost:8127. Needs Java and Clojure, Node, a Rama distributi
 ## Reading the repo
 
 - [vision/LOG.md](vision/LOG.md) is the source. My words, never edited.
-- [docs/carry-on.md](docs/carry-on.md) is a thematic reading of the log. Start there if the log is too much.
-- [docs/decisions.md](docs/decisions.md) is what is settled. [docs/how-we-got-here.md](docs/how-we-got-here.md) is why the build changed.
+- [docs/how-we-got-here.md](docs/how-we-got-here.md) is why the build changed.
 - [src/app/](src/app/) is the canonical client and server: [client map](src/app/client/README.md) for rendering, [server map](src/app/server/README.md) for Rama, ingest and material.
 - [src-inland/](src-inland/README.md) is the current build.
 - [src/proposal/](src/proposal/) holds fact bases and proposals for the next session.

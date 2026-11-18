@@ -1,6 +1,6 @@
 # Carry-on — understanding, working, and building in the same land
 
-A thematic reading of [Sid's vision log](../vision/LOG.md), through its final entry on 7 September 2026. This is a proposed organization of the thinking. The prose is synthesized, with a few short phrases kept from the source. Questions remain questions, and local implementation choices retain their context. The source guide at the end covers all 71 entries.
+A thematic reading of [Sid's vision log](../../vision/LOG.md), through its final entry on 7 September 2026. This is a proposed organization of the thinking. The prose is synthesized, with a few short phrases kept from the source. Questions remain questions, and local implementation choices retain their context. The source guide at the end covers all 71 entries.
 
 Start here to understand the vision and develop the question further. Use this
 as a reference summary; historical suggestions are not automatically present
@@ -446,77 +446,77 @@ Quoted questions from other documents, model-written entry context, and “Route
 
 | Entry | Date and subject | Source lines | Sections |
 | --- | --- | --- | --- |
-| S01 | 3 Jul — terminal purpose and knowledge map | [22–37](../vision/LOG.md#L22-L37) | 1, 3, 8, 9 |
-| S02 | 3 Jul — understanding at many scales | [38–43](../vision/LOG.md#L38-L43) | 1, 3, 8 |
-| S03 | 3 Jul — form-open substrate | [44–49](../vision/LOG.md#L44-L49) | 1, 6 |
-| S04 | 3 Jul — bets, HCI, connected work | [50–61](../vision/LOG.md#L50-L61) | 1, 2, 9, 10 |
-| S05 | ~28 Apr — atoms, emergence, permissions | [62–100](../vision/LOG.md#L62-L100) | 2, 6, 9, 11 |
-| S06 | ~6 Jun — containers, ingestion, active/base | [101–151](../vision/LOG.md#L101-L151) | 2, 3 |
-| S07 | ~11 Jun — code identity and versioning | [152–209](../vision/LOG.md#L152-L209) | 2, 6, 10 |
-| S08 | ~12 Jun — diff across products and pipelines | [210–220](../vision/LOG.md#L210-L220) | 2, 7, 8 |
-| S09 | ~28 Jun — working with code; extensible runtime | [221–244](../vision/LOG.md#L221-L244) | 2, 6 |
-| S10 | 4 Jul — participation, economy, evolving UI | [245–274](../vision/LOG.md#L245-L274) | 1–3, 8, 9 |
-| S11 | 4 Jul — decay, questions, agents, framework | [275–312](../vision/LOG.md#L275-L312) | 1, 3, 6, 9, 11 |
-| S12 | 4 Jul — Markdown and filesystem friction | [313–321](../vision/LOG.md#L313-L321) | 4, 10 |
-| S13 | 4 Jul — read-only first bridge | [322–327](../vision/LOG.md#L322-L327) | 4, 7, 10 |
-| S14 | 4 Jul — disconnected tools and long chats | [328–333](../vision/LOG.md#L328-L333) | 2–4, 10 |
-| S15 | 4 Jul — trail, overview, local expansion | [334–342](../vision/LOG.md#L334-L342) | 3, 4 |
-| S16 | 4 Jul — maximalist affordance cascade | [343–348](../vision/LOG.md#L343-L348) | 3, 10 |
-| S17 | 4 Jul — trail as one among many UIs | [349–354](../vision/LOG.md#L349-L354) | 3 |
-| S18 | 4 Jul — designs as thought space | [355–360](../vision/LOG.md#L355-L360) | 3, 10 |
-| S19 | 5 Jul — unbounded design horizon | [361–368](../vision/LOG.md#L361-L368) | 10; context below |
-| S20 | 5 Jul — dummy that communicates the idea | [369–374](../vision/LOG.md#L369-L374) | 10 |
-| S21 | 5 Jul — designer-to-engineering handoff | [375–380](../vision/LOG.md#L375-L380) | 10 |
-| S22 | 5 Jul — background return of relevant thoughts | [381–391](../vision/LOG.md#L381-L391) | 3, 9 |
-| S23 | 5 Jul — context, lenses, editable specifications | [392–407](../vision/LOG.md#L392-L407) | 3, 5, 11 |
-| S24 | 5 Jul — local models and benchmarks | [408–427](../vision/LOG.md#L408-L427) | 9, 11 |
-| S25 | 5 Jul — local flag adjudication later | [428–435](../vision/LOG.md#L428-L435) | 9 |
-| S26 | 6 Jul — one substrate | [436–445](../vision/LOG.md#L436-L445) | 6 |
-| S27 | 6 Jul — throughput, batching, model routing | [446–457](../vision/LOG.md#L446-L457) | 9, 10 |
-| S28 | 6 Jul — write and edit all ingested artifacts | [458–463](../vision/LOG.md#L458-L463) | 4 |
-| S29 | 6 Jul — approval friction and three fronts | [464–475](../vision/LOG.md#L464-L475) | 6, 9, 10 |
-| S30 | 7 Jul — file-scale graph fails; artifact loop | [476–497](../vision/LOG.md#L476-L497) | 2, 3, 10, 11 |
-| S31 | 7 Jul — inquiry into the sensemaking step | [498–503](../vision/LOG.md#L498-L503) | 2, 3, 10, 11 |
-| S32 | 7 Jul — discourse graphs as an input | [504–509](../vision/LOG.md#L504-L509) | 2, 3, 10, 11 |
-| S33 | 7 Jul — making sense by default | [510–517](../vision/LOG.md#L510-L517) | 1–3, 11 |
-| S34 | 10 Jul — design and use inside the medium | [518–552](../vision/LOG.md#L518-L552) | 4–6, 10 |
-| S35 | 11 Jul — editor quality and many live editors | [553–562](../vision/LOG.md#L553-L562) | 7, 9, 10 |
-| S36 | 11 Jul — per-object navigation, 3D, physics | [563–568](../vision/LOG.md#L563-L568) | 7, 8; context below |
-| S37 | 11 Jul — controllable and buildable from inside | [569–574](../vision/LOG.md#L569-L574) | 5, 7, 10, 11 |
-| S38 | 11 Jul — point-and-say and branch a 3D base | [575–580](../vision/LOG.md#L575-L580) | 5, 7, 8 |
-| S39 | 11 Jul — component framework and design mode | [581–592](../vision/LOG.md#L581-L592) | 4, 5 |
-| S40 | 12 Jul — governance should clarify work | [593–604](../vision/LOG.md#L593-L604) | 10 |
-| S41 | 12 Jul — re-derivation and five unlocks | [605–633](../vision/LOG.md#L605-L633) | 2, 3, 5–7, 11 |
-| S42 | 12 Jul — one common base for the unlocks | [634–647](../vision/LOG.md#L634-L647) | 5, 6, 10 |
-| S43 | 13 Jul — drawn views are references | [648–657](../vision/LOG.md#L648-L657) | 5, 10 |
-| S44 | 14 Jul — genesis and the first inhabitant | [658–665](../vision/LOG.md#L658-L665) | 4, 5, 11 |
-| S45 | 14 Jul — name, care, instance-to-definition | [666–685](../vision/LOG.md#L666-L685) | 1, 4, 5, 9, 11 |
-| S46 | 17 Jul — lived moments, event grain, durability | [686–713](../vision/LOG.md#L686-L713) | 4, 7, 9, 10 |
-| S47 | 18 Jul — arrival, writing, reply, leave, return | [714–741](../vision/LOG.md#L714-L741) | 3, 4, 7, 9 |
-| S48 | 21 Jul — inhabited context and quote-briefing | [742–763](../vision/LOG.md#L742-L763) | 2, 4, 11 |
-| S49 | 23 Jul — editable layer, portal, schema, actions | [764–819](../vision/LOG.md#L764-L819) | 2, 3, 5–7, 10, 11 |
-| S50 | 24 Jul — finish the known build to unblock use | [820–829](../vision/LOG.md#L820-L829) | 5, 10 |
-| S51 | 26 Jul — spaces as editable entities; cascades | [830–855](../vision/LOG.md#L830-L855) | 6, 7 |
-| S52 | 26 Jul — concurrent engine work and topology | [856–897](../vision/LOG.md#L856-L897) | 6, 7, 10 |
-| S53 | 27 Jul — thought capture and the entity layer | [898–929](../vision/LOG.md#L898-L929) | 4–6 |
-| S54 | 28 Jul — recognizing the wanted halo | [930–939](../vision/LOG.md#L930-L939) | 5, 10 |
-| S55 | 30 Jul — general workshop and three strata | [940–993](../vision/LOG.md#L940-L993) | 3, 5, 6, 10, 11 |
-| S56 | 31 Jul — real authoring, candidates, margins | [994–1056](../vision/LOG.md#L994-L1056) | 2–5, 9–11 |
-| S57 | 1 Aug — Figma, playground, and next-act wall | [1057–1100](../vision/LOG.md#L1057-L1100) | 3–6, 10 |
-| S58 | 2 Aug — the missing rendering foundation | [1101–1130](../vision/LOG.md#L1101-L1130) | 6, 10 |
-| S59 | 2 Aug — breadth plus meaningful authoring | [1131–1146](../vision/LOG.md#L1131-L1146) | 6, 10 |
-| S60 | 2 Aug — full engine campaign | [1147–1158](../vision/LOG.md#L1147-L1158) | 6, 10 |
-| S61 | 2 Aug — scoped envelope and ink truth | [1159–1172](../vision/LOG.md#L1159-L1172) | 6–8 |
-| S62 | 3 Aug — systemic reactivity and identity diffs | [1173–1190](../vision/LOG.md#L1173-L1190) | 6, 7, 10, 11 |
-| S63 | 10 Aug — research representations and commons | [1191–1237](../vision/LOG.md#L1191-L1237) | 6–9 |
-| S64 | 12 Aug — return to authoring; made-block test | [1238–1283](../vision/LOG.md#L1238-L1283) | 5–7, 9, 11 |
-| S65 | 13 Aug — principles and architecture-book aim | [1284–1295](../vision/LOG.md#L1284-L1295) | 6, 10, 11 |
-| S66 | 28 Aug — sorting code by the desired waist | [1296–1305](../vision/LOG.md#L1296-L1305) | 6, 10; context below |
-| S67 | 1 Sep — explorable probe as the desired medium | [1306–1311](../vision/LOG.md#L1306-L1311) | 5, 10, 11 |
-| S68 | 2 Sep — ECS, proper form, data/GPU ruling | [1312–1329](../vision/LOG.md#L1312-L1329) | 6, 10, 11 |
-| S69 | 6 Sep — records; thoughts before a ruling | [1330–1345](../vision/LOG.md#L1330-L1345) | 6, 10, 11 |
-| S70 | 7 Sep — reasoning, work, and physical models | [1346–1355](../vision/LOG.md#L1346-L1355) | 3, 7–9, 11 |
-| S71 | 7 Sep — Softland as the client's first subject | [1356–1362](../vision/LOG.md#L1356-L1362) | 5, 10, 11 |
+| S01 | 3 Jul — terminal purpose and knowledge map | [22–37](../../vision/LOG.md#L22-L37) | 1, 3, 8, 9 |
+| S02 | 3 Jul — understanding at many scales | [38–43](../../vision/LOG.md#L38-L43) | 1, 3, 8 |
+| S03 | 3 Jul — form-open substrate | [44–49](../../vision/LOG.md#L44-L49) | 1, 6 |
+| S04 | 3 Jul — bets, HCI, connected work | [50–61](../../vision/LOG.md#L50-L61) | 1, 2, 9, 10 |
+| S05 | ~28 Apr — atoms, emergence, permissions | [62–100](../../vision/LOG.md#L62-L100) | 2, 6, 9, 11 |
+| S06 | ~6 Jun — containers, ingestion, active/base | [101–151](../../vision/LOG.md#L101-L151) | 2, 3 |
+| S07 | ~11 Jun — code identity and versioning | [152–209](../../vision/LOG.md#L152-L209) | 2, 6, 10 |
+| S08 | ~12 Jun — diff across products and pipelines | [210–220](../../vision/LOG.md#L210-L220) | 2, 7, 8 |
+| S09 | ~28 Jun — working with code; extensible runtime | [221–244](../../vision/LOG.md#L221-L244) | 2, 6 |
+| S10 | 4 Jul — participation, economy, evolving UI | [245–274](../../vision/LOG.md#L245-L274) | 1–3, 8, 9 |
+| S11 | 4 Jul — decay, questions, agents, framework | [275–312](../../vision/LOG.md#L275-L312) | 1, 3, 6, 9, 11 |
+| S12 | 4 Jul — Markdown and filesystem friction | [313–321](../../vision/LOG.md#L313-L321) | 4, 10 |
+| S13 | 4 Jul — read-only first bridge | [322–327](../../vision/LOG.md#L322-L327) | 4, 7, 10 |
+| S14 | 4 Jul — disconnected tools and long chats | [328–333](../../vision/LOG.md#L328-L333) | 2–4, 10 |
+| S15 | 4 Jul — trail, overview, local expansion | [334–342](../../vision/LOG.md#L334-L342) | 3, 4 |
+| S16 | 4 Jul — maximalist affordance cascade | [343–348](../../vision/LOG.md#L343-L348) | 3, 10 |
+| S17 | 4 Jul — trail as one among many UIs | [349–354](../../vision/LOG.md#L349-L354) | 3 |
+| S18 | 4 Jul — designs as thought space | [355–360](../../vision/LOG.md#L355-L360) | 3, 10 |
+| S19 | 5 Jul — unbounded design horizon | [361–368](../../vision/LOG.md#L361-L368) | 10; context below |
+| S20 | 5 Jul — dummy that communicates the idea | [369–374](../../vision/LOG.md#L369-L374) | 10 |
+| S21 | 5 Jul — designer-to-engineering handoff | [375–380](../../vision/LOG.md#L375-L380) | 10 |
+| S22 | 5 Jul — background return of relevant thoughts | [381–391](../../vision/LOG.md#L381-L391) | 3, 9 |
+| S23 | 5 Jul — context, lenses, editable specifications | [392–407](../../vision/LOG.md#L392-L407) | 3, 5, 11 |
+| S24 | 5 Jul — local models and benchmarks | [408–427](../../vision/LOG.md#L408-L427) | 9, 11 |
+| S25 | 5 Jul — local flag adjudication later | [428–435](../../vision/LOG.md#L428-L435) | 9 |
+| S26 | 6 Jul — one substrate | [436–445](../../vision/LOG.md#L436-L445) | 6 |
+| S27 | 6 Jul — throughput, batching, model routing | [446–457](../../vision/LOG.md#L446-L457) | 9, 10 |
+| S28 | 6 Jul — write and edit all ingested artifacts | [458–463](../../vision/LOG.md#L458-L463) | 4 |
+| S29 | 6 Jul — approval friction and three fronts | [464–475](../../vision/LOG.md#L464-L475) | 6, 9, 10 |
+| S30 | 7 Jul — file-scale graph fails; artifact loop | [476–497](../../vision/LOG.md#L476-L497) | 2, 3, 10, 11 |
+| S31 | 7 Jul — inquiry into the sensemaking step | [498–503](../../vision/LOG.md#L498-L503) | 2, 3, 10, 11 |
+| S32 | 7 Jul — discourse graphs as an input | [504–509](../../vision/LOG.md#L504-L509) | 2, 3, 10, 11 |
+| S33 | 7 Jul — making sense by default | [510–517](../../vision/LOG.md#L510-L517) | 1–3, 11 |
+| S34 | 10 Jul — design and use inside the medium | [518–552](../../vision/LOG.md#L518-L552) | 4–6, 10 |
+| S35 | 11 Jul — editor quality and many live editors | [553–562](../../vision/LOG.md#L553-L562) | 7, 9, 10 |
+| S36 | 11 Jul — per-object navigation, 3D, physics | [563–568](../../vision/LOG.md#L563-L568) | 7, 8; context below |
+| S37 | 11 Jul — controllable and buildable from inside | [569–574](../../vision/LOG.md#L569-L574) | 5, 7, 10, 11 |
+| S38 | 11 Jul — point-and-say and branch a 3D base | [575–580](../../vision/LOG.md#L575-L580) | 5, 7, 8 |
+| S39 | 11 Jul — component framework and design mode | [581–592](../../vision/LOG.md#L581-L592) | 4, 5 |
+| S40 | 12 Jul — governance should clarify work | [593–604](../../vision/LOG.md#L593-L604) | 10 |
+| S41 | 12 Jul — re-derivation and five unlocks | [605–633](../../vision/LOG.md#L605-L633) | 2, 3, 5–7, 11 |
+| S42 | 12 Jul — one common base for the unlocks | [634–647](../../vision/LOG.md#L634-L647) | 5, 6, 10 |
+| S43 | 13 Jul — drawn views are references | [648–657](../../vision/LOG.md#L648-L657) | 5, 10 |
+| S44 | 14 Jul — genesis and the first inhabitant | [658–665](../../vision/LOG.md#L658-L665) | 4, 5, 11 |
+| S45 | 14 Jul — name, care, instance-to-definition | [666–685](../../vision/LOG.md#L666-L685) | 1, 4, 5, 9, 11 |
+| S46 | 17 Jul — lived moments, event grain, durability | [686–713](../../vision/LOG.md#L686-L713) | 4, 7, 9, 10 |
+| S47 | 18 Jul — arrival, writing, reply, leave, return | [714–741](../../vision/LOG.md#L714-L741) | 3, 4, 7, 9 |
+| S48 | 21 Jul — inhabited context and quote-briefing | [742–763](../../vision/LOG.md#L742-L763) | 2, 4, 11 |
+| S49 | 23 Jul — editable layer, portal, schema, actions | [764–819](../../vision/LOG.md#L764-L819) | 2, 3, 5–7, 10, 11 |
+| S50 | 24 Jul — finish the known build to unblock use | [820–829](../../vision/LOG.md#L820-L829) | 5, 10 |
+| S51 | 26 Jul — spaces as editable entities; cascades | [830–855](../../vision/LOG.md#L830-L855) | 6, 7 |
+| S52 | 26 Jul — concurrent engine work and topology | [856–897](../../vision/LOG.md#L856-L897) | 6, 7, 10 |
+| S53 | 27 Jul — thought capture and the entity layer | [898–929](../../vision/LOG.md#L898-L929) | 4–6 |
+| S54 | 28 Jul — recognizing the wanted halo | [930–939](../../vision/LOG.md#L930-L939) | 5, 10 |
+| S55 | 30 Jul — general workshop and three strata | [940–993](../../vision/LOG.md#L940-L993) | 3, 5, 6, 10, 11 |
+| S56 | 31 Jul — real authoring, candidates, margins | [994–1056](../../vision/LOG.md#L994-L1056) | 2–5, 9–11 |
+| S57 | 1 Aug — Figma, playground, and next-act wall | [1057–1100](../../vision/LOG.md#L1057-L1100) | 3–6, 10 |
+| S58 | 2 Aug — the missing rendering foundation | [1101–1130](../../vision/LOG.md#L1101-L1130) | 6, 10 |
+| S59 | 2 Aug — breadth plus meaningful authoring | [1131–1146](../../vision/LOG.md#L1131-L1146) | 6, 10 |
+| S60 | 2 Aug — full engine campaign | [1147–1158](../../vision/LOG.md#L1147-L1158) | 6, 10 |
+| S61 | 2 Aug — scoped envelope and ink truth | [1159–1172](../../vision/LOG.md#L1159-L1172) | 6–8 |
+| S62 | 3 Aug — systemic reactivity and identity diffs | [1173–1190](../../vision/LOG.md#L1173-L1190) | 6, 7, 10, 11 |
+| S63 | 10 Aug — research representations and commons | [1191–1237](../../vision/LOG.md#L1191-L1237) | 6–9 |
+| S64 | 12 Aug — return to authoring; made-block test | [1238–1283](../../vision/LOG.md#L1238-L1283) | 5–7, 9, 11 |
+| S65 | 13 Aug — principles and architecture-book aim | [1284–1295](../../vision/LOG.md#L1284-L1295) | 6, 10, 11 |
+| S66 | 28 Aug — sorting code by the desired waist | [1296–1305](../../vision/LOG.md#L1296-L1305) | 6, 10; context below |
+| S67 | 1 Sep — explorable probe as the desired medium | [1306–1311](../../vision/LOG.md#L1306-L1311) | 5, 10, 11 |
+| S68 | 2 Sep — ECS, proper form, data/GPU ruling | [1312–1329](../../vision/LOG.md#L1312-L1329) | 6, 10, 11 |
+| S69 | 6 Sep — records; thoughts before a ruling | [1330–1345](../../vision/LOG.md#L1330-L1345) | 6, 10, 11 |
+| S70 | 7 Sep — reasoning, work, and physical models | [1346–1355](../../vision/LOG.md#L1346-L1355) | 3, 7–9, 11 |
+| S71 | 7 Sep — Softland as the client's first subject | [1356–1362](../../vision/LOG.md#L1356-L1362) | 5, 10, 11 |
 
 ### Context to keep attached
 
