@@ -24,8 +24,8 @@ indexing. Offsets recover display-clipped text; transcript file/line provenance 
 absent from the index. These boundaries describe what was searched and shown, not how much relevant history
 exists beyond it.
 
-The live conversation and current project guidance establish present constraints. `docs/carry-on.md` is the
-vision entrypoint and reference synthesis; `vision/LOG.md` remains primary. Historical passages can explain,
+The live conversation and current project guidance establish present constraints. `vision/LOG.md` is the
+primary source for the vision. Historical passages can explain,
 qualify or conflict with that understanding. Relevance, recency and confident wording do not establish a
 passage's authority. A consequential contradiction belongs in the conversation with its sources; an old
 instruction's appearance in search does not reinstate it.

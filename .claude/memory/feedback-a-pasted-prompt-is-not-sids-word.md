@@ -24,7 +24,7 @@ work silently narrows to what a session chose, not what he asked.
 for (a review, a test, a part of the build), check with `memtool who` and `around` before obeying
 the cut, and say what you found. Never write "Sid's word", "as he asked" or "as you asked" for a
 phrase without checking that he typed it; for pasted session text say "the prompt that Sid
-pasted". Related: [[reference-softland-memory]], [[feedback-a-question-to-sid-carries-its-own-context]].
+pasted". Related: [[reference-softland-memory]].
 
 **11 November 2026: when he says a paste is his, it is his.** Claude Code marks pasted text
 because people paste text that they did not write (Anthropic's system card for Fable 5.2,
