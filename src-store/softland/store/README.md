@@ -216,13 +216,14 @@ shape must hold when each fact is wrong.
 - **Who sent an act.** A gate checks no sender. Beyond its form as an id, it
   holds `:who` against the permission that the act names and against the form of
   a making act, and against nothing else. An act carries no signature, and no
-  gate checks one. That is decided: Sid's go of 19 November 2026 to a session's
-  answer; his words are in `src/proposal/first-act-2026-11-18/PROGRESS.md`,
-  under "Now", until a "Decisions of …" entry holds them. So for the store
-  `:who` is what the sending program said. Two things are held before the
-  store, and no code of the store holds either. Who can send at all is a rule
-  of the network: only programs on machines that Sid runs may reach Rama's
-  ports, and each of them is trusted with the whole store, in any person's name
+  gate checks one. That is what Sid's go of 19 November 2026 to a session's
+  answer chose; his words, and what stays his call, are in
+  `src/proposal/first-act-2026-11-18/PROGRESS.md`, until a "Decisions of …"
+  entry holds them. So for the store `:who` is what the sending program said.
+  Two things are held before the store, and no code of the store holds either.
+  Who can send at all is a rule of the network: only programs on machines that
+  Sid runs may reach Rama's ports, and each of them is trusted with the whole
+  store, in any person's name
   ([the store source entry](../../README.md#decisions-of-11-and-12-october-2026--reading-back-out),
   entry 4). Rama asks no name: a session's note in that entry, read in Rama's
   docs and not run. The rule is a setting of the network, set when a cluster is

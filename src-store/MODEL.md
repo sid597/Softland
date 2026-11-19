@@ -284,9 +284,10 @@ maker said: its `:who`, all that its act carries, and every fact of a tool.
   is built for them.
 - **Every fact under one key,** in one read.
 - **Who sent an act.** For the store, `:who` is what the sending program said.
-  A gate holds it only against the permission that the act names, or against
-  the form of a making act, and a permission is made of public parts: its
-  holder, its layer twice, and the permission above it. A gate checks no sender
+  Beyond its form as an id, a gate holds it only against the permission that
+  the act names, or against the form of a making act, and a permission is made
+  of public parts: its holder, its layer twice, and the permission above it. A
+  gate checks no sender
   ([store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly)).
 - **A table that only the read path can read.** Each program that can open
   Rama's ports is trusted with the whole store, in any person's name. The one
