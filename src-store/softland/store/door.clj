@@ -71,15 +71,11 @@
 
   The sender. The door takes `:who`, `:session` and `:permission` as the
   maker gives them. It does not check that the sender is the who that the
-  act names, and neither does a gate: neither is meant to, and the store
-  holds no signature and checks none (Sid, 19 November 2026). That is held
-  in front of the door, by the program that sends: the runtime takes a
-  person's id from her sign-in and writes it as the `:who` of her acts.
-  Sign-in is not built, and no such program is in this tree. Who can send
-  at all, through the door or without it, is a rule of the network
-  (src-store/README.md, decisions of 11 and 12 October 2026, entry 4).
-  `:system` is a who like any other. The door makes no person and no id for
-  one.
+  act names, and neither does a gate: that is the sending program's to
+  hold, in front of the door, and none is built
+  (src-store/softland/store/README.md, \"What the gate does not check, said
+  plainly\"). `:system` is a who like any other. The door makes no person
+  and no id for one.
 
   What goes plain into a depot through the door. Everything. The thing that
   the door appends is the maker's act as she gave it, with the act-id, the
@@ -113,12 +109,9 @@
 
     - a layer whose depot changes (?9): the door reads the layer's depot
       for each act-id that it makes and remembers none;
-    - sign-in, in front of the door (K7 to K10, Q16): the runtime would
-      write a person's id as the `:who` of her acts before this code runs,
-      and that changes none of it;
-    - who may act as the system (K9): `:system` is treated as any who, and
-      that only the system's own steps name it is the sending program's to
-      hold.
+    - sign-in, in front of the door (K7 to K10, Q16): it stands before
+      this code runs, and changes none of it;
+    - who may act as the system (K9): `:system` is treated as any who.
 
   The door reads no fact of the record for a maker, and its wait is one
   question about one act-id, with no subscription. A read's steps run in the

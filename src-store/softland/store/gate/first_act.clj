@@ -29,20 +29,11 @@
 
   What a gate does not check. Who the holder of a first permission is, a
   person, a session or an agent: a gate cannot tell. And whether the sender
-  is the `:who` that the act names: a gate never checks the sender, and is
-  not meant to. It holds `:who` against the permission that the act names
-  and against the form of a making act, and against nothing else: the store
-  holds no signature and checks none (Sid, 19 November 2026). So for a gate
-  `:who` is what the sending program said, before sign-in is built and
-  after. Two things are held before the store, by no code of this tree. Who
-  can send at all is a rule of the network: each program that can reach
-  Rama's ports is trusted with the whole store, in any person's name
-  (src-store/README.md, decisions of 11 and 12 October 2026, entry 4). That
-  the sender is the who that an act names is the sending program's to hold:
-  the runtime takes a person's id from her sign-in and writes it as the
-  `:who` of her acts. Sign-in is not built. So any program that can send
-  can name `system`, and can make any layer that is not made: the base for
-  `system` alone, and any other layer for any holder.
+  is the `:who` that the act names: a gate checks no sender
+  (src-store/softland/store/README.md, \"What the gate does not check, said
+  plainly\"). So any program that can send can name `system`, and can make
+  any layer that is not made: the base for `system` alone, and any other
+  layer for any holder.
 
   One place where the holder of the permission that an act names is not the
   act's `:who`: the system makes a personal layer for its person, so that
@@ -56,14 +47,11 @@
 (def system
   "The id of the system: software that acts for the architects of the
   medium. It makes the base, and it makes each personal layer at its
-  person's first sign-in: that is why the form of a making act takes it as
-  the `:who` of a layer's first act for any holder. It can hold other
-  layers beside the base (Sid, 9 October 2026). The system is this id, which
-  the code knows: the store holds no signature for it and checks none (Sid,
-  19 November 2026), so any program that can send can name it as an act's
-  `:who`. That only the system's own steps name it is the sending program's
-  to hold, and is not built; who may act as the system is an open row of
-  the queue (K9)."
+  person's first sign-in. It can hold other layers beside the base (Sid,
+  9 October 2026). Any program that can send can name it, and no gate
+  checks who sends an act that names it
+  (src-store/softland/store/README.md, \"What the gate does not check, said
+  plainly\")."
   :system)
 
 (def base

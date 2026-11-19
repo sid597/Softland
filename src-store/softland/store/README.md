@@ -213,31 +213,34 @@ shape must hold when each fact is wrong.
 
 ## What the gate does not check, said plainly
 
-- **Who sent an act.** A gate never checks the sender, and is not meant to. It
+- **Who sent an act.** A gate checks no sender. Beyond its form as an id, it
   holds `:who` against the permission that the act names and against the form of
-  a making act, and against nothing else: the store holds no signature and
-  checks none (Sid, 19 November 2026). So for the store `:who` is what the
-  sending program said, before sign-in is built and after. Two things are held
-  before the store, and no code of the store holds either. Who can send at all
-  is a rule of the network: only programs on machines that Sid runs may reach
-  Rama's ports, and each of them is trusted with the whole store, in any
-  person's name
+  a making act, and against nothing else. An act carries no signature, and no
+  gate checks one. That is decided: Sid's go of 19 November 2026 to a session's
+  answer; his words are in `src/proposal/first-act-2026-11-18/PROGRESS.md`,
+  under "Now", until a "Decisions of …" entry holds them. So for the store
+  `:who` is what the sending program said. Two things are held before the
+  store, and no code of the store holds either. Who can send at all is a rule
+  of the network: only programs on machines that Sid runs may reach Rama's
+  ports, and each of them is trusted with the whole store, in any person's name
   ([the store source entry](../../README.md#decisions-of-11-and-12-october-2026--reading-back-out),
   entry 4). Rama asks no name: a session's note in that entry, read in Rama's
   docs and not run. The rule is a setting of the network, set when a cluster is
   first run for real data. That the sender is the who that an act names is the
-  sending program's to hold: the runtime takes a person's id from her sign-in
-  and writes it as the `:who` of her acts. Sign-in is not built, and no such
-  program is in this tree.
+  sending program's to hold; none is built.
 - **Who makes a layer.** Any program that can send can make any layer that is
   not made: the base for `:system` alone, and any other layer for any holder.
   The form of a making act takes as the act's `:who` the holder, or `:system`,
   and as the holder of the base `:system` only
-  ([first_act.clj](gate/first_act.clj)). `:system` is in the form because the
-  system makes a personal layer for its person. Any program that can send can
-  name it. That only the system's own steps do is the sending program's to
-  hold, which is not built; who may act as the system is an open row of the
-  queue (K9). The gate cannot tell a person from a session or an agent.
+  ([first_act.clj](gate/first_act.clj)). That the act's who is `:system` when
+  the system makes a personal layer for its person is the builder's form
+  ([the store source entry](../../README.md#decisions-of-8-october-2026--who-acts-and-what-the-store-reads),
+  entry 2: "The builder's part, not his"). The form is wider than that need: as
+  `:system`, an act can make any layer but the base, for any holder. Any
+  program that can send can name `:system`. That only the system's own steps do
+  is the sending program's to hold, which is not built; who may act as the
+  system is an open row of the queue (K9). The gate cannot tell a person from a
+  session or an agent.
 - **Where a thing sits on its depot.** Each depot's partitioner puts a thing on
   its layer's task, and neither gate makes a hop before it decides. Every
   client's append goes through that partitioner. A topology can append to the

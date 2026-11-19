@@ -343,9 +343,9 @@
   that the act which wrote the row gave as its `:who`, read back from its
   one text: a keyword or a UUID. nil when there is no row or the text does
   not read as an id. It never throws. The id is what the program that sent
-  the act said. A gate held it against the permission that the act named,
-  or against the form of a making act, and checked no sender: the store
-  holds no signature and checks none (Sid, 19 November 2026)."
+  the act said: a gate checked no sender
+  (src-store/softland/store/README.md, \"What the gate does not check, said
+  plainly\")."
   [row]
   (when-let [held (:who row)]
     (let [id (first-form held)]
