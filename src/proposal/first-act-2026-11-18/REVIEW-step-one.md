@@ -8,15 +8,24 @@ grounds). The review below stays as the record of what a fresh session found
 in commit `8ba0da10`. What its findings mean now, in the view of the session
 that took the code off:
 
-- **These go with the code:** findings 1 and 3, the weak public keys, the
-  rule for a resend that carries a signature, the three proofs that pass for
-  the wrong reason, the cost of a signed check, and the three keys with a
-  backup. Each exists only where an act is signed.
-- **Finding 2 is the store as it is meant.** Any program that can send can
-  name `:system`, and such a program is trusted with the whole store (the
-  decision of 12 October, entry 4). That `system` can make a layer for any
-  holder is how the system makes a person's layer at her first sign-in. Who
-  may act as the system stays open, for the sign-in build.
+- **These go with the code:** the replay of a signed act into another store
+  (finding 1), finding 3, the weak public keys, the rule for a resend that
+  carries a signature, the three proofs that pass for the wrong reason, the
+  cost of a signed check, and the three keys with a backup. Each exists only
+  where an act is signed.
+- **One rule of finding 1 stays without a key** (point 2 of the reviewer's
+  response): a lost store is restored from a copy of its depots, and never by
+  sending its acts again. On one machine the acts after the copy are lost.
+  It is carried on the progress page, for the first store that is kept.
+- **Finding 2 describes the builder's form, and that form stays.** Sid's
+  decision of 8 October (entry 2) is that the system makes a person's layer
+  at her first sign-in. That the act's who is then `:system` is the builder's
+  part, and the form is wider than that need: `:system` can make any layer
+  but the base, for any holder, at any time. Under the decision of 12 October
+  only Sid's programs can name it. Who may act as the system stays open, for
+  the sign-in build. The reading rule of point 5 stays too: "W holds L's
+  first permission" does not say that W made L; the writer on L's depot row
+  does.
 - **One thing stays from finding 4,** before the first record is kept: how a
   changed rule counts when the gates are run again over acts that were kept
   before it. It no longer rests on a sender who plants acts ahead of a rule:
@@ -24,9 +33,23 @@ that took the code off:
   send.
 - **"Reads", under "Not on the list", stays as it was:** who asks is what the
   caller says. The server is to hold that at sign-in, as it does for an act.
-- **Two lines of "Sid's answers, 18 November" are superseded:** that the
-  sign-in server signs a person's acts, and the single backup key. "People
-  hold no keys" stands, and now holds for the system and the server too.
+- **The reviewer's line that a signature "would only be a hardening"** (under
+  "Sid's question", below) is right about what a signature would stop: a
+  program inside the network that is mistaken and not hostile. The progress
+  page says what buys the same stop without one.
+- **Superseded on this page.** Each of these stands below as it was written,
+  and none holds now:
+  - under "Sid's question": "The signed first act still has a use for the
+    system". What is left of it is a signature on what a deployment
+    publishes, on the progress page;
+  - under "Sid's answers, 18 November": that the sign-in server signs a
+    person's acts; step 2 as root giving the sign-in server a key; the
+    single backup key and the three keys;
+  - under "Still open": how every gate knows the sign-in server's key, and
+    the two things built without Sid's go, which went with the code.
+
+  "People hold no keys" stands, and now holds for the system and the server
+  too.
 
 ## Sid's question, which the outcome answers
 
@@ -496,6 +519,9 @@ Fable's script for the weak keys, and its output, are in
 
 ## Sid's answers, 18 November
 
+*Superseded in part on 19 November. The outcome at the top of this page says
+which lines no longer hold.*
+
 - **People hold no keys.**
   - A person is one fixed id, with her sign-in accounts attached: Google, an
     email, more later (9 October, entry 1).
@@ -526,7 +552,8 @@ Fable's script for the weak keys, and its output, are in
   works. If both the top key and the backup are lost, the last road is the
   code: a change, by Sid, that names a new top key from a point in the log.
 
-**Still open:**
+**Still open:** (as written on 18 November; neither is open now, see the
+outcome at the top)
 - **Before step 3:** how every gate knows the sign-in server's key (point 1
   above). It needs a design first, then Sid's call.
 - **No deadline:** the two things built without Sid's go, signed acts making

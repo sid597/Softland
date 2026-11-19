@@ -5,9 +5,10 @@ nothing in the store holds a key ([PROGRESS.md](PROGRESS.md) has his words
 and the grounds). Step one, which was built from this page as commit
 `8ba0da10`, was taken off `main` by `3873f78b`. This page stays as the record
 of the exploring session. It is not a source for a build: what it says to
-build, its table of later steps and its leans on keys are superseded. Two of
-its threads are still open and are carried on the progress page: Sid's agents
-and reading, and running a store that keeps its data.
+build, its table of later steps and its leans on keys are superseded. What it
+reports as facts stands as reported, and two of its sections are still the
+place to read what the progress page lists as open: "Keys, agents and
+reading", and "Running a store that keeps its data".
 
 This page passes one exploring session on to a session that builds the first
 step and discusses what is open. The exploring session ran on 17 and 18
