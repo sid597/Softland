@@ -15,8 +15,9 @@ that took the code off:
   where an act is signed.
 - **One rule of finding 1 stays without a key** (point 2 of the reviewer's
   response): a lost store is restored from a copy of its depots, and never by
-  sending its acts again. On one machine the acts after the copy are lost.
-  It is carried on the progress page, for the first store that is kept.
+  having its makers send their acts again through the door. On one machine
+  the acts after the copy are lost. It is carried on the progress page, for
+  the first store that is kept.
 - **Finding 2 describes the builder's form, and that form stays.** Sid's
   decision of 8 October (entry 2) is that the system makes a person's layer
   at her first sign-in. That the act's who is then `:system` is the builder's
@@ -36,7 +37,8 @@ that took the code off:
 - **The reviewer's line that a signature "would only be a hardening"** (under
   "Sid's question", below) is right about what a signature would stop: a
   program inside the network that is mistaken and not hostile. The progress
-  page says what buys the same stop without one.
+  page says what buys most of that stop without one, and what it does not
+  buy.
 - **Superseded on this page.** Each of these stands below as it was written,
   and none holds now:
   - under "Sid's question": "The signed first act still has a use for the
@@ -85,7 +87,8 @@ reviewer's view, not Sid's words:
   clock. So the Google check happens once, at sign-in, on the server.
 - **The signed first act still has a use for the system.** Another deployment
   that takes Sid's system layer can check that the layer is his, which a
-  network rule cannot do.
+  network rule cannot do. *(Superseded on 19 November: see the outcome
+  above.)*
 - **To weigh next:** this review assumed that anything can send an act, as the
   store's own docstrings say. Under entry 4, once real data is kept, only
   Sid's programs can. What each finding means under that rule is the next

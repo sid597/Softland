@@ -12,8 +12,9 @@ Where this work stands. It began from [HANDOFF.md](HANDOFF.md).
     and is able to write where he wants to write."
   - His go, to the session's answer (‹afbff6f5›): "cool lets build this i
     agrre now with this".
-- **What he agreed to,** in the session's words. The store's pages say "the
-  runtime" where these say "the server".
+- **What he agreed to,** in the session's words. For "the server" here, the
+  decisions of 11 and 12 October say "the runtime", and the store's pages
+  say "the sending program".
   - A person signs in with Google at the server. The server finds her id
     from Google's account id, or registers her, and writes that id as the
     who of each act that she makes.
@@ -30,10 +31,11 @@ Where this work stands. It began from [HANDOFF.md](HANDOFF.md).
   marked in the table of what is open.
 - **Step one was taken off `main`** by `3873f78b`, a whole revert of
   `8ba0da10`. The store's source and checks are as they were before step
-  one. `c4f03d4b` and `629e70b3` then changed what the store's pages say of
-  who sent an act; no code changed. On each of the three commits the act's
-  proof gave 166 passes and the pure proof 685, with no failure, and the
-  namespaces that need Rama load. The proofs on a cluster were not run.
+  one. `c4f03d4b`, `629e70b3` and `1ff2d7f7` then changed what the store's
+  pages say of who sent an act; no code changed. On each of the four
+  commits the act's proof gave 166 passes and the pure proof 685, with no
+  failure, and the namespaces that need Rama load. The proofs on a cluster
+  were not run.
 - [HANDOFF.md](HANDOFF.md), [STEP-ONE-STATE.md](STEP-ONE-STATE.md) and
   [REVIEW-step-one.md](REVIEW-step-one.md) stay as the record of what was
   explored, built and reviewed. None is a source for a build.
@@ -51,20 +53,24 @@ The session's grounds, as corrected after the review.
   same for google.com".
 - **What a signature in a gate would stop, and what it would not.**
   Corrected: the first form said that it stops nothing.
-  - Against a hostile program inside the network it stops nothing. Rama
-    asks no name. To send a thing that has the form of an act, a program
-    needs Rama's own client, and that client needs only the conductor's
-    host and port. `rama deploy` and `rama destroy` need no more. So such a
-    program can also read every table and replace the module, where the
-    gates live.
+  - A hostile program inside the network can get past it. Rama asks no
+    name. To send a thing that has the form of an act, a program needs
+    Rama's own client, and that client needs only the conductor's host and
+    port. `rama deploy` and `rama destroy` need no more. So such a program
+    can read every table and replace the module, where the gates live.
+  - What a signature still gives there is a record. If that program cannot
+    get its acts signed, a later run of the true gates over the depots
+    refuses them. Without signatures, such a run cannot tell them from true
+    acts.
   - It would stop a program inside the network that is mistaken, and not
-    hostile, from writing in a person's name: an agent, a converter, a test
-    or a migration aimed at the real cluster, a tool that copies acts from
-    one store into another.
-  - The same stop is bought without a signature by the second half of the
-    decision of 12 October: only the runtime reaches Rama's ports, and
-    every other program talks to the runtime. That also covers reading,
-    which a signature does not.
+    hostile, from writing in a person's name: an agent, a converter, a
+    test or a migration aimed at the real cluster.
+  - Most of that stop is bought without a signature, for the programs that
+    need not reach the ports: by the decision of 12 October, a program that
+    is not trusted with the whole store talks to the runtime. That also
+    covers reading, which a signature does not. Which programs those are is
+    open (the first row of the table below). A deploy, a migration, or a
+    test aimed at the real cluster still reaches the ports.
 - **The store cannot ask Google on each act.** Google's sign-in token lasts
   about an hour and is not tied to what is written. A gate reads no clock,
   and no layer but its own. So the check that it is her is made once, at
@@ -101,10 +107,12 @@ The session's grounds, as corrected after the review.
   - The record does not prove itself later. A who is true through the
     network rule at the time of writing, and the log holds nothing of that.
     After a breach, or a mistake of a program inside, nobody can tell from
-    the log whose the acts of that time were. An act that is kept without a
-    signature cannot be given one later. A signature by a key that sits on
-    the serving machine would not outlast a breach of that machine either;
-    one by a key that is kept elsewhere would.
+    the log whose the acts of that time were. A signature made when an act
+    is written, with a key that the breached or mistaken program does not
+    hold, would tell them apart. It would not for the time of a breach of
+    the server itself, wherever its key is kept: a signer signs what the
+    server asks. An act that is kept without a signature cannot be given
+    one of its own later.
   - Two deployments' systems cannot be told apart while the system is one
     word in the code.
 - **What the grounds rest on in Rama.** Read in its docs
@@ -122,8 +130,8 @@ The session's grounds, as corrected after the review.
     open appends and reads without deploys. No port opens appends without
     reads.
   - So the grounds assume this: no program gets the reach of Rama's client
-    without the conductor's, and nothing forms acts for a program that has
-    less. If that changed, a server's signature would stop more.
+    without the conductor's. If one could, it could send acts and not
+    replace the module, and a gate's check of a signature would stop more.
 
 ## Open, by where each becomes real
 
@@ -134,21 +142,29 @@ The session's grounds, as corrected after the review.
 | How Sid comes to hold rights in the system's layers. In the answer that he agreed to: setup names his Google account, and the system gives his id rights at his first sign-in. Its form is not designed | The sign-in build |
 | Who may act as the system. Today `:system` is a who like any other (`src-store/softland/store/door.clj`, "Room that the door leaves") | The sign-in build |
 | Sid's agents run inside the network and can read every table. Keeping a thing from them means boxing them away from the ports, or sealing the value before the door | His thread of 18 November: "Keys, agents and reading" on the handoff |
-| **Sid's call, with its cost now named.** Acts are kept with no signature. The record then does not prove itself later, and an act cannot be given a signature afterwards | Before the first record is kept |
-| **Sid's call.** The system's id: one word in every deployment, as today, or an id fixed for each deployment in its deployed code. Either way every gate knows it without reading another layer. With one word, a system layer that arrives in another deployment has the same who as that deployment's own system, against his "First so that no collision" (18 November, on the handoff) | Before the first store is kept |
-| The first act of a store that is kept, a restart on the same data, and telling a new store from one that lost its data. One rule of the review of step one stands without a key: a lost store is restored from a copy of its depots and never by sending its acts again, and on one machine the acts after the copy are lost. The facts gathered so far are on the handoff, "Running a store that keeps its data" | The first store that is kept |
+| **Sid's call, with both sides named.** Acts are kept with no signature, as decided. What that gives up: the record does not prove itself later, and after a breach or a mistake of a program other than the server, a later run of the gates cannot tell that program's acts from true ones. The least form of the other side: the server signs each act with a key that the other programs do not hold; no gate checks it; a later reader, or a later run of the gates, does. What that costs: a key for the server and the keeping of it, a signing step on each act, a part for the signature in the act's form, and nothing gained for the time of a breach of the server itself. Acts that are kept before signing begins can then be covered only by one signature over the log as it stands on that day | Before the first record is kept |
+| **Sid's call.** The system's id: one word in every deployment, as today, or an id fixed for each deployment in its deployed code. Either way every gate knows it without reading another layer. With one word, a system layer that arrives in another deployment has the same who as that deployment's own system. A session reads that as against his "First so that no collision" (18 November, on the handoff), which he said of registering deployments by name and id. What the other side costs: the fixture of the run-again proof holds 33 acts by `:system`, and the proofs use the word throughout | Before the first store is kept |
+| The first act of a store that is kept, a restart on the same data, and telling a new store from one that lost its data. One rule of the review of step one stands without a key: a lost store is restored from a copy of its depots, and never by having its makers send their acts again through the door; on one machine the acts after the copy are lost. The facts gathered so far are on the handoff, "Running a store that keeps its data" | The first store that is kept |
 | How a changed rule counts when the gates are run again over acts that were kept before it | Before the first record is kept |
 | A signature on what a deployment publishes | Other deployments, "in future" |
 
 ## The review of 19 November
 
-A fresh agent on another model reviewed the three commits that took step one
-off (`3873f78b`, `f315a206`, `c4f03d4b`). Its job was to break them. It held
-that the decision can stand, and found what `629e70b3` and the commit of this
-page correct: the ground that was too strong, the two costs, the outcome
-section of the review of step one, and the store's pages, which said one
-statement in five places and put a session's sentence under Sid's name. Its
-report is in the building session's transcript.
+A fresh agent on another model reviewed the commits that took step one off,
+in two rounds. Its job was to break them. It held that the decision can
+stand.
+
+- The first round, on `3873f78b`, `f315a206` and `c4f03d4b`, found the ground
+  that was too strong, the two costs, faults in the outcome section of the
+  review of step one, and the store's pages, which said one statement in
+  five places and put a session's sentence under Sid's name. `629e70b3` and
+  `f4821643` correct those.
+- The second round found sentences in those corrections that still said too
+  much, and one side missing from Sid's call on signatures. `1ff2d7f7` and
+  the commit of this page correct those. Nobody reviewed these last
+  corrections.
+
+Its two reports are in the building session's transcript.
 
 ## Kept outside the repository
 
