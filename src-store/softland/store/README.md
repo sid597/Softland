@@ -213,10 +213,31 @@ shape must hold when each fact is wrong.
 
 ## What the gate does not check, said plainly
 
-- **Who makes a layer.** Until sign-in is built, any sender can make any layer
-  that is not made, for any holder. The gate cannot tell a person from a session
-  or an agent, and it cannot check `:who`: `:who` is a claim. It holds `:who` only
-  against the holder of the act's permission and against the form of a making act.
+- **Who sent an act.** A gate never checks the sender, and is not meant to. It
+  holds `:who` against the permission that the act names and against the form of
+  a making act, and against nothing else: the store holds no signature and
+  checks none (Sid, 19 November 2026). So for the store `:who` is what the
+  sending program said, before sign-in is built and after. Two things are held
+  before the store, and no code of the store holds either. Who can send at all
+  is a rule of the network: only programs on machines that Sid runs may reach
+  Rama's ports, and each of them is trusted with the whole store, in any
+  person's name
+  ([the store source entry](../../README.md#decisions-of-11-and-12-october-2026--reading-back-out),
+  entry 4). Rama asks no name: a session's note in that entry, read in Rama's
+  docs and not run. The rule is a setting of the network, set when a cluster is
+  first run for real data. That the sender is the who that an act names is the
+  sending program's to hold: the runtime takes a person's id from her sign-in
+  and writes it as the `:who` of her acts. Sign-in is not built, and no such
+  program is in this tree.
+- **Who makes a layer.** Any program that can send can make any layer that is
+  not made: the base for `:system` alone, and any other layer for any holder.
+  The form of a making act takes as the act's `:who` the holder, or `:system`,
+  and as the holder of the base `:system` only
+  ([first_act.clj](gate/first_act.clj)). `:system` is in the form because the
+  system makes a personal layer for its person. Any program that can send can
+  name it. That only the system's own steps do is the sending program's to
+  hold, which is not built; who may act as the system is an open row of the
+  queue (K9). The gate cannot tell a person from a session or an agent.
 - **Where a thing sits on its depot.** Each depot's partitioner puts a thing on
   its layer's task, and neither gate makes a hop before it decides. Every
   client's append goes through that partitioner. A topology can append to the
@@ -706,8 +727,9 @@ builder's, kept, and decided by nobody.
 
 **Who wrote a fact, and under which permission, are two fields of its row**,
 each a String, the one text of what it is: a UUID has two texts, and the one
-text reads back as a UUID. `:who` is what the act claimed; a gate cannot check
-it until sign-in is built.
+text reads back as a UUID. `:who` is what the act named, which is what the
+program that sent it said: a gate holds it against the act's permission and
+checks no sender (see "What the gate does not check").
 
 **The three keys that take a second write.** Who may see a layer, what it builds
 on, and its marked keys are each one fact on the layer's own entity, a setting in

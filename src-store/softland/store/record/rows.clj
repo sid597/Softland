@@ -342,8 +342,10 @@
   "Takes a fact's row or a row of the facts by value, or nil. Gives the id
   that the act which wrote the row gave as its `:who`, read back from its
   one text: a keyword or a UUID. nil when there is no row or the text does
-  not read as an id. It never throws. The id is a claim until sign-in is
-  built: a gate cannot check `:who`."
+  not read as an id. It never throws. The id is what the program that sent
+  the act said. A gate held it against the permission that the act named,
+  or against the form of a making act, and checked no sender: the store
+  holds no signature and checks none (Sid, 19 November 2026)."
   [row]
   (when-let [held (:who row)]
     (let [id (first-form held)]

@@ -91,9 +91,11 @@ chair-7's colour is red and that its material is oak.
    ([gate/first_act.clj](softland/store/gate/first_act.clj), `making-act?`).
    The depot is not hers to choose: the base is microbatch and every other layer
    streaming (`depot-at-making`). The act's `:who` must be the holder or the
-   system, but nothing checks the sender, so anyone can make any layer that is
-   not made, for anyone. A new layer reads as open to its members only, building
-   on nothing and marking nothing, until a fact says otherwise (`starts-with`).
+   system. A gate does not check the sender, so any program that can send can
+   make any layer that is not made, for anyone
+   ([below](#what-cannot-be-got-back-said-plainly)). A new layer reads as open
+   to its members only, building on nothing and marking nothing, until a fact
+   says otherwise (`starts-with`).
 2. **She says what it builds on.** A layer has three settings, each a fact on the
    layer's own entity: who may see it, the layers that it builds on in order, and
    the keys that it marks. A setting can be written again and never retracted;
@@ -281,10 +283,19 @@ maker said: its `:who`, all that its act carries, and every fact of a tool.
   ([record/rows.clj](softland/store/record/rows.clj), `answer-key`), but no read
   is built for them.
 - **Every fact under one key,** in one read.
-- **Who sent an act.** `:who` is a claim. A gate holds it only against the
-  permission that the act names, and a permission is made of public parts: its
-  holder, its layer twice, and the permission above it. Until sign-in is built,
-  anyone can write as anyone
+- **Who sent an act.** For the store, `:who` is what the sending program said,
+  before sign-in is built and after. A gate holds it only against the
+  permission that the act names, or against the form of a making act, and a
+  permission is made of public parts: its holder, its layer twice, and the
+  permission above it. A gate never checks the sender, and is not meant to: the
+  store holds no signature and checks none (Sid, 19 November 2026). Who can
+  send at all is a rule of the network, and each program that can send is
+  trusted to write as anyone
+  ([decisions of 11 and 12 October](README.md#decisions-of-11-and-12-october-2026--reading-back-out),
+  entry 4). That the sender is the who that an act names is held before the
+  store, by the program that sends: the runtime takes a person's id from her
+  sign-in and writes it as the `:who` of her acts. Sign-in is not built, and no
+  such program is in this tree
   ([store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly)).
 - **A table that only the read path can read.** Each program that can open
   Rama's ports is trusted with the whole store, in any person's name. The one
@@ -317,7 +328,8 @@ Each is said in full where its code is.
   ([door/declaration.clj](softland/store/door/declaration.clj)).
 - Whether a key is an id or a word
   ([decisions of 6 October](README.md#decisions-of-6-october-2026), entry 9).
-- Sign-in, and the end of a permission: not built.
+- Sign-in, which stands before the store and is no part of it; and the end of a
+  permission: not built.
 
 ## The numbers, and where each is set
 
