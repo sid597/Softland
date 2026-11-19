@@ -1,5 +1,11 @@
 # Step one of the store's first who: state of the build, 18 November 2026
 
+**19 November 2026.** The code that this page describes was taken off `main`
+by `3873f78b`, and stays in the history at `8ba0da10`: Sid decided that
+nothing in the store holds a key ([PROGRESS.md](PROGRESS.md) has his words
+and the grounds). This page stays as the record of what was built. It is not
+a source for a build.
+
 This page passes the build of step one on to a fresh session. The building
 session started from [HANDOFF.md](HANDOFF.md) in this folder. It is working
 material and no decision page. As in the handoff, three kinds of line are kept
