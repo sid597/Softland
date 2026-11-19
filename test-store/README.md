@@ -7,7 +7,7 @@ behavior.
 
 | Immediate child | Responsibility |
 |---|---|
-| [softland/](softland/README.md) | The JVM checks: the act, the gates' pure namespaces and the door's, and the read path's pure namespaces, with no cluster; the store's module, the door, the read path, the store's gates run again over its depots, and the setup of a store's first who, each on Rama's in-process cluster; and the measures of the read build and of the gates, two runs that are no check. |
+| [softland/](softland/README.md) | The JVM checks: the act, the gates' pure namespaces and the door's, and the read path's pure namespaces, with no cluster; the store's module, the door, the read path, and the store's gates run again over its depots, each on Rama's in-process cluster; and the measures of the read build and of the gates, two runs that are no check. |
 
 Run the checks from the repository root:
 
@@ -19,14 +19,13 @@ clojure -M:store-module -m softland.store.door-proof
 clojure -M:store -m softland.store.read-path-pure-proof
 clojure -M:store-module -m softland.store.read-path-proof
 clojure -M:store-module -m softland.store.run-again-proof
-clojure -M:store-module -m softland.store.setup-proof
 ```
 
 The first two and the fifth need local Clojure and nothing else: the alias
 `:store` puts Clojure alone on the classpath. They start no browser, connect to
 no cluster and call no provider.
 
-The third, the fourth, the sixth, the seventh and the eighth need Rama, which the alias
+The third, the fourth, the sixth and the seventh need Rama, which the alias
 `:store-module`
 adds. Each starts Rama's in-process cluster inside its own JVM, with four tasks
 and two workers, launches the module in it, and closes it at the end. The third
@@ -42,9 +41,6 @@ what the store's gives but for what the proof asks, and puts the store's back.
 Each connects to
 nothing outside its process. The cluster keeps its files in a temporary
 directory of Rama's.
-
-The eighth starts two clusters, one after the other. It writes one file under
-the JVM's temporary directory and deletes it.
 
 Each prints the sentence of each check after `PASSED` or `FAILED`, prints what
 it observed on lines that start with `SHOWN`, prints those `SHOWN` lines again
@@ -86,12 +82,6 @@ they are what the store gave that the fixture was made of. The seventh also
 holds a rule that names each act which was decided out of the order of its
 layer's line, and applies it to every partition of both depots of each store
 that it reads.
-
-A pass of the eighth shows the setup in one process: the signed making act of
-the base, by a pair that the setup made, went through the door and was accepted
-as the store's first act; acts that named a signing who were accepted with that
-who's signature and with no other; and the kept first act, sent again, changed
-no row. No program sets a store up yet: the proof is the setup's one caller.
 
 The
 third shows failures that the proof makes: of an attempt of a batch while it

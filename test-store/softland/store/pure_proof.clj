@@ -93,18 +93,6 @@
   cases of what a gate may copy read `softland/store/module/walk.clj` on
   the classpath.
 
-  The signed act. The proof holds the signature's namespace, the signed
-  edition in the declaration's check, the signed form of a making act, and
-  lines of signed and unsigned things through the walk in memory: which
-  first act of the base is accepted, what is accepted as the act of a who
-  that holds a public half, a first act that is sent again, and a give to a
-  second who. Its three pairs are the first three that RFC 8032 writes out,
-  private half and public half as literals, so each signature of the proof
-  is the same in each run and no random number is drawn; the JVM's
-  signature of each pair is held against the RFC's own. The proof's keeper
-  holds a private half in the memory of the process. What a keeper outside
-  the process does is not reached here.
-
   The door. The cases of its three pure namespaces hold each rule of the
   door that needs no cluster: each kind of thing that is no act, the thing
   that it builds, and its one number.
@@ -122,7 +110,6 @@
             [softland.store.door.additions :as additions]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
-            [softland.store.door.signature :as signature]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record]
             [softland.store.gate.stamp :as stamp]
@@ -130,8 +117,7 @@
             [softland.store.door.wait :as wait]
             [softland.store.door.words :as words])
   (:import [java.nio.charset StandardCharsets]
-           [java.security KeyFactory MessageDigest Signature]
-           [java.security.spec PKCS8EncodedKeySpec X509EncodedKeySpec]
+           [java.security MessageDigest]
            [java.util UUID]))
 
 (defonce ^{:private true
@@ -329,71 +315,6 @@
   ([e k] {:e e :k k :v nil :replaces nil :text nil})
   ([e k v] {:e e :k k :v (when (declaration/store-key? k) v) :replaces nil :text (text/text v)}))
 
-(defn- unhex
-  "The bytes that a hex text writes, two characters for each byte."
-  [^String s]
-  (byte-array (map (fn [[a b]] (unchecked-byte (Integer/parseInt (str a b) 16))) (partition 2 s))))
-
-(defn- pair-of
-  "A pair of the proof, from the hex of a private half and of its public
-  half as RFC 8032 writes them out (section 7.1). Gives `:who`, the signing
-  who of the public half, built here from the hex and not by the store's
-  code; `:keeper`, a function that signs the bytes that it is handed with
-  the private half, which stays inside it; and `:public`, the public half
-  as the JVM holds one. The sixteen bytes before the private half and the
-  twelve before the public half are the JVM's forms of a half (PKCS #8,
-  X.509; RFC 8410)."
-  [private-hex public-hex]
-  (let [factory (KeyFactory/getInstance "Ed25519")
-        private (.generatePrivate factory (PKCS8EncodedKeySpec. (unhex (str "302e020100300506032b657004220420" private-hex))))]
-    {:who (keyword "who" (str "ed25519." public-hex))
-     :keeper (fn [^bytes b] (.sign (doto (Signature/getInstance "Ed25519") (.initSign private) (.update b))))
-     :public (.generatePublic factory (X509EncodedKeySpec. (unhex (str "302a300506032b6570032100" public-hex))))}))
-
-(def ^:private root-pair
-  "The pair of the who that makes the base in the lines of signed things:
-  the RFC's first."
-  (pair-of "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
-           "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"))
-
-(def ^:private dana-pair
-  "The pair of a second who, Dana: the RFC's second."
-  (pair-of "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb"
-           "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"))
-
-(def ^:private eve-pair
-  "The pair of a third who, Eve: the RFC's third."
-  (pair-of "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7"
-           "fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025"))
-
-(def ^:private root-who "The who that makes the base." (:who root-pair))
-(def ^:private dana-who "Dana, as a who." (:who dana-pair))
-(def ^:private eve-who "Eve, as a who." (:who eve-pair))
-
-(defn- signed
-  "Takes a pair and a signed act as it arrives, with no signature yet. Gives
-  it with the signature that the pair's keeper makes of what is signed
-  (`softland.store.door.declaration/what-is-signed`), as a sender does."
-  [pair thing]
-  (assoc thing :signature (signature/sign (:keeper pair) (declaration/what-is-signed thing))))
-
-(defn- signed-arrived
-  "A signed act of a pair's who into Alice's layer as it arrives on the
-  streaming depot, under the act-id `(act-id n)`, with the time `now`,
-  under a first permission of that who, with these facts, signed with that
-  pair. The check of what arrived asks nothing of a standing, so the
-  layer's own holder does not matter here."
-  [pair n & facts]
-  (let [who (:who pair)]
-    (signed pair {:act-id (act-id n) :depot :streaming declaration/time-part now
-                  :version 2 :who who :layer :alice :permission [who :alice :alice] :session :s1
-                  :facts (vec facts)})))
-
-(def ^:private good-signed
-  "The least signed thing that the check takes: one fact with a value, by
-  the first pair's who, signed with that pair."
-  (signed-arrived root-pair 1 (value-at :note-1 :text)))
-
 ;; ------------------------------------------------- the one text, the digest
 
 (def ^:private text-rows
@@ -583,10 +504,9 @@
 ;; ---------------------------------------------------------- the declaration
 
 (def ^:private declared-shapes
-  "The six shapes that the door adds, written out here a second time. What
+  "The five shapes that the door adds, written out here a second time. What
   arrives holds the time on the act after the depot: a fixed-width integer
-  of 0 or more, with no bound above. A signed act arrives with the same
-  three parts of the door before its own eleven."
+  of 0 or more, with no bound above."
   {:arrived-act
    [:parts
     [:act-id :act-id]
@@ -602,22 +522,6 @@
     [:claimed-when :int {:optional true}]
     [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
     [:facts [:seq-of :fact] {:empty :empty-act}]]
-   :arrived-signed-act
-   [:parts
-    [:act-id :act-id]
-    [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
-    [:door-time [:int {:min 0}] {:reason :no-door-time}]
-    [:version [:enum 2] {:reason :unknown-version}]
-    [:who :signing-who {:reason :who-holds-no-public-half}]
-    [:layer :id]
-    [:permission :permission-id {:absent :no-permission}]
-    [:session :id {:absent :no-session}]
-    [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
-    [:because-of :act-id {:optional true}]
-    [:claimed-when :int {:optional true}]
-    [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
-    [:facts [:seq-of :fact] {:empty :empty-act}]
-    [:signature :signature-text {:reason :no-signature}]]
    :depot-word [:enum :streaming :microbatch]
    :who-may-see-word [:enum :members :everyone]
    :layer-list [:seq-of :id]
@@ -626,7 +530,6 @@
 (def ^:private declared-rules
   "The rules of the declaration, written out here a second time."
   [[:permission-is-in-the-acts-layer :permission-not-in-layer]
-   [:who-fits-the-version :who-needs-a-signature]
    [:depot-is-the-act-ids-depot :depot-not-the-act-ids-depot]
    [:facts-within-the-limit :too-many-facts]
    [:based-on-within-the-limit :too-many-based-on]
@@ -634,7 +537,6 @@
    [:depot-fact-holds-a-depot-word :depot-fact-not-a-depot-word]
    [:permission-fact-holds-a-permission :permission-fact-not-a-permission]
    [:permission-fact-sits-on-its-holder :permission-fact-not-on-its-holder]
-   [:signed-act-gives-to-signing-whos :gives-to-a-who-with-no-public-half]
    [:who-may-see-fact-holds-its-word :who-may-see-fact-not-members-or-everyone]
    [:builds-on-fact-holds-layers :builds-on-fact-not-a-list-of-layers]
    [:builds-on-within-the-limit :builds-on-too-many-layers]
@@ -646,13 +548,11 @@
    [:ids-within-the-limit :id-too-long]])
 
 (def ^:private declared-reasons
-  "Each word with which the check refuses: `act.clj`'s ten and the door's
-  twenty-one, the word of the time's part, the word of a signature that
-  does not fit and the two of the last step among them."
+  "Each word with which the check refuses: `act.clj`'s seven and the door's
+  nineteen, the word of the time's part and the two of the last step among
+  them."
   #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
     :permission-not-in-layer
-    :who-holds-no-public-half :no-signature :who-needs-a-signature
-    :gives-to-a-who-with-no-public-half :signature-does-not-fit
     :depot-not-the-act-ids-depot :no-door-time :too-many-facts :too-many-based-on
     :store-key-not-known
     :depot-fact-not-a-depot-word :permission-fact-not-a-permission
@@ -669,14 +569,14 @@
   [["the door's map of shapes holds each shape of act.clj as act.clj declares it"
     (fn [] (= act/shapes (select-keys declaration/shapes (keys act/shapes))))
     true]
-   ["the six shapes that the door adds: what arrives, unsigned and signed, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
+   ["the five shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
     (fn [] (apply dissoc declaration/shapes (keys act/shapes)))
     declared-shapes]
    ["the name of the part that holds the time on the act is the one that the shape of what arrives holds, and that shape takes any fixed-width integer not below zero: it has no bound above"
     (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
              [declaration/time-part (= part declaration/time-part) shape]))
     [:door-time true [:int {:min 0}]]]
-   ["the nineteen rules, the maker's two first, each with its reason; the rule of a signed give stands with the rules of a permission fact, and the six of the keys that take a second write after them"
+   ["the seventeen rules, the maker's first, each with its reason; the six of the keys that take a second write stand after the rules of a permission fact"
     (fn [] declaration/rules)
     declared-rules]
    ["the words with which the check refuses, read from the two declarations, the word of the time's part among them, and the two of its last step"
@@ -904,9 +804,6 @@
    ["a fact with no value that carries :sealed and :lock-id" (arrived 1 {:e :note-1 :k :text :sealed (bytes-of 3) :lock-id [(act-id 50) 0]}) :unknown-part]
    ["a fact whose :sealed is nil: the part is there" (arrived 1 (assoc (value-at :note-1 :text) :sealed nil)) :unknown-part]
    ["a version that the code does not know" (assoc good :version 2) :unknown-version]
-   ["a signed act whose who is in the namespace of the signing whos and holds no public half" (assoc good-signed :who :who/bob) :who-holds-no-public-half]
-   ["a signed act with no signature" (dissoc good-signed :signature) :no-signature]
-   ["an unsigned act that names a signing who" (assoc good :who root-who) :who-needs-a-signature]
    ["no permission" (dissoc good :permission) :no-permission]
    ["no session" (dissoc good :session) :no-session]
    ["no fact" (assoc good :facts []) :empty-act]
@@ -955,10 +852,6 @@
    ["a depot fact whose value is no depot word" (arrived 1 {:e :alice :k :softland.store/depot :v :fast}) :depot-fact-not-a-depot-word]
    ["a permission fact whose value is no permission" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice]}) :permission-fact-not-a-permission]
    ["a permission fact that does not sit on its holder" (arrived 1 {:e :carol :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
-   ["a signed act that gives a permission to a plain id"
-    (signed-arrived root-pair 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice [root-who :alice :alice]]})
-    :gives-to-a-who-with-no-public-half]
-   ["a signed act with one part changed after it was signed: the session" (assoc good-signed :session :s2) :signature-does-not-fit]
    ["who may see a layer, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
    ["who may see a layer, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-see :v "everyone"}) :who-may-see-fact-not-members-or-everyone]
    ["who may see a layer, as a set of people" (arrived 1 {:e :alice :k :softland.store/who-may-see :v #{:bob}}) :who-may-see-fact-not-members-or-everyone]
@@ -1023,14 +916,14 @@
               [(try (get string-keys declaration/time-part) :read (catch ClassCastException _ :threw))
                (mapv declaration/usable-time [string-keys (throwing) (at-time (throwing))])]))
      [:threw [nil nil nil]]]
-    ["the time's word stands after the word of a part that the form does not know, and before the word of each of the maker's own parts: of the things of `makers-rows` with the time taken off, the first, whose fault is such a part of the thing itself, keeps its word, and each of the other nineteen, whose fault is in a part of the maker's, three of them of the signed act, gets the time's"
+    ["the time's word stands after the word of a part that the form does not know, and before the word of each of the maker's own parts: of the things of `makers-rows` with the time taken off, the first, whose fault is such a part of the thing itself, keeps its word, and each of the other sixteen, whose fault is in a part of the maker's, gets the time's"
      (fn [] (let [given (mapv (fn [[_ x _]] (verdict (declaration/check (without-time x)))) makers-rows)]
               [(first given) (frequencies (rest given))]))
-     [:unknown-part {:no-door-time 19}]]
-    ["the time's word stands after the word of a depot that is absent or no depot word, and before each rule: of the things of `doors-rows` with the time taken off, the first two keep the depot's word, and each of the other twenty-five, whose fault a rule or the check of a signature finds, gets the time's; a depot word that is not the act-id's is one of them"
+     [:unknown-part {:no-door-time 16}]]
+    ["the time's word stands after the word of a depot that is absent or no depot word, and before each rule: of the things of `doors-rows` with the time taken off, the first two keep the depot's word, and each of the other twenty-three, whose fault a rule finds, gets the time's; a depot word that is not the act-id's is one of them"
      (fn [] (let [given (mapv (fn [[_ x _]] (verdict (declaration/check (without-time x)))) doors-rows)]
               [(vec (take 2 given)) (frequencies (drop 2 given))]))
-     [[:depot-not-the-act-ids-depot :depot-not-the-act-ids-depot] {:no-door-time 25}]]]))
+     [[:depot-not-the-act-ids-depot :depot-not-the-act-ids-depot] {:no-door-time 23}]]]))
 
 ;; ------------------------------------------- the bounds of the check's last step
 
@@ -1312,16 +1205,6 @@
      ["a first permission granted in another layer"
       :streaming (-> group (assoc :permission [:alice :team :elsewhere]) (assoc-in [:facts 1 :v] [:alice :team :elsewhere]))
       false]
-     ["the base, made with a signed act by a signing who: its who is its holder, and the system's id is no part of it"
-      :microbatch (assoc (making :base root-who root-who) :version 2) true]
-     ["a group's layer, made with a signed act by its holder" :streaming (assoc (making :team root-who root-who) :version 2) true]
-     ["the base, made with a signed act, at the streaming gate" :streaming (assoc (making :base root-who root-who) :version 2) false]
-     ["a signed making act whose who is not its holder: one signing who makes no layer for another"
-      :streaming (assoc (making :team dana-who root-who) :version 2) false]
-     ["a signed making act of a personal layer by the system's id: a signed act knows no system"
-      :streaming (assoc (making :alice :system :alice) :version 2) false]
-     ["a signed making act of the base by the system's id for the system's id: the form alone takes it, since who is holder; the check of what arrived refuses such a who before the form is asked"
-      :microbatch (assoc (making :base :system :system) :version 2) true]
      ["a permission that says what it allows, see and act: it has a permission above it and a slot, so it is no first permission"
       :streaming (-> group
                      (assoc :permission [:alice :team :team [:x :team :team] :see-and-act])
@@ -1340,11 +1223,11 @@
      (fn [] [(mapv #(first-act/starts-with-the-other-gates-depot? :streaming %) [:base :alice :team (uuid 1)])
              (mapv #(first-act/starts-with-the-other-gates-depot? :microbatch %) [:base :alice :team (uuid 1)])])
      [[true false false false] [false true true true]]]
-    ["no act that has the form of a making act for a gate is for a layer that starts with the other gate's depot: each of the eight such rows below, at its gate; and the base's making act at the streaming gate's depot is for such a layer"
+    ["no act that has the form of a making act for a gate is for a layer that starts with the other gate's depot: each of the five such rows below, at its gate; and the base's making act at the streaming gate's depot is for such a layer"
      (fn [] [(mapv (fn [[_ gate-depot act _]] (first-act/starts-with-the-other-gates-depot? gate-depot (:layer act)))
                    (filter (fn [[_ _ _ making?]] making?) first-act-rows))
              (first-act/starts-with-the-other-gates-depot? :streaming (:layer (making :base :system :system)))])
-     [[false false false false false false false false] true]]
+     [[false false false false false] true]]
     ["the two ids that the form knows"
      (fn [] [first-act/system first-act/base])
      [:system :base]]
@@ -3688,382 +3571,6 @@
     [{:read-every-ms 2305843009213} {:read-every-ms 2305843009213} {:read-every-ms 2305843009212}
      2305843009213 true false true]]])
 
-;; ------------------------------------------------------------- the signature
-
-(def ^:private rfc-signatures
-  "What RFC 8032 writes out for its first three pairs (section 7.1): the
-  message, as hex, and the signature of it."
-  [[root-pair ""
-    "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"]
-   [dana-pair "72"
-    "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00"]
-   [eve-pair "af82"
-    "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a"]])
-
-(def ^:private a-thing
-  "A thing to sign in the cases of the signature: any thing will do."
-  {:act-id (act-id 7) :who root-who :facts [{:e :note-1 :k :text :v "a text"}]})
-
-(def ^:private signature-cases
-  "The cases of the signature: the bytes that are signed, the making of a
-  signature, the test that one fits, and the id of a public half."
-  [["the proof's three keepers sign as RFC 8032 says: the JVM's signature of each of the RFC's three messages is the RFC's own"
-    (fn [] (mapv (fn [[pair message expected]] (= expected (text/hex ((:keeper pair) (unhex message))))) rfc-signatures))
-    [true true true]]
-   ["the who of a public half, by the store's code, is the id that the proof wrote from the same hex, for each of the three pairs; and the hex reads back out of the id"
-    (fn [] (mapv (fn [pair] [(= (:who pair) (signature/who-of (:public pair)))
-                             (= (subs (name (:who pair)) 8) (act/public-half-hex (:who pair)))])
-                 [root-pair dana-pair eve-pair]))
-    [[true true] [true true] [true true]]]
-   ["a thing that is no public half has no who, and nothing throws: nil, a string, a number, a private thing of no class that the store knows"
-    (fn [] (mapv signature/who-of [nil "d75a" 7 (Object.)]))
-    [nil nil nil nil]]
-   ["what is signed is the line of the purpose, a newline, and the SHA-256 of the thing's one text as hex: held against the proof's own SHA-256 of Java's own UTF-8 of that text"
-    (fn [] (= (String. ^bytes (signature/signed-bytes a-thing) StandardCharsets/UTF_8)
-              (str "softland.store signed act 2\n" (sha-256 (utf8 (text/text a-thing))))))
-    true]
-   ["the line of the purpose, written out a second time"
-    (fn [] signature/purpose)
-    "softland.store signed act 2"]
-   ["the signed bytes are the same for the same thing however it was built, and differ for a list in the place of a vector, as the one text does; a thing that throws while it is read has none"
-    (fn [] [(= (vec (signature/signed-bytes {:a 1 :b [1 2]})) (vec (signature/signed-bytes (array-map :b (subvec [0 1 2] 1) :a (int 1)))))
-            (= (vec (signature/signed-bytes {:a [1 2]})) (vec (signature/signed-bytes {:a '(1 2)})))
-            (signature/signed-bytes {:a (throwing)})])
-    [true false nil]]
-   ["a signature is 128 lower-case hex characters, and the same pair gives the same one for the same thing"
-    (fn [] (let [made (signature/sign (:keeper root-pair) a-thing)]
-             [(count made) (boolean (re-matches #"[0-9a-f]{128}" made)) (= made (signature/sign (:keeper root-pair) a-thing))]))
-    [128 true true]]
-   ["a signature fits the who of the pair that made it, over the thing that was signed"
-    (fn [] (mapv (fn [pair] (signature/fits? (:who pair) (signature/sign (:keeper pair) a-thing) a-thing))
-                 [root-pair dana-pair eve-pair]))
-    [true true true]]
-   ["a signature does not fit: another who; another thing; the same thing with one value changed; its hex in capitals; one character short; one byte changed; a signature of the thing's hash without the line of the purpose; a signature of another line of purpose"
-    (fn [] (let [made (signature/sign (:keeper root-pair) a-thing)
-                 as-bytes (signature/signed-bytes a-thing)
-                 without-purpose (.getBytes (subs (String. ^bytes as-bytes StandardCharsets/UTF_8) (inc (count signature/purpose))) StandardCharsets/UTF_8)
-                 other-purpose (.getBytes (str "softland.store signed read 1\n" (String. ^bytes without-purpose StandardCharsets/UTF_8)) StandardCharsets/UTF_8)]
-             [(signature/fits? dana-who made a-thing)
-              (signature/fits? root-who made (assoc a-thing :act-id (act-id 8)))
-              (signature/fits? root-who made (assoc-in a-thing [:facts 0 :v] "another text"))
-              (signature/fits? root-who (.toUpperCase ^String made) a-thing)
-              (signature/fits? root-who (subs made 1) a-thing)
-              (signature/fits? root-who (str (if (= \0 (first made)) "1" "0") (subs made 1)) a-thing)
-              (signature/fits? root-who (text/hex ((:keeper root-pair) without-purpose)) a-thing)
-              (signature/fits? root-who (text/hex ((:keeper root-pair) other-purpose)) a-thing)]))
-    [false false false false false false false false]]
-   ["the test gives false and throws nothing for: a who that is a plain id, a who with 63 hex characters, a who that is a string, no who; a signature that is nil, a number, an empty text, a text of other letters; a thing that throws while it is read"
-    (fn [] (let [made (signature/sign (:keeper root-pair) a-thing)]
-             [(signature/fits? :alice made a-thing)
-              (signature/fits? (keyword "who" (subs (name root-who) 0 71)) made a-thing)
-              (signature/fits? (str root-who) made a-thing)
-              (signature/fits? nil made a-thing)
-              (signature/fits? root-who nil a-thing)
-              (signature/fits? root-who 7 a-thing)
-              (signature/fits? root-who "" a-thing)
-              (signature/fits? root-who (apply str (repeat 128 "z")) a-thing)
-              (signature/fits? root-who made {:a (throwing)})]))
-    [false false false false false false false false false]]
-   ["no signature is made, and nothing throws: by a keeper that throws, by a keeper that gives 63 bytes, by one that gives a text, and of a thing that throws while it is read"
-    (fn [] [(signature/sign (fn [_] (throw (ex-info "this keeper throws" {}))) a-thing)
-            (signature/sign (fn [_] (byte-array 63)) a-thing)
-            (signature/sign (fn [_] "a text") a-thing)
-            (signature/sign (:keeper root-pair) {:a (throwing)})])
-    [nil nil nil nil]]
-   ["a keeper is handed the signed bytes and nothing else: the line of the purpose and a hash, 92 bytes, whatever the size of the thing"
-    (fn [] (let [seen (atom [])
-                 keeper (fn [b] (swap! seen conj (count b)) ((:keeper root-pair) b))]
-             (signature/sign keeper a-thing)
-             (signature/sign keeper (assoc a-thing :facts [(value-at :note-1 :text (text-of-bytes 60000))]))
-             @seen))
-    [92 92]]
-   ["what is signed of a thing as it arrives: the thing without its signature and without the time on it, and with each other part, the act-id and the depot among them"
-    (fn [] (let [of-it (declaration/what-is-signed good-signed)]
-             [(= of-it (dissoc good-signed :signature declaration/time-part))
-              (sort (remove (set (keys of-it)) (keys good-signed)))
-              (= (:act-id good-signed) (:act-id of-it))]))
-    [true [:door-time :signature] true]]])
-
-(def ^:private signed-check-rows
-  "Signed and unsigned things for the declaration's check, each with the
-  word that it gives. A signed thing that is changed after it was signed
-  keeps the signature of what it was."
-  (let [give-to (fn [holder] {:e holder :k :softland.store/permission :v [holder :alice :alice [root-who :alice :alice]]})]
-    [["the least signed thing" good-signed :ok]
-     ["the same thing with another time on it: the time is not signed" (assoc good-signed declaration/time-part far-ahead) :ok]
-     ["a signed thing with each optional part, signed with those parts in it"
-      (signed root-pair (assoc (dissoc good-signed :signature) :subjects #{:alice} :claimed-when 5 :because-of (act-id 50) :based-on {[(act-id 50) 0] 3}))
-      :ok]
-     ["a signed thing under another act-id of its layer" (assoc good-signed :act-id (act-id 2)) :signature-does-not-fit]
-     ["a signed thing that names another signing who: the signature is the first pair's" (assoc good-signed :who dana-who) :signature-does-not-fit]
-     ["a signed thing with another permission" (assoc good-signed :permission [dana-who :alice :alice]) :signature-does-not-fit]
-     ["a signed thing with another session" (assoc good-signed :session :s2) :signature-does-not-fit]
-     ["a signed thing with another value in its fact" (assoc good-signed :facts [(value-at :note-1 :text "another text")]) :signature-does-not-fit]
-     ["a signed thing with one fact more" (update good-signed :facts conj (value-at :note-2 :text)) :signature-does-not-fit]
-     ["a signed thing whose facts are a list where a vector was signed" (update good-signed :facts #(apply list %)) :signature-does-not-fit]
-     ["a signed thing with a part added that was not signed" (assoc good-signed :subjects #{:alice}) :signature-does-not-fit]
-     ["a signed thing with the signature of another pair" (signed dana-pair (dissoc good-signed :signature)) :signature-does-not-fit]
-     ["a signed thing whose signature is a text of 128 other letters" (assoc good-signed :signature (apply str (repeat 128 "z"))) :signature-does-not-fit]
-     ["a signed thing whose signature has its hex in capitals" (update good-signed :signature #(.toUpperCase ^String %)) :signature-does-not-fit]
-     ["a signed thing with no signature" (dissoc good-signed :signature) :no-signature]
-     ["a signed thing whose signature is nil" (assoc good-signed :signature nil) :no-signature]
-     ["a signed thing whose signature is a number" (assoc good-signed :signature 7) :no-signature]
-     ["a signed thing whose signature has 1025 characters" (assoc good-signed :signature (apply str (repeat 1025 "a"))) :no-signature]
-     ["a signed thing whose who is in the namespace of the signing whos and holds no public half" (assoc good-signed :who :who/bob) :who-holds-no-public-half]
-     ["a signed thing whose who has its hex in capitals" (assoc good-signed :who (keyword "who" (.toUpperCase (name root-who)))) :who-holds-no-public-half]
-     ["a thing that says version 2 and names a plain who, with no signature: it is held to the unsigned act, and gets the word that each thing of version 2 got before there was a signed act"
-      (dissoc (assoc good-signed :who :alice) :signature) :unknown-version]
-     ["the same thing with its signature left on: the unsigned act has no such part" (assoc good-signed :who :alice) :unknown-part]
-     ["a thing that says version 2 and names no who" (dissoc good-signed :who :signature) :unknown-version]
-     ["an unsigned thing that carries a signature: the unsigned act has no such part" (assoc good :signature (:signature good-signed)) :unknown-part]
-     ["an unsigned thing that names a signing who" (assoc good :who root-who) :who-needs-a-signature]
-     ["an unsigned thing that names another id in the namespace of the signing whos" (assoc good :who :who/bob) :who-needs-a-signature]
-     ["an unsigned thing by a who whose name only looks like one: no namespace" (assoc good :who (keyword (name root-who))) :ok]
-     ["a signed thing of version 3: a version that the code does not know" (assoc good-signed :version 3) :unknown-part]
-     ["a signed give to a signing who" (signed-arrived root-pair 1 (give-to dana-who)) :ok]
-     ["a signed give to a plain id" (signed-arrived root-pair 1 (give-to :bob)) :gives-to-a-who-with-no-public-half]
-     ["a signed give to an id that only looks like a signing who: its hex in capitals"
-      (signed-arrived root-pair 1 (give-to (keyword "who" (.toUpperCase (name dana-who))))) :gives-to-a-who-with-no-public-half]
-     ["an unsigned give to a plain id, as before" (arrived 1 {:e :bob :k :softland.store/permission :v bobs}) :ok]
-     ["an unsigned give to a signing who" (arrived 1 {:e dana-who :k :softland.store/permission :v [dana-who :alice :alice alice-own]}) :ok]
-     ;; two faults: the order of the steps
-     ["a who that holds no public half, and no signature: the who is declared first" (dissoc (assoc good-signed :who :who/bob) :signature) :who-holds-no-public-half]
-     ["no time, and a signature that does not fit: the shape first" (without-time (assoc good-signed :session :s2)) :no-door-time]
-     ["two facts on one place, and a signature that does not fit: a rule before the signature"
-      (assoc good-signed :facts [(value-at :note-1 :text "a") (value-at :note-1 :text "b")]) :place-named-twice]
-     ["a signed give to a plain id, and a signature that does not fit: a rule before the signature"
-      (assoc good-signed :facts [(give-to :bob)]) :gives-to-a-who-with-no-public-half]
-     ["a value over its bound, and a signature that does not fit: the signature before the values"
-      (assoc good-signed :facts [(value-at :note-1 :text (text-of-bytes 65537))]) :signature-does-not-fit]
-     ["a value over its bound, signed as it is: the last step refuses it"
-      (signed-arrived root-pair 1 (value-at :note-1 :text (text-of-bytes 65537))) :value-too-large]]))
-
-(def ^:private signed-check-cases
-  "The rows of `signed-check-rows` as cases, and what the one form of a
-  signed thing holds."
-  (conj (verdicts signed-check-rows)
-        ["the one form on arrival of the least signed thing: the parts of an unsigned thing's, with version 2, the signing who, and the signature as it arrived"
-         (fn [] (let [form (act-of good-signed)]
-                  [(= (dissoc form :signature :version :who :permission :session)
-                      (dissoc (act-of good) :version :who :permission :session))
-                   (:version form) (= root-who (:who form)) (= (:signature good-signed) (:signature form))]))
-         [true 2 true true]]
-        ["the check throws nothing for a signed thing whose facts throw when they are read, and for a sorted map that throws when its version is read, which gets the word that it got before there was a second edition"
-         (fn [] [(verdict (declaration/check (assoc good-signed :facts (throwing))))
-                 (verdict (declaration/check (assoc (sorted-map "version" 2) "who" 1)))])
-         [:malformed :unknown-part]]))
-
-;; --------------------------------------------------- the first who of a store
-
-(def ^:private root-own "The first permission of the base, held by the who that made it." [root-who :base :base])
-(def ^:private danas-in-base "Dana's permission in the base, beneath the first: see and act." [dana-who :base :base root-own :see-and-act])
-(def ^:private eves-see "Eve's permission in the base, beneath the first: see." [eve-who :base :base root-own :see])
-
-(defn- signed-base-thing
-  "A signed act into the base as it arrives on the microbatch depot, under
-  the act-id `(base-id n)`, that names `who` under `permission`, with the
-  time `now` and these facts, signed with `pair`. The pair is the who's own
-  for an honest act, and another's for a forgery."
-  [pair n who permission & facts]
-  (signed pair {:act-id (base-id n) :depot :microbatch declaration/time-part now
-                :version 2 :who who :layer :base :permission permission :session :s1
-                :facts (vec facts)}))
-
-(def ^:private first-act-of-the-store
-  "The first act of a store: the signed making act of the base, by the who
-  that the act itself names, as it arrives. It is what
-  `softland.store.gate.first-act/signed-making-act` gives, with the door's
-  additions and the maker's signature; `first-who-cases` holds that."
-  (signed-base-thing root-pair 901 root-who root-own
-                     {:e :base :k :softland.store/depot :v :microbatch}
-                     {:e root-who :k :softland.store/permission :v root-own}))
-
-(def ^:private unsigned-first-act
-  "The making act of the base as an unsigned act: by the id `:system`, which
-  any sender can name."
-  (base-thing 990 :system system-own
-              {:e :base :k :softland.store/depot :v :microbatch}
-              {:e :system :k :softland.store/permission :v system-own}))
-
-(def ^:private base-of-root
-  "The record of the microbatch gate after the first act, and nothing else."
-  (walked-line empty-task :microbatch [first-act-of-the-store]))
-
-(def ^:private roots-note
-  "An act of the who that made the base, signed with its pair."
-  (signed-base-thing root-pair 910 root-who root-own (value-at :note-1 :text "root wrote this")))
-
-(def ^:private forgeries
-  "Things that try to act as the who that made the base, or in its base,
-  with no use of its private half, each with the word that it gets. The
-  record before them is the base that the first act made, with one honest
-  act of that who among them."
-  [[911 "an act that names that who, signed with another pair"
-    (signed-base-thing dana-pair 911 root-who root-own {:e :p1 :k :forged})
-    :signature-does-not-fit]
-   [912 "an unsigned act that names that who, under its permission"
-    (base-thing 912 root-who root-own {:e :p1 :k :forged})
-    :who-needs-a-signature]
-   [913 "another who, signed with her own pair, under the first permission"
-    (signed-base-thing dana-pair 913 dana-who root-own {:e :p1 :k :forged})
-    :who-not-the-permissions-holder]
-   [914 "another who, signed with her own pair, under a permission that no act gave her"
-    (signed-base-thing dana-pair 914 dana-who danas-in-base {:e :p1 :k :forged})
-    :permission-does-not-stand]
-   [915 "an honest act of that who, as it was signed, sent under another act-id"
-    (assoc roots-note :act-id (base-id 915))
-    :signature-does-not-fit]
-   [916 "an honest act of that who with one fact changed after it was signed"
-    (assoc roots-note :act-id (base-id 916) :facts [(value-at :note-1 :text "root did not write this")])
-    :signature-does-not-fit]
-   [917 "an honest act of that who with a fact added after it was signed"
-    (update (assoc roots-note :act-id (base-id 917)) :facts conj {:e dana-who :k :softland.store/permission :v danas-in-base})
-    :signature-does-not-fit]
-   [918 "the unsigned system, under the permission that an unsigned base would hold"
-    (base-thing 918 :system system-own {:e :p1 :k :forged})
-    :permission-does-not-stand]
-   [919 "another who makes the base for herself, with a right signed making act"
-    (signed-base-thing dana-pair 919 dana-who [dana-who :base :base]
-                       {:e :base :k :softland.store/depot :v :microbatch}
-                       {:e dana-who :k :softland.store/permission :v [dana-who :base :base]})
-    :permission-does-not-stand]
-   [920 "another who names that who's public half as a plain entity and gives herself a permission"
-    (signed-base-thing dana-pair 920 dana-who [dana-who :base :base]
-                       {:e dana-who :k :softland.store/permission :v danas-in-base})
-    :permission-does-not-stand]])
-
-(def ^:private gives-line
-  "A line into the base that the first act made: the who that made it gives
-  to a second and a third, and they act. Each thing with the word that it
-  gets."
-  [[930 "the first who gives Dana see and act" (signed-base-thing root-pair 930 root-who root-own {:e dana-who :k :softland.store/permission :v danas-in-base}) :accepted]
-   [931 "Dana acts, signed with her own pair, under her own permission" (signed-base-thing dana-pair 931 dana-who danas-in-base (value-at :note-2 :text "dana wrote this")) :accepted]
-   [932 "the first who gives Eve see" (signed-base-thing root-pair 932 root-who root-own {:e eve-who :k :softland.store/permission :v eves-see}) :accepted]
-   [933 "Eve acts under her permission, which says see" (signed-base-thing eve-pair 933 eve-who eves-see {:e :p1 :k :note}) :permission-does-not-allow-acting]
-   [934 "an act that names Dana, signed with Eve's pair" (signed-base-thing eve-pair 934 dana-who danas-in-base {:e :p1 :k :forged}) :signature-does-not-fit]
-   [935 "an act that names the first who, signed with Dana's pair: a permission beneath the first is not the first who's pair"
-    (signed-base-thing dana-pair 935 root-who root-own {:e :p1 :k :forged}) :signature-does-not-fit]
-   [936 "the first who gives a plain id a permission" (signed-base-thing root-pair 936 root-who root-own {:e :carol :k :softland.store/permission :v [:carol :base :base root-own]}) :gives-to-a-who-with-no-public-half]
-   [937 "the plain id acts, unsigned, under the permission that was not given" (base-thing 937 :carol [:carol :base :base root-own] {:e :p1 :k :forged}) :permission-does-not-stand]
-   [938 "Dana gives Eve's who a second permission: a place of a permission takes one write" (signed-base-thing dana-pair 938 dana-who danas-in-base {:e eve-who :k :softland.store/permission :v [eve-who :base :base danas-in-base]}) :store-key-takes-one-write]
-   [939 "the first who acts again" (signed-base-thing root-pair 939 root-who root-own (value-at :note-3 :text "root wrote this too")) :accepted]])
-
-(defn- words-of
-  "Takes a record after a line, and rows whose first slot is the number of
-  a thing's act-id. Gives the word of each of those things in the record,
-  in the rows' order: :accepted, or the reason."
-  [record rows]
-  (let [by-number (words-by-number record)]
-    (mapv (fn [[n]] (get by-number n)) rows)))
-
-(defn- accepted-things
-  "Takes a record after a line, and the things of the line. Gives those
-  whose answer in the record is an accept and is the thing's own: the
-  answer's digest is the thing's."
-  [record things]
-  (filter (fn [thing]
-            (let [[layer _ act-uuid] (:act-id thing)
-                  row (get-in record [:answers (record/answer-key layer act-uuid)])]
-              (and row (nil? (:refused row)) (= (vec (:digest row)) (vec (digest/digest thing))))))
-          things))
-
-(def ^:private first-who-cases
-  "The cases of a store's first who, each a line of things through the walk
-  in memory at the microbatch gate, from a record with nothing in it or
-  from the base that the first act made."
-  [["the first act of a store is the signed making act of the base as the store's own function builds it, with the door's three additions and its maker's signature"
-    (fn [] (let [act-id (base-id 901)
-                 built (assoc (first-act/signed-making-act :base root-who :s1) :act-id act-id :depot (nth act-id 1))]
-             (= first-act-of-the-store
-                (assoc built :signature (signature/sign (:keeper root-pair) (declaration/what-is-signed built))
-                       declaration/time-part now))))
-    true]
-   ["into a store with nothing in it, the first act is accepted, and it writes the base's depot and its maker's first permission and no other fact"
-    (fn [] [(words-by-number base-of-root)
-            (sort (keys (:facts base-of-root)))])
-    [{901 :accepted}
-     (sort [(record/place-key :base :base :softland.store/depot)
-            (record/place-key :base root-who :softland.store/permission)])]]
-   ["at most one first act of the base is accepted: after it, a right signed making act of another who, the same who's making act signed again under another act-id, and the unsigned system's are each refused, and the facts of the base are still the two of the first"
-    (fn [] (let [after (walked-line empty-task :microbatch
-                                    [first-act-of-the-store
-                                     (signed-base-thing dana-pair 902 dana-who [dana-who :base :base]
-                                                        {:e :base :k :softland.store/depot :v :microbatch}
-                                                        {:e dana-who :k :softland.store/permission :v [dana-who :base :base]})
-                                     (signed-base-thing root-pair 903 root-who root-own
-                                                        {:e :base :k :softland.store/depot :v :microbatch}
-                                                        {:e root-who :k :softland.store/permission :v root-own})
-                                     unsigned-first-act])]
-             [(words-by-number after) (= (:facts base-of-root) (:facts after))]))
-    [{901 :accepted 902 :permission-does-not-stand 903 :permission-fact-not-beneath-the-acts-own 990 :permission-does-not-stand} true]]
-   ["the first right making act to arrive makes the base, whoever sent it: when the unsigned system's arrives first, the signed one is refused. Its maker reads that refusal as her own act's answer, by its digest, and so knows that the base is not hers"
-    (fn [] (let [after (walked-line empty-task :microbatch [unsigned-first-act first-act-of-the-store])
-                 answer (get-in after [:answers (record/answer-key :base (uuid 901))])]
-             [(words-by-number after) (= (vec (:digest answer)) (vec (digest/digest first-act-of-the-store)))]))
-    [{990 :accepted 901 :permission-does-not-stand} true]]
-   ["and when another who's signed making act arrives first, the same: one base, hers"
-    (fn [] (words-by-number
-            (walked-line empty-task :microbatch
-                         [(signed-base-thing dana-pair 902 dana-who [dana-who :base :base]
-                                             {:e :base :k :softland.store/depot :v :microbatch}
-                                             {:e dana-who :k :softland.store/permission :v [dana-who :base :base]})
-                          first-act-of-the-store])))
-    {902 :accepted 901 :permission-does-not-stand}]
-   ["an act of the who that made the base, signed with its pair, is accepted"
-    (fn [] (words-by-number (walked-line base-of-root :microbatch [roots-note])))
-    {901 :accepted 910 :accepted}]
-   ["nothing is accepted as that who's, or into its base, without its private half: each of the forgeries gets its word, before the honest act and after it, and the places that hold a fact after them all are those of the first act and of the honest act"
-    (fn [] (let [things (mapv #(nth % 2) forgeries)
-                 after (walked-line base-of-root :microbatch (concat things [roots-note]))
-                 again (walked-line base-of-root :microbatch
-                                    (concat [roots-note] (map (fn [thing] (update thing :act-id (fn [[l d u]] [l d (uuid (+ 100 (.getLeastSignificantBits ^UUID u)))]))) things)))]
-             [(words-of after forgeries)
-              (= (mapv #(nth % 3) forgeries) (words-of after forgeries))
-              (= (set (keys (:facts after))) (set (keys (:facts (walked-line base-of-root :microbatch [roots-note])))))
-              (count (accepted-things again (map (fn [thing] (update thing :act-id (fn [[l d u]] [l d (uuid (+ 100 (.getLeastSignificantBits ^UUID u)))]))) things)))]))
-    [(mapv #(nth % 3) forgeries) true true 0]]
-   ["the kept first act, sent again, changes nothing: the walk finds its answer, decides nothing and writes no row, with the same time on it and with another"
-    (fn [] (let [again (walked base-of-root :microbatch first-act-of-the-store)
-                 later (walked base-of-root :microbatch (assoc first-act-of-the-store declaration/time-part far-ahead))]
-             [(:wrote again) (= base-of-root (dissoc again :wrote))
-              (:wrote later) (= base-of-root (dissoc later :wrote))
-              (= (vec (digest/digest first-act-of-the-store)) (vec (digest/digest (assoc first-act-of-the-store declaration/time-part far-ahead))))]))
-    [[] true [] true true]]
-   ["the kept first act, sent again after other acts, changes nothing either, and neither does a kept later act"
-    (fn [] (let [after (walked-line base-of-root :microbatch (cons roots-note (map #(nth % 2) gives-line)))
-                 again (walked-line after :microbatch [first-act-of-the-store roots-note (nth (nth gives-line 0) 2)])]
-             [(= after again) (count (:answers after))]))
-    [true 12]]
-   ["the first who gives a second and a third who a permission in the base, and each acts with her own pair and with no other: the words of the line"
-    (fn [] (let [after (walked-line base-of-root :microbatch (map #(nth % 2) gives-line))]
-             [(words-of after gives-line) (= (mapv #(nth % 3) gives-line) (words-of after gives-line))]))
-    [(mapv #(nth % 3) gives-line) true]]
-   ["in a base that a signed act made, each thing that the gate accepted is a signed act whose signature fits its who: over the first act, the honest act, the forgeries and the line of gives, in one line"
-    (fn [] (let [things (concat [first-act-of-the-store roots-note] (map #(nth % 2) forgeries) (map #(nth % 2) gives-line))
-                 after (walked-line empty-task :microbatch things)
-                 accepted (accepted-things after things)]
-             [(count things) (count accepted)
-              (every? (fn [thing] (= 2 (:version thing))) accepted)
-              (every? (fn [thing] (signature/fits? (:who thing) (:signature thing) (declaration/what-is-signed thing))) accepted)
-              (into #{} (map :who) accepted)]))
-    [22 6 true true #{root-who dana-who}]]
-   ["a second run of that line from the same record gives the same record: each row, each stamp and each answer"
-    (fn [] (let [things (concat [first-act-of-the-store roots-note] (map #(nth % 2) forgeries) (map #(nth % 2) gives-line))]
-             (= (comparable (walked-line empty-task :microbatch things))
-                (comparable (walked-line empty-task :microbatch things)))))
-    true]
-   ["a base that an unsigned act made is as it was: any sender acts as the system, and nothing of the sender is held. A signing who that the system gives a permission acts there with her signature, and not without it"
-    (fn [] (let [dana-under-system [dana-who :base :base system-own]]
-             (words-by-number
-              (walked-line empty-task :microbatch
-                           [unsigned-first-act
-                            (base-thing 991 :system system-own {:e :p1 :k :note})
-                            (base-thing 992 :system system-own {:e dana-who :k :softland.store/permission :v dana-under-system})
-                            (signed-base-thing dana-pair 993 dana-who dana-under-system {:e :p2 :k :note})
-                            (base-thing 994 dana-who dana-under-system {:e :p3 :k :note})
-                            (signed-base-thing eve-pair 995 dana-who dana-under-system {:e :p4 :k :note})]))))
-    {990 :accepted 991 :accepted 992 :accepted 993 :accepted 994 :who-needs-a-signature 995 :signature-does-not-fit}]])
-
 ;; ------------------------------------------------------ no code names a lock
 
 (defn- names-a-lock?
@@ -4365,28 +3872,6 @@
                             layer [first-act/base :alice :team (uuid 1)]]
                         [gate-depot layer (first-act/starts-with-the-other-gates-depot? gate-depot layer)])))))
 
-(deftest the-signature
-  (let [n (holds signature-cases)
-        made (signature/sign (:keeper root-pair) a-thing)]
-    (shown "the signature," n "cases. What is signed of a thing:" (pr-str (String. ^bytes (signature/signed-bytes a-thing) StandardCharsets/UTF_8))
-           "| a who:" root-who "| a signature of it by that who's pair:" made
-           "| it fits that who:" (signature/fits? root-who made a-thing) "and another who:" (signature/fits? dana-who made a-thing))))
-
-(deftest the-signed-act-in-the-check
-  (let [n (holds signed-check-cases)]
-    (shown "the signed act in the check of what arrived," n "cases:" (words signed-check-rows))))
-
-(deftest the-first-who-of-a-store
-  (let [n (holds first-who-cases)
-        things (concat [first-act-of-the-store roots-note] (map #(nth % 2) forgeries) (map #(nth % 2) gives-line))
-        after (walked-line empty-task :microbatch things)]
-    (shown "the first who of a store," n "cases, each a line through the walk in memory at the microbatch gate. The first act:" (pr-str (without-time first-act-of-the-store)))
-    (shown "things that try to act as the who that made the base, or in its base, without its private half:"
-           (str/join " | " (map (fn [[_ what _ word]] (str what " " word)) forgeries)))
-    (shown "the first who gives, and a second and a third who act:"
-           (str/join " | " (map (fn [[_ what _ word]] (str what " " word)) gives-line)))
-    (shown "one line of" (count things) "things into a store with nothing in it: the word of each, by the number of its act-id:" (pr-str (words-by-number after)))))
-
 (deftest the-records-rows
   (let [n (holds record-cases)
         value-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} (uuid 5) 2 900 now)]
@@ -4682,9 +4167,6 @@
   (nothing-throws)
   (the-stamp)
   (the-first-act)
-  (the-signature)
-  (the-signed-act-in-the-check)
-  (the-first-who-of-a-store)
   (the-records-rows)
   (the-decision)
   (the-walk-of-one-thing-in-memory)

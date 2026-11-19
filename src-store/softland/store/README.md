@@ -41,8 +41,7 @@ proof is its only asker.
 |---|---|---|
 | [act.clj](act.clj) | The declared shape of an act and of what it holds, the rules that a shape cannot say, and the check that reads both. It gives its engine to the door's declaration. | None. |
 | [door.clj](door.clj) | The door: it opens on the module, gives act-ids, appends each act as its maker gave it, with an act-id, the layer's depot and the time of its server's clock added, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | None: it keeps nothing between two calls. It borrows four handles of Rama's client and holds one number, fixed at its opening. |
-| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the one text of a thing, its digest, and the signature of a signed act. And the door's own pure parts: what it makes of one act, the numbers of a wait, and its words. | None. |
-| [setup.clj](setup.clj) | Setting a store up: it makes a pair, sends the store's first act through the door, the signed making act of the base, keeps that act as a file, and sends it again. It is a client of the door. | None of its own. The private half of a pair that it makes is in the memory of that process and in no file. It writes one file, the kept first act, which holds nothing that must be hidden. |
+| [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the one text of a thing and its digest. And the door's own pure parts: what it makes of one act, the numbers of a wait, and its words. | None. |
 | [read_path.clj](read_path.clj) | The read path: it opens on the module, reads a query once or keeps it live, and says when an asker left. It is a client of the module: it selects and watches the four tables of facts, and reads nothing else. It writes nothing. | Who looks at what, what each asked for, and the pushes that they share, with a count of them: the memory of one process, empty at each opening. It borrows four handles of Rama's client. It holds no row and no value. |
 | [read_path/](read_path/README.md) | The rules of a read, as pure code: the form of a query and its check, the layers of a read and who may see each, the sources that a read asks of Rama, the answer, and the read path's words. | None. |
 | [gate/](gate/README.md) | What a gate decides with, as pure code that the walk of one thing calls for both gates: the checks of one act against rows of the record, the first act of a layer, and the stamp. | None. It reads no PState and no clock. |
@@ -72,10 +71,7 @@ with its own four tables and its depot word. The walk decides with
 [stamp.clj](gate/stamp.clj) and [rows.clj](record/rows.clj). Where what a
 function gives depends on the gate, it takes the gate's depot: the test for a
 stray, the form of a making act, each check against the record. No check is
-written twice, and the two records have one shape of row. For a signed act the
-declaration's check asks [signature.clj](door/signature.clj) whether the
-signature fits the who that the act names; it reads no row for that, since the
-who of a signed act is its public half.
+written twice, and the two records have one shape of row.
 
 **The module has two depots**, one for each gate: a client appends a thing to
 the depot of its layer. [module.clj](module.clj) declares both. No topology
@@ -192,13 +188,6 @@ nothing else: it reads no clock and appends to no depot. A pure function gives
 the same answer when Rama runs an event or a batch again, never throws on what
 arrived, and is proven without a cluster.
 
-[setup.clj](setup.clj) stands in front of the door and is its client. It makes a
-pair, builds the signed making act of the base with
-[first_act.clj](gate/first_act.clj), signs it with
-[signature.clj](door/signature.clj) over what the door will append, and sends
-it through [door.clj](door.clj). The gate of the base decides it as it decides
-any act. Nothing of the setup runs in the module.
-
 ## The act
 
 The form of an act is declared, not implied. [act.clj](act.clj) holds two
@@ -209,14 +198,6 @@ declarations as plain data, and they are the place to start:
   act-id, a fact id, a permission id and a carried stamp;
 - the rules: what must hold between two places of an act, which a shape cannot
   say, such as that the permission's layer is the act's layer.
-
-The shape has two editions. The unsigned act is version 1. The signed act is
-version 2: its `:who` is a signing who, an id that holds a public half, and it
-carries a signature. A thing is held to the signed edition when it says version
-2 and names a who in the namespace of the signing whos, and to the unsigned one
-otherwise. So a thing that names no such who is checked as it was before there
-was a second edition. Whether a signature fits is asked of the thing as it
-arrives, with its act-id in it, by [the door's declaration](door/declaration.clj).
 
 The check holds no knowledge of the form. It reads the two declarations: first the
 shape, part by part in the order declared, then the rules in their order. So the
@@ -232,17 +213,10 @@ shape must hold when each fact is wrong.
 
 ## What the gate does not check, said plainly
 
-- **Who makes a layer, and who sends an unsigned act.** Any sender can make any
-  layer that is not made: with an unsigned act for any holder, and with a signed
-  act for a who whose private half she holds. The first right making act to
-  arrive makes the layer, the base too, so its maker reads her act's answer to
-  know that the layer is hers. The gate cannot tell a person from a session or
-  an agent. Of an unsigned act it cannot check `:who`: `:who` is a claim, held
-  only against the holder of the act's permission and against the form of a
-  making act. Of a signed act it holds that the sender has the private half of
-  the act's who ([door/signature.clj](door/signature.clj)), and in a layer that
-  a signed act made, each act that it accepts is signed. Which person or program
-  holds a private half it does not know.
+- **Who makes a layer.** Until sign-in is built, any sender can make any layer
+  that is not made, for any holder. The gate cannot tell a person from a session
+  or an agent, and it cannot check `:who`: `:who` is a claim. It holds `:who` only
+  against the holder of the act's permission and against the form of a making act.
 - **Where a thing sits on its depot.** Each depot's partitioner puts a thing on
   its layer's task, and neither gate makes a hop before it decides. Every
   client's append goes through that partitioner. A topology can append to the
@@ -732,8 +706,8 @@ builder's, kept, and decided by nobody.
 
 **Who wrote a fact, and under which permission, are two fields of its row**,
 each a String, the one text of what it is: a UUID has two texts, and the one
-text reads back as a UUID. `:who` is what the act claimed. A gate holds it to a
-signature for a signed act, and cannot check it for an unsigned one.
+text reads back as a UUID. `:who` is what the act claimed; a gate cannot check
+it until sign-in is built.
 
 **The three keys that take a second write.** Who may see a layer, what it builds
 on, and its marked keys are each one fact on the layer's own entity, a setting in
@@ -1107,40 +1081,6 @@ check that examines facts takes them in the act's order.
     on the layer's task with the reads of the walk, so what the cost of a cold
     read gives above bounds it too. None is measured.
 
-**The signed act** ([act.clj](act.clj), [door/signature.clj](door/signature.clj),
-[door/declaration.clj](door/declaration.clj),
-[gate/first_act.clj](gate/first_act.clj), [setup.clj](setup.clj)). That the first
-act of a store carries its who's public half and is signed with it is Sid's
-choice of 18 November 2026. Each of these is the builder's form of it, and his
-to turn:
-
-- The who of a signed act is its public half, as the id `:who/ed25519.` and 64
-  hex characters. So a signature is held against the id in the act itself, with
-  no row read, and no fact holds a public half.
-- The edition of a thing is chosen by its version and its who together
-  (`shape-of` in [act.clj](act.clj)). Kept acts hold things that say version 2
-  and were refused `:unknown-version`; they get that answer still.
-- An unsigned act names no who in the namespace of the signing whos. It is the
-  one change to what version 1 accepts.
-- A signed act gives a permission to a signing who only. So in a layer that a
-  signed act made, each permission is held by a signing who, and each act that
-  a gate accepts there is signed.
-- A signed making act names no `system`: its who is its holder, for the base
-  too. A layer that one who makes for another has no signed form.
-- What is signed is a line of purpose and the hash of the thing as it arrives,
-  without its signature and its time. The act-id is in it, so a signature is
-  good under one act-id.
-- The signature is checked in the declaration's check, as its third step,
-  before the values. The walk of one thing is as it was.
-- The private half of a pair that the setup makes stays in the memory of its
-  process. No file holds one.
-
-Not decided, and not built: how a private half is kept for a store that is
-kept; how a pair is replaced; the end of a permission; and how a new edition
-begins to count in a store that already holds acts. An act that was sent before
-the code knew its edition is decided anew when the tables are made again by
-code that knows it.
-
 ## Words a session made, Sid's to change
 
 Each says what the thing is. None comes from the rig's code. Carried from the
@@ -1153,15 +1093,6 @@ decisions before that day say "class" for it. "Members" and "everyone" are his
 words, of 10 October. "See" and "see and act" are a session's; he said "yes"
 on 12 October to a sentence that holds them. The keywords made of the four are
 a session's.
-
-**The signed act.** "Signing who": a who whose id holds a public half. "Public
-half" and "private half": the two halves of a pair. "Keeper": what holds a
-private half and signs with it. "Key" stays the key of a fact. The namespace of
-the id, `who`, is Sid's word for the one who acts, used as a namespace by a
-session. The part `:signature`, the shape `:signed-act`, and five words of
-refusal: `:who-holds-no-public-half`, `:no-signature`, `:who-needs-a-signature`,
-`:gives-to-a-who-with-no-public-half`, `:signature-does-not-fit`. The
-namespaces `softland.store.door.signature` and `softland.store.setup`.
 
 The store keys carry the namespace `softland.store`. The two of 8 October are
 `:softland.store/depot` and `:softland.store/permission`; the three of the read

@@ -5,10 +5,9 @@
 | File | What it checks | State that it owns or changes |
 |---|---|---|
 | [act_proof.clj](act_proof.clj) | [The act](../../../src-store/softland/store/act.clj): its declared shape and rules, and the check that reads them. It needs no cluster. | One atom: the lines that it showed. |
-| [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the time on the act, the stamp, the first act of a layer, the signature of a signed act, the signed act in the declaration's check, the first who of a store as lines of signed and unsigned things through the walk in memory, the record's rows, and the checks of the decision, each alone and as the walk of one thing calls them, one thing after the other. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and the numbers of its wait. And the source of the store's tree, read as data. It needs no cluster. | One atom: the lines that it showed. It reads the clock for nothing and draws no random number. It reads the source files of the store's tree and of the proofs, and writes none. |
+| [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the time on the act, the stamp, the first act of a layer, the record's rows, and the checks of the decision, each alone and as the walk of one thing calls them, one thing after the other. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and the numbers of its wait. And the source of the store's tree, read as data. It needs no cluster. | One atom: the lines that it showed. It reads the clock for nothing and draws no random number. It reads the source files of the store's tree and of the proofs, and writes none. |
 | [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the two reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts two functions of its own into the vars of two pure functions of the store that the walk of one thing calls, and puts the store's back when that cluster is closed. Its atoms: the lines shown, the things sent to each depot, the first answers of the streaming gate, what later checks come back to, and, for the second cluster, the batch that is to fail and the events of the streaming gate that it watches, each with the calls that were noted for it. It reads the clock for the time that the hand writes on a thing, and to end a loop that watches a table. |
 | [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's five calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens seven doors on the module. It pauses the microbatch gate with Rama's test tool, and lets it go on each time. Three atoms: the lines shown, each result that a door gave, and what later checks come back to. It reads two clocks of its JVM and sets neither. |
-| [setup_proof.clj](setup_proof.clj) | [The setup](../../../src-store/softland/store/setup.clj) on Rama's in-process cluster: the first act of a store, signed acts of its first who and of a second who through the door, and the kept first act. The proof is the setup's one caller. | It starts two clusters in its own JVM, one after the other, and closes each. It makes three pairs with the JVM's secure random source; their private halves stay in its memory. It writes one file under the JVM's temporary directory and deletes it. Two atoms: the lines shown, and what later checks come back to. |
 | [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) five pure namespaces: the form of a query and its check, the layers, the sources, the answer and the steps of a live read, the words; and the six functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
 | [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts one function of its own into the var of one pure function that the walk of both gates calls, and puts the store's back. It opens one door and four read paths on each; and on the first, three read paths more: two, each with one small number, for the group of the read path's own bound, and one for the counts of pushes of the group of the base that is read where the asker's layer lives. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of facts of each decision, the place at whose decision a throw is asked, and how many throws were made. |
 | [run_again_proof.clj](run_again_proof.clj) | That the store comes out the same when it is run again from its depots of acts. A rule that names the acts decided out of their layer's line, held on lines made by hand. Then, on Rama's in-process cluster: a second module that mirrors the two depots and runs the store's own gates over them from their beginning, every row of every table compared; the kept acts of [the fixture](run_again_fixture/README.md) fed to a fresh store with 4 tasks and to one with 8, held against the kept tables; and the run again after failures that the proof makes. | It starts four clusters in its own JVM, one after the other, and closes each. The first and the fourth also hold a module of its own, `StoreAgain`. For the fourth alone it puts three functions of its own into the vars of three pure functions that the walk calls, and puts the store's back. It opens a door, appends by its own hand, and selects every row of every table. Two atoms: the lines shown, and what the check after a failure plans and notes. A run of the proof writes no file; its mode `make-fixture` writes the two files of the fixture. |
@@ -41,10 +40,7 @@ group observed. This page does not retell the checks.
   says see: the pure proof and the module's proof, below, show it;
 - a carried stamp held against a stamp that was given: the form takes any long
   from zero, and no gate reads a carried stamp, so a stamp that no decision had
-  is taken too (`softland.store.gate.stamp`);
-- whether the signature of a signed act fits its who: the act's check holds the
-  form of a signed act, its who and the text of its signature, and the pure
-  proof holds the signature.
+  is taken too (`softland.store.gate.stamp`).
 
 ## The pure proof
 
@@ -107,15 +103,7 @@ group observed. This page does not retell the checks.
   wrap;
 - a read that asks for `:time` in `:with`: that is the read path's pure
   proof's;
-- how long a check takes, the check of a signature among them;
-- a keeper outside the process: the proof's three keepers hold private halves
-  that RFC 8032 writes out, in the memory of the run. A keeper that signs in
-  hardware, and one that fails between two acts, are not reached;
-- a public half that is a weak point of the curve, and a second text for the
-  bytes of one signature: `softland.store.door.signature` says what it does not
-  test, and no case holds it;
-- a signed act on a cluster: the setup's proof, below, holds it through the
-  door;
+- how long a check takes;
 - of the door: anything that needs a cluster, a clock or a second thread. The
   waits are the door's proof's to show, as far as it does;
 - a docstring, a comment or a string that names a lock, a name that code makes
@@ -429,56 +417,6 @@ own act's time, and the 400 stamps are the 400 numbers after the making act's.
 How many acts next to each other by stamp have times that go back is printed
 and held to nothing. The time of the test `how-long-an-act-of-the-base-takes` is
 printed and held to nothing but the bound of a wait.
-
-## The setup's proof
-
-Run it from the repository root:
-
-```sh
-clojure -M:store-module -m softland.store.setup-proof
-```
-
-It launches the store's module on an in-process cluster with four tasks, opens
-one door, and reads the store through that door alone: each check holds the
-word of an answer, and where it matters its stamp. Then it does the same on a
-second cluster, for the one check that needs a store with nothing in it.
-
-What a pass shows: that the gates on a cluster decide signed acts as the pure
-proof's walk in memory decides them. The first signed making act of the base is
-accepted, and no second one. An act is accepted under a signing who only with
-that who's signature, in the base and in a layer of the streaming gate. The
-first who's give lets a second who act with her own keeper. The kept first act,
-sent again, is answered with its first answer and moves no stamp. A pass does
-not show that those rules are the right ones.
-
-What it checks. Each check states itself: its sentence is in the test file, as
-the first argument of `check`. A run prints each sentence after `PASSED` or
-`FAILED`. This page does not retell the checks.
-
-### What it changes outside the setup
-
-It appends to the two depots of each of its clusters, through the door. It
-writes one file, the kept first act, under the JVM's temporary directory, and
-deletes it before it ends. It draws from the JVM's secure random source for its
-three pairs, so no two runs sign the same bytes.
-
-### What the setup's proof does not reach
-
-- a store that is kept: both clusters are in process and are closed. A restart
-  on the same data, and a kept first act that is sent to a store which lost its
-  rows on a disk, are not reached; the second cluster stands in for a store
-  with nothing in it;
-- a keeper that lasts, or one that signs outside the process: each private half
-  is in the memory of the run;
-- the rows that a signed act writes: the proof opens no table. The pure proof
-  holds the rows, through the walk in memory;
-- two first acts that two senders send at once: the proof sends one after the
-  other;
-- a signed act after the module is started again;
-- how long a signed act takes, and what the check of a signature costs a
-  layer's task under load. Ideas for checks that are not written: a measure of
-  the gates under signed acts, beside `gate_measures.clj`; and signed acts in
-  the hand of the run-again proof, which needs the fixture made again.
 
 ## The read path's pure proof
 

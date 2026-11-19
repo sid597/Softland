@@ -17,9 +17,6 @@
                      a gate's depot, and a layer id -> true or false
     making-act?      a gate's depot, and an act in its one form on arrival
                      -> true or false
-    signed-making-act  a layer id, a signing who, and a session -> the
-                     signed making act of the layer for that who, as its
-                     maker gives it before she signs
     starts-with      a layer id, and one of the three store keys that take a
                      second write -> what the layer reads as under that key
                      while no fact is there
@@ -30,26 +27,10 @@
   The words are Sid's (\"system\", \"the
   base\"); the keywords are a session's.
 
-  Two editions. An unsigned making act, of version 1, is as it was: its
-  `:who` is the holder or `system`, and for the base the holder is
-  `system`. A signed making act, of version 2, names no `system`: its
-  `:who` is the holder, for the base too. So the first holder of a layer
-  that a signed act makes is the signing who that signed it, and the
-  system of a store whose base a signed act made is that who: the first
-  act defines it, and no id that the code knows names it. That is the
-  builder's form of Sid's choice of 18 November 2026, that the first act
-  itself carries its who's public half and is signed with it.
-
   What a gate does not check, and cannot: who the holder of a first
-  permission is, a person, a session or an agent. Whether the sender is
-  the `:who` that the act names is held for a signed act, by the
-  declaration's check of its signature
-  (`softland.store.door.declaration/check`), and not for an unsigned one.
-  Any sender can make any layer that is not made: with an unsigned act for
-  any holder, and with a signed act for a who whose private half she
-  holds. The first right making act to arrive makes the layer, so who
-  makes the base of an empty store is decided by arrival; its maker reads
-  her act's answer to know that it was hers.
+  permission is, a person, a session or an agent; and whether the sender is
+  the `:who` that the act names. Until sign-in is built, any sender can make
+  any layer that is not made, for any holder.
 
   One place where the holder of the permission that an act names is not the
   act's `:who`: the system makes a personal layer for its person, so that
@@ -58,16 +39,13 @@
   which permission the system then acts is the builder's reading.
 
   State and effects. None. Whether the record holds the layer is the
-  caller's question (`softland.store.gate.decision/standing`)."
-  (:require [softland.store.act :as act]))
+  caller's question (`softland.store.gate.decision/standing`).")
 
 (def system
-  "The id of the system in an unsigned act: software that acts for the
-  architects of the medium. It makes the base, and it makes each personal
-  layer at its person's first sign-in. It can hold other layers beside the
-  base (Sid, 9 October 2026). Any sender can name it. A signed making act
-  does not know this id: there the system is the signing who that made the
-  base."
+  "The id of the system: software that acts for the architects of the
+  medium. It makes the base, and it makes each personal layer at its
+  person's first sign-in. It can hold other layers beside the base (Sid,
+  9 October 2026)."
   :system)
 
 (def base
@@ -111,14 +89,10 @@
      slots is a given one, so an act that names one is no making act, also
      when its fifth slot says `:see-and-act`; it is refused
      `:layer-not-made`, and the layer can still be made by a right act;
-  3. for an unsigned act: the act's `:who` is the holder (a group's layer,
-     made by the person who creates the group) or `system` (a personal
-     layer, made for its person); for the base the holder is `system`, and
-     `system` can be the holder of another layer too. For a signed act:
-     the act's `:who` is the holder, for the base as for any layer, and
-     `system` is no part of the rule. A layer that one who makes for
-     another, as the system makes a personal layer, has no signed form in
-     this build;
+  3. the act's `:who` is the holder (a group's layer, made by the person who
+     creates the group) or `system` (a personal layer, made for its person);
+     for the base the holder is `system`, and `system` can be the holder of
+     another layer too;
   4. the act has exactly two facts, in either order: the depot that the
      layer starts with, on the layer's own entity under
      `:softland.store/depot`; and the act's own permission, on its holder
@@ -140,38 +114,12 @@
           (= 3 (count permission))
           (= layer (nth permission 1))
           (= layer (nth permission 2))
-          (if (= act/signed-version (:version act))
-            (= (:who act) holder)
-            (and (or (= (:who act) holder) (= (:who act) system))
-                 (or (not= base layer) (= holder system))))
+          (or (= (:who act) holder) (= (:who act) system))
+          (or (not= base layer) (= holder system))
           (= 2 (count (:facts act)))
           (= #{{:e layer :k :softland.store/depot :v starts-as}
                {:e holder :k :softland.store/permission :v permission}}
              (into #{} (map #(select-keys % [:e :k :v])) (:facts act)))))))
-
-(defn signed-making-act
-  "Builds the signed making act of a layer, as its maker gives it before she
-  signs. Takes a layer id; a signing who, the layer's first holder and the
-  act's `:who`; and a session id. Gives the maker's act of version 2 with
-  the two facts of a making act, the depot that the layer starts with and
-  the who's first permission, and with no `:signature`: the maker adds
-  that, over the act with its act-id
-  (`softland.store.door.declaration/what-is-signed`). With a right
-  signature it has the form that `making-act?` takes at the gate of the
-  layer's depot.
-
-  It tests nothing of what it is handed: a who that is no signing who
-  gives an act that a gate refuses. For the base it is the store's first
-  act."
-  [layer who session]
-  (let [permission [who layer layer]]
-    {:version act/signed-version
-     :who who
-     :layer layer
-     :permission permission
-     :session session
-     :facts [{:e layer :k :softland.store/depot :v (depot-at-making layer)}
-             {:e who :k :softland.store/permission :v permission}]}))
 
 (defn starts-with
   "What a layer starts with. Takes a layer id and a store key. Gives what the

@@ -19,25 +19,6 @@
   the two declarations, takes anything, and gives the act in its one form or
   the reason why it is not an act.
 
-  Two editions of the list of parts. `:act` is the unsigned act, version 1:
-  its `:who` is a plain id, and nothing in it shows that its sender is that
-  who. `:signed-act` is version 2: its `:who` is a signing who, an id that
-  holds a public half (`public-half-hex`), and it carries a `:signature`.
-  `parse` holds a thing to the signed edition when it says version 2 and
-  names a who in the namespace of the signing whos, and to the unsigned
-  edition otherwise (`shape-of`). So a thing that names no who in that
-  namespace is checked as it was before there was a second edition, by
-  the same list of parts and with the same words: a thing that says
-  version 2 and names a plain who is of no edition that the code knows,
-  and is refused `:unknown-version` as it always was. The namespace is the
-  whole of what is new. Whether the signature fits is not asked here: it is taken
-  of the thing as it arrives, with the door's act-id in it, so the door's
-  declaration asks it (`softland.store.door.declaration/check`). That a
-  changed form is a new version, and that the old version's rules stay in
-  the code, is Sid's decision of 13 October 2026 (src-store/README.md,
-  entry 6). That the who of a signed act is its public half is the
-  builder's, of 18 November 2026, and his to turn.
-
   A permission id has three forms. `[who layer granted-in]` is a first
   permission, with nothing above it. `[who layer granted-in parent]` is a
   given permission, with the permission above it. And
@@ -57,12 +38,6 @@
   Inputs and results, by call:
 
     parse         anything -> {:ok act} or {:refuse reason}
-    shape-of      anything -> :signed-act or :act, the edition that the
-                  thing is held to
-    public-half-hex  anything -> the 64 hex characters of the public half
-                  of a signing who, or nil
-    signing-who?  anything -> true for a signing who
-    who-fits-the-version?  an act in its one form -> true or false
     has-shape?    the name of a declared shape, and anything -> true or false
     as-shape      a map of shapes, the name of a shape in it, and anything
                   -> [:ok the thing in its one form] or [:no reason]
@@ -77,11 +52,8 @@
   Callers. The proof of this namespace. `softland.store.door.declaration`: the
   door's declaration is a map of shapes in the language of `shapes`, with
   the entries of `shapes` in it, and `as-shape` gives it the engine that
-  reads one; it reads `rules` too, and asks `shape-of`,
-  `who-fits-the-version?` and `signing-who?`. `softland.store.door.text` asks
-  `readable-keyword?`. The check of a signature
-  (`softland.store.door.signature`) asks `public-half-hex`, and the form of
-  a making act (`softland.store.gate.first-act`) reads `signed-version`. The door's additions
+  reads one; it reads `rules` too. `softland.store.door.text` asks
+  `readable-keyword?`. The door's additions
   (`softland.store.door.additions`) ask nothing of it but the shape of an
   act-id, through the declaration. The standing of an act
   (`softland.store.gate.decision/standing`, which the walk calls for both
@@ -128,25 +100,9 @@
 ;; ------------------------------------------------- the words and the limits
 
 (def version
-  "The version marker of the unsigned form: the first edition of the list of
-  parts, `:act` in `shapes`. This code knows two versions, this one and
-  `signed-version`; an act of any other is refused `:unknown-version`."
+  "The version marker of the form: the edition of the list of parts. This code
+  knows this one version only."
   1)
-
-(def signed-version
-  "The version marker of the signed form: the second edition of the list of
-  parts, `:signed-act` in `shapes`. An act of this version names a signing
-  who and carries a signature. The marker alone does not make a thing a
-  signed act: `shape-of` asks the who too."
-  2)
-
-(def max-signature-text
-  "How many characters the text of a signature can have. A signature's own
-  form belongs to the kind of its who's proof: for the one kind that this
-  code knows, ed25519, it is 128 hex characters
-  (`softland.store.door.signature`). The number leaves room for a kind
-  whose proof is longer. A number of the build, kept and not decided."
-  1024)
 
 (def max-subjects
   "How many subjects an act can name."
@@ -205,27 +161,6 @@
     [:claimed-when :int                               {:optional true}]
     [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
-
-   ;; The signed act, version 2: the parts of `:act` in their order, with a
-   ;; `:who` that is a signing who, and a signature as the last part. A
-   ;; thing is held to it only when its who is in the namespace of the
-   ;; signing whos (`shape-of`), so the word of its `:who` is earned by a
-   ;; who of that namespace that is no signing who: its hex in capitals, or
-   ;; of another length. A signature that is absent or no text within its
-   ;; bound gives one word.
-   :signed-act
-   [:parts
-    [:version      [:enum signed-version]             {:reason :unknown-version}]
-    [:who          :signing-who                       {:reason :who-holds-no-public-half}]
-    [:layer        :id]
-    [:permission   :permission-id                     {:absent :no-permission}]
-    [:session      :id                                {:absent :no-session}]
-    [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
-    [:because-of   :act-id                            {:optional true}]
-    [:claimed-when :int                               {:optional true}]
-    [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
-    [:facts        [:seq-of :fact]                    {:empty :empty-act}]
-    [:signature    :signature-text                    {:reason :no-signature}]]
 
    ;; A fact: what it is about, what it says, and what it replaces.
    ;; A fact with no value is a retract.
@@ -293,18 +228,10 @@
   rule relates two places of the act. `rule-checks` holds the code of each
   rule.
 
-  The first rule: the layer of the act's permission is the act's own layer.
-  A permission cited for another layer cannot cover the act, whatever its
-  standing; whether it stands is a gate's question.
-
-  The second rule: an unsigned act names no who in the namespace of the
-  signing whos (`who-fits-the-version?`). Without it an act of version 1
-  could name a signing who and carry no signature, and a gate would take it
-  on the permission's row alone. It is the one change to what version 1
-  accepts: the builder's, of 18 November 2026, shown to Sid. No act that
-  was kept before that day names such a who."
-  [[:permission-is-in-the-acts-layer :permission-not-in-layer]
-   [:who-fits-the-version :who-needs-a-signature]])
+  The one rule: the layer of the act's permission is the act's own layer. A
+  permission cited for another layer cannot cover the act, whatever its
+  standing; whether it stands is a gate's question."
+  [[:permission-is-in-the-acts-layer :permission-not-in-layer]])
 
 ;; ------------------------------------------ what the declaration says, as sets
 
@@ -318,11 +245,6 @@
   "The parts of an act, read from the declared shape. `parse` refuses a part
   that is not one of them. A tool adds facts, never a part."
   (parts-of :act))
-
-(def signed-act-parts
-  "The parts of a signed act, read from the declared shape: the parts of an
-  act, and `:signature`."
-  (parts-of :signed-act))
 
 (def fact-parts
   "The parts of a fact, read from the declared shape."
@@ -355,35 +277,6 @@
   (boolean (and (keyword? x)
                 (re-matches token-pattern (name x))
                 (let [ns (namespace x)] (or (nil? ns) (re-matches token-pattern ns))))))
-
-(def signing-who-namespace
-  "The namespace of the id of a signing who: `who`. Sid's word for the one
-  who acts is \"who\"; that the namespace is that word is a session's. No
-  unsigned act names a who in it (`who-fits-the-version?`)."
-  "who")
-
-(def ^:private signing-who-name
-  "The name of the id of a signing who: the kind of its proof, a dot, and
-  its public half as 64 lower-case hex characters. This code knows one kind
-  of proof, ed25519. The name begins with a letter, so the id is a readable
-  keyword, and one public half has one id: hex of another case, or of
-  another length, is no signing who."
-  #"ed25519\.([0-9a-f]{64})")
-
-(defn public-half-hex
-  "Takes anything. Gives the public half that a signing who holds, as 64
-  lower-case hex characters, or nil for anything that is no signing who. A
-  signing who is the keyword `:who/ed25519.<64 hex>`: the who is its public
-  half, so a signature can be held against the id itself, with no row
-  read. It never throws."
-  [x]
-  (when (and (keyword? x) (= signing-who-namespace (namespace x)))
-    (second (re-matches signing-who-name (name x)))))
-
-(defn signing-who?
-  "Takes anything. Gives true for a signing who (`public-half-hex`)."
-  [x]
-  (some? (public-half-hex x)))
 
 (defn- fits-long?
   "Takes an integer of any width. Gives true when it is in the long range."
@@ -446,19 +339,12 @@
     :uuid   a UUID of any version
     :int    a fixed-width integer; its normal form is a long
     :value  a value that the store can hold; its normal form is its one
-            normal form
-    :signing-who     a signing who: an id that holds a public half
-                     (`public-half-hex`)
-    :signature-text  the text of a signature: a string of 1 character or
-                     more and `max-signature-text` at most. Whether it is
-                     a signature of its who is not asked here"
+            normal form"
   {:id    (fn [x] (when (or (readable-keyword? x) (uuid? x)) [:ok x]))
    :key   (fn [x] (when (readable-keyword? x) [:ok x]))
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
    :int   (fn [x] (when (int? x) [:ok (long x)]))
-   :value (fn [x] (when (value? x) [:ok (normal-value x)]))
-   :signing-who    (fn [x] (when (signing-who? x) [:ok x]))
-   :signature-text (fn [x] (when (and (string? x) (<= 1 (count x) max-signature-text)) [:ok x]))})
+   :value (fn [x] (when (value? x) [:ok (normal-value x)]))})
 
 ;; ---------------------------------------------------------------- the engine
 
@@ -599,7 +485,7 @@
   wrong, or nil when that part names none. The map may hold the entries of
   `shapes` and add its own; the door's declaration does so.
 
-  Limits. The seven leaves and the nesting limits stay this namespace's: a
+  Limits. The five leaves and the nesting limits stay this namespace's: a
   caller gives the map of shapes and nothing else, so a named shape of the
   caller's can be inside itself no times. It can throw, as the engine can,
   for a thing that throws when it is read; the caller turns a throw into a
@@ -627,69 +513,20 @@
     (nth permission 4)
     :see-and-act))
 
-(defn- in-the-signing-whos-namespace?
-  "Takes anything. Gives true for a keyword in the namespace of the signing
-  whos (`signing-who-namespace`), a signing who or not."
-  [x]
-  (and (keyword? x) (= signing-who-namespace (namespace x))))
-
-(defn who-fits-the-version?
-  "The second rule of `rules`. Takes an act in its one form, of either
-  edition. Gives true for a signed act, whose shape holds its who; and for
-  an unsigned act whose `:who` is not in the namespace of the signing whos
-  (`signing-who-namespace`). So an unsigned act names no signing who, and
-  no id that reads like one: the whole namespace is kept from it, a name of
-  another case or length too. A UUID is in no namespace."
-  [act]
-  (or (= signed-version (:version act))
-      (not (in-the-signing-whos-namespace? (:who act)))))
-
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which
   has the shape, and gives true when the act keeps the rule. A permission id
   in its one form is a vector whose second slot is its layer."
   {:permission-is-in-the-acts-layer
-   (fn [act] (= (:layer act) (nth (:permission act) 1)))
-
-   :who-fits-the-version
-   who-fits-the-version?})
-
-(defn shape-of
-  "Takes anything. Gives the name of the edition that the thing is held to:
-  `:signed-act` for a plain map whose `:version` is `signed-version` and
-  whose `:who` is in the namespace of the signing whos; `:act` for
-  anything else.
-
-  Why the who is asked too. Before there was a second edition, a thing
-  that said version 2 was refused `:unknown-version`, whatever else it
-  held, and kept acts hold such things with that answer. The store comes
-  out the same when it is run again (Sid's decision of 13 October 2026),
-  so such a thing must get that answer still. With this test it does: a
-  thing that names no who in that namespace goes the way that every thing
-  went before, through `:act` and the rules as they were. What is decided
-  in a new way is a thing that names a who in the namespace, and no thing
-  that was kept before 18 November 2026 does.
-
-  Limit. A thing that says version 2 and names a plain who gets
-  `:unknown-version`, where a maker might look for a word about the who.
-
-  It never throws: a map that throws when a part is read, a sorted map
-  whose keys cannot be compared with a keyword, is held to `:act`."
-  [x]
-  (if (and (map? x)
-           (not (record? x))
-           (= signed-version (try (get x :version) (catch Throwable _ nil)))
-           (in-the-signing-whos-namespace? (try (get x :who) (catch Throwable _ nil))))
-    :signed-act
-    :act))
+   (fn [act] (= (:layer act) (nth (:permission act) 1)))})
 
 (defn- parse*
   "The body of `parse`, with no guard around it. Takes anything. Gives
-  {:ok act} or {:refuse reason}. First the declared shape of the thing's
-  edition (`shape-of`), then the rules in their order. It can throw;
-  `parse` turns each throw into a refusal."
+  {:ok act} or {:refuse reason}. First the declared shape :act, then the
+  rules in their order. It can throw; `parse` turns each throw into a
+  refusal."
   [x]
-  (let [[verdict got] (conform shapes (shape-of x) x {})]
+  (let [[verdict got] (conform shapes :act x {})]
     (if (= :no verdict)
       {:refuse (or got :malformed)}
       (if-let [reason (some (fn [[rule reason]] (when-not ((get rule-checks rule) got) reason)) rules)]
@@ -704,8 +541,7 @@
   rig on Rama). So it turns each throw into :malformed.
 
   It reads the two declarations and holds no knowledge of the form itself.
-  First the shape: the thing must have the declared shape of its edition,
-  `:act` or `:signed-act` (`shapes`, `shape-of`).
+  First the shape: the thing must have the declared shape :act (`shapes`).
   A thing that does not have it gets the reason of the first part that is
   wrong, in the order of the declaration. Then the rules: an act that has
   the shape must keep each rule (`rules`), and the first rule that it breaks
@@ -722,11 +558,6 @@
   adds an act-id, a depot and a time. An act that carries one of those
   three parts, and a fact that carries a part that the form does not name,
   are refused :unknown-part.
-
-  A signed act. Its one form holds `:signature` too, as given. The check
-  holds that its `:who` is a signing who and that it carries the text of a
-  signature. It does not hold that the signature fits: that is asked of
-  the thing as it arrives (`softland.store.door.declaration/check`).
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
   rule about a session beyond its shape. It examines the shape of a
