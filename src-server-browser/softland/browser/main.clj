@@ -22,7 +22,8 @@
                              out, the environment's
                              SOFTLAND_GOOGLE_CLIENT_ID is read
     --stand-in-google        sign in with a stand-in for Google: anybody who
-                             reaches the server signs in as any account
+                             reaches the server signs in as any account.
+                             Not together with `--conductor`
 
   It listens on the loopback address only.
 
@@ -62,6 +63,7 @@
         port (or (some-> port parse-long) default-port)
         origin (or origin (str "http://localhost:" port))
         client-id (or google-client-id (System/getenv "SOFTLAND_GOOGLE_CLIENT_ID"))
+        _ (main/refuse-the-stand-in-on-a-cluster stand-in-google conductor)
         cluster (if conductor
                   (rama/open-cluster-manager {"conductor.host" conductor})
                   (main/in-process-cluster))

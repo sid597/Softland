@@ -20,14 +20,18 @@
   State. Nothing that lasts: the rows and the feed are the module's. In the
   memory of one process it holds three handles of Rama's client, borrowed
   from the opener's cluster handle; one push on the feed; `listeners`, an
-  atom from a hash to the functions that listen for it; and `seen`, the
-  number of the feed's next change as this process last saw it. All of it
+  atom from a hash to the functions that listen for it; `seen`, the number
+  of the feed's next change as this process last saw it; and `broken`,
+  whether Rama ended the push. All of it
   is lost when the process ends, with no loss of truth.
 
   A listener. `listen!` registers a function for one hash. It is called
-  with the hash's row each time the feed tells a change of that hash, and
-  with `softland.server.sessions/not-reached` when the feed says that
-  changes were missed and the row could not be read again. A caller that
+  with the hash's row each time the feed tells a change of that hash. It is
+  called with `softland.server.sessions/not-reached` when this process can
+  no longer say whether the session stands: the feed said that changes
+  were missed and the row could not be read again, or is not there; or
+  Rama ended the push on the feed, after which every listener, and each
+  one that comes later, is told so. A caller that
   must know the row at the start registers first and then reads the row
   itself, and takes the join of what the two give
   (`softland.server.session.record/join`): so no change falls between the
@@ -47,16 +51,17 @@
             [com.rpl.rama.path :as path]
             [softland.server.session.lately :as lately]
             [softland.server.session.record :as record])
-  (:import [java.io Writer]
+  (:import [com.rpl.rama.diffs DestroyedDiff UngracefulTerminationDiff]
+           [java.io Writer]
            [java.util.concurrent ExecutorService Executors]))
 
 (def not-reached
-  "What a listener is called with when the feed said that changes were
-  missed and the hash's row could not be read again. The listener does not
-  know whether the session still stands, and ends what rests on it."
+  "What a listener is called with when this process can no longer say
+  whether the hash's session stands (the namespace docstring says when).
+  The listener ends what rests on it, and its caller asks again."
   ::not-reached)
 
-(deftype Sessions [module depot table proxy listeners seen executor]
+(deftype Sessions [module depot table proxy listeners seen broken executor]
   Object
   (toString [_] (str "#<sessions " module ">")))
 
@@ -66,8 +71,8 @@
 (alter-meta! #'->Sessions assoc
              :private true
              :doc "Makes what `open` gives. It holds the module's name; the depot, the
-  table of rows and the push on the feed, of Rama's client; `listeners` and
-  `seen`; and the executor for reading rows again. It prints as the word
+  table of rows and the push on the feed, of Rama's client; `listeners`,
+  `seen` and `broken`; and the executor for reading rows again. It prints as the word
   \"sessions\" and the module's name.")
 
 (defn- what-threw
@@ -97,31 +102,52 @@
 
 (defn- read-all-again!
   "Reads the row of each hash that is listened for, and tells its
-  listeners: the row, or `not-reached` when the read threw. It runs after
-  the feed said that changes were missed. A row that is nil tells nothing:
-  no change of a row leads to none."
+  listeners: the row; or `not-reached` when the read threw, and when there
+  is no row. It runs after the feed said that changes were missed.
+
+  Why no row tells `not-reached`. No event takes a row away, so a hash
+  that had a row and has none now belongs to a module that was launched
+  anew: the credential that a listener rests on is gone, and a listener
+  that was told nothing would keep its watch open until the session's time
+  passed. A listener cannot go back from live to none by the order of rows,
+  so it is told that the sessions could not be reached, and ends. A program
+  that waits for a person's yes has no row either; it is told the same, and
+  asks again."
   [table listeners]
   (doseq [hash (keys @listeners)]
     (let [[outcome row] (read-row table hash)]
-      (cond
-        (= :threw outcome) (tell! listeners hash not-reached)
-        (some? row) (tell! listeners hash row)))))
+      (tell! listeners hash (if (and (= :ok outcome) (some? row)) row not-reached)))))
 
 (defn- on-feed
   "One callback of the push on the feed. Takes the table, `listeners`,
-  `seen`, the executor, and the feed's value now. It takes what this
-  process had not seen (`softland.server.session.lately/news`), tells the
-  listeners of each changed hash its row, and, when changes were missed,
-  hands the reading of every listened row to the executor. It never throws
-  into Rama's thread."
-  [table listeners seen ^ExecutorService executor feed]
+  `seen`, `broken`, the executor, the feed's value now and Rama's diff. It
+  takes what this process had not seen
+  (`softland.server.session.lately/news`), tells the listeners of each
+  changed hash its row, and, when changes were missed, hands the reading of
+  every listened row to the executor. It never throws into Rama's thread.
+
+  When Rama ends the push after too many errors, nothing more will ever be
+  told through it. `broken` is set, and each listener is told
+  `not-reached`: a copy of the server whose push is gone cannot say that a
+  session still stands. The last callback of a push that `close!` closed
+  does nothing."
+  [table listeners seen broken ^ExecutorService executor feed diff]
   (try
-    (let [{:keys [rows missed?] now-seen :seen} (lately/news @seen feed)]
-      (reset! seen now-seen)
-      (doseq [[hash row] rows]
-        (tell! listeners hash row))
-      (when missed?
-        (.execute executor (fn [] (read-all-again! table listeners)))))
+    (cond
+      (instance? DestroyedDiff diff) nil
+
+      (instance? UngracefulTerminationDiff diff)
+      (do (reset! broken true)
+          (doseq [hash (keys @listeners)]
+            (tell! listeners hash not-reached)))
+
+      :else
+      (let [{:keys [rows missed?] now-seen :seen} (lately/news @seen feed)]
+        (reset! seen now-seen)
+        (doseq [[hash row] rows]
+          (tell! listeners hash row))
+        (when missed?
+          (.execute executor (fn [] (read-all-again! table listeners))))))
     (catch Throwable _ nil)))
 
 (defn open
@@ -137,18 +163,19 @@
   (try
     (let [listeners (atom {})
           seen (atom nil)
+          broken (atom false)
           executor (Executors/newVirtualThreadPerTaskExecutor)
           depot (rama/foreign-depot cluster module-name "*session-events")
           table (rama/foreign-pstate cluster module-name "$$sessions")
           feed (rama/foreign-pstate cluster module-name "$$sessions-lately")
           proxy (rama/foreign-proxy path/STAY feed
-                                    {:callback-fn (fn [new _diff _old]
-                                                    (on-feed table listeners seen executor new))})]
+                                    {:callback-fn (fn [new diff _old]
+                                                    (on-feed table listeners seen broken executor new diff))})]
       ;; The first callback can come after this call returns. A listener
       ;; that registers before it must not lose a change, so what the push
       ;; holds now is what this process has seen.
       (compare-and-set! seen nil (long (:next @proxy 0)))
-      (->Sessions module-name depot table proxy listeners seen executor))
+      (->Sessions module-name depot table proxy listeners seen broken executor))
     (catch Throwable t
       (assoc (what-threw t) :could-not :find-the-module :module module-name))))
 
@@ -193,6 +220,10 @@
   (let [listeners (.-listeners sessions)
         id (Object.)]
     (swap! listeners assoc-in [hash id] f)
+    ;; A push that Rama ended tells nothing more, so a listener that comes
+    ;; after it is told at once that the sessions cannot be reached.
+    (when @(.-broken sessions)
+      (try (f not-reached) (catch Throwable _ nil)))
     (fn []
       (swap! listeners (fn [m]
                          (let [left (dissoc (get m hash) id)]

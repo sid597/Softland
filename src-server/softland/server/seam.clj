@@ -21,9 +21,8 @@
                long as somebody listens
     begin      a who and the hash of a credential -> a task: the session
                begun, or a word
-    end        a hash -> a task: [:ok] or a word
+    sign-out   an actor -> a task: her own session ended, or a word
     refuse     an actor and a hash -> a task: [:ok] or a word
-    sign-out   an actor -> a task: [:ok] or a word
     act-ids    an actor, a layer, a count -> a task of the door's act-ids
     send       an actor, an act without `:who` and `:session`, and an
                act-id or nil -> a task of the door's receipt
@@ -78,12 +77,15 @@
   change for each place.
 
   One limit on a face. The thread that hands a thing on is a virtual
-  thread, and it is inside Missionary's own process while the face is
-  handed the thing. A face that waits right there, in the function that
-  takes the thing, holds a carrier thread of the JVM for that long. So a
-  face takes the thing and does its slow work after that returns: the face
-  over HTTP writes to its socket from the request's own thread
-  (`softland.server.http`, `write-stream`).
+  thread, and while a face is handed the thing that thread is inside
+  Missionary's processes, which hold a monitor each while they run a step.
+  A virtual thread that waits while it holds a monitor keeps its carrier
+  thread. So a face that waits right there, in the function that takes the
+  thing, holds a carrier of the JVM for that long; the seam's own proof
+  does, on purpose, to be a slow reader, and the JVM's trace of pinned
+  threads names it. A face takes the thing and does its slow work after
+  that returns: the face over HTTP writes to its socket from the request's
+  own thread (`softland.server.http`, `write-stream`).
 
   State. The seam owns nothing that lasts. It borrows the door, the read
   path and the sessions. In the memory of the process it holds its numbers,
@@ -122,8 +124,7 @@
   (:import [java.io Writer]
            [java.util UUID]
            [java.util.concurrent ExecutorService Executors ScheduledExecutorService
-            ScheduledFuture ThreadFactory TimeUnit]
-           [missionary Cancelled]))
+            ScheduledFuture ThreadFactory TimeUnit]))
 
 ;; ------------------------------------------------------------- the numbers
 
@@ -244,34 +245,18 @@
 
 (defn- on-its-own-thread
   "Takes the seam and a function of no argument that makes blocking calls.
-  Gives a task that runs it on a new virtual thread of the seam's executor
-  and completes with what it gave, or fails with what it threw. Cancelling
-  the task interrupts that thread; the door and the read path turn an
-  interrupt into one of their words. A task that is cancelled before its
-  thread began fails as cancelled and runs nothing.
+  Gives a task that runs it on a new virtual thread of the seam's executor:
+  Missionary's `via`. Cancelling the task interrupts that thread while the
+  function runs; the door and the read path turn an interrupt into one of
+  their words.
 
-  It is written by hand and not with Missionary's `via`: `via` holds a
-  monitor around its body, and a virtual thread that waits while it holds a
-  monitor keeps its carrier thread. With `via`, as many waits for an answer
-  as the machine has cores would hold every virtual thread of the process
-  back. That was seen with the JVM's own trace of pinned threads, on the
-  seam's proof."
+  A wait inside the function does not hold a carrier thread: `via` runs its
+  body outside its monitor. That was read in the class file of Missionary
+  b.46 and run with the JVM's trace of pinned threads, on 20 November 2026,
+  after a commit of this file had said the opposite and replaced `via` with
+  a task written by hand, which was wrong in its cancelling."
   [^Seam seam f]
-  (fn [success failure]
-    (let [state (atom :not-begun)]
-      (.execute ^ExecutorService (.-executor seam)
-                (fn []
-                  (if (compare-and-set! state :not-begun (Thread/currentThread))
-                    (let [[outcome got] (try [:gave (f)] (catch Throwable t [:threw t]))]
-                      (if (= :gave outcome) (success got) (failure got)))
-                    (failure (Cancelled. "The task was cancelled before it began.")))))
-      (fn []
-        (let [now @state]
-          (cond
-            (instance? Thread now) (.interrupt ^Thread now)
-            (= :not-begun now) (when-not (compare-and-set! state :not-begun :cancelled)
-                                 (let [now @state]
-                                   (when (instance? Thread now) (.interrupt ^Thread now))))))))))
+  (m/via (.-executor seam) (f)))
 
 ;; ---------------------------------------------------------------------- who
 
@@ -348,11 +333,13 @@
     {:state :not-a-token}                     the only thing, for a text of
                                               another form
 
-  It gives the standing now, then each standing that differs from the one
-  before, and ends after one that is final. A program that waits for a
-  person's yes holds this flow on a token that stands for nobody yet; a
-  socket holds it for as long as it is open. Cancelling it stops the
-  listening.
+  It gives the standing now, then the standing again whenever it differs
+  from the one that was told last, and ends after one that is final. A
+  standing is state: a reader that is slower than two changes is handed
+  the later one alone, so it can see `:ended` without having seen `:live`.
+  A program that waits for a person's yes holds this flow on a token that
+  stands for nobody yet; a socket holds it for as long as it is open.
+  Cancelling it stops the listening.
 
   It registers on the feed first and reads the row after, and takes the
   join of the two, so no change falls between them. Each thing is handed on
@@ -432,32 +419,31 @@
   [seam who hash]
   (on-its-own-thread seam (fn [] (begin-now seam who hash))))
 
-(defn end
-  "Ends the session of a credential. Takes the seam and the hash of the
-  credential. Gives a task of [:ok], or of the word `:reach-the-sessions`.
-  Every flow that rests on the hash, in every copy of the server, is told.
-  What must hold: the caller holds the credential itself, as a face does
-  that read it from a cookie at a sign-out. For a hash that somebody only
-  knows, `refuse`."
+(defn- end-now
+  "Ends the session under a hash: one append. Takes the seam and the hash of
+  a credential. Gives [:ok], or the word `:reach-the-sessions`. Every flow
+  that rests on the hash, in every copy of the server, is told. Its two
+  callers have each tested who asks: `sign-out` holds the credential's own
+  actor, and `refuse` has read whose the hash is."
   [^Seam seam hash]
-  (on-its-own-thread
-   seam
-   (fn []
-     (if-not (record/hash-text? hash)
-       [:ok]
-       (let [[outcome threw] (sessions/end! (.-sessions seam) (record/ended hash (now-ms)))]
-         (if (= :threw outcome)
-           (words/could-not :reach-the-sessions threw)
-           [:ok]))))))
+  (let [[outcome threw] (sessions/end! (.-sessions seam) (record/ended hash (now-ms)))]
+    (if (= :threw outcome)
+      (words/could-not :reach-the-sessions threw)
+      [:ok])))
 
 (defn sign-out
   "Ends an actor's own session. Takes the seam and an actor. Gives a task of
   [:ok], or of a word: `:find-her-session` for a visitor, who has none. The
-  actor was made from the credential itself, so who says this holds it."
+  actor was made from the credential itself and stands for somebody now, so
+  who says this holds the credential, and a row is there to end: a text
+  that only has the form of a token ends nothing and writes nothing."
   [^Seam seam ^Actor actor]
-  (if-let [hash (.-hash actor)]
-    (end seam hash)
-    (m/sp (words/could-not :find-her-session {:why :no-credential}))))
+  (on-its-own-thread
+   seam
+   (fn []
+     (if-let [hash (.-hash actor)]
+       (end-now seam hash)
+       (words/could-not :find-her-session {:why :no-credential})))))
 
 (defn refuse
   "Says no to a credential, as a signed-in person. Takes the seam, her
@@ -478,11 +464,7 @@
            (= :threw outcome) (words/could-not :reach-the-sessions row)
            (and (some? (:who row)) (not= (:who row) (.-who actor)))
            (words/could-not :find-her-session {:why :not-hers})
-           :else
-           (let [[outcome threw] (sessions/end! (.-sessions seam) (record/ended hash (now-ms)))]
-             (if (= :threw outcome)
-               (words/could-not :reach-the-sessions threw)
-               [:ok]))))))))
+           :else (end-now seam hash)))))))
 
 ;; ------------------------------------------------- what the seam adds, and holds
 

@@ -24,7 +24,8 @@
                              (`softland.server.google-stand-in`): anybody
                              who reaches the server signs in as any
                              account. For one machine, with a store that
-                             is thrown away
+                             is thrown away: the program does not start
+                             when `--conductor` is given with it
 
   It listens on the loopback address only. What ends TLS in front, and
   reaches it from outside, is another program's.
@@ -141,6 +142,17 @@
                                              (Executors/newVirtualThreadPerTaskExecutor)))}
                       configurator (assoc :configurator configurator)))))
 
+(defn refuse-the-stand-in-on-a-cluster
+  "Takes whether the opener asked for the stand-in for Google, and the
+  conductor's host or nil. Ends the process, with a line that says why,
+  when both were given: with the stand-in anybody signs in as any account,
+  and a cluster that a conductor runs can be one that keeps its data. Gives
+  nil otherwise."
+  [stand-in-google conductor]
+  (when (and stand-in-google conductor)
+    (println "The stand-in for Google signs anybody in as any account. It is not started on a cluster that a conductor runs: leave out --conductor, or --stand-in-google.")
+    (System/exit 2)))
+
 (defn -main
   "Starts the program as the namespace docstring says, prints where it
   listens, and stays until the process is ended."
@@ -149,6 +161,7 @@
         port (or (some-> port parse-long) 8400)
         origin (or origin (str "http://localhost:" port))
         client-id (or google-client-id (System/getenv "SOFTLAND_GOOGLE_CLIENT_ID"))
+        _ (refuse-the-stand-in-on-a-cluster stand-in-google conductor)
         cluster (if conductor
                   (rama/open-cluster-manager {"conductor.host" conductor})
                   (in-process-cluster))

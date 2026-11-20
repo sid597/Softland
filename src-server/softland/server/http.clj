@@ -41,6 +41,16 @@
   for a sign-in that is under way: it lives in the program that holds the
   token, and her yes is the first event.
 
+  What that sign-in does not hold, said plainly. Whoever makes a link and
+  gets a signed-in person to say yes on it acts as her until the session
+  ends: the page warns her, and nothing else stops it. Whoever sees a
+  program's link before its person says yes can say yes first, and the
+  program then acts as that other person and is not told. The server
+  cannot make a link grow old, since it keeps nothing of one. And she has
+  no page that lists the programs that act as her; she ends one with its
+  own link. Each is due before a stranger can reach the server
+  (src/proposal/server-2026-11-20/BUILD.md).
+
   What a result's status is. 200 when the server did the word, whatever the
   store said of it: a receipt, an answer, a gate's refusal read back, a word
   of the door or of the read path. The server's own words have the
@@ -284,35 +294,45 @@
 
 (defn- word!
   "POST /word. Takes the seam and the request. The steps, in order: the
-  bound on the frame, tested before the frame is read; the one EDN form;
-  the check of the word; the credential; the word."
+  credential, from the header; the bound on the frame, which is small for
+  a request whose credential stands for nobody, and is tested before the
+  frame is read; the one EDN form, whose longest token is bounded too; the
+  check of the word; the word.
+
+  The credential comes first so that somebody with no account cannot make
+  the server read a large frame: reading costs more than the frame's bytes
+  say (`softland.server.frame`)."
   [the-seam request]
-  (let [[outcome text] (body-text request words/max-frame-bytes)]
+  (let [[outcome token] (token-of-header request)
+        actor (if (= :no outcome)
+                (words/could-not :find-her-session {:why :not-a-token})
+                (m/? (seam/actor the-seam token)))
+        most (if (and (seam/actor? actor) (seam/who-of actor))
+               words/max-frame-bytes
+               words/max-visitor-frame-bytes)
+        [outcome text] (body-text request most)]
     (if (= :no outcome)
-      (assoc (answered (words/could-not :read-the-frame {:why :too-large :most words/max-frame-bytes}))
+      (assoc (answered (words/could-not :read-the-frame {:why :too-large :most most}))
              :status 413)
       (let [[outcome form] (frame/read-one text)]
         (if (= :no outcome)
           (answered (words/could-not :read-the-frame {:why form}))
           (let [{word :ok why :refuse at :at} (words/check form)]
-            (if why
+            (cond
+              why
               (answered (words/could-not :read-the-word {:why why :at at}))
-              (let [[outcome token] (token-of-header request)]
-                (if (= :no outcome)
-                  (answered (words/could-not :find-her-session {:why :not-a-token}))
-                  (let [actor (m/? (seam/actor the-seam token))]
-                    (cond
-                      (= :who-am-i (:word word))
-                      (answered (who-am-i the-seam token word actor))
 
-                      (not (seam/actor? actor))
-                      (answered actor)
+              (= :who-am-i (:word word))
+              (answered (who-am-i the-seam token word actor))
 
-                      (= :watch (:word word))
-                      (stream-of (seam/watch the-seam actor (:query word)))
+              (not (seam/actor? actor))
+              (answered actor)
 
-                      :else
-                      (answered (one-result the-seam actor word)))))))))))))
+              (= :watch (:word word))
+              (stream-of (seam/watch the-seam actor (:query word)))
+
+              :else
+              (answered (one-result the-seam actor word)))))))))
 
 ;; ------------------------------------------------------------------ the pages
 
@@ -353,21 +373,49 @@
   (cond-> {:status 303 :headers {"Location" to "Cache-Control" "no-store"} :body ""}
     cookie (assoc-in [:headers "Set-Cookie"] cookie)))
 
-(defn- local-path
-  "Takes what a request gave as the place to go on to. Gives it when it is
-  a path of this server, and `/` for anything else: a text that could send
-  her browser to another site is never followed."
-  [next]
-  (if (and (string? next) (str/starts-with? next "/") (not (str/starts-with? next "//"))
-           (not (str/includes? next "\\")))
-    next
-    "/"))
+(defn- way-on
+  "Takes the options of the handler and what a request gave as the place to
+  go on to after a sign-in. Gives a path of this server, and never the text
+  that was given: one of the three places that a sign-in leads to, built
+  here.
+
+    the yes page   when the text names it, with a hash that is a hash's
+                   text: the path is written anew from the hash and from
+                   what asks, both read out of the text
+    the program    when the text is the path of the browser's program
+    `/`            for anything else
+
+  A text that is followed as it came can send her browser to another site
+  by a character that a browser drops while it reads an address: a tab
+  after the first slash did so (the review of 20 November 2026 ran it)."
+  [{:keys [app-path]} next]
+  (let [next (str next)]
+    (cond
+      (and app-path (= app-path next)) app-path
+
+      (str/starts-with? next "/sign-in/yes?")
+      (let [fields (codec/form-decode (subs next (count "/sign-in/yes?")) "UTF-8")
+            fields (if (map? fields) fields {})
+            hash (get fields "hash")
+            what (get fields "what")]
+        (if (record/hash-text? hash)
+          (str "/sign-in/yes?hash=" hash
+               (when (string? what) (str "&what=" (codec/url-encode what))))
+          "/"))
+
+      :else "/")))
 
 (defn- cookie-text
   "Takes the options of the handler, a token and for how many seconds it is
   kept. Gives the text of the Set-Cookie header. The cookie is not read by
-  a page's code, is not sent with a request that another site made, and is
-  sent over TLS alone when this server's origin is `https`."
+  a page's code (`HttpOnly`), and is sent over TLS alone when this server's
+  origin is `https`. `SameSite=Lax`: a browser leaves it off a post, a
+  fetch and a socket that another site's page makes, and sends it when a
+  link on another site is followed to a page here. So a page that is
+  opened from elsewhere, the yes page among them, sees her as signed in;
+  what such a page then does rests on her own click and on the `Origin` of
+  its post. A browser also sends it to every server on the same host,
+  whatever its port: on `localhost`, to each program that listens there."
   [{:keys [origin]} token seconds]
   (str credential/cookie-name "=" token "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" seconds
        (when (str/starts-with? (str origin) "https://") "; Secure")))
@@ -391,7 +439,7 @@
 (defn- home
   "GET /. The page on which she signs in, or sees that she is signed in."
   [{:keys [the-seam google stand-in origin app-path] :as options} request]
-  (let [next (local-path (get (query-of request) "next"))]
+  (let [next (way-on options (get (query-of request) "next"))]
     (if-let [[_ actor] (actor-of-cookie the-seam request)]
       (if (not= "/" next)
         (redirect next)
@@ -423,7 +471,11 @@
   and a step that could not be done, give a page that says so and no
   cookie."
   [{:keys [the-seam google] :as options} request id-token]
-  (let [[outcome fetched] ((:keys-fn google))]
+  (let [[outcome fetched] (if (google/key-name id-token)
+                            ((:keys-fn google))
+                            ;; A text that the check turns away at its first
+                            ;; two tests costs no request to the issuer.
+                            [:ok {}])]
     (if (not= :ok outcome)
       (page 503 "<p>The keys of the sign-in service could not be fetched. Try again.</p>")
       (let [{claims :ok why :refuse} (google/check id-token {:client-id (:client-id google)
@@ -440,7 +492,7 @@
                     begun (m/? (seam/begin the-seam (:who person) (credential/hash-of token)))]
                 (if (:could-not begun)
                   (page 503 "<p>The session could not be begun. Try again.</p>")
-                  (redirect (local-path (get (query-of request) "next"))
+                  (redirect (way-on options (get (query-of request) "next"))
                             (cookie-text options token
                                          (quot (- (:until begun) (System/currentTimeMillis)) 1000))))))))))))
 
@@ -487,10 +539,12 @@
 
       :else
       (page 200
-            (str "<p>A program asks to act as you:</p>"
-                 "<p><code>" (escaped (subs (str what) 0 (min 200 (count (str what))))) "</code></p>"
-                 "<p>Its code is <code>" (credential/code-of hash) "</code>. Say yes only when the program "
-                 "that you started shows the same code. Somebody who sent you this link could otherwise act as you.</p>"
+            (str "<p>A program asks to act as you, with everything that you may do, for 30 days.</p>"
+                 "<p class=\"warn\">Say yes only if you started that program yourself, just now, and it shows the code "
+                 "<code>" (credential/code-of hash) "</code>. If a link brought you here and you started no program, "
+                 "say no: whoever made the link would act as you.</p>"
+                 "<p>What the program says of itself, which anybody could have written: <code>"
+                 (escaped (subs (str what) 0 (min 80 (count (str what))))) "</code></p>"
                  "<form method=\"post\" action=\"/sign-in/yes\">"
                  "<input type=\"hidden\" name=\"hash\" value=\"" hash "\">"
                  "<button name=\"say\" value=\"yes\">Yes</button> "
@@ -522,12 +576,15 @@
 
 (defn- sign-out!
   "POST /sign-out. Ends the session of the cookie's credential, for every
-  face and every copy of the server, and takes the cookie away."
+  face and every copy of the server, and takes the cookie away. Only a
+  cookie that stands for somebody now ends anything: a text that has the
+  form of a token and stands for nobody is taken away and nothing is
+  written for it, so a stranger cannot fill the server's log with ends."
   [{:keys [the-seam] :as options} request]
   (if-not (own-origin? options request)
     (page 400 "<p>That was not taken.</p>")
-    (do (when-let [token (credential/of-cookie (get-in request [:headers "cookie"]))]
-          (m/? (seam/end the-seam (credential/hash-of token))))
+    (do (when-let [[_ actor] (actor-of-cookie the-seam request)]
+          (m/? (seam/sign-out the-seam actor)))
         (redirect "/" (cookie-text options "" 0)))))
 
 ;; --------------------------------------------------------------- the handler

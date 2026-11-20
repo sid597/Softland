@@ -62,16 +62,31 @@
   Callers. `softland.server.http`, which checks each thing that arrives
   before the seam is called, and the faces that tell a system what the
   server could not do."
-  (:require [softland.store.act :as act]))
+  (:require [softland.store.act :as act]
+            [softland.store.door.declaration :as declaration]))
 
 ;; ------------------------------------------------------------- the numbers
 
 (def max-frame-bytes
-  "How many bytes one word can be, as it arrives. A face tests it before it
-  reads the frame. It is above the store's bound on what one act can write
-  into rows, so that the gate is the one that refuses a large act and the
-  refusal is in the record. A number of the build, kept and not decided."
-  (* 32 1024 1024))
+  "How many bytes one word of somebody who is signed in can be, as it
+  arrives. A face tests it before it reads the frame. It is the store's
+  bound on what one act can write into rows
+  (`softland.store.door.declaration/max-act-bytes`) and one MiB for the
+  form around the values: an act that a gate can take fits, and a thing
+  that is larger can only be refused, so the server does not put it into a
+  log that is never trimmed. A number of the build, kept and not decided;
+  the store's page says that a bound on how much one sender puts into the
+  log is due before a stranger can reach the door (src-store/README.md, 12
+  October 2026, entry 7), and this is no such bound: it is of one request."
+  (+ declaration/max-act-bytes (* 1024 1024)))
+
+(def max-visitor-frame-bytes
+  "How many bytes one word can be when no credential came with it that
+  stands for somebody. A visitor says `:who-am-i`, `:read` and `:watch`,
+  which are small; she sends no act. So somebody with no account cannot
+  make the server read a large frame. A number of the build, kept and not
+  decided."
+  65536)
 
 (def max-act-ids
   "How many act-ids one word can ask for. The door has no bound of its own
@@ -296,7 +311,7 @@
 
   Each has what it says and the status that the face over HTTP gives it."
   {:read-the-frame
-   {:says "the request held no one EDN form within the bound; `:why` is `:too-large`, `:not-edn`, `:empty` or `:more-than-one-form`"
+   {:says "the request held no one EDN form within the bounds; `:why` is `:too-large`, `:a-token-too-long`, `:not-edn`, `:empty` or `:more-than-one-form`"
     :status 400}
    :read-the-word
    {:says "the thing is no word of the form; `:why` is the check's reason and `:at` the part"

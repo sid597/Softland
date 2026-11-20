@@ -28,6 +28,8 @@
 
     check       a token, and {:client-id :issuers :keys :now-ms} ->
                 {:ok claims}, or {:refuse word}
+    key-name    a token -> the name of the key that its header asks for,
+                or nil for a text that the check would turn away unread
     fetch-keys  a URL -> [:ok {kid public-key}], or [:threw info]
     keys-of     the text of a JWKS document -> {kid public-key}
 
@@ -112,6 +114,21 @@
         [:threw {:said (str "status " (.statusCode response))}]))
     (catch Throwable t
       [:threw {:threw (.getName (class t)) :said (.getMessage t)}])))
+
+(defn key-name
+  "Takes the text of an ID token. Gives the `kid` of its header when the
+  text has three parts, its header is JSON, and the header names the
+  algorithm `RS256` and a key; nil otherwise. A face asks this before it
+  fetches the issuer's keys, so that a text which `check` would turn away
+  at its first two tests costs no request to the issuer."
+  [token]
+  (try
+    (let [parts (when (string? token) (str/split token #"\." -1))
+          header (when (= 3 (count parts)) (json-of (first parts)))
+          kid (get header "kid")]
+      (when (and (= "RS256" (get header "alg")) (string? kid) (seq kid))
+        kid))
+    (catch Throwable _ nil)))
 
 (defn- signed-by?
   "Takes a public key, the text that was signed and the signature's bytes.

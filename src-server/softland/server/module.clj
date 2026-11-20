@@ -56,6 +56,18 @@
   (src-store/README.md, 12 October 2026, entry 3) is of the store's depots;
   nothing here is one of them.
 
+  What grows with the system, and where it would give first. The feed is
+  one value on one task: every beginning and every end of a session, of
+  every person, hops to that task, writes the feed's whole value, and is
+  pushed whole to every copy of the server. Rama's own guidance keeps a
+  global PState for a thing of which there is one, and warns against
+  sending every write of a kind through one task. It is built so because a
+  session begins and ends far more rarely than anything else happens, and
+  one push for a copy needs one place to push from. When that task is the
+  limit, the way on is several feeds, each under a key of its own and so
+  on a task of its own, with one push for each from every copy. Not built,
+  and not measured.
+
   What the module does not check. Who appends: Rama asks no name, and any
   program that can open Rama's ports can append a `:began` for any who.
   Only programs on machines that Sid runs may reach the ports

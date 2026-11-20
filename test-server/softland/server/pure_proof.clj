@@ -233,6 +233,23 @@
          (= [[:no :empty] [:no :more-than-one-form] [:no :not-edn] [:no :not-edn] [:no :not-edn] [:no :not-edn]]
             [(frame/read-one "  ") (frame/read-one "{} {}") (frame/read-one "{:word") (frame/read-one "#=(+ 1 2)")
              (frame/read-one "#softland/evil {}") (frame/read-one nil)]))
+  (check "The longest token of a text is its longest run with no blank space, comma or character at which EDN ends a number."
+         (= [0 2 5 4 7]
+            (mapv frame/longest-token ["" "{:a 1}" "[12345 \"ab cd\"]" "1234,5678" "#{1234567}"])))
+  (check "A text with a token over the bound is no frame, and is turned away before it is read: a number of a million digits costs no more than a pass over the text."
+         (let [long-number (apply str (repeat (inc frame/max-token-chars) "7"))
+               began (System/nanoTime)
+               got [(frame/read-one long-number)
+                    (frame/read-one (str "{:word :read :query {:asks [:points-at :k " long-number "]}}"))
+                    (frame/read-one (str "\"" long-number "\""))
+                    (frame/read-one (str "0x" (apply str (repeat frame/max-token-chars "f"))))]
+               ms (quot (- (System/nanoTime) began) 1000000)]
+           (and (every? #(= [:no :a-token-too-long] %) got) (< ms 2000)))
+         :too-slow-or-read)
+  (check "A token at the bound is read: a string of the store's longest value text, and a number of that many digits."
+         (let [digits (apply str (repeat frame/max-token-chars "7"))]
+           (and (= :ok (first (frame/read-one (str "\"" digits "\""))))
+                (= :ok (first (frame/read-one digits))))))
   (check "A text that nests deeper than the reader's stack is turned away and does not throw."
          (= [:no :not-edn] (frame/read-one (apply str (repeat 200000 "[")))))
   (check "What is written is one line that reads back as the same thing, also when a string holds a line end."
@@ -340,6 +357,13 @@
                (refuse (stand-in/token google {"sub" ""} now))]))
     (check "A text that is no token is turned away and does not throw."
            (every? #(= :not-a-token %) (map refuse [nil "" "a.b" "a.b.c" "a.b.c.d" 7 (str header "." payload)])))
+    (check "The name of the key that a token asks for is given only for a text of three parts whose header names RS256 and a key: a face fetches the issuer's keys for no other text."
+           (= ["softland-stand-in-1" nil nil nil nil]
+              [(google/key-name good)
+               (google/key-name (str (b64 "{\"alg\":\"none\",\"kid\":\"softland-stand-in-1\"}") "." payload "."))
+               (google/key-name (str (b64 "{\"alg\":\"RS256\"}") "." payload "." signature))
+               (google/key-name "x")
+               (google/key-name nil)]))
     (check "The keys of a JWKS document are read by key name, and a text that is none gives no key."
            (and (= {} (google/keys-of "not json")) (= {} (google/keys-of "{\"keys\":[{\"kty\":\"EC\",\"kid\":\"x\"}]}"))))))
 
@@ -366,10 +390,18 @@
         holding (fn [pattern] (sort (for [[path text] files :when (re-find pattern (code-of text))] path)))]
     (check "The source of the server is read from src-server, so this proof ran at the repository root."
            (< 5 (count files)) (count files))
-    (check "One file of the server calls the door's send-act, and it calls it once: no act reaches a depot but through the seam's one function, with the actor's who."
-           (and (= ["src-server/softland/server/seam.clj"] (holding #"door/send-act"))
-                (= 1 (count (re-seq #"door/send-act" (code-of (slurp "src-server/softland/server/seam.clj"))))))
-           (holding #"door/send-act"))
+    (check "Two files of the server require the store's door and its read path: the seam, and the program that opens them. No other file can call either, under any name."
+           (= [["src-server/softland/server/main.clj" "src-server/softland/server/seam.clj"]
+               ["src-server/softland/server/main.clj" "src-server/softland/server/seam.clj"]]
+              [(holding #"softland\.store\.door(?![.\w-])") (holding #"softland\.store\.read-path(?![.\w-])")])
+           [(holding #"softland\.store\.door(?![.\w-])") (holding #"softland\.store\.read-path(?![.\w-])")])
+    (check "The program that opens the door and the read path calls nothing of them but their opening."
+           (= #{"door/open" "read-path/open"}
+              (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" (code-of (slurp "src-server/softland/server/main.clj")))))
+           (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" (code-of (slurp "src-server/softland/server/main.clj")))))
+    (check "The seam calls the door's send-act in one place: no act reaches a depot but through the one function that writes the actor's who."
+           (= 1 (count (re-seq #"door/send-act" (code-of (slurp "src-server/softland/server/seam.clj")))))
+           (count (re-seq #"door/send-act" (code-of (slurp "src-server/softland/server/seam.clj")))))
     (check "The server opens no table and no depot of Rama's but in the client of its own module: what it reads of the store, it reads through the read path."
            (= ["src-server/softland/server/sessions.clj"]
               (holding #"foreign-pstate|foreign-select|foreign-proxy|foreign-depot|foreign-append|foreign-query|foreign-invoke"))
@@ -378,7 +410,7 @@
            (empty? (holding #"hyperfiddle")) (holding #"hyperfiddle"))
     (check "No file of the server's tree requires the rig, the old server or Inland."
            (empty? (holding #"\[rig\.|\[app\.|softland\.inland")) (holding #"\[rig\.|\[app\.|softland\.inland"))
-    (check "The seam's actor of the system is asked for in one file beside the seam, the one that writes what sign-in writes: no face acts as the system."
+    (check "The seam's actor of the system is asked for in one file beside the seam, the one that writes what sign-in writes: no face can make that actor or hand one to the seam. A face reaches the system's steps only by calling that file's functions."
            (= ["src-server/softland/server/sign_in.clj"]
               (remove #{"src-server/softland/server/seam.clj"} (holding #"seam/system|\(system ")))
            (holding #"seam/system|\(system "))

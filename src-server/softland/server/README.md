@@ -71,9 +71,14 @@ the browser's tree, which reuses its start.
   system sends cannot become one.
 - **A word takes its token from a header, and a page from a cookie.** A post
   that rests on the cookie must carry this server's own `Origin`.
+- **Only a credential that stands for somebody ends a session.** A text that
+  has the form of a token ends nothing and writes nothing.
 
 The pure proof reads the source for the first three and for the caller of
-`system` ([the verification map](../../../test-server/README.md)).
+`system` ([the verification map](../../../test-server/README.md)). A face
+cannot make the system's actor; it reaches the system's steps by calling the
+two functions of [sign_in.clj](sign_in.clj), each of which does one thing: the
+person of a checked token, and where her own layer is.
 
 The server is not a check of an act, which is a gate's; not a guard of what a
 reader may see, which is the read path's; and not the network rule that keeps
@@ -92,7 +97,7 @@ with his words.
 | A read is done in the runtime, straight from the tables, with Rama's push (the same section, entry 3) | `read` and `watch` in [seam.clj](seam.clj) call the read path and keep no value |
 | A person's id is a UUID that says nothing, and her accounts are joined to it by links (9 October, entry 1) | [sign_in.clj](sign_in.clj): a random id, and Google's number as a fact on it |
 | A signed-in user has a personal layer and a permission in it, without asking (8 October, entry 2) | The making act of her own layer, in [sign_in.clj](sign_in.clj) |
-| An act from a maker who may not act is written to the log, and then refused (12 October, entry 7) | The server checks nothing of an act's form or standing; a wrong act goes to the door |
+| An act from a maker who may not act is written to the log, and then refused (12 October, entry 7) | The server judges nothing of an act's form or standing: a wrong act goes to the door, and a gate refuses it in the record. What it turns away itself, with nothing written: a thing that is no plain map, and an act that already holds `:who` or `:session`, as the door turns away an act that holds one of the door's own parts |
 | Google's sign-in button, with no client secret; Google's number kept as it is (15 October, ‹bb59807f› and ‹5325b353›) | [google.clj](google.clj) checks an ID token; [sign_in.clj](sign_in.clj) keeps `sub` as given |
 
 ## Engineering choices
@@ -126,7 +131,20 @@ too. The proposal wrote the words as vectors.
 **A sign-in that is under way is kept nowhere.** The program makes its token
 and shows a link with the token's hash; her yes is the first event. So no
 stranger writes to a log by asking to be signed in, and nothing has to agree
-between two copies of the server.
+between two copies of the server. What it gives up is under "Not decided, and
+not built": the server cannot make a link grow old, and whoever says yes on a
+link is who the program then acts as.
+
+**The credential is looked at before the frame is read.** Reading a frame can
+cost far more than its bytes say, so a request whose credential stands for
+nobody is held to a small frame, and every frame to a longest token
+([frame.clj](frame.clj)). The larger bound, for somebody signed in, is the
+store's own bound on one act and a little more: a thing that can only be
+refused does not reach a log that is never trimmed.
+
+**Where a browser goes on to after a sign-in is built, not followed.** The
+text that a request gives for it is read for one of three places and written
+anew ([http.clj](http.clj), `way-on`).
 
 **One push for a whole copy of the server.** Each copy holds one push on the
 feed of the sessions that changed, however many sockets and streams it holds.
@@ -134,9 +152,10 @@ A push for each open thing would be counted against Rama's bound on the pushes
 of one table on one task.
 
 **Virtual threads.** Every call of the store, and every handing on of a flow,
-runs on a virtual thread of the seam's; Jetty gives each request one. A wait
-for a person's yes and a stream that stays open for hours each hold a thread
-that costs little.
+runs on a virtual thread of the seam's, by Missionary's `via`; Jetty gives each
+request one. A wait for a person's yes and a stream that stays open for hours
+each hold a thread that costs little. A face must not wait inside the function
+that takes a thing of a flow ([seam.clj](seam.clj), "One limit on a face").
 
 **No copy of a row between two requests.** A request's credential is read from
 Rama at each request: one round trip, on the hash's task. A copy kept in the
@@ -153,7 +172,10 @@ library for tokens is the other answer.
 |---|---|
 | What sign-in writes | Built to the least form, on [its page](../../../src/proposal/server-2026-11-20/SIGN-IN-WRITES.md) for Sid's redline |
 | Who may become a person | Anybody whom Google proves. Due before a stranger can reach the server |
-| A ration of acts and of live reads, a block, the keeping of a model's reads | Named at `ration` in [seam.clj](seam.clj); nothing is built |
+| A ration of acts and of live reads, a block, the keeping of a model's reads | Named at `ration` in [seam.clj](seam.clj); nothing is built. What that leaves open today, as the review of 20 November 2026 ran it: a visitor with no credential who opens some 900 watches on distinct places of a layer that is open to everyone takes every live read of that layer, its owner's too, since the read path holds 900 pushes on one layer; and anybody signed in can send one frame after another that each cost seconds to read |
+| A program's sign-in against somebody who means harm | The page warns her, and nothing else holds: whoever makes a link and gets her yes acts as her for the session's 30 days; whoever sees a program's link first can say yes first, and the program then acts as that person and is not told. She has no page that lists the programs that act as her, and a link does not grow old. Due before a stranger can reach the server |
+| The cookie on one host | A browser sends it to every server on the same host, whatever its port: on `localhost`, to each program that listens there |
+| The feed's one task | Every beginning and end of a session, of every person, is written on one task and pushed whole to every copy of the server. More feeds, each under a key of its own, is the way on when that task is the limit |
 | An agent's own who | Not built: every credential stands for a person. An act's `:session` tells a browser's acts from a program's |
 | Who may act as the system | The server's own steps of sign-in, and nothing that a system sends |
 | Following every act of a layer; signals that are not kept for ever | No word for either. The proposal's calls 5 and 6 |

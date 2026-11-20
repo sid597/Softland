@@ -122,7 +122,7 @@
         got
         (do (Thread/sleep 50) (recur (inc n)))))))
 
-(defn- run-checks [the-seam google origin dev-origin]
+(defn- run-checks [the-seam the-sessions google origin dev-origin]
   (let [id-token (fn [claims] (stand-in/token google claims (System/currentTimeMillis)))
         from-google (fn [token cookie-csrf form-csrf]
                       (request :post (str origin "/sign-in/google")
@@ -141,9 +141,19 @@
                [400 {:could-not :read-the-frame :why :more-than-one-form}]
                [400 {:could-not :read-the-frame :why :empty}]]
               [(say origin nil "{:word") (say origin nil "{:word :who-am-i} {:word :who-am-i}") (say origin nil "  ")]))
-    (check "A frame over the bound is turned away with 413 before it is read as EDN."
-           (with-redefs [words/max-frame-bytes 200]
-             (= 413 (first (say origin nil (str "{:word :who-am-i :pad \"" (apply str (repeat 400 "x")) "\"}"))))))
+    (check "A frame over a visitor's bound is turned away with 413 before it is read as EDN, with the bound in the word."
+           (= [413 {:could-not :read-the-frame :why :too-large :most words/max-visitor-frame-bytes}]
+              (say origin nil (str "{:word :who-am-i :pad \"" (apply str (repeat (quot words/max-visitor-frame-bytes 8) "xxxxxxx ")) "\"}"))))
+    (check "A frame whose one token is a number of a million digits is turned away with 400, in far less time than reading the number takes."
+           (let [began (System/nanoTime)
+                 got (say origin nil (apply str (repeat 60000 "7")))
+                 got-long (with-redefs [words/max-visitor-frame-bytes 2000000]
+                            (say origin nil (apply str (repeat 1000000 "7"))))
+                 ms (quot (- (System/nanoTime) began) 1000000)]
+             (and (= 400 (first got))
+                  (= [400 {:could-not :read-the-frame :why :a-token-too-long}] got-long)
+                  (< ms 3000)))
+           :slow-or-read)
     (check "A thing that is no word of the form is turned away with 400, the reason and the part."
            (= [[400 {:could-not :read-the-word :why :word-not-known :at :word}]
                [400 {:could-not :read-the-word :why :holds-a-part-that-the-server-writes :at :who}]]
@@ -171,7 +181,7 @@
     (let [signed-in (from-google (id-token {"sub" "5000001" "email" "asha@example.com"}) "t" "t")
           cookie (cookie-of signed-in)
           set-cookie (get (:headers signed-in) "set-cookie")]
-      (check "A token that passes the check signs her in: the browser is sent on with a cookie that a page's code cannot read and another site's request does not carry."
+      (check "A token that passes the check signs her in: the browser is sent on with a cookie that a page's code cannot read, marked SameSite=Lax."
              (and (= 303 (:status signed-in)) (= "/" (get (:headers signed-in) "location"))
                   (credential/token? (second (str/split (str cookie) #"=" 2)))
                   (str/includes? set-cookie "HttpOnly") (str/includes? set-cookie "SameSite=Lax"))
@@ -179,6 +189,16 @@
       (check "The page says that she is signed in when the cookie comes back, and asks to sign in when none does."
              (and (str/includes? (:body (request :get (str origin "/") {"Cookie" cookie} nil)) "You are signed in")
                   (str/includes? (:body (request :get (str origin "/") {} nil)) "accounts.google.com/gsi/client")))
+      (check "Where the browser goes on to after a sign-in is a path that the server built, never the text that came: a tab after the first slash, two slashes, another site, and a yes page with no hash all lead to the first page; a yes page with a hash is written anew."
+             (let [on (fn [next] (get (:headers (request :get (str origin "/?next=" (codec/url-encode next)) {"Cookie" cookie} nil)) "location"))
+                   hash (apply str (repeat 64 "c"))]
+               (= [nil nil nil nil nil (str "/sign-in/yes?hash=" hash "&what=a%20b")]
+                  [(on "/\t/evil.example/phish") (on "//evil.example") (on "https://evil.example/") (on "/\\evil.example")
+                   (on "/sign-in/yes?hash=zz&what=x") (on (str "/sign-in/yes?what=a%20b&hash=" hash "&more=1"))]))
+             (let [on (fn [next] (get (:headers (request :get (str origin "/?next=" (codec/url-encode next)) {"Cookie" cookie} nil)) "location"))]
+               [(on "/\t/evil.example/phish") (on "//evil.example") (on (str "/sign-in/yes?what=a%20b&hash=" (apply str (repeat 64 "c")) "&more=1"))]))
+      (check "A signed-in person who follows a link with such a text stays on this server: the answer to the tab is the first page itself."
+             (= 200 (:status (request :get (str origin "/?next=" (codec/url-encode "/\t/evil.example")) {"Cookie" cookie} nil))))
       (check "The pages may not be framed by another site."
              (= "DENY" (get (:headers (request :get (str origin "/") {} nil)) "x-frame-options")))
 
@@ -263,6 +283,12 @@
       ;; ----------------------------------------------------------- sign-out
       (check "A sign-out from another site's page is not taken."
              (= 400 (:status (request :post (str origin "/sign-out") {"Cookie" cookie "Origin" "http://evil.example"} ""))))
+      (let [made-up (credential/make)
+            out (request :post (str origin "/sign-out") {"Cookie" (str "softland=" made-up) "Origin" origin} "")]
+        (check "A sign-out with a cookie that only has the form of a token takes the cookie away and writes nothing: no row is made for its hash."
+               (and (= 303 (:status out))
+                    (= [:ok nil] (sessions/row-of the-sessions (credential/hash-of made-up))))
+               [(:status out) (sessions/row-of the-sessions (credential/hash-of made-up))]))
       (let [out (request :post (str origin "/sign-out") {"Cookie" cookie "Origin" origin} "")]
         (check "A sign-out ends the cookie's session and takes the cookie away: the page asks to sign in again when the old cookie comes back."
                (and (= 303 (:status out)) (str/includes? (get (:headers out) "set-cookie") "Max-Age=0")
@@ -307,7 +333,7 @@
                                          dev-port)]
       (try
         (check "The setup of sign-in ends ready." (= :ready (m/? (sign-in/setup the-seam))))
-        (run-checks the-seam google origin dev-origin)
+        (run-checks the-seam the-sessions google origin dev-origin)
         (catch Throwable t
           (check "The proof ran to its end without a throw." false (str t))
           (.printStackTrace t))

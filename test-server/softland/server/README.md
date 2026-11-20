@@ -33,8 +33,10 @@ clojure -M:server -m softland.server.http-proof
   the actor as its writer; a session that ends through one copy of the server
   ends a watch and a standing that the other copy holds, and no live read is
   left behind.
-- **The proof over HTTP:** the statuses, the cookie's flags, the origin rule and
-  the stream are as the face's docstring says, for the requests written.
+- **The proof over HTTP:** the statuses, the cookie's flags, the origin rule,
+  the way on after a sign-in and the stream are as the face's docstring says,
+  for the requests written. Its client writes the `Origin` that it is told to:
+  what a browser writes is the browser check's to hold.
 
 ## What no check reaches
 
@@ -64,9 +66,23 @@ Each is where a next check comes from.
   that wait while they hold a monitor, and so keep their carrier thread
   (`clojure -J-Djdk.tracePinnedThreads=short -M:server -m softland.server.http-proof`).
   On 20 November 2026 it printed nothing for the proof over HTTP. For the
-  seam's proof it printed the proof's own slow reader, which waits inside the
-  function that takes a thing of a flow, and nothing of the server's. Before
-  the seam ran its calls of the store without Missionary's `via`, it printed
-  `via` for each of them.
+  seam's proof it printed one stack, the proof's own slow reader, which waits
+  inside the function that takes a thing of a flow. A wait inside Missionary's
+  `via` prints nothing: an earlier reading of the same trace, which took a
+  frame of `via` in that stack for the cause, was wrong.
+- **What a frame costs to read,** but by two cases: a token over the bound is
+  turned away fast, in both proofs. Measured once and held by no check: the
+  largest frame that somebody signed in may send, filled with numbers of the
+  longest token, took 11.8 seconds of one thread to read; filled with strings,
+  a third of a second.
+- **What the review of 20 November 2026 ran and no check holds:** a visitor who
+  opens some 900 watches on distinct places of a layer that is open to
+  everyone, after which nobody opens a live read of that layer; a person who
+  says yes on a link that somebody else made; a second person who says yes
+  first on a program's link.
+- **A copy of the server whose push on the feed Rama ends,** and one whose
+  rows are gone after the module is launched anew: the code tells its
+  listeners that the sessions cannot be reached, and no run made either
+  happen.
 - **What ends TLS in front,** and that it passes a stream line by line.
 - **The time of a session over 30 days,** but by a session of 1.5 seconds.

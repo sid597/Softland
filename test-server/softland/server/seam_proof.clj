@@ -212,8 +212,8 @@
             ;; ---------------------------------------- a session that ends, ends
             (let [[watched _] (collected (seam/watch a actor {:asks [:entity :desk-1] :from-layer layer}))]
               (until #(seq @watched))
-              (check "The session is ended through the other copy of the server."
-                     (= [:ok] (m/? (seam/end b hash))))
+              (check "The session is ended through the other copy of the server, by an actor that the other copy made from the same credential."
+                     (= [:ok] (m/? (seam/sign-out b (m/? (seam/actor b token))))))
               (check "The watch that this copy holds is told the end, with the word that her session ended, and the flow is over."
                      (= [:anew :ended ::done] (until #(when (= ::done (last @watched)) (kinds watched))))
                      @watched)

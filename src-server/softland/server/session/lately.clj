@@ -39,11 +39,13 @@
   `softland.server.sessions`, in the callback of its one push.")
 
 (def kept
-  "How many changes the feed holds. A number of the build, kept and not
-  decided. It has to cover what Rama can put together in one callback; a
-  copy that falls further behind asks for each row instead. The whole value
-  is written and pushed at each change, so a larger number costs each copy
-  more bytes at each sign-in and sign-out."
+  "How many changes the feed holds: by how many changes a copy can be
+  behind before it reads every row that it listens for again. A number of
+  the build, kept and not decided. Whether Rama ever leaves a copy that far
+  behind was not seen: 400 ends from 16 threads gave a callback for each
+  (a probe of the review of 20 November 2026). The whole value is written
+  and pushed at each change, so a larger number costs each copy more bytes
+  at each sign-in and sign-out."
   32)
 
 (defn start
@@ -74,8 +76,10 @@
               the order of the changes
     :missed?  true when changes left the feed before the copy saw them,
               or the feed's numbers went back, as they do when the module
-              is launched anew: the copy then asks for the row of every
-              hash that it listens for
+              is launched anew: the copy then reads the row of every hash
+              that it listens for, and a listener whose row is not there is
+              told that the sessions could not be reached
+              (`softland.server.sessions`)
 
   A copy that has seen no value takes none of the entries: nothing listened
   before its first value."
