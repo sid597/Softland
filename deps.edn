@@ -42,6 +42,19 @@
                            :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
                                           com.rpl/rama {:mvn/version "1.6.0"}}
                            :jvm-opts ["-Xss16m" "-Xmx4g"]}
+            ; The server: the one program between every system that connects and
+            ; Rama. Its own classpath: the store's source, for the door and the read
+            ; path, its own source and checks, and nothing of the root. It holds no
+            ; Electric: the seam and the words are called by every face.
+            ;   clojure -M:server -m softland.server.pure-proof
+            :server {:replace-paths ["src-store" "src-server" "test-server"]
+                     :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
+                                    com.rpl/rama {:mvn/version "1.6.0"}
+                                    missionary/missionary {:mvn/version "b.46"}
+                                    ring/ring-core {:mvn/version "1.11.0"}
+                                    ring/ring-jetty-adapter {:mvn/version "1.11.0"}
+                                    org.clojure/data.json {:mvn/version "2.4.0"}}
+                     :jvm-opts ["-Xss16m" "-Xmx4g"]}
             :dev   {:extra-paths ["src-dev" "test"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
