@@ -85,8 +85,9 @@ Forks that the proposal did not name, and the build took:
 | 13 | Her no | A hash that stands for nobody is refused for good; one that stands for her is ended; one that stands for another person is left alone | A hash is shown on a link, so knowing one must not end another person's session |
 | 14 | An act that names a who | Turned away by the server with nothing written, as the door turns away an act that holds one of the door's own parts | Your line of 12 October on a maker who may not act: "why don't we store both? Like the data is useful." The other side: write the actor's who over it and send it on, so that the try is in the log |
 | 15 | The check of Google's token | Written here with the JDK's signature, seven tests in a fixed order | A library for tokens. The build of 15 October used one. The review tried to break the check and could not |
-| 16 | The numbers | A session lasts 30 days. A frame of somebody signed in is the store's bound on one act and one MiB; of anybody else, 64 KiB; no token of a frame is longer than the store's bound on one value's text. A wait is 60 s at most; a quiet stream gets an empty line each 15 s; the feed holds 32 changes | Each is one `def`, marked kept and not decided |
-| 17 | The trees and their words | `src-server`, `src-cli`, `src-server-browser`; "the server" | "The runtime" is the word of your decisions of October |
+| 16 | The language of the command line | ClojureScript on Node, since Node is on this machine and babashka is not. A JavaScript number cannot hold the store's integers, so every value passes through as the text that was typed | Babashka: Clojure that starts fast and holds the store's numbers. It would have to be installed |
+| 17 | The numbers | A session lasts 30 days. A frame of somebody signed in is the store's bound on one act and one MiB; of anybody else, 64 KiB; no token of a frame is longer than the store's bound on one value's text. A wait is 60 s at most; a quiet stream gets an empty line each 15 s; the feed holds 32 changes | Each is one `def`, marked kept and not decided |
+| 18 | The trees and their words | `src-server`, `src-cli`, `src-server-browser`; "the server" | "The runtime" is the word of your decisions of October |
 
 ## What was run
 
@@ -96,7 +97,7 @@ that keeps its data, and nothing met Google.
 | Proof | Command | Result |
 |---|---|---|
 | Pure parts and the source | `clojure -M:server -m softland.server.pure-proof` | 68 passed, 0 failed |
-| The seam, two copies over one store | `clojure -M:server -m softland.server.seam-proof` | 42 passed, 0 failed |
+| The seam, two copies over one store | `clojure -M:server -m softland.server.seam-proof` | 43 passed, 0 failed |
 | The face over HTTP | `clojure -M:server -m softland.server.http-proof` | 37 passed, 0 failed |
 | The browser's face, headless Chrome | `node test-server-browser/drive.cjs` against a running server | Every step passed: a sign-in through the real form, her yes on the real page, an act accepted, the live read showing it and changing with a second act with no reload, the open page turning at a sign-out |
 | The socket's origin | `node test-server-browser/origin.cjs` | A socket from another origin is closed with 1008 |
@@ -136,6 +137,56 @@ the header and the cookie; the origin rule; a hash bound once, under replay
 and either order; two first sign-ins of one account at once, 20 times of 20; a
 watch left behind; the feed under 400 ends at once.
 
+## What a second review found: what the build assumed
+
+Sid asked for it when he came back, with a point of view of his own: what were
+the constraints that the model assumed, which show as the boundaries that it
+built on, and what would the software be if they were relaxed. A fresh session
+that knew nothing of this one made its own list from the code before it read
+this page. Its report is whole in
+[REVIEW-assumptions.md](REVIEW-assumptions.md). In short:
+
+- **Sixty assumptions.** Six rest on a fact that was checked. Eight are his
+  decisions. Eighteen are the proposal's, fourteen this build's and named,
+  nine this build's and never named, three are habit. Twenty-four are real
+  constraints: relax one and a wall moves.
+- **Two shape most of the build.** Every actor is a person, and only the
+  server can vouch for her. And the server is a thin layer in one process that
+  adds that who to the store's two forms and does nothing else.
+- **A third lets those two stand:** that there is a time before strangers, on
+  a store that is thrown away, so that guards and attribution can wait. This
+  page leans on it throughout. It is a session's phrase of 12 October and no
+  line of his; and his agents already act as him on text from anywhere.
+- **What it says would come out differently from the relaxed side:** the row
+  of a session would bind a credential to an actor with a kind and a chain to
+  its person, from the first commit; a read would be an event at the seam; the
+  seam's contract would be data, so that where a face runs is no wall; and the
+  place for duties would see the request and not only the actor.
+- **What it says would come out the same:** the thread rule, the merge by
+  place, act-ids asked first with the receipt and its digest, the bounds on a
+  frame, the one function that calls the door, a token kept as a hash, the
+  cookie and origin rules, and no truth in memory.
+
+What this session ran or corrected after it:
+
+- **A program that holds a token can sign in another program as her:** run,
+  and true. The two carriers of a credential keep another site's page out, not
+  a program that holds a token.
+- **The keeping of reads was misnamed** here and in the seam, after the
+  proposal, as "a model's reads" that wait until something says who is a
+  model. His decision of 12 October is "a model's, always; a person's, until
+  she turns it off": by his default every read of somebody signed in is kept,
+  and this build keeps none. The pages now say so. Where a kept read lands is
+  not decided, and is his.
+- **Sign-in's acts named nobody as their subject.** They do now: each act that
+  holds her account's number, what Google said of her, or her own layer's
+  first permission carries her id in `:subjects`.
+- **An agent's own who.** The review holds call 4, as built, against a long
+  prompt of his of 15 October (‹e5a2200e›): "best is to have each agent their
+  own identity". The record cannot tell whether he typed or pasted that
+  prompt; no session wrote the line before it. This session did not have it
+  in front of it when it built call 4 to the other side.
+
 ## What the two builders found awkward
 
 Each built against the wire or the seam and said where it did not sit well.
@@ -168,8 +219,9 @@ In the order in which they would hurt.
    act as her with a way to end each, and what the program is told of whose it
    became.
 3. **Who may become a person.** Today anybody whom Google proves.
-4. **The keeping of a model's reads** (your decision of 12 October, entry 4):
-   nothing says yet who is a model.
+4. **The keeping of reads** (your decision of 12 October, entry 4: a model's,
+   always; a person's, until she turns it off). This build keeps none, and
+   your default keeps them all; where a kept read lands is yours to say.
 5. **One finding for the store, not the server:** an act that holds an integer
    of 65,536 digits is within the store's bounds, and reading that one number
    takes 56 ms here; a gate takes the digest of the whole thing on its task's

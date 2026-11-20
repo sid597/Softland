@@ -47,6 +47,9 @@ at each later sign-in                             who: the system
     P  :account/google-says  {…}          what the token said this time
 ```
 
+Each of the acts at a sign-in is about her, and names her id in `:subjects`:
+the acts in `:people` on her entity, and the act that makes her own layer.
+
 And in the server's own module, not in the store: the session. One event,
 `{:event :began :hash … :who P :session … :until … :at …}`, makes the row
 under the hash of her credential.
