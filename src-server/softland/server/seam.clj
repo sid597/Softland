@@ -72,10 +72,18 @@
   read's turn\"). The same holds for a listener of the feed. The seam takes
   that rule on itself: what such a thread does here is put the change with
   what waits and hand it to a thread of the seam's own. Whatever a face
-  does with a thing of a flow, however slowly, it does on that other
-  thread. What waits for a slow reader is merged by place
+  does with a thing of a flow, it does on that other thread and never on
+  Rama's. What waits for a slow reader is merged by place
   (`softland.server.watching`), so it never grows past one answer and one
   change for each place.
+
+  One limit on a face. The thread that hands a thing on is a virtual
+  thread, and it is inside Missionary's own process while the face is
+  handed the thing. A face that waits right there, in the function that
+  takes the thing, holds a carrier thread of the JVM for that long. So a
+  face takes the thing and does its slow work after that returns: the face
+  over HTTP writes to its socket from the request's own thread
+  (`softland.server.http`, `write-stream`).
 
   State. The seam owns nothing that lasts. It borrows the door, the read
   path and the sessions. In the memory of the process it holds its numbers,
@@ -114,7 +122,8 @@
   (:import [java.io Writer]
            [java.util UUID]
            [java.util.concurrent ExecutorService Executors ScheduledExecutorService
-            ScheduledFuture ThreadFactory TimeUnit]))
+            ScheduledFuture ThreadFactory TimeUnit]
+           [missionary Cancelled]))
 
 ;; ------------------------------------------------------------- the numbers
 
@@ -224,11 +233,34 @@
 
 (defn- on-its-own-thread
   "Takes the seam and a function of no argument that makes blocking calls.
-  Gives a task that runs it on a virtual thread of the seam's executor.
-  Cancelling the task interrupts that thread; the door and the read path
-  turn an interrupt into one of their words."
+  Gives a task that runs it on a new virtual thread of the seam's executor
+  and completes with what it gave, or fails with what it threw. Cancelling
+  the task interrupts that thread; the door and the read path turn an
+  interrupt into one of their words. A task that is cancelled before its
+  thread began fails as cancelled and runs nothing.
+
+  It is written by hand and not with Missionary's `via`: `via` holds a
+  monitor around its body, and a virtual thread that waits while it holds a
+  monitor keeps its carrier thread. With `via`, as many waits for an answer
+  as the machine has cores would hold every virtual thread of the process
+  back. That was seen with the JVM's own trace of pinned threads, on the
+  seam's proof."
   [^Seam seam f]
-  (m/via (.-executor seam) (f)))
+  (fn [success failure]
+    (let [state (atom :not-begun)]
+      (.execute ^ExecutorService (.-executor seam)
+                (fn []
+                  (if (compare-and-set! state :not-begun (Thread/currentThread))
+                    (let [[outcome got] (try [:gave (f)] (catch Throwable t [:threw t]))]
+                      (if (= :gave outcome) (success got) (failure got)))
+                    (failure (Cancelled. "The task was cancelled before it began.")))))
+      (fn []
+        (let [now @state]
+          (cond
+            (instance? Thread now) (.interrupt ^Thread now)
+            (= :not-begun now) (when-not (compare-and-set! state :not-begun :cancelled)
+                                 (let [now @state]
+                                   (when (instance? Thread now) (.interrupt ^Thread now))))))))))
 
 ;; ---------------------------------------------------------------------- who
 
@@ -356,7 +388,7 @@
     (m/eduction
      (watching/through final?)
      (m/ap (let [standing (m/?> (m/relieve (fn [_ newer] newer) (m/observe subject)))]
-             (m/? (m/via (.-executor seam) standing)))))))
+             (m/? (on-its-own-thread seam (fn [] standing))))))))
 
 (defn- begin-now
   "The body of `begin`. One append, then one read of the row."
@@ -608,9 +640,9 @@
   A slow reader. What waits for her is merged by place
   (`softland.server.watching/merged`): she is handed fewer and larger
   things, in order, and never a present that is wrong. Each thing is handed
-  on from a thread of the seam's own, so a face may take as long over one
-  as it likes; the thread of Rama's client that brought a change has
-  returned by then."
+  on from a thread of the seam's own: the thread of Rama's client that
+  brought a change has returned by then. What a face may do while it is
+  handed a thing is in the namespace docstring, \"One limit on a face\"."
   [^Seam seam ^Actor actor query]
   (let [subject
         (fn [!]
@@ -663,5 +695,5 @@
     (m/eduction
      (watching/through (fn [message] (contains? message :ended)))
      (m/ap (let [waits (m/?> (m/relieve watching/merged (m/observe subject)))
-                 waits (m/? (m/via (.-executor seam) waits))]
+                 waits (m/? (on-its-own-thread seam (fn [] waits)))]
              (m/?> (m/seed (watching/messages waits))))))))

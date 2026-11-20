@@ -55,8 +55,14 @@ Each is where a next check comes from.
   which Sid makes.
 - **A browser.** The pages were asked for by an HTTP client. No browser sent
   the cookie, the origin or Google's post.
-- **Load:** many streams, many waits, a slow system that holds a stream open,
-  and whether Rama's client holds a carrier thread while a virtual thread waits
-  in it.
+- **Load:** many streams, many waits, a slow system that holds a stream open.
+  What was looked at once, and is no check: the JVM's trace of virtual threads
+  that wait while they hold a monitor, and so keep their carrier thread
+  (`clojure -J-Djdk.tracePinnedThreads=short -M:server -m softland.server.http-proof`).
+  On 20 November 2026 it printed nothing for the proof over HTTP. For the
+  seam's proof it printed the proof's own slow reader, which waits inside the
+  function that takes a thing of a flow, and nothing of the server's. Before
+  the seam ran its calls of the store without Missionary's `via`, it printed
+  `via` for each of them.
 - **What ends TLS in front,** and that it passes a stream line by line.
 - **The time of a session over 30 days,** but by a session of 1.5 seconds.
