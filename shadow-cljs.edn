@@ -6,6 +6,13 @@
    :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks3/reload-clj)]
    :compiler-options {:optimizations :simple}
    :modules {:main {:entries [softland.inland.boot] :init-fn softland.inland.boot/start!}}}
+  :softland-browser
+  ;; The browser half of the server's Electric program (src-server-browser).
+  ;; Built on the :server-browser alias.
+  {:target :browser :output-dir "target/softland-browser/public/js" :asset-path "/js"
+   :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks3/reload-clj)]
+   :compiler-options {:optimizations :simple}
+   :modules {:main {:entries [softland.browser.boot] :init-fn softland.browser.boot/start!}}}
   :render-verifier
   ;; Permanent W0-A render-engine harness. The Puppeteer runner serves this
   ;; release build from a synthetic secure origin and drives the REAL renderer
