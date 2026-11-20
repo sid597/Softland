@@ -476,11 +476,16 @@
 ;; ------------------------------------------------- what the seam adds, and holds
 
 (defn- needs-a-who
-  "Takes an actor. Gives nil for one that has a who, or the word
-  `:find-her-session` for a visitor."
+  "Takes an actor. Gives nil for one that has a who and whose session's
+  time has not passed, or the word `:find-her-session`: for a visitor, and
+  for an actor that a face held past its time. It reads the server's clock
+  and nothing else. It does not read her row again: a face that holds an
+  actor for longer than a request holds `standing` beside it, and lets the
+  actor go when that ends."
   [^Actor actor]
-  (when (nil? (.-who actor))
-    (words/could-not :find-her-session {:why :no-credential})))
+  (cond
+    (nil? (.-who actor)) (words/could-not :find-her-session {:why :no-credential})
+    (and (.-until actor) (<= (long (.-until actor)) (now-ms))) (no-session {:state :over})))
 
 (defn- holds-a-part
   "Takes the name of a form, `:act` or `:query`, and a thing. Gives nil, or
@@ -631,6 +636,9 @@
   The read is opened when the flow is first listened to, on a thread of the
   seam's own, and left when the flow is cancelled or has ended. A read that
   could not be opened gives its word as `{:ended word}` and nothing else.
+  Before it opens the read, the seam listens on the feed and then reads her
+  row once more: one round trip, so that a session which ended after her
+  actor was made opens no read.
 
   What ends it: the read path ended the read, with its word; her session
   ended or its time passed, with `:find-her-session`; the sessions could
@@ -684,7 +692,17 @@
                                            TimeUnit/MILLISECONDS)))
                 (.execute ^ExecutorService (.-executor seam)
                           (fn []
-                            (let [got (read-path/read-live rp (as-asker actor query) tell!)]
+                            ;; Her session can have ended between the making
+                            ;; of the actor and the listening above, and the
+                            ;; feed does not tell a change twice. So the row
+                            ;; is read once more, after the listening began.
+                            (let [gone (when-let [hash (.-hash actor)]
+                                         (let [[outcome row] (sessions/row-of (.-sessions seam) hash)
+                                               standing (record/standing row (now-ms))]
+                                           (cond
+                                             (= :threw outcome) (words/could-not :reach-the-sessions row)
+                                             (not= :live (:state standing)) (no-session standing))))
+                                  got (or gone (read-path/read-live rp (as-asker actor query) tell!))]
                               (if (:could-not got)
                                 (end-with! got)
                                 (let [handle (:leave-with got)]

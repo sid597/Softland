@@ -225,6 +225,10 @@
               (check "The credential is no actor any more, at either copy."
                      (= [{:could-not :find-her-session :why :ended} {:could-not :find-her-session :why :ended}]
                         [(m/? (seam/actor a token)) (m/? (seam/actor b token))]))
+              (check "An actor that was made before her session ended opens no watch: the flow gives the end and nothing else."
+                     (let [[stale _] (collected (seam/watch a actor {:asks [:entity :desk-1] :from-layer layer}))]
+                       (and (= [:ended ::done] (until #(when (= ::done (last @stale)) (kinds stale))))
+                            (= {:could-not :find-her-session :why :ended} (:ended (first @stale))))))
               (check "No live read is left behind."
                      (= 0 (:live-reads (until #(let [n (read-path/open-count the-read-path)] (when (= 0 (:live-reads n)) n))))))))
           (cancel-standing))
@@ -241,8 +245,10 @@
                       (= {:could-not :find-her-session :why :over} (:ended (second @watched)))
                       (= [:live :over ::done] (until #(when (= ::done (last @standings)) (states standings)))))
                  [(kinds watched) (states standings)])
-          (check "After its time the credential is no actor."
-                 (= {:could-not :find-her-session :why :over} (m/? (seam/actor a token)))))
+          (check "After its time the credential is no actor, and an actor that a face still held sends nothing."
+                 (and (= {:could-not :find-her-session :why :over} (m/? (seam/actor a token)))
+                      (= {:could-not :find-her-session :why :over}
+                         (m/? (seam/send a actor (write (:who asha) (:own-layer asha) :desk-1 :late true) nil))))))
 
         ;; -------------------------------------------------------------- her no
         (let [asked (credential/hash-of (credential/make))
