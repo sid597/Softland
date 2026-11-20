@@ -95,14 +95,19 @@
 
   The duties that are named here and not built. The server is where a
   stranger first meets a log that is never trimmed, so these belong in
-  front of the door, and the store's page says when each is due: \"before a
-  stranger can reach the door\" (src-store/README.md, 12 October 2026,
-  entry 7). `ration` is the one place where they would be made:
+  front of the door. `ration` is the one place where they would be made:
 
-    - a ration of acts and of live reads for each actor, and a block;
-    - the keeping of a model's reads (the same page, entry 4): the seam is
-      where \"this asker is a model\" would first be known, and nothing
-      says yet who is one.
+    - a ration of acts and of live reads for each actor, and a block. The
+      store's page says of these \"due before a stranger can reach the
+      door\" (src-store/README.md, 12 October 2026, entry 7). That sentence
+      is a session's and no line of Sid's: when they are due is his to say;
+    - the keeping of reads. Sid decided whose reads are kept: \"a model's,
+      always; a person's, until she turns it off\" (the same page, entry
+      4). So by his default every read of somebody signed in is kept, and
+      this build keeps none: `read` and `watch` write nothing. Where a kept
+      read lands is not decided (the same entry). `ration` is handed the
+      actor and what she does, and no request: a duty that must see the
+      request, as the pacing of a visitor must, has no place yet.
 
   The bound on a frame is a face's: it is tested before a frame is read,
   and the number is `softland.server.words/max-frame-bytes`.

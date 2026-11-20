@@ -39,6 +39,9 @@
   And her own layer, made by its first act: the system is the act's who,
   and the layer's first permission is hers.
 
+  Each act that is about a person names her id in `:subjects`, so that
+  what the log holds of her can be found by her id.
+
   What is not written: a name, an invitation, a kind of actor, a limit, a
   block, an agent, a record of sessions. A session is the server's own
   (`softland.server.module`).
@@ -127,27 +130,43 @@
        receipt
        (m/? (seam/answer the-seam system (:act-id receipt) (:digest receipt) answer-wait-ms))))))
 
+(defn- about
+  "Takes an act and the id of the person that it is about, or nil. Gives
+  the act with her id as its one subject, or the act as it is for nil. An
+  act names the people that it is about so that a person can be found, and
+  one day forgotten, by her id (src-store/MODEL.md, \"One act, start to
+  finish\", step 3). An act of sign-in holds her account's number and what
+  Google said of her, and the log is never trimmed: an act that was kept
+  without her as its subject cannot be given one later."
+  [act person]
+  (cond-> act person (assoc :subjects #{person})))
+
 (defn- making-act
   "Takes a layer and the holder of its first permission. Gives the act
   that makes the layer, without `:who` and `:session`: the layer's depot on
   the layer, and the first permission on its holder
-  (`softland.store.gate.first-act/making-act?`)."
+  (`softland.store.gate.first-act/making-act?`). When the holder is a
+  person, the act is about her."
   [layer holder]
   (let [permission [holder layer layer]]
-    {:version 1
-     :layer layer
-     :permission permission
-     :facts [{:e layer :k :softland.store/depot :v (first-act/depot-at-making layer)}
-             {:e holder :k :softland.store/permission :v permission}]}))
+    (about {:version 1
+            :layer layer
+            :permission permission
+            :facts [{:e layer :k :softland.store/depot :v (first-act/depot-at-making layer)}
+                    {:e holder :k :softland.store/permission :v permission}]}
+           (when-not (= first-act/system holder) holder))))
 
 (defn- in-people
-  "Takes facts. Gives the act that writes them into `people` under the
-  system's first permission there, without `:who` and `:session`."
-  [facts]
-  {:version 1
-   :layer people
-   :permission [first-act/system people people]
-   :facts facts})
+  "Takes facts, and the id of the person that they are about, or nil. Gives
+  the act that writes them into `people` under the system's first
+  permission there, without `:who` and `:session`, with that person as its
+  subject."
+  [facts person]
+  (about {:version 1
+          :layer people
+          :permission [first-act/system people people]
+          :facts facts}
+         person))
 
 (defn- not-made?
   "Takes an answer of a read through one layer. Gives true when the answer
@@ -179,7 +198,8 @@
            :else (do (m/? (done the-seam system
                                 (in-people [{:e people
                                              :k :softland.store/marked-keys
-                                             :v (conj (or (:value (:place marks)) #{}) account-key)}])))
+                                             :v (conj (or (:value (:place marks)) #{}) account-key)}]
+                                           nil)))
                      (recur (inc round)))))))))
 
 (defn own-layer-of
@@ -223,14 +243,15 @@
      (if (:could-not before)
        (could-not :find-the-account before)
        (let [known (holder-of before)
+             subject (or known (UUID/randomUUID))
              written (m/? (done the-seam system
                                 (in-people
                                  (if known
-                                   [{:e known :k says-key :v claims}]
-                                   (let [person (UUID/randomUUID)]
-                                     [{:e person :k account-key :v number}
-                                      {:e person :k own-layer-key :v (UUID/randomUUID)}
-                                      {:e person :k says-key :v claims}])))))
+                                   [{:e subject :k says-key :v claims}]
+                                   [{:e subject :k account-key :v number}
+                                    {:e subject :k own-layer-key :v (UUID/randomUUID)}
+                                    {:e subject :k says-key :v claims}])
+                                 subject)))
              after (if known before (m/? (who-holds)))
              person (holder-of after)]
          (cond

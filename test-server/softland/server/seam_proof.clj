@@ -25,6 +25,7 @@
             [softland.server.sessions :as sessions]
             [softland.server.sign-in :as sign-in]
             [softland.server.watching :as watching]
+            [softland.store.act :as act]
             [softland.store.door :as door]
             [softland.store.module :as store]
             [softland.store.read-path :as read-path])
@@ -92,6 +93,13 @@
              (= asha again) again)
       (check "What Google said at her latest sign-in is on her entity, under Google's own names, for the system to read."
              (= "Asha K" (get (:value (:place says)) "name")) says)
+      (check "Each act of sign-in that is about a person names her id as its subject, in the store's own form of an act: the act that writes what Google said, and the act that makes her own layer. The act that makes the system's layer names nobody."
+             (let [whole (fn [act] (:ok (act/parse (assoc act :who :system :session (UUID/randomUUID)))))
+                   person (:who asha)]
+               (= [#{person} #{person} #{}]
+                  [(:subjects (whole (#'sign-in/in-people [{:e person :k sign-in/says-key :v {"sub" "1"}}] person)))
+                   (:subjects (whole (#'sign-in/making-act (:own-layer asha) person)))
+                   (:subjects (whole (#'sign-in/making-act sign-in/people :system)))])))
       (check "Her own layer is where sign-in said: `own-layer-of` gives it for her id, and nothing for an id that is no person."
              (= [(:own-layer asha) nil] [(m/? (sign-in/own-layer-of a (:who asha))) (m/? (sign-in/own-layer-of a (UUID/randomUUID)))]))
       (let [both (m/? (m/join vector

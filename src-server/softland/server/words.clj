@@ -74,10 +74,10 @@
   (`softland.store.door.declaration/max-act-bytes`) and one MiB for the
   form around the values: an act that a gate can take fits, and a thing
   that is larger can only be refused, so the server does not put it into a
-  log that is never trimmed. A number of the build, kept and not decided;
-  the store's page says that a bound on how much one sender puts into the
-  log is due before a stranger can reach the door (src-store/README.md, 12
-  October 2026, entry 7), and this is no such bound: it is of one request."
+  log that is never trimmed. A number of the build, kept and not decided.
+  It is no bound on how much one sender puts into the log, which the
+  store's page names as not built (src-store/README.md, 12 October 2026,
+  entry 7): it is of one request."
   (+ declaration/max-act-bytes (* 1024 1024)))
 
 (def max-visitor-frame-bytes
