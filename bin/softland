@@ -1,0 +1,14 @@
+#!/bin/sh
+# Runs the program `softland` (src-cli), compiled for Node into
+# target/softland-cli/softland.js, from the repository root that holds this
+# script, so that it works from any folder. Build it first with:
+#   clojure -M:cli -m shadow.cljs.devtools.cli release softland-cli
+here=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd) || exit 1
+root=$(dirname -- "$here")
+script="$root/target/softland-cli/softland.js"
+if [ ! -f "$script" ]; then
+  echo "softland: $script is not built; run from $root:" >&2
+  echo "  clojure -M:cli -m shadow.cljs.devtools.cli release softland-cli" >&2
+  exit 1
+fi
+exec node "$script" "$@"

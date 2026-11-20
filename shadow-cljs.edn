@@ -6,6 +6,13 @@
    :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks3/reload-clj)]
    :compiler-options {:optimizations :simple}
    :modules {:main {:entries [softland.inland.boot] :init-fn softland.inland.boot/start!}}}
+  :softland-cli
+  ;; The command-line program and MCP adapter of the server (src-cli): one
+  ;; script for Node, run by bin/softland. Built on the :cli alias.
+  {:target :node-script
+   :main softland.cli.main/-main
+   :output-to "target/softland-cli/softland.js"
+   :compiler-options {:optimizations :simple}}
   :softland-browser
   ;; The browser half of the server's Electric program (src-server-browser).
   ;; Built on the :server-browser alias.
