@@ -139,7 +139,15 @@
 
 (deftype Actor [who session hash until]
   Object
-  (toString [_] (if (some? who) "#<actor>" "#<visitor>")))
+  (toString [_] (if (some? who) "#<actor>" "#<visitor>"))
+  (equals [_ other]
+    (and (instance? Actor other)
+         (= who (.-who ^Actor other))
+         (= session (.-session ^Actor other))
+         (= hash (.-hash ^Actor other))
+         (= until (.-until ^Actor other))))
+  (hashCode [_]
+    (clojure.core/hash [who session hash until])))
 
 (defmethod print-method Actor [^Actor actor ^Writer w]
   (.write w (.toString actor)))
@@ -152,7 +160,10 @@
              :doc "Makes an actor: who she is, an id, or nil for a visitor; her session's
   id; the hash of her credential; and the time until which the session
   lasts. `actor-of`, `visitor` and `system` are the callers. It prints as
-  the word \"actor\" or \"visitor\" and nothing else.")
+  the word \"actor\" or \"visitor\" and nothing else. Two actors of one
+  session are equal, so a reactive program that is handed her actor a
+  second time, as an Electric program is when a standing is told again,
+  does none of its work again.")
 
 (def ^:private the-visitor
   "The actor of everybody who is not signed in: no who, no session."

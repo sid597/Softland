@@ -53,8 +53,12 @@ Each is where a next check comes from.
 - **Google itself.** Its keys are fetched by `fetch-keys`, which no proof calls;
   the check ran on a stand-in's tokens only. A real sign-in needs the client id,
   which Sid makes.
-- **A browser.** The pages were asked for by an HTTP client. No browser sent
-  the cookie, the origin or Google's post.
+- **A browser, in these proofs.** The pages are asked for here by an HTTP
+  client that writes the `Origin` it is told to. What a real browser sends is
+  held by the check of the browser's face
+  ([drive.cjs](../../../test-server-browser/README.md)), which found on 20
+  November 2026 that the server refused its own forms. No browser has sent
+  Google's post.
 - **Load:** many streams, many waits, a slow system that holds a stream open.
   What was looked at once, and is no check: the JVM's trace of virtual threads
   that wait while they hold a monitor, and so keep their carrier thread

@@ -82,6 +82,19 @@
   number of the build, kept and not decided."
   15000)
 
+(def referrer-policy
+  "The referrer policy of every page that this server gives. Two things
+  hang on it. A page's own post must carry this server's `Origin`, which
+  each post that rests on the cookie is held to: under `no-referrer` a
+  browser writes `Origin: null` on a form's post to its own site, and the
+  server then refused its own forms (seen with Chrome on 20 November 2026,
+  by the check that drives a browser). And the address of a page must not
+  reach another site: the page on which she says yes carries the hash of a
+  program's credential in its address. Under this policy a request to the
+  same site carries the origin, and a request to another site, Google's
+  among them, carries the origin alone and no address."
+  "strict-origin-when-cross-origin")
+
 (def ^:private max-form-bytes
   "How many bytes the form of a page's post can be: an ID token and a few
   short fields."
@@ -322,7 +335,7 @@
              "Cache-Control" "no-store"
              "X-Frame-Options" "DENY"
              "Content-Security-Policy" "frame-ancestors 'none'"
-             "Referrer-Policy" "no-referrer"}
+             "Referrer-Policy" referrer-policy}
    :body (str "<!doctype html><html><head><meta charset=\"utf-8\">"
               "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
               "<title>Softland</title>"
