@@ -89,6 +89,39 @@ tree at 15:45 IST, not committed: `gate/chain.clj` (sha256 `3602a8af8313`),
   Cal; Cal gives Dee and ends her own; Asha gives Cal again; Dee acts. The
   mutant takes Dee's act. The store's gate refuses it.
 
+## Sid's own record, through the same gate
+
+[record.clj](src/gate_histories/record.clj) sends a file of things that were
+said through the gate, one act for each, with the same walk. It was run on
+21 November on the whole record of the project: every line that Sid typed
+since March and every text that a session wrote, 38,545 things, 88 MB of
+text. The file is made outside the repository and is not in it.
+
+```
+clojure -M:record /path/to/record.edn
+```
+
+- **The gate took every one:** 38,545 acts, 193,582 rows of facts, the stamps
+  0 to 38,546 with no gap, in 21 seconds on one thread. That is the
+  declaration's check, the digest and the gate's decision, in memory. It
+  says nothing of Rama.
+- **Three things an importer has to do,** each found by a refusal:
+  1. An id of the store is a keyword or a UUID. A string is refused, and so
+     is a keyword that does not read back: the record's ids begin with a
+     digit two times in three. The importer gives each id a form that the
+     store takes.
+  2. One value holds 65,536 bytes at most. 69 things said are longer, the
+     longest 775,000 bytes. They are cut into parts, each a fact, in the one
+     act; the longest is an act of 31 facts. Where to cut is the question
+     Sid raised on 9 October: a page or a block.
+  3. Who said a thing is a fact, and the who of the act is the importer,
+     as Sid decided for the importer and Alice.
+- **The form that was sent is a bet,** made to get these answers: one layer,
+  one act for one thing said, five facts. It set `:claimed-when` to the time
+  when the thing was said. It did not set `:because-of`, which is the part
+  of an act that names what it answers, and the record knows that for each
+  line.
+
 ## What it does not reach
 
 - **The module.** The walk here was written from the description in

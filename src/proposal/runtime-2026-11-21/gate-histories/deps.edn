@@ -2,4 +2,6 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.4"}
         org.clojure/test.check {:mvn/version "1.1.0"}}
  :aliases {:run {:main-opts ["-m" "gate-histories.run"]
-                 :jvm-opts ["-Xss16m"]}}}
+                 :jvm-opts ["-Xss16m"]}
+           :record {:main-opts ["-m" "gate-histories.record"]
+                    :jvm-opts ["-Xss16m" "-Xmx6g"]}}}

@@ -431,6 +431,15 @@ note on the store's proof runs before any proof.
 read on a cluster, and the run-again proof; and one more, that a live read
 closes when a permission above its holder ends.
 
+**A check that another session made:** [gate-histories/](gate-histories/README.md)
+runs generated histories through the store's own gate code and holds each
+verdict against the statements about permissions, said in the plainest code.
+On 21 November it ran 40,000 histories against the rules of piece 1 as they
+were in the working tree, and every statement held; with one rule of the
+gate broken at a time, each break was caught. It also sent Sid's whole
+record through the gate, and its page says what an importer has to do. The
+statements of a new rule go into its reference before the rule is built.
+
 ## The spine, to start from
 
 For the session that builds it. It can start while the store's line runs. It
