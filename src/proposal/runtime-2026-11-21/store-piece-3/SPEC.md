@@ -5,7 +5,14 @@
 
 **21 November 2026.** Written by the Claude session that built piece 1, as the
 spec that the Rama skill's phases start from
-(`.claude/skills/rama/references/phases.md`). It says what is asked, what the
+(`.claude/skills/rama/references/phases.md`). Phase 0 has run:
+[IMPLICIT_SPEC.md](IMPLICIT_SPEC.md) holds what this page implies and does not
+list, where its words were looser than the code, and nine open questions, each
+marked Sid's or Phase 1's. This page was corrected from it on the same day:
+the asker's own things in a layer that she may not see, the who of a refused
+thing, the bound in bytes, and the base. **The plan, Phase 1, starts when piece
+2 has landed**: the two pieces change the same files of the store, and a plan
+made before would be made against code that piece 2 changes. It says what is asked, what the
 store is today, and what must hold. It designs no table and no topology: that
 is Phase 1's. Three kinds of statement are kept apart: **Sid's**, **a
 session's**, and **a fact of the code**, with the file that says it.
@@ -43,18 +50,28 @@ is the way back out (`MODEL.md`, "What cannot be got back, said plainly"):
 One new thing that can be asked of the store, through the read path, which
 holds the one check of who may see (`src-store/softland/store/read_path.clj`):
 
-- **For one layer, the decisions from one stamp to another, in the layer's
-  order.** For each: its stamp; its act-id; its answer as the door's read by
-  act-id gives it today (the verdict, the reason of a refusal, the time, the
-  digest); and the thing whole, as it arrived on the depot.
-- **Bounded.** A caller names where it starts and how many it takes at most.
-  One read gives a bounded count, and says where the next begins. The bound is
-  a number of the build beside the read path's others
-  (`read_path/query.clj`, `default-numbers`).
-- **It says what it left out.** A decision that the asker may not read is
-  given as its stamp and nothing else of it, so that the stamps that a caller
-  gets have no gap that she cannot tell from a fault. A session's choice. The
-  other way gives nothing for it, and the caller sees a gap.
+- **For one layer, the decisions from a stamp on, in the layer's order.** For
+  each: its stamp; its act-id; its answer as the module's read by act-id gives
+  it today (`softland/store/record/rows.clj`, `answer-of`: the verdict, the
+  reason of a refusal, the stamp, the time, the digest); and the thing whole,
+  as it arrived on the depot: the arrival that was decided, and not another
+  arrival with the same digest, since the digest leaves the time out.
+- **Bounded, by count and by bytes.** A caller names where it starts and how
+  many it takes at most. One read gives a bounded count, and says where the
+  next begins. A count bounds nothing by itself: the bound on an act
+  (`door/declaration.clj`, `max-act-bytes`) counts the text that is written
+  into rows, not the thing whole, and a refused thing has no bound. So the
+  read has a bound in bytes of its own, on what is fetched and on what is
+  handed over. A thing larger than the bound does not stop the line: its
+  stamp, its act-id and its answer are given, it is told apart from one that
+  is withheld, and the next read begins behind it. The bounds are numbers of
+  the build beside the read path's others (`read_path/query.clj`,
+  `default-numbers`).
+- **It says what it left out.** For an asker who may see the layer, a decision
+  that she may not read whole is given as its stamp and nothing else of it, so
+  that the stamps that she gets have no gap that she cannot tell from a fault.
+  A session's choice. The other way gives nothing for it, and the caller sees
+  a gap. An asker who may not see the layer is told less: the next section.
 - **The layer's last stamp** can be asked with it, so a caller knows whether it
   has reached the end.
 
@@ -91,10 +108,26 @@ built, and the runtime will hold the asker against the caller.
   an open layer reads its facts as today and is given no act whole until the
   layer says so. The other way: a taken act whole to whoever may see the
   layer.
-- A thing that the declaration refused can name no usable `:who`: it can be
-  anything. Then only the layer's holders read it.
-- An asker who may not see the layer at all is told what a read of facts tells
-  her today: that the layer is left out, and nothing of its stamps.
+- **The who of a refused thing is read from the raw thing.** The declaration
+  refuses many things that name a usable `:who`: one with no time, one with a
+  value over the bound. Such a thing is given to the who that it names. A
+  thing that names none is read by the layer's holders alone. No row holds the
+  who of a refused thing today, and the walk has no act for a thing that the
+  declaration refused (`softland/store/module/walk.clj`, steps 2 and 4): so
+  it comes from the thing as it arrived, by code that cannot throw.
+- **An asker is given her own things in any layer.** A thing that names her as
+  its `:who`, taken or refused, is given to her whole, with its stamp and its
+  answer, also in a layer that she may not see, and after her permission
+  there ended. It is his third use of 12 October, "to give an author back
+  what was refused"; the door's answer already tells her the stamp. Of any
+  other decision of a layer that she may not see she is given nothing, not
+  its stamp either: the stamps that she gets then have gaps, and the answer
+  says that the layer is otherwise left out. A session's resolution: Phase 0
+  found that this page said this and its opposite.
+- **In a layer that everyone may see, this read reads the asker's permission**,
+  which a read of facts does not there
+  (`softland/store/read_path/sources.clj`, `reading`): holder or not decides
+  whole or withheld.
 
 ## The setting
 
@@ -102,8 +135,10 @@ built, and the runtime will hold the asker against the caller.
 key of the store on the layer's own entity, beside who may see it, what it
 builds on and the keys it marks (`softland/store/door/declaration.clj`,
 `store-keys`): who may read the layer's acts whole, `:members` or `:everyone`,
-reading as `:members` while no fact says it
-(`softland/store/gate/first_act.clj`, `starts-with`). It takes a second write,
+reading as `:members` while no fact says it, for the base too
+(`softland/store/gate/first_act.clj`, `starts-with`, which gives the base
+`:everyone` for who may see it): the base is open to everyone, and its acts
+are read whole by its holders alone until its first holder says otherwise. It takes a second write,
 and only the layer's first holder writes it, as piece 1 has it for the other
 three (`softland/store/gate/decision.clj`, `who-may-write-fault`). With
 `:everyone`, whoever may see the layer reads its acts whole. The word of the
