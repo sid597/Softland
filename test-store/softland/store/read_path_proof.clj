@@ -1368,6 +1368,41 @@
            (- cal-after-beas-give cal-count) "calls | her own second give gave her the layer's fact again:"
            (pr-str ((juxt :layer :value) (:place (:anew cal-back)))))))
 
+(deftest a-read-asked-in-a-run
+  (let [run-key :softland.store/run-permission
+        _ (make! :m-run :ada)
+        _ (make! :t-run :ada)
+        _ (setting! :t-run :ada :everyone)
+        _ (put! :ada :t-run [(fact :note :text "from t-run")])
+        _ (put! :ada :m-run [(fact :note :text "from m-run")])
+        for-run (fn [who session] [who :m-run :m-run (perm :ada :m-run) :see [:run session]])
+        give-run! (fn [who session] (put! :ada :m-run [{:e session :k run-key :v (for-run who session)}]))
+        _ (give-run! :cal :run-9)
+        query (fn [who session] (cond-> {:asks [:place :note :text] :asker who :layers [:m-run :t-run]}
+                                  session (assoc :session session)))
+        seen (fn [answer] [(:left-out answer) ((juxt :layer :value) (:place answer))])
+        left-out [{:layer :m-run :why :may-not-see}]
+        once (mapv (fn [[who session]] (seen (ask (query who session))))
+                   [[:cal :run-9] [:cal nil] [:cal :run-8] [:dov :run-9]])
+        place-of (fn [read] ((juxt :layer :value) (:place (screen read))))
+        cal (live (query :cal :run-9))
+        cal-now (:now cal)
+        _ (put! :ada :m-run [{:e :run-9 :k run-key}])
+        _ (wait-until #(seq (:left-out (screen cal))))
+        cal-left (last (changes cal))
+        _ (give-run! :cal :run-9)
+        _ (wait-until #(= :m-run (first (place-of cal))))
+        cal-back (last (changes cal))
+        _ (leave! cal)]
+    (check "a read asked once in a run, through a layer open to its members: the asker sees the layer under the permission of the run that she asks in; not when she names no run, or another run; and another who that asks in that run is given nothing by it"
+           [[[] [:m-run "from m-run"]] [left-out [:t-run "from t-run"]] [left-out [:t-run "from t-run"]] [left-out [:t-run "from t-run"]]]
+           once)
+    (check "a live read asked in a run: the layer is in; the run's permission ends, and she is told a whole answer that leaves the layer out; the run is given one again, and the layer joins with its fact"
+           [[[] [:m-run "from m-run"]] [left-out [:t-run "from t-run"]] [[] [:m-run "from m-run"]]]
+           [(seen cal-now) (seen (:anew cal-left)) (seen (:anew cal-back))])
+    (shown "a read asked in a run: once, in the run, in no run, in another run, and by another who in that run:" (pr-str (mapv first once))
+           "| live, at the end of the run's permission:" (pr-str (:left-out (:anew cal-left))))))
+
 (deftest one-push-for-one-thing
   (let [rp (:counted @round)
         _ (make! :t16 :alice)
@@ -2086,6 +2121,7 @@
   (each-word-kept-live)
   (what-shapes-a-read-changes-under-it)
   (a-permission-ends-under-a-live-read)
+  (a-read-asked-in-a-run)
   (one-push-for-one-thing)
   (the-read-paths-own-bound-on-its-pushes)
   (nothing-is-shown-that-is-not-in-the-tables)

@@ -225,10 +225,23 @@
   `:permission-fact-sits-on-its-holder` and the gate's check of a setting
   hold what it says.
 
-  A permission fact sits on its holder, so the gate finds the permission of
-  an act's `:who` with one read, and a holder has one permission in a layer
-  at a time: she cannot hold \"see\" from one giver and \"see and act\"
-  from another. That is not decided, and is kept as built; the rule
+  A permission sits on what it covers, under a key of its own for each
+  kind (`softland.store.act/covers`): one that covers the layer on its
+  holder, under `:softland.store/permission`; one for a run on the run's
+  session, under `:softland.store/run-permission`; one for an act on the
+  uuid of the act's act-id, under `:softland.store/act-permission`. Three
+  keys and not one: a holder, a session and an act are each named by an id
+  of one kind, so under one key a give for a run whose session has the id of
+  a holder would land on that holder's place. So a holder can have, beside
+  her permission for the layer, one for each of any number of runs and acts
+  (Sid, 21 November 2026, src-store/README.md, entry 6 of 20 and 21
+  November); the two keys' words are a session's. The gate finds the
+  permission that an act names with one read, on the place that the
+  permission's own form names (`softland.store.gate.chain/place`).
+
+  A holder has one permission for the layer at a time: she cannot hold
+  \"see\" from one giver and \"see and act\" from another. That is not
+  decided, and is kept as built; the rule
   `:permission-fact-sits-on-its-holder` and
   `softland.store.gate.decision/permission-place` are where the other answer
   would be made."
@@ -242,6 +255,18 @@
    {:why           "a gate must read whether an act's permission stands"
     :value         :permission-id
     :sits-on       :the-holder-that-the-permission-names
+    :setting       false
+    :written-again false}
+   :softland.store/run-permission
+   {:why           "a gate must read whether the permission of an act's run stands"
+    :value         :permission-id
+    :sits-on       :the-run-that-the-permission-covers
+    :setting       false
+    :written-again false}
+   :softland.store/act-permission
+   {:why           "a gate must read whether the permission of one act stands"
+    :value         :permission-id
+    :sits-on       :the-act-that-the-permission-covers
     :setting       false
     :written-again false}
    :softland.store/who-may-see
@@ -262,6 +287,11 @@
     :sits-on       :the-layer
     :setting       true
     :written-again true}})
+
+(def permission-keys
+  "The three store keys under which a permission is given and ended, one for
+  each thing that a permission covers: the layer, one run, one act."
+  #{:softland.store/permission :softland.store/run-permission :softland.store/act-permission})
 
 (def setting-keys
   "The store keys that are settings, read from `store-keys`."
@@ -370,7 +400,9 @@
          [:store-key-is-known                  :store-key-not-known]
          [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
          [:permission-fact-holds-a-permission  :permission-fact-not-a-permission]
+         [:permission-fact-is-of-its-key       :permission-fact-under-another-key]
          [:permission-fact-sits-on-its-holder  :permission-fact-not-on-its-holder]
+         [:permission-fact-sits-on-what-it-covers :permission-fact-not-on-what-it-covers]
          [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-members-or-everyone]
          [:builds-on-fact-holds-layers         :builds-on-fact-not-a-list-of-layers]
          [:builds-on-within-the-limit          :builds-on-too-many-layers]
@@ -480,12 +512,14 @@
 
 (defn- permission-ids
   "Takes a permission id in its one form. Gives each id that it holds: who,
-  layer and granted-in, of itself and of each permission above it. The
+  layer and granted-in, and the session of a permission for a run, of itself
+  and of each permission above it. The
   permission above is the fourth slot of both given forms, with or without
   the slot that says what the permission allows."
   [permission]
   (when (vector? permission)
     (concat (take 3 permission)
+            (when (= :run (first (act/covers permission))) [(second (act/covers permission))])
             (when (<= 4 (count permission)) (permission-ids (nth permission 3))))))
 
 (defn- ids-of
@@ -508,7 +542,7 @@
             (mapcat (fn [fact]
                       (concat [(:e fact) (:k fact)]
                               (layer-of (first (:replaces fact)))
-                              (when (= :softland.store/permission (:k fact))
+                              (when (contains? permission-keys (:k fact))
                                 (permission-ids (:v fact)))
                               (when (contains? #{:softland.store/builds-on :softland.store/marked-keys}
                                                (:k fact))
@@ -547,7 +581,20 @@
    (fn [act] (value-fits-its-key? :softland.store/depot act))
 
    :permission-fact-holds-a-permission
-   (fn [act] (value-fits-its-key? :softland.store/permission act))
+   (fn [act] (every? (fn [k] (value-fits-its-key? k act)) permission-keys))
+
+   ;; Under each of the three keys, the kind of permission that the key is
+   ;; for: one that covers the layer, one run, or one act.
+   :permission-fact-is-of-its-key
+   (fn [act] (each-fact? (fn [fact]
+                           (or (not (contains? permission-keys (:k fact)))
+                               (nil? (:v fact))
+                               (= (:k fact)
+                                  (case (first (act/covers (:v fact)))
+                                    :run :softland.store/run-permission
+                                    :act :softland.store/act-permission
+                                    :softland.store/permission))))
+                         act))
 
    ;; A permission fact with no value names no holder: it is an end, and a
    ;; gate holds it to the permission at its place.
@@ -555,6 +602,16 @@
    (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/permission (:k fact))
                                         (nil? (:v fact))
                                         (= (:e fact) (nth (:v fact) 0))))
+                         act))
+
+   ;; A permission for a run sits on the run's session, and one for an act
+   ;; on the uuid of the act's act-id.
+   :permission-fact-sits-on-what-it-covers
+   (fn [act] (each-fact? (fn [fact]
+                           (or (not (contains? #{:softland.store/run-permission :softland.store/act-permission}
+                                               (:k fact)))
+                               (nil? (:v fact))
+                               (= (:e fact) (second (act/covers (:v fact))))))
                          act))
 
    :who-may-see-fact-holds-its-word

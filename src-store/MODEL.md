@@ -38,7 +38,8 @@ store, with one total order in each layer and overlay reads, built on Rama.
 | layer | A home for facts, with its own line of acts in one order. | namespace |
 | depot | Where a layer's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch layer. | write mode; log |
 | stack | The layers that one read looks through, nearest first. | overlay view |
-| permission | The right to see a layer, or to see it and act in it: `[who layer granted-in]`, or a given one that holds the permission above it. It can be ended, and what was given beneath it ends with it. | grant; capability; revocation |
+| permission | The right to see a layer, or to see it and act in it: `[who layer granted-in]`, or a given one that holds the permission above it. A given one can say what it covers: one run, or one act; with nothing said it covers the layer. It can be ended, and what was given beneath it ends with it. | grant; capability; scope; revocation |
+| run | What an act names as its `:session`: one sitting of a person, or one run of an agent. A permission can cover one run. | session |
 | stamp | An act's number in its layer's order, with no gaps. A refused act gets one too. | per-layer sequence number |
 | mark | A key that a layer indexes by value, so that a read can ask what points at a value. | secondary index |
 | the base | The one layer that everyone subscribes to. | |
@@ -183,6 +184,20 @@ chair-7's colour is red and that its material is oak.
     kept live leaves asha-draft and says so. Asha can give Ben a permission
     again. Those beneath him do not come back with it: each is given again
     ([gate/chain.clj](softland/store/gate/chain.clj)).
+13. **Asha says yes for one run, and for one act.** Her agent, bio-agent, may
+    see asha-draft. She gives it a permission for the run run-77: a
+    permission whose sixth slot says `[:run run-77]`, on the run and not on
+    bio-agent. Each act of bio-agent that carries run-77 as its `:session`
+    is taken under it, and no act of another run; ten thousand runs of one
+    agent each have a permission of their own, or none. Then bio-agent shows
+    her one act, "experiment-3, dose, 5 mg", and she gives a permission for
+    that act: `[:act uuid digest]`, on the act's uuid, with the digest of
+    the act without its permission. That act is taken. The same act-id with
+    "50 mg" is refused. bio-agent now has three permissions in the layer at
+    once, each ended by itself. A permission for a run or for an act gives
+    nothing: a holder for one run cannot give herself one for the layer
+    ([act.clj](softland/store/act.clj), `covers`;
+    [gate/decision.clj](softland/store/gate/decision.clj), `standing`).
 
 ## What the store keeps
 
@@ -221,7 +236,9 @@ the proof is named in the [verification map](../test-store/README.md)).
 - **Its layers,** as a list nearest first, or as one layer and its builds-on list
   ([read_path/layers.clj](softland/store/read_path/layers.clj)). A layer that the
   asker may not see is left out, and the answer says so. An asker who is not
-  signed in sees only the layers open to everyone.
+  signed in sees only the layers open to everyone. A read can name the run
+  that it is asked in: the asker then sees a layer under her permission for
+  the layer, or under that run's.
 - **What every answer names.** For each place: the layer that won, the fact id,
   and the stamp of that fact. A writer names that fact id in `:replaces` and
   carries that stamp in `:based-on`. On request the answer also gives the
@@ -240,16 +257,19 @@ the proof is named in the [verification map](../test-store/README.md)).
   key a gate reads nothing of a tool's value: it keeps the value's text, counts
   its bytes and, under a marked key, hashes it (`with-texts`).
 - **The standing:** the act's permission names the act's `:who`, the record
-  holds that permission, each permission above it stands, and it allows acting
+  holds that permission, it covers the act (the layer, the act's run, or
+  this one act by its digest), each permission above it stands, and it
+  allows acting
   ([gate/decision.clj](softland/store/gate/decision.clj), `standing`;
   [gate/chain.clj](softland/store/gate/chain.clj)); or the
   act makes a layer that is not made
   ([gate/first_act.clj](softland/store/gate/first_act.clj)).
 - **A replace:** the fact that an act replaces is current, in the act's own
   layer ([record/rows.clj](softland/store/record/rows.clj), `written-by?`).
-- **The store's own keys:** five, each with its shape, its entity, and whether it
-  takes a second write. A retract under four of them is refused; under the
-  permission it is an end
+- **The store's own keys:** seven, each with its shape, its entity, and whether it
+  takes a second write. Three are a permission's, one for each thing that a
+  permission covers: the layer, a run, an act. A retract under the other
+  four is refused; under a permission's it is an end
   ([door/declaration.clj](softland/store/door/declaration.clj), `store-keys`).
 - **Who writes a setting, and who ends a permission:** the layer's first holder
   alone writes its setting, its list and its marks; a permission is ended by a
@@ -325,9 +345,14 @@ Each is said in full where its code is.
 - How far a read walks from a layer: its own list and no further is a working
   answer ([read_path/layers.clj](softland/store/read_path/layers.clj),
   `in-order`).
-- Whether a holder can have more than one permission in a layer at once: today
-  one ([gate/decision.clj](softland/store/gate/decision.clj),
-  `permission-place`).
+- Whether a holder can have two permissions for the layer that stand at once,
+  "see" from one giver and "see and act" from another: today one, beside her
+  permissions for runs and acts
+  ([gate/decision.clj](softland/store/gate/decision.clj), `permission-place`).
+- A permission to see that is sized by a query, a yes for one read, and a
+  run that may give
+  (`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`, "Not in this
+  piece").
 - A layer that is handed to another holder, and the end of a layer's first
   permission ([gate/decision.clj](softland/store/gate/decision.clj),
   `end-fault`).

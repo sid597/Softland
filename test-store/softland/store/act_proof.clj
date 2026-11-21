@@ -168,7 +168,9 @@
    :fact-id [:tuple :act-id [:int {:min 0}]]
    :permission-id [:or [:tuple :id :id :id]
                        [:tuple :id :id :id :permission-id]
-                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
+                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]
+                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act] [:tuple [:enum :run] :id]]
+                       [:tuple :id :id :id :permission-id [:enum :see-and-act] [:tuple [:enum :act] :uuid :digest-hex]]]
    :carried-stamp [:int {:min 0}]})
 
 (def ^:private parts-cases

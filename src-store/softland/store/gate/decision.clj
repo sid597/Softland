@@ -93,6 +93,7 @@
   carries."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
+            [softland.store.door.digest :as digest]
             [softland.store.door.text :as text]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
@@ -117,14 +118,28 @@
 ;; ----------------------------------------------------------------- standing
 
 (defn permission-place
-  "Takes an act. Gives the key of the place where the permission of the act's
-  `:who` sits in the act's layer. The first row that a gate reads for the
-  standing of an act. One place for a holder in a layer, so one permission:
-  that is kept as built and not decided, and this key is one of the two
-  places where the other answer would be made
-  (`softland.store.door.declaration/store-keys`)."
+  "Takes an act. Gives the key of the place where the permission that the
+  act names sits in the act's layer, read from the permission's own form
+  (`softland.store.gate.chain/place`): on its holder for one that covers the
+  layer, on the act's run or on the act itself for one that covers a run or
+  an act. The first row that a gate reads for the standing of an act. One
+  place for a holder's permission for the layer: that is kept as built and
+  not decided, and this key is one of the two places where the other answer
+  would be made (`softland.store.door.declaration/store-keys`)."
   [act]
-  (record/place-key (:layer act) (:who act) :softland.store/permission))
+  (chain/place (:layer act) (:permission act)))
+
+(defn hex-for-its-permission
+  "Takes a thing as it arrived on a depot, and the act that the declaration's
+  check made of it. Gives the text that `standing` holds against a
+  permission for one act: the digest of the thing without the time on it
+  and without its `:permission`
+  (`softland.store.door.digest/hex-for-its-permission`). nil when the
+  permission that the act names is not for an act, so that no other act
+  pays for the hash."
+  [thing act]
+  (when (= :act (first (act/covers (:permission act))))
+    (digest/hex-for-its-permission thing)))
 
 (defn depot-place
   "Takes an act. Gives the key of the place of its layer's depot: the layer
@@ -174,13 +189,15 @@
 
 (defn standing
   "The standing of an act: checks (c) and (d), what the act's permission
-  allows, and the first act of a layer. Takes the gate's depot; an act; the
-  row at the place of `:who`'s permission; the row at the place of the
-  layer's depot, which is read only when the first is nil; and the rows of
-  the places that `chain-needed` named, as a map from key to row, nil or
-  absent for an empty place. Gives nil when the act's permission stands and
-  allows acting, or when the act is a right making act for a layer that is
-  not made (`makes-the-layer?` tells the two apart). Else a word:
+  allows and covers, and the first act of a layer. Takes the gate's depot;
+  an act; the row at the place of the permission that the act names
+  (`permission-place`); the row at the place of the layer's depot, which is
+  read only when the first is nil; the rows of the places that
+  `chain-needed` named, as a map from key to row, nil or absent for an empty
+  place; and what `hex-for-its-permission` gave for the thing. Gives nil
+  when the act's permission stands, covers the act and allows acting, or
+  when the act is a right making act for a layer that is not made
+  (`makes-the-layer?` tells the two apart). Else a word:
 
     :layer-belongs-to-the-other-gate  the record holds nothing for the
                                       layer, and the layer is the other
@@ -193,9 +210,24 @@
                                       that the act's permission names is not
                                       the act's `:who`
     :permission-ended                 the layer is made here, and the place
-                                      of the act's `:who` holds an end: her
-                                      permission in the layer was ended and
-                                      she was not given one again
+                                      of the act's permission holds an end:
+                                      the permission of that holder, run or
+                                      act was ended, and none was given
+                                      there again
+    :permission-for-another-run       the record holds the act's permission,
+                                      which covers one run, and the act's
+                                      `:session` is not that run
+    :permission-for-another-act       the record holds the act's permission,
+                                      which covers one act, and the uuid of
+                                      the act's act-id is not the one that
+                                      it names
+    :act-not-the-one-permitted        the record holds the act's permission,
+                                      which covers this act-id, and the
+                                      thing that arrived is not the act
+                                      that was permitted: its digest,
+                                      without its permission and the time
+                                      on it, is not the one that the
+                                      permission names
     :permission-does-not-stand        the layer is made here, and the record
                                       does not hold the act's permission for
                                       its holder: the place is empty, or
@@ -225,6 +257,16 @@
   \"see\" becomes \"see and act\" by an end and a give after it
   (`give-over-fault`).
 
+  What a permission covers is held here, before the chain is read
+  (`softland.store.act/covers`). A permission for a run covers the acts
+  that carry that run as their `:session`, of the permission's holder alone:
+  ten thousand runs of one who each have a permission of their own, or none.
+  A permission for an act covers the one thing whose act-id holds its uuid
+  and whose digest it names, so the act that is taken is the act that was
+  permitted, part for part; an act-id has one answer, so no second act is
+  ever taken under it. The session and the who are what the sending program
+  said: a gate checks no sender.
+
   Whether the layer is the other gate's is worked out here, from the gate's
   depot and the act's layer (`layer-is-the-other-gates?`), and counts only
   when both rows are nil. No table of the other gate is read for it, in
@@ -240,11 +282,24 @@
   which no second run gives again. The other half is the session's choice:
   which of the two words is then given. `:layer-not-made` for every such
   act would hold his line as well."
-  [gate-depot act permission-row depot-row chain-rows]
-  (let [permission (:permission act)]
+  [gate-depot act permission-row depot-row chain-rows hex-of-the-act]
+  (let [permission (:permission act)
+        [kind what hex] (act/covers permission)]
     (cond
       (record/holds-value? permission-row permission)
       (cond
+        (not= (:who act) (nth permission 0))
+        :who-not-the-permissions-holder
+
+        (and (= :run kind) (not= what (:session act)))
+        :permission-for-another-run
+
+        (and (= :act kind) (not= what (nth (:act-id act) 2 nil)))
+        :permission-for-another-act
+
+        (and (= :act kind) (not= hex hex-of-the-act))
+        :act-not-the-one-permitted
+
         (not (chain/stands? (:layer act) permission
                             (assoc chain-rows (chain/place (:layer act) permission) permission-row)))
         :permission-above-ended
@@ -277,7 +332,8 @@
 (defn places-needed
   "Takes an act, and whether it makes its layer. Gives the keys of the places
   whose rows `places` needs, each once: the place of each fact that names
-  something to replace, and of each fact under `:softland.store/permission`.
+  something to replace, and of each fact under one of the three keys of a
+  permission (`softland.store.door.declaration/permission-keys`).
   None for an act that makes its layer: the record holds nothing of a layer
   that is not made, and the two facts of a making act are not held to the
   checks that read a place. A fact that names nothing to replace needs no
@@ -286,7 +342,7 @@
   (if makes-the-layer?
     []
     (into []
-          (comp (filter (fn [fact] (or (:replaces fact) (= :softland.store/permission (:k fact)))))
+          (comp (filter (fn [fact] (or (:replaces fact) (contains? declaration/permission-keys (:k fact)))))
                 (map (fn [fact] (place-of act fact))))
           (:facts act))))
 
@@ -309,16 +365,26 @@
     :setting-not-on-the-layer))
 
 (defn- permission-fact-fault
-  "Check (g) for one fact. Gives a word when the fact is under
-  `:softland.store/permission`, has a value, and that permission is not one
-  straight beneath the act's own, in the act's layer: its layer slot is not
+  "Check (g) for one fact. Gives a word when the fact is under one of the
+  three keys of a permission, has a value, and is no give that the act's own
+  permission can make: the act's own permission covers a run or an act, and
+  such a permission gives nothing; the given permission's layer slot is not
   the act's layer; its granted-in slot is not the act's layer; or the
   permission above it is not exactly the one that the act acts under. A
-  permission with nothing above it earns the third word."
+  permission with nothing above it earns the last word.
+
+  Why a permission for a run or for an act gives nothing. What is given
+  beneath a permission must cover no more than it does: else the holder of a
+  permission for one run gives herself one for the layer beneath it, and a
+  yes for one run is a yes for every run. Neither a layer nor a second run
+  fits inside one run. A session's rule of 21 November 2026
+  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R10); the other
+  way, a run that may give, would be one more word in the sixth slot."
   [act fact]
   (let [given (:v fact)]
-    (when (and (= :softland.store/permission (:k fact)) (some? given))
+    (when (and (contains? declaration/permission-keys (:k fact)) (some? given))
       (cond
+        (some? (act/covers (:permission act))) :only-a-permission-for-the-layer-gives
         (not= (:layer act) (nth given 1)) :permission-fact-for-another-layer
         (not= (:layer act) (nth given 2)) :permission-fact-granted-in-another-layer
         (not= (:permission act) (nth given 3 nil)) :permission-fact-not-beneath-the-acts-own
@@ -367,7 +433,7 @@
   (if makes-the-layer?
     []
     (into []
-          (comp (filter (fn [fact] (and (= :softland.store/permission (:k fact)) (some? (:v fact)))))
+          (comp (filter (fn [fact] (and (contains? declaration/permission-keys (:k fact)) (some? (:v fact)))))
                 (keep (fn [fact] (record/held-permission (get place-rows (place-of act fact)))))
                 (mapcat (fn [held] (chain/places-above (:layer act) held)))
                 (remove (fn [k] (or (contains? in-hand k) (contains? place-rows k))))
@@ -375,8 +441,9 @@
           (:facts act))))
 
 (defn- end-fault
-  "The end of a permission, for one fact under `:softland.store/permission`
-  with no value. Takes the act and the row at the fact's place. Gives nil
+  "The end of a permission, for one fact with no value under one of the three
+  keys of a permission: the end of a holder's permission for the layer, of
+  a run's, or of an act's, each on its own place. Takes the act and the row at the fact's place. Gives nil
   when the end is taken, or a word:
 
     :no-permission-to-end            the place holds no permission: it is
@@ -387,11 +454,17 @@
                                      could be taken in the layer or write
                                      its settings ever after
     :not-above-the-permission        the act's permission is not the one at
-                                     the place and is not in the chain above
-                                     it (`softland.store.gate.chain/above?`)
+                                     the place, is not in the chain above
+                                     it (`softland.store.gate.chain/above?`),
+                                     and is not the permission for the
+                                     layer of the holder of the one at the
+                                     place
 
   So a permission is ended by its giver, by anyone above the giver up to
-  the first holder, and by its own holder. The act's own permission has
+  the first holder, and by its own holder. Its holder ends it by an act
+  under that permission itself, or under her permission for the layer:
+  never under her permission for another run or act, so a run ends nothing
+  of hers but its own. The act's own permission has
   passed its standing, so whoever ends stands, and may act: a holder of
   `:see` cannot end, her own neither, since an end is an act. A permission
   at the place that no longer stands, because one above it ended, can be
@@ -412,17 +485,18 @@
       (nil? held) :no-permission-to-end
       (= 3 (count held)) :first-permission-does-not-end
       (or (= held own) (chain/above? own held)) nil
+      (and (nil? (act/covers own)) (= (:who act) (nth held 0))) nil
       :else :not-above-the-permission)))
 
 (defn- give-over-fault
-  "A give at a place that holds a row, for one fact under
-  `:softland.store/permission` with a value. Takes the act, the row at the
+  "A give at a place that holds a row, for one fact with a value under one of
+  the three keys of a permission. Takes the act, the row at the
   fact's place, and the rows in hand as a map from key to row. Gives nil
   when the place holds an end, or a permission that does not stand
   (`softland.store.gate.chain/stands?`): the give is taken and its row
   takes the place. Gives `:holder-has-a-permission` when the permission at
-  the place stands: a holder has one permission in a layer, and one that
-  stands is ended before another is given.
+  the place stands: a holder has one permission for the layer, and a run or
+  an act one, and one that stands is ended before another is given there.
 
   So a holder is given a permission again after an end, and each holder
   beneath an end is given one again by an act of its own (Sid's decision of
@@ -440,8 +514,8 @@
 (defn- store-key-fault
   "What a store key takes, for one fact. Takes the gate's depot, the act,
   the rows in hand as a map from key to row, and the fact. A fact under
-  `:softland.store/permission` with no value is an end, and `end-fault` has
-  the word; one with a value at a place that holds a row is a give over
+  one of the three keys of a permission with no value is an end, and
+  `end-fault` has the word; one with a value at a place that holds a row is a give over
   what is there, and `give-over-fault` has the word. A layer's depot takes
   one write. The three keys of
   `softland.store.door.declaration/second-write-keys`, who may see a layer,
@@ -460,11 +534,11 @@
         retract? (nil? (:v fact))
         row (get rows (place-of act fact))]
     (cond
-      (and (= :softland.store/permission k) retract?) (end-fault act row)
+      (and (contains? declaration/permission-keys k) retract?) (end-fault act row)
       (and (declaration/store-key? k) retract?) :store-key-retract-not-built
       (and (= :softland.store/depot k) (not= gate-depot (:v fact))) :changing-a-depot-not-decided
       (= :softland.store/depot k) :store-key-takes-one-write
-      (and (= :softland.store/permission k) row) (give-over-fault act row rows)
+      (and (contains? declaration/permission-keys k) row) (give-over-fault act row rows)
       :else nil)))
 
 (defn places
@@ -476,7 +550,8 @@
 
     (e)  :replaced-fact-not-current
     (f)  :setting-not-on-the-layer
-    (g)  :permission-fact-for-another-layer,
+    (g)  :only-a-permission-for-the-layer-gives,
+         :permission-fact-for-another-layer,
          :permission-fact-granted-in-another-layer,
          :permission-fact-not-beneath-the-acts-own
     then :only-the-first-holder-writes-a-setting, for a fact under a key

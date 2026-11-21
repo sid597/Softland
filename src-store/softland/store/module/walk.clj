@@ -69,8 +69,11 @@
                   (`softland.store.gate.decision/time-on`); nil for a thing
                   with no usable time. It is a label for the rows of step
                   7: no check reads it.
-    4. standing   Read the place of `:who`'s permission; only when it is
-                  empty, the place of the layer's depot; and only when it
+    4. standing   Read the place of the permission that the act names:
+                  on its holder, or on the run or the act that it covers
+                  (`softland.store.gate.decision/permission-place`); only
+                  when it is empty, the place of the layer's depot; and
+                  only when it
                   holds the act's permission, the place of each permission
                   above that one, up its chain
                   (`softland.store.gate.decision/chain-needed`): a
@@ -85,6 +88,10 @@
                   layer is the base; for the microbatch gate it is every
                   other layer. A permission that stands and says `:see` is
                   refused here, with no read more: an act needs \"act\".
+                  An act under a permission for another run than its own,
+                  or for another act, is refused here too; for an act
+                  under a permission for one act the walk makes one digest
+                  more, of the thing without its permission.
     5. places     Read the place of each fact that names something to
                   replace and of each fact under
                   `:softland.store/permission`; for a give at a place that
@@ -349,7 +356,11 @@
             (first *chain-left :> *chain-key)
             (local-select> (keypath *chain-key) $$facts :> *chain-row)
             (continue> (rest *chain-left) (assoc *chain-read *chain-key *chain-row))))
-        (decision/standing *gate *act *permission-row *depot-row *chain-rows :> *refused-standing)
+        ;; Only for an act under a permission for that one act: the digest
+        ;; of the thing without its permission, which the permission names.
+        (decision/hex-for-its-permission *thing *act :> *hex-of-the-act)
+        (decision/standing *gate *act *permission-row *depot-row *chain-rows *hex-of-the-act
+                           :> *refused-standing)
         (decision/makes-the-layer? *gate *act *permission-row *depot-row :> *makes-the-layer)
         ;; What step 4 read of the permissions, for step 5: the row of the
         ;; act's own and of each one above it.

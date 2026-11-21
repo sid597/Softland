@@ -19,7 +19,7 @@
   the two declarations, takes anything, and gives the act in its one form or
   the reason why it is not an act.
 
-  A permission id has three forms. `[who layer granted-in]` is a first
+  A permission id has five forms. `[who layer granted-in]` is a first
   permission, with nothing above it. `[who layer granted-in parent]` is a
   given permission, with the permission above it. And
   `[who layer granted-in parent allows]` is a given permission that says
@@ -28,6 +28,22 @@
   slot. That a permission says what it allows is Sid's decision of 11 and 12
   October 2026 (src-store/README.md, entry 1); that it says so in a slot of
   its own id is the builder's.
+
+  The last two forms say what the permission covers, in a sixth slot;
+  `covers` is the one function that reads it. A permission without that slot
+  covers its layer, until it is ended.
+  `[who layer granted-in parent allows [:run session]]` covers one run: the
+  acts that carry that session, and the reads that are asked in it.
+  `[who layer granted-in parent :see-and-act [:act uuid digest]]` covers one
+  act: the act whose act-id holds that uuid and whose digest, taken without
+  the time on it and without its `:permission`, is that text of 64 hex
+  characters (`softland.store.door.digest/hex-for-its-permission`). A
+  permission for an act says `:see-and-act`: one that said `:see` would
+  allow nothing. That a permission covers an act, or a run, and that a
+  holder can have more than one in a layer, are Sid's decisions of 21
+  November 2026 (src-store/README.md, entries 4 to 6 of 20 and 21
+  November); these two forms of it are a session's
+  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md).
 
   Why the shape is in code and not a fact in the store. Each shape that a
   tool gives enters the store as a fact, inside an act. So the shape of the
@@ -44,6 +60,8 @@
     value?        anything -> true for a value that a fact can hold
     normal-value  a value -> its one normal form
     allows        a permission id in its one form -> :see or :see-and-act
+    covers        a permission id in its one form -> nil, [:run session]
+                  or [:act uuid digest]
 
   State and effects. The namespace owns no state, and each function is pure.
   Nothing here reads a clock, takes a random id, appends, or reads a
@@ -121,7 +139,8 @@
   data, with no code in it. Each entry is a name and a shape. A shape is one
   of these:
 
-    :id :key :uuid :int :value   a leaf, which code checks (`leaves`)
+    :id :key :uuid :int :value :digest-hex
+                                 a leaf, which code checks (`leaves`)
     another name of this map     that shape
     [:enum v ...]                one of these values
     [:int {:min a :below b}]     a fixed-width integer in that range
@@ -181,13 +200,18 @@
 
    ;; [who layer granted-in]: a first permission. [who layer granted-in
    ;; parent]: a given permission. [who layer granted-in parent allows]: a
-   ;; given permission that says what it allows. A tuple fits only its own
-   ;; count, so each thing fits one alternative at most; the slot is a word
-   ;; and no permission, so it does not count toward the nesting limit.
+   ;; given permission that says what it allows. With a sixth slot, a given
+   ;; permission that says what it covers: one run, or one act. A tuple fits
+   ;; only its own count, and the two forms of six slots differ in the word
+   ;; of the sixth, so each thing fits one alternative at most; the fifth
+   ;; and the sixth slot are no permission, so they do not count toward the
+   ;; nesting limit.
    :permission-id
    [:or [:tuple :id :id :id]
         [:tuple :id :id :id :permission-id]
-        [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]]
+        [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]
+        [:tuple :id :id :id :permission-id [:enum :see :see-and-act] [:tuple [:enum :run] :id]]
+        [:tuple :id :id :id :permission-id [:enum :see-and-act] [:tuple [:enum :act] :uuid :digest-hex]]]
 
    ;; The stamp of a fact that the act is based on, as its maker saw it. A
    ;; label: no gate reads it, and the act's own stamp is not raised above
@@ -339,12 +363,15 @@
     :uuid   a UUID of any version
     :int    a fixed-width integer; its normal form is a long
     :value  a value that the store can hold; its normal form is its one
-            normal form"
+            normal form
+    :digest-hex  a SHA-256 as text: a string of exactly 64 characters, each
+            a digit or a letter from a to f in lower case"
   {:id    (fn [x] (when (or (readable-keyword? x) (uuid? x)) [:ok x]))
    :key   (fn [x] (when (readable-keyword? x) [:ok x]))
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
    :int   (fn [x] (when (int? x) [:ok (long x)]))
-   :value (fn [x] (when (value? x) [:ok (normal-value x)]))})
+   :value (fn [x] (when (value? x) [:ok (normal-value x)]))
+   :digest-hex (fn [x] (when (and (string? x) (re-matches #"[0-9a-f]{64}" x)) [:ok x]))})
 
 ;; ---------------------------------------------------------------- the engine
 
@@ -485,7 +512,7 @@
   wrong, or nil when that part names none. The map may hold the entries of
   `shapes` and add its own; the door's declaration does so.
 
-  Limits. The five leaves and the nesting limits stay this namespace's: a
+  Limits. The six leaves and the nesting limits stay this namespace's: a
   caller gives the map of shapes and nothing else, so a named shape of the
   caller's can be inside itself no times. It can throw, as the engine can,
   for a thing that throws when it is read; the caller turns a throw into a
@@ -497,7 +524,8 @@
 
 (defn allows
   "Takes a permission id in its one form. Gives what the permission allows:
-  the word of its fifth slot, `:see` or `:see-and-act`, when it has one;
+  the word of its fifth slot, `:see` or `:see-and-act`, when it has one,
+  with a sixth slot behind it or without;
   `:see-and-act` for a permission with three or four slots. So a permission
   that was given before the slot existed reads as \"see and act\", and this
   is the one place where that is code. A gate refuses an act under a
@@ -506,12 +534,27 @@
   (`softland.store.read-path.layers/standing`).
 
   What must hold: the thing has the shape `:permission-id`. It never throws:
-  anything that is no vector of five slots gives `:see-and-act`, so a caller
-  that holds a thing of no shape tests the shape first."
+  anything that is no vector of five slots or six gives `:see-and-act`, so a
+  caller that holds a thing of no shape tests the shape first."
   [permission]
-  (if (and (vector? permission) (= 5 (count permission)))
+  (if (and (vector? permission) (<= 5 (count permission) 6))
     (nth permission 4)
     :see-and-act))
+
+(defn covers
+  "Takes a permission id in its one form. Gives what the permission covers,
+  its sixth slot: `[:run session]`, the acts and the reads of one run;
+  `[:act uuid digest]`, one act; or nil for a permission with no sixth slot,
+  which covers its layer until it is ended. The one place where that slot is
+  read. A gate holds an act to it (`softland.store.gate.decision/standing`),
+  and it says on which place the permission sits
+  (`softland.store.gate.chain/place`).
+
+  What must hold: the thing has the shape `:permission-id`. It never throws:
+  anything that is no vector of six slots gives nil."
+  [permission]
+  (when (and (vector? permission) (= 6 (count permission)))
+    (nth permission 5)))
 
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which

@@ -75,6 +75,11 @@ group observed. This page does not retell the checks.
 
 ### What the pure proof does not reach
 
+- whether the statements of a permission for a run and for an act are the
+  right ones: the cases hold the gate to the words that the proof's writer
+  expected. A check by another hand is in
+  `src/proposal/runtime-2026-11-21/gate-histories/`, which holds the gate's
+  pure code against statements in plain code, on generated histories;
 - a line of acts with an end in it, walked in memory: the cases of a permission
   that ends hold the checks on rows that the proof builds, with stamps that the
   proof chose. The module's proof sends such a line through both gates, where
@@ -200,6 +205,11 @@ No check holds a number of milliseconds.
 
 ### What the module's proof does not reach
 
+- a permission for a run or for an act that was given before the module is
+  started again, held after it; and one in a batch or an event that fails and
+  runs again;
+- what the digest for a permission of one act costs on a large act: the
+  groups send acts of one small fact;
 - an end that was made before the module is started again, held after it: the
   two groups of a permission that ends run before the start, and no check
   after it sends an act of a holder beneath an end. An idea for a check: in
@@ -555,6 +565,8 @@ Rama's test tool, and lets it go on.
 
 ### What the read path's proof does not reach
 
+- a read asked in a run through the base: the group `a-read-asked-in-a-run`
+  reads a streaming layer;
 - an end under a live read of the base: the group
   `a-permission-ends-under-a-live-read` ends permissions in a streaming layer.
   The pure proof plays no task, so nothing holds that the rows above an

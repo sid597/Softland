@@ -133,6 +133,9 @@ nowhere but at its own place ([chain.clj](../gate/chain.clj)). So a read holds
 the row of each holder above her, one push for each, which her own row names all
 at once: none when she is the layer's first holder, one when she is straight
 beneath her. Askers beneath one holder share the push on that holder's row.
+A read that names its run holds the row of that run's permission too, on the
+session, and the rows above it: she sees the layer when either stands, and a
+run's permission lets her see only when it names her as its holder.
 When her permission ends, or one above it, her read leaves the layer's facts at
 once and her answer says that the layer is left out, as when a setting goes to
 "members" for an asker with no permission. The read keeps her row and the rows
@@ -305,6 +308,7 @@ measures, `softland.store.read-measures`.
 | `:asks`, with `:place`, `:entity`, `:run`, `:points-at` | What is asked, and its four words |
 | `:first`, `:last` | The two ends of a layer, as ends of a run |
 | `:asker`, `:not-signed-in` | Who asks |
+| `:session` | The run that the read is asked in, as an act names its `:session`. With an asker only. The asker then sees a layer that is open to its members under her permission for the layer, or under that run's |
 | `:layers`, `:from-layer` | Through which layers; the layer to take the list from |
 | `:with`, with `:writer`, `:permission` and `:time` | The parts of a row that are asked for |
 | `:stores-own-facts` | Whether the store's own facts are asked for |
@@ -313,6 +317,7 @@ measures, `softland.store.read-measures`.
 wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 `:place-not-named`, `:entity-not-named`, `:run-not-named`,
 `:points-at-not-named`, `:asker-is-no-id`, `:no-one-asker`,
+`:session-is-no-id`, `:run-with-no-asker`,
 `:layers-not-a-list-of-layers`, `:from-layer-is-no-layer`,
 `:layers-not-named-one-way`, `:too-many-layers`, `:part-of-a-row-not-known`,
 `:id-over-the-limit`, `:run-ends-out-of-order`, `:run-end-not-ordered`,
@@ -368,7 +373,7 @@ others are.
 |---|---|
 | `:once`, `:live` | How a read is asked, as the code that fetches tells the code that says what is wanted |
 | `:layers`, `:list-known?`, `:standing`, `:by-layer`, `:wanted`, `:missing`, `:too-large`, `:digest` | What "what a read wants now" gives: the layers; whether the list of a start layer can be said yet; each layer's standing; what is read in each layer; every source that is wanted; those that are not read yet; whether the checks are more than one read may have; the digest of the thing asked about |
-| `:own`, `:permission`, `:chain`, `:facts`, `:since`, `:checks` | What is read in one layer: the source of its own rows, of the asker's permission, of the row of each permission above hers, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
+| `:own`, `:permission`, `:run-permission`, `:chain`, `:facts`, `:since`, `:checks` | What is read in one layer: the source of its own rows, of the asker's permission, of the permission of the run that she asks in, of the row of each permission above those two, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
 | `:join`, `:leave`; `:joined`, `:left` | The sources that a live read is to hold and to let go; and those that one step did |
 | `:tell`, `:owed?` | What a step gives back: what to hand the asker's function, and whether the whole answer is owed after it |
 | `:walk`, `:places`, `:holds?`, `:gives`; `:given`, `:none`, `:waits` | How the rows of one word of a query are put together; and the three outcomes of the walk of one place |

@@ -537,8 +537,8 @@ changes with them. They shape the read build, whose starter is
    October). Not decided, and kept only so that the build can run:
    - A holder has one permission in a layer, as built. She cannot hold "see"
      from one giver and "act" from another. Decided on 21 November 2026: a
-     holder can have more than one (entry 6 of 20 and 21 November). It is
-     not built.
+     holder can have more than one (entry 6 of 20 and 21 November): beside
+     her permission for the layer, one for each run and each act.
    - The setting takes a second write. Who may write it is not said: his word
      is "the owner", and no layer names an owner as a fact (entry 5 of 8
      October). Decided on 20 November 2026: the layer's root holder alone
@@ -1108,26 +1108,33 @@ session's question whether his decisions of these two days go on this page.
    should only be either with the system for security or only the user since
    its personal"; and an audit or a benchmark, "where it should be possible
    to not give access to data to model or students so that we tell them
-   answer eixists but we are testing you". Not built: a permission covers a
-   whole layer.
+   answer eixists but we are testing you". Built on 21 November for what an
+   act is taken under: a permission can cover one act (entry 6). Not built
+   for what a reader sees: a thing is hidden by the layer that it sits in
+   (entry 7).
 5. **How much one yes covers is a spectrum.** Sid: "permissions is also like
    someone is asking for read write access and that has the spectrum of
    everytime to always allow and that can be per run of some
    task/query/agent" (‹45c7127b›). A session's reading: a permission says
    what it covers, from one act up to a layer, and how long it stands, for
    one act, for one run, or until it is ended; the default is the whole
-   layer, until ended. Not built.
+   layer, until ended. Built on 21 November, in a session's forms
+   (`softland/store/act.clj`, `covers`). He said of the choice between two
+   forms of a yes for one act that it is the product's question
+   (‹4eaf571e›): what a person is asked and shown is not in the store.
 6. **A holder can have more than one permission in a layer at once.** Sid
    decided, on 21 November, in the chat of the session that built entries 1
    to 3: "I think yes it can have more than one permission because bio-agent
    is not a single thing we can run 10k instances of the same thing unloke a
    human so each instance can have different permisiion based on different
    uses it has or work so yes" (‹95754ddf›). It replaces what the read build kept and did not
-   decide (entry 1 of 11 and 12 October, its first point). Not built: a
-   permission sits on its holder, one place for a holder in a layer
-   (`softland/store/gate/decision.clj`, `permission-place`). A session's
-   position, not his decision: a permission sits on what it covers, the
-   holder, one run or one act, and says which.
+   decide (entry 1 of 11 and 12 October, its first point). Built on 21
+   November, in a session's form and not his decision: a permission sits on
+   what it covers, the holder, one run or one act, and says which
+   (`softland/store/gate/chain.clj`, `place`). Ten thousand instances of one
+   agent are one who and ten thousand runs. A session's rule with it: a
+   permission for a run or for an act gives nothing. Not built: two
+   permissions for the layer that stand at once for one holder.
 7. **A thing is hidden by its boundary.** It sits in a boundary that the
    reader does not hold; it is not cut out of one that she holds. Sid
    decided: "yes to boundary" (‹8fa7043a›). In the same line: "do we have to

@@ -697,6 +697,31 @@ a give**: a give is not taken at a place whose permission stands, so the holder
 above ends the one that says `:see` and gives another. What the holder had given
 beneath the first ends with it.
 
+**A permission says what it covers.** A sixth slot of the id, behind what it
+allows: `[:run session]`, the acts and the reads of one run, or
+`[:act uuid digest]`, one act (`covers` in [act.clj](act.clj)); with no sixth
+slot it covers the layer until it is ended, so each permission that exists
+keeps its meaning. Each kind sits on what it covers, under a key of its own:
+the layer's on its holder, a run's on the session, an act's on the uuid of the
+act's act-id (`place` in [chain.clj](gate/chain.clj)). Three keys and not one,
+because a holder, a session and an act are each named by an id of one kind:
+under one key a give for a run whose session has the id of a holder would land
+on that holder's place. So a holder can have, beside her permission for the
+layer, one for each of any number of runs and acts, each standing or ended by
+itself (Sid, 21 November 2026); the forms and the two keys' words are a
+session's. A gate holds an act to what its permission covers before it reads
+the chain: the act's `:session` against the run, the uuid of its act-id and
+its digest against the act. The digest is of the thing without the time on it
+and without its `:permission` (`hex-for-its-permission` in
+[digest.clj](door/digest.clj)): the act names the permission, so the permission
+cannot hold a digest that covers itself. **A permission for a run or for an
+act gives nothing**: what is given beneath a permission must cover no more
+than it does, and a holder for one run who could give would give herself a
+permission for the layer. And a run ends no permission of its holder's but
+its own. The session that writes the generated histories found the first of
+those roads in the statements before any of this was built
+(`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`, R10).
+
 **A permission ends, and what was given beneath it ends with it.** An end is a
 fact with no value at the holder's place, sent by her giver, by anyone above the
 giver up to the layer's first holder, or by herself; the layer's first
@@ -1186,6 +1211,10 @@ order, and "digest" is this store's word since its module.
 | `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
 | `chain-needed`, `chains-needed` | In [decision.clj](gate/decision.clj): the rows of the permissions above an act's own, and above a permission that a give would write over |
 | `above`, `place`, `places-above`, `above?`, `stands?` | In [chain.clj](gate/chain.clj): the chain of a permission, and whether it stands |
+| `covers` | In [act.clj](act.clj): a permission → nil, `[:run session]` or `[:act uuid digest]` |
+| `hex-for-its-permission` | In [digest.clj](door/digest.clj) and, for a gate, [decision.clj](gate/decision.clj): the digest that a permission for one act holds |
+| `permission-keys` | In [declaration.clj](door/declaration.clj): the three store keys under which a permission is given and ended |
+| a run | What an act names as its `:session`: one sitting of a person, or one run of an agent |
 | `held-permission`, `ended?` | In [rows.clj](record/rows.clj): the permission that the row at a permission's place holds, and whether that row is an end |
 | an end | A fact with no value under `:softland.store/permission`, at a place that holds a permission: its row holds no value |
 | the first holder | The holder of a layer's first permission, the one with nothing above it |
@@ -1366,6 +1395,10 @@ fact sits.
 | `:permission-does-not-stand` | The record does not hold the act's permission for its holder: the place is empty, or holds another permission |
 | `:permission-ended` | The place of the act's `:who` holds an end: her permission in the layer was ended, and she was not given one again |
 | `:permission-above-ended` | The record holds the act's permission, and a permission above it does not stand, or was given again after the act's own was given |
+| `:permission-for-another-run` | The act's permission covers one run, and the act's `:session` is not that run |
+| `:permission-for-another-act` | The act's permission covers one act, and the uuid of the act's act-id is not the one that it names |
+| `:act-not-the-one-permitted` | The act's permission covers this act-id, and the thing's digest, without its permission and its time, is not the one that the permission names |
+| `:only-a-permission-for-the-layer-gives` | A give in an act under a permission for a run or for an act |
 | `:permission-does-not-allow-acting` | The act's permission stands, and it says `:see`: an act needs "act" |
 | `:replaced-fact-not-current` | A fact that the act replaces is not the current fact of its place |
 | `:setting-not-on-the-layer` | A fact under a setting key is on an entity that is not the act's layer |

@@ -2094,6 +2094,80 @@
            "| after the second give of the one beneath:" (pr-str (mapv :word after-cal-again))
            "| stamps of give, end, refused act, second give, act:" (pr-str stamps))))
 
+(deftest a-permission-for-a-run-and-for-an-act
+  (let [run-key :softland.store/run-permission
+        act-key :softland.store/act-permission
+        ida-own [:ida :studio :studio]
+        ida (fn [facts] (thing :studio :ida ida-own facts))
+        for-run (fn [who session] [who :studio :studio ida-own :see-and-act [:run session]])
+        for-act (fn [who x] [who :studio :studio ida-own :see-and-act [:act (nth (:act-id x) 2) (digest/hex-for-its-permission x)]])
+        in-run (fn [who permission session facts] (thing :studio who permission facts {:session session}))
+        r1 (for-run :joe :run-1)
+        r2 (for-run :joe :run-2)
+        made (decide! (making :studio :ida :ida))
+        give-r1 (decide! (ida [{:e :run-1 :k run-key :v r1}]))
+        in-its-run (decide! (in-run :joe r1 :run-1 [(value-fact :run-note-1 :text "in run 1")]))
+        in-another-run (decide! (in-run :joe r1 :run-2 [(value-fact :run-note-2 :text "in run 2")]))
+        by-another-who (decide! (in-run :kim r1 :run-1 [(value-fact :run-note-3 :text "kim in run 1")]))
+        gives-herself (decide! (in-run :joe r1 :run-1 [{:e :joe :k :softland.store/permission :v [:joe :studio :studio r1]}]))
+        gives-a-run (decide! (in-run :joe r1 :run-1 [{:e :run-9 :k run-key :v [:joe :studio :studio r1 :see-and-act [:run :run-9]]}]))
+        a-setting (decide! (in-run :joe r1 :run-1 [{:e :studio :k :softland.store/who-may-see :v :everyone}]))
+        wrong-key (decide! (ida [{:e :run-3 :k :softland.store/permission :v (for-run :joe :run-3)}]))
+        wrong-place (decide! (ida [{:e :run-4 :k run-key :v (for-run :joe :run-3)}]))
+        give-r2 (decide! (ida [{:e :run-2 :k run-key :v r2}]))
+        give-see (decide! (ida [{:e :joe :k :softland.store/permission :v [:joe :studio :studio ida-own :see]}]))
+        three-rows [(fact-row :studio :joe :softland.store/permission) (fact-row :studio :run-1 run-key) (fact-row :studio :run-2 run-key)]
+        run-2-ends-run-1 (decide! (in-run :joe r2 :run-2 [{:e :run-1 :k run-key}]))
+        over-one-that-stands (decide! (ida [{:e :run-1 :k run-key :v (for-run :kim :run-1)}]))
+        end-r1 (decide! (ida [{:e :run-1 :k run-key}]))
+        after-the-end [(decide! (in-run :joe r1 :run-1 [(value-fact :run-note-4 :text "after the end")]))
+                       (decide! (in-run :joe r2 :run-2 [(value-fact :run-note-5 :text "the other run")]))]
+        r1-again (decide! (ida [{:e :run-1 :k run-key :v r1}]))
+        in-run-1-again (decide! (in-run :joe r1 :run-1 [(value-fact :run-note-6 :text "given again")]))
+        own-end (decide! (in-run :joe r2 :run-2 [{:e :run-2 :k run-key}]))
+        after-own-end (decide! (in-run :joe r2 :run-2 [(value-fact :run-note-7 :text "after its own end")]))
+        ;; one act
+        x (in-run :joe nil :run-1 [(value-fact :experiment-3 :dose "5 mg")])
+        pa (for-act :joe x)
+        y (in-run :joe nil :run-1 [(value-fact :experiment-4 :dose "5 mg")])
+        pb (for-act :joe y)
+        give-pa (decide! (ida [{:e (nth (:act-id x) 2) :k act-key :v pa}]))
+        give-pb (decide! (ida [{:e (nth (:act-id y) 2) :k act-key :v pb}]))
+        another-act (decide! (in-run :joe pa :run-1 [(value-fact :experiment-5 :dose "5 mg")]))
+        not-as-permitted (decide! (assoc y :permission pb :facts [(value-fact :experiment-4 :dose "50 mg")]))
+        the-act (decide! (assoc x :permission pa))
+        the-row (fact-row :studio :experiment-3 :dose)]
+    (check "a permission for one run is given by a holder of the layer, and sits on the run's session under its own key"
+           [:accepted :accepted r1] [(:word made) (:word give-r1) (record/held-permission (fact-row :studio :run-1 run-key))])
+    (check "an act of its holder in that run is taken; in another run of hers it is refused; by another who in that run it is refused"
+           [:accepted :permission-for-another-run :who-not-the-permissions-holder]
+           [(:word in-its-run) (:word in-another-run) (:word by-another-who)])
+    (check "a permission for a run gives nothing: its holder cannot give herself a permission for the layer beneath it, or a permission for another run; and it writes no setting"
+           [:only-a-permission-for-the-layer-gives :only-a-permission-for-the-layer-gives :only-the-first-holder-writes-a-setting
+            nil]
+           [(:word gives-herself) (:word gives-a-run) (:word a-setting) (fact-row :studio :run-9 run-key)])
+    (check "the declaration refuses a permission for a run under the key of a permission for the layer, and one that does not sit on its run"
+           [:permission-fact-under-another-key :permission-fact-not-on-what-it-covers] [(:word wrong-key) (:word wrong-place)])
+    (check "a holder has a permission for the layer and one for each of two runs at once, each on its own place"
+           [:accepted :accepted [[:joe :studio :studio ida-own :see] r1 r2]]
+           [(:word give-r2) (:word give-see) (mapv record/held-permission three-rows)])
+    (check "a run ends no permission but its own: her other run's is refused; a give at a run that has a permission which stands is refused"
+           [:not-above-the-permission :holder-has-a-permission] [(:word run-2-ends-run-1) (:word over-one-that-stands)])
+    (check "the giver ends the run's permission: an act in that run is refused with the word of an end, and her other run's stands; the run is given one again, and acts"
+           [:accepted [:permission-ended :accepted] :accepted :accepted]
+           [(:word end-r1) (mapv :word after-the-end) (:word r1-again) (:word in-run-1-again)])
+    (check "a run ends its own permission, and its next act is refused"
+           [:accepted :permission-ended] [(:word own-end) (:word after-own-end)])
+    (check "a permission for one act sits on the uuid of the act's act-id, and holds the digest of the act without its permission and its time"
+           [:accepted :accepted pa] [(:word give-pa) (:word give-pb) (record/held-permission (fact-row :studio (nth (:act-id x) 2) act-key))])
+    (check "another act that names it is refused; the act with the permitted act-id and another value is refused, and writes nothing; the act that was permitted is taken, and its row holds its value and the permission that covered it"
+           [:permission-for-another-act :act-not-the-one-permitted nil :accepted [:value "5 mg"] pa]
+           [(:word another-act) (:word not-as-permitted) (fact-row :studio :experiment-4 :dose)
+            (:word the-act) (record/read-value the-row) (record/permission-of the-row)])
+    (shown "a permission for a run and for an act, in a streaming layer: in its run" (told in-its-run) "| in another run:" (:word in-another-run)
+           "| a give under it:" (:word gives-herself) "| after the giver's end, that run and the other:" (pr-str (mapv :word after-the-end))
+           "| the permitted act:" (told the-act) "| the same act-id with another value:" (:word not-as-permitted))))
+
 (deftest what-points-at-a-thing
   (let [u (UUID/randomUUID)
         place (fn [e] (fact-row :canvas e :on))
@@ -3254,6 +3328,39 @@
            (pr-str (mapv :word [hana-before ivo-before end-hana hana-after ivo-after]))
            "| the end's row is on" (count ended-rows) "tasks | after her second give:" (pr-str (mapv :word [hana-again hana-acts ivo-still])))))
 
+(deftest a-permission-for-a-run-and-for-an-act-in-the-base
+  (let [run-key :softland.store/run-permission
+        act-key :softland.store/act-permission
+        nias [:nia :base :base system-own :see-and-act [:run :run-b1]]
+        in-run (fn [session facts] (thing :base :nia nias facts {:session session}))
+        x (thing :base :nia nil [(value-fact :base-experiment :dose "5 mg")] {:session :run-b1})
+        pa [:nia :base :base system-own :see-and-act [:act (nth (:act-id x) 2) (digest/hex-for-its-permission x)]]
+        [give-run in-its-run in-another-run gives-under-it give-act the-act the-act-changed end-run after-the-end]
+        (decide-in-one-batch!
+         [(system-act [{:e :run-b1 :k run-key :v nias}])
+          (in-run :run-b1 [(value-fact :nias-doc :text "in her run")])
+          (in-run :run-b2 [(value-fact :nias-doc-2 :text "in another run")])
+          (in-run :run-b1 [{:e :nia :k :softland.store/permission :v [:nia :base :base nias]}])
+          (system-act [{:e (nth (:act-id x) 2) :k act-key :v pa}])
+          (assoc x :permission pa)
+          (thing :base :nia pa [(value-fact :base-experiment :dose "50 mg")] {:session :run-b1})
+          (system-act [{:e :run-b1 :k run-key}])
+          (in-run :run-b1 [(value-fact :nias-doc-3 :text "after the end")])])
+        run-rows (rows-by-task :mb-facts-ps (record/place-key :base :run-b1 run-key))
+        act-rows (rows-by-task :mb-facts-ps (record/place-key :base (nth (:act-id x) 2) act-key))
+        dose-rows (rows-by-task :mb-facts-ps (record/place-key :base :base-experiment :dose))]
+    (check "in the base, in one batch and in the order appended: a permission for a run is given; an act in that run is taken, and one in another run refused; a give under it is refused; a permission for one act is given, the act is taken, and another act that names it is refused; the run's permission is ended, and an act in the run is refused"
+           [:accepted :accepted :permission-for-another-run :only-a-permission-for-the-layer-gives
+            :accepted :accepted :permission-for-another-act :accepted :permission-ended]
+           (mapv :word [give-run in-its-run in-another-run gives-under-it give-act the-act the-act-changed end-run after-the-end]))
+    (check "the rows of the run's permission and of the act's are on every task: the run's an end after the batch, the act's the permission; and the permitted act's fact is on every task, written under that permission"
+           [tasks #{true} tasks #{pa} tasks #{[:value "5 mg"]} #{pa}]
+           [(count run-rows) (set (map record/ended? (vals run-rows)))
+            (count act-rows) (set (map record/held-permission (vals act-rows)))
+            (count dose-rows) (set (map record/read-value (vals dose-rows))) (set (map record/permission-of (vals dose-rows)))])
+    (shown "a permission for a run and for an act in the base, in one batch:"
+           (pr-str (mapv :word [give-run in-its-run in-another-run gives-under-it give-act the-act the-act-changed end-run after-the-end])))))
+
 (deftest what-points-at-a-thing-in-the-base
   (let [[e1 e2 e3] (:base-entities @kept)
         u (UUID/randomUUID)
@@ -4204,6 +4311,7 @@
   (the-keys-that-take-a-second-write)
   (what-a-permission-allows)
   (a-permission-ends)
+  (a-permission-for-a-run-and-for-an-act)
   (what-points-at-a-thing)
   (the-base-is-made)
   (an-act-lands-in-the-base)
@@ -4223,6 +4331,7 @@
   (the-keys-that-take-a-second-write-in-the-base)
   (what-a-permission-allows-in-the-base)
   (a-permission-ends-in-the-base)
+  (a-permission-for-a-run-and-for-an-act-in-the-base)
   (what-points-at-a-thing-in-the-base)
   (one-batch-under-a-marked-key)
   (the-module-keeps-no-lock)

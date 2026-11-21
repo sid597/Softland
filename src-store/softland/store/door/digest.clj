@@ -14,6 +14,10 @@
 
     digest         anything -> 32 bytes
     hex-of         anything -> the digest as hex text, 64 characters
+    hex-for-its-permission
+                   anything -> the hex text that a permission for this one
+                   act holds: the digest of the thing without its
+                   `:permission` too
     is-digest-of?  a digest as hex text, and anything -> true or false
     readable-hex-of  anything -> the digest as hex text, or nil for a thing
                      that throws while it is read
@@ -102,6 +106,26 @@
   gate keeps the digest of a stray."
   [x]
   (text/hex (digest x)))
+
+(defn hex-for-its-permission
+  "Takes a thing as it arrives on a depot, or as a door is about to send it:
+  an act with its act-id and its depot, with the time on it or without.
+  Gives the text that a permission for this one act holds in its sixth slot
+  (`softland.store.act/covers`): the digest, as 64 hex characters, of the
+  thing without the time on it and without its top-level `:permission`. So
+  it holds the act-id, the act's who, its session, its facts and every other
+  part, and whoever says yes to the act can make it before the permission
+  exists. The act names its permission and the permission names this text:
+  were the permission in it, neither could be made first.
+
+  A gate makes it of the thing that arrived and holds it against the
+  permission that the act names (`softland.store.gate.decision/standing`).
+  Anything that is no plain map is taken as `hex-of` takes it. It never
+  throws. Cost: one walk of the thing."
+  [x]
+  (hex-of (if (and (map? x) (not (record? x)))
+            (try (dissoc x :permission) (catch Throwable _ x))
+            x)))
 
 (defn is-digest-of?
   "The comparison of a sender that still holds its thing, as the hand of the

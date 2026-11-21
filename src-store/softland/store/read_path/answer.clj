@@ -419,31 +419,28 @@
 (defn meanings
   "Takes a query in its one form, `known`, the source whose push changed,
   and the push's value before and after. For the source of a layer's own
-  rows, of the asker's permission row, or of another holder's permission
-  row in the layer, which can be a row above hers, gives [before after]:
-  what the rows meant for this query before the change and after it
+  rows, of the asker's permission row, of the permission of the run that
+  she asks in, or of another row under a key of a permission in the layer,
+  which can be a row above one of hers, gives [before after]: what the rows
+  meant for this query before the change and after it
   (`softland.store.read-path.layers/meaning`), each beside what `known`
   holds of the other sources. Gives nil for any other source.
 
-  The rows above her permission are read from `known`
-  (`softland.store.read-path.sources/chain-rows`), with the changed
+  Whether she holds a permission that stands is read from `known`
+  (`softland.store.read-path.sources/permission-state`), with the changed
   source's value before, and then after, in its place. So the end of a
-  permission above hers means another thing before and after, and a change
-  of a permission row that is not above hers means the same."
+  permission above hers, or of her run's, means another thing before and
+  after, and a change of a permission row that is neither hers nor above
+  hers means the same."
   [query known source old new]
   (let [layer (:layer source)
         home (layers/home query)
-        asker (:asker query)
-        signed-in? (some? asker)
-        permission (when signed-in? (sources/permission-source home layer asker))
+        signed-in? (some? (:asker query))
         own-source (sources/own-rows-source home layer)
         meant (fn [known]
-                (let [permission-row (if (and permission (contains? known permission))
-                                       (get known permission)
-                                       :not-known-yet)]
-                  (layers/meaning query layer (get known own-source) permission-row
-                                  (sources/chain-rows home layer permission-row known)
-                                  signed-in?)))]
+                (layers/meaning query layer (get known own-source)
+                                (sources/permission-state query home layer known)
+                                signed-in?))]
     (when (sources/rights-kind query source)
       [(meant (assoc known source old))
        (meant (assoc known source new))])))

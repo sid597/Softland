@@ -35,16 +35,21 @@
     permission-state
                   a layer, her permission row, the rows above it ->
                   `:stands`, `:none` or `:not-known-yet`
-    standing      a layer, its own rows, her permission row, the rows above
-                  it, whether she is signed in -> `:yes`, `:may-not-see`,
-                  `:not-made` or `:not-known-yet`
+    run-permission-state
+                  a layer, the asker, the row of the run that she asks in,
+                  the rows above it -> the same three words
+    either        two of those words -> one: whether she holds a
+                  permission that stands, of either kind
+    standing      a layer, its own rows, whether she holds a permission
+                  that stands, whether she is signed in -> `:yes`,
+                  `:may-not-see`, `:not-made` or `:not-known-yet`
     in-order      a query, the start layer's own rows and standing -> the
                   layers of the read, nearest first, or nil
     home          a query -> the layer that the read starts from
     left-out      a layer and why -> what an answer says of it
-    meaning       a query, a layer, its own rows, her permission row, the
-                  rows above it, whether she is signed in -> what the rows
-                  mean for this query, as a value that `=` compares
+    meaning       a query, a layer, its own rows, whether she holds a
+                  permission that stands, whether she is signed in -> what
+                  the rows mean for this query, as a value that `=` compares
 
   \"Standing\" here is whether an asker may see a layer, as the read path
   knows it now. `softland.store.gate.decision` uses the same word for a
@@ -151,11 +156,47 @@
         :else :none)
       :none)))
 
+(defn run-permission-state
+  "Does the run that the asker asks in hold a permission of hers that
+  stands in a layer. Takes the layer; the asker; the row at the place of
+  the run's permission, the run being the query's `:session` (a row, nil
+  for none, or `:not-known-yet`); and the rows above it, as
+  `permission-state` takes them. Gives the three words of
+  `permission-state`. `:stands` only when the row holds a permission whose
+  holder is the asker, and it stands by the gates' rule: a run's permission
+  is its holder's, and another who that asks in a run of the same id is
+  given nothing by it. What the permission allows is not read: `:see` is
+  enough for a read."
+  [layer asker run-row chain-rows]
+  (if (= :not-known-yet run-row)
+    :not-known-yet
+    (let [held (rows/held-permission run-row)]
+      (cond
+        (or (nil? held) (not= asker (nth held 0))) :none
+        (= :not-known-yet chain-rows) :not-known-yet
+        (chain/stands? layer held (assoc chain-rows (chain/place layer held) run-row)) :stands
+        :else :none))))
+
+(defn either
+  "Takes what `permission-state` gave for the asker's permission for the
+  layer, and what `run-permission-state` gave for the run that she asks in.
+  Gives whether she holds a permission that stands, of either kind:
+  `:stands` when one does; else `:not-known-yet` when one is not known;
+  else `:none`. An asker may see a layer that is open to its members under
+  her permission for the layer, or under the permission of the run that she
+  asks in (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R8). A
+  permission for one act lets nobody see, and is not read here."
+  [for-the-layer for-the-run]
+  (cond
+    (or (= :stands for-the-layer) (= :stands for-the-run)) :stands
+    (or (= :not-known-yet for-the-layer) (= :not-known-yet for-the-run)) :not-known-yet
+    :else :none))
+
 (defn standing
   "Is a layer made, and may this asker see it. Takes the layer; its own
-  rows, or nil when they are not known; her permission row in the layer
-  (a row, nil for none, or `:not-known-yet`); the rows above it
-  (`permission-state`); and whether she is signed in. Gives one of four
+  rows, or nil when they are not known; whether she holds a permission that
+  stands in it, as `either` gives it (`:stands`, `:none` or
+  `:not-known-yet`); and whether she is signed in. Gives one of four
   words:
 
     the layer's own rows   its setting   her permission        it gives
@@ -164,7 +205,7 @@
     a depot row            :everyone     any, or not read      :yes
     a depot row            :members      she is not signed in  :may-not-see
     a depot row            :members      not known yet         :not-known-yet
-    a depot row            :members      it stands             :yes
+    a depot row            :members      one stands            :yes
     a depot row            :members      none that stands      :may-not-see
 
   Any permission that stands allows seeing; what it allows beyond that is
@@ -174,13 +215,13 @@
   Not decided. What a layer starts with (`who-may-see`), and that
   \"members\" is whoever holds a permission in the layer, are kept only so
   that the build can run."
-  [layer own-rows permission-row chain-rows signed-in?]
+  [layer own-rows permission-state signed-in?]
   (cond
     (nil? own-rows) :not-known-yet
     (not (made? own-rows layer)) :not-made
     (= :everyone (who-may-see own-rows layer)) :yes
     (not signed-in?) :may-not-see
-    :else (case (permission-state layer permission-row chain-rows)
+    :else (case permission-state
             :not-known-yet :not-known-yet
             :stands :yes
             :may-not-see)))
@@ -245,11 +286,10 @@
 (defn meaning
   "What a layer's own rows and the asker's permission row mean for one
   query, as a value that `=` compares. Takes the query in its one form, the
-  layer, its own rows (nil when not known), her permission row (a row, nil,
-  or `:not-known-yet`), the rows above it (`permission-state`), and whether
-  she is signed in. Gives a map: whether
-  the layer is made; who may see it; whether she holds a permission that
-  stands (`permission-state`);
+  layer, its own rows (nil when not known), whether she holds a permission
+  that stands in it (`either`), and whether she is signed in. Gives a map:
+  whether the layer is made; who may see it; whether she holds a permission
+  that stands;
   and, only when her standing with these rows is `:yes`, the list that the
   layer builds on when it is the query's start layer, and the stamp of the
   asked key's mark when the query asks what points at a thing. For rows
@@ -264,14 +304,14 @@
   setting that goes to \"members\" for an asker who holds a permission
   leaves her standing as it was, and a change of a fact that was passed
   over while her permission was read must still be told."
-  [query layer own-rows permission-row chain-rows signed-in?]
+  [query layer own-rows permission-state signed-in?]
   (if (nil? own-rows)
     :not-known-yet
-    (let [seen? (= :yes (standing layer own-rows permission-row chain-rows signed-in?))
+    (let [seen? (= :yes (standing layer own-rows permission-state signed-in?))
           [word k] (:asks query)]
       (cond-> {:made?       (made? own-rows layer)
                :who-may-see (who-may-see own-rows layer)
-               :permission  (permission-state layer permission-row chain-rows)}
+               :permission  permission-state}
         (and seen? (= layer (:from-layer query)))
         (assoc :builds-on (builds-on own-rows layer))
 

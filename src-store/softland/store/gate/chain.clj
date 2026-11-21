@@ -7,7 +7,9 @@
   the one above it, up to a first permission, which has nothing above it
   (`softland.store.act`, the forms of a permission id). So the chain of a
   permission is read from its id alone, and each permission of the chain
-  sits on its own holder, in the same layer: a gate takes a give only
+  sits on a place of its own in the same layer, which its id names
+  (`place`): on its holder, or on the run or the act that it covers. A gate
+  takes a give only
   straight beneath the giver's own permission, in the giver's layer
   (`softland.store.gate.decision`, check (g)).
 
@@ -65,7 +67,8 @@
   for an end and a give at a place that holds a row. The read path's
   `softland.store.read-path.layers`, for whether an asker may see a layer
   that is open to its members."
-  (:require [softland.store.record.rows :as record]))
+  (:require [softland.store.act :as act]
+            [softland.store.record.rows :as record]))
 
 (defn above
   "Takes a permission id in its one form. Gives the permission above it, its
@@ -75,17 +78,25 @@
 
 (defn place
   "Takes a layer and a permission id. Gives the key of the place where the
-  permission sits in that layer: on its holder, under
-  `:softland.store/permission`."
+  permission sits in that layer, read from what the permission covers
+  (`softland.store.act/covers`): one that covers the layer sits on its
+  holder, under `:softland.store/permission`; one for a run on the run's
+  session, under `:softland.store/run-permission`; one for an act on the
+  uuid of the act's act-id, under `:softland.store/act-permission`. So a
+  holder's permission for the layer, and her permissions for runs and acts,
+  sit on places of their own and stand or end each by itself."
   [layer permission]
-  (record/place-key layer (nth permission 0) :softland.store/permission))
+  (let [[kind what] (act/covers permission)]
+    (case kind
+      :run (record/place-key layer what :softland.store/run-permission)
+      :act (record/place-key layer what :softland.store/act-permission)
+      (record/place-key layer (nth permission 0) :softland.store/permission))))
 
 (defn places-above
   "Takes a layer and a permission id. Gives the keys of the places of the
   permissions above it in that layer, nearest first: the place of the one
   above, then of the one above that, up to the first permission. An empty
-  vector for a first permission. One key for each permission above, also
-  when one holder is in the chain twice."
+  vector for a first permission. One key for each permission above."
   [layer permission]
   (loop [upper (above permission)
          keys []]

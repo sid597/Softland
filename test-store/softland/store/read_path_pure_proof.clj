@@ -178,6 +178,16 @@
                                             holder's place: a row with no
                                             value. Nothing changes when the
                                             place holds no permission
+    [:give-run layer session holder giver stamp]
+                                            a permission for one run of a
+                                            holder, straight beneath the
+                                            giver's permission for the
+                                            layer, on the session. As a
+                                            gate: only when the giver's
+                                            stands, and the run has none
+                                            that stands
+    [:end-run layer session stamp]          the end of the permission at a
+                                            run's place
     [:list layer layers stamp]              what the layer builds on
     [:marks layer keys stamp]               the layer's marked keys. A key
                                             that was marked keeps its stamp;
@@ -215,6 +225,22 @@
                 (put tables gate :facts k
                      (fact-row* layer giver holder :softland.store/permission [holder layer layer above] stamp))
                 tables))
+      :give-run (let [[session holder giver stamp] more
+                      above (rows/held-permission (get facts (rows/place-key layer giver :softland.store/permission)))
+                      k (rows/place-key layer session :softland.store/run-permission)
+                      there (rows/held-permission (get facts k))]
+                  (if (and above
+                           (chain/stands? layer above facts)
+                           (not (and there (chain/stands? layer there facts))))
+                    (put tables gate :facts k
+                         (fact-row* layer giver session :softland.store/run-permission
+                                    [holder layer layer above :see [:run session]] stamp))
+                    tables))
+      :end-run (let [[session stamp] more
+                     k (rows/place-key layer session :softland.store/run-permission)]
+                 (if (rows/held-permission (get facts k))
+                   (put tables gate :facts k (fact-row* layer :maker session :softland.store/run-permission nil stamp))
+                   tables))
       :end (let [[holder stamp] more
                  k (rows/place-key layer holder :softland.store/permission)]
              (if (rows/held-permission (get facts k))
@@ -676,6 +702,48 @@
                             writes)]
     (open-live tables writes (q {:asks asks :asker :ann :layers [:near :far]}))))
 
+(defn- run-world
+  "A world for one place through two layers, for an asker who asks in a run:
+  the query names the session `:run-7`. `:root` holds the nearer layer's
+  first permission and `:bea` one beneath it. At the start the asker `:ann`
+  holds no permission for the layer, and her run holds one, given by Bea.
+  The nearer layer is open to its members. Takes the writes and what is
+  asked. A write is `[:end-run]`, the end of the run's permission;
+  `[:give-run]`, the run given one again by Bea; `[:end-above]`, the end of
+  Bea's; `[:give-above]`, Bea given hers again; `[:give-own]`, the asker
+  given a permission for the layer by the first holder; `[:end-own]`, its
+  end; `[:give-run-to-another]`, the run given a permission whose holder is
+  another who; or `[:near]`, a fact of the nearer layer at the place."
+  [writes asks]
+  (let [tables (reduce write {}
+                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                        [:permission :near :root 2] [:give :near :bea :root 3] [:give-run :near :run-7 :ann :bea 4]
+                        [:fact :near :maker :p :text "n0" 10] [:fact :far :maker :p :text "f0" 11]])
+        writes (map-indexed (fn [i [kind]]
+                              (case kind
+                                :end-run    [:end-run :near :run-7 (+ 100 i)]
+                                :give-run   [:give-run :near :run-7 :ann :bea (+ 100 i)]
+                                :end-above  [:end :near :bea (+ 100 i)]
+                                :give-above [:give :near :bea :root (+ 100 i)]
+                                :give-own   [:give :near :ann :root (+ 100 i)]
+                                :end-own    [:end :near :ann (+ 100 i)]
+                                :give-run-to-another [:give-run :near :run-7 :dov :bea (+ 100 i)]
+                                :near       [:fact :near :maker :p :text (str "n" i) (+ 100 i)]))
+                            writes)]
+    (open-live tables writes (q {:asks asks :asker :ann :session :run-7 :layers [:near :far]}))))
+
+(defn- every-small-run
+  "Every list of up to n writes of `run-world`. Takes n, what is asked, and
+  the fault that the player is to make, or nil. Gives {:lists :states
+  :wrong}, as `every-small-standing` does."
+  [n asks fault]
+  (let [options [[:end-run] [:give-run] [:end-above] [:give-above] [:give-own] [:end-own] [:give-run-to-another] [:near]]
+        played (for [writes (lists-up-to n options)]
+                 (assoc (every-order (run-world writes asks) fault) :is writes))]
+    {:lists (count played)
+     :states (reduce + (map :states played))
+     :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
+
 (defn- every-small-chain
   "Every list of up to n writes of `chain-world`. Takes n, what is asked, and
   the fault that the player is to make, or nil. Gives {:lists :states
@@ -766,6 +834,8 @@
                 ["no asker"                        (dissoc good :asker)                             [:no-one-asker :asker]]
                 ["an asker, and not signed in"     (assoc good :not-signed-in true)                 [:no-one-asker :asker]]
                 ["not signed in, said with false"  (assoc (dissoc good :asker) :not-signed-in false) [:no-one-asker :not-signed-in]]
+                ["a session that is no id"         (assoc good :session "run-7")                    [:session-is-no-id :session]]
+                ["a session, and not signed in"    (assoc (dissoc good :asker) :not-signed-in true :session :run-7) [:run-with-no-asker :session]]
                 ["layers that are no list"         (assoc good :layers :team)                       [:layers-not-a-list-of-layers :layers]]
                 ["a layer that is no id"           (assoc good :layers [:team "base"])              [:layers-not-a-list-of-layers :layers]]
                 ["a start layer that is no id"     (assoc (dissoc good :layers) :from-layer 7)      [:from-layer-is-no-layer :from-layer]]
@@ -801,7 +871,7 @@
     (doseq [[what thing] forms]
       (check (str "a query is taken: " what) true (some? (q thing))))
     (check "the one form of a query: each part there, an asker of nil for a person who is not signed in, one of the two ways of naming layers nil, a set, true or false"
-           {:asks [:run :first :last] :asker nil :not-signed-in true :layers [:base] :from-layer nil :with #{} :stores-own-facts false}
+           {:asks [:run :first :last] :asker nil :not-signed-in true :session nil :layers [:base] :from-layer nil :with #{} :stores-own-facts false}
            (q (get forms "a whole layer")))
     (check "a :with that asks for each of the three parts of a row, the writer, the permission and the time, is a known query, and its one form keeps the three"
            #{:writer :permission :time} (:with (q (get forms "a place, with each part of a row"))))
@@ -888,61 +958,79 @@
                                     (into {} (map (fn [source] [source (table-value tables source)]))
                                           (sources/chain-sources :lab :lab row))
                                     {})]
-                        (layers/standing :lab (table-value tables (sources/own-rows-source :lab :lab)) row
-                                         (sources/chain-rows :lab :lab row known) true)))]
+                        (layers/standing :lab (table-value tables (sources/own-rows-source :lab :lab))
+                                         (layers/permission-state :lab row (sources/chain-rows :lab :lab row known))
+                                         true)))]
              [(of [] true)
               (of [[:end :lab :bea 5]] true)
               (of [[:end :lab :bea 5] [:give :lab :bea :root 6]] true)
               (of [[:end :lab :bea 5] [:give :lab :bea :root 6] [:give :lab :cal :bea 7]] true)
               (of [[:end :lab :cal 5]] true)
               (of [] false)]))
+    (check "an asker who asks in a run, in a layer open to its members: she may see it under the run's permission when it names her as its holder and stands; not when the query names no run or another run; not when the run's permission names another holder; not when it is ended, or the one above it is; and under her permission for the layer whatever her run holds"
+           [:yes :may-not-see :may-not-see :may-not-see :may-not-see :may-not-see :yes :not-known-yet]
+           (let [lab [[:make :lab 1] [:permission :lab :root 2] [:give :lab :bea :root 3] [:give-run :lab :run-7 :cal :bea 4]]
+                 of (fn [more asker session read?]
+                      (let [tables (reduce write {} (concat lab more))
+                            query (q (cond-> {:asks [:place :p :text] :asker asker :layers [:lab]} session (assoc :session session)))
+                            known (if read? (:known (play-once tables query)) {})]
+                        (layers/standing :lab (table-value tables (sources/own-rows-source :lab :lab))
+                                         (sources/permission-state query :lab :lab known) true)))]
+             [(of [] :cal :run-7 true)
+              (of [] :cal nil true)
+              (of [] :cal :run-8 true)
+              (of [] :dov :run-7 true)
+              (of [[:end-run :lab :run-7 5]] :cal :run-7 true)
+              (of [[:end :lab :bea 5]] :cal :run-7 true)
+              (of [[:end-run :lab :run-7 5] [:give :lab :cal :root 6]] :cal :run-7 true)
+              (of [] :cal :run-7 false)]))
     (check "the standing: the seven lines of its table"
            [:not-known-yet :not-made :yes :may-not-see :not-known-yet :yes :may-not-see]
-           [(layers/standing :team nil :not-known-yet {} true)
-            (layers/standing :nowhere (own :nowhere) nil {} true)
-            (layers/standing :base (own :base) :not-known-yet {} true)
-            (layers/standing :team (own :team) :not-known-yet {} false)
-            (layers/standing :team (own :team) :not-known-yet {} true)
-            (layers/standing :team (own :team) (permission :team :bob) {} true)
-            (layers/standing :alice-notes (own :alice-notes) (permission :alice-notes :bob) {} true)])
+           [(layers/standing :team nil (layers/permission-state :team :not-known-yet {}) true)
+            (layers/standing :nowhere (own :nowhere) (layers/permission-state :nowhere nil {}) true)
+            (layers/standing :base (own :base) (layers/permission-state :base :not-known-yet {}) true)
+            (layers/standing :team (own :team) (layers/permission-state :team :not-known-yet {}) false)
+            (layers/standing :team (own :team) (layers/permission-state :team :not-known-yet {}) true)
+            (layers/standing :team (own :team) (layers/permission-state :team (permission :team :bob) {}) true)
+            (layers/standing :alice-notes (own :alice-notes) (layers/permission-state :alice-notes (permission :alice-notes :bob) {}) true)])
     (check "what no fact reads as: a layer with no setting is members, the base is everyone, a list is nothing, no key is marked"
            [:members :everyone [] nil]
            [(layers/who-may-see (own :team) :team) (layers/who-may-see (own :base) :base)
             (layers/builds-on (own :team) :team) (layers/marked-since (own :alice-notes) :alice-notes :parent)])
     (check "a person who is not signed in sees the base and no members layer; the system is a who like any other"
            [:yes :may-not-see :may-not-see]
-           [(layers/standing :base (own :base) :not-known-yet {} false)
-            (layers/standing :team (own :team) :not-known-yet {} false)
-            (layers/standing :team (own :team) (permission :team :system) {} true)])
+           [(layers/standing :base (own :base) (layers/permission-state :base :not-known-yet {}) false)
+            (layers/standing :team (own :team) (layers/permission-state :team :not-known-yet {}) false)
+            (layers/standing :team (own :team) (layers/permission-state :team (permission :team :system) {}) true)])
     (check "a setting that is written again with the same word: the row differs, and its meaning does not"
            [false true]
            (let [again (with-setting :members 900)]
              [(rows/same-row? (get (own :team) (rows/place-key :team :team :softland.store/who-may-see))
                               (get again (rows/place-key :team :team :softland.store/who-may-see)))
-              (= (layers/meaning points :team (with-setting :members 800) (permission :team :bob) {} true)
-                 (layers/meaning points :team again (permission :team :bob) {} true))]))
+              (= (layers/meaning points :team (with-setting :members 800) (layers/permission-state :team (permission :team :bob) {}) true)
+                 (layers/meaning points :team again (layers/permission-state :team (permission :team :bob) {}) true))]))
     (check "a list, and a mark of the asked key, that are written in a layer that she may not see mean the same before and after"
            [true true]
            (let [carol-from (assoc from :asker :carol)
                  carol-points (assoc points :asker :carol)]
-             [(= (layers/meaning carol-from :alice-notes (own :alice-notes) nil {} true)
-                 (layers/meaning carol-from :alice-notes (with-list [:base]) nil {} true))
-              (= (layers/meaning carol-points :team (own :team) nil {} true)
-                 (layers/meaning carol-points :team (with-mark #{}) nil {} true))]))
+             [(= (layers/meaning carol-from :alice-notes (own :alice-notes) (layers/permission-state :alice-notes nil {}) true)
+                 (layers/meaning carol-from :alice-notes (with-list [:base]) (layers/permission-state :alice-notes nil {}) true))
+              (= (layers/meaning carol-points :team (own :team) (layers/permission-state :team nil {}) true)
+                 (layers/meaning carol-points :team (with-mark #{}) (layers/permission-state :team nil {}) true))]))
     (check "for an asker who may see the layer, a list that is written again and a mark that is taken off mean another thing"
            [false false]
-           [(= (layers/meaning from :alice-notes (own :alice-notes) (permission :alice-notes :alice) {} true)
-               (layers/meaning from :alice-notes (with-list [:base]) (permission :alice-notes :alice) {} true))
-            (= (layers/meaning points :team (own :team) (permission :team :bob) {} true)
-               (layers/meaning points :team (with-mark #{}) (permission :team :bob) {} true))])
+           [(= (layers/meaning from :alice-notes (own :alice-notes) (layers/permission-state :alice-notes (permission :alice-notes :alice) {}) true)
+               (layers/meaning from :alice-notes (with-list [:base]) (layers/permission-state :alice-notes (permission :alice-notes :alice) {}) true))
+            (= (layers/meaning points :team (own :team) (layers/permission-state :team (permission :team :bob) {}) true)
+               (layers/meaning points :team (with-mark #{}) (layers/permission-state :team (permission :team :bob) {}) true))])
     (check "a setting that goes to members for an asker who holds a permission means another thing, though her standing stays yes"
            [false :yes :yes]
            (let [everyone (with-setting :everyone 800)
                  members (with-setting :members 900)]
-             [(= (layers/meaning points :team everyone (permission :team :bob) {} true)
-                 (layers/meaning points :team members (permission :team :bob) {} true))
-              (layers/standing :team everyone (permission :team :bob) {} true)
-              (layers/standing :team members (permission :team :bob) {} true)]))
+             [(= (layers/meaning points :team everyone (layers/permission-state :team (permission :team :bob) {}) true)
+                 (layers/meaning points :team members (layers/permission-state :team (permission :team :bob) {}) true))
+              (layers/standing :team everyone (layers/permission-state :team (permission :team :bob) {}) true)
+              (layers/standing :team members (layers/permission-state :team (permission :team :bob) {}) true)]))
     (check "what an answer says of a layer that it left out: the layer and why, and nothing else"
            {:layer :alice-notes :why :may-not-see} (layers/left-out :alice-notes :may-not-see))
     (shown "the layers: a list gives each layer once at its first place; from a layer the read looks in the layer and then in the layers of its own fact, and no further; a start layer that she may not see gives itself alone")
@@ -1469,6 +1557,13 @@
                                               (let [kind (rights-kind query source)]
                                                 (when-not (= :above kind) kind))))]
                               (every-small-chain 2 [:points-at :parent :canvas-1] nil))
+        ;; an asker who asks in a run, while the run's permission, the one above it and her own for the layer change
+        run-place (every-small-run 2 [:place :p :text] nil)
+        run-points (every-small-run 2 [:points-at :parent :canvas-1] nil)
+        run-open (run-world [[:end-run]] [:place :p :text])
+        run-ended (loop [world run-open n 0]
+                    (let [moves (moves-of world)]
+                      (if (or (empty? moves) (< 200 n)) world (recur (move world (first moves) nil) (inc n)))))
         chain-open (chain-world [[:end-above]] [:place :p :text])
         chain-ended (loop [world chain-open n 0]
                       (let [moves (moves-of world)]
@@ -1523,6 +1618,20 @@
               (boolean (some #(= :near (:layer %)) (get-in chain-ended [:screen :left-out])))
               (contains? (:held chain-ended) fact)
               (= (rows-held chain-open) (rows-held chain-ended))]))
+    (check "a place through a layer that the asker sees under the permission of the run that she asks in: every list of up to two writes of the end of the run's permission, its second give, the end of the one above it and its second give, a permission for the layer given to her and ended, the run given to another holder, and a fact, 72 lists, none with an order that ends wrong; the same for what points at a thing under a key that no layer marks"
+           [[72 []] [72 []]] [[(:lists run-place) (:wrong run-place)] [(:lists run-points) (:wrong run-points)]])
+    (check "such a read holds the row of the run's permission and the rows above it, beside the place where her own permission would sit; when the run's permission ends, the read leaves the layer's fact and her screen gives the farther layer's"
+           [#{":near :ann :softland.store/permission" ":near :run-7 :softland.store/run-permission"
+              ":near :bea :softland.store/permission" ":near :root :softland.store/permission"}
+            ["n0" :near] ["f0" :far] true]
+           (let [rows-held (fn [world] (into #{} (comp (filter #(= :row (first (:path %))))
+                                                       (map #(second (:path %)))
+                                                       (filter #(str/ends-with? % "permission")))
+                                             (:held world)))]
+             [(rows-held run-open)
+              ((juxt :value :layer) (get-in run-open [:screen :place]))
+              ((juxt :value :layer) (get-in run-ended [:screen :place]))
+              (boolean (some #(= :near (:layer %)) (get-in run-ended [:screen :left-out])))]))
     (doseq [{:keys [what wrong]} base-played]
       (check (str "what points at a thing with one layer of the list being the base, each source of the base read under the routing id of the nearest layer: in every order of the callbacks the screen at the end is what a read asked once gives: " what)
              nil wrong))
@@ -1583,6 +1692,9 @@
            "states; what points at a thing," (:lists chain-points) "lists and" (:states chain-points)
            "states; in each end the asker's screen is what a read asked once gives from the tables. With the rows above her permission not read as rights,"
            (count (:wrong chain-points-unseen)) "of the lists of what points at a thing end wrong")
+    (shown "an asker who asks in a run, while the run's permission, the one above it and her own for the layer change, in every order of the callbacks: a place,"
+           (:lists run-place) "lists and" (:states run-place) "states; what points at a thing," (:lists run-points) "lists and" (:states run-points)
+           "states; in each end the asker's screen is what a read asked once gives from the tables")
     (shown "that Rama's client delivers in these ways and no other is not shown here: the probes of this build ran it, in-process")))
 
 (deftest the-size-of-a-run-and-the-order-of-its-keys

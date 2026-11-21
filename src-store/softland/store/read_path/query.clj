@@ -14,6 +14,11 @@
                      | [:points-at key thing]   what points at a thing
      :asker            id                       who asks: exactly one of
      :not-signed-in    true                       these two
+     :session          id                       the run that the read is
+                                                  asked in, as an act names
+                                                  its `:session`; with an
+                                                  asker only; left out: the
+                                                  read is asked in no run
      :layers           [layer ...]              through which layers, nearest
      :from-layer       layer                      first: exactly one of these
                                                   two. The second takes the
@@ -201,6 +206,7 @@
                    [:asks             :value          {:absent :asks-no-word-known :reason :asks-no-word-known}]
                    [:asker            :id             {:optional true :reason :asker-is-no-id}]
                    [:not-signed-in    [:enum true]    {:optional true :reason :no-one-asker}]
+                   [:session          :id             {:optional true :reason :session-is-no-id}]
                    [:layers           [:seq-of :id]   {:optional true :reason :layers-not-a-list-of-layers}]
                    [:from-layer       :id             {:optional true :reason :from-layer-is-no-layer}]
                    [:with             [:set-of [:enum :writer :permission :time] {:max 3}]
@@ -216,9 +222,11 @@
     :layers-within-the-limit    a list holds `max-layers-of-one-read` layers
                                 at most
     :names-one-asker            exactly one of `:asker` and `:not-signed-in`
+    :a-run-has-an-asker         a `:session` only with an `:asker`: a run is
+                                somebody's
     :names-its-layers-one-way   exactly one of `:layers` and `:from-layer`;
                                 a list holds one layer at least
-    :ids-within-the-limit       the asker, each layer and each entity are
+    :ids-within-the-limit       the asker, the session, each layer and each entity are
                                 ids within the limit of a key's text; each
                                 key is a readable keyword within it
     :run-ends-in-order          `:last` is no first end and `:first` no last
@@ -242,6 +250,7 @@
   (`rules-before-the-shape`)."
   [[:layers-within-the-limit  :too-many-layers]
    [:names-one-asker          :no-one-asker]
+   [:a-run-has-an-asker       :run-with-no-asker]
    [:names-its-layers-one-way :layers-not-named-one-way]
    [:ids-within-the-limit     :id-over-the-limit]
    [:run-ends-in-order        :run-ends-out-of-order]
@@ -321,6 +330,9 @@
    :names-one-asker
    (fn [q] (when (= (some? (:asker q)) (some? (:not-signed-in q))) :asker))
 
+   :a-run-has-an-asker
+   (fn [q] (when (and (some? (:session q)) (nil? (:asker q))) :session))
+
    :names-its-layers-one-way
    (fn [q] (when (or (= (some? (:layers q)) (some? (:from-layer q)))
                      (and (some? (:layers q)) (empty? (:layers q))))
@@ -330,6 +342,7 @@
    (fn [q]
      (cond
        (and (some? (:asker q)) (not (declaration/usable-id? (:asker q)))) :asker
+       (and (some? (:session q)) (not (declaration/usable-id? (:session q)))) :session
        (not-every? declaration/usable-id? (:layers q)) :layers
        (and (some? (:from-layer q)) (not (declaration/usable-id? (:from-layer q)))) :from-layer
        (not (asks-usable? (:asks q))) :asks
@@ -436,7 +449,8 @@
 
   The one form. Each part is there. `:asks` is a plain vector in the shape
   of its word, its thing in its one normal form. `:asker` is nil for a
-  person who is not signed in, and `:not-signed-in` is then true. One of
+  person who is not signed in, and `:not-signed-in` is then true.
+  `:session` is nil for a read that is asked in no run. One of
   `:layers`, a plain vector, and `:from-layer` is nil. `:with` is a set.
   `:stores-own-facts` is true or false.
 

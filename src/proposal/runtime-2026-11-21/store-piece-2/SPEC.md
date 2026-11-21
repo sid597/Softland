@@ -72,7 +72,8 @@ its meaning.
   for a run whose session has the id of another holder would land on that
   holder's place. The two words are a session's.
 - **Above.** Each is given straight beneath the giver's own permission, in the
-  giver's layer, as today. The giver's own can be of any of the three kinds.
+  giver's layer, as today. The giver's own covers the layer: a permission for
+  a run or for an act gives nothing (R10).
 
 ## The statements
 
@@ -93,13 +94,16 @@ What must hold, said without rows and stamps. S1 to S10 are those of
   it was given by a holder whose own permission stood, straight beneath that
   one; it was not ended since; and no permission above it was ended since it
   was given. So the end of a holder's permission for the layer ends every
-  permission that she gave beneath it, for a layer, a run or an act; and the
-  end of a run's permission ends what was given beneath that one.
+  permission that she gave beneath it, for a layer, a run or an act.
 - **R4.** The end of one of a holder's permissions ends no other permission of
   hers, unless that other is beneath it.
 - **R5.** A permission for a run or for an act is ended by its giver, by
-  anyone above the giver, and by its holder. After an end, the run or the act
-  can be given a permission again.
+  anyone above the giver, and by its holder. Its holder ends it by an act
+  under that permission itself, or under her permission for the layer: never
+  under her permission for another run or act, so a run ends nothing of hers
+  but its own. After an end, the run or the act can be given a permission
+  again. The same holds for her permission for the layer: she ends it under
+  itself, and no run of hers ends it.
 - **R6.** A run or an act has at most one permission that stands.
 - **R7.** A setting, a list and a mark are written under a layer's first
   permission alone: never under a permission for a run or for an act (S8,
@@ -110,6 +114,15 @@ What must hold, said without rows and stamps. S1 to S10 are those of
   nobody see.
 - **R9.** A thing that names a permission for another run than its own, or for
   another act, is refused, whatever else is right in it.
+- **R10.** A permission for a run or for an act gives nothing: a give in an
+  act under one is refused. Giving takes a permission that covers the layer.
+  Else a holder for one run could give herself, or anyone, a permission for
+  the layer beneath the run's, and a yes for one run would be a yes for every
+  run: the session that writes the generated histories found that road in
+  these statements before any of them was built. What is given beneath a
+  permission must cover no more than it does, and neither a second run nor a
+  layer fits inside one run. It is the side that can be widened later: a run
+  that may give would be one more word in the sixth slot.
 
 ## What changes in the store
 
