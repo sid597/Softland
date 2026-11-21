@@ -10,9 +10,11 @@ spec that the Rama skill's phases start from
 list, where its words were looser than the code, and nine open questions, each
 marked Sid's or Phase 1's. This page was corrected from it on the same day:
 the asker's own things in a layer that she may not see, the who of a refused
-thing, the bound in bytes, and the base. **The plan, Phase 1, starts when piece
-2 has landed**: the two pieces change the same files of the store, and a plan
-made before would be made against code that piece 2 changes. It says what is asked, what the
+thing, the bound in bytes, and the base. Piece 2 has since landed
+([BUILD-store-piece-2.md](../BUILD-store-piece-2.md)), and the session that
+finished it added the last section, "After piece 2, and the defaults taken",
+before any plan: the plan is made against the code as piece 2 left it. The
+build is in three stages ([DECOMPOSITION.json](DECOMPOSITION.json)). It says what is asked, what the
 store is today, and what must hold. It designs no table and no topology: that
 is Phase 1's. Three kinds of statement are kept apart: **Sid's**, **a
 session's**, and **a fact of the code**, with the file that says it.
@@ -131,7 +133,7 @@ built, and the runtime will hold the asker against the caller.
 
 ## The setting
 
-**Sid's**: "unless the layer turns it on". **A session's**: its form. A sixth
+**Sid's**: "unless the layer turns it on". **A session's**: its form. An eighth
 key of the store on the layer's own entity, beside who may see it, what it
 builds on and the keys it marks (`softland/store/door/declaration.clj`,
 `store-keys`): who may read the layer's acts whole, `:members` or `:everyone`,
@@ -233,3 +235,46 @@ its own paths by name and leaves those alone.
 `src-store/MODEL.md` ("What can be asked", "What cannot be got back"), the
 maps of the folders that change, and the proofs' map. The store's "Decisions
 of ..." sections are Sid's pages and are not changed without his word.
+
+## After piece 2, and the defaults taken
+
+Added on 21 November 2026 by the Claude session that finished piece 2, after
+Phase 0 and the decomposition and before any plan. Sid's word for this build:
+where something is open, take the default, build it, mark it as a session's,
+and tell him so that he can turn it. Each line here is **a session's**.
+
+- **Where this page and [IMPLICIT_SPEC.md](IMPLICIT_SPEC.md) differ, this page
+  governs.** Phase 0 wrote that page before "An asker is given her own things
+  in any layer" was resolved above. It still follows the earlier reading in
+  O3's table (the row of a layer that she may not see), in the rows of E1, E4
+  and E5 that leave an asker's own things out, and in R10, whose "consecutive
+  from its start" holds only for an asker who may see the layer.
+- **Who "holds a permission that stands in the layer" is, since piece 2.**
+  The same asker who may see a layer that is open to its members: her
+  permission for the layer stands, or she asks in a run, and that run's
+  permission stands and names her as its holder
+  (`read_path/layers.clj`, `either`; piece 2's R8). A permission for one act
+  gives no reading: it lets nobody see. So one rule says who is inside a
+  layer, for its facts and for its acts. The other way: a permission for the
+  layer alone, so that a yes for one run shows the run its facts and never a
+  stranger's refused thing.
+- **Q2, a layer id's count in the other gate's record.** This read gives the
+  line of the layer's own gate, and never mixes the two. The few things that
+  were sent for a layer on the other gate's depot stay readable by act-id
+  through the door, and by no read of a line.
+- **Q3, a refused thing in a layer that is never made.** By "An asker is
+  given her own things in any layer": the who that it names reads it, and
+  nobody else does. Nobody holds a permission in a layer that is not made.
+- **Q6, `:everyone` and an asker who is not signed in.** As "The setting"
+  writes it: with `:everyone`, whoever may see the layer reads its acts
+  whole, also one who is not signed in, when the layer is open to everyone.
+  It is the widest thing this piece can show, and only the layer's first
+  holder turns it on.
+- **Her own things, without a walk through everyone's.** An asker who may
+  not see a layer is given her own things there. What that read costs must
+  be bounded by what is hers and not by what the layer holds: else a
+  stranger makes the store walk a large layer to be handed nothing. Phase 1
+  weighs how: the stamps of her things are already hers, since the door's
+  answer tells them.
+- **The store keys.** Piece 2 added two, so the setting's key is the eighth.
+
