@@ -98,7 +98,8 @@ since March and every text that a session wrote, 38,545 things, 88 MB of
 text. The file is made outside the repository and is not in it.
 
 ```
-clojure -M:record /path/to/record.edn
+python3 make_record_edn.py /mnt/data/projects/softland-memory/base /somewhere/outside/record.edn
+clojure -M:record /somewhere/outside/record.edn
 ```
 
 - **The gate took every one:** 38,545 acts, 193,582 rows of facts, the stamps
