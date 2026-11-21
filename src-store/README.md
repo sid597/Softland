@@ -1068,8 +1068,8 @@ from an answer is marked as a session's, and what is not built is named.
 Entries 1 to 3 are built (`softland/store/gate/chain.clj`,
 `softland/store/gate/decision.clj`; what was run is in
 `src/proposal/runtime-2026-11-21/BUILD-store-piece-1.md`). He said on 21
-November that this section may be written: "3.yes", to a session's question
-whether his decisions of these two days go on this page.
+November that this section may be written: "3.yes" (‹95754ddf›), to a
+session's question whether his decisions of these two days go on this page.
 
 1. **A permission is ended by its giver or by anyone above it, and what was
    given beneath it ends with it.** Sid decided: "2A" (‹93a88844›), on
@@ -1122,8 +1122,7 @@ whether his decisions of these two days go on this page.
    to 3: "I think yes it can have more than one permission because bio-agent
    is not a single thing we can run 10k instances of the same thing unloke a
    human so each instance can have different permisiion based on different
-   uses it has or work so yes". The record did not hold that line yet when
-   this entry was written. It replaces what the read build kept and did not
+   uses it has or work so yes" (‹95754ddf›). It replaces what the read build kept and did not
    decide (entry 1 of 11 and 12 October, its first point). Not built: a
    permission sits on its holder, one place for a holder in a layer
    (`softland/store/gate/decision.clj`, `permission-place`). A session's
