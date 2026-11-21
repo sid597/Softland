@@ -17,6 +17,8 @@
     kept       a decision changes no row but its own: what was taken stays,
                and a refusal writes no fact
     once       a thing that is sent again under its act-id decides nothing
+    see        after each decision, the read path lets an asker see the
+               layer exactly when the statements do
     run-again  the same things, decided again from nothing, give the same
                record
 
@@ -38,6 +40,7 @@
             [softland.store.door.declaration :as declaration]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.decision]
+            [softland.store.read-path.layers :as layers]
             [softland.store.record.rows :as record]))
 
 ;; ------------------------------------------------------------------ the world
@@ -95,9 +98,10 @@
     [5 (gen/fmap (fn [of] {:f :end :of of}) gen-holder)]
     [8 (gen/fmap (fn [[e k]] {:f :plain :e e :k k})
                  (gen/tuple (gen/elements [:thing-1 :thing-2]) (gen/elements [:colour :note])))]
-    [2 (gen/fmap (fn [k] {:f :setting :key k})
-                 (gen/elements [:softland.store/who-may-see :softland.store/builds-on
-                                :softland.store/marked-keys]))]]))
+    [3 (gen/fmap (fn [[k word]] {:f :setting :key k :word word})
+                 (gen/tuple (gen/elements [:softland.store/who-may-see :softland.store/who-may-see
+                                           :softland.store/builds-on :softland.store/marked-keys])
+                            (gen/elements [:everyone :members])))]]))
 
 (def ^:private gen-op
   "One step of a history."
@@ -147,7 +151,7 @@
 
 (defn- fact-of
   "One fact as its maker sends it."
-  [pools step permission {:keys [f to allows beneath of e k key]}]
+  [pools step permission {:keys [f to allows beneath of e k key word]}]
   (case f
     :give {:e to
            :k :softland.store/permission
@@ -158,7 +162,7 @@
     :setting {:e layer
               :k key
               :v (case key
-                   :softland.store/who-may-see :everyone
+                   :softland.store/who-may-see word
                    :softland.store/builds-on []
                    :softland.store/marked-keys #{:colour})}))
 
@@ -208,6 +212,43 @@
       (not= (comparable (apply dissoc before written)) (comparable (apply dissoc after written)))
       {:statement :kept :what "a decision changed a row that it did not write"})))
 
+(def ^:private askers
+  "Who asks to see the layer after each decision: each holder of a history,
+  and one who is never given anything."
+  (conj holders :zed))
+
+(defn- seeing
+  "What the read path says of one asker and the layer, from the record: the
+  layer's own rows, her permission row, and the rows above the permission
+  that her row holds (`softland.store.read-path.layers/standing`)."
+  [facts who signed-in?]
+  (let [own-rows (into {}
+                       (keep (fn [k] (let [place (record/place-key layer layer k)]
+                                       (when-let [row (get facts place)] [place row]))))
+                       [:softland.store/depot :softland.store/who-may-see
+                        :softland.store/builds-on :softland.store/marked-keys])
+        permission-row (get facts (record/place-key layer who :softland.store/permission))
+        held (record/held-permission permission-row)
+        chain-rows (if held
+                     (into {} (map (fn [k] [k (get facts k)])) (chain/places-above layer held))
+                     {})]
+    (layers/standing layer own-rows permission-row chain-rows signed-in?)))
+
+(defn- see-violation
+  "The statement `see` after one decision. Takes the record's facts and the
+  statements' state. Gives nil, or the first asker for whom the read path
+  and the statements differ."
+  [facts ref]
+  (first
+   (for [who askers
+         signed-in? [true false]
+         :let [read-path (seeing facts who signed-in?)
+               statements (reference/may-see ref who signed-in?)]
+         :when (not= read-path statements)]
+     {:statement :see
+      :what (str "the read path says " (name read-path) " and the statements say " (name statements)
+                 " for " (name who) (when-not signed-in? ", not signed in"))})))
+
 (defn play
   "Plays a history. Gives {:steps :violation :record}: each step with what
   was sent and what the gate and the statements said, and the first
@@ -253,7 +294,8 @@
               {:statement :stamps :what "a stamp is not the count of the layer's decisions"
                :stamp (:stamp outcome) :expected (:decisions state)}
 
-              :else (row-violation (:facts (:rec state)) (:facts record) outcome))]
+              :else (or (row-violation (:facts (:rec state)) (:facts record) outcome)
+                        (see-violation (:facts record) (:state ruled))))]
         (when-not again?
           (count! :decisions)
           (if taken? (count! :taken) (count! [:refused (:verdict outcome)]))
@@ -359,7 +401,13 @@
     (fn [_act _fact] nil)]
    ["S9: a holder who may only see acts"
     #'softland.store.act/allows
-    (fn [_permission] :see-and-act)]])
+    (fn [_permission] :see-and-act)]
+   ["S11: a read lets a holder see after her permission ended"
+    #'softland.store.read-path.layers/permission-state
+    (fn [_layer permission-row _chain-rows] (if permission-row :stands :none))]
+   ["S12: a read lets nobody but members see a layer that is open to everyone"
+    #'softland.store.read-path.layers/who-may-see
+    (fn [_own-rows _layer] :members)]])
 
 (defn- run-mutants
   "Runs the histories against each mutant. Gives true when every mutant
@@ -413,7 +461,7 @@
         (doseq [[[_ word] n] (sort-by (comp - val) (filter (fn [[k _]] (and (vector? k) (= :refused (first k)))) counted))]
           (println (format "  %8d  %s" n (name word))))
         (if (:pass? result)
-          (do (println) (println "HOLDS: agree, stamps, kept, once, run-again") (System/exit 0))
+          (do (println) (println "HOLDS: agree, stamps, kept, once, see, run-again") (System/exit 0))
           (let [smallest (first (get-in result [:shrunk :smallest]))]
             (println)
             (println "A STATEMENT BROKE. The smallest history that breaks it:")

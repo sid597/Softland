@@ -34,17 +34,18 @@ still differs and the run prints it step by step.
 
 ## The statements
 
-Ten about permissions, each in the docstring of
-[reference.clj](src/gate_histories/reference.clj), S1 to S10. In short: an
+Twelve about permissions, each in the docstring of
+[reference.clj](src/gate_histories/reference.clj), S1 to S12. In short: an
 act is taken only under a permission that stands; after an end the holder
 can be given a permission again; those beneath do not come back by
 themselves; only the giver, anyone above, or the holder ends a permission;
 the first permission does not end; a holder has one permission in a layer;
 a give is straight beneath the giver's own; only the first holder writes
 settings; a holder who may only see cannot act; an act is taken whole or
-refused whole.
+refused whole; whoever holds a permission that stands may see the layer, and
+nobody else may unless the layer is open to everyone.
 
-Five that every history must keep ([run.clj](src/gate_histories/run.clj)):
+Six that every history must keep ([run.clj](src/gate_histories/run.clj)):
 
 | Word | What must hold |
 |---|---|
@@ -52,6 +53,7 @@ Five that every history must keep ([run.clj](src/gate_histories/run.clj)):
 | stamps | The decisions of the layer have the stamps 0, 1, 2 and on. |
 | kept | A decision changes no row but its own: what was taken stays, and a refusal writes no fact. |
 | once | A thing that is sent again under its act-id decides nothing. |
+| see | After each decision, the read path lets an asker see the layer exactly when the statements do. Asked for each holder, for one who was never given anything, signed in and not. |
 | run-again | The same things, decided again from nothing, give the same record. |
 
 ## Run it
@@ -123,6 +125,17 @@ clojure -M:record /somewhere/outside/record.edn
   of an act that names what it answers, and the record knows that for each
   line.
 
+## After piece 1 was committed
+
+The store's builder committed piece 1 on 21 November (`2882b55b`), with the
+gate's two files as they were when the runs above were made, and ran this
+check itself before the commit. The read path was settled with it, so the
+statement `see` was added then: it calls
+`softland.store.read-path.layers/standing` with the rows of the record.
+20,000 histories, seed 20261121: every statement held, `see` among them.
+Eight mutants, eight caught; a read that lets a holder see after her
+permission ended is caught in three steps.
+
 ## What it does not reach
 
 - **The module.** The walk here was written from the description in
@@ -130,9 +143,8 @@ clojure -M:record /somewhere/outside/record.edn
   functions, not from the Rama code. It shows that the rules decide rightly
   when a gate has the rows that those docstrings name. That the module hands
   a gate those rows is the module's proof, on a cluster.
-- **A read.** Whether an asker may see a layer is the read path's, which was
-  being changed when this was written. The same reference can judge it: a
-  holder may see while her grant stands.
+- **What a read gives.** `see` asks only whether an asker may see the layer.
+  What a read then gives her, through a stack of layers, is not in it.
 - **The other gate.** Every history is one streaming layer. The base, the
   microbatch gate and an act for a layer of the other gate are not in it.
 - **A fact that names something to replace,** `:based-on`, and the bounds on

@@ -334,8 +334,8 @@ has run these again.
   flag. The second pair is what a person waits for.
 
 **Checked since, by a Claude session:** the permission rules of piece 1, as
-built, hold the statements in 45,000 generated histories
-([gate-histories/](gate-histories/README.md)).
+built and committed, hold the statements in generated histories, at the gate
+and for who may see a layer ([gate-histories/](gate-histories/README.md)).
 
 **Still not checked:**
 
@@ -377,7 +377,7 @@ Sid only when it is a call of his.
 
 | Who | Doing | Where |
 |---|---|---|
-| A builder, `build-proposal-store-line` | Piece 1. Its rules are written, the read path and the proofs are being changed. Not committed yet. | `src-store/`, `test-store/` |
+| A builder, `build-proposal-store-line` | Piece 1 is committed (`2882b55b`; its page is [BUILD-store-piece-1.md](BUILD-store-piece-1.md)). Piece 3 is next. Piece 2 waits on a call of Sid's: whether a holder can hold more than one permission in a layer. | `src-store/`, `test-store/` |
 | A builder, `build-proposal-spine` | Piece 4. The wire, the seam and standing are written; Auth is being built by the Rama skill's phases. Not committed yet. | `src-runtime/`, `src-wire/`, `src-command/`, `src-auth/`, [spine/](spine/) |
 | A check, a Claude session | Generated histories through the store builder's own gate code; Sid's record through the same gate. | [gate-histories/](gate-histories/README.md) |
 | A check, carbon | A model of the spine's seam, and measured facts of the stack. | [WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), [model/](model/README.md), [probes/](probes/proxy_limit_probe.clj) |

@@ -29,6 +29,11 @@
     S8  Only the holder of the first permission writes a layer's settings.
     S9  A holder who may only see cannot act: no write, no give, no end.
     S10 An act is taken whole or refused whole.
+    S11 Whoever holds a permission that stands may see the layer, whatever
+        the permission allows. A holder whose permission ended, or beneath
+        one that ended, may not see a layer that is open to its members.
+    S12 A layer that its first holder opened to everyone is seen by
+        everyone, signed in or not; closed again, by its members only.
 
   S4's \"by its own holder\", S5 and S6 are choices of the session that
   built the gate, and Sid's to turn; they are here because the gate holds
@@ -38,8 +43,11 @@
   whether the statements take the act, the first reason when they do not,
   and the state after.
 
+  `may-see` says whether an asker may see the layer.
+
   What it does not hold: the form of a thing (the declaration's), a fact
-  that names something to replace, and anything of a read.")
+  that names something to replace, and what a read gives beyond whether the
+  asker may see the layer.")
 
 (def setting-keys
   "The three keys of a layer that take a second write, by their words."
@@ -51,8 +59,10 @@
     :made?   whether the layer is made
     :at      holder -> what sits at her place: a grant's number, or :end
     :grants  number -> {:holder :permission :parent}, each grant ever taken
-    :killed  the numbers of the grants that an end named"
-  {:made? false :at {} :grants {} :killed #{} :n 0})
+    :killed  the numbers of the grants that an end named
+    :everyone?  whether the layer is open to everyone. A layer starts
+                open to its members only"
+  {:made? false :at {} :grants {} :killed #{} :n 0 :everyone? false})
 
 (defn- allows
   "What a permission allows, from its id: its fifth slot, or see and act."
@@ -150,6 +160,9 @@
             (update :killed conj (:n there))
             (assoc-in [:at e] :end)))
 
+      (= :softland.store/who-may-see k)
+      (assoc state :everyone? (= :everyone v))
+
       :else state)))
 
 (defn judge
@@ -180,6 +193,17 @@
           (if-let [why (some #(fact-reason state layer own %) facts)]
             {:accept? false :why why :state state}                                 ; S10
             {:accept? true :state (reduce #(apply-fact %1 own %2) state facts)}))))))
+
+(defn may-see
+  "Whether an asker may see the layer, by S11 and S12: `:not-made` before the
+  layer is made, else `:yes` or `:may-not-see`."
+  [state who signed-in?]
+  (cond
+    (not (:made? state)) :not-made
+    (:everyone? state) :yes
+    (not signed-in?) :may-not-see
+    :else (let [grant (grant-at state who)]
+            (if (and grant (alive? state (:n grant))) :yes :may-not-see))))
 
 (defn looks-intact?
   "True when a permission looks as if it stood to someone who reads ids
