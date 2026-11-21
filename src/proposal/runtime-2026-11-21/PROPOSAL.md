@@ -252,11 +252,13 @@ Kept from carbon's page, as a session's:
 
 ## Not settled
 
-Each of these is Sid's. Before the slice that needs it, it is laid out for
-him the way he asked on 21 November: the situation in a Softland example, the
-options, what each leads to, and a pick.
+Each of these is Sid's. They are brought to him together, on one sheet for
+each line of the build at its start, and not one at a time. Each is laid out
+the way he asked on 21 November: the situation in a Softland example, the
+options, what each leads to, and a pick. The pieces are numbered as in
+[the order of the build](#the-order-of-the-build).
 
-**With the first slice (ending a permission):**
+**With ending a permission (piece 1):**
 - What the record of an end is, and how a permission that is given again is
   told from the one that ended. A permission's id is made of its parts
   (`softland/store/act.clj`): holder, layer, the layer it was given in, the
@@ -268,7 +270,15 @@ options, what each leads to, and a pick.
   act as the system" has been open since 19 November.
 - How deep a permission can be (already "not decided" in `MODEL.md`).
 
-**With sign-in (the second slice):**
+**With permissions over one act and one run (piece 2, on the same sheet as
+piece 1):**
+- The form of "this one act" and "this one run" in a permission. The id grew
+  once before by a slot at its end, `:see` or `:see-and-act` (11 and 12
+  October), and older permissions kept their meaning.
+- A permission to see that is sized by a query.
+- Boundary or exception, after the field's work is read (entry 6).
+
+**With sign-in (piece 4, the spine):**
 - The choices on [SIGN-IN-WRITES.md](../server-2026-11-20/SIGN-IN-WRITES.md)
   that the entries above do not answer. He has not seen that page. They are:
   how she learns where her own layer is, the words, and whether the base is
@@ -277,13 +287,13 @@ options, what each leads to, and a pick.
 - A first sign-in, and the making of an agent, write in two modules: the link
   in Auth and her acts in the store. What holds when it breaks between them.
 
-**With the trail:**
+**With the trail (piece 5):**
 - Who may read a session's trail.
 - For a live read, whether each change that is pushed is written, or only the
   opening and the close.
 - What a person's "turn it off" stops (12 October, entry 4).
 
-**With `promote`:**
+**With `promote` (piece 8):**
 - What it writes. With entry 2 the who of a promoted fact is whoever
   promotes; where the agent's authorship and its own act go is not said.
 - A branch larger than one act can hold cannot arrive in one act.
@@ -291,15 +301,8 @@ options, what each leads to, and a pick.
   entry 12), so it gives a merge no safety. What safety there is comes from
   `:replaces`.
 
-**With finer permissions:**
-- The form of "this one act" and "this one run" in a permission. The id grew
-  once before by a slot at its end, `:see` or `:see-and-act` (11 and 12
-  October), and older permissions kept their meaning.
-- A permission to see that is sized by a query.
-- Boundary or exception, after the field's work is read (entry 6).
-
-**With MCP:** the step where a person says what an attaching agent gets,
-since that is where the branch layer or the shared layer is chosen.
+**With MCP (piece 6):** the step where a person says what an attaching agent
+gets, since that is where the branch layer or the shared layer is chosen.
 
 ## Not checked
 
@@ -328,28 +331,48 @@ The order is a session's, and his to turn. Carbon's page built everything
 and proved it last. The faults of 20 November were in the joins, so this
 order proves each join when it is made:
 
-- A slice lands whole, with its explanations and its proofs, before the next
-  starts.
-- A property is proved in the slice that owns it. Where it is about
+- A piece lands whole, with its explanations and its proofs.
+- A property is proved in the piece that owns it. Where it is about
   processes, it is proved on a cluster that stays up, with processes killed
   during the run.
 - The narrowest path through every part comes before any part is widened.
 
-1. **The store: ending a permission, giving again, root-only settings.**
-   Entry 6, its first three points. [Below](#the-first-slice-to-start-from).
-2. **The spine.** Auth (an account to a person, standing), the runtime's
-   seam (the whole act, send and wait, one watch), and the Clojure command
-   line with sign-in. Proved with two runtime processes on a cluster that
-   stays up, under kills: one person from two first sign-ins at once, an act
-   repeated across a break, a watch that closes when its permission ends.
-   An agent can already work through the command line.
-3. **Then, one at a time, in an order still to be chosen:**
-   - permissions over one act and over one run;
-   - the read of a layer's acts and refusals by stamp;
-   - the trail: reads, acts sent, movement, and who is here now;
-   - MCP over HTTP, with its sign-in;
-   - `promote`;
-   - the browser's client.
+There are eight pieces. They are not eight waits: two lines run at the same
+time now, and four pieces run at the same time once the spine is proved.
+
+| | Piece | Needs first |
+|---|---|---|
+| 1 | Permissions: ending, giving again, root-only settings | His answers on the permission's record |
+| 2 | Permissions over one act and over one run | Piece 1; designed together with it |
+| 3 | A layer's acts and refusals, read by stamp | Piece 1 |
+| 4 | The spine: Auth, the runtime's seam, the Clojure command line | His answers on sign-in |
+| 5 | The trail, and who is here now | Piece 4 |
+| 6 | MCP over HTTP, with its sign-in | Piece 4 |
+| 7 | The browser's client | Piece 4 |
+| 8 | `promote` | His answer on what it writes |
+
+**Now, two lines at once.**
+[The store's line](#the-stores-line-to-start-from) is pieces 1, 2 and 3, in
+`src-store`, one after another because they change the same files.
+[The spine](#the-spine-to-start-from) is piece 4, in trees of its own.
+Neither waits on the other. Where they meet there is one proof that needs
+both: a watch closes, on two runtime copies, when its permission ends.
+
+**After the spine's proofs:** pieces 5, 6, 7 and 8, at the same time.
+
+**Why not all of it at once.** Three things lie under everything else, and
+none is settled or proved:
+
+- the permission's record, which every act carries;
+- what Rama bounds with `pstate.proxy.limit`, on which standing and every
+  watch lean;
+- the one way to read, when a trail is read with the same words as a layer.
+
+If one of them is wrong, what was built on top of it is built again. That is
+what 20 November cost. The first is designed before the store's line writes
+code. The other two are met by the spine, before four pieces stand on it.
+Until real data is kept, a wrong call costs work and no data: by the pages of
+20 November, the store that all of this runs on is still thrown away.
 
 The trees of 20 November (`src-server`, `src-cli`, `src-server-browser`) stay
 where they are until the runtime passes its proofs. Nothing moves to
@@ -357,7 +380,7 @@ where they are until the runtime passes its proofs. Nothing moves to
 which of 20 November's checks are still true statements under this page, and
 carries those.
 
-## The first slice, to start from
+## The store's line, to start from
 
 For the session that builds it. It starts with the short message that
 `.claude/output-styles/build.md` asks for, and waits for his go.
@@ -368,7 +391,13 @@ root holder writes a layer's settings. And "yess" to giving again after an
 end. He says "revoking" for it in passing; the store's own page says that
 nothing "ends" a permission. Which word the product uses is his.
 
-**What it adds to the store.** Three rules:
+**The permission's record is designed once, before code.** Ending, giving
+again, what a permission covers and how long it stands are parts of one
+record. Piece 1 builds its default, the whole layer until ended. Piece 2
+builds one act and one run. He pointed to the field's work on such queries:
+it is read first. Then one sheet goes to him with the calls of both pieces.
+
+**What piece 1 adds to the store.** Three rules:
 
 - an end, with its cascade;
 - a give after an end;
@@ -383,12 +412,12 @@ nothing "ends" a permission. Which word the product uses is his.
 - A live read closes when its holder's permission ends, or one above it.
 - An end is an act with a stamp in its layer, so the store comes out the same
   when it is run again.
-- Today a holder has one permission in a layer. After this slice she can have
+- Today a holder has one permission in a layer. After this piece she can have
   had more than one over time. Whether she can hold two that stand at once is
   not asked here, and stays as it is: one.
 
-**What comes to him inside the slice:** the five points under
-[Not settled](#not-settled), the first of them before any record is kept.
+**What comes to him at its start:** the calls of pieces 1 and 2 under
+[Not settled](#not-settled), on one sheet, before any record is written.
 
 **Where to read:** `src-store/CLAUDE.md` first; `src-store/README.md`, the
 decisions of 8 October and of 11 and 12 October; `src-store/MODEL.md`, the
@@ -401,3 +430,38 @@ note on the store's proof runs before any proof.
 **Proofs:** as the store's rules have them today: pure ones, the gate and the
 read on a cluster, and the run-again proof; and one more, that a live read
 closes when a permission above its holder ends.
+
+## The spine, to start from
+
+For the session that builds it. It can start while the store's line runs. It
+starts with the same short message, and waits for his go.
+
+**What he asked for.** Entries 1, 2, 5, 7 and 12: the program is `runtime`;
+the who of an act is its signed-in maker; what sign-in keeps lives in a
+module of its own; the whole act goes on the wire in one round trip, with a
+session that outlives its secret; sign-up is by invitation, and she is called
+what she confirms.
+
+**What it adds.** A Rama module, Auth; the runtime's seam; a command line in
+Clojure. One person signs in, sends an act and watches a layer. An agent can
+do the same through the command line.
+
+**What comes to him at its start:** the calls under "With sign-in" in
+[Not settled](#not-settled), on one sheet.
+
+**What it meets from [Not checked](#not-checked):** what Rama bounds with
+`pstate.proxy.limit`, the act-id that a maker makes, and the start of the
+command line. The way a trail will be read is not built here, but the words
+of `read` and `watch` are fixed here, so they are chosen with it in mind.
+
+**Where to read:** the pages of 20 November that this page opens with, and
+[SIGN-IN-WRITES.md](../server-2026-11-20/SIGN-IN-WRITES.md); the trees
+`src-server` and `src-cli` with their checks, listing first which checks are
+still true statements under this page; the Rama skill, by whose phases a
+module is built.
+
+**Proofs:** two runtime processes on a cluster that stays up, with processes
+killed during the run. One person comes of two first sign-ins made at once.
+An act repeated across a break is taken once. A watch closes when its session
+ends. And with the store's line, when both have landed: a watch closes when
+its permission ends.
