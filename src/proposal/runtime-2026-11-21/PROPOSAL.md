@@ -291,8 +291,9 @@ piece 1):**
 - The form of "this one act" and "this one run" in a permission. The id grew
   once before by a slot at its end, `:see` or `:see-and-act` (11 and 12
   October), and older permissions kept their meaning. That a holder can hold
-  several at once is decided (entry 6). Whether a yes for one act holds the
-  act's content, and not only its id, is asked and not yet answered.
+  several at once is decided (entry 6). That a yes for one act holds the
+  act's content, and not only its id, is a session's choice in piece 2's
+  spec: he was asked and said that it is the product's question.
 - A permission to see that is sized by a query.
 - Boundary or exception, after the field's work is read (entry 6).
 
@@ -389,7 +390,7 @@ Sid only when it is a call of his.
 
 | Who | Doing | Where |
 |---|---|---|
-| A builder, `build-proposal-store-line` | Piece 1 is committed (`2882b55b`; its page is [BUILD-store-piece-1.md](BUILD-store-piece-1.md)). Piece 3 is being built. Piece 2 is open to build: Sid decided that a holder can hold more than one permission (entry 6). One question of the builder's is still with him: whether a yes for one act holds the act's content. | `src-store/`, `test-store/` |
+| A builder, `build-proposal-store-line` | Piece 1 is committed (`2882b55b`; its page is [BUILD-store-piece-1.md](BUILD-store-piece-1.md)). Piece 2 is being built: its form and its statements were written first ([store-piece-2/SPEC.md](store-piece-2/SPEC.md)), after Sid decided that a holder can hold more than one permission (entry 6). That a yes for one act holds the act's content is a session's choice: he called the question the product's. Piece 3 is specified ([store-piece-3/](store-piece-3/SPEC.md)) and not built; its plan waits for piece 2, since both change the same files. | `src-store/`, `test-store/` |
 | A builder, `build-proposal-spine` | Piece 4. The wire, the seam and standing are written; Auth is being built by the Rama skill's phases. Not committed yet. | `src-runtime/`, `src-wire/`, `src-command/`, `src-auth/`, [spine/](spine/) |
 | A check, a Claude session | Generated histories through the store builder's own gate code; Sid's record through the same gate. | [gate-histories/](gate-histories/README.md) |
 | A check, carbon | A model of the spine's seam, and measured facts of the stack. | [WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), [model/](model/README.md), [probes/](probes/proxy_limit_probe.clj) |
