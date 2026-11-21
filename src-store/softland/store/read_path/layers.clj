@@ -17,7 +17,13 @@
     her permission row    the row at the asker's place under
                           `:softland.store/permission`; nil says that she
                           holds none, and `:not-known-yet` that it is not
-                          read
+                          read. A row with no value is an end
+    the rows above it     the rows at the places of the permissions above
+                          the one that her row holds, as a map from the key
+                          of a place to its row; `:not-known-yet` says that
+                          one of them is not read. Her permission stands
+                          only while each one above it stands
+                          (`softland.store.gate.chain`)
 
   Inputs and results, by call:
 
@@ -26,16 +32,19 @@
     who-may-see   own rows, a layer -> `:members` or `:everyone`
     builds-on     own rows, a layer -> the layers that it builds on
     marked-since  own rows, a layer, a key -> the stamp of the key's mark
-    standing      a layer, its own rows, her permission row, whether she is
-                  signed in -> `:yes`, `:may-not-see`, `:not-made` or
-                  `:not-known-yet`
+    permission-state
+                  a layer, her permission row, the rows above it ->
+                  `:stands`, `:none` or `:not-known-yet`
+    standing      a layer, its own rows, her permission row, the rows above
+                  it, whether she is signed in -> `:yes`, `:may-not-see`,
+                  `:not-made` or `:not-known-yet`
     in-order      a query, the start layer's own rows and standing -> the
                   layers of the read, nearest first, or nil
     home          a query -> the layer that the read starts from
     left-out      a layer and why -> what an answer says of it
-    meaning       a query, a layer, its own rows, her permission row,
-                  whether she is signed in -> what the rows mean for this
-                  query, as a value that `=` compares
+    meaning       a query, a layer, its own rows, her permission row, the
+                  rows above it, whether she is signed in -> what the rows
+                  mean for this query, as a value that `=` compares
 
   \"Standing\" here is whether an asker may see a layer, as the read path
   knows it now. `softland.store.gate.decision` uses the same word for a
@@ -47,11 +56,15 @@
   `softland.store.read-path.answer`.
 
   What the read path does not read. What a permission allows: any
-  permission that is there allows seeing (src-store/README.md, decisions of
-  11 and 12 October 2026, entry 1). So the three things about a permission
-  that are not decided (one permission for each holder; \"see\" stays
-  \"see\"; who may write a setting, a list or a mark) are no code here."
+  permission that stands allows seeing (src-store/README.md, decisions of
+  11 and 12 October 2026, entry 1). Whether it stands is the gates' own
+  rule, read from the same rows (`softland.store.gate.chain/stands?`): a
+  permission that has ended, or beneath one that has, lets nobody see. So
+  the things about a permission that are not decided (one permission for
+  each holder; who may write a setting, a list or a mark) are no code
+  here."
   (:require [softland.store.door.declaration :as declaration]
+            [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as rows]))
 
@@ -111,37 +124,66 @@
   [own-rows layer k]
   (get (rows/marked-keys-of (own-row own-rows layer :softland.store/marked-keys)) k))
 
+(defn permission-state
+  "Does the asker hold a permission that stands in a layer. Takes the layer;
+  her permission row in it (a row, nil for none, or `:not-known-yet`); and
+  the rows above it, a map from the key of a place to its row, or
+  `:not-known-yet`. Gives one of three words:
+
+    :not-known-yet  her row is not read; or it holds a permission, and a
+                    row above it is not read
+    :stands         her row holds a permission, and it stands by the gates'
+                    rule (`softland.store.gate.chain/stands?`): each
+                    permission above it stands, with an older row
+    :none           she holds no permission that stands: no row, an end, a
+                    row that holds no permission, or a permission beneath
+                    one that ended or was given again later
+
+  It reads the permission from her row and not from a caller: what is
+  asked is whether the permission that the record holds for her stands."
+  [layer permission-row chain-rows]
+  (if (= :not-known-yet permission-row)
+    :not-known-yet
+    (if-let [held (rows/held-permission permission-row)]
+      (cond
+        (= :not-known-yet chain-rows) :not-known-yet
+        (chain/stands? layer held (assoc chain-rows (chain/place layer held) permission-row)) :stands
+        :else :none)
+      :none)))
+
 (defn standing
   "Is a layer made, and may this asker see it. Takes the layer; its own
   rows, or nil when they are not known; her permission row in the layer
-  (a row, nil for none, or `:not-known-yet`); and whether she is signed in.
-  Gives one of four words:
+  (a row, nil for none, or `:not-known-yet`); the rows above it
+  (`permission-state`); and whether she is signed in. Gives one of four
+  words:
 
-    the layer's own rows   its setting   her permission row    it gives
+    the layer's own rows   its setting   her permission        it gives
     not known yet                                              :not-known-yet
     no depot row                                               :not-made
     a depot row            :everyone     any, or not read      :yes
     a depot row            :members      she is not signed in  :may-not-see
     a depot row            :members      not known yet         :not-known-yet
-    a depot row            :members      a row                 :yes
-    a depot row            :members      no row                :may-not-see
+    a depot row            :members      it stands             :yes
+    a depot row            :members      none that stands      :may-not-see
 
-  Any permission that is there allows seeing; what it allows beyond that is
+  Any permission that stands allows seeing; what it allows beyond that is
   not read. `:system` is a who like any other. The one function of who may
   see a layer (src-store/README.md, entry 1 of 11 and 12 October 2026).
 
   Not decided. What a layer starts with (`who-may-see`), and that
   \"members\" is whoever holds a permission in the layer, are kept only so
   that the build can run."
-  [layer own-rows permission-row signed-in?]
+  [layer own-rows permission-row chain-rows signed-in?]
   (cond
     (nil? own-rows) :not-known-yet
     (not (made? own-rows layer)) :not-made
     (= :everyone (who-may-see own-rows layer)) :yes
     (not signed-in?) :may-not-see
-    (= :not-known-yet permission-row) :not-known-yet
-    (some? permission-row) :yes
-    :else :may-not-see))
+    :else (case (permission-state layer permission-row chain-rows)
+            :not-known-yet :not-known-yet
+            :stands :yes
+            :may-not-see)))
 
 (defn in-order
   "Which layers a read looks through, nearest first. Takes a query in its
@@ -204,8 +246,10 @@
   "What a layer's own rows and the asker's permission row mean for one
   query, as a value that `=` compares. Takes the query in its one form, the
   layer, its own rows (nil when not known), her permission row (a row, nil,
-  or `:not-known-yet`), and whether she is signed in. Gives a map: whether
-  the layer is made; who may see it; whether her permission row is there;
+  or `:not-known-yet`), the rows above it (`permission-state`), and whether
+  she is signed in. Gives a map: whether
+  the layer is made; who may see it; whether she holds a permission that
+  stands (`permission-state`);
   and, only when her standing with these rows is `:yes`, the list that the
   layer builds on when it is the query's start layer, and the stamp of the
   asked key's mark when the query asks what points at a thing. For rows
@@ -220,16 +264,14 @@
   setting that goes to \"members\" for an asker who holds a permission
   leaves her standing as it was, and a change of a fact that was passed
   over while her permission was read must still be told."
-  [query layer own-rows permission-row signed-in?]
+  [query layer own-rows permission-row chain-rows signed-in?]
   (if (nil? own-rows)
     :not-known-yet
-    (let [seen? (= :yes (standing layer own-rows permission-row signed-in?))
+    (let [seen? (= :yes (standing layer own-rows permission-row chain-rows signed-in?))
           [word k] (:asks query)]
       (cond-> {:made?       (made? own-rows layer)
                :who-may-see (who-may-see own-rows layer)
-               :permission  (cond (= :not-known-yet permission-row) :not-known-yet
-                                  (some? permission-row) :there
-                                  :else :none)}
+               :permission  (permission-state layer permission-row chain-rows)}
         (and seen? (= layer (:from-layer query)))
         (assoc :builds-on (builds-on own-rows layer))
 

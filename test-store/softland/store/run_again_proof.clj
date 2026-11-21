@@ -978,6 +978,53 @@
     (when (= :microbatch gate) (settle!))
     things))
 
+(def ^:private words-of-a-permission-that-ends
+  "The words that a gate gives the things of `a-permission-ends!`, in the
+  order in which they are sent."
+  [:accepted :accepted :accepted
+   :accepted :permission-ended :permission-above-ended
+   :accepted :accepted :permission-above-ended
+   :accepted :accepted
+   :accepted :permission-ended])
+
+(defn- a-permission-ends!
+  "Sends by the hand, to the depot of the gate given, a line of acts in
+  which a permission ends and is given again. Takes the gate, a layer that
+  it has made, a holder who may act in the layer, her permission there, and
+  the key of the facts. Gwen's permission is beneath that holder's, and
+  Hugo's beneath Gwen's. In this order: the two gives, and an act of Hugo;
+  the holder ends Gwen's, then an act of Gwen and one of Hugo, which are
+  refused; the holder gives Gwen the same permission again, then an act of
+  Gwen, which is taken, and one of Hugo, which is not: what was given
+  beneath an end does not come back with a second give; Gwen gives Hugo his
+  again, and he acts; Hugo ends his own, and acts once more. Each answer
+  depends on the acts before it in the layer's order, and on nothing else:
+  an end has a stamp in that order. Waits for the microbatch gate when the
+  things are its. Gives the things as they were built;
+  `words-of-a-permission-that-ends` holds the word of each."
+  [gate layer who permission k]
+  (let [gwens [:gwen layer layer permission]
+        hugos [:hugo layer layer gwens]
+        acts (fn [maker held entity says] (arrived gate layer maker held [{:e entity :k k :v says}]))
+        gives (fn [giver held given] (arrived gate layer giver held [{:e (first given) :k permission-key :v given}]))
+        ends (fn [ender held holder] (arrived gate layer ender held [{:e holder :k permission-key}]))
+        things [(gives who permission gwens)
+                (gives :gwen gwens hugos)
+                (acts :hugo hugos :ends-1 "before the end")
+                (ends who permission :gwen)
+                (acts :gwen gwens :ends-2 "after her permission ended")
+                (acts :hugo hugos :ends-3 "after the one above his ended")
+                (gives who permission gwens)
+                (acts :gwen gwens :ends-4 "after her second give")
+                (acts :hugo hugos :ends-5 "after the second give of the one above his")
+                (gives :gwen gwens hugos)
+                (acts :hugo hugos :ends-6 "after his own second give")
+                (ends :hugo hugos :hugo)
+                (acts :hugo hugos :ends-7 "after he ended his own")]]
+    (run! (fn [thing] (by-hand! gate thing)) things)
+    (when (= :microbatch gate) (settle!))
+    things))
+
 (def ^:private rooms
   "Seven small streaming layers, the rooms: for each its id, its first
   holder, and who makes it. Six are Alice's, made by her. The seventh is a
@@ -1128,8 +1175,9 @@
        an act sent twice with two times (`sent-again!`), a chain of acts
        that each replace the one before (`chains!`), an act with each
        optional part (`with-each-optional-part!`), a stray of each word
-       (`strays-of-each-word!`), and acts refused for several reasons
-       (`refused-for-several-reasons!`)
+       (`strays-of-each-word!`), acts refused for several reasons
+       (`refused-for-several-reasons!`), and a line in which a permission
+       ends and is given again (`a-permission-ends!`)
     7. seven more streaming layers, with their acts in turn (`rooms!`)
     8. the load (`load!`), and two acts that write one place
        (`two-acts-on-one-place!`)
@@ -1163,6 +1211,7 @@
         each-part (in-each with-each-optional-part!)
         strays (in-each (fn [gate layer who permission _] (strays-of-each-word! gate layer who permission)))
         refused (in-each refused-for-several-reasons!)
+        ends (in-each a-permission-ends!)
         in-rooms (rooms!)
         _ (load! numbers)
         x-and-y (two-acts-on-one-place!)]
@@ -1180,6 +1229,7 @@
      :each-part each-part
      :strays strays
      :refused refused
+     :ends ends
      :rooms in-rooms
      :x-and-y x-and-y}))
 
@@ -1532,6 +1582,7 @@
      :each-part (in-each (fn [gate] (word gate (get-in cases [:each-part gate]))))
      :rooms (by-word :streaming (mapcat val (:rooms cases)))
      :refused (in-each (fn [gate] (by-word gate (get-in cases [:refused gate]))))
+     :ends (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:ends gate]))))
      :strays (in-each (fn [gate]
                         (apply merge-with + (sorted-map)
                                (for [rows (vals (get-in held [gate :task]))
@@ -1579,6 +1630,9 @@
    [:each-part "an act with each optional part, by gate"]
    [:rooms "the acts into the seven rooms, a making act and a chain in each, sent in turn: how many hold each word"]
    [:refused "the acts that each have one fault of another kind: how many hold each word, by gate"]
+   [:ends (str "the line in which a permission ends and is given again, by gate, the word of each thing in the order sent: "
+               "two gives and an act beneath them; the end, then an act of its holder and one of the holder beneath; the "
+               "second give, then an act of each; the second give of the one beneath, and his act; his end of his own, and his act")]
    [:strays "the strays that each gate keeps: how many digests under each word"]
    [:x-and-y "the place that X wrote and then Y holds the fact of"]
    [:layers-by-task "the layers that the streaming gate made, by the task that holds them"]
@@ -2201,6 +2255,10 @@
          ;; the cases by name: what each module holds of them. These lines say; the check is below.
          (doseq [[k says] cases-in-words]
            (shown says "| the first module:" (pr-str (get gave-first k)) "| the run again:" (pr-str (get gave-again k))))
+         ;; the line in which a permission ends: each gate of each module gave each thing its word
+         (is (= {:streaming words-of-a-permission-that-ends :microbatch words-of-a-permission-that-ends}
+                (into {} (:ends gave-first))
+                (into {} (:ends gave-again))))
          (shown "of the" (count met)
                 "places that the load's acts of the system write from several first entities, the two modules hold the fact of two different acts at"
                 (count (filter (fn [k] (not= (:by-act (row-held first-held :microbatch :facts k))
@@ -2987,6 +3045,8 @@
       (each-gate? (fn [gate] (= {:accepted chain-length} (get-in gave [:chains gate]))))]
      ["the act with each optional part is accepted, in each gate"
       (each-gate? (fn [gate] (= :accepted (get-in gave [:each-part gate]))))]
+     ["in the line in which a permission ends: after the end the holder's act is refused :permission-ended and the act of the holder beneath :permission-above-ended; after the second give the holder's act is accepted and the one beneath is still refused; after his own second give his act is accepted; after he ends his own his act is refused, in each gate"
+      (each-gate? (fn [gate] (= words-of-a-permission-that-ends (get-in gave [:ends gate]))))]
      ["each act into each room is accepted"
       (= {:accepted (* (count rooms) (inc rounds-in-a-room))} (:rooms gave))]
      ["each gate keeps a stray of each of the five words"

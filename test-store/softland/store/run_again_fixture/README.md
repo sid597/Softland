@@ -33,7 +33,8 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 14 October 2026. It is that day's third making. The
+This fixture was made on 21 November 2026. It is the fourth making; the first
+three were made on 14 October 2026. The
 first two were made by the build "run again", in which both depots came to
 place an act by its layer and the base's gate came to decide each act on the
 layer's task in the depot's order: the first after the build's part B, the
@@ -83,6 +84,35 @@ value and 14 rows of the task's table; in the microbatch gate 169, 64, 6 and
 7. The run of all seven proofs after it passed, the two checks of this
 fixture among them. The receipt of the change says that the fixture was made
 again, and why (`src/proposal/backend-on-rama-2026-10-02/order-and-time/RECEIPT.md`).
+
+The fourth making ran on 21 November 2026, and replaced the third for three
+rules of a permission that were changed on purpose, on Sid's decisions of 20
+and 21 November 2026 (`src/proposal/runtime-2026-11-21/PROPOSAL.md`, entry 6):
+
+- a permission ends: a permission fact with no value, by a holder above the
+  permission or by its own, is taken, where it was refused
+  `:ending-a-permission-not-decided`. What was given beneath it ends with it:
+  an act is refused when a permission above its own no longer stands;
+- a holder is given a permission again after an end, where a permission's
+  place took one write;
+- only the layer's first holder writes its setting, its list and its marks,
+  where any holder who may act did.
+
+The hand changed with the rules: in each gate it now sends a line of thirteen
+things in which a permission ends and is given again, and the making holds the
+word of each. The third making's records held no end, no second give and no
+setting by a holder of a given permission, so the store with the new rules
+gave the third making's tables from the third making's records: the proof
+passed on the third making before this one replaced it. It was made again so
+that the kept acts hold an end.
+
+It wrote `acts.edn`, 113,640 bytes, 363 records (the streaming depot's four
+partitions 145, 0, 17 and 5; the microbatch depot's 7, 0, 189 and 0), and
+`tables.edn`, 98,347 bytes, 527 rows: in the streaming gate 155 answers, 66
+facts, 28 facts by value and 14 rows of the task's table; in the microbatch
+gate 182, 69, 6 and 7. The run of all seven proofs after it passed. The
+receipt of the change says that the fixture was made again, and why
+(`src/proposal/runtime-2026-11-21/BUILD-store-piece-1.md`).
 
 From the repository root, behind the lock of this machine's cluster runs:
 

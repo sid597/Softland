@@ -75,6 +75,13 @@ group observed. This page does not retell the checks.
 
 ### What the pure proof does not reach
 
+- a line of acts with an end in it, walked in memory: the cases of a permission
+  that ends hold the checks on rows that the proof builds, with stamps that the
+  proof chose. The module's proof sends such a line through both gates, where
+  the stamps are the gates';
+- a permission more than three deep with an end in it, and the walk's greatest
+  call: an act of 256 gives over 256 places that each hold a permission 32
+  deep. Nothing here or in the measures holds what that call costs;
 - a PState, a depot or a query: each row is a value of this process, and the
   walk of one thing, which reads rows between the checks, is the gates'. The
   proof walks a thing with functions of its own, on a record in memory: the
@@ -193,6 +200,16 @@ No check holds a number of milliseconds.
 
 ### What the module's proof does not reach
 
+- an end that was made before the module is started again, held after it: the
+  two groups of a permission that ends run before the start, and no check
+  after it sends an act of a holder beneath an end. An idea for a check: in
+  `after-the-module-is-started-again`, an act of the holder whom the group
+  `a-permission-ends` left ended;
+- an end in an attempt of a batch that fails and runs again, and in an event
+  of the streaming gate that fails: the two groups that make a gate fail send
+  no end;
+- what an act costs for each permission above its own: the gates' measures run
+  acts of a layer's first holder;
 - a later act of a layer decided before an earlier one that failed. The test `what-points-at-a-thing`
   appends one accepted act a second time, which ends at the gate's read of its
   answer; that is a repeat. The test `an-event-fails-and-runs-again` makes
@@ -431,8 +448,9 @@ path's five pure namespaces load with no Rama. It takes a few seconds.
 
 The tables are a value in this proof: a map from a gate and a table to a sorted
 map from a row's key to the row. A small function of the proof's own stands for a
-gate: it puts the rows of one accepted act in those maps, and keeps the order by
-value of a marked key as a gate keeps it. No task is played: a source's routing
+gate: it puts the rows of one accepted act in those maps, keeps the order by
+value of a marked key as a gate keeps it, and writes a give or an end of a
+permission only where a gate would take it. No task is played: a source's routing
 id is not looked at when it is read, so a source of the base gives the same
 rows under every home, as the store's tables do when every task holds the
 base's rows. The home of a read is the layer that it starts from.
@@ -444,6 +462,9 @@ group observed. This page does not retell the checks.
 
 ### What the read path's pure proof does not reach
 
+- a permission more than two beneath the layer's first, and a read through two
+  layers in each of which the asker's permission has one above it: the worlds
+  with an end have one such layer and a chain of three;
 - Anything that needs Rama: a select, a push, a callback, a thread;
 - that Rama's client delivers the changes of two pushes in the ways that the
   player plays, and in no other: the probes of the read build ran that,
@@ -534,6 +555,13 @@ Rama's test tool, and lets it go on.
 
 ### What the read path's proof does not reach
 
+- an end under a live read of the base: the group
+  `a-permission-ends-under-a-live-read` ends permissions in a streaming layer.
+  The pure proof plays no task, so nothing holds that the rows above an
+  asker's permission in the base are read on the task of her own layer, as
+  her own row is;
+- how many pushes a read holds for the rows above the asker's permission, on
+  the cluster: the pure proof holds which sources such a read holds;
 - A query whose `:with` holds `:time`: no check of this proof asks for it, so
   no run holds that a place-answer on the cluster carries the time that the
   door wrote on its act. The read path's pure proof holds it on rows of its

@@ -67,7 +67,8 @@ The two gates share one walk and the pure code under it. The walk of one thing
 ([walk.clj](module/walk.clj)) is the decision, written once: each gate calls it
 with its own four tables and its depot word. The walk decides with
 [declaration.clj](door/declaration.clj), [digest.clj](door/digest.clj),
-[decision.clj](gate/decision.clj), [first_act.clj](gate/first_act.clj),
+[decision.clj](gate/decision.clj), [chain.clj](gate/chain.clj),
+[first_act.clj](gate/first_act.clj),
 [stamp.clj](gate/stamp.clj) and [rows.clj](record/rows.clj). Where what a
 function gives depends on the gate, it takes the gate's depot: the test for a
 stray, the form of a making act, each check against the record. No check is
@@ -114,7 +115,9 @@ give the same rows, with the same stamps, whenever they are decided.
    A thing with no usable time is refused here.
 4. [decision.clj](gate/decision.clj) checks the act against rows that the walk reads
    for it: its standing ([first_act.clj](gate/first_act.clj) knows the form of a making
-   act), which also asks what the act's permission allows; and its places. Of a
+   act, and [chain.clj](gate/chain.clj) whether a permission stands, by the row
+   of each permission above it), which also asks what the act's permission
+   allows; and its places. Of a
    layer for which the record holds nothing and which starts with the other
    gate's depot, the check answers from the layer id alone.
 5. Only for an act that no check refused, and only when it holds a fact under a
@@ -291,13 +294,13 @@ shape must hold when each fact is wrong.
   own all the same, because the digest is taken of UTF-8, which makes the same
   replacement. A probe saw that on Rama 1.6.0 in-process, on a module of its
   own and not on this one.
-- **Who may write a layer's setting, its list and its marks.** Not decided, and
-  kept only so that the read build can run: whoever may act in the layer. So any
-  holder of "see and act" in a layer can set that layer to `:everyone`, and any
-  such holder in the base can set the base to `:members`. Sid's word for who
-  writes the setting is "the owner", and no layer names an owner as a fact. The
-  one place for the other answer is `who-may-write-fault` in
-  [decision.clj](gate/decision.clj).
+- **That the first holder of a layer is who she says.** Only the holder of a
+  layer's first permission writes its setting, its list and its marks
+  (`who-may-write-fault` in [decision.clj](gate/decision.clj)), and only a
+  holder above a permission, or its own holder, ends it. Both are held against
+  the permission that the act names and the `:who` that it names, and a gate
+  checks no sender: a program that can send can name the first holder, the
+  system among them.
 - **What a list of layers names.** A gate takes the list as written: a layer that
   is not made, the layer itself, a layer named twice, and two lists that name
   each other are all accepted. A read handles them.
@@ -681,16 +684,34 @@ one rule of the declaration and the key that the gate reads.
 `allows` is `:see` or `:see-and-act`; a first permission has no slot. Without the
 slot a permission reads as "see and act" (`allows` in [act.clj](act.clj)). The
 row of a permission holds the text of the whole permission, slot and all, and
-check (d) stays one read and one comparison, of that text with the text of the
-permission that the act names: so nobody raises her right
+check (d) compares that text with the text of the permission that the act
+names, at the holder's place and then at the place of each permission above it:
+so nobody raises her right
 by naming it, and each act in the log says under which right it was made. The
 check stands with the standing, before any place is read. A making act names a
 first permission, so one whose permission has the slot is no making act and is
 refused `:layer-not-made`. The other form that was weighed keeps what a
 permission allows beside the permission and not in it; `allows`, the shape and
-check (d) are what it would change. **"See" stays "see"**: a permission's place
-takes one write and nothing ends a permission, so a permission that says `:see`
-cannot be raised. That is kept, and not decided.
+check (d) are what it would change. **"See" becomes "see and act" by an end and
+a give**: a give is not taken at a place whose permission stands, so the holder
+above ends the one that says `:see` and gives another. What the holder had given
+beneath the first ends with it.
+
+**A permission ends, and what was given beneath it ends with it.** An end is a
+fact with no value at the holder's place, sent by her giver, by anyone above the
+giver up to the layer's first holder, or by herself; the layer's first
+permission does not end. The end is one row. What is beneath it is not written:
+a gate reads the row of each permission above an act's own, at each decision,
+and the act is refused when one of them no longer holds the permission above,
+or holds it by a later give. A holder is given a permission again after an end;
+the permissions beneath her do not come back with it, and each is given again
+by an act of its own. A second give of the same parts has the same id, and its
+row has a later stamp: the stamp tells the two apart. [chain.clj](gate/chain.clj)
+holds the rule, and says which parts are Sid's decisions of 20 and 21 November
+2026 and which are a session's choices that he can turn: that the end of what
+is beneath is read and not written, that the stamp and not a part of the id
+tells a second give, that a holder ends her own, and that the first does not
+end.
 
 **How deep a permission can be is not decided.** Kept: as deep as a value may
 be. A permission can hold 32 permission ids, itself counted, as an act's own
@@ -741,8 +762,10 @@ the code's sense, with a plain value. Each can be written again at any time,
 with `:replaces` or without: two writers at once leave the later one, and a
 writer who must not lose a write names what she replaces. A retract of one is
 refused; a list is emptied, and a mark taken off, by a second write of a value
-that says so. **Who may write them is not decided**; kept: whoever may act in
-the layer (see "What the gate does not check"). **What a layer starts with is
+that says so. **Only the layer's first holder writes them** (Sid, 20 November
+2026): the holder of the first permission, which the making act wrote. A holder
+of a given permission is refused `:only-the-first-holder-writes-a-setting`,
+whatever her permission allows. **What a layer starts with is
 not decided**; kept: a new layer is seen by its members, the base by everyone,
 and a layer builds on nothing and marks no key until a fact says so. No fact is
 written at the making: `starts-with` in [first_act.clj](gate/first_act.clj) reads
@@ -786,10 +809,15 @@ of the value before. A table of its own and not more keys of the facts table:
 its key has five parts where a place has three, so in one map a key of this
 order could sort into the run of an entity.
 
-**The gate does not read the permissions above the act's own.** A permission row
-is written only by a right making act or by a give whose own permission stood and
-is exactly the one above, and nothing in this build ends a permission. Reading
-them would cost up to 31 reads on every act to find what cannot be false.
+**The gate reads the permissions above the act's own.** One row for each: none
+for an act of a layer's first holder, one for a holder straight beneath her, 31
+at most. A permission row is written only by a right making act or by a give
+whose own permission stood, but a permission above can have ended since, and
+what is beneath an end is written nowhere. The other way writes an end on each
+place beneath when a permission ends: every act then costs one read, as before,
+and one end writes a row for each holder beneath it, with no bound, in one
+decision of the layer's one line, and needs a table of who gave to whom. Kept:
+the read, which has a bound. A session's choice of 21 November 2026.
 
 **The depot of a layer costs no read for a layer that is made here.** A gate's
 record holds rows only for layers of its depot, so a row at the permission's
@@ -1156,6 +1184,11 @@ order, and "digest" is this store's word since its module.
 | `allows` | In [act.clj](act.clj): a permission → `:see` or `:see-and-act` |
 | `starts-with` | In [first_act.clj](gate/first_act.clj): what a layer reads as under one of the three keys while no fact says it |
 | `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
+| `chain-needed`, `chains-needed` | In [decision.clj](gate/decision.clj): the rows of the permissions above an act's own, and above a permission that a give would write over |
+| `above`, `place`, `places-above`, `above?`, `stands?` | In [chain.clj](gate/chain.clj): the chain of a permission, and whether it stands |
+| `held-permission`, `ended?` | In [rows.clj](record/rows.clj): the permission that the row at a permission's place holds, and whether that row is an end |
+| an end | A fact with no value under `:softland.store/permission`, at a place that holds a permission: its row holds no value |
+| the first holder | The holder of a layer's first permission, the one with nothing above it |
 | `plain-bytes`, `plain-bytes-of` | In [rows.clj](record/rows.clj): the UTF-8 bytes of the String that a fact's row holds for its value; and those bytes of a row's value |
 | `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether a row's value is the one text of a value given, and the first form that a row's value reads as |
 | `read-value`, with `:no-fact`, `:nothing-here`, `:value`, `:not-a-value` | In [rows.clj](record/rows.clj): what a row says of its value, for a reader |
@@ -1330,16 +1363,22 @@ fact sits.
 | `:layer-belongs-to-the-other-gate` | The record holds nothing for the layer, and the layer starts with the other gate's depot: the act was sent to the wrong depot. The same word whether or not the other gate has made the layer |
 | `:layer-not-made` | The record holds nothing for the layer, the layer is not the other gate's, and the act is not a right making act |
 | `:who-not-the-permissions-holder` | The holder that the act's permission names is not the act's `:who` |
-| `:permission-does-not-stand` | The record does not hold the act's permission for its holder |
-| `:permission-does-not-allow-acting` | The record holds the act's permission, and it says `:see`: an act needs "act" |
+| `:permission-does-not-stand` | The record does not hold the act's permission for its holder: the place is empty, or holds another permission |
+| `:permission-ended` | The place of the act's `:who` holds an end: her permission in the layer was ended, and she was not given one again |
+| `:permission-above-ended` | The record holds the act's permission, and a permission above it does not stand, or was given again after the act's own was given |
+| `:permission-does-not-allow-acting` | The act's permission stands, and it says `:see`: an act needs "act" |
 | `:replaced-fact-not-current` | A fact that the act replaces is not the current fact of its place |
 | `:setting-not-on-the-layer` | A fact under a setting key is on an entity that is not the act's layer |
 | `:permission-fact-for-another-layer` | A `:softland.store/permission` fact writes a permission for a layer that is not the act's |
 | `:permission-fact-granted-in-another-layer` | A `:softland.store/permission` fact writes a permission whose `granted-in` is not the act's layer |
 | `:permission-fact-not-beneath-the-acts-own` | A `:softland.store/permission` fact writes a permission that is not straight beneath the one the act acts under |
-| `:ending-a-permission-not-decided` | A `:softland.store/permission` fact with no value: who may end a permission is not decided |
+| `:only-the-first-holder-writes-a-setting` | A fact under one of the three keys that take a second write, in an act under a given permission |
+| `:no-permission-to-end` | An end at a place that holds no permission: it is empty, or holds an end |
+| `:first-permission-does-not-end` | An end at the place of the layer's first permission |
+| `:not-above-the-permission` | An end by an act whose permission is not the one at the place and is not above it |
+| `:holder-has-a-permission` | A give at a place whose permission stands: a holder has one permission in a layer |
 | `:changing-a-depot-not-decided` | A `:softland.store/depot` fact, in a layer that is made, with a depot that is not the layer's |
-| `:store-key-takes-one-write` | A permission fact on a place that already holds one, or a depot fact with the layer's own depot after the making. Not earned by the three keys that take a second write |
+| `:store-key-takes-one-write` | A depot fact with the layer's own depot after the making. Not earned by the three keys that take a second write, or by a permission |
 | `:store-key-retract-not-built` | A fact with no value under any store key but a permission's |
 
 **Words between the decision and the walk**, for the rows of one decision:

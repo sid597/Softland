@@ -1425,7 +1425,7 @@
         for-elsewhere (decide! (alice [{:e :erin :k :softland.store/permission :v [:erin :team :alice alice-own]}]))
         at-the-top (decide! (alice [{:e :erin :k :softland.store/permission :v [:erin :alice :alice]}]))
         give-again (decide! (alice [{:e :bob :k :softland.store/permission :v bobs}]))
-        end-it (decide! (alice [{:e :bob :k :softland.store/permission}]))
+        end-nothing (decide! (alice [{:e :nobody :k :softland.store/permission}]))
         depot-again (decide! (alice [{:e :alice :k :softland.store/depot :v :streaming}]))
         depot-other (decide! (alice [{:e :alice :k :softland.store/depot :v :microbatch}]))
         depot-retract (decide! (alice [{:e :alice :k :softland.store/depot}]))
@@ -1466,8 +1466,9 @@
     (check "a granted-in that is not the act's layer is refused" :permission-fact-granted-in-another-layer (:word granted-elsewhere))
     (check "a permission fact for another layer is refused" :permission-fact-for-another-layer (:word for-elsewhere))
     (check "a permission with nothing above it, in a layer that is made, is refused" :permission-fact-not-beneath-the-acts-own (:word at-the-top))
-    (check "a permission that stands is not given again: a permission's place takes one write" :store-key-takes-one-write (:word give-again))
-    (check "a retract of a permission is refused with the word that says it is not decided" :ending-a-permission-not-decided (:word end-it))
+    (check "a permission that stands is not given again: a holder has one permission in a layer" :holder-has-a-permission (:word give-again))
+    (check "an end at a place that holds no permission is refused, and writes nothing there"
+           [:no-permission-to-end nil] [(:word end-nothing) (fact-row :alice :nobody :softland.store/permission)])
     (check "a depot fact after the making: the same depot, the other depot, a retract"
            [:store-key-takes-one-write :changing-a-depot-not-decided :store-key-retract-not-built]
            [(:word depot-again) (:word depot-other) (:word depot-retract)])
@@ -1496,8 +1497,8 @@
     (shown "a chain four deep stands:" (:word give-carol) (:word give-dave) (:word dave-acts)
            "| a fifth is given and acted under:" (:word give-five) (:word eve-acts) "| the permission in the row of that act:" (:permission eves-row)
            "| an own permission six deep that nobody gave:" (:word never-given))
-    (shown "granted-in must be the act's layer:" (:word granted-elsewhere) "| a permission's place takes one write:" (:word give-again)
-           "| ending a permission:" (:word end-it) "| a depot after the making:" (:word depot-again) (:word depot-other) (:word depot-retract))
+    (shown "granted-in must be the act's layer:" (:word granted-elsewhere) "| a permission given again while it stands:" (:word give-again)
+           "| an end at a place that holds no permission:" (:word end-nothing) "| a depot after the making:" (:word depot-again) (:word depot-other) (:word depot-retract))
     (shown "whole or nothing: a give with a stale fact" (:word with-stale) "| an act under the permission that was not given" (:word erin-acts))
     (shown "a tool's own facts under the bare words :class and :permission, accepted as facts under plain keys:" (told tools-own)
            "| depot-of-layer :alice =" (depot-of-layer :alice) "| an act under Bob's permission after:" (:word bob-after)
@@ -1922,11 +1923,11 @@
     (check "64 layers and 32 marked keys in one act are accepted; a list that names the layer itself, a layer twice and a layer that nobody made is taken as written"
            [:accepted [64 32] :accepted [:value [:team :base :base :nobody-made-this]]]
            [(:word at-the-limits) read-at-the-limits (:word odd-list) odd-list-read])
-    (check "a permission's place and the layer's depot still take one write"
-           [:accepted :store-key-takes-one-write :store-key-takes-one-write]
+    (check "a permission that stands is not given again, and the layer's depot takes one write"
+           [:accepted :holder-has-a-permission :store-key-takes-one-write]
            [(:word give) (:word give-again) (:word depot-again)])
-    (check "who may write the three is whoever may act in the layer, kept and not decided: a second holder of the layer sets it to everyone"
-           [:accepted [:value :everyone] :bob] [(:word by-bob) (record/read-value (fact-row :team :team who-may-see))
+    (check "who may write the three is the layer's first holder alone: a second holder of the layer, who may act in it, sets it to everyone and is refused; the row is as the first holder left it"
+           [:only-the-first-holder-writes-a-setting [:value :everyone] :alice] [(:word by-bob) (record/read-value (fact-row :team :team who-may-see))
                                                (record/who-of (fact-row :team :team who-may-see))])
     (check "a setting into a layer that is not made is refused as any act into it; a making act with a third fact, a setting, is no making act: nothing is written at the making but the depot and the first permission"
            [:layer-not-made :layer-not-made nil nil]
@@ -1980,14 +1981,14 @@
             (:word sends-a-value) (:mine? sends-a-value) (fact-row :canvas :bobs-value :text)])
     (check "an act of hers with a second fault, a stale replaces, gets the word of her permission: the standing comes before the places"
            :permission-does-not-allow-acting (:word two-faults))
-    (check "a second give to her, of see and act, is refused: a permission's place takes one write, so see stays see; her row is as it was, and she still cannot act"
-           [:store-key-takes-one-write true :permission-does-not-stand]
+    (check "a second give to her, of see and act, while her permission stands, is refused: a holder has one permission in a layer; her row is as it was, and she still cannot act"
+           [:holder-has-a-permission true :permission-does-not-stand]
            [(:word raise) (= (value-bytes the-row) (value-bytes row-after)) (:word still-sees)])
     (check "a permission that says see and act: its holder acts, and gives one beneath her own that says see; the holder of that one cannot act"
            [:accepted :accepted :accepted :permission-does-not-allow-acting]
            [(:word give-carol) (:word carol-writes) (:word carol-gives) (:word frank-acts)])
     (check "a give to the holder of see by another giver, of see and act: refused with the same word; a holder has one permission in a layer, as built"
-           [:store-key-takes-one-write true]
+           [:holder-has-a-permission true]
            [(:word by-another-giver) (= (value-bytes the-row) (value-bytes (fact-row :canvas :bob :softland.store/permission)))])
     (check "a making act whose permission has the slot is no making act: refused as an act into a layer that is not made; the layer is then made by a right act"
            [:layer-not-made :accepted :streaming] [(:word slotted-making) (:word right-making) (depot-of-layer :slotted)])
@@ -1998,6 +1999,100 @@
            "| gives:" (:word gives) "| sends a value:" (told sends-a-value))
     (shown "see stays see: a second give of see and act" (:word raise)
            "| a holder of see and act acts and gives:" (:word carol-writes) (:word carol-gives) "| a making act whose permission has the slot:" (:word slotted-making))))
+
+(deftest a-permission-ends
+  (let [ada-own [:ada :lab :lab]
+        beas [:bea :lab :lab ada-own]
+        cals [:cal :lab :lab beas]
+        dovs [:dov :lab :lab cals]
+        ada (fn [facts] (thing :lab :ada ada-own facts))
+        bea (fn [facts] (thing :lab :bea beas facts))
+        cal (fn [facts] (thing :lab :cal cals facts))
+        dov (fn [facts] (thing :lab :dov dovs facts))
+        permission-of-holder (fn [holder] (fact-row :lab holder :softland.store/permission))
+        end-of (fn [holder] {:e holder :k :softland.store/permission})
+        give-of (fn [permission] {:e (first permission) :k :softland.store/permission :v permission})
+        made (decide! (making :lab :ada :ada))
+        give-bea (decide! (ada [(give-of beas)]))
+        give-cal (decide! (bea [(give-of cals)]))
+        give-dov (decide! (cal [(give-of dovs)]))
+        before (mapv (fn [by n] (decide! (by [(value-fact (keyword (str "note-" n)) :text (str "before the end " n))])))
+                     [bea cal dov] [1 2 3])
+        ;; Who may end, and what does not end.
+        not-above (decide! (cal [(end-of :bea)]))
+        the-first (decide! (ada [(end-of :ada)]))
+        the-first-from-beneath (decide! (dov [(end-of :ada)]))
+        by-a-setting (decide! (bea [{:e :lab :k :softland.store/who-may-see :v :everyone}]))
+        by-the-first (decide! (ada [{:e :lab :k :softland.store/who-may-see :v :everyone}]))
+        over-one-that-stands (decide! (ada [(give-of [:bea :lab :lab ada-own :see])]))
+        beas-row-before (permission-of-holder :bea)
+        ;; The end, and what it ends.
+        stale-end (decide! (ada [(assoc (end-of :bea) :replaces [(:act-id (:thing give-cal)) 0])]))
+        end-bea (decide! (ada [(assoc (end-of :bea) :replaces [(:act-id (:thing give-bea)) 0])]))
+        beas-row-ended (permission-of-holder :bea)
+        cals-row-after-the-end (permission-of-holder :cal)
+        after-end (mapv (fn [by n] (decide! (by [(value-fact (keyword (str "late-" n)) :text "after the end")])))
+                        [bea cal dov] [1 2 3])
+        end-twice (decide! (ada [(end-of :bea)]))
+        ;; Giving again.
+        bea-again (decide! (ada [(give-of beas)]))
+        after-bea-again (mapv (fn [by n] (decide! (by [(value-fact (keyword (str "again-" n)) :text "after the second give")])))
+                              [bea cal dov] [1 2 3])
+        cal-again (decide! (bea [(give-of cals)]))
+        after-cal-again (mapv (fn [by n] (decide! (by [(value-fact (keyword (str "third-" n)) :text "after Cal's second give")])))
+                              [cal dov] [2 3])
+        ;; A holder ends her own, and a holder beneath an end is given one by another.
+        cal-leaves (decide! (cal [(end-of :cal)]))
+        cal-after-leaving (decide! (cal [(value-fact :left :text "after leaving")]))
+        dovs-new [:dov :lab :lab ada-own]
+        dov-by-ada (decide! (ada [(give-of dovs-new)]))
+        dov-under-the-new (decide! (thing :lab :dov dovs-new [(value-fact :dovs-new-note :text "under the new one")]))
+        dov-under-the-old (decide! (dov [(value-fact :dovs-old-note :text "under the old one")]))
+        stamps (mapv (comp :stamp :answer) [give-bea end-bea (nth after-end 0) bea-again (nth after-bea-again 0)])]
+    (check "a layer with a chain of four: the first holder, and three permissions each given beneath the one before; each holder acts"
+           [:accepted :accepted :accepted :accepted [:accepted :accepted :accepted]]
+           [(:word made) (:word give-bea) (:word give-cal) (:word give-dov) (mapv :word before)])
+    (check "a holder who is not above a permission does not end it; the layer's first permission does not end, by its own holder or by one beneath"
+           [:not-above-the-permission :first-permission-does-not-end :first-permission-does-not-end]
+           [(:word not-above) (:word the-first) (:word the-first-from-beneath)])
+    (check "only the layer's first holder writes its setting: a holder of a given permission is refused, and the first holder's write is taken"
+           [:only-the-first-holder-writes-a-setting :accepted [:value :everyone]]
+           [(:word by-a-setting) (:word by-the-first) (record/read-value (fact-row :lab :lab :softland.store/who-may-see))])
+    (check "a give at a place whose permission stands is refused, and the row is as it was"
+           [:holder-has-a-permission beas] [(:word over-one-that-stands) (record/held-permission beas-row-before)])
+    (check "an end that names a give which is not the one at the place is refused as a stale fact; the end that names the give at the place is taken"
+           [:replaced-fact-not-current :accepted] [(:word stale-end) (:word end-bea)])
+    (check "the end is a fact at the holder's place: a row with no value, by the act that ended it, with that act's stamp, who ended it and under which permission"
+           [true nil (nth (:act-id (:thing end-bea)) 2) (:stamp (:answer end-bea)) :ada ada-own]
+           [(record/ended? beas-row-ended) (record/held-permission beas-row-ended) (:by-act beas-row-ended) (:stamp beas-row-ended)
+            (record/who-of beas-row-ended) (record/permission-of beas-row-ended)])
+    (check "after the end her act is refused with the word of an end, and the act of each holder beneath her with the word of an end above: nothing is written at their places, and the row of the holder beneath still holds her permission"
+           [[:permission-ended :permission-above-ended :permission-above-ended] [nil nil nil] cals]
+           [(mapv :word after-end) (mapv #(fact-row :lab (keyword (str "late-" %)) :text) [1 2 3])
+            (record/held-permission cals-row-after-the-end)])
+    (check "what was taken under those permissions before the end stays: each row holds its value, its writer and the permission that it was written under"
+           [[[:value "before the end 1"] :bea beas] [[:value "before the end 2"] :cal cals] [[:value "before the end 3"] :dov dovs]]
+           (mapv (fn [n] (let [row (fact-row :lab (keyword (str "note-" n)) :text)]
+                           [(record/read-value row) (record/who-of row) (record/permission-of row)]))
+                 [1 2 3]))
+    (check "an end at a place that holds an end is refused" :no-permission-to-end (:word end-twice))
+    (check "she is given the same permission again, which has the same id: her act is taken, and those beneath her do not come back with it"
+           [:accepted [:accepted :permission-above-ended :permission-above-ended]]
+           [(:word bea-again) (mapv :word after-bea-again)])
+    (check "the holder beneath is given hers again by an act of its own, at a place that still held the one that ended: taken; her act is taken, and the one beneath her is still ended"
+           [:accepted [:accepted :permission-above-ended]] [(:word cal-again) (mapv :word after-cal-again)])
+    (check "a holder ends her own permission, and her next act is refused with the word of an end"
+           [:accepted :permission-ended] [(:word cal-leaves) (:word cal-after-leaving)])
+    (check "a holder beneath an end is given a permission by another holder, straight beneath the first: her act under the new one is taken, and under the one that ended it does not stand"
+           [:accepted :accepted :permission-does-not-stand]
+           [(:word dov-by-ada) (:word dov-under-the-new) (:word dov-under-the-old)])
+    (check "the give, the end, the refused act after it, the second give and the act after that have stamps in that order: the end is in the layer's one order"
+           true (boolean (apply < stamps)))
+    (shown "a permission ends in a streaming layer, with a chain of four: the end" (told end-bea)
+           "| the acts of the three holders after it:" (pr-str (mapv :word after-end))
+           "| after her second give:" (pr-str (mapv :word after-bea-again))
+           "| after the second give of the one beneath:" (pr-str (mapv :word after-cal-again))
+           "| stamps of give, end, refused act, second give, act:" (pr-str stamps))))
 
 (deftest what-points-at-a-thing
   (let [u (UUID/randomUUID)
@@ -2468,10 +2563,10 @@
   (let [give (:base-give @kept)
         permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission))
         writes (decide-in-base! (thing :base :alice alice-in-base [(value-fact :alices-doc :text "alice's text in the base")]))
-        [give-again end-it depot-again depot-other setting-elsewhere give-bob unknown-key tools-own]
+        [give-again end-nothing depot-again depot-other setting-elsewhere give-bob unknown-key tools-own]
         (decide-in-one-batch!
          [(system-act [{:e :alice :k :softland.store/permission :v alice-in-base}])
-          (system-act [{:e :alice :k :softland.store/permission}])
+          (system-act [{:e :nobody :k :softland.store/permission}])
           (system-act [{:e :base :k :softland.store/depot :v :microbatch}])
           (system-act [{:e :base :k :softland.store/depot :v :streaming}])
           (system-act [{:e :team :k :softland.store/depot :v :microbatch}])
@@ -2504,9 +2599,9 @@
     (check "a permission given beside the giver's own, not beneath it, is refused, and gives nothing"
            [:permission-fact-not-beneath-the-acts-own {}]
            [(:word beside) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))])
-    (check "in the base a permission's place and the layer's depot take one write: a permission given again, the end of one, the depot again, another depot"
-           [:store-key-takes-one-write :ending-a-permission-not-decided :store-key-takes-one-write :changing-a-depot-not-decided]
-           [(:word give-again) (:word end-it) (:word depot-again) (:word depot-other)])
+    (check "in the base a permission that stands is not given again, an end at a place that holds no permission is refused, and the layer's depot takes one write: the depot again, another depot"
+           [:holder-has-a-permission :no-permission-to-end :store-key-takes-one-write :changing-a-depot-not-decided]
+           [(:word give-again) (:word end-nothing) (:word depot-again) (:word depot-other)])
     (check "a setting key on an entity that is not the layer is refused in the base" :setting-not-on-the-layer (:word setting-elsewhere))
     (check "after those refusals the permission's rows and the depot are as they were"
            [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows) :microbatch]
@@ -2530,7 +2625,7 @@
            (count permission-rows) "tasks | her act, with a value:" (told writes))
     (shown "in the base, an act under a permission that does not stand:" (:word not-given) "| by a who that is not the holder:" (:word not-holder)
            "| a permission given beside the giver's own:" (:word beside))
-    (shown "a permission's place takes one write in the base:" (:word give-again) "| ending a permission:" (:word end-it)
+    (shown "a permission given again in the base while it stands:" (:word give-again) "| an end at a place that holds no permission:" (:word end-nothing)
            "| the depot again:" (:word depot-again) (:word depot-other) "| a setting key on another entity:" (:word setting-elsewhere)
            "| a permission beneath a person's, and an act under it:" (:word give-bob) (:word bob-acts))
     (shown "in the base, a key in softland.store that the store does not know:" (:word unknown-key)
@@ -3050,8 +3145,8 @@
            [#{{:tag first-marking}} #{{}} #{{:tag second-marking}} true]
            [(set (map record/marked-keys-of (vals (nth after-first 2)))) (set (map record/marked-keys-of (vals (nth after-second 2))))
             (set (map record/marked-keys-of (vals (nth after-named 2)))) (< first-marking second-marking)])
-    (check "who may write the three is whoever may act in the layer, kept and not decided: a person with a permission in the base sets the base to everyone, on every task"
-           [:accepted tasks #{[:value :everyone]} #{:alice}]
+    (check "who may write the three is the layer's first holder alone: a person with a permission in the base, who may act in it, sets the base to everyone and is refused; every task holds the row that the system left"
+           [:only-the-first-holder-writes-a-setting tasks #{[:value :members]} #{:system}]
            [(:word by-alice) (count after-alice) (values-of after-alice) (set (map record/who-of (vals after-alice)))])
     (check "a setting for the base sent to the streaming depot is refused as any act into a layer of the other gate, and the base's rows are as they were"
            [:layer-belongs-to-the-other-gate (into {} (map (fn [[task row]] [task (:stamp row)])) after-alice)]
@@ -3099,8 +3194,8 @@
            [:permission-does-not-allow-acting {} :permission-does-not-allow-acting true {}]
            [(:word gives) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))
             (:word sends-a-value) (:mine? sends-a-value) (rows-by-task :mb-facts-ps (record/place-key :base :erins-value :text))])
-    (check "a second give to her, of see and act, is refused: a permission's place takes one write, and her row on each task is as it was, in every field"
-           [:store-key-takes-one-write tasks permission-rows]
+    (check "a second give to her, of see and act, while her permission stands, is refused: a holder has one permission in a layer, and her row on each task is as it was, in every field"
+           [:holder-has-a-permission tasks permission-rows]
            [(:word raise) (count permission-rows-after) permission-rows-after])
     (check "a permission that says see and act, given in the same batch: its holder acts in a later batch" [:accepted :accepted]
            [(:word give-greta) (:word greta-writes)])
@@ -3108,6 +3203,56 @@
            "| its holder acts in the batch of the give:" (:word in-the-same-batch) "| in a later batch:" (told acts)
            "| names it without the slot:" (:word names-less) "| with see and act:" (:word names-more) "| gives:" (:word gives)
            "| sends a value:" (told sends-a-value) "| a second give of see and act:" (:word raise))))
+
+(deftest a-permission-ends-in-the-base
+  (let [hanas [:hana :base :base system-own]
+        ivos [:ivo :base :base hanas]
+        hana (fn [facts] (thing :base :hana hanas facts))
+        ivo (fn [facts] (thing :base :ivo ivos facts))
+        place (fn [holder] (record/place-key :base holder :softland.store/permission))
+        give-hana (decide-in-base! (system-act [{:e :hana :k :softland.store/permission :v hanas}]))
+        give-ivo (decide-in-base! (hana [{:e :ivo :k :softland.store/permission :v ivos}]))
+        ;; One batch: an act of each before the end, the end, an act of each after it.
+        [hana-before ivo-before end-hana hana-after ivo-after]
+        (decide-in-one-batch!
+         [(hana [(value-fact :hanas-doc :text "before the end")])
+          (ivo [(value-fact :ivos-doc :text "before the end")])
+          (system-act [{:e :hana :k :softland.store/permission}])
+          (hana [(value-fact :hanas-late-doc :text "after the end")])
+          (ivo [(value-fact :ivos-late-doc :text "after the end")])])
+        ended-rows (rows-by-task :mb-facts-ps (place :hana))
+        ivos-rows (rows-by-task :mb-facts-ps (place :ivo))
+        [hana-again hana-acts ivo-still]
+        (decide-in-one-batch!
+         [(system-act [{:e :hana :k :softland.store/permission :v hanas}])
+          (hana [(value-fact :hanas-doc-2 :text "after the second give")])
+          (ivo [(value-fact :ivos-doc-2 :text "after the second give")])])
+        again-rows (rows-by-task :mb-facts-ps (place :hana))
+        by-hana (decide-in-base! (hana [{:e :ivo :k :softland.store/permission :v ivos}]))
+        ivo-acts (decide-in-base! (ivo [(value-fact :ivos-doc-3 :text "after his own second give")]))]
+    (check "in the base the system gives a person a permission, and she gives one beneath her own"
+           [:accepted :accepted] [(:word give-hana) (:word give-ivo)])
+    (check "in one batch, in the order appended: an act of each before the end is taken; the end is taken; an act of each after it is refused, hers with the word of an end and the one beneath with the word of an end above"
+           [:accepted :accepted :accepted :permission-ended :permission-above-ended]
+           (mapv :word [hana-before ivo-before end-hana hana-after ivo-after]))
+    (check "the end's row is on every task: a row with no value, with the stamp of the act that ended it; the row of the one beneath still holds his permission on every task"
+           [tasks #{true} #{(:stamp (:answer end-hana))} tasks #{ivos}]
+           [(count ended-rows) (set (map record/ended? (vals ended-rows))) (set (map :stamp (vals ended-rows)))
+            (count ivos-rows) (set (map record/held-permission (vals ivos-rows)))])
+    (check "what was taken before the end stays on every task, and no task holds a row of what was refused after it"
+           [tasks tasks {} {}]
+           [(count (rows-by-task :mb-facts-ps (record/place-key :base :hanas-doc :text)))
+            (count (rows-by-task :mb-facts-ps (record/place-key :base :ivos-doc :text)))
+            (rows-by-task :mb-facts-ps (record/place-key :base :hanas-late-doc :text))
+            (rows-by-task :mb-facts-ps (record/place-key :base :ivos-late-doc :text))])
+    (check "she is given the same permission again and acts in the same batch: taken; the one beneath her does not come back with it; her new row is on every task"
+           [:accepted :accepted :permission-above-ended tasks #{hanas}]
+           [(:word hana-again) (:word hana-acts) (:word ivo-still) (count again-rows) (set (map record/held-permission (vals again-rows)))])
+    (check "the one beneath is given his again by an act of its own, and then acts"
+           [:accepted :accepted] [(:word by-hana) (:word ivo-acts)])
+    (shown "a permission ends in the base, in one batch with acts before and after it:"
+           (pr-str (mapv :word [hana-before ivo-before end-hana hana-after ivo-after]))
+           "| the end's row is on" (count ended-rows) "tasks | after her second give:" (pr-str (mapv :word [hana-again hana-acts ivo-still])))))
 
 (deftest what-points-at-a-thing-in-the-base
   (let [[e1 e2 e3] (:base-entities @kept)
@@ -4058,6 +4203,7 @@
   (what-a-fact-keeps)
   (the-keys-that-take-a-second-write)
   (what-a-permission-allows)
+  (a-permission-ends)
   (what-points-at-a-thing)
   (the-base-is-made)
   (an-act-lands-in-the-base)
@@ -4076,6 +4222,7 @@
   (what-a-fact-keeps-in-the-base)
   (the-keys-that-take-a-second-write-in-the-base)
   (what-a-permission-allows-in-the-base)
+  (a-permission-ends-in-the-base)
   (what-points-at-a-thing-in-the-base)
   (one-batch-under-a-marked-key)
   (the-module-keeps-no-lock)

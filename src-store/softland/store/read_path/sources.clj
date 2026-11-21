@@ -54,6 +54,9 @@
 
     own-rows-source, permission-source, place-source, run-source,
     by-value-source, check-source      -> a source
+    chain-sources                       her permission row -> the sources
+                                        of the rows above it
+    chain-rows                          those rows, from `known`
     of-word                             a map from each word of a query to
                                         what it reads in one layer
     first-read-holds?                   whether the first read of a run can
@@ -77,9 +80,11 @@
   A source is wanted by rank: a source of a rank is wanted as a function of
   the query and of the values of sources of lower ranks, and never of its
   own rank or above. Rank 0: the own rows of a start layer. 1: the own rows
-  of each layer of the list. 2: the asker's permission. 3: a place, a run,
-  or the order by value. 4: the checks of nearer layers. So a loop that
-  fetches what is missing and asks `reading` again ends within five rounds.
+  of each layer of the list. 2: the asker's permission. 3: the rows of the
+  permissions above hers, which her own row names all at once. 4: a place,
+  a run, or the order by value. 5: the checks of nearer layers. So a loop
+  that fetches what is missing and asks `reading` again ends within six
+  rounds.
 
   State and effects. None. Each function is pure.
 
@@ -90,6 +95,7 @@
   `softland.store.read-path.query/check`: every key text is made by
   `softland.store.record.rows` of ids that were tested first."
   (:require [softland.store.door.declaration :as declaration]
+            [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.read-path.layers :as layers]
             [softland.store.record.rows :as rows]))
@@ -132,6 +138,35 @@
   her permission row in the layer: one row, on its holder."
   [home layer asker]
   (source-of home layer :facts [:row (rows/place-key layer asker :softland.store/permission)]))
+
+(defn chain-sources
+  "Takes the home of a read, a layer, and the asker's permission row in the
+  layer: a row, nil, or `:not-known-yet`. Gives the sources of the rows
+  above it, nearest first: one row for each permission above the one that
+  her row holds, each on its own holder
+  (`softland.store.gate.chain/places-above`). An empty vector when her row
+  is not known, when she holds no row, when her row is an end, and when it
+  holds a first permission. Her permission stands only while each of those
+  rows holds the permission above, with an older stamp, so a read keeps
+  them as it keeps her own row: the end of one above her is a change of
+  one of them."
+  [home layer permission-row]
+  (if-let [held (when-not (= :not-known-yet permission-row) (rows/held-permission permission-row))]
+    (mapv (fn [k] (source-of home layer :facts [:row k])) (chain/places-above layer held))
+    []))
+
+(defn chain-rows
+  "Takes the home of a read, a layer, the asker's permission row in the
+  layer, and `known`. Gives the rows above her permission, as a map from
+  the key of each place of `chain-sources` to the row that `known` holds
+  for it, nil for an empty place; or `:not-known-yet` when `known` does not
+  hold one of those sources. An empty map when there is none to read. What
+  `softland.store.read-path.layers/standing` and `meaning` take."
+  [home layer permission-row known]
+  (let [above (chain-sources home layer permission-row)]
+    (if (every? #(contains? known %) above)
+      (into {} (map (fn [source] [(second (:path source)) (get known source)])) above)
+      :not-known-yet)))
 
 (defn place-source
   "Takes the home of a read, a layer, an entity and a key. Gives the source
@@ -273,15 +308,19 @@
 (defn rights-kind
   "Takes a query in its one form and a source. Gives `:own-rows` for the
   source of a layer's own rows, `:permission` for the source of the asker's
-  permission row in the source's layer, and nil for any other. A source can
-  be her permission row and the place that she asks for at once."
+  permission row in the source's layer, `:above` for the source of another
+  holder's permission row in that layer when the asker is signed in, and
+  nil for any other. A source can be her permission row and the place that
+  she asks for at once. `:above` says only that the row could be one of the
+  rows above her permission: whether it is, her own row says
+  (`chain-sources`)."
   [query source]
   (let [[kind k] (:path source)]
     (cond
       (= :own-rows kind) :own-rows
-      (and (= :row kind) (= :facts (:table source)) (some? (:asker query))
-           (= k (rows/place-key (:layer source) (:asker query) :softland.store/permission)))
-      :permission
+      (not (and (= :row kind) (= :facts (:table source)) (some? (:asker query)))) nil
+      (= k (rows/place-key (:layer source) (:asker query) :softland.store/permission)) :permission
+      (= :softland.store/permission (nth (rows/place-of-key k) 2 nil)) :above
       :else nil)))
 
 (defn check?
@@ -425,7 +464,8 @@
     :standing     a map from each layer to the asker's standing in it
     :by-layer     a map from each layer to what the read reads in it:
                   `:own`, the source of its own rows; `:permission`, the
-                  source of her permission, when wanted; `:facts`, the fact
+                  source of her permission, when wanted; `:chain`, the
+                  sources of the rows above her permission; `:facts`, the fact
                   sources that are wanted, by `of-word`; `:since`, the
                   stamp of the asked key's mark; `:checks`, a map from a
                   place to the check wanted there
@@ -444,6 +484,8 @@
     call of the own rows; when they are known, only when the layer is made
     and its setting is `:members`. Under \"everyone\" her permission shapes
     nothing, and a layer that is not made holds none.
+    The rows above her permission (`chain-sources`), when her permission
+    is wanted and its row is known: her row names them.
     A place or a run in a layer, when her standing is `:yes`. While her
     standing is `:not-known-yet`: for a read asked once, by
     `before-standing?`; for a live read, when the read holds the source
@@ -454,8 +496,9 @@
     standing is not known.
     A check, by `nearer-checks`.
 
-  A layer whose standing is `:may-not-see` wants nothing but its own rows
-  and her permission: those are what could let it in later. A layer that is
+  A layer whose standing is `:may-not-see` wants nothing but its own rows,
+  her permission and the rows above it: those are what could let it in
+  later. A layer that is
   `:not-made` wants its own rows alone. The start layer of `:from-layer` is
   in the list from the first round, before its own rows are known, so its
   permission and its fact source go with its own rows.
@@ -485,7 +528,10 @@
                     {:own own
                      :own-rows own-rows
                      :permission (when wanted? permission)
-                     :standing (layers/standing layer own-rows permission-row signed-in?)}))
+                     :chain (if wanted? (chain-sources home layer permission-row) [])
+                     :standing (layers/standing layer own-rows permission-row
+                                                (chain-rows home layer permission-row known)
+                                                signed-in?)}))
          start (:from-layer query)
          start-rights (when start (rights start))
          listed (layers/in-order query (:own-rows start-rights) (:standing start-rights))
@@ -511,8 +557,8 @@
                     by-layer
                     (reduce (fn [m [layer at]] (assoc-in m [layer :checks] at)) by-layer checks))
          wanted (into #{}
-                      (mapcat (fn [{:keys [own permission facts checks]}]
-                                (concat [own] (when permission [permission]) facts (vals checks))))
+                      (mapcat (fn [{:keys [own permission chain facts checks]}]
+                                (concat [own] (when permission [permission]) chain facts (vals checks))))
                       (vals by-layer))]
      (cond-> {:layers      layer-list
               :list-known? (some? listed)

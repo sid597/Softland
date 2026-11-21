@@ -266,10 +266,7 @@
     - a record of who read what: nothing is kept of a read;
     - a new word of a query (finding by text, looking back, what stands on
       a fact, everything one person wrote): one entry in each of three maps
-      (`softland.store.read-path.query/words`);
-    - a permission that ends: the push on the asker's permission going from
-      a row to none takes the same road as a setting that goes to
-      \"members\".
+      (`softland.store.read-path.query/words`).
 
   Approach. The file has these sections, in this order: the read path as a
   value; the calls of Rama's client and the five forms of path; a read
@@ -344,12 +341,12 @@
 
 (def ^:private max-rounds
   "At how many rounds a read stops when it does not settle. A round fetches
-  every source that is missing and asks what is wanted again. Five are
-  derived from the five ranks of a source
-  (`softland.store.read-path.sources`); three more are for a list or a
-  setting that is written while a live read opens. A number of the build,
-  kept and not decided."
-  8)
+  every source that is missing and asks what is wanted again. Six are
+  derived from the six ranks of a source
+  (`softland.store.read-path.sources`); three more are for a list, a
+  setting or a permission that is written while a live read opens. A number
+  of the build, kept and not decided."
+  9)
 
 (defn- now-ms
   "Gives the JVM's steady clock in milliseconds, to bound a wait. It is no
@@ -1385,8 +1382,10 @@
   What it follows. Every fact that shapes the read, each by a push that
   those who need it share: the layer's own rows (whether it is made, who
   may see it, what it builds on, its marked keys) as one push for a layer;
-  the asker's permission, only while the layer is made and its setting is
-  `:members`; and the facts. When what shapes the read changes, the asker
+  the asker's permission, and the permission of each holder above hers,
+  only while the layer is made and its setting is `:members`; and the
+  facts. So when her permission ends, or one above it, her read leaves the
+  layer as it does when a setting goes to `:members`. When what shapes the read changes, the asker
   is given the whole answer anew. When a layer is no longer rightful for
   her, her read leaves that layer's facts at once; the answer then says
   that the layer is left out, and nothing of the layer's facts. A fact of
@@ -1394,7 +1393,9 @@
   read path can still be told: as late as a push is, and no sooner.
 
   What it costs. One push for each source: for a place through k layers of
-  which g are \"members\", k + g + k. For what points at a thing, one push
+  which g are \"members\", k + g + k, and one more in each such layer for
+  each permission above hers there: none when she is the layer's first
+  holder. Askers beneath one holder share the push on that holder's row. For what points at a thing, one push
   more for each place of a farther order and each nearer layer. Each open
   push costs its layer's gate at each write. Rama opens a bounded count of
   pushes on one table on one task, and the read path holds a bound of its

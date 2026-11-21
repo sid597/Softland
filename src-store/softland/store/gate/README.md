@@ -21,6 +21,7 @@ record, are in [module/](../module/README.md).
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data, those of the facts by value among them. | None. It reads no PState. |
+| [chain.clj](chain.clj) | The chain of a permission: the permissions above it, the places of their rows, and when a permission stands. It holds how a permission ends, how what was given beneath it ends with it, and how a permission that is given again is told from the one that ended. | None. |
 | [first_act.clj](first_act.clj) | The depot that a layer starts with, whether that is the other gate's depot, the form of a making act, and what a layer starts with when no fact says who may see it, what it builds on or which keys it marks. | None. |
 | [stamp.clj](stamp.clj) | The stamp: the position of a decision in its layer, the layer's last stamp plus one. It holds no time and nothing that the act carries. | None. It reads no clock. |
 
@@ -29,7 +30,11 @@ record, are in [module/](../module/README.md).
 [decision.clj](decision.clj) holds each check. It asks
 [first_act.clj](first_act.clj) whether an act has the form of a making act and
 whether the act's layer starts with the other gate's depot,
-and [the act](../act.clj) what the act's permission allows. The walk asks
+[chain.clj](chain.clj) whether a permission stands, by the rows of the
+permissions above it, and whether one permission is above another,
+and [the act](../act.clj) what the act's permission allows. The read path asks
+[chain.clj](chain.clj) the same question of the same rows, so a gate and a read
+never differ on whether a permission stands. The walk asks
 [stamp.clj](stamp.clj) for the stamp of a decision; no check reads a stamp
 that an act carries, or the time on the act. Whether a layer is the other
 gate's is asked of the layer id alone, in both gates: no check reads the other

@@ -70,7 +70,12 @@
                   with no usable time. It is a label for the rows of step
                   7: no check reads it.
     4. standing   Read the place of `:who`'s permission; only when it is
-                  empty, the place of the layer's depot. When both are
+                  empty, the place of the layer's depot; and only when it
+                  holds the act's permission, the place of each permission
+                  above that one, up its chain
+                  (`softland.store.gate.decision/chain-needed`): a
+                  permission stands only while each one above it stands
+                  (`softland.store.gate.chain`). When both are
                   empty and the layer starts with the other gate's depot,
                   the act is refused `:layer-belongs-to-the-other-gate`,
                   whether or not the other gate has made the layer: the
@@ -82,9 +87,13 @@
                   refused here, with no read more: an act needs \"act\".
     5. places     Read the place of each fact that names something to
                   replace and of each fact under
-                  `:softland.store/permission`; then checks (e), (f), (g),
-                  who may write a key that takes a second write, and what a
-                  store key does not take.
+                  `:softland.store/permission`; for a give at a place that
+                  holds a permission, the places of the permissions above
+                  the one that is there, unless step 4 read them
+                  (`softland.store.gate.decision/chains-needed`); then
+                  checks (e), (f), (g), who may write a key that takes a
+                  second write, who may end a permission, on which place a
+                  give is taken, and what a store key does not take.
     6. the marked keys   Only for an act that no check refused, and only
                   when it holds a fact under a plain key or under
                   `:softland.store/marked-keys`: read the row at the layer's
@@ -140,15 +149,25 @@
       a value over the bound among them: 3 reads, the answer and the two of
       the layer's last stamp, and 2 writes, the answer and the layer's last
       stamp.
-    - An act whose permission does not stand: 5 reads at most, whatever it
-      carries, the answer, the two places of its standing and the two of
-      the layer's last stamp, and the same 2 writes. An act into a layer of
-      the other gate is one of these.
+    - Each count below is for an act under a first permission. An act
+      under a given permission reads one row more for each permission
+      above its own: one more beneath a first holder, two more beneath
+      that. A permission is 32 deep at most
+      (`softland.store.act`, `nesting`), so 31 rows more at most.
+    - An act whose permission does not stand: 5 reads at most when the
+      record does not hold it, whatever the act carries, the answer, the
+      two places of its standing and the two of the layer's last stamp,
+      and the same 2 writes. An act into a layer of the other gate is one
+      of these. An act whose permission the record holds, and which is
+      refused because one above it ended, has read the rows of its chain.
     - A making act: those 5 reads, and 4 writes: its two facts, the answer
       and the layer's last stamp.
     - A give, one fact under `:softland.store/permission`: 5 reads, the
       answer, the giver's permission, the place of the permission given and
-      the two of the layer's last stamp, and 3 writes.
+      the two of the layer's last stamp, and 3 writes. An end costs the
+      same. A give at a place that holds a permission reads the row of
+      each permission above that one too, unless step 4 read it: they say
+      whether what is there still stands.
     - One accepted act with one value under a plain key: 5 reads and 3
       writes. The reads are the answer, the permission, the marked keys and
       the two of the layer's last stamp; the writes are the fact, the
@@ -163,10 +182,18 @@
 
   The greatest call: an act holds 256 facts at most
   (`softland.store.door.declaration/max-facts`), and each place is read
-  once, so a call makes 261 reads at most, the 256 places, the answer, the
-  permission, the marked keys and the two of the last stamp, and 770
-  writes at most, three for each fact and two more. Each of its three
-  loops is over the act's own rows and ends.
+  once. Under a first permission and with no give at a place that holds a
+  permission, a call makes 261 reads at most, the 256 places, the answer,
+  the permission, the marked keys and the two of the last stamp, and 770
+  writes at most, three for each fact and two more. The chains add to the
+  reads and not to the writes: 31 rows at most for the act's own
+  permission, and 31 at most for each give at a place that holds a
+  permission, when no two of those chains share a holder. So the bound on
+  the reads of one call is 261 + 31 + 256 x 31, which is 8,228, for an act
+  of 256 gives over 256 permissions that are each 32 deep. The bound comes
+  down with the depth of a permission, which is not decided
+  (`softland.store.act`, `nesting`). Each of its five loops is over the
+  act's own rows, or over the chains that they name, and ends.
 
   It never gives its task back. Between the first read and the last write
   stands no partitioner, no yield, no read that may yield and no append:
@@ -263,7 +290,8 @@
   on the task that holds the rows of the thing's layer; and the things of
   one partition are handed to it in the depot's order, one call ended
   before the next begins. Limits: it holds the task's thread from its
-  first read to its last write, for 261 reads and 770 writes at most. It
+  first read to its last write, for 8,228 reads and 770 writes at most
+  (the namespace docstring says of what the first number is made). It
   holds no partitioner, no yield, no read that may yield and no append, and
   none may be added: the namespace docstring says why."
   [$$answers $$facts $$facts-by-value $$task *gate *thing]
@@ -300,6 +328,7 @@
       (<<if *declarations-reason
         (identity *declarations-reason :> *refused-standing)
         (identity false :> *makes-the-layer)
+        (identity {} :> *standing-rows)
        (else>)
         (decision/permission-place *act :> *permission-key)
         (local-select> (keypath *permission-key) $$facts :> *permission-row)
@@ -308,8 +337,23 @@
           (local-select> (keypath *depot-key) $$facts :> *depot-row)
          (else>)
           (identity nil :> *depot-row))
-        (decision/standing *gate *act *permission-row *depot-row :> *refused-standing)
-        (decision/makes-the-layer? *gate *act *permission-row *depot-row :> *makes-the-layer))
+        ;; The rows of the permissions above the act's own, one for each:
+        ;; none unless the first row holds the act's permission.
+        (decision/chain-needed *act *permission-row :> *chain-keys)
+        (loop<- [*chain-left *chain-keys
+                 *chain-read {}
+                 :> *chain-rows]
+          (<<if (empty? *chain-left)
+            (:> *chain-read)
+           (else>)
+            (first *chain-left :> *chain-key)
+            (local-select> (keypath *chain-key) $$facts :> *chain-row)
+            (continue> (rest *chain-left) (assoc *chain-read *chain-key *chain-row))))
+        (decision/standing *gate *act *permission-row *depot-row *chain-rows :> *refused-standing)
+        (decision/makes-the-layer? *gate *act *permission-row *depot-row :> *makes-the-layer)
+        ;; What step 4 read of the permissions, for step 5: the row of the
+        ;; act's own and of each one above it.
+        (assoc *chain-rows *permission-key *permission-row :> *standing-rows))
 
       ;; 5. Places: checks (e), (f), (g), who may write a key that takes a
       ;; second write, and what a store key does not take. The last
@@ -321,13 +365,27 @@
         (decision/places-needed *act *makes-the-layer :> *place-keys)
         (loop<- [*keys-left *place-keys
                  *rows-read {}
-                 :> *place-rows]
+                 :> *first-place-rows]
           (<<if (empty? *keys-left)
             (:> *rows-read)
            (else>)
             (first *keys-left :> *place-key)
             (local-select> (keypath *place-key) $$facts :> *place-row)
             (continue> (rest *keys-left) (assoc *rows-read *place-key *place-row))))
+        ;; A give at a place that holds a permission: the rows of the
+        ;; permissions above the one that is there, unless step 4 read
+        ;; them. They say whether what is there still stands.
+        (decision/chains-needed *act *makes-the-layer *first-place-rows *standing-rows :> *more-keys)
+        (loop<- [*more-left *more-keys
+                 *more-read {}
+                 :> *more-rows]
+          (<<if (empty? *more-left)
+            (:> *more-read)
+           (else>)
+            (first *more-left :> *more-key)
+            (local-select> (keypath *more-key) $$facts :> *more-row)
+            (continue> (rest *more-left) (assoc *more-read *more-key *more-row))))
+        (merge *standing-rows *more-rows *first-place-rows :> *place-rows)
         (decision/places *gate *act *makes-the-layer *place-rows :> *refused))
 
       ;; 6. Only for an act that no check refused: the layer's marked

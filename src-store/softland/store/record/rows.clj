@@ -118,7 +118,8 @@
                                       -> a row to write
     answer-of, written-by?, holds-value?, value-of, read-value,
     plain-bytes-of, who-of,
-    permission-of, marked-keys-of     a row -> what it says
+    permission-of, marked-keys-of,
+    held-permission, ended?           a row -> what it says
     same-row?, holds-this-value?      a row, and a row or a value
                                       -> true or false
     routing-id                        an act-id -> its layer, the first
@@ -136,7 +137,10 @@
   they pass before they call a query. `read-value`, `who-of`,
   `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,
   `place-of-key` and `value-digest-of` are for a reader of the tables; no
-  gate calls `read-value`, `who-of` or `permission-of`. The reader is the
+  gate calls `who-of` or `permission-of`, and a gate calls `read-value`
+  only through `held-permission`, for the row at a permission's place that
+  an end or a give would write over. `held-permission` and `ended?` serve
+  both the gates' check of a permission and the read path's. The reader is the
   read path: its pure namespaces under `softland.store.read-path` call
   those, and six that only a read needs, which no gate calls:
   `entity-run`, `own-rows-run`, `run-of-ends`, `before?`, `same-row?` and
@@ -362,6 +366,27 @@
   (when-let [held (:permission row)]
     (let [permission (first-form held)]
       (when (act/has-shape? :permission-id permission) permission))))
+
+(defn held-permission
+  "Takes the row at a permission's place, or nil. Gives the permission that
+  the row holds as its value, in its one form: the permission that was given
+  to the place's holder by the fact that wrote the row. nil when there is no
+  row, when the row holds no value, which is an end of a permission, and
+  when its value does not read as a permission id; a gate writes no such
+  row under that key. It never throws. `permission-of` is another thing: the
+  permission that the writing act named, which for a give is the giver's."
+  [row]
+  (let [[kind v] (read-value row)]
+    (when (and (= :value kind) (act/has-shape? :permission-id v))
+      v)))
+
+(defn ended?
+  "Takes the row at a permission's place, or nil. Gives true when the row is
+  an end: a row with no value, which a taken fact with no value wrote under
+  `:softland.store/permission`. False for no row and for a row with a
+  value."
+  [row]
+  (boolean (and row (nil? (:value row)))))
 
 (defn marked-keys-of
   "Takes the row at a layer's marked-keys place, or nil. Gives a map from

@@ -64,7 +64,7 @@ words. The read path stands on the section of 11 and 12 October 2026, by entry:
 
 | Entry | Decision | Where it shows in the read path |
 |---|---|---|
-| 1 | A layer has a setting, "members" or "everyone"; a permission says what it allows | The standing of an asker in a layer, in [layers.clj](layers.clj). Any permission that is there allows seeing; what it allows beyond that is not read here |
+| 1 | A layer has a setting, "members" or "everyone"; a permission says what it allows | The standing of an asker in a layer, in [layers.clj](layers.clj). Any permission that stands allows seeing; what it allows beyond that is not read here. Whether it stands is the gates' own rule, read from the same rows ([chain.clj](../gate/chain.clj)) |
 | 2 | A layer says which layers it builds on; a view may give another list; the nearest layer that holds a fact wins, also with "nothing here" | The order of the layers, in [layers.clj](layers.clj); the walk of a place, in [answer.clj](answer.clj) |
 | 3 | A read is done in the runtime, straight from the tables, with Rama's push, and the pushed value is no cache | [read_path.clj](../read_path.clj): it reads the gates' tables with a select or a push, shares one push among those who look at the same thing, and holds no value of its own |
 | 4 | Only programs on machines that Sid runs may reach Rama's ports | The read path is trusted with the whole store: Rama sends it whole rows, and it hands a caller only what she may see and asked for |
@@ -126,6 +126,17 @@ so one read, or one push, gives the four.
 **Her permission is followed only under "members".** Under "everyone" it shapes
 nothing; when the setting goes to "members" under an open read, the push on her
 permission is opened then.
+
+**The permissions above hers are followed with it.** Her permission stands only
+while each permission above it stands, and the end of one above her is written
+nowhere but at its own place ([chain.clj](../gate/chain.clj)). So a read holds
+the row of each holder above her, one push for each, which her own row names all
+at once: none when she is the layer's first holder, one when she is straight
+beneath her. Askers beneath one holder share the push on that holder's row.
+When her permission ends, or one above it, her read leaves the layer's facts at
+once and her answer says that the layer is left out, as when a setting goes to
+"members" for an asker with no permission. The read keeps her row and the rows
+above it: they are what could let the layer in again.
 
 **The three steps of a run.** The first places in the layer's own call; when
 that walk is full, the size by a bounded walk on the task; then the run whole. A
@@ -216,7 +227,7 @@ task of the home holds the rows: it rests on the gate's copy.
 decided: 256 places in the first read of a run; 20,000 places in one run; 40,000
 checks of nearer layers in one read that is asked once, and 250 in one that is
 kept live; 900 pushes held on one table under one routing id; 2,000 paths in one
-call; a wait of 10 seconds; 65 layers in one read; 8 rounds before a read that
+call; a wait of 10 seconds; 65 layers in one read; 9 rounds before a read that
 does not settle ends in a word. None bounds the bytes of a run.
 
 **The read path bounds its own pushes.** Rama bounds the pushes on one table on
@@ -263,7 +274,7 @@ answer is a small change.
 | "What points at a thing" through a list of layers | At a place that an order by value gives, the nearest layer that holds a row wins, and the place is given when the winner's value is the thing. A place is found only through an order | One function of [sources.clj](sources.clj): left out, the runs are joined |
 | One moment for all the layers of one read | None: the layers are read at moments that differ | Nowhere here: it would be a query of the store |
 | What a layer starts with | A layer with no setting fact reads as [first_act.clj](../gate/first_act.clj) says | That function; one function of [layers.clj](layers.clj) is its one caller here |
-| One permission for each holder; "see" stays "see"; who may write a setting, a list or a mark | No code here: the read path reads whether a permission row is there, and no part of it | — |
+| One permission for each holder; who may write a setting, a list or a mark | No code here: the read path reads whether the permission at her place stands, and what it allows is no part of that | — |
 | Who asks | What the caller says | The check of a query; sign-in would stand in front of the read path |
 
 ## Words a session made, Sid's to change
@@ -357,11 +368,11 @@ others are.
 |---|---|
 | `:once`, `:live` | How a read is asked, as the code that fetches tells the code that says what is wanted |
 | `:layers`, `:list-known?`, `:standing`, `:by-layer`, `:wanted`, `:missing`, `:too-large`, `:digest` | What "what a read wants now" gives: the layers; whether the list of a start layer can be said yet; each layer's standing; what is read in each layer; every source that is wanted; those that are not read yet; whether the checks are more than one read may have; the digest of the thing asked about |
-| `:own`, `:permission`, `:facts`, `:since`, `:checks` | What is read in one layer: the source of its own rows, of the asker's permission, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
+| `:own`, `:permission`, `:chain`, `:facts`, `:since`, `:checks` | What is read in one layer: the source of its own rows, of the asker's permission, of the row of each permission above hers, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
 | `:join`, `:leave`; `:joined`, `:left` | The sources that a live read is to hold and to let go; and those that one step did |
 | `:tell`, `:owed?` | What a step gives back: what to hand the asker's function, and whether the whole answer is owed after it |
 | `:walk`, `:places`, `:holds?`, `:gives`; `:given`, `:none`, `:waits` | How the rows of one word of a query are put together; and the three outcomes of the walk of one place |
-| `:made?`, `:who-may-see`, `:permission` with `:there`, `:none`, `:not-known-yet`, `:builds-on`, `:marked-since` | What a layer's own rows and an asker's permission row mean for one query |
+| `:made?`, `:who-may-see`, `:permission` with `:stands`, `:none`, `:not-known-yet`, `:builds-on`, `:marked-since` | What a layer's own rows, an asker's permission row and the rows above it mean for one query |
 | `:pushes`, with `:opening`, `:readers`, `:called` | What the read path holds for each push: the one call that opens it, the live reads that hold it, and a mark that its first callback came |
 | `:counts` | How many pushes the read path holds on each table under each routing id: what its own bound is held to |
 | `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |

@@ -38,7 +38,7 @@ store, with one total order in each layer and overlay reads, built on Rama.
 | layer | A home for facts, with its own line of acts in one order. | namespace |
 | depot | Where a layer's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch layer. | write mode; log |
 | stack | The layers that one read looks through, nearest first. | overlay view |
-| permission | The right to see a layer, or to see it and act in it: `[who layer granted-in]`, or a given one that holds the permission above it. | grant; capability |
+| permission | The right to see a layer, or to see it and act in it: `[who layer granted-in]`, or a given one that holds the permission above it. It can be ended, and what was given beneath it ends with it. | grant; capability; revocation |
 | stamp | An act's number in its layer's order, with no gaps. A refused act gets one too. | per-layer sequence number |
 | mark | A key that a layer indexes by value, so that a read can ask what points at a value. | secondary index |
 | the base | The one layer that everyone subscribes to. | |
@@ -98,8 +98,10 @@ chair-7's colour is red and that its material is oak.
    marking nothing, until a fact says otherwise (`starts-with`).
 2. **She says what it builds on.** A layer has three settings, each a fact on the
    layer's own entity: who may see it, the layers that it builds on in order, and
-   the keys that it marks. A setting can be written again and never retracted;
-   the depot and a permission are written once
+   the keys that it marks. A setting can be written again and never retracted,
+   and only the layer's first holder writes one, here Asha
+   ([gate/decision.clj](softland/store/gate/decision.clj),
+   `who-may-write-fault`); the depot is written once
    ([door/declaration.clj](softland/store/door/declaration.clj), `store-keys`).
 3. **She writes a fact:** chair-7, colour, green. The act names her `:who`, her
    `:session` and the permission that it writes under. It can also carry
@@ -131,7 +133,7 @@ chair-7's colour is red and that its material is oak.
    give a permission straight beneath her own, in the same layer:
    `[ben asha-draft asha-draft [asha asha-draft asha-draft]]`. A holder who may
    only see cannot give, since a give is an act. A holder has one permission in
-   a layer, written once, and nothing ends it
+   a layer at a time
    ([gate/decision.clj](softland/store/gate/decision.clj), `standing`). Ben
    reads again from asha-draft and gets green, with the layer that won
    (asha-draft), the fact id and its stamp. The base still says red.
@@ -172,6 +174,15 @@ chair-7's colour is red and that its material is oak.
     asha-draft finds no colour, and the base's red is hidden too. A read of the
     base alone still gives red
     ([read_path/answer.clj](softland/store/read_path/answer.clj)).
+12. **Asha ends Ben's permission.** An end is an act: a permission fact with no
+    value, on Ben. His giver ends it, or anyone above his giver up to the
+    layer's first holder, or Ben himself; the first permission does not end.
+    Ben's blue stays, and the log holds his acts. His next act is refused, and
+    so is the act of anyone to whom he had given a permission beneath his own:
+    a gate reads the row of each permission above an act's own. A read that he
+    kept live leaves asha-draft and says so. Asha can give Ben a permission
+    again. Those beneath him do not come back with it: each is given again
+    ([gate/chain.clj](softland/store/gate/chain.clj)).
 
 ## What the store keeps
 
@@ -229,15 +240,22 @@ the proof is named in the [verification map](../test-store/README.md)).
   key a gate reads nothing of a tool's value: it keeps the value's text, counts
   its bytes and, under a marked key, hashes it (`with-texts`).
 - **The standing:** the act's permission names the act's `:who`, the record
-  holds that permission, and it allows acting
-  ([gate/decision.clj](softland/store/gate/decision.clj), `standing`); or the
+  holds that permission, each permission above it stands, and it allows acting
+  ([gate/decision.clj](softland/store/gate/decision.clj), `standing`;
+  [gate/chain.clj](softland/store/gate/chain.clj)); or the
   act makes a layer that is not made
   ([gate/first_act.clj](softland/store/gate/first_act.clj)).
 - **A replace:** the fact that an act replaces is current, in the act's own
   layer ([record/rows.clj](softland/store/record/rows.clj), `written-by?`).
 - **The store's own keys:** five, each with its shape, its entity, and whether it
-  takes a second write. A retract under any of them is refused
+  takes a second write. A retract under four of them is refused; under the
+  permission it is an end
   ([door/declaration.clj](softland/store/door/declaration.clj), `store-keys`).
+- **Who writes a setting, and who ends a permission:** the layer's first holder
+  alone writes its setting, its list and its marks; a permission is ended by a
+  holder above it or by its own
+  ([gate/decision.clj](softland/store/gate/decision.clj),
+  `who-may-write-fault` and `end-fault`).
 
 What a gate does not check is said plainly in
 [store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly).
@@ -307,8 +325,12 @@ Each is said in full where its code is.
 - How far a read walks from a layer: its own list and no further is a working
   answer ([read_path/layers.clj](softland/store/read_path/layers.clj),
   `in-order`).
-- Who may write a layer's settings: today any holder who may act in it
-  ([gate/decision.clj](softland/store/gate/decision.clj), `who-may-write-fault`).
+- Whether a holder can have more than one permission in a layer at once: today
+  one ([gate/decision.clj](softland/store/gate/decision.clj),
+  `permission-place`).
+- A layer that is handed to another holder, and the end of a layer's first
+  permission ([gate/decision.clj](softland/store/gate/decision.clj),
+  `end-fault`).
 - What a new layer reads as: its members for a layer, everyone for the base
   ([gate/first_act.clj](softland/store/gate/first_act.clj), `starts-with`).
 - How deep a permission can be ([act.clj](softland/store/act.clj), `nesting`).
@@ -320,7 +342,7 @@ Each is said in full where its code is.
   ([door/declaration.clj](softland/store/door/declaration.clj)).
 - Whether a key is an id or a word
   ([decisions of 6 October](README.md#decisions-of-6-october-2026), entry 9).
-- Sign-in, and the end of a permission: not built.
+- Sign-in: not built.
 
 ## The numbers, and where each is set
 

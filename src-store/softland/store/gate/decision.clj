@@ -25,18 +25,23 @@
                takes as it is. Nothing of the record is read.
     standing   `standing`: the layer's depot is this gate's (c); the layer
                is made, or the act is a right making act; the act's
-               permission stands for its `:who` (d); and that permission
-               allows acting: an act needs \"act\".
+               permission stands for its `:who` (d), and each permission
+               above it stands; and that permission allows acting: an act
+               needs \"act\".
     places     `places`: each replaced fact is the current fact of its
                place (e); no setting key on an entity other than the layer
                (f); a permission fact writes a permission straight beneath
                the act's own (g); who may write a key that takes a second
-               write (`who-may-write-fault`); and what a store key does not
-               take in this build.
+               write (`who-may-write-fault`); who may end a permission, and
+               on which place a give is taken (`end-fault`,
+               `give-over-fault`); and what a store key does not take in
+               this build.
 
-  `places-needed` says which rows `places` needs. `time-on` gives the time
-  on the act, which `writes` puts beside the stamp as a label. `writes`
-  gives each row that the decision writes.
+  `chain-needed` says which rows `standing` needs beside the first two.
+  `places-needed` says which rows `places` needs, and `chains-needed` which
+  more, once those are read. `time-on` gives the time on the act, which
+  `writes` puts beside the stamp as a label. `writes` gives each row that
+  the decision writes.
 
   What an accept reads after the last check, for the order by value. No
   check reads a layer's marked keys, so a refused act pays nothing for them.
@@ -58,14 +63,16 @@
   act of this build changes a depot. So a row at the permission's place, or
   at the layer's depot place, says that the layer is this gate's.
 
-  (d) is one read. A permission fact sits on its holder, so the place of
-  `:who`'s permission holds the act's permission or the act's permission
-  does not stand. \"Each permission above it stands\" is not read: a
-  permission row is written only by a right making act, which has nothing
-  above it, or by a give that passed (d) and (g), whose own permission stood
-  and is exactly the one above; a permission id holds its whole chain; and
-  nothing in this build ends a permission. The room for a permission that
-  has ended is the place itself: an end would be a later fact on it.
+  (d) is one read for each permission of the act's chain. A permission
+  fact sits on its holder, so the place of `:who`'s permission holds the
+  act's permission or the act's permission does not stand. A permission id
+  holds its whole chain, so the places of the permissions above it are read
+  from the act alone (`chain-needed`), and only when the first row holds the
+  act's permission. A permission can be ended: an end is a later fact at its
+  place, with no value. What was given beneath it ends with it, and that is
+  written nowhere: it is read here, up the chain, at each decision
+  (`softland.store.gate.chain`, which says when a permission stands and
+  whose choices those rules are).
 
   State and effects. None. No function here opens anything or reads a
   tool's value. The text of each value is in the act's one form, where the
@@ -87,6 +94,7 @@
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text]
+            [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record]))
 
@@ -151,14 +159,28 @@
                 (not (layer-is-the-other-gates? gate-depot act))
                 (first-act/making-act? gate-depot act))))
 
+(defn chain-needed
+  "Takes an act, and the row at the place of `:who`'s permission. Gives the
+  keys of the places whose rows `standing` needs beside that row: the place
+  of each permission above the act's own, nearest first
+  (`softland.store.gate.chain/places-above`). An empty vector when the row
+  does not hold the act's permission, since the act is then refused with no
+  read more, and for an act under a first permission, which has nothing
+  above it."
+  [act permission-row]
+  (if (record/holds-value? permission-row (:permission act))
+    (chain/places-above (:layer act) (:permission act))
+    []))
+
 (defn standing
   "The standing of an act: checks (c) and (d), what the act's permission
   allows, and the first act of a layer. Takes the gate's depot; an act; the
-  row at the place of `:who`'s permission; and the row at the place of the
-  layer's depot, which is read only when the first is nil. Gives nil when
-  the act's permission stands and allows acting, or when the act is a
-  right making act for a layer that is not made (`makes-the-layer?` tells
-  the two apart). Else a word:
+  row at the place of `:who`'s permission; the row at the place of the
+  layer's depot, which is read only when the first is nil; and the rows of
+  the places that `chain-needed` named, as a map from key to row, nil or
+  absent for an empty place. Gives nil when the act's permission stands and
+  allows acting, or when the act is a right making act for a layer that is
+  not made (`makes-the-layer?` tells the two apart). Else a word:
 
     :layer-belongs-to-the-other-gate  the record holds nothing for the
                                       layer, and the layer is the other
@@ -170,11 +192,27 @@
     :who-not-the-permissions-holder   the layer is made here, and the holder
                                       that the act's permission names is not
                                       the act's `:who`
+    :permission-ended                 the layer is made here, and the place
+                                      of the act's `:who` holds an end: her
+                                      permission in the layer was ended and
+                                      she was not given one again
     :permission-does-not-stand        the layer is made here, and the record
                                       does not hold the act's permission for
-                                      its holder
-    :permission-does-not-allow-acting the record holds the act's permission,
-                                      and it says `:see`
+                                      its holder: the place is empty, or
+                                      holds another permission
+    :permission-above-ended           the record holds the act's permission,
+                                      and a permission above it does not
+                                      stand, or was given again after the
+                                      act's own was given
+                                      (`softland.store.gate.chain/stands?`)
+    :permission-does-not-allow-acting the act's permission stands, and it
+                                      says `:see`
+
+  An act that was taken under a permission stays taken when the permission
+  ends: the rows of its facts stay, and the log holds the act. An act that
+  is decided after the end is refused, the holder's own and that of each
+  holder beneath her. The end has a stamp in the layer's one order, so
+  which acts came before it is the same at each run of the gates.
 
   The last word costs no read: what a permission allows is a slot of the
   permission that the act names (`softland.store.act/allows`), and the row
@@ -182,10 +220,10 @@
   naming it: a holder of `:see` who names her permission without the slot,
   or with `:see-and-act`, names bytes that the row does not hold, and gets
   `:permission-does-not-stand`. The word comes before every check of a
-  place. A holder of `:see` cannot give either: a give is an act. A
-  permission's place takes one write and nothing ends a permission, so
-  \"see\" stays \"see\"; that is kept, and not decided
-  (`store-key-fault`).
+  place. A holder of `:see` cannot give either: a give is an act, and so
+  is an end, her own too. A permission that stands is not written over, so
+  \"see\" becomes \"see and act\" by an end and a give after it
+  (`give-over-fault`).
 
   Whether the layer is the other gate's is worked out here, from the gate's
   depot and the act's layer (`layer-is-the-other-gates?`), and counts only
@@ -202,17 +240,23 @@
   which no second run gives again. The other half is the session's choice:
   which of the two words is then given. `:layer-not-made` for every such
   act would hold his line as well."
-  [gate-depot act permission-row depot-row]
+  [gate-depot act permission-row depot-row chain-rows]
   (let [permission (:permission act)]
     (cond
       (record/holds-value? permission-row permission)
-      (when (= :see (act/allows permission))
+      (cond
+        (not (chain/stands? (:layer act) permission
+                            (assoc chain-rows (chain/place (:layer act) permission) permission-row)))
+        :permission-above-ended
+
+        (= :see (act/allows permission))
         :permission-does-not-allow-acting)
 
       (or permission-row depot-row)
-      (if (= (:who act) (nth permission 0))
-        :permission-does-not-stand
-        :who-not-the-permissions-holder)
+      (cond
+        (not= (:who act) (nth permission 0)) :who-not-the-permissions-holder
+        (record/ended? permission-row) :permission-ended
+        :else :permission-does-not-stand)
 
       (layer-is-the-other-gates? gate-depot act)
       :layer-belongs-to-the-other-gate
@@ -284,66 +328,164 @@
   "Who may write a layer's setting, the list of what it builds on, and its
   marked keys: the check, for one fact under one of
   `softland.store.door.declaration/second-write-keys`. Takes the act and the
-  fact. Gives nil: whoever may act in the layer may write each of the three,
-  and the act has passed its standing.
+  fact. Gives nil when the act is under the layer's first permission, and
+  `:only-the-first-holder-writes-a-setting` under any other: a given
+  permission, whatever it allows.
 
-  Not decided. Sid's word for who writes a layer's setting is \"the owner\",
-  and no layer names an owner as a fact. The answer here is kept only so
-  that the build can run (BUILD-reads.md, \"Not decided\"), as for a layer's
-  depot. What it lets happen: any holder of \"see and act\" in a layer can
-  set that layer to `:everyone`, any such holder in the base can set the
-  base to `:members`, and any of them can write the list and the marks. The
-  other answer is the body of this function: it has the act, with its
-  `:who` and its permission, and the fact; a word that it gives is recorded
-  as the refusal, after check (g)."
-  [_act _fact]
-  nil)
+  The first holder is the holder of the layer's first permission, the one
+  with nothing above it that the layer's making act wrote
+  (`softland.store.gate.first-act/making-act?`): the person of a personal
+  layer, whoever made a group's layer, the system for the base. The check
+  reads no row: an act's permission has passed its standing, and a
+  permission with three slots is a first permission
+  (`softland.store.act`). A layer has one, and it does not end
+  (`end-fault`).
+
+  Sid decided on 20 November 2026 that only the layer's root holder writes
+  its settings (src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6). His
+  earlier word for her is \"the owner\"; no layer names an owner as a
+  fact, and that the first holder is the one is a session's reading. Not
+  built, and not asked: a layer that is handed to another holder."
+  [act _fact]
+  (when-not (= 3 (count (:permission act)))
+    :only-the-first-holder-writes-a-setting))
+
+(defn chains-needed
+  "Takes an act; whether it makes its layer; the rows of the places that
+  `places-needed` named, as a map from key to row; and the rows that are in
+  hand already, as a map in which a key that was read is there also when
+  its place is empty. Gives the keys of the places that `places` needs
+  beside those, each once, in the order of the keys: for each fact of the
+  act that gives a permission at a place which holds a permission, the
+  places of the permissions above the one that the place holds
+  (`softland.store.gate.chain/places-above`), without the keys that are in
+  hand. `give-over-fault` needs them to say whether the permission at the
+  place stands. An empty vector for an act with no such fact, and for an
+  act that makes its layer. A give at a place that is empty or holds an end
+  needs none, and neither does an end."
+  [act makes-the-layer? place-rows in-hand]
+  (if makes-the-layer?
+    []
+    (into []
+          (comp (filter (fn [fact] (and (= :softland.store/permission (:k fact)) (some? (:v fact)))))
+                (keep (fn [fact] (record/held-permission (get place-rows (place-of act fact)))))
+                (mapcat (fn [held] (chain/places-above (:layer act) held)))
+                (remove (fn [k] (or (contains? in-hand k) (contains? place-rows k))))
+                (distinct))
+          (:facts act))))
+
+(defn- end-fault
+  "The end of a permission, for one fact under `:softland.store/permission`
+  with no value. Takes the act and the row at the fact's place. Gives nil
+  when the end is taken, or a word:
+
+    :no-permission-to-end            the place holds no permission: it is
+                                     empty, or holds an end
+    :first-permission-does-not-end   the place holds the layer's first
+                                     permission. Nobody is above it, so
+                                     nobody could give it again, and no act
+                                     could be taken in the layer or write
+                                     its settings ever after
+    :not-above-the-permission        the act's permission is not the one at
+                                     the place and is not in the chain above
+                                     it (`softland.store.gate.chain/above?`)
+
+  So a permission is ended by its giver, by anyone above the giver up to
+  the first holder, and by its own holder. The act's own permission has
+  passed its standing, so whoever ends stands, and may act: a holder of
+  `:see` cannot end, her own neither, since an end is an act. A permission
+  at the place that no longer stands, because one above it ended, can be
+  ended too, by the same holders.
+
+  That the giver or anyone above ends a permission is Sid's decision of 20
+  November 2026 (src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6).
+  That a holder ends her own, and that the first permission does not end,
+  are a session's choices of 21 November 2026, and his to turn.
+
+  The fact needs no `:replaces`. With one, check (e) holds it to the give
+  that it names: an end that was sent for one give is then refused when
+  another give has taken its place."
+  [act row]
+  (let [held (record/held-permission row)
+        own (:permission act)]
+    (cond
+      (nil? held) :no-permission-to-end
+      (= 3 (count held)) :first-permission-does-not-end
+      (or (= held own) (chain/above? own held)) nil
+      :else :not-above-the-permission)))
+
+(defn- give-over-fault
+  "A give at a place that holds a row, for one fact under
+  `:softland.store/permission` with a value. Takes the act, the row at the
+  fact's place, and the rows in hand as a map from key to row. Gives nil
+  when the place holds an end, or a permission that does not stand
+  (`softland.store.gate.chain/stands?`): the give is taken and its row
+  takes the place. Gives `:holder-has-a-permission` when the permission at
+  the place stands: a holder has one permission in a layer, and one that
+  stands is ended before another is given.
+
+  So a holder is given a permission again after an end, and each holder
+  beneath an end is given one again by an act of its own (Sid's decision of
+  21 November 2026, src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6).
+  Check (g) has held the new permission straight beneath the act's own.
+
+  What must hold: `rows` holds the row of each place of `chains-needed`."
+  [act row rows]
+  (let [held (record/held-permission row)
+        layer (:layer act)]
+    (when (and held
+               (chain/stands? layer held (assoc rows (chain/place layer held) row)))
+      :holder-has-a-permission)))
 
 (defn- store-key-fault
-  "What a store key does not take in this build, for one fact. A permission's
-  place and a layer's depot take one write. The three keys of
+  "What a store key takes, for one fact. Takes the gate's depot, the act,
+  the rows in hand as a map from key to row, and the fact. A fact under
+  `:softland.store/permission` with no value is an end, and `end-fault` has
+  the word; one with a value at a place that holds a row is a give over
+  what is there, and `give-over-fault` has the word. A layer's depot takes
+  one write. The three keys of
   `softland.store.door.declaration/second-write-keys`, who may see a layer,
-  what it builds on and its marked keys, take a second write and any
-  later one: such a fact earns no word here, with `:replaces` or without. A
-  retract under any store key is refused. Gives a word for: a permission
-  fact with no value, since who may end a permission is not decided; a fact
-  with no value under any other store key; a depot fact in a layer that is
-  made, with the other depot (a change of depot is not decided) or with the
-  layer's own (its place holds one); a permission fact on a place that holds
-  a row, the same permission or another. A fact under any other key earns
-  none. Whether a fact has a value is asked of a fact under a store key
-  alone, whose `:v` the act's one form keeps. What must hold: the layer is
-  made by this gate, so its depot is the gate's.
-
-  The line that gives `:store-key-takes-one-write` for a permission is why a
-  permission that says `:see` stays `:see`: to raise one, or to end one, is
-  not built and not decided."
+  what it builds on and its marked keys, take a second write and any later
+  one: such a fact earns no word here, with `:replaces` or without. A
+  retract under a store key other than the permission is refused. Gives a
+  word for: an end or a give that its own check refuses; a fact with no
+  value under any other store key; a depot fact in a layer that is made,
+  with the other depot (a change of depot is not decided) or with the
+  layer's own (its place holds one). A fact under any other key earns none.
+  Whether a fact has a value is asked of a fact under a store key alone,
+  whose `:v` the act's one form keeps. What must hold: the layer is made by
+  this gate, so its depot is the gate's."
   [gate-depot act rows fact]
   (let [k (:k fact)
-        retract? (nil? (:v fact))]
+        retract? (nil? (:v fact))
+        row (get rows (place-of act fact))]
     (cond
-      (and (= :softland.store/permission k) retract?) :ending-a-permission-not-decided
+      (and (= :softland.store/permission k) retract?) (end-fault act row)
       (and (declaration/store-key? k) retract?) :store-key-retract-not-built
       (and (= :softland.store/depot k) (not= gate-depot (:v fact))) :changing-a-depot-not-decided
       (= :softland.store/depot k) :store-key-takes-one-write
-      (and (= :softland.store/permission k) (get rows (place-of act fact))) :store-key-takes-one-write
+      (and (= :softland.store/permission k) row) (give-over-fault act row rows)
       :else nil)))
 
 (defn places
   "The checks of the places. Takes the gate's depot; an act; whether it makes
-  its layer; and the rows of the places that `places-needed` named, as a map
-  from key to row, nil or absent for an empty place. Gives nil, or the word
-  of the first check that fails, in this order:
+  its layer; and the rows in hand, as a map from key to row, nil or absent
+  for an empty place: the rows of the places that `places-needed` and
+  `chains-needed` named. Gives nil, or the word of the first check that
+  fails, in this order:
 
     (e)  :replaced-fact-not-current
     (f)  :setting-not-on-the-layer
     (g)  :permission-fact-for-another-layer,
          :permission-fact-granted-in-another-layer,
          :permission-fact-not-beneath-the-acts-own
-    then what `who-may-write-fault` gives for a fact under a key that takes
-         a second write: no word in this build
-    then :ending-a-permission-not-decided, :store-key-retract-not-built,
-         :changing-a-depot-not-decided, :store-key-takes-one-write
+    then :only-the-first-holder-writes-a-setting, for a fact under a key
+         that takes a second write (`who-may-write-fault`)
+    then, for the first fact that earns one: :no-permission-to-end,
+         :first-permission-does-not-end, :not-above-the-permission
+         (`end-fault`); :store-key-retract-not-built,
+         :changing-a-depot-not-decided, :store-key-takes-one-write;
+         :holder-has-a-permission (`give-over-fault`)
 
   An act that makes its layer is held to (e) and (f) as any act is, with no
   rows: nothing is current in a layer that is not made. It is not held to

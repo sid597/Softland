@@ -1074,8 +1074,8 @@
     (check "one write to the base's row calls each of the three functions once, with the fact of that act"
            [true (vec (repeat 3 [(change-of [:watched-33 :text] "shared" (:wrote (:result shared)) 0)]))]
            [(some? (:got (:result shared))) (:calls (:result shared))])
-    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
-           [{[:streaming :facts home-a] 3 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
+    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay, and so does the push on her permission in the home, which is above his; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
+           [{[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {[:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {:pushes {} :counts {} :reads {}}]
            [(:after-alice (:result shared)) (:after-bob (:result shared)) (:at-the-end (:result shared))])
@@ -1303,6 +1303,71 @@
            "calls | a layer that joins over farther orders gave" (count erin-later) "whole answers anew, the last with its own place and what a read asked once gives"
            "| the base to members and back:" (pr-str (:left-out (:anew frank-out))) "then the fact again")))
 
+(deftest a-permission-ends-under-a-live-read
+  (let [_ (make! :m-ends :ada)
+        _ (make! :t-ends :ada)
+        _ (setting! :t-ends :ada :everyone)
+        _ (give! :m-ends :ada :bea)
+        _ (give! :m-ends :bea :cal)
+        _ (give! :m-ends :ada :dov)
+        _ (put! :ada :t-ends [(fact :note :text "from t16")])
+        _ (put! :ada :m-ends [(fact :note :text "from m16")])
+        query (fn [who] {:asks [:place :note :text] :asker who :layers [:m-ends :t-ends]})
+        place-of (fn [read] ((juxt :layer :value) (:place (screen read))))
+        end! (fn [ender holder] (put! ender :m-ends [{:e holder :k :softland.store/permission}]))
+        from-t16 (:place (ask {:asks [:place :note :text] :asker :cal :layers [:t-ends]}))
+        ;; Cal's permission is beneath Bea's, and Bea's beneath the first holder's. Dov's is beside Bea's.
+        cal (live (query :cal))
+        dov (live (query :dov))
+        cal-now (:now cal)
+        ;; the permission above Cal's ends
+        _ (end! :ada :bea)
+        _ (wait-until #(seq (:left-out (screen cal))))
+        cal-left (last (changes cal))
+        cal-count (count (changes cal))
+        once-after-the-end (ask (query :cal))
+        _ (put! :ada :m-ends [(fact :note :text "after the end")])
+        _ (wait-until #(= "after the end" (second (place-of dov))))
+        _ (settled)
+        dov-after-a-write (place-of dov)
+        cal-after-a-write (count (changes cal))
+        ;; Bea is given hers again: Cal's does not come back with it
+        _ (give! :m-ends :ada :bea)
+        _ (put! :ada :m-ends [(fact :note :text "after bea's second give")])
+        _ (wait-until #(= "after bea's second give" (second (place-of dov))))
+        _ (settled)
+        cal-after-beas-give (count (changes cal))
+        once-after-beas-give (ask (query :cal))
+        ;; Cal is given hers again, by an act of its own
+        _ (give! :m-ends :bea :cal)
+        _ (wait-until #(= :m-ends (first (place-of cal))))
+        cal-back (last (changes cal))
+        ;; her own permission ends
+        _ (end! :bea :cal)
+        _ (wait-until #(seq (:left-out (screen cal))))
+        cal-out-again (last (changes cal))
+        dov-at-the-end (place-of dov)
+        _ (run! leave! [cal dov])
+        left-out [{:layer :m-ends :why :may-not-see}]]
+    (check "an asker whose permission is two beneath the layer's first opens a live read of a place through that layer, which is open to its members: the layer is in, and its fact wins"
+           [[] [:m-ends "from m16"]] [(:left-out cal-now) ((juxt :layer :value) (:place cal-now))])
+    (check "the permission above hers ends under her open read: she is told a whole answer that says that the layer is left out, with what now wins the place and nothing of the layer's facts; a read asked once gives the same"
+           [{:layers [:m-ends :t-ends] :left-out left-out :place from-t16} [left-out from-t16]]
+           [(:anew cal-left) ((juxt :left-out :place) once-after-the-end)])
+    (check "after her read left the layer, a write in it gives her nothing; an asker whose permission is beside the one that ended, and still stands, is told the write"
+           [cal-count [:m-ends "after the end"]] [cal-after-a-write dov-after-a-write])
+    (check "the one above her is given the same permission again: hers does not come back with it. Her read is given nothing, and a read asked once still leaves the layer out"
+           [cal-count left-out] [cal-after-beas-give (:left-out once-after-beas-give)])
+    (check "she is given hers again by an act of its own: the layer joins her open read, and the whole answer comes anew with the layer's fact"
+           [[] [:m-ends "after bea's second give"]]
+           [(:left-out (:anew cal-back)) ((juxt :layer :value) (:place (:anew cal-back)))])
+    (check "her own permission ends under her open read: she is told that the layer is left out; the other asker's read gives the layer's fact still"
+           [left-out [:m-ends "after bea's second give"]] [(:left-out (:anew cal-out-again)) dov-at-the-end])
+    (shown "a permission ends under a live read: the end of the one above the asker's gave her" (pr-str (:left-out (:anew cal-left)))
+           "| a write in the layer after it gave her" (- cal-after-a-write cal-count) "calls | the second give of the one above gave her"
+           (- cal-after-beas-give cal-count) "calls | her own second give gave her the layer's fact again:"
+           (pr-str ((juxt :layer :value) (:place (:anew cal-back)))))))
+
 (deftest one-push-for-one-thing
   (let [rp (:counted @round)
         _ (make! :t16 :alice)
@@ -1370,8 +1435,8 @@
             (mapv (fn [changes] (:writer (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:value (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:fact (first (vals (:changed (first changes)))))) told)])
-    (check "the first leaves: her permission's push is closed, and the two shared pushes stay; the last leaves: nothing is held; a read that has left is not open"
-           [{:live-reads 1 :pushes 3} {:live-reads 0 :pushes 0} [:left :left :not-open]] [after-alice after-bob left])
+    (check "the first leaves: the two shared pushes stay, and so does the push on her permission, which is above the other's and which his read holds too; the last leaves: nothing is held; a read that has left is not open"
+           [{:live-reads 1 :pushes 4} {:live-reads 0 :pushes 0} [:left :left :not-open]] [after-alice after-bob left])
     (check "each push that the read path opened is closed when its last reader has left: Rama says terminated of all four"
            [:terminated :terminated :terminated :terminated] statuses)
     (check "a third asker after the last one left opens new pushes, three, and gets a fresh value" [3 ["v1" :left]] [(:opens third) (:result third)])
@@ -2020,6 +2085,7 @@
   (the-base-is-read-where-the-askers-layer-lives)
   (each-word-kept-live)
   (what-shapes-a-read-changes-under-it)
+  (a-permission-ends-under-a-live-read)
   (one-push-for-one-thing)
   (the-read-paths-own-bound-on-its-pushes)
   (nothing-is-shown-that-is-not-in-the-tables)

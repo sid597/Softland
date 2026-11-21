@@ -194,9 +194,13 @@
   arrival, beside the value's text, for the rules and a gate's checks to
   read. A setting is a key whose fact a gate takes only on the layer's own
   entity. A key that is `:written-again` takes a second write on its place,
-  and a third; any other store key takes one write for a place
-  (`softland.store.gate.decision`, what a store key does not take). A
-  retract under any of them is refused.
+  and a third, by the layer's first holder alone
+  (`softland.store.gate.decision/who-may-write-fault`). A layer's depot
+  takes one write. A permission's place takes a give when it is empty,
+  when it holds an end, and when the permission that it holds no longer
+  stands; a fact with no value there is the end of the permission that the
+  place holds (`softland.store.gate.decision`, `end-fault` and
+  `give-over-fault`). A retract under any of the other four is refused.
 
   The last three are of the read build (src-store/README.md, decisions of
   11 and 12 October 2026, entries 1, 2 and 6). Who may see a layer:
@@ -222,9 +226,9 @@
   hold what it says.
 
   A permission fact sits on its holder, so the gate finds the permission of
-  an act's `:who` with one read, and a holder has one permission in a layer:
-  she cannot hold \"see\" from one giver and \"see and act\" from another.
-  That is not decided, and is kept as built; the rule
+  an act's `:who` with one read, and a holder has one permission in a layer
+  at a time: she cannot hold \"see\" from one giver and \"see and act\"
+  from another. That is not decided, and is kept as built; the rule
   `:permission-fact-sits-on-its-holder` and
   `softland.store.gate.decision/permission-place` are where the other answer
   would be made."
@@ -545,7 +549,8 @@
    :permission-fact-holds-a-permission
    (fn [act] (value-fits-its-key? :softland.store/permission act))
 
-   ;; A permission fact with no value names no holder; a gate refuses it.
+   ;; A permission fact with no value names no holder: it is an end, and a
+   ;; gate holds it to the permission at its place.
    :permission-fact-sits-on-its-holder
    (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/permission (:k fact))
                                         (nil? (:v fact))
