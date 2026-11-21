@@ -78,6 +78,42 @@
                   :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
                                  org.clojure/clojurescript {:mvn/version "1.11.132"}
                                  thheller/shadow-cljs {:mvn/version "2.28.23"}}}
+            ; Auth: the Rama module that holds what sign-in keeps, beside the
+            ; store's module. Its own source and checks, Clojure and Rama.
+            ;   clojure -M:auth -m softland.auth.module-proof
+            :auth {:replace-paths ["src-auth" "test-auth"]
+                   :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
+                                  com.rpl/rama {:mvn/version "1.6.0"}}
+                   :jvm-opts ["-Xss16m" "-Xmx4g"]}
+            ; The wire: the forms that the runtime and whatever connects to it
+            ; share. The store's source is on the path for the form of an act;
+            ; no Rama, so nothing here can open a cluster.
+            ;   clojure -M:wire -m softland.wire.pure-proof
+            :wire {:replace-paths ["src-store" "src-wire" "test-wire"]
+                   :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}}}
+            ; The runtime: the one program between everything that connects and
+            ; Rama. The store's source for the door and the read path, Auth's
+            ; for its client, the wire's forms, its own source and checks. It
+            ; holds no Electric.
+            ;   clojure -M:runtime -m softland.runtime.main --stand-in-google
+            :runtime {:replace-paths ["src-store" "src-auth" "src-wire" "src-runtime"
+                                      "test-wire" "test-runtime"]
+                      :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
+                                     com.rpl/rama {:mvn/version "1.6.0"}
+                                     missionary/missionary {:mvn/version "b.46"}
+                                     ring/ring-core {:mvn/version "1.11.0"}
+                                     ring/ring-jetty-adapter {:mvn/version "1.11.0"}
+                                     org.clojure/data.json {:mvn/version "2.4.0"}}
+                      :jvm-opts ["-Xss16m" "-Xmx4g"]}
+            ; The command line: Clojure on the JVM, with the wire's forms and
+            ; the store's form of an act, required as they are. No Rama and no
+            ; server on its path: it speaks to the runtime and to nothing else.
+            ;   clojure -M:command -m softland.command.main who
+            ; A command is a short run, so the JVM is told to stop at its first
+            ; compiler: the program starts sooner and never gets hot.
+            :command {:replace-paths ["src-store" "src-wire" "src-command" "test-command"]
+                      :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}}
+                      :jvm-opts ["-XX:TieredStopAtLevel=1"]}
             :dev   {:extra-paths ["src-dev" "test"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
