@@ -8,6 +8,15 @@ asked for a new session because this one had grown too long. It says what is
 committed, what is in the tree and was never run, and what comes next. It is a
 session's page: where it and the code differ, the code is right.
 
+**Since, 21 November 2026, 23:40 IST.** The session that took this page over
+finished piece 2: the four cluster proofs passed at their first run, the
+fixture was made again, and all seven proofs passed on the final code. What
+was built and run is in [BUILD-store-piece-2.md](../BUILD-store-piece-2.md).
+Steps 1 to 7 below are done, but for step 5: `softland-1f` could not be
+reached, so its check was run from here, with
+[see_check.clj](see_check.clj) for the statement `see`. Piece 3 is being
+built. The rest of this page is as it was written.
+
 ## Where the three pieces stand
 
 | Piece | State |

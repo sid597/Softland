@@ -349,6 +349,9 @@ has run these again.
 **Checked since, by a Claude session:** the permission rules of piece 1, as
 built and committed, hold the statements in generated histories, at the gate
 and for who may see a layer ([gate-histories/](gate-histories/README.md)).
+The rules of piece 2 hold that session's statements for a run and for an act
+too, in a run that the store's builder made
+([BUILD-store-piece-2.md](BUILD-store-piece-2.md), "What was run").
 
 **Still not checked:**
 
@@ -390,7 +393,7 @@ Sid only when it is a call of his.
 
 | Who | Doing | Where |
 |---|---|---|
-| A builder, `build-proposal-store-line` | Piece 1 is committed (`2882b55b`; its page is [BUILD-store-piece-1.md](BUILD-store-piece-1.md)). Piece 2 is being built: its form and its statements were written first ([store-piece-2/SPEC.md](store-piece-2/SPEC.md)), after Sid decided that a holder can hold more than one permission (entry 6). That a yes for one act holds the act's content is a session's choice: he called the question the product's. Piece 3 is specified ([store-piece-3/](store-piece-3/SPEC.md)) and not built; its plan waits for piece 2, since both change the same files. | `src-store/`, `test-store/` |
+| A builder, `build-proposal-store-line` | Piece 1 is committed (`2882b55b`; its page is [BUILD-store-piece-1.md](BUILD-store-piece-1.md)). Piece 2 is built and proven (its page is [BUILD-store-piece-2.md](BUILD-store-piece-2.md)): its form and its statements were written first ([store-piece-2/SPEC.md](store-piece-2/SPEC.md)), after Sid decided that a holder can hold more than one permission (entry 6). That a yes for one act holds the act's content is a session's choice: he called the question the product's. Piece 3 is specified ([store-piece-3/](store-piece-3/SPEC.md)) and is being built by the Rama skill's phases, by a second session that took the line over late on 21 November. | `src-store/`, `test-store/` |
 | A builder, `build-proposal-spine` | Piece 4. The wire, the seam and standing are written; Auth is being built by the Rama skill's phases. Not committed yet. | `src-runtime/`, `src-wire/`, `src-command/`, `src-auth/`, [spine/](spine/) |
 | A check, a Claude session | Generated histories through the store builder's own gate code; Sid's record through the same gate. | [gate-histories/](gate-histories/README.md) |
 | A check, carbon | A model of the spine's seam, and measured facts of the stack. | [WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), [model/](model/README.md), [probes/](probes/proxy_limit_probe.clj) |
