@@ -328,8 +328,10 @@ has run these again.
 - **The act-id that a maker makes.** The door's `send-act` takes the act and
   its act-id as two arguments; the act itself does not hold the id.
 - **Rama's trim** can be set for one depot inside a module.
-- **The start of a Clojure command line:** about 215 ms with one flag of the
-  JVM, against 738 ms without.
+- **The start of a Clojure command line.** Carbon measured a bare run: 738
+  ms, and 215 ms with one flag of the JVM. The spine's builder then measured
+  the command line itself, with its forms loaded: 0.53 s, and 0.44 s with the
+  flag. The second pair is what a person waits for.
 
 **Checked since, by a Claude session:** the permission rules of piece 1, as
 built, hold the statements in 45,000 generated histories
@@ -376,7 +378,7 @@ Sid only when it is a call of his.
 | Who | Doing | Where |
 |---|---|---|
 | A builder, `build-proposal-store-line` | Piece 1. Its rules are written, the read path and the proofs are being changed. Not committed yet. | `src-store/`, `test-store/` |
-| A builder, `build-proposal-spine` | Piece 4. | `src-runtime/`, `src-wire/`, `src-command/`, [spine/](spine/) |
+| A builder, `build-proposal-spine` | Piece 4. The wire, the seam and standing are written; Auth is being built by the Rama skill's phases. Not committed yet. | `src-runtime/`, `src-wire/`, `src-command/`, `src-auth/`, [spine/](spine/) |
 | A check, a Claude session | Generated histories through the store builder's own gate code; Sid's record through the same gate. | [gate-histories/](gate-histories/README.md) |
 | A check, carbon | A model of the spine's seam, and measured facts of the stack. | [WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), [model/](model/README.md), [probes/](probes/proxy_limit_probe.clj) |
 
@@ -385,6 +387,17 @@ page tells a second give from the first by one more slot in the permission's
 id. The store builder tells them by the stamps of their rows and leaves the
 id as it is, and that rule holds the statements in the generated histories.
 The slot stays a way open for piece 2.
+
+**Choices that the builders have taken, and his to turn.** Each is said in
+the builder's own code or page.
+
+- **Store:** an end is a fact with no value at the permission's place; a
+  second give is told from the first by stamps; a holder may end her own
+  permission; the layer's first permission does not end.
+- **Spine:** no system outside the runtime chooses the id of a person, an
+  actor, a sign-in or a session. The seam derives each from the caller's root
+  and a UUID that the maker sends. The builder's reason: an actor's id is the
+  who of its acts, so an id chosen outside could be another person's.
 
 **Now, two lines at once.**
 [The store's line](#the-stores-line-to-start-from) is pieces 1, 2 and 3, in
