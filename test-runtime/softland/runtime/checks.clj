@@ -1,0 +1,413 @@
+(ns softland.runtime.checks
+  "The checks of the runtime as a system outside it meets it: over real
+  requests to its pages, and over the line with the command line's own
+  client. It requires the client library, the wire's forms and the proofs'
+  driver, and nothing of the runtime: it is handed addresses.
+
+  Two proofs run these same checks. `softland.runtime.proof` starts three
+  copies of the runtime in its own process, on Rama's in-process cluster.
+  `softland.runtime.cluster-proof` starts them as three processes on a
+  cluster that stays up, and then kills some. So each sentence here holds
+  across copies of the runtime whichever way they are run.
+
+  What the caller hands `run!`:
+
+    :a :b     the addresses of two copies of the runtime with the seam's
+              default numbers
+    :c        the address of a copy whose secrets, sessions and previous
+              secrets last a few seconds (`short-numbers`)
+    :first    the account of the first person, whom setup made:
+              {:sub :email :name}
+    :left     a function of no argument that gives what the copies still
+              hold open, {:live-reads n :watched n}, or nil when the proof
+              cannot see it
+    :tag      a text that is in no account of an earlier run: the accounts
+              that the checks make carry it, so that the checks can be run
+              again on a cluster that keeps what an earlier run wrote
+
+  Each copy runs with the stand-in for Google, so an account is whatever
+  the form says; what makes an account a person is an invitation.
+
+  State. It writes people, layers and acts into the store and Auth that the
+  copies stand on."
+  (:require [clojure.string :as str]
+            [softland.command.client :as client]
+            [softland.runtime.drive :as drive]
+            [softland.wire.credential :as credential]
+            [softland.wire.frame :as frame]
+            [softland.wire.proof :refer [check]])
+  (:import [java.util UUID]))
+
+(def short-numbers
+  "The seam's numbers of the copy `:c`: a secret lasts six seconds, the
+  secret before it one second, and a session four."
+  {:secret-ms 6000 :previous-ms 1000 :session-ms 4000})
+
+;; ------------------------------------------------------------------- helpers
+
+(defn- wait-for
+  "Calls a function of no argument until it gives a thing that is truthy
+  or the span passes. Gives the thing, or nil."
+  [f ms]
+  (let [ends (+ (System/currentTimeMillis) ms)]
+    (loop []
+      (or (f)
+          (when (< (System/currentTimeMillis) ends)
+            (Thread/sleep 50)
+            (recur))))))
+
+(defn- line
+  "Opens the line at an address. Takes the address, a credential's text or
+  nil, and a session's id or nil. Gives {:line the connection :hello what
+  the runtime said first}, or the word with which the opening failed."
+  [url credential session]
+  (let [connection (client/connect {:url url :credential credential :session session})]
+    (if (:could-not connection)
+      connection
+      {:line connection :hello (client/hello connection)})))
+
+(defn- say
+  "Says a word on an opened line and waits for its result."
+  [{:keys [line]} word]
+  (client/say line word 40000))
+
+(defn- act-of
+  "Builds one act of one fact. Takes a hello, the layer, the permission
+  that the act names, and the fact's three parts."
+  [hello layer permission e k v]
+  {:version 1 :who (:who hello) :session (:session hello) :layer layer :permission permission
+   :facts [{:e e :k k :v v}]})
+
+(defn- place
+  "Reads one place as the line's caller. Gives the read's answer."
+  [opened layer e k]
+  (say opened {:word :read :query {:asks [:place e k] :asker (:who (:hello opened)) :layers [layer]
+                                   :with #{:writer}}}))
+
+(defn- watching
+  "Opens a watch of one place on a line. Gives {:id the watch's number
+  :seen an atom of the messages that came}."
+  [{:keys [line hello]} layer e k]
+  (let [seen (atom [])]
+    {:seen seen
+     :id (client/watch line {:asks [:place e k] :asker (:who hello) :layers [layer]}
+                       (fn [message] (swap! seen conj message)))}))
+
+(defn- value-seen
+  "Takes what a watch saw. Gives the value of the place after its last
+  message that held one."
+  [seen]
+  (some (fn [message]
+          (or (get-in message [:anew :place :value])
+              (some (fn [[_ place-answer]] (:value place-answer)) (:changed message))))
+        (reverse seen)))
+
+;; ----------------------------------------------------------------- the checks
+
+(defn run!
+  "Runs every check against the copies that the caller hands it, as the
+  namespace docstring says. Gives nil; each check prints and counts
+  itself."
+  [{:keys [a b c first left tag]}]
+  (let [left (or left (fn [] nil))
+        account (fn [n word]
+                  {:sub (str tag "-" n) :email (str word "-" tag "@example.com") :name (str/capitalize word)})]
+
+    ;; ------------------------------------------------ who may become a person
+    (let [stranger (drive/sign-in a (account 999 "stranger"))]
+      (check "An account that proves no invitation is turned away with 403 and gets no cookie."
+             (and (= 403 (:status stranger)) (nil? (:cookie stranger))) stranger))
+
+    (let [first-in (drive/sign-in a (assoc first :call-her "Sid"))
+          again (drive/sign-in b first)
+          cookie (:cookie first-in)]
+      (check "The first person's first sign-in gives her browser a credential, and sends her to the box, which offers her provider's name for her."
+             (and (seq cookie) (:named? first-in) (= (:name first) (:offered first-in)) (= 303 (:name-status first-in)))
+             (dissoc first-in :cookie))
+      (check "A later sign-in of the same account, through another copy of the runtime, finds the same person and does not send her to the box again."
+             (and (= (:person first-in) (:person again)) (false? (:named? again)))
+             (dissoc again :cookie))
+
+      ;; ------------------------------------------------- the two carriers
+      (check "A browser's credential in the header of a program stands for nobody: the line is not opened, with 401."
+             (= 401 (:status (line a cookie nil))))
+
+      ;; ------------------------------------------------ a program's sign-in
+      (let [refused (drive/program a "a program that she refuses"
+                                   (fn [code] (drive/yes a cookie code {:say "no"})))
+            foreign (drive/program a "a program whose yes comes from another site"
+                                   (fn [code] (drive/yes a cookie code {:origin "http://evil.example"})))
+            mine (drive/program a "the proof's command line"
+                                (fn [code] (drive/yes b cookie code {})))
+            [_ wrong] (frame/read-one (:body (drive/request :post (str a "/sign-in/program/poll")
+                                                            {:edn {:code "ABCD2345" :secret (credential/make-secret)}})))]
+        (check "A program whose ask she answers with no is told no, and has no credential."
+               (= {:state :no} refused) refused)
+        (check "Her yes is taken only from this runtime's own page: a post from another site leaves the program waiting."
+               (= :waiting (:state foreign)) foreign)
+        (check "A program whose ask she answers with yes, at another copy than the one it asked, is told the three parts of its credential, and its actor is she."
+               (and (:credential mine) (= (:person first-in) (:root mine) (:actor mine)))
+               (dissoc mine :credential))
+        (check "A program that asks about a code with a secret that is not the ask's learns nothing: no ask is found."
+               (= :find-the-ask (:could-not wrong)) wrong)
+        (check "A program's credential in a browser's cookie stands for nobody: with it she is not signed in at the pages, and it says no yes."
+               (let [other (drive/program a "a program that waits"
+                                          (fn [code] (drive/yes a (:credential mine) code {})))]
+                 (= :waiting (:state other))))
+
+        (let [me (line a (:credential mine) nil)
+              hello (:hello me)
+              who (:who hello)
+              layer (:own-layer hello)
+              own [who layer layer]]
+          (check "The line says hello with who the program is, her root, a new session and her own layer; and a connection with no credential is a visitor."
+                 (and (= (:person first-in) who (:root hello)) (uuid? (:session hello)) (uuid? layer)
+                      (= {:visitor true} (:hello (line a nil nil))))
+                 hello)
+          (check "Her name is a fact on her own id in her own layer, and she is its writer: the box's act was hers, and the runtime wrote no who into it."
+                 (let [answer (place me layer who :person/name)]
+                   (and (= "Sid" (:value (:place answer))) (= who (:writer (:place answer)))))
+                 (place me layer who :person/name))
+
+          ;; ------------------------------------------------------- an act
+          (let [uuid (UUID/randomUUID)
+                act (act-of hello layer own :chair-7 :colour :green)
+                sent (say me {:word :send :act act :act-id uuid})
+                other (line b (:credential mine) (:session hello))
+                again (say other {:word :send :act act :act-id uuid})
+                another (say other {:word :send :act (act-of hello layer own :chair-7 :colour :red) :act-id uuid})]
+            (check "A send is one round trip: the whole act goes in with the maker's UUID, and the door's receipt comes back with the answer that a gate gave, accepted."
+                   (and (= :accepted (get-in sent [:answer :answer])) (= uuid (nth (:act-id sent) 2)) (string? (:digest sent)))
+                   sent)
+            (check "The same act sent again under the same UUID, through another copy of the runtime and in the same session, has the same digest and reads the one answer: it is taken once."
+                   (and (= (:digest sent) (:digest again)) (= (:answer sent) (:answer again)))
+                   [sent again])
+            (check "Another act under the used UUID is not hers to read: the answer says not mine, and the place holds what the first act wrote."
+                   (and (= :not-mine (get-in another [:answer :answer]))
+                        (= :green (:value (:place (place me layer :chair-7 :colour)))))
+                   another)
+            (check "A program that names the session that it was in stays in it at another copy; one that names a session that is not its own is not let in."
+                   (and (= (:session hello) (:session (:hello other)))
+                        (= 401 (:status (line b (:credential mine) (UUID/randomUUID)))))
+                   (:hello other)))
+
+          ;; --------------------------------------------- nobody acts for another
+          (let [uuid (UUID/randomUUID)
+                as-system (say me {:word :send :act (assoc (act-of hello layer own :chair-7 :colour :blue) :who :system)
+                                   :act-id uuid})
+                as-session (say me {:word :send :act (assoc (act-of hello layer own :chair-7 :colour :blue) :session (UUID/randomUUID))
+                                    :act-id uuid})
+                unsent (say me {:word :answer :act-id [layer :streaming uuid] :digest (apply str (repeat 64 "0"))})
+                as-asker (say me {:word :read :query {:asks [:place :chair-7 :colour] :asker :system :layers [layer]}})
+                visitor (line a nil nil)]
+            (check "An act that names another who than its sender, or another session than the one it is sent in, is refused by the runtime, and nothing is sent for it: nothing is under its UUID."
+                   (= [{:could-not :send-as-another :at :who} {:could-not :send-as-another :at :session} {:answer :nothing-yet}]
+                      [as-system as-session unsent])
+                   [as-system as-session unsent])
+            (check "A query that names another asker than its sender is refused, and a visitor's query that names any asker is refused."
+                   (= [{:could-not :send-as-another :at :asker} {:could-not :send-as-another :at :asker}]
+                      [as-asker (say visitor {:word :read :query {:asks [:place :chair-7 :colour] :asker who :layers [layer]}})]))
+            (check "A visitor sends no act, and reads her layer as somebody who may not see it."
+                   (and (= :find-her-sign-in (:could-not (say visitor {:word :send :act (act-of hello layer own :a :b 1)
+                                                                       :act-id (UUID/randomUUID)})))
+                        (nil? (:value (:place (say visitor {:word :read :query {:asks [:place :chair-7 :colour]
+                                                                                :not-signed-in true :layers [layer]}}))))))
+            (check "An act of a wrong form is sent all the same, and a gate refuses it under its act-id: the log keeps it."
+                   (= :refused (get-in (say me {:word :send :act (assoc (act-of hello layer own :a :b 1) :version 99)
+                                                :act-id (UUID/randomUUID)})
+                                       [:answer :answer]))))
+
+          ;; ------------------------------------------------------- a series
+          (let [acts (mapv (fn [n] {:act (act-of hello layer own :counter :n n) :act-id (UUID/randomUUID)}) (range 5))
+                sent (say me {:word :send-all :acts acts})]
+            (check "A series of acts is sent in order and gives a result for each, and the last of them is what a read gives."
+                   (and (= 5 (count (:results sent)))
+                        (every? (fn [r] (= :accepted (get-in r [:answer :answer]))) (:results sent))
+                        (= 4 (:value (:place (place me layer :counter :n)))))
+                   sent))
+
+          ;; ------------------------------------------- one line, many watches
+          (let [one (watching me layer :chair-7 :colour)
+                two (watching me layer :lamp-2 :lit)
+                first-colour (wait-for (fn [] (value-seen @(:seen one))) 10000)]
+            (say me {:word :send :act (act-of hello layer own :lamp-2 :lit true) :act-id (UUID/randomUUID)})
+            (say me {:word :send :act (act-of hello layer own :chair-7 :colour :amber) :act-id (UUID/randomUUID)})
+            (check "Two watches on one connection each give the whole answer first and then the change of their own place, while words go on being answered on the same connection."
+                   (and (= :green first-colour)
+                        (wait-for (fn [] (= :amber (value-seen @(:seen one)))) 10000)
+                        (wait-for (fn [] (true? (value-seen @(:seen two)))) 10000)
+                        (contains? (first @(:seen one)) :anew)
+                        (not-any? (fn [message] (some (fn [[[e _] _]] (= :lamp-2 e)) (:changed message))) @(:seen one)))
+                   {:one @(:seen one) :two @(:seen two)})
+            (check "A watch that is left is told nothing more, and its number is free: a leave of it a second time finds no watch."
+                   (let [seen-before (count @(:seen two))]
+                     (and (= {:left (:id two)} (client/leave (:line me) (:id two)))
+                          (do (say me {:word :send :act (act-of hello layer own :lamp-2 :lit false) :act-id (UUID/randomUUID)})
+                              (Thread/sleep 500)
+                              (= seen-before (count @(:seen two))))
+                          (= :find-the-watch (:could-not (client/leave (:line me) (:id two)))))))
+
+            ;; ------------------------------------------ a session that ends
+            (let [twin (line b (:credential mine) (:session hello))]
+              (check "A session that is closed through one copy of the runtime ends the connection that another copy holds in it: that connection is told why, its watch is told an end, and a word on it reaches nobody."
+                     (and (= {:closed (:session hello)} (say twin {:word :close-session}))
+                          (wait-for (fn [] (= :find-her-session (:could-not (client/bye (:line me))))) 10000)
+                          (wait-for (fn [] (some :ended @(:seen one))) 10000)
+                          (:could-not (say me {:word :who-am-i})))
+                     {:bye (client/bye (:line me)) :seen (last @(:seen one))})
+              (check "A closed session is not entered again, and the sign-in that it was under opens a new one."
+                     (and (= 401 (:status (line a (:credential mine) (:session hello))))
+                          (uuid? (:session (:hello (line a (:credential mine) nil))))))
+              (check "No live read and no watched root is left behind by connections that ended."
+                     (let [nothing {:live-reads 0 :watched 0}]
+                       (or (nil? (left))
+                           (wait-for (fn [] (let [now (left)] (when (= 0 (:live-reads now)) true))) 10000)))
+                     (left))))
+
+          ;; ------------------------------------------------------- an agent
+          (let [me (line a (:credential mine) nil)
+                hello (:hello me)
+                secret (credential/make-secret)
+                uuid (UUID/randomUUID)
+                made (say me {:word :make-agent :uuid uuid :label "importer" :hash (credential/hash-of secret)})
+                made-again (say me {:word :make-agent :uuid uuid :label "importer" :hash (credential/hash-of secret)})
+                agent-credential (credential/text (:root made) (:sign-in made) secret)
+                agent (line b agent-credential nil)
+                agent-hello (:hello agent)
+                agent-own [(:who agent-hello) layer layer]
+                before (say agent {:word :send :act (act-of agent-hello layer agent-own :crate-1 :packed true)
+                                   :act-id (UUID/randomUUID)})
+                given [(:who agent-hello) layer layer own :see-and-act]
+                gave (say me {:word :send
+                              :act {:version 1 :who who :session (:session hello) :layer layer :permission own
+                                    :subjects #{(:who agent-hello)}
+                                    :facts [{:e (:who agent-hello) :k :softland.store/permission :v given}]}
+                              :act-id (UUID/randomUUID)})
+                after (say agent {:word :send :act (act-of agent-hello layer given :crate-1 :packed true)
+                                  :act-id (UUID/randomUUID)})]
+            (check "An agent that she makes has a who of its own, which is neither her id nor the UUID that her program sent, and the same UUID again makes the same agent."
+                   (and (uuid? (:made made)) (not= who (:made made)) (not= uuid (:made made))
+                        (= (:made made) (:made made-again)) (= who (:root made)))
+                   made)
+            (check "The agent signs in as a program with its own credential: the line says that it is the agent, beneath her as its root, and gives it her own layer's id."
+                   (and (= (:made made) (:who agent-hello)) (= who (:root agent-hello)) (= layer (:own-layer agent-hello)))
+                   agent-hello)
+            (check "An agent acts only under what it was given: before she gives it a permission a gate refuses its act, and after, a gate accepts it and the fact names the agent as its writer."
+                   (and (= :refused (get-in before [:answer :answer]))
+                        (= :accepted (get-in gave [:answer :answer]))
+                        (= :accepted (get-in after [:answer :answer]))
+                        (= (:who agent-hello) (:writer (:place (place me layer :crate-1 :packed)))))
+                   [before gave after])
+            (check "A word that is a person's own is refused to an agent: it invites nobody and lists nothing of her sign-ins."
+                   (= [:do-that-as-an-agent :do-that-as-an-agent]
+                      [(:could-not (say agent {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email (account 5 "nobody"))}}))
+                       (:could-not (say agent {:word :under}))]))
+            (let [listed (say me {:word :under})]
+              (check "She sees what is under her: the agent, with who made it and its name, and her live sign-ins, the agent's among them."
+                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= who (:made-by actor)) (= "importer" (:label actor))))
+                                (:actors listed))
+                          (some (fn [sign-in] (= (:sign-in made) (:sign-in sign-in))) (:sign-ins listed)))
+                     listed))
+            (check "An agent that she ends, through another copy than the one it is connected to, is told that its sign-in ended, and its credential then stands for nobody."
+                   (and (= {:ended (:made made)} (say me {:word :end-agent :agent (:made made)}))
+                        (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line agent))))) 10000)
+                        (= 401 (:status (line a agent-credential nil))))
+                   (client/bye (:line agent)))
+            (check "An agent that is not beneath the caller is not found, whatever id is named."
+                   (= :find-the-agent (:could-not (say me {:word :end-agent :agent (UUID/randomUUID)}))))
+
+            ;; ---------------------------------------------- an invitation
+            (let [code (credential/make-secret)
+                  invited (say me {:word :invite :uuid (UUID/randomUUID) :claim {:by :code :hash (credential/hash-of code)}})
+                  asha (account 2 "asha")
+                  by-email (say me {:word :invite :uuid (UUID/randomUUID)
+                                    :claim {:by :email :email (str/upper-case (:email asha))}})
+                  both (doall (pmap (fn [url] (drive/sign-in url asha)) [a b]))
+                  guest (drive/sign-in b (assoc (account 3 "guest") :invited code))
+                  late (drive/sign-in a (assoc (account 4 "late") :invited code))]
+              (check "A person invites by a code: the account that brings the code becomes the person whom the invitation made, and a second account with the same code is turned away."
+                     (and (= (:invited invited) (:person guest)) (= 403 (:status late)))
+                     [invited (dissoc guest :cookie) (dissoc late :cookie)])
+              (check "Two first sign-ins of one invited account at the same moment, through two copies of the runtime, give one person: the one whom the invitation made, whose email was given in other letters."
+                     (and (= (:invited by-email) (:person (first both)) (:person (second both))))
+                     [by-email (mapv #(dissoc % :cookie) both)])
+              (check "Both of those sign-ins lead to one own layer."
+                     (let [layers (doall (map (fn [signed]
+                                                (let [program (drive/program a "asha's program"
+                                                                             (fn [code] (drive/yes a (:cookie signed) code {})))]
+                                                  (:own-layer (:hello (line a (:credential program) nil)))))
+                                              both))]
+                       (and (uuid? (first layers)) (apply = layers)))))
+
+            ;; ------------------------------------------- a secret is replaced
+            (let [short (drive/program c "a program at the copy with short times"
+                                       (fn [code] (drive/yes c cookie code {})))
+                  held (line c (:credential short) nil)
+                  session (:session (:hello held))
+                  secret (credential/make-secret)
+                  replaced (say held {:word :replace-secret :hash (credential/hash-of secret)})
+                  renewed (credential/text (:root short) (:sign-in short) secret)]
+              (check "A sign-in's secret is replaced by one that the program made: the new credential is let in, in the same session, and the secret before it stands for a moment and then for nobody."
+                     (and (= (:sign-in short) (:replaced replaced))
+                          (= session (:session (:hello (line a renewed session))))
+                          (do (Thread/sleep 1500) (= 401 (:status (line a (:credential short) session)))))
+                     replaced)
+              (check "A connection that was opened under the secret before stays open after the replacing, and after the time of the secret that it came with has passed: what is held is the sign-in and the session, and both stand."
+                     (do (Thread/sleep 5500)
+                         (and (nil? (client/bye (:line held)))
+                              (= (:who (:hello held)) (:who (say held {:word :who-am-i})))))
+                     (client/bye (:line held)))
+              (check "A session that is held by a connection is moved on past the time that it was opened with, and one that nobody holds is over when its time has passed."
+                     (let [left-alone (line c renewed nil)
+                           alone (:session (:hello left-alone))]
+                       (client/close! (:line left-alone))
+                       (Thread/sleep 5000)
+                       (and (nil? (client/bye (:line held)))
+                            (= session (:session (say held {:word :who-am-i})))
+                            (= 401 (:status (line c renewed alone))))))
+              (check "A sign-in whose secret is not replaced is over when its time passes: the connection that rests on it is told so by the runtime's own timer, at a copy that did not begin it."
+                     (let [brief (drive/program c "a program that does not replace its secret"
+                                                (fn [code] (drive/yes c cookie code {})))
+                           resting (line a (:credential brief) nil)]
+                       (and (:hello resting)
+                            (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line resting))))) 12000)
+                            (= 401 (:status (line b (:credential brief) nil)))))))
+
+            ;; -------------------------------------------------- a sign-out
+            (let [out (drive/program a "a program that signs out" (fn [code] (drive/yes a cookie code {})))
+                  here (line a (:credential out) nil)
+                  there (line b (:credential out) nil)
+                  listed (say me {:word :under})
+                  third (drive/program a "a program that she ends" (fn [code] (drive/yes a cookie code {})))
+                  resting (line b (:credential third) nil)]
+              (check "A sign-out through one copy of the runtime ends the connection that another copy holds for the same sign-in, and the credential then stands for nobody at either."
+                     (and (= {:ended (:sign-in out)} (say here {:word :sign-out}))
+                          (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line there))))) 10000)
+                          (= [401 401] [(:status (line a (:credential out) nil)) (:status (line b (:credential out) nil))])))
+              (check "She ends one of her sign-ins by its id, and the program that rested on it is told; a sign-in that is not hers is not found."
+                     (and (= {:ended (:sign-in third)} (say me {:word :end-sign-in :sign-in (:sign-in third)}))
+                          (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line resting))))) 10000)
+                          (= :find-the-sign-in (:could-not (say me {:word :end-sign-in :sign-in (UUID/randomUUID)}))))
+                     (client/bye (:line resting))))
+
+            ;; ------------------------------------------------------ the bounds
+            (let [visitor (line a nil nil)
+                  long-number (bigint (apply str (repeat 70000 "7")))]
+              (check "A frame whose one token is longer than any value that the store takes is turned away before it is read as EDN: the runtime says that it could not read the frame, and the connection goes on."
+                     (do (client/say (:line me) {:word :read :query {:asks [:place :n long-number] :asker who :layers [layer]}} 3000)
+                         (and (= {:could-not :read-the-frame :why :a-token-too-long} (:said @(:state (:line me))))
+                              (= who (:who (say me {:word :who-am-i})))))
+                     (:said @(:state (:line me))))
+              (check "A visitor's frame over the small bound is not taken into memory: the connection is closed."
+                     (do (client/say (:line visitor) {:word :read :query {:asks [:place :x (apply str (repeat 70000 "x"))]
+                                                                          :not-signed-in true :layers [layer]}} 3000)
+                         (wait-for (fn [] (:gone @(:state (:line visitor)))) 5000))))
+
+            ;; ----------------------------------------------- the pages' sign-out
+            (check "A sign-out at the pages from another site's page is not taken, and one from the runtime's own page ends the browser's sign-in and takes the cookie away."
+                   (let [foreign (drive/request :post (str a "/sign-out") {:cookie cookie :origin "http://evil.example"})
+                         own (drive/request :post (str a "/sign-out") {:cookie cookie :origin a})
+                         after (drive/request :get (str a "/") {:cookie cookie})]
+                     (and (= 400 (:status foreign))
+                          (= 303 (:status own)) (= "" (:cookie own))
+                          (not (str/includes? (:body after) "You are signed in")))))))))))

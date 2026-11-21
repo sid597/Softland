@@ -96,7 +96,7 @@
             ; for its client, the wire's forms, its own source and checks. It
             ; holds no Electric.
             ;   clojure -M:runtime -m softland.runtime.main --stand-in-google
-            :runtime {:replace-paths ["src-store" "src-auth" "src-wire" "src-runtime"
+            :runtime {:replace-paths ["src-store" "src-auth" "src-wire" "src-runtime" "src-command"
                                       "test-wire" "test-runtime"]
                       :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}
                                      com.rpl/rama {:mvn/version "1.6.0"}
@@ -111,7 +111,7 @@
             ;   clojure -M:command -m softland.command.main who
             ; A command is a short run, so the JVM is told to stop at its first
             ; compiler: the program starts sooner and never gets hot.
-            :command {:replace-paths ["src-store" "src-wire" "src-command" "test-command"]
+            :command {:replace-paths ["src-store" "src-wire" "src-command"]
                       :replace-deps {org.clojure/clojure {:mvn/version "1.12.4"}}
                       :jvm-opts ["-XX:TieredStopAtLevel=1"]}
             :dev   {:extra-paths ["src-dev" "test"]
