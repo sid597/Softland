@@ -97,8 +97,11 @@ Rules for every call:
 - Times are fixed-width integers. Ids of persons, actors, sign-ins and
   sessions are UUIDs. A hash is 64 lower-case hex characters. A code is a
   string of 8 characters, compared exactly. A text (`:label`, `:asks`, an
-  email, a provider's subject) is a string of at most 256 characters, a
-  character being one `char` of the JVM. A provider is a keyword. A `:says`
+  email, a provider's subject, a `:driven-by` `:model`) is a string of at
+  most 256 characters, a character being one `char` of the JVM. A provider
+  is a keyword. A `:driven-by`, optional on `open-session`, is nil or
+  either `{:kind :person}` or `{:kind :model :model text}` (with `:model` a
+  text of at most 256 characters). A `:says`
   map holds at most 32 entries, each from a string of at most 256
   characters to a string of at most 2,048. A write or a read whose input
   does not fit gives `{:could-not :read-the-event}`, and a write then
@@ -157,7 +160,10 @@ end-actor         {:root P :actor A :at t}
                   -> {:ended A}
                      {:refused :no-such-actor}   {:refused :is-a-person}
 
-open-session      {:root P :sign-in G :session S :until t1 :at t}
+open-session      {:root P :sign-in G :session S :until t1 :at t
+                   :driven-by D}                 :driven-by optional;
+                                                 {:kind :person} or
+                                                 {:kind :model :model text}
                   -> {:open S}
                      {:refused :not-live}
                      {:refused :in-use}          S is open under another sign-in
@@ -183,7 +189,8 @@ reads
                   -> {:sign-in {:actor A :kind K :hash H :until t1
                                 :previous {:hash H0 :until t2}-or-nil
                                 :ended? bool :actor-ended? bool}-or-nil
-                      :session {:sign-in G' :until t3 :closed? bool}-or-nil
+                      :session {:sign-in G' :until t3 :closed? bool
+                                :driven-by D-or-nil}-or-nil
                       :own-layer L-or-nil :own-layer-made? bool}
 
 (ask-of client U) -> {:hash H :asks text :ends t1 :state :waiting|:yes|:no
@@ -210,7 +217,8 @@ root `P` changed, through whichever copy of the runtime the change came:
 
 or with `:softland.auth.client/not-reached` when this process can no longer
 say what is live under `P`: within seconds of the loss, once, and `f` is not
-called again after it. The caller then stops the watch and registers anew.
+called again after it. `watch-root`'s value does not carry `:driven-by`.
+The caller then stops the watch and registers anew.
 No call is owed at the registration: a caller that must know how its own
 sign-in stands at the start registers first and then reads with `who-is`.
 `f` runs on a thread of Rama's client and must return at once.
@@ -286,11 +294,20 @@ bound on how deep a permission can be; no read costs more with the depth.
 and every sign-in and session of each. A person is not ended by this call.
 
 **open-session, close-session.** A session is opened under a live sign-in,
-with a time `:until`, and closed once. Its id is made by the runtime at
-random. The same id under the same sign-in again, while the session is
-open, moves its time to the `:until` that came, when that is later: that is
-how the runtime keeps a session that is in use. A session that is closed,
-or was taken out because its time passed, is not opened again.
+with a time `:until` and an optional `:driven-by` (`{:kind :person}` or
+`{:kind :model :model text}` where `:model` is at most 256 characters), and
+closed once. Its id is made by the runtime at random. `:driven-by` is kept
+with the session and can be read through `who-is` after the session closes.
+A repeat of `open-session` does not change it. When `:driven-by` is absent
+(or nil), it means not said, and the runtime then keeps that session's
+reads. This addition is a session's default and Sid's to turn; it rests on
+Sid's decision of 12 October, entry 4, in `src-store/README.md` (a model's
+reads are kept always, a person's until she turns it off) and on entry 8 of
+the runtime's page. The same id under the same sign-in again, while the
+session is open, moves its time to the `:until` that came, when that is
+later: that is how the runtime keeps a session that is in use. A session
+that is closed, or was taken out because its time passed, is not opened
+again.
 
 **ask, answer-ask.** A program asks under a code, with the hash of the
 secret that it made. A person answers once:
