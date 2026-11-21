@@ -252,6 +252,12 @@ Kept from carbon's page, as a session's:
 
 ## Not settled
 
+**The one sheet for now** is carbon's: five calls, each with a default
+([WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), 4.1, S1 to S5). They are the
+ones of the lists below that are a word of the product or a rule he would
+want to say himself. The rest of the lists below, a builder takes as a bet:
+its code says that it is a session's choice, and it is his to turn.
+
 Each of these is Sid's. They are brought to him together, on one sheet for
 each line of the build at its start, and not one at a time. Each is laid out
 the way he asked on 21 November: the situation in a Softland example, the
@@ -306,24 +312,35 @@ gets, since that is where the branch layer or the shared layer is chosen.
 
 ## Not checked
 
-- **`pstate.proxy.limit`.** What it bounds is open
-  (`src-store/OPEN-QUESTIONS-rama.md`, section 4). Standing puts one live
-  read for each active person on each runtime copy, and the read path shares
-  the same bound.
-- **A pushed change over MCP.** Whether Claude Code or Codex hand it to the
-  model.
-- **Sign-in for MCP over HTTP.** "OAuth 2.1" makes the runtime an
-  authorization server, or needs one in front of it. Its size is not known.
-- **The act-id that a maker makes.** Carbon read `door.clj` as taking it
-  already. This page did not read it.
+**Measured since, by carbon, on 21 November**
+([WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), Part 2). No second session
+has run these again.
+
+- **`pstate.proxy.limit`** bounds one PState on one task of one module, for
+  all clients together ([probes/](probes/proxy_limit_probe.clj)). So standing
+  in Auth and the store's read path do not share a bound. This page said that
+  they do, and that was wrong.
+- **A pushed change over MCP.** Neither Claude Code nor Codex wakes a model
+  for one. An agent reads by asking; a browser takes pushes.
+- **Sign-in for MCP over HTTP.** Both command lines take a Bearer token for
+  an MCP server over HTTP. So MCP can use the sign-in of the command line,
+  and no authorization server is needed at first.
+- **The act-id that a maker makes.** The door's `send-act` takes the act and
+  its act-id as two arguments; the act itself does not hold the id.
+- **Rama's trim** can be set for one depot inside a module.
+- **The start of a Clojure command line:** about 215 ms with one flag of the
+  JVM, against 738 ms without.
+
+**Checked since, by a Claude session:** the permission rules of piece 1, as
+built, hold the statements in 45,000 generated histories
+([gate-histories/](gate-histories/README.md)).
+
+**Still not checked:**
+
 - **A view over very many small layers.** With entry 6, small layers are how
   things are hidden. What such a read costs the read path is not known.
-- **Rama's trim.** It keeps the newest N records of each partition, and the
-  default is to keep all (the Rama skill's depot reference). Whether it can
-  be set for one depot inside a module was not checked; a trail in its own
-  module does not need the answer.
-- **The start of a Clojure command line.** How long the JVM takes, and what
-  that means for a tool run many times a minute.
+- **The module, for piece 1.** The generated histories run the gate's pure
+  code. That the module hands a gate the rows it needs is the module's proof.
 
 ## The order of the build
 
@@ -350,6 +367,24 @@ time now, and four pieces run at the same time once the spine is proved.
 | 6 | MCP over HTTP, with its sign-in | Piece 4 |
 | 7 | The browser's client | Piece 4 |
 | 8 | `promote` | His answer on what it writes |
+
+**Where the work stands, 21 November, 16:10.** Two sessions build and two
+check. A check changes nothing by itself: what it finds goes to the builder
+when code must change, to this page when a fact or a decision changes, and to
+Sid only when it is a call of his.
+
+| Who | Doing | Where |
+|---|---|---|
+| A builder, `build-proposal-store-line` | Piece 1. Its rules are written, the read path and the proofs are being changed. Not committed yet. | `src-store/`, `test-store/` |
+| A builder, `build-proposal-spine` | Piece 4. | `src-runtime/`, `src-wire/`, `src-command/`, [spine/](spine/) |
+| A check, a Claude session | Generated histories through the store builder's own gate code; Sid's record through the same gate. | [gate-histories/](gate-histories/README.md) |
+| A check, carbon | A model of the spine's seam, and measured facts of the stack. | [WORKFLOW-AND-MODEL.md](WORKFLOW-AND-MODEL.md), [model/](model/README.md), [probes/](probes/proxy_limit_probe.clj) |
+
+One place where a check and a build differ, and the build stands: carbon's
+page tells a second give from the first by one more slot in the permission's
+id. The store builder tells them by the stamps of their rows and leaves the
+id as it is, and that rule holds the statements in the generated histories.
+The slot stays a way open for piece 2.
 
 **Now, two lines at once.**
 [The store's line](#the-stores-line-to-start-from) is pieces 1, 2 and 3, in
@@ -391,11 +426,13 @@ root holder writes a layer's settings. And "yess" to giving again after an
 end. He says "revoking" for it in passing; the store's own page says that
 nothing "ends" a permission. Which word the product uses is his.
 
-**The permission's record is designed once, before code.** Ending, giving
-again, what a permission covers and how long it stands are parts of one
-record. Piece 1 builds its default, the whole layer until ended. Piece 2
-builds one act and one run. He pointed to the field's work on such queries:
-it is read first. Then one sheet goes to him with the calls of both pieces.
+**The permission's record.** This page asked for one design of ending,
+giving again, what a permission covers and how long it stands, before any
+code. The builder of piece 1 did not need it: an end is a fact with no value
+at the permission's place, and a second give is told from the first by the
+stamps of the rows, so the id did not change. What a permission covers and
+how long it stands are still to be designed, for piece 2, after the field's
+work on such queries is read, as Sid said.
 
 **What piece 1 adds to the store.** Three rules:
 
