@@ -33,8 +33,8 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 21 November 2026. It is the fourth making; the first
-three were made on 14 October 2026. The
+This fixture was made on 21 November 2026. It is the fifth making; the first
+three were made on 14 October 2026, and the fourth earlier on 21 November. The
 first two were made by the build "run again", in which both depots came to
 place an act by its layer and the base's gate came to decide each act on the
 layer's task in the depot's order: the first after the build's part B, the
@@ -113,6 +113,38 @@ facts, 28 facts by value and 14 rows of the task's table; in the microbatch
 gate 182, 69, 6 and 7. The run of all seven proofs after it passed. The
 receipt of the change says that the fixture was made again, and why
 (`src/proposal/runtime-2026-11-21/BUILD-store-piece-1.md`).
+
+The fifth making ran on 21 November 2026 at 23:13 IST, and replaced the
+fourth for the rules of what a permission covers, which were added on purpose,
+on Sid's decisions of 21 November 2026 that an act is the smallest thing a
+permission covers and that a holder can hold more than one permission in a
+layer (`src/proposal/runtime-2026-11-21/PROPOSAL.md`, entry 6;
+`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`):
+
+- a permission says what it covers in a sixth slot of its id, one run or one
+  act, and sits on what it covers under a key of its own,
+  `:softland.store/run-permission` or `:softland.store/act-permission`, where
+  the store refused both keys as unknown store keys;
+- an act under a permission for a run is taken only in that run, and one
+  under a permission for an act only when it is that act, by the uuid of its
+  act-id and its digest;
+- a permission for a run or for an act gives nothing, and a run ends no
+  permission of its holder but its own.
+
+The hand changed with the rules: in each gate it now sends a line of ten
+things under permissions for one run and for one act, and the making holds the
+word of each. The fourth making's records held no permission for a run or for
+an act, so the store with the new rules gave the fourth making's tables from
+the fourth making's records: the proof passed on the fourth making before this
+one replaced it. It was made again so that the kept acts hold both.
+
+It wrote `acts.edn`, 121,700 bytes, 383 records (the streaming depot's four
+partitions 155, 0, 17 and 5; the microbatch depot's 7, 0, 199 and 0), and
+`tables.edn`, 106,099 bytes, 559 rows: in the streaming gate 165 answers, 71
+facts, 30 facts by value and 14 rows of the task's table; in the microbatch
+gate 192, 74, 6 and 7. The run of all seven proofs after it passed. The
+receipt of the change says that the fixture was made again, and why
+(`src/proposal/runtime-2026-11-21/BUILD-store-piece-2.md`).
 
 From the repository root, behind the lock of this machine's cluster runs:
 

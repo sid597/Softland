@@ -93,8 +93,10 @@
                   under a permission for one act the walk makes one digest
                   more, of the thing without its permission.
     5. places     Read the place of each fact that names something to
-                  replace and of each fact under
-                  `:softland.store/permission`; for a give at a place that
+                  replace and of each fact under one of the three keys of
+                  a permission
+                  (`softland.store.door.declaration/permission-keys`); for
+                  a give at a place that
                   holds a permission, the places of the permissions above
                   the one that is there, unless step 4 read them
                   (`softland.store.gate.decision/chains-needed`); then
@@ -161,6 +163,13 @@
       above its own: one more beneath a first holder, two more beneath
       that. A permission is 32 deep at most
       (`softland.store.act`, `nesting`), so 31 rows more at most.
+    - An act under a permission for one run reads what an act under a
+      given permission for the layer reads: the run's row where the
+      holder's was, and the rows above it. An act under a permission for
+      one act reads the same, and costs one SHA-256 more over the thing,
+      the digest without its permission that the permission names
+      (`softland.store.gate.decision/hex-for-its-permission`). No other
+      act pays for that hash.
     - An act whose permission does not stand: 5 reads at most when the
       record does not hold it, whatever the act carries, the answer, the
       two places of its standing and the two of the layer's last stamp,
@@ -169,7 +178,8 @@
       refused because one above it ended, has read the rows of its chain.
     - A making act: those 5 reads, and 4 writes: its two facts, the answer
       and the layer's last stamp.
-    - A give, one fact under `:softland.store/permission`: 5 reads, the
+    - A give, one fact under one of the three keys of a permission, for
+      the layer, a run or an act: 5 reads, the
       answer, the giver's permission, the place of the permission given and
       the two of the layer's last stamp, and 3 writes. An end costs the
       same. A give at a place that holds a permission reads the row of

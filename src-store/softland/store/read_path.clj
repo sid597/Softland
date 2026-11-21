@@ -1223,7 +1223,11 @@
   A run of more than `:run-start-places` places costs two calls more. A
   microbatch layer is read on the task of the read's home, in a call of its
   own table: a run across its entities is one call, as in a streaming
-  layer. One bound, `:wait-ms`, holds for the whole call. No count of pushes bounds it: it
+  layer. A query that names its run reads the row of the run's permission
+  in the call that reads her own, and the rows above it in the round that
+  reads those above hers: rows more, and no call more (read from
+  `softland.store.read-path.sources/reading`, and counted by no run). One
+  bound, `:wait-ms`, holds for the whole call. No count of pushes bounds it: it
   opens none.
 
   It reads the tables, and takes no value of a push. Where a live read
@@ -1383,8 +1387,12 @@
   those who need it share: the layer's own rows (whether it is made, who
   may see it, what it builds on, its marked keys) as one push for a layer;
   the asker's permission, and the permission of each holder above hers,
-  only while the layer is made and its setting is `:members`; and the
-  facts. So when her permission ends, or one above it, her read leaves the
+  only while the layer is made and its setting is `:members`; for a query
+  that names the run that it is asked in, its `:session`, the permission of
+  that run in each such layer and the permission of each holder above it,
+  beside her own; and the facts. She may see such a layer while either
+  stands (`softland.store.read-path.layers/either`). So when the last of
+  hers that stood ends, or one above it, her read leaves the
   layer as it does when a setting goes to `:members`. When what shapes the read changes, the asker
   is given the whole answer anew. When a layer is no longer rightful for
   her, her read leaves that layer's facts at once; the answer then says
@@ -1395,7 +1403,10 @@
   What it costs. One push for each source: for a place through k layers of
   which g are \"members\", k + g + k, and one more in each such layer for
   each permission above hers there: none when she is the layer's first
-  holder. Askers beneath one holder share the push on that holder's row. For what points at a thing, one push
+  holder. A query that names its run holds, in each such layer, one push
+  more on the run's row, and one for each permission above the one that
+  the row holds. Askers beneath one holder share the push on that holder's
+  row. For what points at a thing, one push
   more for each place of a farther order and each nearer layer. Each open
   push costs its layer's gate at each write. Rama opens a bounded count of
   pushes on one table on one task, and the read path holds a bound of its

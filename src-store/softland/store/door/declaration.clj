@@ -202,8 +202,9 @@
   place holds (`softland.store.gate.decision`, `end-fault` and
   `give-over-fault`). A retract under any of the other four is refused.
 
-  The last three are of the read build (src-store/README.md, decisions of
-  11 and 12 October 2026, entries 1, 2 and 6). Who may see a layer:
+  Who may see a layer, what it builds on and the keys that it marks are of
+  the read build (src-store/README.md, decisions of 11 and 12 October 2026,
+  entries 1, 2 and 6). Who may see a layer:
   `:members`, which is whoever holds a permission in it, or `:everyone`.
   What a layer builds on: the layers that a read looks through after it, in
   the writer's order; an empty vector says \"nothing\". The keys that a
@@ -221,9 +222,9 @@
   `:permission` is a fact under a plain key, and the store reads nothing
   from it.
 
-  `:sits-on` is a word for the reader of this table; the rule
-  `:permission-fact-sits-on-its-holder` and the gate's check of a setting
-  hold what it says.
+  `:sits-on` is a word for the reader of this table; the rules of a
+  permission fact, `:permission-fact-sits-on-its-holder` among them, and
+  the gate's check of a setting hold what it says.
 
   A permission sits on what it covers, under a key of its own for each
   kind (`softland.store.act/covers`): one that covers the layer on its

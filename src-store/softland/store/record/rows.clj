@@ -42,9 +42,13 @@
 
   Every accepted fact is a row of the second kind, under a store key or a
   plain key: the depot of a layer at
-  \"<layer> <layer> :softland.store/depot\", a permission at
-  \"<layer> <holder> :softland.store/permission\", and at the layer's own
-  entity who may see it, what it builds on and its marked keys. A value is
+  \"<layer> <layer> :softland.store/depot\", a permission on what it
+  covers (`softland.store.gate.chain/place`), at
+  \"<layer> <holder> :softland.store/permission\" for the layer,
+  \"<layer> <session> :softland.store/run-permission\" for one run and
+  \"<layer> <act uuid> :softland.store/act-permission\" for one act, and
+  at the layer's own entity who may see it, what it builds on and its
+  marked keys. A value is
   held as one String, its one text, so the field has one class, a push on
   the row is told each change of it, and \"is this the permission that the
   act names\" is a comparison of two Strings that are equal only when the
@@ -383,8 +387,9 @@
 (defn ended?
   "Takes the row at a permission's place, or nil. Gives true when the row is
   an end: a row with no value, which a taken fact with no value wrote under
-  `:softland.store/permission`. False for no row and for a row with a
-  value."
+  one of the three keys of a permission
+  (`softland.store.door.declaration/permission-keys`). False for no row and
+  for a row with a value."
   [row]
   (boolean (and row (nil? (:value row)))))
 

@@ -25,13 +25,18 @@
                takes as it is. Nothing of the record is read.
     standing   `standing`: the layer's depot is this gate's (c); the layer
                is made, or the act is a right making act; the act's
-               permission stands for its `:who` (d), and each permission
-               above it stands; and that permission allows acting: an act
+               permission is held by its `:who` and covers the act: the
+               layer, the run that the act names as its `:session`, or
+               this one act, by the uuid of its act-id and its digest
+               (`softland.store.act/covers`); it stands (d), and each
+               permission above it stands; and it allows acting: an act
                needs \"act\".
     places     `places`: each replaced fact is the current fact of its
                place (e); no setting key on an entity other than the layer
                (f); a permission fact writes a permission straight beneath
-               the act's own (g); who may write a key that takes a second
+               the act's own, and the act's own covers the layer: a
+               permission for a run or for an act gives nothing (g); who
+               may write a key that takes a second
                write (`who-may-write-fault`); who may end a permission, and
                on which place a give is taken (`end-fault`,
                `give-over-fault`); and what a store key does not take in
@@ -64,8 +69,10 @@
   at the layer's depot place, says that the layer is this gate's.
 
   (d) is one read for each permission of the act's chain. A permission
-  fact sits on its holder, so the place of `:who`'s permission holds the
-  act's permission or the act's permission does not stand. A permission id
+  fact sits on what it covers, its holder, a run or an act
+  (`softland.store.gate.chain/place`), so the place that the act's
+  permission names holds that permission or the act's permission does not
+  stand. A permission id
   holds its whole chain, so the places of the permissions above it are read
   from the act alone (`chain-needed`), and only when the first row holds the
   act's permission. A permission can be ended: an end is a later fact at its
@@ -160,8 +167,9 @@
   (first-act/starts-with-the-other-gates-depot? gate-depot (:layer act)))
 
 (defn makes-the-layer?
-  "Takes the gate's depot, an act, the row at the place of `:who`'s
-  permission, and the row at the place of the layer's depot. Gives true
+  "Takes the gate's depot, an act, the row at the place of the permission
+  that the act names (`permission-place`), and the row at the place of the
+  layer's depot. Gives true
   when the act is the first act of its layer: both rows are nil, the layer
   is not the other gate's (`layer-is-the-other-gates?`), and the act has
   the form of a making act for this gate. `standing` gives nil for such an
@@ -175,7 +183,8 @@
                 (first-act/making-act? gate-depot act))))
 
 (defn chain-needed
-  "Takes an act, and the row at the place of `:who`'s permission. Gives the
+  "Takes an act, and the row at the place of the permission that the act
+  names (`permission-place`). Gives the
   keys of the places whose rows `standing` needs beside that row: the place
   of each permission above the act's own, nearest first
   (`softland.store.gate.chain/places-above`). An empty vector when the row

@@ -64,10 +64,10 @@
   permission that stands allows seeing (src-store/README.md, decisions of
   11 and 12 October 2026, entry 1). Whether it stands is the gates' own
   rule, read from the same rows (`softland.store.gate.chain/stands?`): a
-  permission that has ended, or beneath one that has, lets nobody see. So
-  the things about a permission that are not decided (one permission for
-  each holder; who may write a setting, a list or a mark) are no code
-  here."
+  permission that has ended, or beneath one that has, lets nobody see. A
+  permission for one act is not read: it lets nobody see. So the one thing
+  about a permission that is kept as built and not decided, one permission
+  for the layer for each holder at a time, is no code here."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
