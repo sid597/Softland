@@ -45,6 +45,7 @@ Start with the question you are carrying:
 | How are the tables made again, and how do I know that a second run gives the same? | A second module that mirrors the two depots and calls `add-gates-and-reads` of [module.clj](softland/store/module.clj) runs the store's own gates over them from their beginning. The [verification map](../test-store/README.md) names the proof that does it and compares every table |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |
+| What did Sid decide about ending a permission, giving it again, and what a permission covers? | [Decisions of 20 and 21 November 2026](#decisions-of-20-and-21-november-2026--a-permission-ends-and-what-a-permission-covers), below |
 | What is a stamp, and where is the time on an act? | The namespace docstring of [stamp.clj](softland/store/gate/stamp.clj); [Decisions of 14 October 2026](#decisions-of-14-october-2026--order-and-time-apart), below |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-store/README.md) |
 | What does the store rest on in Rama and not know? | [Open questions about Rama](OPEN-QUESTIONS-rama.md) |
@@ -535,16 +536,21 @@ changes with them. They shape the read build, whose starter is
    could mean; "everyone" takes in a person who is not signed in (entry 2 of 8
    October). Not decided, and kept only so that the build can run:
    - A holder has one permission in a layer, as built. She cannot hold "see"
-     from one giver and "act" from another.
+     from one giver and "act" from another. Decided on 21 November 2026: a
+     holder can have more than one (entry 6 of 20 and 21 November). It is
+     not built.
    - The setting takes a second write. Who may write it is not said: his word
      is "the owner", and no layer names an owner as a fact (entry 5 of 8
-     October).
+     October). Decided on 20 November 2026: the layer's root holder alone
+     (entry 3 of 20 and 21 November).
    - A new layer starts as "members" and the base as "everyone". With the
      reading above, a person who is not signed in then sees the base; that is
      half of the queue's K14.
    - A permission that says "see" cannot later be made "see and act" in that
      layer: a permission's place takes one write, and nothing ends a
      permission. A session read this in `gate/decision.clj`; it was not run.
+     Replaced on 20 and 21 November 2026: a permission ends, and its holder
+     can be given another (entries 1 and 2 of those days).
 2. **Which layers a read looks through: the layer says, and a view may ask for
    another list.** Sid decided (W2 C): "yes", and "ok" after a session showed
    him two of its follow-ons. On 10 October: "Agrreee". A layer says which
@@ -1047,3 +1053,106 @@ it says so.
    (‹296a2a7b›). It was built so on 13 October and kept for his word.
 5. **Time travel is designed later.** "3) time travel will do later"
    (‹296a2a7b›). The refinements page holds what a session understood of it.
+
+## Decisions of 20 and 21 November 2026 — a permission ends, and what a permission covers
+
+Sid made these on 20 and 21 November 2026, on sheets that sessions put to him
+while the runtime was planned: carbon, at the Antigravity terminal and on the
+phone, and two Claude sessions. The page that gathers them, with the entries
+that are not the store's, is
+`src/proposal/runtime-2026-11-21/PROPOSAL.md`; its section "Where his words
+are" says which of his lines the record holds. Words in quotation marks with
+an id of the record are lines that he typed. A box that he ticked is given in
+the words of the session that wrote it, and marked so. What a session drew
+from an answer is marked as a session's, and what is not built is named.
+Entries 1 to 3 are built (`softland/store/gate/chain.clj`,
+`softland/store/gate/decision.clj`; what was run is in
+`src/proposal/runtime-2026-11-21/BUILD-store-piece-1.md`). He said on 21
+November that this section may be written: "3.yes", to a session's question
+whether his decisions of these two days go on this page.
+
+1. **A permission is ended by its giver or by anyone above it, and what was
+   given beneath it ends with it.** Sid decided: "2A" (‹93a88844›), on
+   carbon's box, in carbon's words: "You (or any ancestor in the grant chain)
+   write a revoke act for bio-agent -> gate invalidates BOTH bio-agent AND
+   lit-bot beneath it." A session's, each his to turn:
+   - The end is a permission fact with no value, at the holder's place. What
+     is beneath it is written nowhere: a gate reads the row of each
+     permission above an act's own, at each decision.
+   - A holder ends her own permission. The layer's first permission does not
+     end.
+   - The store's word is "end". His word in passing is "revoking"
+     (‹45c7127b›); which word the product uses is his.
+2. **After an end the holder can be given a permission again, and those
+   beneath her are each given again.** Sid decided: "yess", and "I think we
+   should be able to give the permissions again its never revoking once for
+   all" (‹45c7127b›), to a session's option that held, in the session's
+   words: "lit-bot does not come back by itself; someone gives it one again"
+   («16e7e554»). It holds for every holder: "the permission question goes for
+   all entities right not only the agents ??". A session's: a second give of
+   the same parts has the same id, and the stamp of its row tells it from the
+   first.
+3. **Only the layer's root holder writes its settings:** who may see it, what
+   it builds on, the keys it marks. Sid decided: "2A" (‹93a88844›), on
+   carbon's box, in carbon's words: "ONLY the layer's root creator (or
+   explicit owner) can change them." It answers his word of 10 October, "the
+   owner" (entry 1 of 11 and 12 October). A session's: the root holder is the
+   holder of the layer's first permission. Not built, and not asked of him:
+   an "explicit owner", a layer that is handed to another holder.
+4. **The layer is not the smallest thing a permission covers.** Sid decided:
+   "so no it is not the smallest unit, a smallest unit will be the atomic
+   unit I think each act is the smallest atomic unit right and we can have
+   permission over that"; a layer is "a term or concept that i use to define
+   arbitrary boundary over any set of context a human can define as much as
+   they want" (‹45c7127b›). His cases: the acts of a person's sign-in, "those
+   should only be either with the system for security or only the user since
+   its personal"; and an audit or a benchmark, "where it should be possible
+   to not give access to data to model or students so that we tell them
+   answer eixists but we are testing you". Not built: a permission covers a
+   whole layer.
+5. **How much one yes covers is a spectrum.** Sid: "permissions is also like
+   someone is asking for read write access and that has the spectrum of
+   everytime to always allow and that can be per run of some
+   task/query/agent" (‹45c7127b›). A session's reading: a permission says
+   what it covers, from one act up to a layer, and how long it stands, for
+   one act, for one run, or until it is ended; the default is the whole
+   layer, until ended. Not built.
+6. **A holder can have more than one permission in a layer at once.** Sid
+   decided, on 21 November, in the chat of the session that built entries 1
+   to 3: "I think yes it can have more than one permission because bio-agent
+   is not a single thing we can run 10k instances of the same thing unloke a
+   human so each instance can have different permisiion based on different
+   uses it has or work so yes". The record did not hold that line yet when
+   this entry was written. It replaces what the read build kept and did not
+   decide (entry 1 of 11 and 12 October, its first point). Not built: a
+   permission sits on its holder, one place for a holder in a layer
+   (`softland/store/gate/decision.clj`, `permission-place`). A session's
+   position, not his decision: a permission sits on what it covers, the
+   holder, one run or one act, and says which.
+7. **A thing is hidden by its boundary.** It sits in a boundary that the
+   reader does not hold; it is not cut out of one that she holds. Sid
+   decided: "yes to boundary" (‹8fa7043a›). In the same line: "do we have to
+   answer this now? I think there might already be engineering field work
+   that is already done on how to do queries of these kinds optimally". So an
+   exception inside a boundary is not ruled out for good. A session's
+   gatherer read some of that work on 21 November, in the sources' own
+   pages, and ran none of it: the labels on a cell of Apache Accumulo take
+   "and" and "or" and no "not"; OpenFGA's page says that a relation with
+   "but not" costs more to evaluate than one with "or". Nothing is built of
+   a boundary smaller than a layer, or of an exception.
+8. **Readers with the same clearance see the same thing.** His lean, put as a
+   question: "iff the readers have same level of clearence they will all see
+   the same thing and the permissions check should not be done on each
+   individiaual entity/act that exists in a layer just because its granular",
+   and "we only need to match the top ones or no???" (‹45c7127b›). A session
+   agrees: a view is one for each clearance, and a gate makes one check for
+   each act, since an act names the permission that it writes under.
+9. **A layer's acts can be read by stamp, a refused one by its own who and by
+   whoever holds a permission in the layer.** Sid typed "5.2 B I think"
+   (‹93a88844›): each refused act can be read. Carbon then narrowed it: a
+   visitor of a layer that everyone may see cannot read a refused act unless
+   the layer turns that on, since anyone can send an act that will be
+   refused. He agreed on the phone, in a line that the record does not hold:
+   "We agree on 1,4,5,6,7". It serves his three uses of 12 October (entry 7
+   of that day). Not built; the spec of the build is
+   `src/proposal/runtime-2026-11-21/store-piece-3/SPEC.md`.
