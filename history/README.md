@@ -16,6 +16,7 @@ revisit an assumption, or understand recorded evidence.
 | `docs/carry-on.md`, a session's reading of the vision log through 7 September 2026, retired 18 November 2026 | [docs/carry-on.md](docs/carry-on.md) |
 | Seventeen notes from `.claude/memory/` on how Sid works and on earlier cases, retired 18 November 2026 | [memory-notes/](memory-notes/) |
 | Nine skills from `.agents/skills/`, retired 22 November 2026: the cross-model review loop (`ask-codex-for-feedback`, `ingest-codex-feedback`, `review-cross-model-artifact`), `deliver-like-a-staff-level-product-architect`, `investigation-fence`, `work-package`, `atomize`, `mvp-dev` and `pr-video` | [skills/](skills/) |
+| Three Rama skills from `.agents/skills/`, folded into `rama-pitfalls` and retired 22 November 2026: `think-in-rama`, `rama-retro` and `rama-retro-lens` | [skills/](skills/) |
 
 [How we got here](../docs/how-we-got-here.md) provides a selective account of the
 questions and changes leading to Inland. The workflow experiment is preserved

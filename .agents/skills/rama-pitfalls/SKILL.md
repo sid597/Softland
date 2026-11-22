@@ -1,34 +1,17 @@
 ---
 name: rama-pitfalls
-description: Use as a Rama failure-shield when designing, reviewing, or implementing Rama modules, depots, topologies, PStates, TaskGlobal/executor integrations, foreign clients, ack flows, partitioning, or dogfood-runtime Compute/LLM slices. Complements think-in-rama: that skill helps shape the design; this one falsifies the proposed design against recurring Rama foot-guns such as PState ownership, partitioner event boundaries, retry plus external side effects, ack-level confusion, ProxyState path issues, and Softland back-arrow violations.
+description: Use as a Rama failure-shield when designing, reviewing, or implementing Rama modules, depots, topologies, PStates, TaskGlobal/executor integrations, foreign clients, ack flows, partitioning, policy placement, or replay/idempotency logic. Complements $rama: $rama provides Rama's API, schema, and cost rules; this skill falsifies a concrete design or diff against recurring Rama and Softland foot-guns (event boundaries, partial hop retries, PState/module ownership, back-arrow violations, termval lifecycle resets, duplicate/conflict replay, out-of-order poison records, ack visibility, bounds, entity locality, and weak product-path tests).
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # rama-pitfalls
 
-Run this skill as an adversarial Rama design review. It is not here to invent the
-architecture; it is here to catch the place where a plausible Rama-looking design
-silently stops being Rama-correct.
+Run this skill as an adversarial Rama design and implementation review. It is not
+here to invent the architecture; it is here to catch the places where a
+plausible Rama-looking design or module silently stops being Rama-correct.
 
-## Relationship to think-in-rama
-
-Use both skills together for serious Rama work:
-
-```text
-think-in-rama
-  job:    design from Rama as the substrate
-  asks:   what enters the world, what owns truth, what locality matters?
-  output: recommended depot/PState/topology shape
-
-rama-pitfalls
-  job:    falsify a proposed shape before implementation
-  asks:   where do retries, partitions, ownership, acks, and side effects break it?
-  output: PASS/FAIL verdict with required fixes
-```
-
-Do not duplicate `think-in-rama` here. If the design is still vague, use
-`think-in-rama` first. Use this skill once there is a concrete sketch, diff, or
-module contract to attack.
+Use `$rama` first for Rama API, schema, and performance rules; run
+`rama-pitfalls` once there is a concrete module sketch, plan, or diff to attack.
 
 ## When to run
 
@@ -92,6 +75,10 @@ WRITES:
 
 If the design needs cross-PState atomicity, redesign so all writes share a partitioner — same key value (one task one event) or `(|global)` (all writes on task 0).
 
+Also trace **partial retry across partitioner hops**: if event 1 commits a state/idempotency marker on partition A and hops (`|hash`) to partition B where event 2 fails, a naive retry of the depot record that short-circuits on partition A's marker will skip partition B's write forever, leaving split brain (grant without inbox entry, claim without account). Either collapse into one partition or make hop-1 forward idempotently until hop-2 confirms.
+
+Citation: `history/docs/rama-retro-review/META_LEARNINGS.md` (invariants spanning partitioner hops); `history/old-docs/retros/rama/`.
+
 ---
 
 ### 2. SIDE-EFFECT RETRY TRACE
@@ -119,7 +106,7 @@ Citation: `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-to
 
 ---
 
-### 3. PSTATE OWNERSHIP
+### 3. PSTATE & MODULE OWNERSHIP
 
 For every PState in the design, name its single owning topology. Writers from any other topology = design violation.
 
@@ -133,6 +120,10 @@ $$compute-decisions    owner: compute-runtime-topology   ✓
 
 If two source flows need to write the same PState, they must live in the same topology as separate `(source> …)` blocks inside one `(<<sources …)`. NOT two topologies.
 
+Across modules, verify **dependency and mirror direction**: a lower/common module must never depend upward on a source-specific or adapter module, adapters must emit into common contracts rather than creating private truth islands unreadable through common APIs, and operational cursor/test helpers must not collapse into domain ownership boundaries.
+
+Citation: `history/docs/rama-retro-review/ARCHITECTURE_VERDICT.md`; `history/docs/rama-retro-review/META_LEARNINGS.md` (wrong depot/PState ownership, truth islands, collapsed boundaries).
+
 ---
 
 ### 4. BACK-ARROW CHECK
@@ -141,11 +132,11 @@ The dogfood-runtime principle: **workers/agents stream observations BACK to Rama
 
 For each non-Rama actor in the design (executor, agent CLI, browser), verify:
 - It does NOT mutate Rama PStates directly. ✓
-- The UI reads Rama state, not the actor's state. ✓
+- The UI reads Rama state, not the actor's state (no in-memory atom or transitional compat mirror acting as permanent UI truth without a deterministic rebuild path from Rama). ✓
 - The actor reads Rama as its source of truth (committed intent), not the topology calling it inline. ✓
 - Observations from the actor flow into a depot; topology materializes; UI sees results. ✓
 
-Citation: `history/old-docs/architecture/dogfood-runtime/README.md` L84-90.
+Citation: `history/old-docs/architecture/dogfood-runtime/README.md` L84-90; `history/docs/rama-retro-review/META_LEARNINGS.md` (compat/in-memory mirrors becoming truth).
 
 ---
 
@@ -161,7 +152,7 @@ Citation: `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-to
 
 ---
 
-### 6. ACK LEVEL APPROPRIATENESS
+### 6. ACK LEVEL & READ-AFTER-WRITE VISIBILITY
 
 For every `foreign-append!` in the design, name the ack level:
 
@@ -171,7 +162,9 @@ For every `foreign-append!` in the design, name the ack level:
 
 A high-volume appender using `:ack` will hit throttle and throw. A confirmation-flow appender using `:append-ack` will succeed before the topology has materialized state, causing UI race.
 
-Citation: `/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md` L198-218; `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md` L292-299 (throttling).
+Even with `:ack`, **completion is only local to colocated stream events**: if the topology repartitions (`|hash` to another key), feeds a microbatch, or mirrors across modules, `:ack` returns *before* those downstream PStates update. Verify no public helper returns synchronous success or marks `:complete` before the product-readable PStates are actually queryable (unless explicitly returning an async handle).
+
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md` L198-218; `/mnt/data/projects/research/softland/rama-reference/docs/11-stream-topologies.md` L292-299 (throttling); `history/docs/rama-retro-review/META_LEARNINGS.md` (helper completion before durable truth).
 
 ---
 
@@ -201,29 +194,31 @@ Citation: `/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.m
 
 ---
 
-### 9. SUBINDEXING DECISION FOR LARGE NESTED STRUCTURES
+### 9. SUBINDEXING & COLLECTION BOUNDS
 
-For every nested `map-schema` / `set-schema` / `list-schema` the design declares, ask: how many elements can the inner structure hold?
+For every nested `map-schema` / `set-schema` / `list-schema` the design declares, ask: how many elements can the inner structure hold, and what bounds its lifetime growth?
 
-- **<50 elements typical**: subindex makes no perf difference. Skip.
+- **<50 elements typical**: subindex makes no perf difference, **provided a hard cap, TTL, or eviction rule keeps it `<50`**. Any un-subindexed set/map/vector that grows per request, decision, or rotated secret without bound causes whole-row write amplification and eventual OOM/task stalls.
 - **>50 elements**: every write WITHOUT subindex rewrites the full nested value. With `{:subindex? true}`: O(log n) writes, O(1) reads-by-key, sorted-map-range scans available.
+- Avoid catch-all `{String Object}` schemas on hot PState rows; declare explicit typed schemas.
 
 Slice A example: `$$compute-log-by-run` inner `{Long → chunk}` can grow to thousands of chunks per run. MUST be subindexed.
 
-Citation: `/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md` L92-178.
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/15-pstates.md` L92-178; `history/docs/rama-retro-review/META_LEARNINGS.md` (unbounded non-subindexed collections & `{String Object}` hot rows).
 
 ---
 
-### 10. HASH EXTRACTOR DETERMINISM
+### 10. HASH EXTRACTOR DETERMINISM & ENTITY LOCALITY
 
-For each `(declare-depot setup *depot (hash-by …))`, verify the extractor function is deterministic on the appended record. Common breakages:
+For each `(declare-depot setup *depot (hash-by …))`, verify both **determinism** and **entity locality**:
 - Extractor returns `nil` for some inputs → all those records hash to the same partition.
 - Extractor calls `(System/currentTimeMillis)` or `(rand)` → records non-deterministically partitioned, ordering broken.
 - Extractor returns a complex Clojure data structure with non-canonical hash → cluster-internal hash may differ from JVM hash.
+- **Locality smell (`hash-by` request ID):** Keying a depot by a per-call `:request/id` just because every request has one routes the topology away from the target entity's PState partition, forcing an extra `|hash` hop (and losing single-event atomicity) to check permissions or transition entity state. Partition by the entity whose local ordering and authoritative state matter; treat request ID as an idempotency/index key unless the entity itself IS the run/request.
 
-Right patterns: keyword extractor on a stable field (`:request/id`, `:run/id`, `:routing/key`), or a top-level `defn` that's deterministic and on the classpath.
+Right patterns: keyword extractor on the stable entity/locality field (e.g. `:run/id` when run is the entity, or a top-level deterministic `defn` on the classpath extracting the target entity key).
 
-Citation: `/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md` L37-65; `/mnt/data/projects/research/softland/rama-reference/docs/28-clj-defining-modules.md` L78-83 (Clojure idiom: keyword or top-level `defn` only).
+Citation: `/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md` L37-65; `/mnt/data/projects/research/softland/rama-reference/docs/28-clj-defining-modules.md` L78-83; `history/old-docs/architecture/think-in-rama.md` (throughput & entity-locality rubric).
 
 ---
 
@@ -264,6 +259,52 @@ L219-268 for async external integration, and
 
 ---
 
+### 12. POLICY PLACEMENT & DURABLE OUTCOMES
+
+Separate pre-append edge hygiene from authoritative world decisions:
+- **Edge guards (before append):** transport auth/session check, payload size/weight bounds, rate limiting, and envelope construction. Do NOT stall single-threaded task threads on giant unvalidated payloads, and do NOT put replayable world/permission truth solely in an API helper or UI check outside Rama.
+- **Authoritative decisions (inside Rama, post-depot):** target existence, permission/standing checks, and state transition validity must execute inside the topology against durable PStates, never by appending pre-blessed "accepted" events built in a helper.
+- **Durable outcomes & derived depots:** rejected requests/refusals that callers or audits observe must be durable/queryable rather than silently dropped; projections that filter visibility should preserve why; topology-owned derived depots should reject direct external client appends.
+
+Citation: `history/old-docs/architecture/think-in-rama.md`; `history/old-docs/architecture/action-request-kernel-routing.md`; `history/old-docs/architecture/rama-policy-throughput-post.md`; `history/docs/rama-retro-review/META_LEARNINGS.md` (feature-slice helpers).
+
+---
+
+### 13. LIFECYCLE MONOTONICITY, DUPLICATE REPLAY & CURSOR ADVANCE
+
+Stream topologies are at-least-once, and clients retry appends. Verify:
+- **No unguarded `termval` over lifecycle rows:** overwriting a live or terminal row (`:running`, `:closed`, `:ended`, `:decided`) with `:pending`/`:open` on duplicate or replayed delivery re-triggers physical work or reopens closed state. Guard transitions explicitly on current state.
+- **Sticky terminal states:** writes arriving *after* an entity reaches a terminal state must not regress or mutate terminal outcome fields.
+- **Same-payload replay vs. conflict:** a duplicate idempotency/act ID with the **same** payload must no-op and return the standing outcome; the same ID with a **different** payload must conflict-reject rather than silently alias or overwrite.
+- **Operational cursor/offset ordering:** file offsets, stream cursors, or resume checkpoints advance *only after* the durable PState truth they represent has committed.
+
+Citation: `history/docs/rama-retro-review/META_LEARNINGS.md` (unguarded `termval` — single most repeated retro defect; monotonic terminals; cursor advance); `history/old-docs/retros/rama/`.
+
+---
+
+### 14. UNTRUSTED OBSERVATIONS, POISON RECORDS & INPUT IDENTITY
+
+Topologies must treat every depot record as potentially out-of-order, unauthorized, or malformed:
+- **Unknown IDs & authority:** observations or control events arriving *before* their target/request exists, or carrying missing, wrong, or stale executor/actor tokens, must be safely ignored or rejected — never invent phantom rows or fold unauthorized state.
+- **Poison-record NPEs before guards:** eager `let`-bindings, destructuring, or type casts placed *before* nil/validity guards throw uncaught exceptions in a stream topology, turning one malformed record into an infinite retry poison loop.
+- **Identity normalization & secret redaction:** check non-ASCII / multi-byte UTF-8 inputs wherever identity, hashing, or slicing uses byte offsets (and use locale-independent `Locale/ROOT` when case-folding identifiers such as emails); verify malformed inputs carrying secrets do not leak raw secrets into durable error/refusal rows or logs.
+
+Citation: `history/docs/rama-retro-review/META_LEARNINGS.md` & `history/old-docs/retros/rama/` (R5 depot-adversary probes, poison-record NPE, UTF-8 byte corruption, secret redaction); commit `d8ee975c` (`Locale/ROOT` email case-folding).
+
+---
+
+### 15. RUNTIME PROBE & TEST BAR
+
+Static reading proposes; execution disposes. Before calling a module or review done, verify:
+- **Namespace load step zero:** `(require 'every.reviewed.namespace)` runs cleanly before trusting any static trace.
+- **Payload assertions on product paths:** tests exercise public client/product paths (not internal row builders alone) and assert the **exact payload the spec promised**, not mere row existence.
+- **Adversarial matrix:** tests cover rejection paths, duplicate ID (same vs. different payload), post-terminal writes, unknown-ID/stale-token observations, and pushing a bounded collection past its cap.
+- **Named invariant = proven invariant:** every invariant claimed in docs/plans names its enforcing mechanism and has a check proven to fail red when that mechanism is broken.
+
+Citation: `history/old-docs/retros/rama/` & `history/docs/rama-retro-review/META_LEARNINGS.md` (R5 runtime probes, spine-only green tests, named vs. proven invariants).
+
+---
+
 ## Common repairs
 
 ```text
@@ -273,8 +314,14 @@ two topologies write one PState
 random id minted in topology
   -> deterministic id from source record, or appender-minted id in envelope
 
-request append uses :append-ack but UI expects materialized decision
-  -> use :ack if appropriate, or poll/proxy $$decisions by request id
+unguarded (termval {:status :pending ...}) on stream retry
+  -> conditional transform guarded on nil / allowed prior status; sticky terminals
+
+duplicate id with different payload aliases original
+  -> store payload digest/fields on first sight; replay on match, conflict-reject on mismatch
+
+request append uses :append-ack (or crosses |hash / mirror) while helper returns :complete
+  -> wait/query until downstream product-readable PState is visible, or return async handle
 
 stdout observations use :ack
   -> use :append-ack plus retry/idempotent sequence keys
@@ -286,7 +333,10 @@ claim queue appears for one executor
   -> prefer pending run row first; add claim depot/queue when competing executors exist
 
 log PState is map<run-id, map<seq, chunk>> without subindex
-  -> subindex the inner seq map
+  -> subindex the inner seq map; enforce explicit bounds/eviction on non-subindexed collections
+
+depot hashed by :request/id before entity permission/state transition
+  -> hash depot by target entity key; keep :request/id as idempotency/index key
 
 direct executor -> UI stream
   -> executor -> observation depot -> topology -> PState -> UI proxy
@@ -301,16 +351,21 @@ After walking the protocol, produce a verdict block:
 ```
 RAMA-PITFALLS VERDICT for <design name>
 
-  1. EVENT BOUNDARY MAP        : PASS|FAIL|N/A — <citation or specific failure>
-  2. SIDE-EFFECT RETRY TRACE   : ...
-  3. PSTATE OWNERSHIP          : ...
-  4. BACK-ARROW CHECK          : ...
-  5. RETRY IDEMPOTENCE OF IDs  : ...
-  6. ACK LEVEL APPROPRIATENESS : ...
-  7. STREAM vs MICROBATCH      : ...
-  8. PROXYSTATE PATH SHAPE     : ...
-  9. SUBINDEXING DECISION      : ...
- 10. HASH EXTRACTOR DETERMINISM: ...
+  1. EVENT BOUNDARY & HOP RETRY : PASS|FAIL|N/A — <citation or specific failure>
+  2. SIDE-EFFECT RETRY TRACE    : ...
+  3. PSTATE & MODULE OWNERSHIP  : ...
+  4. BACK-ARROW CHECK           : ...
+  5. RETRY IDEMPOTENCE OF IDs   : ...
+  6. ACK & READ-AFTER-WRITE     : ...
+  7. STREAM vs MICROBATCH       : ...
+  8. PROXYSTATE PATH SHAPE      : ...
+  9. SUBINDEXING & BOUNDS       : ...
+ 10. HASH DETERMINISM & LOCALITY: ...
+ 11. TASKGLOBAL HANDOFF         : ...
+ 12. POLICY & DURABLE OUTCOMES  : ...
+ 13. LIFECYCLE & DUPLICATE IDs  : ...
+ 14. UNTRUSTED OBS & POISON REC : ...
+ 15. RUNTIME PROBE & TEST BAR   : ...
 
 OVERALL: READY-TO-CODE | NEEDS-REVISION | UNSAFE-AS-DESIGNED
 RESIDUAL RISKS (acknowledged, deferred): <list, each with which slice will close it>

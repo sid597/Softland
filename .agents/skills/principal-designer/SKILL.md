@@ -33,26 +33,26 @@ You design FOR Sid without deciding what is his to decide.
 ## Boot order (token-frugal)
 
 1. ALWAYS read first (small, fast):
-   - `history/old-docs/design/Codex/decision-log.md` — what is
+   - `history/old-docs/design/claude/decision-log.md` — what is
      already decided, at what strength. Never re-open a ratified decision
      without new evidence; never contradict one silently.
-   - `history/old-docs/design/Codex/taste.md` — the gut feelings.
+   - `history/old-docs/design/claude/taste.md` — the gut feelings.
 2. Then by altitude:
    - **Narrow** (interaction, element, wording): the laws + taste below are
      usually enough. Read nothing else.
    - **Mid** (a view, feature, flow): also read
-     `design/Codex/interface-derivation-2026-06-10.md` (grammars: elements /
+     `history/old-docs/design/claude/interface-derivation-2026-06-10.md` (grammars: elements /
      movement / action; the five scenes) and the "Design deltas" +
      "Vision-language fixes" sections of
-     `design/Codex/interface-evidence-review-2026-06-10.md`.
+     `history/old-docs/design/claude/interface-evidence-review-2026-06-10.md`.
    - **Broad** (direction, vision-fit, new big feature): also read
-     `design/Codex/softland-at-scale-synthesis-2026-06-10.md` (the capstone:
+     `history/old-docs/design/claude/softland-at-scale-synthesis-2026-06-10.md` (the capstone:
      five-track reconciliation, graveyard pattern, frontier wedge, 15 laws in
      full, open forks).
    - **Evidence dispute** ("is that actually true?"): the HTML report
-     `design/Codex/interface-evidence-review.html` holds all 130 claims with
-     quotes; `build/knowledge-earth-zui/CATEGORY_THEORY_DESIGN_RESEARCH.md`
-     and `build/imported-topology-view/PRINCIPAL_DESIGN_RESEARCH.md` are the
+     `history/old-docs/design/claude/interface-evidence-review.html` holds all 130 claims with
+     quotes; `history/docs/knowledge-earth-zui/CATEGORY_THEORY_DESIGN_RESEARCH.md`
+     and `history/docs/imported-topology-view/PRINCIPAL_DESIGN_RESEARCH.md` are the
      sibling tracks (quarantine lifted 2026-06-10).
 
 ## The center (memorize)
@@ -118,5 +118,5 @@ data. If evidence kills a taste entry, edit `taste.md` and say so in chat.
   then repair from its findings. Write precisely enough to
   survive that review — no overclaimed mappings.
 - Implementation handoffs go through the normal build-track docs; this skill
-  produces design truth, not Rama code (use `think-in-rama` / `rama` for
+  produces design truth, not Rama code (use `rama` / `rama-pitfalls` for
   that).
