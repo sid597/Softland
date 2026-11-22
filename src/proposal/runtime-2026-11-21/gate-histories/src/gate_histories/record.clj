@@ -36,8 +36,9 @@
     clojure -M:record /path/to/record.edn
 
   It prints how many acts the gate took and refused, by word; how many
-  things had to be cut; and how long it took. It prints nothing that was
-  said."
+  things had to be cut; the rows of a kind that the walk does not know, by
+  kind (`gate-histories.walk`, `:aside`); and how long it took. It prints
+  nothing that was said."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [gate-histories.walk :as gate]
@@ -153,5 +154,7 @@
                          (:cut result) (:most-facts result)))
         (println (format "the record after: %d rows of facts, %d answers, last stamp %d"
                          (count (:facts rec)) (count (:answers rec)) (get (:last-stamp rec) layer)))
+        (println "rows of a kind that the walk does not know, kept aside, by kind:"
+                 (let [aside (frequencies (map first (:aside rec)))] (if (empty? aside) "none" aside)))
         (println (format "%.1f seconds, %.0f acts a second, one thread, in memory"
                          seconds (/ (- (:n result) 2) seconds)))))))

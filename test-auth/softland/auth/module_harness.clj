@@ -127,8 +127,9 @@
   the scenarios whose prefix matches `allowed-prefixes` (or all scenarios when
   `allowed-prefixes` is nil), for `rounds` rounds on a live `InProcessCluster`
   (launching and destroying a fresh `Auth` module per batch so fixed emails and
-  ask codes in `build-scenarios` start clean every time)."
-  [{:keys [allowed-prefixes rounds] :or {rounds 3}}]
+  ask codes in `build-scenarios` start clean every time). When `strip-watches?`
+  is true (for slices before Slice d), clears `:watched-roots` on each scenario."
+  [{:keys [allowed-prefixes rounds strip-watches?] :or {rounds 3 strip-watches? false}}]
   (let [build-sc (requiring-resolve 'auth-concurrent.step3-run/build-scenarios)
         run-batch! (requiring-resolve 'auth-concurrent.step3-run/run-concurrent-batch!)
         lin-api ((requiring-resolve 'auth-concurrent.linearizability/api-from-ns) 'softland.auth.client)
@@ -143,7 +144,9 @@
           (let [scs (cond->> (build-sc)
                       allowed-prefixes
                       (filter (fn [sc]
-                                (some #(.startsWith ^String (:name sc) ^String %) allowed-prefixes))))
+                                (some #(.startsWith ^String (:name sc) ^String %) allowed-prefixes)))
+                      strip-watches?
+                      (map #(assoc % :watched-roots [])))
                 res (reduce
                      (fn [cnt sc]
                        (rtest/launch-module! ipc mod/Auth {:tasks 4 :threads 2})
@@ -167,12 +170,112 @@
               false
               (recur (inc r) res))))))))
 
+(defn check-slice-b-root-rules!
+  "Verifies Slice b root operations against `softland.auth.reference`: 32-deep
+  agent chain + `:too-deep` at 33 + 2-scan `end-actor` cascade, take-out
+  cascading expired sign-ins to longer-lived sessions, born-expired sign-ins/
+  sessions/`replace-secret`, `:driven-by` preservation across close/repeat,
+  2-seek `who-is` (before and after `own-layer-made`), and live-only `under`."
+  []
+  (let [ref-step (requiring-resolve 'softland.auth.reference/step)
+        ref-who  (requiring-resolve 'softland.auth.reference/who-is)
+        ref-und  (requiring-resolve 'softland.auth.reference/under)
+        ref-empty @(requiring-resolve 'softland.auth.reference/empty-state)
+        h (fn [n] (format "%064x" n))
+        P (UUID/randomUUID)
+        L (UUID/randomUUID)
+        M {:uuid (UUID/randomUUID) :session (UUID/randomUUID)}
+        As (vec (repeatedly 33 #(UUID/randomUUID)))
+        G-early (UUID/randomUUID)
+        G-exp (UUID/randomUUID)
+        G-live (UUID/randomUUID)
+        G-deep (UUID/randomUUID)
+        S-short (UUID/randomUUID)
+        S-long (UUID/randomUUID)
+        S-stay (UUID/randomUUID)
+        S-deep (UUID/randomUUID)
+        calls (vec
+               (concat
+                [[:invite {:person P :claim {:by :email :email "sliceb@example.com"} :invited-by :system :at 10}]
+                 [:enter {:account [:google "sb-1"] :says {"k" "v"} :email "sliceb@example.com"
+                          :code-hash nil :own-layer L :making M :at 20}]
+                 ;; Sign-in begun BEFORE own-layer-made (tests who-is fallback path!)
+                 [:begin-sign-in {:root P :actor P :sign-in G-early :kind :browser :hash (h 1)
+                                  :until 5000 :label "early" :at 25}]
+                 [:own-layer-made {:person P :at 30}]
+                 [:begin-sign-in {:root P :actor P :sign-in G-exp :kind :browser :hash (h 2)
+                                  :until 1000 :label "exp" :at 35}]
+                 [:begin-sign-in {:root P :actor P :sign-in G-live :kind :program :hash (h 3)
+                                  :until 9000 :label nil :at 40}]
+                 [:open-session {:root P :sign-in G-exp :session S-short :until 900 :driven-by {:kind :person} :at 45}]
+                 [:open-session {:root P :sign-in G-exp :session S-long :until 5000 :driven-by {:kind :model :model "opus"} :at 46}]
+                 [:open-session {:root P :sign-in G-live :session S-stay :until 2000 :at 47}]
+                 ;; Extend S-stay without overwriting driven-by (nil)
+                 [:open-session {:root P :sign-in G-live :session S-stay :until 3000 :driven-by {:kind :person} :at 48}]
+                 ;; Trigger take-out at t=1000 (ends G-exp, cascades S-long despite until=5000, closes S-short)
+                 [:replace-secret {:root P :sign-in G-live :old-hash (h 3) :new-hash (h 4)
+                                   :until 9500 :previous-until 8000 :at 1000}]
+                 ;; Repeat of replace-secret
+                 [:replace-secret {:root P :sign-in G-live :old-hash (h 3) :new-hash (h 4)
+                                   :until 9999 :previous-until 9999 :at 1001}]
+                 ;; Repeat of begin-sign-in after replace-secret (checks immutable :initial-hash)
+                 [:begin-sign-in {:root P :actor P :sign-in G-live :kind :program :hash (h 3)
+                                  :until 1234 :label "ignored" :at 1002}]]
+                ;; Build 32-deep agent chain A0..A31 (depths 1..32), then A32 refused :too-deep
+                (for [i (range 33)]
+                  [:make-actor {:root P :actor (nth As i) :made-by (if (zero? i) P (nth As (dec i)))
+                                :label (str "ag-" i) :at (+ 1100 i)}])
+                [[:begin-sign-in {:root P :actor (nth As 31) :sign-in G-deep :kind :program :hash (h 5)
+                                  :until 9000 :label "deep" :at 1200}]
+                 [:open-session {:root P :sign-in G-deep :session S-deep :until 8000 :driven-by {:kind :model :model "m"} :at 1201}]
+                 ;; End top agent A0 -> 2-scan cascades all 32 agents, G-deep, S-deep
+                 [:end-actor {:root P :actor (nth As 0) :at 1300}]
+                 ;; Repeat end-actor on A31 (already ended by cascade)
+                 [:end-actor {:root P :actor (nth As 31) :at 1301}]]))]
+    (with-open [ipc (rtest/create-ipc)]
+      (let [mod-name (rama/get-module-name mod/Auth)
+            _ (rtest/launch-module! ipc mod/Auth {:tasks 4 :threads 2})
+            c (client/open ipc mod-name)
+            dispatch {:invite client/invite :enter client/enter :own-layer-made client/own-layer-made
+                      :begin-sign-in client/begin-sign-in :replace-secret client/replace-secret
+                      :end-sign-in client/end-sign-in :make-actor client/make-actor
+                      :end-actor client/end-actor :open-session client/open-session
+                      :close-session client/close-session}
+            final-ref
+            (reduce
+             (fn [st [k arg :as call]]
+               (let [actual ((get dispatch k) c arg)
+                     [st' expected] (ref-step st call)]
+                 (when (not= actual expected)
+                   (throw (ex-info "Slice b mismatch vs reference"
+                                   {:call call :actual actual :expected expected})))
+                 st'))
+             ref-empty
+             calls)
+            reads-ok?
+            (and (= (client/under c P) (ref-und final-ref P))
+                 (every? (fn [q]
+                           (= (client/who-is c q) (ref-who final-ref q)))
+                         [{:root P :sign-in G-early :session nil}
+                          {:root P :sign-in G-exp :session S-long}
+                          {:root P :sign-in G-live :session S-stay}
+                          {:root P :sign-in G-deep :session S-deep}
+                          {:root P :sign-in (UUID/randomUUID) :session nil}
+                          {:root (UUID/randomUUID) :sign-in G-live :session nil}]))]
+        (client/close! c)
+        (if reads-ok?
+          (do (println "PASSED Slice b root rules (32-deep chain, :too-deep, 2-scan end-actor, take-out cascade, :driven-by, 2-seek who-is, live-only under) match reference 100%.")
+              true)
+          (do (println "FAILED Slice b read comparison against reference")
+              false))))))
+
 (defn -main
   "Entry point for slice checks:
-    `says`   — run direct `$$accounts` `:says` check;
+    `says`    — run direct `$$accounts` `:says` check;
     `slice-a` — run `:says` check + carbon step3 scenarios 1a, 1b, 2a, 2b, 3;
-    `slice-b` — run `:says` check + carbon step3 scenarios 1a, 1b, 2a, 2b, 3, 5, 6;
-    `step3`   — run full carbon step3 suite (all 8 scenarios, 2..8 threads)."
+    `slice-b` — run Slice b root rules vs reference + carbon step3 scenarios 1a..3, 5, 6;
+    `slice-c` — run `:says` check + carbon step3 all 8 scenarios (without watches);
+    `step3`   — run full carbon step3 suite (all 8 scenarios with live watches, 2..8 threads)."
   [& [mode rounds-str]]
   (let [rounds (or (some-> rounds-str parse-long) 2)
         ok? (case mode
@@ -180,12 +283,18 @@
               "slice-a" (and (check-says-table!)
                              (run-step3-scenarios! {:allowed-prefixes ["1a." "1b." "2a." "2b." "3."]
                                                     :rounds rounds}))
-              "slice-b" (and (check-says-table!)
+              "slice-b" (and (check-slice-b-root-rules!)
                              (run-step3-scenarios! {:allowed-prefixes ["1a." "1b." "2a." "2b." "3." "5." "6."]
-                                                    :rounds rounds}))
+                                                    :rounds rounds
+                                                    :strip-watches? true}))
+              "slice-c" (and (check-says-table!)
+                             (run-step3-scenarios! {:allowed-prefixes nil
+                                                    :rounds rounds
+                                                    :strip-watches? true}))
               "step3" (and (check-says-table!)
                            (run-step3-scenarios! {:allowed-prefixes nil
-                                                  :rounds rounds}))
+                                                  :rounds rounds
+                                                  :strip-watches? false}))
               (do (println "Unknown mode:" mode) false))]
     (flush)
     (shutdown-agents)

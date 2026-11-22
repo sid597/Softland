@@ -31,6 +31,38 @@
   "Depot consumption options for all four sources in stream topology `\"auth\"`."
   {:start-from :beginning :retry-mode :all-after})
 
+(deframaop apply-root-plan!
+  "Applies all `$$root-data` upserts/deletes and `$$live` upserts/deletes of
+  `plan` on the current task using flat `<<atomic` + `ops/explode` blocks
+  (O(1) JVM stack depth regardless of cascade size, zero yielding)."
+  [*plan *rd *live]
+  (<<atomic
+    (ops/explode (s/plan-rd-upserts *plan) :> [*k *v])
+    (local-transform> [(keypath *k) (termval *v)] *rd))
+  (<<atomic
+    (ops/explode (s/plan-rd-deletes *plan) :> *k)
+    (local-transform> [(keypath *k) NONE>] *rd))
+  (<<atomic
+    (ops/explode (s/plan-live-upserts *plan) :> [*k *v])
+    (local-transform> [(keypath *k) (termval *v)] *live))
+  (<<atomic
+    (ops/explode (s/plan-live-deletes *plan) :> *k)
+    (local-transform> [(keypath *k) NONE>] *live))
+  (:>))
+
+(deframaop take-out-on-root!
+  "Executes `take-out` for `*root` at `*at` on task `H(*root)`: scans `exp:`
+  up to `*at` (1 seek, 0 further reads when nothing expired), and when non-empty
+  scans `$$live` once to end expired sign-ins, cascade their open sessions, and
+  close expired sessions atomically."
+  [*root *at *rd *live]
+  (local-select> [(sorted-map-range (s/k-exp-lo *root) (s/k-exp-hi *root *at))] *rd :> *exp-map)
+  (<<if (seq *exp-map)
+    (local-select> [(sorted-map-range (s/k-live-lo *root) (s/k-live-hi *root))] *live :> *live-map)
+    (s/plan-take-out *root *exp-map *live-map :> *tp)
+    (apply-root-plan! *tp *rd *live))
+  (:>))
+
 (defmodule Auth [setup topologies]
   ;; Four partitioned depots (zero global or internal depots).
   (declare-depot setup *root-events (hash-by :root-id))
@@ -294,7 +326,7 @@
       (ack-return> *result)
 
       ;; ====================================================================
-      ;; 3. *root-events -> Slice a: own-layer-made (Slices b adds the rest)
+      ;; 3. *root-events -> single-task writes on H(P) (0 hops, atomic batch)
       ;; ====================================================================
       (source> *root-events source-opts :> *ev)
       (<<subsource *ev
@@ -305,7 +337,101 @@
         (s/act-write-k *act :> *wk)
         (<<if (some? *wk)
           (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))
-        (ack-return> (s/act-result *act)))
+        (ack-return> (s/act-result *act))
+
+        (case> BeginSignInEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :actor :> *A)
+        (get *ev :sign-in :> *G)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
+        (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
+        (<<if (not= *A *P)
+          (local-select> [(keypath (s/k-actor *P *A))] $$root-data :> *arec)
+         (else>)
+          (identity nil :> *arec))
+        (s/plan-begin-sign-in *ev *r *g *arec :> *plan)
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan))
+
+        (case> ReplaceSecretEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :sign-in :> *G)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
+        (<<if (s/replace-secret-born-ended? *ev *g)
+          (local-select> [(sorted-map-range (s/k-session-lo *P) (s/k-session-hi *P))] $$live :> *live-ss)
+         (else>)
+          (identity nil :> *live-ss))
+        (s/plan-replace-secret *ev *g *live-ss :> *plan)
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan))
+
+        (case> EndSignInEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :sign-in :> *G)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
+        (<<if (s/signin-needs-end? *g)
+          (local-select> [(sorted-map-range (s/k-session-lo *P) (s/k-session-hi *P))] $$live :> *live-ss)
+         (else>)
+          (identity nil :> *live-ss))
+        (s/plan-end-sign-in *ev *g *live-ss :> *plan)
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan))
+
+        (case> MakeActorEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :actor :> *A)
+        (get *ev :made-by :> *B)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
+        (local-select> [(keypath (s/k-actor *P *A))] $$root-data :> *existing-a)
+        (<<if (not= *B *P)
+          (local-select> [(keypath (s/k-actor *P *B))] $$root-data :> *maker-rec)
+         (else>)
+          (identity nil :> *maker-rec))
+        (s/plan-make-actor *ev *r *existing-a *maker-rec :> *plan)
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan))
+
+        (case> EndActorEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :actor :> *A)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
+        (<<if (not= *A *P)
+          (local-select> [(keypath (s/k-actor *P *A))] $$root-data :> *a)
+         (else>)
+          (identity nil :> *a))
+        (<<if (s/actor-needs-end? *P *A *r *a)
+          (local-select> [(sorted-map-range (s/k-ao *P (get *a :seq)) (s/k-ao-hi *P))] $$root-data :> *ao-map)
+          (local-select> [(sorted-map-range (s/k-live-lo *P) (s/k-live-hi *P))] $$live :> *live-map)
+          (s/plan-end-actor-2scan *P *a *ao-map *live-map :> *plan)
+         (else>)
+          (s/plan-end-actor-noop *ev *r *a :> *plan))
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan))
+
+        (case> OpenSessionEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :sign-in :> *G)
+        (get *ev :session :> *S)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-session *P *S))] $$root-data :> *s)
+        (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
+        (s/plan-open-session *ev *s *g :> *plan)
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan))
+
+        (case> CloseSessionEvent)
+        (get *ev :root-id :> *P)
+        (get *ev :session :> *S)
+        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (local-select> [(keypath (s/k-session *P *S))] $$root-data :> *s)
+        (s/plan-close-session *ev *s :> *plan)
+        (apply-root-plan! *plan $$root-data $$live)
+        (ack-return> (s/plan-result *plan)))
 
       ;; ====================================================================
       ;; 4. *asks -> Slice c fills ask & answer-ask

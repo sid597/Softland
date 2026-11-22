@@ -2,13 +2,13 @@
   "The statements about permissions, as the plainest code that says them.
   Pure code. It shares nothing with the gate: it reads no row, no stamp and
   no digest, and it does not know how a gate tells a permission that was
-  given again from the one that ended.
+  given again from the one that ended, or how it marks a yes as used.
 
   It keeps, for one layer, what a person would keep on paper: who was given
-  a permission by whom, which of those gives were ended, and the answer that
-  each thing got. Each give that is taken is a thing of its own, a grant,
-  with a number. A grant that is given again after an end is another grant,
-  though its id is the same.
+  a permission by whom, which of those gives were ended, which yes for one
+  act was used, and the one answer of each act-id. Each give that is taken
+  is a thing of its own, a grant, with a number. A grant that is given
+  again after an end is another grant, though its id is the same.
 
   The statements, in Sid's words where he gave them
   (src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6):
@@ -40,70 +40,87 @@
   built the gate, and Sid's to turn; they are here because the gate holds
   them.
 
-  Piece 2 of the store's line adds a permission for one run and for one act
-  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, \"The statements\").
-  S6 becomes: a holder has at most one permission that covers the layer and
-  stands, and beside it one for each of any number of runs and of acts.
+  Piece 2 of the store's line adds a permission for one run and a yes for
+  one act (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, \"The
+  statements\"). S6 becomes: a holder has at most one permission that
+  covers the layer and stands, and beside it one for each of any number of
+  runs, and any number of yeses for one act.
+
+  A yes for one act has the form of 22 November, the one in the prompt that
+  Sid pasted that day, which a session wrote and he can turn:
+  `[who layer granted-in above :see-and-act [:act yes digest]]`. `yes` is a
+  uuid that its giver makes, the yes's own id, and the yes sits on it. The
+  digest names the act as its maker made it. The act goes under any act-id
+  of its maker's: the act-id plays no part in a yes.
 
     R1  An act is taken under a run's permission only when its who is the
         holder, its `:session` is that run, and the permission stands and
         allows acting.
-    R2  An act is taken under an act's permission only when its who is the
-        holder, the uuid of its act-id is the one named, and it is that act
-        part for part. No other act is ever taken under it.
-    R3  A permission for a run or for an act stands as any permission does.
+    R2  An act is taken under a yes for one act only when its who is the
+        yes's holder, it is the act that the yes names part for part, the
+        yes stands, and it is not used. The act that is taken under it uses
+        it up: no act is ever taken under it again, the same act under
+        another act-id neither. A try that is refused uses nothing.
+    R3  A permission for a run or a yes for one act stands as any
+        permission does.
     R4  The end of one of a holder's permissions ends no other of hers,
         unless that other is beneath it.
-    R5  A permission for a run or for an act is ended by its giver, by
-        anyone above the giver, and by its holder: under that permission
-        itself, or under her permission for the layer, and never under her
-        permission for another run or act. After an end it can be given
-        again.
-    R6  A run or an act has at most one permission that stands.
+    R5  A permission for a run or a yes for one act is ended by its giver,
+        by anyone above the giver, and by its holder. Its holder ends it
+        under her permission for the layer, or under the permission itself
+        when that permission takes the end: a permission for a run that
+        allows acting takes an end of itself sent in its run; a yes takes
+        no act but its one act, so it ends itself only when that act is its
+        end; a permission that says see takes no act at all. Never under
+        her permission for another run or another yes. A yes that is used
+        has nothing left to end. After an end a run can be given a
+        permission again, and an act another yes, under a new id.
+    R6  A run has at most one permission that stands. An act can have any
+        number of yeses that stand at once, each used once: a yes's place
+        takes one give, and nothing is ever given there again, once it is
+        ended or used.
     R7  A setting is written under the layer's first permission alone.
     R8  An asker may see a layer that is open to its members when her
         permission for the layer stands, or when she asks in a run whose
-        permission stands and names her. An act's permission lets nobody
-        see.
-    R9  A thing that names a permission for another run than its own, or
-        for another act, is refused.
-    R10 A permission for a run or for an act gives nothing. So nothing is
-        ever beneath one. The session that wrote these statements found it
-        by running them by themselves, before any of piece 2 was built
-        (SPEC.md, R10): without it, a holder for one run gives herself a
-        permission for the layer.
+        permission stands and names her. A yes for one act lets nobody see.
+    R9  A thing that names a permission for another run than its own, or a
+        yes for another act, is refused.
+    R10 A permission for a run or a yes for one act gives nothing. So
+        nothing is ever beneath one. The session that wrote these statements
+        found it by running them by themselves, before any of piece 2 was
+        built (SPEC.md, R10): without it, a holder for one run gives herself
+        a permission for the layer.
 
   R2's \"part for part\" is said here in plain code (`the-act`), not by a
-  digest: the permission names its act by a digest, and the statements are
-  told which act each yes was for (`*act-named*`). So where the gate's
-  digest and the act part for part come apart, the gate and the statements
-  differ, and a run shows it. R5's \"under that permission itself\" cannot
-  hold for a permission for one act beside R2, which takes nothing under it
-  but its act: here R2 is checked first, so a holder ends her permission for
-  an act only under her permission for the layer.
+  digest: a yes names its act by a digest, and the statements are told which
+  act each yes was for (`*act-named*`). So where the gate's digest and the
+  act part for part come apart, the gate and the statements differ, and a
+  run shows it.
 
-  A repeat, by Sid's decision of 7 October 2026 (src-store/README.md, the
-  decisions of that day, entry 6: \"a repeat is answered, not decided
-  twice\"):
+  One answer for an act-id, by Sid's decision of 7 October 2026
+  (src-store/README.md, the decisions of that day, entry 6: \"a repeat is
+  answered, not decided twice\"), and as SPEC.md says it since 22 November:
 
-    once  The same thing under the same act-id is decided once and keeps
-          its first answer. The same thing is the same act part for part,
-          under the same permission. Nothing more is said of an act-id here:
-          another thing under an act-id that was used is decided as any
-          thing is.
+    once  An act-id names one act and gets one answer, whoever sent first:
+          the answer of the first thing decided under it, a refusal too.
+          The same thing sent again under it is not decided again and is
+          told that answer; another thing under it is not decided, and its
+          sender is told that it is not hers (\"not mine\"). The same thing
+          is the same act part for part, under the same permission. So a
+          refused try is sent again under a new act-id.
 
   Two more that a history is held to, which the review of piece 2 showed
   missing (src/proposal/runtime-2026-11-21/overnight-audit/REVIEW-store-piece-2.md,
   section 1). Each compares the gate with the statements, so the run holds
   them (`gate-histories.run`); this namespace gives what they need: the
-  answer that the statements give each thing (`judge`), and who is inside
-  a permission (`inside`).
+  answer that the statements give each thing (`judge`), who is inside a
+  permission (`inside`), and what a yes's place holds (`place-state`).
 
     T1  An act that the statements take is taken by the gate, and its
         sender is told so.
-    T2  Nothing that is sent by a who other than the holder, the giver and
-        those above the giver changes whether the holder's permitted act is
-        taken.
+    T2  Nothing that an outsider of a yes for one act sends writes at the
+        yes's place or uses it up. An outsider of a yes is one who is not
+        its holder, its giver or one above its giver.
 
   `judge` takes the state and one thing as it arrived. It gives whether the
   statements take the act, the first reason when they do not, the answer
@@ -127,17 +144,17 @@
    :softland.store/act-permission :act})
 
 (def ^:dynamic *short-gives?*
-  "False: R10 holds, a permission for a run or for an act gives nothing.
-  True: the statements as they were before R10, to show what they let
-  through."
+  "False: R10 holds, a permission for a run or a yes for one act gives
+  nothing. True: the statements as they were before R10, to show what they
+  let through."
   false)
 
 (def ^:dynamic *act-named*
-  "Takes [uuid text], the two that a permission for one act names in its
-  sixth slot. Gives the act that its giver said yes to, as the thing would
-  arrive, or nil for a yes that nobody made. It is what the history knows of
-  each yes, written down when the yes was made: a person who says yes to an
-  act knows the act. The statements hold an act to it part for part
+  "Takes [yes text], the two that a yes for one act names in its sixth slot.
+  Gives the act that its giver said yes to, as its maker made it, or nil for
+  a yes that names no act that anybody made. It is what the history knows
+  of each yes, written down when the yes was made: a person who says yes to
+  an act knows the act. The statements hold an act to it part for part
   (`the-act`), and never compute a digest."
   (constantly nil))
 
@@ -146,19 +163,22 @@
 
     :made?    whether the layer is made
     :at       place -> what sits there: a grant's number, or :end. A place
-              is [:layer holder], [:run session] or [:act uuid]
+              is [:layer holder], [:run session] or [:act yes]
     :given    place -> each grant's number and each :end that was put
               there, in order
     :grants   number -> {:holder :permission :parent}, each grant ever taken
     :killed   the numbers of the grants that an end named
-    :answers  act-id -> the thing as sent (`as-sent`) -> its first answer
+    :used     the numbers of the yeses for one act that an act was taken
+              under
+    :answers  act-id -> {:sent the first thing decided under it, as sent
+              (`as-sent`), :answer its answer}
     :everyone?  whether the layer is open to everyone. A layer starts
                 open to its members only"
-  {:made? false :at {} :given {} :grants {} :killed #{} :answers {} :n 0 :everyone? false})
+  {:made? false :at {} :given {} :grants {} :killed #{} :used #{} :answers {} :n 0 :everyone? false})
 
 (defn covers
   "What a permission covers, from its id: [:layer], [:run session] or
-  [:act uuid digest]."
+  [:act yes digest]."
   [permission]
   (if (= 6 (count permission)) (nth permission 5) [:layer]))
 
@@ -183,13 +203,13 @@
 (defn inside
   "Who is inside a permission, for T2: its holder, its giver, and each
   holder above the giver, read from its id. Takes a permission. Gives a set
-  of whos."
+  of whos. Whoever else sends is an outsider of it."
   [permission]
   (into #{} (map first) (take-while some? (iterate above permission))))
 
 (defn place-of
   "The place where a permission sits, from its id: on its holder, on the
-  session of its run, or on the uuid of its act."
+  session of its run, or on the yes's own id."
   [permission]
   (let [[kind id] (covers permission)]
     (if (= :layer kind) [:layer (first permission)] [kind id])))
@@ -204,27 +224,29 @@
 
 (defn the-act
   "An act part for part, as the statements compare two acts. Takes a thing
-  as it arrived, or nil. Gives each of its parts but the time on it and its
-  permission; a part that its maker left out, as that part says when it is
-  empty; and its facts as a vector, each fact with its four parts, a part
-  left out as nil. Two things are the same act when what this gives is
-  equal by Clojure's `=`: so a list and a vector of the same facts are one
-  act, and so are an act that gives `:subjects #{}` and one that leaves it
-  out. nil for nil."
+  as it arrived, or an act as its maker made it, or nil. Gives each of its
+  parts but the four that are no part of the act that a yes names: its
+  act-id, its depot, the time on it, and its permission. A part that its
+  maker left out reads as that part says when it is empty; its facts come
+  as a vector, each fact with its four parts, a part left out as nil. Two
+  things are the same act when what this gives is equal by Clojure's `=`:
+  so a list and a vector of the same facts are one act, and so are an act
+  that gives `:subjects #{}` and one that leaves it out. nil for nil."
   [thing]
   (when thing
-    (-> (merge left-out-parts (dissoc thing :permission :door-time))
+    (-> (merge left-out-parts (dissoc thing :permission :act-id :depot :door-time))
         (update :facts (fn [facts] (mapv (fn [fact] (merge {:v nil :replaces nil} fact)) facts))))))
 
 (defn as-sent
-  "A thing as the statement `once` compares two sends: the act part for
-  part (`the-act`), and the permission that it names."
+  "A thing as the statement `once` compares two sends under one act-id: the
+  act part for part (`the-act`), and the permission that it names."
   [thing]
   (assoc (the-act thing) :permission (:permission thing)))
 
 (defn alive?
-  "True when the grant with this number stands: no end named it, and the
-  grant above it stands."
+  "True when the grant with this number stands as any permission stands: no
+  end named it, and the grant above it stands. A yes that was used is still
+  alive by this, and is no less used (`used?`)."
   [state n]
   (loop [n n]
     (let [grant (get-in state [:grants n])]
@@ -232,6 +254,12 @@
             (contains? (:killed state) n) false
             (nil? (:parent grant)) true
             :else (recur (:parent grant))))))
+
+(defn used?
+  "True when the grant with this number is a yes for one act under which an
+  act was taken (R2)."
+  [state n]
+  (contains? (:used state) n))
 
 (defn grant-at
   "The grant at a place, with its number, or nil for a place that is empty
@@ -253,21 +281,23 @@
 (defn given-again?
   "True when the place of a permission held something before what sits
   there now: an end, or a grant before it. So what is there now was given
-  again (S2, R5)."
+  again (S2, R5). Never true at a yes's place, which takes one give (R6)."
   [state permission]
   (< 1 (count (get-in state [:given (place-of permission)]))))
 
 (defn place-state
   "What the place of a permission holds now, in a word: `:nothing`, `:ended`,
-  `:stands` when the grant there stands and has exactly that id,
-  `:another` when another permission is there, or `:ended-above` when that
-  permission is there and one above it ended."
+  `:used` for a yes under which an act was taken, `:stands` when the grant
+  there stands and has exactly that id, `:another` when another permission
+  is there, or `:ended-above` when that permission is there and one above
+  it ended."
   [state permission]
   (let [at (get-in state [:at (place-of permission)])
         grant (grant-at state (place-of permission))]
     (cond (nil? at) :nothing
           (= :end at) :ended
           (not= permission (:permission grant)) :another
+          (used? state (:n grant)) :used
           (alive? state (:n grant)) :stands
           :else :ended-above)))
 
@@ -275,18 +305,18 @@
   "Under what a thing is heard: {:grant g} when the permission that it names
   stands for it, by S1, R1 and R2; else {:why word}."
   [state thing]
-  (let [{:keys [who permission session act-id]} thing
+  (let [{:keys [who permission session]} thing
         [kind id digest] (covers permission)
         grant (grant-at state (place-of permission))]
     (cond
       (not= who (first permission)) {:why :who-not-the-permissions-holder}
-      (and (= :run kind) (not= session id)) {:why :permission-for-another-run}          ; R1, R9
-      (and (= :act kind) (not= id (nth act-id 2 nil))) {:why :permission-for-another-act} ; R2, R9
+      (and (= :run kind) (not= session id)) {:why :permission-for-another-run}         ; R1, R9
       (and (= :act kind) (let [named (*act-named* [id digest])]
                            (or (nil? named) (not= (the-act named) (the-act thing)))))
-      {:why :act-not-the-one-permitted}                                                 ; R2
+      {:why :act-not-the-one-permitted}                                                ; R2, R9
       (not (and grant (= permission (:permission grant)) (alive? state (:n grant))))
       {:why :permission-does-not-stand}                                                ; S1, R3
+      (used? state (:n grant)) {:why :the-yes-is-used}                                 ; R2
       :else {:grant grant})))
 
 (defn- fact-reason
@@ -308,6 +338,7 @@
           (not= e (second place)) :permission-fact-not-on-what-it-covers
           (and (= :act v-kind) (not= :see-and-act (allows v))) :an-acts-permission-says-see-and-act
           (not= (:permission own) (above v)) :not-straight-beneath-the-givers-own   ; S7
+          (and (= :act v-kind) (seq (get-in state [:given place]))) :a-yes-is-given-once ; R6
           (and there (alive? state (:n there))) :holder-has-a-permission            ; S6, R6
           :else nil))
 
@@ -316,6 +347,7 @@
       (let [there (grant-at state [kind e])]
         (cond
           (nil? there) :nothing-to-end
+          (used? state (:n there)) :nothing-to-end                                  ; R5: a used yes
           (nil? (:parent there)) :the-first-permission-does-not-end                 ; S5
           (or (= (:permission own) (:permission there))
               (above? (:permission own) (:permission there))) nil                   ; S4, R5
@@ -359,9 +391,11 @@
       :else state)))
 
 (defn- judge-afresh
-  "The statements' judgment of a thing that is not a repeat: S1 to S12 and
-  R1 to R10. Gives {:accept? :why :state}, and `:under`, the grant that an
-  act that was taken was under."
+  "The statements' judgment of a thing under an act-id that has no answer:
+  S1 to S12 and R1 to R10. Gives {:accept? :why :state}, and `:under`, the
+  grant that an act that was taken was under. An act taken under a yes for
+  one act uses the yes up (R2): its facts are applied first, so an act that
+  is the yes's own end ends it as well."
   [state thing]
   (let [{:keys [who permission facts]} thing]
     (if-not (:made? state)
@@ -385,30 +419,39 @@
           (if-let [why (some #(fact-reason state who own %) facts)]
             {:accept? false :why why :state state}                                 ; S10
             {:accept? true :under own
-             :state (reduce #(apply-fact %1 own %2) state facts)}))))))
+             :state (cond-> (reduce #(apply-fact %1 own %2) state facts)
+                      (= :act (first (covers (:permission own)))) (update :used conj (:n own)))}))))))
 
 (defn judge
   "Takes the state, the layer's id, and a thing as it arrived: `:act-id`,
   `:who`, `:permission`, `:session` and `:facts`, each fact with `:e`, `:k`
   and maybe `:v`. Gives {:accept? :why :answer :state}: whether the
   statements take it now, the first reason when they do not, the answer
-  that its sender is to be told, {:answer :accepted} or {:answer :refused
-  :reason word}, and the state after; and `:under`, the grant that an act
-  that was taken was under.
+  that its sender is to be told, {:answer :accepted}, {:answer :refused
+  :reason word} or {:answer :not-mine}, and the state after; and `:under`,
+  the grant that an act that was taken was under.
 
-  A repeat (`once`): the same thing under an act-id under which it was
-  decided. Then nothing is decided, `:repeat?` is true, `:accept?` is false
-  and `:answer` is its first answer."
+  Under an act-id that has an answer (`once`) nothing is decided and
+  `:accept?` is false: for the same thing, `:repeat?` is true and `:answer`
+  is its first answer; for another thing, `:not-mine?` is true and the
+  answer is \"not mine\"."
   [state _layer thing]
   (let [act-id (:act-id thing)
-        sent (as-sent thing)]
-    (if-let [first-answer (get-in state [:answers act-id sent])]
-      {:accept? false :repeat? true :answer first-answer :state state}
+        sent (as-sent thing)
+        first-of (get-in state [:answers act-id])]
+    (cond
+      (and first-of (= sent (:sent first-of)))
+      {:accept? false :repeat? true :answer (:answer first-of) :state state}
+
+      first-of
+      {:accept? false :not-mine? true :answer {:answer :not-mine} :state state}
+
+      :else
       (let [{:keys [accept? why] :as ruled} (judge-afresh state thing)
             answer (if accept? {:answer :accepted} {:answer :refused :reason why})]
         (-> ruled
             (assoc :answer answer)
-            (assoc-in [:state :answers act-id sent] answer))))))
+            (assoc-in [:state :answers act-id] {:sent sent :answer answer}))))))
 
 (defn may-see
   "Whether an asker may see the layer, by S11, S12 and R8: `:not-made` before
@@ -459,6 +502,7 @@
   (into (sorted-map-by #(compare (pr-str %1) (pr-str %2)))
         (keep (fn [[place n]]
                 (cond (= :end n) [place :ended]
+                      (used? state n) [place :used]
                       (alive? state n) [place (get-in state [:grants n :permission])]
                       :else [place :ended-with-the-one-above])))
         (:at state)))

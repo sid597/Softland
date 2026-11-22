@@ -30,6 +30,28 @@
     :by-value    the rows of the facts by value
     :last-stamp  the last stamp of each layer, by layer id
     :strays      the reason word of each stray, in order
+    :aside       each row of a kind that this copy does not know, as
+                 [which key row], in the order written
+
+  Two things keep the copy from breaking when the store changes under it.
+  A decision may write a row of a kind that the copy does not know, as a
+  later piece of the store will: the row is kept aside, under `:aside`, and
+  nothing here reads it back; the run counts such rows by kind. And `writes`
+  is handed every row that the walk read for the act, as the module's walk
+  hands them (`softland.store.module.walk`, steps 4 to 7): the row at the
+  place of the act's permission among them, so that a rule of `writes` can
+  use that row without a new argument.
+
+  The copy calls these functions of the store, with these arguments, and
+  breaks when one of them changes: `decision/hex-for-its-permission` with the
+  thing and the act; `decision/writes` with seven arguments; and
+  `decision/permission-place`, `depot-place`, `chain-needed`, `standing`
+  (six), `makes-the-layer?`, `places-needed`, `chains-needed`, `places`,
+  `marked-keys-place`, `reads-marked-keys?`, `since-by-place`,
+  `rows-before-needed` and `time-on`; `declaration/stray-reason` and
+  `check`; `digest/digest` and `readable-hex-of`; `stamp/next-stamp`;
+  `record/answer-key` and `answer-of`; `words/answer`; and the door's
+  `additions/reading` and `thing-to-append`.
 
   `through-the-door` makes the thing that the door appends for a maker's
   act. `decide` takes a record, the depot word of the gate, and one thing as
@@ -45,7 +67,7 @@
 
 (def empty-record
   "A record that holds nothing: no layer is made."
-  {:answers {} :facts {} :by-value {} :last-stamp {} :strays []})
+  {:answers {} :facts {} :by-value {} :last-stamp {} :strays [] :aside []})
 
 (defn through-the-door
   "The thing that the door appends for a maker's act, as `softland.store.door/send-act`
@@ -72,8 +94,13 @@
 (defn- checks
   "Steps 4 and 5 for an act that the declaration took. Takes the record's
   facts, the gate's depot, the thing as it arrived and the act. Gives
-  {:word :makes?}: the word of the first check that fails, or nil, and
-  whether the act makes its layer."
+  {:word :makes? :rows}: the word of the first check that fails, or nil;
+  whether the act makes its layer; and, when no check of the standing
+  failed, every row that the two steps read, as a map from key to row: the
+  row at the place of the act's permission and the rows of its chain, and
+  the rows of the places of its facts and of the chains that those need.
+  That is the map that the module's walk carries on (`*place-rows` there),
+  and the depot's row is not in it."
   [facts gate-depot thing act]
   (let [permission-key (decision/permission-place act)
         permission-row (get facts permission-key)
@@ -84,37 +111,48 @@
                                          (decision/hex-for-its-permission thing act))
         makes? (decision/makes-the-layer? gate-depot act permission-row depot-row)]
     (if standing-word
-      {:word standing-word :makes? false}
-      (let [in-hand (cond-> (assoc chain-rows permission-key permission-row)
-                      (nil? permission-row) (assoc depot-key depot-row))
+      {:word standing-word :makes? false :rows {}}
+      (let [standing-rows (assoc chain-rows permission-key permission-row)
             place-rows (rows-at facts (decision/places-needed act makes?))
-            more-rows (rows-at facts (decision/chains-needed act makes? place-rows in-hand))
-            rows (merge in-hand place-rows more-rows)]
-        {:word (decision/places gate-depot act makes? rows) :makes? makes?}))))
+            more-rows (rows-at facts (decision/chains-needed act makes? place-rows standing-rows))
+            rows (merge standing-rows more-rows place-rows)]
+        {:word (decision/places gate-depot act makes? rows) :makes? makes? :rows rows}))))
 
 (defn- accept-in-hand
-  "Step 6 for an act that no check refused: what `decision/writes` needs of
-  the layer's marked keys. Takes the record's facts, the act and its stamp."
-  [facts act stamp]
-  (let [marks-key (decision/marked-keys-place act)
-        marks-row (when (decision/reads-marked-keys? act) (get facts marks-key))
-        since (decision/since-by-place act marks-row)
-        place-rows (merge {marks-key marks-row}
-                          (rows-at facts (decision/rows-before-needed since {})))]
-    {:since-by-place since :place-rows place-rows :level-from stamp}))
+  "Steps 6 and 7 for an act that no check refused: what `decision/writes`
+  has in hand, as the module's walk gives it. Takes the record's facts, the
+  act, the rows that `checks` read, and the act's stamp. The rows handed on
+  under `:place-rows` are all of those, and for an act that reads the
+  layer's marked keys the row at their place and the row before of each
+  place under a marked key, each read once."
+  [facts act rows stamp]
+  (if (decision/reads-marked-keys? act)
+    (let [marks-key (decision/marked-keys-place act)
+          marks-row (if (contains? rows marks-key) (get rows marks-key) (get facts marks-key))
+          since (decision/since-by-place act marks-row)
+          before-rows (rows-at facts (decision/rows-before-needed since rows))]
+      {:since-by-place since
+       :place-rows (assoc (merge rows before-rows) marks-key marks-row)
+       :level-from stamp})
+    {:since-by-place {} :place-rows rows :level-from stamp}))
 
 (defn- write-rows
   "Takes a record, a layer and the rows of one decision. Gives the record
-  with each row written, as the walk writes them."
+  with each row written, as the walk writes them: a fact, an entry of the
+  facts by value, the answer and the layer's last stamp. A row of any other
+  kind is kept aside, under `:aside`, in the order written; nothing here
+  reads it back, so a rule of the store that rests on such a row is not
+  held by this copy until the copy writes that kind."
   [rec layer writes]
-  (reduce (fn [rec [which k row]]
+  (reduce (fn [rec [which k row :as write]]
             (case which
               :fact (assoc-in rec [:facts k] row)
               :by-value (if row
                           (assoc-in rec [:by-value k] row)
                           (update rec :by-value dissoc k))
               :answer (assoc-in rec [:answers k] row)
-              :last-stamp (assoc-in rec [:last-stamp layer] row)))
+              :last-stamp (assoc-in rec [:last-stamp layer] row)
+              (update rec :aside (fnil conj []) write)))
           rec
           writes))
 
@@ -144,11 +182,11 @@
               checked (declaration/check thing)
               act (:ok checked)
               time-millis (decision/time-on thing)
-              {:keys [word makes?]} (if act
-                                      (checks (:facts rec) gate-depot thing act)
-                                      {:word (:refuse checked) :makes? false})
+              {:keys [word makes? rows]} (if act
+                                           (checks (:facts rec) gate-depot thing act)
+                                           {:word (:refuse checked) :makes? false :rows {}})
               stamp (stamp/next-stamp (get (:last-stamp rec) layer))
-              in-hand (when-not word (accept-in-hand (:facts rec) act stamp))
+              in-hand (if word {} (accept-in-hand (:facts rec) act rows stamp))
               writes (decision/writes act-id act word stamp time-millis thing-digest in-hand)]
           {:record (write-rows rec layer writes)
            :outcome {:verdict (or word :accepted)

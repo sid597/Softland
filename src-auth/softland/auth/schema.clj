@@ -801,6 +801,385 @@
         (assoc :write-k (k-root P) :write-v (assoc r :own-layer-made? true)))
       {:done? true :result {:refused :no-such-person}})))
 
+;; ------------------------------------------- Slice b: root plans & writes
+
+(def ^:private max-actor-depth
+  "Maximum makers below root (Revision 7 closed for this build: 32, matching
+  `SPEC.md` and `reference.clj`)."
+  32)
+
+(defn plan-rd-upserts
+  "Returns the vector of `[key val]` pairs to upsert into `$$root-data`."
+  [plan]
+  (or (:rd-upserts plan) []))
+
+(defn plan-rd-deletes
+  "Returns the vector of keys to delete (`NONE>`) from `$$root-data`."
+  [plan]
+  (or (:rd-deletes plan) []))
+
+(defn plan-live-upserts
+  "Returns the vector of `[key val]` pairs to upsert into `$$live`."
+  [plan]
+  (or (:live-upserts plan) []))
+
+(defn plan-live-deletes
+  "Returns the vector of keys to delete (`NONE>`) from `$$live`."
+  [plan]
+  (or (:live-deletes plan) []))
+
+(defn plan-result
+  "Returns the contract result map produced by a single-root write plan."
+  [plan]
+  (:result plan))
+
+(defn signin-rec->live
+  "Builds a `LiveSignIn` entry from a live `SignInRec`."
+  [^SignInRec g]
+  (->LiveSignIn (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
+                (:until g) (:prev-hash g) (:prev-until g) (:begun g) (:label g)
+                (:seq g) (:own-layer g) (:own-layer-made-at-begin? g)))
+
+(defn live-signin->ended-rec
+  "Builds an ended `SignInRec` directly from a `LiveSignIn` (0 point seeks on `g:`)."
+  [^LiveSignIn g]
+  (->SignInRec (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
+               (:until g) (:prev-hash g) (:prev-until g) true (:begun g)
+               (:label g) (:seq g) (:own-layer g) (:own-layer-made-at-begin? g)))
+
+(defn live-session->closed-rec
+  "Builds a closed `SessionRec` directly from a `LiveSession`, preserving `:driven-by`
+  with 0 point seeks on `s:`."
+  [^LiveSession s]
+  (->SessionRec (:session s) (:sign-in s) (:until s) true (:driven-by s)))
+
+(defn plan-take-out
+  "Pure planner for take-out under `root`: given non-empty `exp-map` (`exp:`
+  entries with `until <= at`) and `live-map` (`$$live` range for `root`),
+  computes all `rd-upserts`, `rd-deletes`, and `live-deletes` in memory,
+  cascading expired sign-ins to their open sessions even when session `:until > at`."
+  [root exp-map live-map]
+  (let [exp-gs (volatile! #{})
+        exp-ss (volatile! #{})
+        rd-deletes (volatile! (set (keys exp-map)))
+        rd-upserts (transient [])
+        live-deletes (transient [])]
+    (doseq [[_ ^ExpiryEntry e] exp-map]
+      (case (:kind e)
+        :sign-in (vswap! exp-gs conj (:id e))
+        :session (vswap! exp-ss conj (:id e))))
+    (let [gs @exp-gs
+          ss @exp-ss]
+      (doseq [[lk lv] live-map]
+        (when (instance? LiveSignIn lv)
+          (when (contains? gs (:sign-in lv))
+            (conj! live-deletes lk)
+            (conj! rd-upserts [(k-signin root (:sign-in lv)) (live-signin->ended-rec lv)]))))
+      (doseq [[lk lv] live-map]
+        (when (instance? LiveSession lv)
+          (let [sid (:session lv)]
+            (when (or (contains? ss sid) (contains? gs (:sign-in lv)))
+              (conj! live-deletes lk)
+              (conj! rd-upserts [(k-session root sid) (live-session->closed-rec lv)])
+              (vswap! rd-deletes conj (k-exp root (:until lv) "s" sid)))))))
+    {:rd-upserts (persistent! rd-upserts)
+     :rd-deletes (vec @rd-deletes)
+     :live-upserts []
+     :live-deletes (persistent! live-deletes)}))
+
+(defn plan-begin-sign-in
+  "Pure planner for `begin-sign-in` on H(P) after take-out."
+  [^BeginSignInEvent ev r g actor-rec]
+  (let [P (:root-id ev)
+        A (:actor ev)
+        G (:sign-in ev)
+        kind (:kind ev)
+        h (:hash ev)
+        until (long (:until ev))
+        lbl (:label ev)
+        at (long (:at ev))]
+    (cond
+      (and (instance? SignInRec g)
+           (= (:actor g) A)
+           (= (:kind g) kind)
+           (= (:initial-hash g) h))
+      {:result {:begun G}}
+
+      (or (not (instance? RootEntered r))
+          (and (not= A P) (nil? actor-rec)))
+      {:result {:refused :no-such-actor}}
+
+      (and (not= A P) (:ended? actor-rec))
+      {:result {:refused :ended}}
+
+      (some? g)
+      {:result {:refused :in-use}}
+
+      :else
+      (let [seq-n (long (:next-sign-in-seq r))
+            born-ended? (<= until at)
+            own-layer (:own-layer r)
+            made-at-begin? (boolean (:own-layer-made? r))
+            rec (->SignInRec G A kind h h until nil nil born-ended? at lbl seq-n own-layer made-at-begin?)
+            r' (assoc r :next-sign-in-seq (inc seq-n))]
+        {:rd-upserts (cond-> [[(k-root P) r']
+                              [(k-signin P G) rec]]
+                       (not born-ended?)
+                       (conj [(k-exp P until "g" G) (->ExpiryEntry :sign-in G A until)]))
+         :live-upserts (if born-ended?
+                         []
+                         [[(k-signin P G) (signin-rec->live rec)]])
+         :result {:begun G}}))))
+
+(defn replace-secret-born-ended?
+  "Whether an accepted `replace-secret` event will immediately end `g` because
+  `(:until ev) <= (:at ev)` (requiring a `$$live` `s:` scan to close open sessions)."
+  [^ReplaceSecretEvent ev g]
+  (boolean (and (instance? SignInRec g)
+                (not (and (= (:hash g) (:new-hash ev))
+                          (= (:prev-hash g) (:old-hash ev))))
+                (not (:ended? g))
+                (= (:hash g) (:old-hash ev))
+                (<= (long (:until ev)) (long (:at ev))))))
+
+(defn plan-replace-secret
+  "Pure planner for `replace-secret` on H(P) after take-out. `live-s-map` is
+  needed only when `replace-secret-born-ended?` is true."
+  [^ReplaceSecretEvent ev g live-s-map]
+  (let [P (:root-id ev)
+        G (:sign-in ev)
+        old-h (:old-hash ev)
+        new-h (:new-hash ev)
+        until (long (:until ev))
+        prev-until (long (:previous-until ev))
+        at (long (:at ev))]
+    (cond
+      (and (instance? SignInRec g)
+           (= (:hash g) new-h)
+           (= (:prev-hash g) old-h))
+      {:result {:replaced G}}
+
+      (or (not (instance? SignInRec g)) (:ended? g))
+      {:result {:refused :not-live}}
+
+      (not= (:hash g) old-h)
+      {:result {:refused :wrong-secret}}
+
+      :else
+      (let [old-until (long (:until g))
+            born-ended? (<= until at)
+            g' (assoc g :hash new-h :until until
+                      :prev-hash old-h :prev-until prev-until
+                      :ended? born-ended?)]
+        (if born-ended?
+          (let [rd-upserts (transient [[(k-signin P G) g']])
+                rd-deletes (transient [(k-exp P old-until "g" G)])
+                live-deletes (transient [(k-signin P G)])]
+            (doseq [[lk ^LiveSession s] live-s-map]
+              (when (= (:sign-in s) G)
+                (conj! live-deletes lk)
+                (conj! rd-upserts [(k-session P (:session s)) (live-session->closed-rec s)])
+                (conj! rd-deletes (k-exp P (:until s) "s" (:session s)))))
+            {:rd-upserts (persistent! rd-upserts)
+             :rd-deletes (persistent! rd-deletes)
+             :live-deletes (persistent! live-deletes)
+             :result {:replaced G}})
+          {:rd-upserts [[(k-signin P G) g']
+                        [(k-exp P until "g" G) (->ExpiryEntry :sign-in G (:actor g) until)]]
+           :rd-deletes (if (= until old-until) [] [(k-exp P old-until "g" G)])
+           :live-upserts [[(k-signin P G) (signin-rec->live g')]]
+           :result {:replaced G}})))))
+
+(defn signin-needs-end?
+  "Whether `g` is a live `SignInRec` that `end-sign-in` must end and cascade."
+  [g]
+  (boolean (and (instance? SignInRec g) (not (:ended? g)))))
+
+(defn plan-end-sign-in
+  "Pure planner for `end-sign-in` on H(P) after take-out."
+  [^EndSignInEvent ev g live-s-map]
+  (let [P (:root-id ev)
+        G (:sign-in ev)]
+    (cond
+      (not (instance? SignInRec g))
+      {:result {:refused :no-such-sign-in}}
+
+      (:ended? g)
+      {:result {:ended G}}
+
+      :else
+      (let [rd-upserts (transient [[(k-signin P G) (assoc g :ended? true)]])
+            rd-deletes (transient [(k-exp P (:until g) "g" G)])
+            live-deletes (transient [(k-signin P G)])]
+        (doseq [[lk ^LiveSession s] live-s-map]
+          (when (= (:sign-in s) G)
+            (conj! live-deletes lk)
+            (conj! rd-upserts [(k-session P (:session s)) (live-session->closed-rec s)])
+            (conj! rd-deletes (k-exp P (:until s) "s" (:session s)))))
+        {:rd-upserts (persistent! rd-upserts)
+         :rd-deletes (persistent! rd-deletes)
+         :live-deletes (persistent! live-deletes)
+         :result {:ended G}}))))
+
+(defn plan-make-actor
+  "Pure planner for `make-actor` on H(P) after take-out."
+  [^MakeActorEvent ev r existing-a maker-rec]
+  (let [P (:root-id ev)
+        A (:actor ev)
+        B (:made-by ev)
+        lbl (:label ev)]
+    (cond
+      (and (instance? ActorRec existing-a) (= (:made-by existing-a) B))
+      {:result {:made A}}
+
+      (or (not (instance? RootEntered r))
+          (and (not= B P) (nil? maker-rec)))
+      {:result {:refused :no-such-maker}}
+
+      (and (not= B P) (:ended? maker-rec))
+      {:result {:refused :ended}}
+
+      (or (= A P) (some? existing-a))
+      {:result {:refused :in-use}}
+
+      (>= (if (= B P) 0 (long (:depth maker-rec))) max-actor-depth)
+      {:result {:refused :too-deep}}
+
+      :else
+      (let [seq-n (long (:next-actor-seq r))
+            depth (inc (if (= B P) 0 (long (:depth maker-rec))))]
+        {:rd-upserts [[(k-root P) (assoc r :next-actor-seq (inc seq-n))]
+                      [(k-actor P A) (->ActorRec A B depth lbl false seq-n)]
+                      [(k-ao P seq-n) (->ActorOrderRec A B depth lbl false seq-n)]]
+         :result {:made A}}))))
+
+(defn actor-needs-end?
+  "Whether `end-actor` must run the 2-scan cascade (`r` is entered, `A != P`,
+  and `a` is a live `ActorRec`)."
+  [root actor r a]
+  (boolean (and (instance? RootEntered r)
+                (not= actor root)
+                (instance? ActorRec a)
+                (not (:ended? a)))))
+
+(defn plan-end-actor-noop
+  "Pure planner for `end-actor` repeat or refusal (when `actor-needs-end?` is false)."
+  [^EndActorEvent ev r a]
+  (let [P (:root-id ev)
+        A (:actor ev)]
+    (cond
+      (and (instance? ActorRec a) (:ended? a))
+      {:result {:ended A}}
+
+      (or (not (instance? RootEntered r))
+          (and (not= A P) (nil? a)))
+      {:result {:refused :no-such-actor}}
+
+      (= A P)
+      {:result {:refused :is-a-person}}
+
+      :else
+      {:result {:refused :no-such-actor}})))
+
+(defn plan-end-actor-2scan
+  "Pure planner for Revision 2's 3-seek 2-scan `end-actor` cascade (`a:<A>`,
+  forward `ao:` scan from `target.seq`, and `$$live` scan for `root`)."
+  [root ^ActorRec target-rec ao-map live-map]
+  (let [target-id (:actor target-rec)
+        ended-as (volatile! #{target-id})
+        ended-gs (volatile! #{})
+        rd-upserts (transient [])
+        rd-deletes (transient [])
+        live-deletes (transient [])]
+    ;; Pass 1: single forward scan over ao-map sorted by ascending :seq
+    ;; (seq(maker) < seq(child) always holds).
+    (doseq [^ActorOrderRec ao (sort-by :seq (vals ao-map))]
+      (let [aid (:actor ao)]
+        (when (and (not (:ended? ao))
+                   (or (= aid target-id)
+                       (contains? @ended-as (:made-by ao))))
+          (vswap! ended-as conj aid)
+          (conj! rd-upserts [(k-ao root (:seq ao)) (assoc ao :ended? true)])
+          (conj! rd-upserts [(k-actor root aid)
+                             (->ActorRec aid (:made-by ao) (:depth ao) (:label ao) true (:seq ao))]))))
+    ;; Pass 2a: live sign-ins of any ended actor (0 point seeks on g:).
+    (let [as @ended-as]
+      (doseq [[lk lv] live-map]
+        (when (instance? LiveSignIn lv)
+          (when (contains? as (:actor lv))
+            (vswap! ended-gs conj (:sign-in lv))
+            (conj! live-deletes lk)
+            (conj! rd-deletes (k-exp root (:until lv) "g" (:sign-in lv)))
+            (conj! rd-upserts [(k-signin root (:sign-in lv)) (live-signin->ended-rec lv)])))))
+    ;; Pass 2b: open sessions of any ended sign-in (0 point seeks on s:, preserves :driven-by).
+    (let [gs @ended-gs]
+      (doseq [[lk lv] live-map]
+        (when (instance? LiveSession lv)
+          (when (contains? gs (:sign-in lv))
+            (conj! live-deletes lk)
+            (conj! rd-deletes (k-exp root (:until lv) "s" (:session lv)))
+            (conj! rd-upserts [(k-session root (:session lv)) (live-session->closed-rec lv)])))))
+    {:rd-upserts (persistent! rd-upserts)
+     :rd-deletes (persistent! rd-deletes)
+     :live-deletes (persistent! live-deletes)
+     :result {:ended target-id}}))
+
+(defn plan-open-session
+  "Pure planner for `open-session` on H(P) after take-out."
+  [^OpenSessionEvent ev s g]
+  (let [P (:root-id ev)
+        G (:sign-in ev)
+        S (:session ev)
+        until (long (:until ev))
+        db (:driven-by ev)
+        at (long (:at ev))]
+    (cond
+      (and (instance? SessionRec s) (= (:sign-in s) G))
+      (if (and (not (:closed? s)) (> until (long (:until s))))
+        (let [old-until (long (:until s))
+              s' (assoc s :until until)]
+          {:rd-upserts [[(k-session P S) s']
+                        [(k-exp P until "s" S) (->ExpiryEntry :session S G until)]]
+           :rd-deletes [(k-exp P old-until "s" S)]
+           :live-upserts [[(k-session P S) (->LiveSession S G until (:driven-by s))]]
+           :result {:open S}})
+        {:result {:open S}})
+
+      (or (not (instance? SignInRec g)) (:ended? g))
+      {:result {:refused :not-live}}
+
+      (some? s)
+      {:result {:refused :in-use}}
+
+      :else
+      (let [born-closed? (<= until at)
+            rec (->SessionRec S G until born-closed? db)]
+        {:rd-upserts (cond-> [[(k-session P S) rec]]
+                       (not born-closed?)
+                       (conj [(k-exp P until "s" S) (->ExpiryEntry :session S G until)]))
+         :live-upserts (if born-closed?
+                         []
+                         [[(k-session P S) (->LiveSession S G until db)]])
+         :result {:open S}}))))
+
+(defn plan-close-session
+  "Pure planner for `close-session` on H(P) after take-out."
+  [^CloseSessionEvent ev s]
+  (let [P (:root-id ev)
+        S (:session ev)]
+    (cond
+      (not (instance? SessionRec s))
+      {:result {:refused :no-such-session}}
+
+      (:closed? s)
+      {:result {:closed S}}
+
+      :else
+      {:rd-upserts [[(k-session P S) (assoc s :closed? true)]]
+       :rd-deletes [(k-exp P (:until s) "s" S)]
+       :live-deletes [(k-session P S)]
+       :result {:closed S}})))
+
 ;; --------------------------------------------------- Read projections
 
 (defn signin-fast-path?

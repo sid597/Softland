@@ -178,81 +178,60 @@
      (s/->OwnLayerMadeEvent person at))))
 
 (defn begin-sign-in
-  "Begins a sign-in under a root (implemented in Slice b)."
+  "Begins a sign-in under a root (`{:root :actor :sign-in :kind :hash :until :label :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :begin-sign-in input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :begin-sign-in input #(.-d-root-events ^Client %)
+   (fn [{:keys [root actor sign-in kind hash until label at]}]
+     (s/->BeginSignInEvent root actor sign-in kind hash until label at))))
 
 (defn replace-secret
-  "Replaces a sign-in's secret (implemented in Slice b)."
+  "Replaces a sign-in's secret (`{:root :sign-in :old-hash :new-hash :until :previous-until :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :replace-secret input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :replace-secret input #(.-d-root-events ^Client %)
+   (fn [{:keys [root sign-in old-hash new-hash until previous-until at]}]
+     (s/->ReplaceSecretEvent root sign-in old-hash new-hash until previous-until at))))
 
 (defn end-sign-in
-  "Ends a sign-in and closes its sessions (implemented in Slice b)."
+  "Ends a sign-in and closes its open sessions (`{:root :sign-in :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :end-sign-in input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :end-sign-in input #(.-d-root-events ^Client %)
+   (fn [{:keys [root sign-in at]}]
+     (s/->EndSignInEvent root sign-in at))))
 
 (defn make-actor
-  "Makes an agent under a root (implemented in Slice b)."
+  "Makes an agent under a root (`{:root :actor :made-by :label :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :make-actor input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :make-actor input #(.-d-root-events ^Client %)
+   (fn [{:keys [root actor made-by label at]}]
+     (s/->MakeActorEvent root actor made-by label at))))
 
 (defn end-actor
-  "Ends an agent and its subtree, sign-ins, and sessions (implemented in Slice b)."
+  "Ends an agent and its subtree, sign-ins, and sessions (`{:root :actor :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :end-actor input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :end-actor input #(.-d-root-events ^Client %)
+   (fn [{:keys [root actor at]}]
+     (s/->EndActorEvent root actor at))))
 
 (defn open-session
-  "Opens or extends a session under a live sign-in (implemented in Slice b)."
+  "Opens or extends a session under a live sign-in (`{:root :sign-in :session :until :at}` plus optional `:driven-by`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :open-session input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :open-session input #(.-d-root-events ^Client %)
+   (fn [{:keys [root sign-in session until driven-by at]}]
+     (s/->OpenSessionEvent root sign-in session until (s/to-driven-by driven-by) at))))
 
 (defn close-session
-  "Closes a session under a root (implemented in Slice b)."
+  "Closes a session under a root (`{:root :session :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :close-session input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :close-session input #(.-d-root-events ^Client %)
+   (fn [{:keys [root session at]}]
+     (s/->CloseSessionEvent root session at))))
 
 (defn ask
   "Creates a device-grant ask bound to an 8-char code (implemented in Slice c)."
