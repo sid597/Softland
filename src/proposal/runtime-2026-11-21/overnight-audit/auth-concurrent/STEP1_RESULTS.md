@@ -1,8 +1,8 @@
 # Step 1 — Executable Multi-Task Model of `PLAN.md` (`invite`, `enter`, `answer-ask`)
 
-- **Scenarios × modes run:** 24 scenarios × 4 modes = **96 runs** (4025 ms)
-- **Distinct `(state, queues, fault-budget)` configurations explored:** **51,214** (0 capped runs)
-- **Quiescent terminal histories checked against all 5 invariants + causal linearizability:** **604**
+- **Scenarios × modes run:** 25 scenarios × 4 modes = **100 runs** (1641 ms)
+- **Distinct `(state, queues, fault-budget)` configurations explored:** **51,270** (0 capped runs)
+- **Quiescent terminal histories checked against all 5 invariants + causal linearizability:** **613**
 
 ## Answers to the Five Questions
 
@@ -11,7 +11,7 @@
 | 1 | Does one account ever get two persons, or one claim two accounts, or one person two claims? | **YES (FAIL)** | `one-account-two-persons`, `one-claim-two-accounts` | 11 |
 | 2 | Does one ask ever get two answers that stand? | **NO (0 breaks)** | — | 0 |
 | 3 | Is anything left forever in a state that is neither done nor refused? | **YES (FAIL)** | `root-reserving-forever`, `claim-used-without-entered-root`, `claim-claiming-forever`, `entered-root-without-matching-account-link` | 12 |
-| 4 | Does a call (or re-run) give a result/state disallowed by SPEC.md + Sid's 2 calls? | **YES (FAIL)** | `final-state-or-says-violates-spec`, `no-valid-causal-linearization-of-results`, `client-rerun-violates-spec` | 24 |
+| 4 | Does a call (or re-run) give a result/state disallowed by SPEC.md + Sid's 2 calls? | **YES (FAIL)** | `final-state-or-says-violates-spec`, `no-valid-causal-linearization-of-results`, `client-rerun-violates-spec` | 28 |
 | 5 | After a write returns, can any read still miss its effect? | **YES (FAIL)** | `answer-ask-takeout-missed-on-return`, `enter-account-link-misses-effect` | 6 |
 
 ## Whole Witness Histories (Shortest Counterexample per Distinct Bug Class)
@@ -338,6 +338,10 @@
 | 2C-06: two returning enters of linked account with differing clocks (t1=300 vs t2=100) | `individual` | 15 | 3 | false | `final-state-or-says-violates-spec` |
 | 2C-06: two returning enters of linked account with differing clocks (t1=300 vs t2=100) | `all-after` | 25 | 2 | false | `final-state-or-says-violates-spec` |
 | 2C-06: two returning enters of linked account with differing clocks (t1=300 vs t2=100) | `timeout-overlap` | 20 | 3 | false | `final-state-or-says-violates-spec` |
+| 2C-16: two sequential returning enters of linked account with equal :at=200 and different :says | `pure` | 5 | 1 | false | `final-state-or-says-violates-spec` |
+| 2C-16: two sequential returning enters of linked account with equal :at=200 and different :says | `individual` | 13 | 3 | false | `final-state-or-says-violates-spec` |
+| 2C-16: two sequential returning enters of linked account with equal :at=200 and different :says | `all-after` | 21 | 2 | false | `final-state-or-says-violates-spec` |
+| 2C-16: two sequential returning enters of linked account with equal :at=200 and different :says | `timeout-overlap` | 17 | 3 | false | `final-state-or-says-violates-spec` |
 | 2C-07: two accounts proving one claim (1-claim enters) | `pure` | 28 | 2 | false | none |
 | 2C-07: two accounts proving one claim (1-claim enters) | `individual` | 124 | 6 | false | none |
 | 2C-07: two accounts proving one claim (1-claim enters) | `all-after` | 139 | 4 | false | none |

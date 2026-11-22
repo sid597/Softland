@@ -114,6 +114,17 @@
               {:id :c2 :call [:enter {:account Acc1 :says {"s" "older-100"} :email nil :code-hash nil
                                       :own-layer :L8 :making M3 :at 100}]}]})
 
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1
+                                             :own-layer :L1 :making M1 :says {"s" "init"} :at 50 :own-layer-made? false}]])]
+     {:name "2C-16: two sequential returning enters of linked account with equal :at=200 and different :says"
+      :init-pstates p :init-oracle o
+      :entities {:accounts [Acc1] :codes [] :persons [:P1] :sign-ins [] :sessions []}
+      :calls [{:id :c1 :call [:enter {:account Acc1 :says {"s" "first-at-200"} :email nil :code-hash nil
+                                      :own-layer :L9 :making M2 :at 200}]}
+              {:id :c2 :call [:enter {:account Acc1 :says {"s" "second-at-200"} :email nil :code-hash nil
+                                      :own-layer :L8 :making M3 :at 200}]
+               :sequential-after [:c1]}]})
+
    (let [[p o] (seed-both [[:invite {:person :P1 :claim C1 :invited-by :system :at 10}]])]
      {:name "2C-07: two accounts proving one claim (1-claim enters)"
       :init-pstates p :init-oracle o

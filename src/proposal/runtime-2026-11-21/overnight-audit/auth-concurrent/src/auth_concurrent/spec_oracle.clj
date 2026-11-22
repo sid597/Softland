@@ -103,8 +103,10 @@
         link
         (let [P (:person link)
               p (get-in st [:persons P])
-              ;; Sid's call 2: :says is kept from the enter with the latest :at.
-              keep-new-says? (>= at (:said-at link Long/MIN_VALUE))
+              ;; Sid's call 2 (SPEC.md:282-284): :says is kept with the link from
+              ;; the enter with the latest :at; an enter whose :at is not later
+              ;; than the kept one's leaves it.
+              keep-new-says? (> at (:said-at link Long/MIN_VALUE))
               st' (if keep-new-says?
                     (update-in st [:links account] assoc :says says :said-at at)
                     st)]
