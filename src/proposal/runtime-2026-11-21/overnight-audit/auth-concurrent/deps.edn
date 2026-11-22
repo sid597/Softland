@@ -1,0 +1,8 @@
+{:paths ["src"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}}
+ :aliases {:step1 {:jvm-opts ["-Xmx4g"]
+                   :main-opts ["-m" "auth-concurrent.step1-run"]}
+           :step3 {:extra-paths ["../../../../../test-auth"]
+                   :jvm-opts ["-Xmx4g"]
+                   :main-opts ["-m" "auth-concurrent.step3-run"]}}}
