@@ -56,6 +56,14 @@
             (Thread/sleep 50)
             (recur))))))
 
+(defn- sleep-until
+  "Waits until a moment of the clock, in milliseconds since 1970, and gives
+  at once when it has passed. The copies run on this machine, so a time
+  that a copy reports is on the same clock."
+  [moment]
+  (let [ms (- (long moment) (System/currentTimeMillis))]
+    (when (pos? ms) (Thread/sleep ms))))
+
 (defn- line
   "Opens the line at an address. Takes the address, a credential's text or
   nil, and a session's id or nil. Gives {:line the connection :hello what
@@ -65,6 +73,13 @@
     (if (:could-not connection)
       connection
       {:line connection :hello (client/hello connection)})))
+
+(defn- close-line!
+  "Closes a line that `line` opened; nothing for one that did not open.
+  Gives nil."
+  [opened]
+  (when-let [connection (:line opened)]
+    (client/close! connection)))
 
 (defn- say
   "Says a word on an opened line and waits for its result."
@@ -108,7 +123,7 @@
   "Runs every check against the copies that the caller hands it, as the
   namespace docstring says. Gives nil; each check prints and counts
   itself."
-  [{:keys [a b c first left tag]}]
+  [{:keys [a b c left tag] first-person :first}]
   (let [left (or left (fn [] nil))
         account (fn [n word]
                   {:sub (str tag "-" n) :email (str word "-" tag "@example.com") :name (str/capitalize word)})]
@@ -118,11 +133,11 @@
       (check "An account that proves no invitation is turned away with 403 and gets no cookie."
              (and (= 403 (:status stranger)) (nil? (:cookie stranger))) stranger))
 
-    (let [first-in (drive/sign-in a (assoc first :call-her "Sid"))
-          again (drive/sign-in b first)
+    (let [first-in (drive/sign-in a (assoc first-person :call-her "Sid"))
+          again (drive/sign-in b first-person)
           cookie (:cookie first-in)]
       (check "The first person's first sign-in gives her browser a credential, and sends her to the box, which offers her provider's name for her."
-             (and (seq cookie) (:named? first-in) (= (:name first) (:offered first-in)) (= 303 (:name-status first-in)))
+             (and (seq cookie) (:named? first-in) (= (:name first-person) (:offered first-in)) (= 303 (:name-status first-in)))
              (dissoc first-in :cookie))
       (check "A later sign-in of the same account, through another copy of the runtime, finds the same person and does not send her to the box again."
              (and (= (:person first-in) (:person again)) (false? (:named? again)))
@@ -340,31 +355,60 @@
                        (and (uuid? (first layers)) (apply = layers)))))
 
             ;; ------------------------------------------- a secret is replaced
-            (let [short (drive/program c "a program at the copy with short times"
+            ;; The times are read from what the copy `c` reports: the end of
+            ;; the secret that `held` came with is in its hello, and the end
+            ;; of the new secret is in the replacing's result. The secret is
+            ;; replaced when half of the first one's time is left, so that
+            ;; the new one outlasts it by that half. Every connection that
+            ;; names `session` is at `c`, whose sessions last seconds, and
+            ;; each but `held` is closed at once: what keeps the session past
+            ;; the time that it was opened with is `held` alone.
+            (let [{:keys [secret-ms previous-ms session-ms]} short-numbers
+                  short (drive/program c "a program at the copy with short times"
                                        (fn [code] (drive/yes c cookie code {})))
                   held (line c (:credential short) nil)
                   session (:session (:hello held))
+                  came-with-until (long (or (:until (:hello held)) 0))
+                  alone (let [opened (line c (:credential short) nil)]
+                          (close-line! opened)
+                          {:session (:session (:hello opened)) :opened (System/currentTimeMillis)})
+                  _ (sleep-until (- came-with-until (quot secret-ms 2)))
                   secret (credential/make-secret)
                   replaced (say held {:word :replace-secret :hash (credential/hash-of secret)})
-                  renewed (credential/text (:root short) (:sign-in short) secret)]
+                  renewed (credential/text (:root short) (:sign-in short) secret)
+                  new-until (long (or (:until replaced) 0))
+                  replaced-at (- new-until secret-ms)
+                  before (line a (:credential short) nil)
+                  before-ms (- (System/currentTimeMillis) replaced-at)
+                  _ (close-line! before)
+                  in-session (line c renewed session)
+                  in-session-done (System/currentTimeMillis)
+                  _ (close-line! in-session)]
               (check "A sign-in's secret is replaced by one that the program made: the new credential is let in, in the same session, and the secret before it stands for a moment and then for nobody."
                      (and (= (:sign-in short) (:replaced replaced))
-                          (= session (:session (:hello (line a renewed session))))
-                          (do (Thread/sleep 1500) (= 401 (:status (line a (:credential short) session)))))
-                     replaced)
+                          (= session (:session (:hello in-session)))
+                          (= (:who (:hello held)) (:who (:hello before)))
+                          (do (sleep-until (+ replaced-at previous-ms 500))
+                              (= 401 (:status (line a (:credential short) nil)))))
+                     {:replaced replaced :before-ms before-ms :before (or (:hello before) before)})
               (check "A connection that was opened under the secret before stays open after the replacing, and after the time of the secret that it came with has passed: what is held is the sign-in and the session, and both stand."
-                     (do (Thread/sleep 5500)
-                         (and (nil? (client/bye (:line held)))
+                     (do (sleep-until (+ came-with-until 500))
+                         (and (< came-with-until (System/currentTimeMillis) new-until)
+                              (nil? (client/bye (:line held)))
                               (= (:who (:hello held)) (:who (say held {:word :who-am-i})))))
                      (client/bye (:line held)))
               (check "A session that is held by a connection is moved on past the time that it was opened with, and one that nobody holds is over when its time has passed."
-                     (let [left-alone (line c renewed nil)
-                           alone (:session (:hello left-alone))]
-                       (client/close! (:line left-alone))
-                       (Thread/sleep 5000)
-                       (and (nil? (client/bye (:line held)))
-                            (= session (:session (say held {:word :who-am-i})))
-                            (= 401 (:status (line c renewed alone))))))
+                     (do (sleep-until (+ (max in-session-done (:opened alone)) session-ms 500))
+                         (and (nil? (client/bye (:line held)))
+                              (= session (:session (say held {:word :who-am-i})))
+                              (let [again (line c renewed session)]
+                                (close-line! again)
+                                (= session (:session (:hello again))))
+                              (= 401 (:status (line c renewed (:session alone))))
+                              (let [control (line c renewed nil)]
+                                (close-line! control)
+                                (uuid? (:session (:hello control))))))
+                     (client/bye (:line held)))
               (check "A sign-in whose secret is not replaced is over when its time passes: the connection that rests on it is told so by the runtime's own timer, at a copy that did not begin it."
                      (let [brief (drive/program c "a program that does not replace its secret"
                                                 (fn [code] (drive/yes c cookie code {})))
