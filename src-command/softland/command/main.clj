@@ -29,7 +29,9 @@
     under               the actors and the sign-ins of this person
     end-sign-in uuid    ends one sign-in of this person
     replace-secret      a new secret for this sign-in
-    new-session         leaves the session and starts another
+    new-session [--model name]
+                        leaves the session and starts another, optionally
+                        naming the model that drives it
     sign-out            ends this program's sign-in
 
   Common arguments: `--as file`, the file that holds the sign-in, when it
@@ -440,13 +442,33 @@
       "new-session"
       (let [file (file-of flags)
             held (kept file)]
-        (if-not (:credential held)
+        (if-not (or (:credential held) (:next-credential held))
           {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
-          (let [closed (with-line flags (fn [connection _] (client/say connection {:word :close-session})))]
-            (if (and (:could-not closed) (not= 401 (:status closed)))
-              closed
-              (do (keep! file (dissoc (or (kept file) held) :session))
-                  (with-line flags (fn [_ hello] hello)))))))
+          (if (contains? flags :model)
+            (let [open-word {:word :open-session :driven-by {:kind :model :model (or (:model flags) "")}}
+                  open-and-close
+                  (fn []
+                    (with-line flags
+                      (fn [connection _]
+                        (let [opened (client/say connection open-word)]
+                          (if (:could-not opened)
+                            opened
+                            (do (client/say connection {:word :close-session})
+                                opened))))))
+                  opened (let [first-try (open-and-close)]
+                           (if (and (:could-not first-try) (= 401 (:status first-try)))
+                             (do (keep! file (dissoc (or (kept file) held) :session))
+                                 (open-and-close))
+                             first-try))]
+              (if (:could-not opened)
+                opened
+                (do (keep! file (assoc (or (kept file) held) :session (:open opened)))
+                    (with-line flags (fn [_ hello] hello)))))
+            (let [closed (with-line flags (fn [connection _] (client/say connection {:word :close-session})))]
+              (if (and (:could-not closed) (not= 401 (:status closed)))
+                closed
+                (do (keep! file (dissoc (or (kept file) held) :session))
+                    (with-line flags (fn [_ hello] hello))))))))
 
       "sign-out" (with-line flags (fn [connection _] (client/say connection {:word :sign-out})))
 

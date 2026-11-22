@@ -236,15 +236,17 @@
 (defn- of-cookie
   "Takes the options, a request, and when a page will send an act, the
   session to be in: the id of a session that the page named, or `:new`.
-  Gives the caller that the request's cookie stands for now, or nil."
+  Gives the caller that the request's cookie stands for now, or nil.
+  A new session opened by a browser page carries `:driven-by {:kind :person}`."
   ([options request] (of-cookie options request nil))
   ([{:keys [the-seam]} request session]
    (when-let [text (credential/of-cookie (get-in request [:headers "cookie"]))]
-     (let [caller (m/? (seam/caller the-seam {:credential text
-                                              :carrier :cookie
-                                              :session (when (uuid? session) session)
-                                              :new-session? (= :new session)
-                                              :from (from :pages request)}))]
+     (let [caller (m/? (seam/caller the-seam (cond-> {:credential text
+                                                      :carrier :cookie
+                                                      :session (when (uuid? session) session)
+                                                      :new-session? (= :new session)
+                                                      :from (from :pages request)}
+                                               (= :new session) (assoc :driven-by {:kind :person}))))]
        (when (seam/caller? caller) caller)))))
 
 ;; -------------------------------------------------------------------- the pages
@@ -603,9 +605,12 @@
         session (uuid-of named)
         about (from :line request)
         taken (fn [credential carrier]
-                (let [caller (m/? (seam/caller the-seam {:credential credential :carrier carrier
-                                                         :session session :new-session? (nil? session)
-                                                         :from about}))]
+                (let [caller (m/? (seam/caller the-seam
+                                               (cond-> {:credential credential :carrier carrier
+                                                        :session session :new-session? (nil? session)
+                                                        :from about}
+                                                 (and (= :cookie carrier) (nil? session))
+                                                 (assoc :driven-by {:kind :person}))))]
                   (if (seam/caller? caller)
                     {:caller caller :max-frame-bytes words/max-frame-bytes}
                     (answered caller))))]

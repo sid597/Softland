@@ -267,3 +267,32 @@ After fixes:
   softland.runtime.proof:               49 passed, 0 failed. (exit 0)
   softland.runtime.command-proof:       16 passed, 0 failed. (exit 0)
 ```
+
+### Step 4: The wire's word for a session (`{:word :open-session :driven-by D}`)
+
+Wrote sentence checks first in `test-runtime/softland/runtime/open_session_proof.clj`, saw all 5 checks fail before implementation (**0 passed, 5 failed**), then implemented:
+- `src-wire/softland/wire/words.clj`: added `{:word :open-session :driven-by D}` (where `:driven-by` is optional, nil, `{:kind :person}`, or `{:kind :model :model text}` with `1..256` characters via `words/text?`, refusing invalid forms with `:driven-by-has-no-form` at `:driven-by`). Added checks in `test-wire/softland/wire/pure_proof.clj`.
+- `src-runtime/softland/runtime/seam.clj`: implemented `:open-session` in `call-now` (calling `auth/open-session` and returning `{:open session :until until :driven-by driven-by}`); added `driven-by` to `Caller` and `about` (populated from `auth/who-is`, including after `new-session?` opens a session, and included on `about` / `:hello` / `:who-am-i` whenever the caller holds a session).
+- `src-runtime/softland/runtime/http.clj`: browser faces (`of-cookie` with `:new` on `GET /sign-in/name`, and `accept` for `:cookie` WebSocket connections opening a new session) now pass `:driven-by {:kind :person}`.
+- `src-command/softland/command/main.clj`: extended `new-session` with `--model <name>`, which opens a new session through `{:word :open-session :driven-by {:kind :model :model <name>}}`, closes the previous session, persists the new session id, and prints `hello` (with `:driven-by` read back from `who-is`).
+
+**What was run (before -> after):**
+```text
+flock "$LOCK" clojure -Sdeps "$SDEPS" -J-Dsoftland.store.path=.../store-at-head/src-store -M:runtime -m softland.runtime.open-session-proof
+clojure -Sdeps "$SDEPS_WIRE" -M:wire -m softland.wire.pure-proof
+clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.pure-proof
+flock "$LOCK" clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.proof
+flock "$LOCK" clojure -Sdeps "$SDEPS" -J-Dsoftland.store.path=.../store-at-head/src-store -M:runtime -m softland.runtime.command-proof
+```
+
+**Output:**
+```text
+Before implementation:
+  softland.runtime.open-session-proof:  0 passed, 5 failed. (exit 1)
+After implementation:
+  softland.wire.pure-proof:            38 passed, 0 failed. (exit 0)
+  softland.runtime.pure-proof:         22 passed, 0 failed. (exit 0)
+  softland.runtime.open-session-proof:  5 passed, 0 failed. (exit 0)
+  softland.runtime.proof:              49 passed, 0 failed. (exit 0)
+  softland.runtime.command-proof:      16 passed, 0 failed. (exit 0)
+```

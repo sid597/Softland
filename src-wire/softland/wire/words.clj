@@ -21,6 +21,8 @@
     {:word :replace-secret :hash hash}              a new secret for the
                                                     sign-in
     {:word :sign-out}                               ends the sign-in
+    {:word :open-session :driven-by driven-by}      opens a session, optionally
+                                                    naming what drives it
     {:word :close-session}                          closes the session
     {:word :invite   :uuid uuid :claim claim}       a person who waits for
                                                     an account
@@ -140,6 +142,8 @@
                     :carries nil :who :an-actor}
    :sign-out       {:says "ends the sign-in of this connection, on every copy of the runtime"
                     :carries nil :who :an-actor}
+   :open-session   {:says "opens a new session under this sign-in, optionally saying whether a person or a model drives it"
+                    :carries nil :who :an-actor}
    :close-session  {:says "closes the session of this connection"
                     :carries nil :who :an-actor}
    :invite         {:says "makes a person who waits for an account that proves the claim"
@@ -186,6 +190,9 @@
                           [:word [:enum :replace-secret]]
                           [:hash :value {:absent :hash-not-given :reason :hash-has-no-form}]]
          :sign-out       [:parts [:word [:enum :sign-out]]]
+         :open-session   [:parts
+                          [:word [:enum :open-session]]
+                          [:driven-by :value {:optional true :reason :driven-by-has-no-form}]]
          :close-session  [:parts [:word [:enum :close-session]]]
          :invite         [:parts
                           [:word  [:enum :invite]]
@@ -220,13 +227,16 @@
     :digest-is-no-text   the digest is no text
     :hash-has-no-form    the hash is not 64 lower-case hex characters
     :label-is-no-text    the label is no text of 1 to `max-text` characters
-    :claim-has-no-form   the claim is neither {:by :email :email text} nor
-                         {:by :code :hash hash}
+    :claim-has-no-form     the claim is neither {:by :email :email text} nor
+                           {:by :code :hash hash}
+    :driven-by-has-no-form :driven-by is neither {:kind :person} nor
+                           {:kind :model :model text}
 
   and each word that a part of `shapes` names."
   (into #{:not-a-word :word-not-known :part-not-known :part-has-no-form :not-given
           :not-a-plain-map :acts-not-a-series :too-many-acts :digest-is-no-text
-          :hash-has-no-form :label-is-no-text :claim-has-no-form :act-id-is-no-uuid}
+          :hash-has-no-form :label-is-no-text :claim-has-no-form :driven-by-has-no-form
+          :act-id-is-no-uuid}
         (for [word (keys words)
               [_ _ opts] (rest (get shapes word))
               reason (keep #(get opts %) [:reason :absent :empty])]
@@ -243,6 +253,18 @@
   "Takes anything. Gives true for a text of 1 to `max-text` characters."
   [x]
   (and (string? x) (<= 1 (count x) max-text)))
+
+(defn driven-by?
+  "Takes anything. Gives true for what drives a session in its form:
+  {:kind :person}, or {:kind :model :model text} where text has 1 to
+  `max-text` characters."
+  [x]
+  (and (plain-map? x)
+       (case (:kind x)
+         :person (= #{:kind} (set (keys x)))
+         :model (and (= #{:kind :model} (set (keys x)))
+                     (text? (:model x)))
+         false)))
 
 (defn claim?
   "Takes anything. Gives true for a claim of an invitation in its form:
@@ -309,7 +331,9 @@
     (and (contains? word :digest) (not (string? (:digest word)))) {:refuse :digest-is-no-text :at :digest}
     (and (contains? word :hash) (not (credential/hash? (:hash word)))) {:refuse :hash-has-no-form :at :hash}
     (and (contains? word :label) (not (text? (:label word)))) {:refuse :label-is-no-text :at :label}
-    (and (contains? word :claim) (not (claim? (:claim word)))) {:refuse :claim-has-no-form :at :claim}))
+    (and (contains? word :claim) (not (claim? (:claim word)))) {:refuse :claim-has-no-form :at :claim}
+    (and (contains? word :driven-by) (some? (:driven-by word)) (not (driven-by? (:driven-by word))))
+    {:refuse :driven-by-has-no-form :at :driven-by}))
 
 (defn- check*
   "The body of `check`, with no guard around it. It can throw; `check`

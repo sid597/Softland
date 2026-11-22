@@ -155,7 +155,7 @@
 
 ;; ------------------------------------------------------------------ the caller
 
-(deftype Caller [who root sign-in session kind hash until own-layer from]
+(deftype Caller [who root sign-in session kind hash until own-layer driven-by from]
   Object
   (toString [_] (if (some? who) "#<caller>" "#<visitor>")))
 
@@ -171,9 +171,10 @@
   root; the sign-in's id; the session's id, or nil when the face named and
   asked for none; the sign-in's kind; an atom holding the latest hash of the
   secret for this connection (updated on `:replace-secret`); the time until
-  which that secret stands; the id of the root's own layer; and what the face
-  said of the request. `caller-now` and `visitor` are the callers. It prints
-  as the word \"caller\" or \"visitor\" and nothing else.")
+  which that secret stands; the id of the root's own layer; what drives the
+  session (`:driven-by` from `who-is`, or nil); and what the face said of
+  the request. `caller-now` and `visitor` are the callers. It prints as the
+  word \"caller\" or \"visitor\" and nothing else.")
 
 (defn caller?
   "Takes anything. Gives true for a caller that this namespace made."
@@ -209,13 +210,15 @@
 
 (defn about
   "Takes a caller. Gives what a face may tell the system that holds the
-  credential: {:who :root :sign-in :session :kind :own-layer :until}, or
-  {:visitor true}. It is data, and it is no caller."
+  credential: {:who :root :sign-in :session :kind :own-layer :until}, plus
+  `:driven-by` (from `who-is`, nil when not said) when the caller is in a
+  session; or {:visitor true}. It is data, and it is no caller."
   [^Caller caller]
   (if (some? (.-who caller))
-    {:who (.-who caller) :root (.-root caller) :sign-in (.-sign-in caller)
-     :session (.-session caller) :kind (.-kind caller)
-     :own-layer (.-own-layer caller) :until (.-until caller)}
+    (cond-> {:who (.-who caller) :root (.-root caller) :sign-in (.-sign-in caller)
+             :session (.-session caller) :kind (.-kind caller)
+             :own-layer (.-own-layer caller) :until (.-until caller)}
+      (some? (.-session caller)) (assoc :driven-by (.-driven-by caller)))
     {:visitor true}))
 
 ;; ------------------------------------------------------------------- the seam
@@ -292,13 +295,13 @@
 
 (def ^:private the-visitor
   "The caller of everybody who is not signed in."
-  (->Caller nil nil nil nil nil nil nil nil nil))
+  (->Caller nil nil nil nil nil nil nil nil nil nil))
 
 (defn visitor
   "Gives the caller of everybody who is not signed in. Takes, when a face
   has it, what the face says of the request."
   ([] the-visitor)
-  ([from] (->Caller nil nil nil nil nil nil nil nil from)))
+  ([from] (->Caller nil nil nil nil nil nil nil nil nil from)))
 
 (defn- no-sign-in
   "Takes why. Gives the word `:find-her-sign-in`."
@@ -370,8 +373,9 @@
 
 (defn- caller-now
   "The body of `caller`. One read of Auth; and, for a face that asked for a
-  new session, one write."
-  [^Seam seam {:keys [credential carrier session new-session? from]}]
+  new session, one write and one `who-is` read so `:driven-by` comes from
+  Auth."
+  [^Seam seam {:keys [credential carrier session new-session? driven-by from]}]
   (if-let [{:keys [root sign-in secret]} (credential/parts credential)]
     (let [client (.-client seam)
           got (auth/who-is client {:root root :sign-in sign-in :session session})]
@@ -380,24 +384,30 @@
         (let [hash (credential/hash-of secret)
               [verdict until-or-why] (judged got hash carrier (now-ms))
               {:keys [actor kind]} (:sign-in got)
-              made (fn [session]
-                     (->Caller actor root sign-in session kind (atom hash) until-or-why (:own-layer got) from))]
+              made (fn [session session-driven-by]
+                     (->Caller actor root sign-in session kind (atom hash) until-or-why
+                               (:own-layer got) session-driven-by from))]
           (cond
             (= :not verdict) (no-sign-in until-or-why)
             (some? session) (or (session-fault got sign-in (now-ms))
                                 (do (moved-on! seam root sign-in session (:until (:session got)))
-                                    (made session)))
+                                    (made session (get-in got [:session :driven-by]))))
             new-session?
             (let [session (UUID/randomUUID)
                   now (now-ms)
-                  opened (auth/open-session client {:root root :sign-in sign-in :session session
-                                                    :until (+ now (long (:session-ms (.-numbers seam))))
-                                                    :at now})]
+                  opened (auth/open-session client
+                                            (cond-> {:root root :sign-in sign-in :session session
+                                                     :until (+ now (long (:session-ms (.-numbers seam))))
+                                                     :at now}
+                                              (some? driven-by) (assoc :driven-by driven-by)))]
               (cond
                 (:could-not opened) (words/could-not :reach-auth {:got opened})
                 (:refused opened) (no-sign-in :ended)
-                :else (made session)))
-            :else (made nil)))))
+                :else (let [after (auth/who-is client {:root root :sign-in sign-in :session session})]
+                        (if (:could-not after)
+                          (words/could-not :reach-auth {:got after})
+                          (made session (get-in after [:session :driven-by]))))))
+            :else (made nil nil)))))
     (no-sign-in :not-a-credential)))
 
 (defn caller
@@ -675,6 +685,20 @@
       :sign-out
       (or (needs-a-who caller)
           (from-auth (auth/end-sign-in client {:root root :sign-in (.-sign-in caller) :at (now-ms)})))
+
+      :open-session
+      (or (needs-a-who caller)
+          (let [session (UUID/randomUUID)
+                now (now-ms)
+                until (+ now (long (:session-ms (.-numbers seam))))
+                driven-by (:driven-by word)
+                got (from-auth (auth/open-session client
+                                                  (cond-> {:root root :sign-in (.-sign-in caller)
+                                                           :session session :until until :at now}
+                                                    (some? driven-by) (assoc :driven-by driven-by))))]
+            (if (:could-not got)
+              got
+              {:open session :until until :driven-by driven-by})))
 
       :close-session
       (or (needs-a-who caller) (needs-a-session caller)

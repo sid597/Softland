@@ -88,6 +88,7 @@
               :leave {:word :leave :watch 3}
               :replace-secret {:word :replace-secret :hash a-hash}
               :sign-out {:word :sign-out}
+              :open-session {:word :open-session :driven-by {:kind :person}}
               :close-session {:word :close-session}
               :invite {:word :invite :uuid uuid :claim {:by :email :email "asha@example.com"}}
               :make-agent {:word :make-agent :uuid uuid :label "importer" :hash a-hash}
@@ -139,6 +140,19 @@
                                        (refused (assoc (:invite each) :claim claim))))
                         [{:by :phone :phone "1"} {:by :email :email "a@b" :more 1}
                          {:by :email :email "nobody"} {:by :code :hash "abc"}])))
+    (check "An :open-session word takes {:kind :person}, {:kind :model :model text} up to 256 characters, or no :driven-by, and turns away any other :driven-by."
+           (and (= {:ok {:word :open-session :driven-by nil}} (words/check {:word :open-session}))
+                (= {:ok {:word :open-session :driven-by nil}} (words/check {:word :open-session :driven-by nil}))
+                (= {:ok {:word :open-session :driven-by {:kind :person}}}
+                   (words/check {:word :open-session :driven-by {:kind :person}}))
+                (= {:ok {:word :open-session :driven-by {:kind :model :model "claude-opus-4-6"}}}
+                   (words/check {:word :open-session :driven-by {:kind :model :model "claude-opus-4-6"}}))
+                (every? (fn [d] (= {:refuse :driven-by-has-no-form :at :driven-by}
+                                   (refused {:word :open-session :driven-by d})))
+                        [{:kind :robot} {:kind :person :extra 1} {:kind :model}
+                         {:kind :model :model ""}
+                         {:kind :model :model (apply str (repeat (inc words/max-text) "x"))}
+                         "person"])))
     (check "Every reason that the check gave above is one of the declared reasons."
            (every? words/reasons
                    (keep :refuse [(words/check [:send]) (words/check {:word :fly})
