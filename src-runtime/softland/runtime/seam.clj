@@ -130,7 +130,7 @@
   (:import [java.io Writer]
            [java.util Locale UUID]
            [java.util.concurrent ExecutorService Executors ScheduledExecutorService
-            ScheduledFuture ThreadFactory TimeUnit]
+            ScheduledFuture ScheduledThreadPoolExecutor ThreadFactory TimeUnit]
            [java.util.concurrent.locks ReentrantLock]))
 
 ;; ------------------------------------------------------------- the numbers
@@ -272,10 +272,15 @@
           (merge default-numbers (select-keys numbers (keys default-numbers)))
           {:sign-in (atom {}) :watches (atom {})}
           (Executors/newVirtualThreadPerTaskExecutor)
-          (Executors/newSingleThreadScheduledExecutor
-           (reify ThreadFactory
-             (newThread [_ runnable]
-               (doto (Thread. runnable "softland-seam-timer") (.setDaemon true)))))))
+          ;; A timer that is cancelled leaves the queue at once: a timer of a
+          ;; standing can be set hours ahead, and a cancelled one that stayed
+          ;; queued until its moment would hold its connection's memory.
+          (doto (ScheduledThreadPoolExecutor.
+                 1
+                 (reify ThreadFactory
+                   (newThread [_ runnable]
+                     (doto (Thread. runnable "softland-seam-timer") (.setDaemon true)))))
+            (.setRemoveOnCancelPolicy true))))
 
 (defn close!
   "Stops the seam's executor and its timer. A flow that is still open is
@@ -945,7 +950,10 @@
   and reads nothing: a caller that nothing watches could outlive its
   sign-in. The system connects again, and is watched anew.
 
-  Each read runs on a thread of the seam's own."
+  Each read runs on a thread of the seam's own, and so does the telling of
+  a lost watch: the standing's thread that hands it on returns at once, and
+  one listener that blocks while it ends its connection holds back no
+  other. The end is said outside the flow's lock."
   [^Seam seam ^Caller caller]
   (let [subject
         (fn [!]
@@ -957,67 +965,76 @@
                               (.lock lock)
                               (try (f) (finally (.unlock lock))))
                   executor ^ExecutorService (.-executor seam)
+                  ;; Under the lock: marks the flow done and gives the word
+                  ;; when this is the first end, else nil.
+                  ending (fn [word]
+                           (when-not (:done? @state)
+                             (swap! state assoc :done? true)
+                             word))
+                  ;; The word is said outside the lock: what rests on the
+                  ;; flow (a face's connection) can block while it tells its
+                  ;; system, and holds no lock of the standing meanwhile.
                   end! (fn [word]
-                         (when-not (:done? @state)
-                           (swap! state assoc :done? true)
+                         (when-let [word (with-lock (fn [] (ending word)))]
                            (! word)))
+                  failed (fn [^Throwable t]
+                           (words/could-not :reach-auth {:why :standing-failed
+                                                         :threw (.getName (class t))}))
                   check! (fn check! []
-                           (with-lock
-                             (fn []
-                               (when-not (:done? @state)
-                                 (try
-                                   (let [[verdict got] (live-now seam caller)]
-                                     (if (= :live verdict)
-                                       (let [session-until (when-let [held (:session-until got)]
-                                                             (moved-on! seam (.-root caller) (.-sign-in caller)
-                                                                        (.-session caller) held))
-                                             ;; The next look: when the secret's
-                                             ;; time passes, or right after half of
-                                             ;; the session's span is left (always
-                                             ;; strictly before session expiry).
-                                             now (now-ms)
-                                             span (long (:session-ms (.-numbers seam)))
-                                             next (cond-> (- (long (:until got)) now)
-                                                    session-until
-                                                    (min (let [left (- (long session-until) now)
-                                                               half (quot span 2)
-                                                               pad (min 50 (max 1 (quot half 2)))]
-                                                           (if (< (* 2 left) span)
-                                                             (min left 1000)
-                                                             (min (max 1 (dec left)) (+ pad (- left half)))))))]
-                                         (when-let [timer (:timer @state)]
-                                           (.cancel ^ScheduledFuture timer false))
-                                         (swap! state assoc
-                                                :until (:until got)
-                                                :timer (.schedule ^ScheduledExecutorService (.-timer seam)
-                                                                  ^Runnable
-                                                                  (fn []
-                                                                    (try (.execute executor check!)
-                                                                         (catch Throwable t
-                                                                           (with-lock
+                           (when-let [word
+                                      (with-lock
+                                        (fn []
+                                          (when-not (:done? @state)
+                                            (try
+                                              (let [[verdict got] (live-now seam caller)]
+                                                (if (= :live verdict)
+                                                  (let [session-until (when-let [held (:session-until got)]
+                                                                        (moved-on! seam (.-root caller) (.-sign-in caller)
+                                                                                   (.-session caller) held))
+                                                        ;; The next look: when the secret's
+                                                        ;; time passes, or right after half of
+                                                        ;; the session's span is left (always
+                                                        ;; strictly before session expiry).
+                                                        now (now-ms)
+                                                        span (long (:session-ms (.-numbers seam)))
+                                                        next (cond-> (- (long (:until got)) now)
+                                                               session-until
+                                                               (min (let [left (- (long session-until) now)
+                                                                          half (quot span 2)
+                                                                          pad (min 50 (max 1 (quot half 2)))]
+                                                                      (if (< (* 2 left) span)
+                                                                        (min left 1000)
+                                                                        (min (max 1 (dec left)) (+ pad (- left half)))))))]
+                                                    (when-let [timer (:timer @state)]
+                                                      (.cancel ^ScheduledFuture timer false))
+                                                    (swap! state assoc
+                                                           :until (:until got)
+                                                           :timer (.schedule ^ScheduledExecutorService (.-timer seam)
+                                                                             ^Runnable
                                                                              (fn []
-                                                                               (end! (words/could-not :reach-auth
-                                                                                                      {:why :standing-failed
-                                                                                                       :threw (.getName (class t))})))))))
-                                                                  (long (max 1 next))
-                                                                  TimeUnit/MILLISECONDS)))
-                                       (end! got)))
-                                   (catch Throwable t
-                                     (end! (words/could-not :reach-auth {:why :standing-failed
-                                                                         :threw (.getName (class t))}))))))))
+                                                                               (try (.execute executor check!)
+                                                                                    (catch Throwable t (end! (failed t)))))
+                                                                             (long (max 1 next))
+                                                                             TimeUnit/MILLISECONDS))
+                                                    nil)
+                                                  (ending got)))
+                                              (catch Throwable t
+                                                (ending (failed t)))))))]
+                             (! word)))
                   stop (standing/listen!
                         (.-standing seam) (.-root caller)
                         (fn [value]
                           (cond
+                            ;; Handed to a thread of the seam's own: the
+                            ;; standing's thread returns at once.
                             (= standing/not-reached value)
-                            (with-lock (fn [] (end! (words/could-not :reach-auth {:why :watch-lost}))))
+                            (let [lost (fn [] (end! (words/could-not :reach-auth {:why :watch-lost})))]
+                              (try (.execute executor ^Runnable lost)
+                                   (catch Throwable _ (lost))))
+
                             (seems-gone? caller (:until @state) value)
                             (try (.execute executor check!)
-                                 (catch Throwable t
-                                   (with-lock
-                                     (fn []
-                                       (end! (words/could-not :reach-auth {:why :standing-failed
-                                                                           :threw (.getName (class t))})))))))))]
+                                 (catch Throwable t (end! (failed t)))))))]
               (.execute executor check!)
               (fn []
                 (stop)

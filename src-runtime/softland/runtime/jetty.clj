@@ -29,26 +29,36 @@
 
   A quiet connection. The server sends a ping on each open connection
   every `ping-ms`, so that a thing in front does not close a quiet line,
-  and a system that went away is noticed: a connection that is silent for
-  `idle-ms`, pongs included, is closed by Jetty.
+  and a system that went away is noticed: a connection from which nothing
+  was heard for `idle-ms`, a frame or a pong, is closed. This namespace
+  keeps when it last heard from each connection and closes it: Jetty's own
+  idle time counts what the server writes, its pings too, so it would keep
+  a system open that never answers.
+
+  A system that does not read. One write of a frame waits at most
+  `send-ms`; past that the write is a failure, and the line ends the
+  connection, which is then dropped without a closing handshake: a close
+  frame could not reach a system that does not read either.
 
   Threads. Each request of a page runs on a virtual thread. A callback of a
   WebSocket runs on a thread of Jetty's and does nothing but hand on.
 
-  State. The server, and the set of open connections for the ping, in the
-  memory of the process."
+  State. The server, and the open connections, each with when it was last
+  heard from, for the ping, in the memory of the process."
   (:require [ring.util.jakarta.servlet :as servlet]
             [softland.runtime.line :as line])
   (:import [jakarta.servlet.http HttpServletRequest HttpServletResponse]
            [java.nio ByteBuffer]
            [java.time Duration]
-           [java.util.concurrent ConcurrentHashMap Executors ScheduledExecutorService
-            ThreadFactory TimeUnit]
+           [java.util.concurrent CompletableFuture ConcurrentHashMap Executors ScheduledExecutorService
+            ThreadFactory TimeUnit TimeoutException]
+           [java.util.concurrent.atomic AtomicLong]
            [org.eclipse.jetty.server HttpConfiguration HttpConnectionFactory Request Server
             ServerConnector]
            [org.eclipse.jetty.servlet ServletContextHandler ServletHandler]
            [org.eclipse.jetty.util.thread QueuedThreadPool]
-           [org.eclipse.jetty.websocket.api Session WebSocketListener WriteCallback]
+           [org.eclipse.jetty.websocket.api Session WebSocketListener WebSocketPingPongListener
+            WriteCallback]
            [org.eclipse.jetty.websocket.server JettyWebSocketCreator JettyWebSocketServerContainer]
            [org.eclipse.jetty.websocket.server.config JettyWebSocketServletContainerInitializer]))
 
@@ -68,37 +78,84 @@
   the line is closed. A number of the build, kept and not decided."
   60000)
 
+(def send-ms
+  "How long one write of a frame to a connection of the line may wait for
+  the system to read it before the write is a failure. A number of the
+  build, kept and not decided."
+  30000)
+
+(defn- sent!
+  "Writes one text frame and waits for it to be written, at most `send-ms`.
+  Takes the session and the text. Gives nil, or throws when the write
+  failed or waited too long; a thread that waits is parked, never pinned."
+  [^Session session ^String text]
+  (let [done (CompletableFuture.)]
+    (.sendString (.getRemote session) text
+                 (reify WriteCallback
+                   (writeFailed [_ x] (.completeExceptionally done x))
+                   (writeSuccess [_] (.complete done nil))))
+    (try (.get done send-ms TimeUnit/MILLISECONDS)
+         (catch TimeoutException _
+           (throw (ex-info "The system does not read: a write waited too long." {:send-ms send-ms}))))
+    nil))
+
+(defn- closed-by!
+  "Closes a session for the line. Takes the session, a status and a reason.
+  1006, which no close frame may carry, says that the system is not to be
+  waited for: the session is dropped without a closing handshake. Any
+  other status is sent in a close frame."
+  [^Session session status reason]
+  (if (= 1006 (int status))
+    (.disconnect session)
+    (.close session (int status) (str reason))))
+
 (defn- listener
   "Makes Jetty's listener for one connection of the line. Takes the seam,
   the caller, the bound on one frame's bytes, and the map of open
-  sessions, from a session to its connection. At the connect it sets the
-  bounds on the session, opens the line's connection with the session's
-  send and close, and keeps both for the ping."
+  sessions, from a session to `[connection heard]`, where `heard` holds
+  when this connection was last heard from (`System/nanoTime`). At the
+  connect it sets the bounds on the session, opens the line's connection
+  with the session's send and close, and keeps both for the ping. Every
+  frame that comes, a ping or a pong too, counts as heard."
   [the-seam caller max-frame-bytes ^ConcurrentHashMap sessions]
   (let [connection (volatile! nil)
-        session-of (volatile! nil)]
-    (reify WebSocketListener
+        session-of (volatile! nil)
+        heard (AtomicLong. (System/nanoTime))
+        heard! (fn [] (.set heard (System/nanoTime)))]
+    (reify
+      WebSocketListener
       (onWebSocketConnect [_ session]
         (let [^Session session session]
           (.setMaxTextMessageSize session (long max-frame-bytes))
           (.setMaxBinaryMessageSize session 1)
           (.setIdleTimeout session (Duration/ofMillis idle-ms))
           (vreset! session-of session)
+          (heard!)
           (let [conn (line/open the-seam caller
-                                {:send! (fn [^String text] (.sendString (.getRemote session) text))
+                                {:send! (fn [^String text] (sent! session text))
                                  :close! (fn [status reason]
                                            (.remove sessions session)
-                                           (.close session (int status) (str reason)))})]
+                                           (closed-by! session status reason))})]
             (vreset! connection conn)
-            (.put sessions session conn)
+            (.put sessions session [conn heard])
             (when-not (line/open? conn)
               (.remove sessions session)))))
       (onWebSocketText [_ text]
+        (heard!)
         (when-let [connection @connection]
           (line/text! connection text)))
       (onWebSocketBinary [_ _payload _offset _length]
         (when-let [^Session session @session-of]
           (.close session 1003 "the line carries text")))
+      WebSocketPingPongListener
+      (onWebSocketPing [_ payload]
+        ;; A listener that hears pings answers them itself.
+        (heard!)
+        (when-let [^Session session @session-of]
+          (try (.sendPong (.getRemote session) ^ByteBuffer payload noop-write-callback)
+               (catch Throwable _ nil))))
+      (onWebSocketPong [_ _payload]
+        (heard!))
       (onWebSocketClose [_ _status _reason]
         (when-let [session @session-of] (.remove sessions session))
         (when-let [connection @connection]
@@ -172,15 +229,25 @@
     (.start server)
     (.scheduleAtFixedRate ^ScheduledExecutorService pinger
                           (fn []
-                            (doseq [^java.util.Map$Entry entry (.entrySet sessions)]
-                              (let [^Session session (.getKey entry)
-                                    conn (.getValue entry)]
-                                ;; Send non-blocking pings directly on the one ping thread
-                                ;; without taking the connection's send lock, so a stalled
-                                ;; reader never blocks pings or pins virtual-thread carriers.
-                                (when (and (line/open? conn) (.isOpen session))
-                                  (try (.sendPing (.getRemote session) (ByteBuffer/allocate 0) noop-write-callback)
-                                       (catch Throwable _ nil))))))
+                            (let [now (System/nanoTime)
+                                  idle-ns (* 1000000 (long idle-ms))]
+                              (doseq [^java.util.Map$Entry entry (.entrySet sessions)]
+                                (let [^Session session (.getKey entry)
+                                      [conn ^AtomicLong heard] (.getValue entry)]
+                                  (cond
+                                    ;; Nothing heard for `idle-ms`, a pong included:
+                                    ;; the system went away or does not answer.
+                                    (< idle-ns (unchecked-subtract now (.get heard)))
+                                    (do (.remove sessions session)
+                                        (try (.disconnect session) (catch Throwable _ nil))
+                                        (try (line/closed! conn) (catch Throwable _ nil)))
+
+                                    ;; Non-blocking pings on the one ping thread, without the
+                                    ;; connection's send lock: a stalled reader never blocks
+                                    ;; pings or pins virtual-thread carriers.
+                                    (and (line/open? conn) (.isOpen session))
+                                    (try (.sendPing (.getRemote session) (ByteBuffer/allocate 0) noop-write-callback)
+                                         (catch Throwable _ nil)))))))
                           ping-ms ping-ms TimeUnit/MILLISECONDS)
     {:server server :port (.getLocalPort connector) :pinger pinger}))
 

@@ -28,9 +28,12 @@
   `{:sign-ins {...} :sessions {...}}` (Auth's spec, \"The client's
   contract\"), or with `not-reached` when this process can no longer say
   what is live there. It is called on a thread of this namespace's own,
-  never on Rama's, one call at a time for one root, and always with the
-  newest value: a listener that is slower than two changes is handed the
-  later one alone.
+  never on Rama's. A value is handed on one call at a time for one root,
+  and always the newest: a listener that is slower than two changes is
+  handed the later one alone; so a listener hands a value on and does not
+  block (the seam's does). `not-reached` is told to each listener on a
+  thread of its own, so a listener that blocks while it ends what rests on
+  it holds back no other listener of the root.
 
   State. Nothing that lasts. In the memory of the process: `roots`, an atom
   from a root to its one watch and its listeners, and an executor of
@@ -85,16 +88,17 @@
 
   `not-reached` is the watch's last word. The root's entry is taken out
   first, so that a listener that comes after it opens a watch anew, and
-  then the listeners that the lost watch had are told, each once."
+  then the listeners that the lost watch had are told, each once and each
+  on a virtual thread of its own: one that blocks holds back no other. When
+  the executor is shut, a listener is told on the calling thread."
   [^Standing standing root entry value]
   (if (= not-reached value)
     (let [roots (.-roots standing)]
       (swap! roots (fn [m] (if (identical? entry (get m root)) (dissoc m root) m)))
-      (try (.execute ^ExecutorService (.-executor standing)
-                     (fn []
-                       (doseq [f (vals @(:listeners entry))]
-                         (try (f not-reached) (catch Throwable _ nil)))))
-           (catch Throwable _ nil)))
+      (doseq [f (vals @(:listeners entry))]
+        (let [tell (fn [] (try (f not-reached) (catch Throwable _ nil)))]
+          (try (.execute ^ExecutorService (.-executor standing) ^Runnable tell)
+               (catch Throwable _ (tell))))))
     (let [{:keys [latest draining]} entry]
       (reset! latest value)
       (when (compare-and-set! draining false true)
