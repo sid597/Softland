@@ -15,6 +15,7 @@ revisit an assumption, or understand recorded evidence.
 | `docs/decisions.md`, retired 18 November 2026 | [docs/decisions.md](docs/decisions.md). Its render-boundary section continues as [the client's intended design](../src/app/client/intended-design.md); what Sid decided, and why, is read from the record. |
 | `docs/carry-on.md`, a session's reading of the vision log through 7 September 2026, retired 18 November 2026 | [docs/carry-on.md](docs/carry-on.md) |
 | Seventeen notes from `.claude/memory/` on how Sid works and on earlier cases, retired 18 November 2026 | [memory-notes/](memory-notes/) |
+| Nine skills from `.agents/skills/`, retired 22 November 2026: the cross-model review loop (`ask-codex-for-feedback`, `ingest-codex-feedback`, `review-cross-model-artifact`), `deliver-like-a-staff-level-product-architect`, `investigation-fence`, `work-package`, `atomize`, `mvp-dev` and `pr-video` | [skills/](skills/) |
 
 [How we got here](../docs/how-we-got-here.md) provides a selective account of the
 questions and changes leading to Inland. The workflow experiment is preserved

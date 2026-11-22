@@ -143,5 +143,5 @@ Use this to defend against review   Reviews are still input.
 
 - `second-order-mirror` — deeper "am I accommodating" check after a review.
 - `save-from-myself` — end-of-session retrospective; this skill is in-the-moment.
-- `ingest-codex-feedback` — pair when ingesting Codex; ingestion skill catches
-  drift in repair, this skill catches drift in broader stance.
+- When ingesting Codex, this skill catches drift in broader stance; drift in
+  the repair itself still needs a check of its own, finding by finding.

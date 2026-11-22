@@ -114,8 +114,8 @@ data. If evidence kills a taste entry, edit `taste.md` and say so in chat.
 ## Composition with the existing workflow
 
 - Big or contested deliverables: package for Codex with
-  `ask-codex-for-feedback` (mode: falsify; preserve: ratified decisions and
-  LAWs), then repair with `ingest-codex-feedback`. Write precisely enough to
+  a request to falsify them (ratified decisions and LAWs are not reopened),
+  then repair from its findings. Write precisely enough to
   survive that review — no overclaimed mappings.
 - Implementation handoffs go through the normal build-track docs; this skill
   produces design truth, not Rama code (use `think-in-rama` / `rama` for
