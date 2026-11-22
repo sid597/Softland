@@ -67,6 +67,6 @@ if [ -z "$style" ]; then
   done
 fi
 echo "Output style: ${style:-default}."
-echo "Kinds of session: /output-style Exploration (exploring with Sid) or claude --settings '{\"outputStyle\":\"Build\"}' (per-session Build)."
+echo "Kinds of session, each set for one session at launch: claude --settings '{\"outputStyle\":\"Exploration\"}' (exploring with Sid) or claude --settings '{\"outputStyle\":\"Build\"}'. Typing /output-style instead saves the style for every session in this project."
 echo "If Sid's message reads as the other kind of session, say so in your first reply."
 exit 0

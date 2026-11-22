@@ -18,7 +18,6 @@ revisit an assumption, or understand recorded evidence.
 | Nine skills from `.agents/skills/`, retired 22 November 2026: the cross-model review loop (`ask-codex-for-feedback`, `ingest-codex-feedback`, `review-cross-model-artifact`), `deliver-like-a-staff-level-product-architect`, `investigation-fence`, `work-package`, `atomize`, `mvp-dev` and `pr-video` | [skills/](skills/) |
 | Three Rama skills from `.agents/skills/`, folded into `rama-pitfalls` and retired 22 November 2026: `think-in-rama`, `rama-retro` and `rama-retro-lens` | [skills/](skills/) |
 | Persona self-check skills (`am-i-losing-myself`, `second-order-mirror`, both lanes) and superseded `.claude/skills/reactive_master.md`, retired 22 November 2026 | [skills/](skills/) |
-| `.claude/hooks/link-memory.sh`, retired 22 November 2026 so Claude Code's auto-memory stays separate from `.claude/memory/` | [hooks/link-memory.sh](hooks/link-memory.sh) |
 
 [How we got here](../docs/how-we-got-here.md) provides a selective account of the
 questions and changes leading to Inland. The workflow experiment is preserved
