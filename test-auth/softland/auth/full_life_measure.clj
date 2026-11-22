@@ -8,7 +8,11 @@
        between 10 and 10,000 closed historical sessions.
     2. 20,000 distinct roots are watched simultaneously on ONE task (testing
        `pstate.proxy.limit = 20000` on `$$live`), with live updates delivered
-       while all 20,000 proxies are open.
+       while all 20,000 proxies are open; and what a write under another root
+       costs meanwhile: `open-session`, `close-session` and a `who-is` right
+       behind them stay near what they cost with no watch open (each p50 at
+       most twice its p50 with no watch, plus 2 ms), because a watch is a
+       proxy on its own root's map in `$$live` alone.
     3. `end-actor` under a root with 3,000 live agents (including a 32-deep
        spine), 2,000 live sign-ins, and 5,000 open sessions completes within
        Revision 2's `< 2,000 ms` bound (far under the `8,000 ms` `ping-task`
@@ -243,16 +247,65 @@
 ;; Measure 2: 20,000 roots watched simultaneously on ONE task
 ;; ============================================================================
 
+(defn- write-cycles
+  "Runs `n` cycles under root `P`'s live sign-in `G`, each an `open-session`
+  of a new session, its `close-session`, and a `who-is` right behind them.
+  Gives `{:open [p50 p95] :close [p50 p95] :who-is [p50 p95]}` in ms. Throws
+  when a call does not give what it must."
+  [c P G n]
+  (let [samples (reduce
+                 (fn [acc _]
+                   (let [S (UUID/randomUUID)
+                         [r1 t1] (time-ms #(client/open-session c {:root P :sign-in G :session S
+                                                                   :until 999999999 :at 100}))
+                         [r2 t2] (time-ms #(client/close-session c {:root P :session S :at 100}))
+                         [r3 t3] (time-ms #(client/who-is c {:root P :sign-in G :session nil}))]
+                     (when-not (and (= {:open S} r1) (= {:closed S} r2) (map? (:sign-in r3)))
+                       (throw (ex-info "a write cycle gave what it must not" {:open r1 :close r2 :who-is r3})))
+                     (-> acc (update :open conj t1) (update :close conj t2) (update :who-is conj t3))))
+                 {:open [] :close [] :who-is []}
+                 (range n))]
+    (into {} (map (fn [[k xs]] [k [(percentile xs 0.5) (percentile xs 0.95)]])) samples)))
+
+(defn- near-baseline?
+  "Whether each p50 of `watched` is at most twice its p50 in `baseline`,
+  plus 2 ms."
+  [baseline watched]
+  (every? (fn [k] (<= (first (get watched k)) (+ 2.0 (* 2.0 (first (get baseline k))))))
+          [:open :close :who-is]))
+
+(defn- show-cycles
+  "Prints the p50 and p95 of one run of `write-cycles`."
+  [label {:keys [open close who-is]}]
+  (println (format "  %-24s open-session p50=%.3f p95=%.3f | close-session p50=%.3f p95=%.3f | who-is right after p50=%.3f p95=%.3f ms"
+                   label (first open) (second open) (first close) (second close) (first who-is) (second who-is))))
+
 (defn measure-2-20k-watches!
   "Opens 20,000 distinct `watch-root` subscriptions on ONE task (1-task IPC so
   all 20,000 live on task 0), verifies 0 `:not-reached` and live push delivery
-  on roots #0 and #19,999 while all 20,000 watches are active simultaneously."
+  on roots #0 and #19,999 while all 20,000 watches are active simultaneously;
+  and times `write-cycles` under a root that nobody watches, with no watch
+  open and with the 20,000 open, holding the second to `near-baseline?`."
   []
   (println "\n=== MEASURE 2: 20,000 roots watched simultaneously on one task ===")
   (with-open [ipc (rtest/create-ipc)]
     (let [mod-name (rama/get-module-name mod/Auth)
           _ (rtest/launch-module! ipc mod/Auth {:tasks 1 :threads 1})
           c (client/open ipc mod-name)
+          ;; The writer: a root that nobody watches, with a live sign-in.
+          P-w (UUID/randomUUID)
+          G-w (UUID/randomUUID)
+          _ (do (client/invite c {:person P-w :claim {:by :email :email "writer@example.com"}
+                                  :invited-by :system :at 10})
+                (client/enter c {:account [:google "writer"] :says {} :email "writer@example.com"
+                                 :code-hash nil :own-layer (UUID/randomUUID)
+                                 :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
+                (client/own-layer-made c {:person P-w :at 25})
+                (client/begin-sign-in c {:root P-w :actor P-w :sign-in G-w :kind :browser :hash (h-of 8999)
+                                         :until 999999999 :label "writer" :at 30}))
+          _ (write-cycles c P-w G-w 300)
+          baseline (write-cycles c P-w G-w 300)
+          _ (show-cycles "0 roots watched:" baseline)
           n-roots 20000
           roots (vec (repeatedly n-roots #(UUID/randomUUID)))
           nr-count (AtomicLong. 0)
@@ -284,6 +337,9 @@
                               (.incrementAndGet nr-count))))]
                  (client/watch-root c p cb)))))
           fn-count (count (filter fn? stops))
+          watched (write-cycles c P-w G-w 300)
+          _ (show-cycles "20,000 roots watched:" watched)
+          near? (near-baseline? baseline watched)
           ;; Trigger live updates on root #0 and root #19,999 while all 20,000 watches stay open!
           P0 (nth roots 0)
           P-last (nth roots (dec n-roots))
@@ -307,12 +363,14 @@
           ok? (and (= n-roots fn-count)
                    (zero? nrs)
                    got-0? (contains? (:sign-ins @first-val) G0)
-                   got-last? (contains? (:sign-ins @last-val) G-last))]
+                   got-last? (contains? (:sign-ins @last-val) G-last)
+                   near?)]
       (println (format "  Registered %d/%d watches on task 0 in %.1f ms (not-reached=%d)"
                        fn-count n-roots open-ms nrs))
       (println (format "  Live push while 20,000 active: root #0=%s, root #19,999=%s; close! took %.1f ms"
                        got-0? got-last? close-ms))
-      (println (if ok? "PASSED" "FAILED") "Measure 2: 20,000 roots watched simultaneously on one task.")
+      (println (format "  Writes under another root with 20,000 watched, each p50 within 2x + 2 ms of none watched: %s" near?))
+      (println (if ok? "PASSED" "FAILED") "Measure 2: 20,000 roots watched simultaneously on one task, and a write under another root and a who-is right behind it cost what they cost with none watched.")
       ok?)))
 
 ;; ============================================================================

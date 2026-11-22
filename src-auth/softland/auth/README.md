@@ -12,9 +12,9 @@ Owns both sides of `Auth`: the Rama module (`Auth`) that decides writes and serv
 
 ## State (kept apart)
 
-- **Durable cluster state (owned by `Auth` in `module.clj`):** Four partitioned depots (`*root-events`, `*asks`, `*invites`, `*enters`) and six partitioned PStates (`$$root-data`, `$$live` launched with `pstate.proxy.limit = 20000`, `$$accounts`, `$$claims`, `$$asks`, `$$enter-ops`), all owned by the single stream topology `"auth"`.
+- **Durable cluster state (owned by `Auth` in `module.clj`):** Four partitioned depots (`*root-events`, `*asks`, `*invites`, `*enters`) and six partitioned PStates (`$$root-data`, `$$live` launched with `pstate.proxy.limit = 20000`, `$$accounts`, `$$claims`, `$$asks`, `$$enter-ops`), all owned by the single stream topology `"auth"`. `$$live` is nested by root: under each root, a subindexed map of what is live there, so that a watch of one root is a proxy on that root's map alone.
 - **Borrowed cluster handles (held by each `Client` in `client.clj`):** Foreign handles to the four depots, `$$asks`, `$$live`, and the three query topologies (`"who-is"`, `"under"`, `"ping-task"`). The caller of `open` owns the underlying Rama cluster handle; `close!` does not close the cluster.
-- **Process-local memory (owned by each `Client` in `client.clj`):** A closed flag, one shared `foreign-proxy` subscription and incrementally projected live map per locally watched root, per-watcher turn locks, and a daemon scheduler running `"ping-task"` while watches are active. Holds no Auth truth and is discarded on `close!` or process exit.
+- **Process-local memory (owned by each `Client` in `client.clj`):** A closed flag, one shared `foreign-proxy` subscription on the root's own map in `$$live` and an incrementally projected live map per locally watched root, per-watcher turn locks, and a daemon scheduler running `"ping-task"` while watches are active. Holds no Auth truth and is discarded on `close!` or process exit.
 
 ## How the files relate
 

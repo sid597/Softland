@@ -10,7 +10,8 @@
   transport or timeout failures return `{:could-not :reach-the-module ...}`.
 
   `watch-root` deduplicates Rama `foreign-proxy-async` subscriptions per
-  `(client, root)` on `$$live`, applies `KeyDiff` / `KeyRemoveDiff` /
+  `(client, root)`, each a proxy on that root's own map in `$$live`
+  (`[(keypath root) (sorted-map-range ...)]`), applies `KeyDiff` / `KeyRemoveDiff` /
   `MultiDiff` incrementally, suppresses the initial `ResyncDiff` and
   `DestroyedDiff`, isolates throwing callbacks per watcher, prevents
   re-entrant deadlocks on `stop` / `close!` via a `ThreadLocal` turn guard,
@@ -333,12 +334,12 @@
             (deliver-value! w next-proj)))))))
 
 (defn- probe-root-alive?
-  "Issues a bounded `fallback-probe-timeout-ms` select on `$$live` for `root`
-  during a partial task outage."
+  "Issues a bounded `fallback-probe-timeout-ms` select of the first entry of
+  `root`'s map in `$$live` during a partial task outage."
   [^Client client root]
   (try
     (await-future
-     (rama/foreign-select-async [(path/sorted-map-range-from (s/k-live-lo root) {:max-amt 1})]
+     (rama/foreign-select-async [(path/keypath root) (path/sorted-map-range-from s/live-lo {:max-amt 1})]
                                 (.-p-live client)
                                 {:pkey root})
      fallback-probe-timeout-ms)
@@ -677,7 +678,7 @@
 
 (defn watch-root
   "Watches live sign-ins and open sessions under root `P` via a shared
-  `foreign-proxy-async` on `$$live`. Calls `(f {:sign-ins {...} :sessions {...}})`
+  `foreign-proxy-async` on `P`'s own map in `$$live`. Calls `(f {:sign-ins {...} :sessions {...}})`
   on each change (omitting `:driven-by`), with no call at registration. Delivers
   `:softland.auth.client/not-reached` once within seconds if the module or task
   cannot be reached. Returns a 0-arg stop function, `{:could-not :closed}` on a
@@ -719,7 +720,7 @@
               :created
               (try
                 (let [pf-fut (rama/foreign-proxy-async
-                              [(path/sorted-map-range (s/k-live-lo p) (s/k-live-hi p))]
+                              [(path/keypath p) (path/sorted-map-range s/live-lo s/live-hi)]
                               (.-p-live c)
                               {:pkey p
                                :callback-fn (fn [new-val diff old-val]

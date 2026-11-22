@@ -5,9 +5,14 @@
   Every Rama depot record and PState value implements a closed marker interface
   (`IRootDatum`, `ILiveEntry`, `IAccountState`, `IClaimState`, `IAskState`,
   `IEnterOpState`, `IDrivenBy`) so no PState schema uses `Object` and no live
-  watched record holds a byte array. All range-scanned composite keys in
-  `$$root-data` and `$$live` are strictly 7-bit ASCII so RocksDB UTF-8 byte
-  order matches JVM UTF-16 order identically.
+  watched record holds a byte array. All range-scanned keys are strictly 7-bit
+  ASCII so RocksDB UTF-8 byte order matches JVM UTF-16 order identically: the
+  composite keys of `$$root-data` (`\"<P>\\0...\"`), and the inner keys of
+  `$$live`, which holds under each root `P` a subindexed map of what is live
+  there (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a session). The live map is
+  nested by root so that a watch of one root is a proxy on that root's map
+  alone: a write under one root is matched against that root's watches, not
+  against every watched root of its task.
 
   The pure transition functions for `invite`, `enter`, and `answer-ask`
   mirror the model-checked step specification in
@@ -206,34 +211,14 @@
   (str p "\u0000ao;"))
 
 (defn k-signin
-  "Key of sign-in `G` under root `P` (used in both `$$root-data` and `$$live`)."
+  "Key of sign-in `G` under root `P` in `$$root-data`."
   ^String [^UUID p ^UUID g]
   (str p "\u0000g:" g))
 
-(defn k-signin-lo
-  "Inclusive lower bound of root `P`'s `g:` range in `$$live`."
-  ^String [^UUID p]
-  (str p "\u0000g:"))
-
-(defn k-signin-hi
-  "Exclusive upper bound of root `P`'s `g:` range in `$$live`."
-  ^String [^UUID p]
-  (str p "\u0000g;"))
-
 (defn k-session
-  "Key of session `S` under root `P` (used in both `$$root-data` and `$$live`)."
+  "Key of session `S` under root `P` in `$$root-data`."
   ^String [^UUID p ^UUID s]
   (str p "\u0000s:" s))
-
-(defn k-session-lo
-  "Inclusive lower bound of root `P`'s `s:` range in `$$live`."
-  ^String [^UUID p]
-  (str p "\u0000s:"))
-
-(defn k-session-hi
-  "Exclusive upper bound of root `P`'s `s:` range in `$$live`."
-  ^String [^UUID p]
-  (str p "\u0000s;"))
 
 (defn k-exp
   "Key of expiry index entry for sign-in (`\"g\"`) or session (`\"s\"`) at `until`."
@@ -255,15 +240,43 @@
   ^String [^UUID p ^UUID op-id]
   (str p "\u0000ok:" op-id))
 
-(defn k-live-lo
-  "Inclusive lower bound of root `P`'s full slice in `$$live`."
-  ^String [^UUID p]
-  (str p "\u0000"))
+;; ------------------------------------------- inner keys of a root in $$live
 
-(defn k-live-hi
-  "Exclusive upper bound of root `P`'s full slice in `$$live`."
-  ^String [^UUID p]
-  (str p "\u0001"))
+(defn lk-signin
+  "Key of sign-in `G` in its root's map in `$$live` (`\"g:<G>\"`)."
+  ^String [^UUID g]
+  (str "g:" g))
+
+(defn lk-session
+  "Key of session `S` in its root's map in `$$live` (`\"s:<S>\"`)."
+  ^String [^UUID s]
+  (str "s:" s))
+
+(def live-lo
+  "Inclusive lower bound of every key of a root's map in `$$live`."
+  "")
+
+(def live-hi
+  "Exclusive upper bound of every key of a root's map in `$$live`: DEL
+  (0x7f), above every printable 7-bit ASCII character."
+  "\u007f")
+
+(def live-signin-lo
+  "Inclusive lower bound of the sign-ins (`g:`) of a root's map in `$$live`."
+  "g:")
+
+(def live-signin-hi
+  "Exclusive upper bound of the sign-ins of a root's map in `$$live` (`;`
+  is ASCII 0x3b, just above `:` 0x3a)."
+  "g;")
+
+(def live-session-lo
+  "Inclusive lower bound of the sessions (`s:`) of a root's map in `$$live`."
+  "s:")
+
+(def live-session-hi
+  "Exclusive upper bound of the sessions of a root's map in `$$live`."
+  "s;")
 
 ;; ------------------------------------------------------- action accessors
 ;; Named Clojure functions so Rama dataflow never puts keywords in op position.
@@ -819,12 +832,14 @@
   (or (:rd-deletes plan) []))
 
 (defn plan-live-upserts
-  "Returns the vector of `[key val]` pairs to upsert into `$$live`."
+  "Returns the vector of `[inner-key val]` pairs to upsert into the plan's
+  root's map in `$$live` (`lk-signin` / `lk-session` keys)."
   [plan]
   (or (:live-upserts plan) []))
 
 (defn plan-live-deletes
-  "Returns the vector of keys to delete (`NONE>`) from `$$live`."
+  "Returns the vector of inner keys to delete (`NONE>`) from the plan's
+  root's map in `$$live`."
   [plan]
   (or (:live-deletes plan) []))
 
@@ -855,7 +870,8 @@
 
 (defn plan-take-out
   "Pure planner for take-out under `root`: given non-empty `exp-map` (`exp:`
-  entries with `until <= at`) and `live-map` (`$$live` range for `root`),
+  entries with `until <= at`) and `live-map` (the root's map in `$$live`,
+  keyed by inner keys),
   computes all `rd-upserts`, `rd-deletes`, and `live-deletes` in memory,
   cascading expired sign-ins to their open sessions even when session `:until > at`."
   [root exp-map live-map]
@@ -928,7 +944,7 @@
                        (conj [(k-exp P until "g" G) (->ExpiryEntry :sign-in G A until)]))
          :live-upserts (if born-ended?
                          []
-                         [[(k-signin P G) (signin-rec->live rec)]])
+                         [[(lk-signin G) (signin-rec->live rec)]])
          :result {:begun G}}))))
 
 (defn replace-secret-born-ended?
@@ -974,7 +990,7 @@
         (if born-ended?
           (let [rd-upserts (transient [[(k-signin P G) g']])
                 rd-deletes (transient [(k-exp P old-until "g" G)])
-                live-deletes (transient [(k-signin P G)])]
+                live-deletes (transient [(lk-signin G)])]
             (doseq [[lk ^LiveSession s] live-s-map]
               (when (= (:sign-in s) G)
                 (conj! live-deletes lk)
@@ -987,7 +1003,7 @@
           {:rd-upserts [[(k-signin P G) g']
                         [(k-exp P until "g" G) (->ExpiryEntry :sign-in G (:actor g) until)]]
            :rd-deletes (if (= until old-until) [] [(k-exp P old-until "g" G)])
-           :live-upserts [[(k-signin P G) (signin-rec->live g')]]
+           :live-upserts [[(lk-signin G) (signin-rec->live g')]]
            :result {:replaced G}})))))
 
 (defn signin-needs-end?
@@ -1010,7 +1026,7 @@
       :else
       (let [rd-upserts (transient [[(k-signin P G) (assoc g :ended? true)]])
             rd-deletes (transient [(k-exp P (:until g) "g" G)])
-            live-deletes (transient [(k-signin P G)])]
+            live-deletes (transient [(lk-signin G)])]
         (doseq [[lk ^LiveSession s] live-s-map]
           (when (= (:sign-in s) G)
             (conj! live-deletes lk)
@@ -1083,7 +1099,8 @@
 
 (defn plan-end-actor-2scan
   "Pure planner for Revision 2's 3-seek 2-scan `end-actor` cascade (`a:<A>`,
-  forward `ao:` scan from `target.seq`, and `$$live` scan for `root`)."
+  forward `ao:` scan from `target.seq`, and a scan of the root's map in
+  `$$live`, keyed by inner keys)."
   [root ^ActorRec target-rec ao-map live-map]
   (let [target-id (:actor target-rec)
         ended-as (volatile! #{target-id})
@@ -1141,7 +1158,7 @@
           {:rd-upserts [[(k-session P S) s']
                         [(k-exp P until "s" S) (->ExpiryEntry :session S G until)]]
            :rd-deletes [(k-exp P old-until "s" S)]
-           :live-upserts [[(k-session P S) (->LiveSession S G until (:driven-by s))]]
+           :live-upserts [[(lk-session S) (->LiveSession S G until (:driven-by s))]]
            :result {:open S}})
         {:result {:open S}})
 
@@ -1159,7 +1176,7 @@
                        (conj [(k-exp P until "s" S) (->ExpiryEntry :session S G until)]))
          :live-upserts (if born-closed?
                          []
-                         [[(k-session P S) (->LiveSession S G until db)]])
+                         [[(lk-session S) (->LiveSession S G until db)]])
          :result {:open S}}))))
 
 (defn plan-close-session
@@ -1177,7 +1194,7 @@
       :else
       {:rd-upserts [[(k-session P S) (assoc s :closed? true)]]
        :rd-deletes [(k-exp P (:until s) "s" S)]
-       :live-deletes [(k-session P S)]
+       :live-deletes [(lk-session S)]
        :result {:closed S}})))
 
 ;; ------------------------------------------------- Slice c: ask & answer-ask
@@ -1308,7 +1325,7 @@
                                   [ok-key out]]
                            (not born-ended?)
                            (conj [(k-exp root until "g" sign-in) (->ExpiryEntry :sign-in sign-in actor until)]))
-             :live-upserts (if born-ended? [] [[(k-signin root sign-in) (signin-rec->live srec)]])
+             :live-upserts (if born-ended? [] [[(lk-signin sign-in) (signin-rec->live srec)]])
              :outcome out})))
 
       :else
@@ -1334,7 +1351,7 @@
                                   [ok-key out]]
                            (not born-ended?)
                            (conj [(k-exp root until "g" sign-in) (->ExpiryEntry :sign-in sign-in actor until)]))
-             :live-upserts (if born-ended? [] [[(k-signin root sign-in) (signin-rec->live srec)]])
+             :live-upserts (if born-ended? [] [[(lk-signin sign-in) (signin-rec->live srec)]])
              :outcome out}))))))
 
 (defn plan-outcome
@@ -1465,7 +1482,8 @@
 
 (defn build-under-result
   "Builds the exact contract result map of `under` from `ao-map` (`ao:` sorted
-  range) and `live-g-map` (`$$live` `g:` range, live sign-ins only, sorted by `:seq`)."
+  range) and `live-g-map` (the `g:` range of the root's map in `$$live`, live
+  sign-ins only, sorted by `:seq`)."
   [ao-map live-g-map]
   {:actors (if (seq ao-map)
              (->> (vals ao-map)
@@ -1522,21 +1540,21 @@
       :until (:until entry)}]))
 
 (defn parse-live-key
-  "Parses a `$$live` key (`\"<P>\\0g:<G>\"` or `\"<P>\\0s:<S>\"`) into
-  `[:sign-ins G-uuid]` or `[:sessions S-uuid]` for incremental `KeyRemoveDiff`."
-  [^String k]
-  (let [nul (.indexOf k 0)]
-    (when (and (>= nul 0) (> (.length k) (+ nul 3)))
-      (let [tag (.charAt k (inc nul))
-            id (UUID/fromString (.substring k (+ nul 3)))]
-        (case tag
+  "Parses an inner key of a root's map in `$$live` (`\"g:<G>\"` or
+  `\"s:<S>\"`) into `[:sign-ins G-uuid]` or `[:sessions S-uuid]` for an
+  incremental `KeyDiff` / `KeyRemoveDiff`. Gives nil for anything else."
+  [k]
+  (when (and (string? k) (> (.length ^String k) 2) (= \: (.charAt ^String k 1)))
+    (let [id (try (UUID/fromString (.substring ^String k 2)) (catch Throwable _ nil))]
+      (when id
+        (case (.charAt ^String k 0)
           \g [:sign-ins id]
           \s [:sessions id]
           nil)))))
 
 (defn project-live-map
-  "Projects a full `$$live` slice map (`{String -> ILiveEntry}`) into
-  `{:sign-ins {G ...} :sessions {S ...}}`."
+  "Projects a root's whole map in `$$live` (`{inner-key -> ILiveEntry}`)
+  into `{:sign-ins {G ...} :sessions {S ...}}`."
   [m]
   (reduce-kv
    (fn [acc _ v]
