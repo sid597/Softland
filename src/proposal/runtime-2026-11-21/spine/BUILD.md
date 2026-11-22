@@ -189,3 +189,31 @@ test-runtime/softland/runtime/command_proof.clj | 18 ++++++++++++++++--
 2. **Pre-existing breaker fixes landed tonight:** Landed all 11 HIGH and top MEDIUM correctness/security fixes found by the fresh breaker review across `src-runtime/` and `src-command/` (`standing.clj` fail-closed watch opening, `seam.clj` query `:session` check / rotatable `Caller.hash` / interrupted `send-all` / `:under` clock filter / non-blocking `standing`, `line.clj` worker interrupt + tokenized watch IDs, `jetty.clj` `sessions` leak fix + virtual-thread pings, `http.clj` `POST /yes` race + `GET /yes` expiry + malformed cookie 401 + `:says` key bound, `google.clj` & `command/client.clj` shared `HttpClient` + synchronized WS sends, `command/main.clj` atomic mode-0600 `keep!` + safe `new-session`).
 3. **`runtime-oracle/` kept in `spine/runtime-oracle/`:** Kept committed as an explicitly documented non-production test shim (never on `:runtime`'s default classpath in `deps.edn`) so anyone can reproduce tonight's oracle-phase proofs until real `src-auth/` lands.
 4. **Standalone `zoo.cfg` + `127.0.0.1` `rama.yaml`:** Left ready under `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/cluster/` with the Rama 1.6.0 wildcard-bind bytecode receipts documented above; no cluster daemons left running.
+
+---
+
+## 6. Afternoon Pass (22 November 2026) — Reference Auth, Review Faults, `:open-session`, First Ration Layer, and Real Auth
+
+### Step 1: Thin adapter onto `softland.auth.reference`
+
+Replaced the stand-in rules in `src/proposal/runtime-2026-11-21/spine/runtime-oracle/src/softland/auth/client.clj` with a thin adapter that forwards every call unchanged to `softland.auth.reference` (adding, dropping, and loosening nothing) and delivers `watch-root` callbacks asynchronously in strict change order on a dedicated single-thread daemon executor per client. Moved the replaced stand-in `client.clj` and `oracle_proof.clj` to `src/proposal/runtime-2026-11-21/spine/runtime-oracle/set-aside/` (nothing deleted).
+
+**What was run:**
+```text
+flock /mnt/data/projects/Softland/src/proposal/backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock \
+  clojure -Sdeps '{:aliases {:auth {:replace-paths ["src/proposal/runtime-2026-11-21/spine/runtime-oracle/src" "test-auth"]}}}' \
+  -M:auth -e '... async watch ordering check + softland.auth.module-check (seed 42, 200 histories) ...'
+```
+
+**Output:**
+```text
+PASSED watch-root callbacks arrived on another thread in exact order: [0 1 2 3 4 5]
+Seed of the histories: 42
+The module: runtime-oracle adapter over softland.auth.reference
+PASSED The module, runtime-oracle adapter over softland.auth.reference, gave what the reference gives, through the contract alone, in 200 generated histories of 16234 steps: every result of 14292 writes (1718 of them repeats, 866 whose input does not fit), every one of 108725 reads of who-is, ask-of and under, and what each of 562 watches came to after each of the 824 changes under its root; with 50 deep segments of 32 agents in a line, 52 times :too-deep, and 0 calls sent again after a :could-not that said nothing.
+(The module's histories took 41.0 s.)
+PASSED open of a name that the cluster does not hold, and of a thing that is no cluster, gives {:could-not :find-the-module}.
+PASSED After close!, each of the sixteen calls on that client gives {:could-not :closed}, watch-root's in place of the function; close! gives nil, also again; no function that it watched with is called again; and the other client goes on.
+
+3 passed, 0 failed.
+```
