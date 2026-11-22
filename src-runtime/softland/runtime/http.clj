@@ -491,14 +491,18 @@
         act (uuid-of (get form "act"))
         name (str/trim (str (get form "name")))
         next (way-on (get (query-of request) "next"))
-        caller (when (and form act (own-origin? options request))
+        ;; The session is opened only for a post that will send its act.
+        caller (when (and form act (own-origin? options request) (words/text? name))
                  (of-cookie options request act))]
     (cond
-      (not (and caller act (seam/person? caller)))
+      (not (and form act (own-origin? options request)))
       (page 400 "<p>That was not taken.</p>")
 
       (not (words/text? name))
       (redirect (str "/sign-in/name?next=" (codec/url-encode next)))
+
+      (not (and caller (seam/person? caller)))
+      (page 400 "<p>That was not taken.</p>")
 
       :else
       (let [sent (sign-in/name! the-seam caller name act)]
