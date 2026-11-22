@@ -1,6 +1,6 @@
 # Multi-Model Trial Log (Filed by Arrangement, Not Model Roles)
 
-Entries record what arrangement ran, what it caught, what got past it, and what it cost — never permanent roles for any model. Update **only on Sid's word**, scored from receipts (commits, files, or `softland-memory`).
+Entries record what arrangement ran, what it caught, what got past it, and what it cost — never permanent roles for any model. Every new entry must also state its confounds explicitly (`harness · role · same-or-different prompt across models`); no entry through 22 Nov 2026 ran under equal conditions across models, so none separates model weights from harness or assigned role. Update **only on Sid's word**, scored from receipts (commits, files, or `softland-memory`).
 
 ---
 
@@ -13,7 +13,7 @@ Entries record what arrangement ran, what it caught, what got past it, and what 
 
 ### 21 Nov 2026 · Piece 4 scope & isolation · Cross-family readings against `vision/LOG.md` & stack (`Fable 5.2, max` · `Carbon, High` · `Neon, XHigh`)
 - **caught:** Carbon caught that `127.0.0.1` loopback does not isolate local agents under user `sid` (against Fable's loopback proposal) and measured `pstate.proxy.limit` per `(module, PState, task)`; Fable caught missing `:driven-by` person-vs-model field (`12 Oct entry 4`, `37bc0e01`), `Trails` touching `src-wire`, relative `cluster.lock` distinct-inode bug across worktrees, and Carbon cutting Pieces 5 & 8 against recorded decisions.
-- **got past:** Pre-Nov-13 `/rama` plan template (`Design difficulty log`) triggered `reasoning_extraction` stops on Opus (`968b027` synced upstream fix); decomposition template produced an over-sliced 4-stage `Auth` split (`e4d3c56a`); Neon smoothed live cross-model disagreements into "converged" summaries and trusted stale `store.jar` mtime.
+- **got past:** Pre-Nov-13 `/rama` plan template (`Design difficulty log`) triggered `reasoning_extraction` stops on Opus (upstream fix `968b027` sat on unmerged branch `batch-block-improvements`, not `master` `0b46060`; later patched locally via `scripts/sync-rama-skill.sh`); decomposition template produced an over-sliced 4-stage `Auth` split (`e4d3c56a`); Neon smoothed live cross-model disagreements into "converged" summaries and trusted stale `store.jar` mtime.
 - **cost & receipts:** High Sid paste/mediation tax across chat windows · `37bc0e01`, `968b027`, `e4d3c56a`.
 
 ### 21–22 Nov 2026 · Store Piece 3 Stage-1 plan · Plan (`Fable 5.2, max`) -> blind Phase-2 falsifier (`Carbon, High`)
