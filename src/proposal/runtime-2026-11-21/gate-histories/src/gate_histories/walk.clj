@@ -1,21 +1,27 @@
 (ns gate-histories.walk
-  "The walk of one thing against a record in memory. Pure code: it needs no
-  cluster and no Rama.
+  "The way of one thing through the store, in memory: the door's additions,
+  the walk of the gate against a record, and the answer that the door gives
+  back. Pure code: it needs no cluster and no Rama.
 
-  It calls the store's own functions, the ones that a gate calls, and writes
-  the rows that they give into a map. Nothing of the decision is written
-  again here: the test for a stray and the declaration's check are
-  `softland.store.door.declaration`'s, each check against the record and the
-  rows of a decision are `softland.store.gate.decision`'s, and the stamp is
-  `softland.store.gate.stamp`'s.
+  It calls the store's own functions, the ones that the door and a gate
+  call, and writes the rows that they give into a map. Nothing of the
+  decision is written again here: the door's reading and its three
+  additions are `softland.store.door.additions`'s; the test for a stray and
+  the declaration's check are `softland.store.door.declaration`'s; each
+  check against the record and the rows of a decision are
+  `softland.store.gate.decision`'s; the stamp is `softland.store.gate.stamp`'s;
+  and the answer that a sender is told is `softland.store.door.words/answer`
+  of the answer's row, held against the digest that the door gave her.
 
   The order is the order that `softland.store.module.walk` names in its own
-  description, steps 0 to 7. This file was written from that description and
-  from the docstrings of the pure functions, not from the Rama code. So what
-  it proves is this: given the rows that those docstrings say must be in
-  hand, the gate's rules decide as a history's statements require. It does
-  not prove that the module hands a gate those rows. That is the module's
-  proof, on a cluster.
+  description, steps 0 to 7, check (a) and the answers among them. This file
+  was written from that description and from the docstrings of the pure
+  functions, and checked against the Rama code of the walk: it reads the
+  rows that the module reads, in the same order, and hands each pure
+  function what the module hands it. So what it proves is this: given the
+  rows that those docstrings say must be in hand, the gate's rules decide as
+  a history's statements require. That the module hands a gate those rows
+  is the module's proof, on a cluster.
 
   A record here is a map:
 
@@ -25,10 +31,14 @@
     :last-stamp  the last stamp of each layer, by layer id
     :strays      the reason word of each stray, in order
 
-  `decide` takes a record, the depot word of the gate, and one thing as it
-  arrived. It gives the record after, and what happened under `:outcome`."
-  (:require [softland.store.door.declaration :as declaration]
+  `through-the-door` makes the thing that the door appends for a maker's
+  act. `decide` takes a record, the depot word of the gate, and one thing as
+  it arrived. It gives the record after, and what happened under
+  `:outcome`. `told` reads what the door tells the thing's sender."
+  (:require [softland.store.door.additions :as additions]
+            [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
+            [softland.store.door.words :as words]
             [softland.store.gate.decision :as decision]
             [softland.store.gate.stamp :as stamp]
             [softland.store.record.rows :as record]))
@@ -37,19 +47,27 @@
   "A record that holds nothing: no layer is made."
   {:answers {} :facts {} :by-value {} :last-stamp {} :strays []})
 
+(defn through-the-door
+  "The thing that the door appends for a maker's act, as `softland.store.door/send-act`
+  makes it: the door's reading of the act and its three additions, the
+  act-id, the depot that it names and the time
+  (`softland.store.door.additions`). Takes the maker's act, the act-id that
+  the maker holds, and the time. Gives the thing. Throws when the door would
+  append nothing and give a word instead: a history sends only what the
+  door appends."
+  [maker-act act-id door-time]
+  (let [reading (additions/reading maker-act act-id)
+        built (when-not (:could-not reading) (additions/thing-to-append reading act-id door-time))]
+    (or (:thing built)
+        (throw (ex-info "the door appends nothing for this act"
+                        {:act maker-act :word (if (:could-not reading) reading built)})))))
+
 (defn- rows-at
   "Takes the record's facts and keys. Gives a map from each key to its row.
   A key whose place is empty is in the map with nil, so that a caller can
   tell a place that was read and is empty from one that was not read."
   [facts ks]
   (into {} (map (fn [k] [k (get facts k)])) ks))
-
-(def ^:private hex-for-its-permission
-  "The store's `softland.store.gate.decision/hex-for-its-permission`, when
-  the store has it: the gate of piece 2 holds an act under a permission for
-  one act to the digest of the thing. nil for a store that has no such
-  permission, whose `standing` takes one argument less."
-  (ns-resolve 'softland.store.gate.decision 'hex-for-its-permission))
 
 (defn- checks
   "Steps 4 and 5 for an act that the declaration took. Takes the record's
@@ -62,10 +80,8 @@
         depot-key (decision/depot-place act)
         depot-row (when (nil? permission-row) (get facts depot-key))
         chain-rows (rows-at facts (decision/chain-needed act permission-row))
-        standing-word (if hex-for-its-permission
-                        (decision/standing gate-depot act permission-row depot-row chain-rows
-                                           (hex-for-its-permission thing act))
-                        (decision/standing gate-depot act permission-row depot-row chain-rows))
+        standing-word (decision/standing gate-depot act permission-row depot-row chain-rows
+                                         (decision/hex-for-its-permission thing act))
         makes? (decision/makes-the-layer? gate-depot act permission-row depot-row)]
     (if standing-word
       {:word standing-word :makes? false}
@@ -110,6 +126,8 @@
     {:stray word}                      the thing got no answer
     {:repeat true}                     its act-id has an answer; nothing is
                                        decided and nothing is written
+                                       (check (a)), whether the thing is the
+                                       one that the answer is of or another
     {:verdict :accepted :stamp n ...}  the act was taken
     {:verdict word :stamp n ...}       the act was refused, with its word
 
@@ -138,3 +156,17 @@
                      :act act
                      :makes? makes?
                      :writes (vec writes)}})))))
+
+(defn told
+  "What the door tells the sender of a thing when she reads her answer
+  (`softland.store.door/answer-of`): the answer under the thing's act-id,
+  held against the digest that the door gave her when it sent the thing
+  (`softland.store.door.digest/readable-hex-of`). Takes a record and the
+  thing as it arrived. Gives one of the door's four answers:
+  `{:answer :accepted ...}`, `{:answer :refused :reason word ...}`,
+  `{:answer :nothing-yet}`, or `{:answer :not-mine}` when the act-id's
+  answer is of another thing."
+  [rec thing]
+  (let [[layer _ act-uuid] (:act-id thing)]
+    (words/answer (record/answer-of (get (:answers rec) (record/answer-key layer act-uuid)))
+                  (digest/readable-hex-of thing))))

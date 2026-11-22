@@ -1,13 +1,14 @@
 (ns gate-histories.reference
   "The statements about permissions, as the plainest code that says them.
-  Pure code. It shares nothing with the gate: it reads no row and no stamp,
-  and it does not know how a gate tells a permission that was given again
-  from the one that ended.
+  Pure code. It shares nothing with the gate: it reads no row, no stamp and
+  no digest, and it does not know how a gate tells a permission that was
+  given again from the one that ended.
 
   It keeps, for one layer, what a person would keep on paper: who was given
-  a permission by whom, and which of those gives were ended. Each give that
-  is taken is a thing of its own, a grant, with a number. A grant that is
-  given again after an end is another grant, though its id is the same.
+  a permission by whom, which of those gives were ended, and the answer that
+  each thing got. Each give that is taken is a thing of its own, a grant,
+  with a number. A grant that is given again after an end is another grant,
+  though its id is the same.
 
   The statements, in Sid's words where he gave them
   (src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6):
@@ -67,13 +68,46 @@
     R9  A thing that names a permission for another run than its own, or
         for another act, is refused.
     R10 A permission for a run or for an act gives nothing. So nothing is
-        ever beneath one. This statement came from running the statements
-        by themselves (`gate-histories.design`): without it, a holder for
-        one run gives herself a permission for the layer.
+        ever beneath one. The session that wrote these statements found it
+        by running them by themselves, before any of piece 2 was built
+        (SPEC.md, R10): without it, a holder for one run gives herself a
+        permission for the layer.
 
-  `judge` takes the state and one thing as its maker sent it. It gives
-  whether the statements take the act, the first reason when they do not,
-  and the state after.
+  R2's \"part for part\" is said here in plain code (`the-act`), not by a
+  digest: the permission names its act by a digest, and the statements are
+  told which act each yes was for (`*act-named*`). So where the gate's
+  digest and the act part for part come apart, the gate and the statements
+  differ, and a run shows it. R5's \"under that permission itself\" cannot
+  hold for a permission for one act beside R2, which takes nothing under it
+  but its act: here R2 is checked first, so a holder ends her permission for
+  an act only under her permission for the layer.
+
+  A repeat, by Sid's decision of 7 October 2026 (src-store/README.md, the
+  decisions of that day, entry 6: \"a repeat is answered, not decided
+  twice\"):
+
+    once  The same thing under the same act-id is decided once and keeps
+          its first answer. The same thing is the same act part for part,
+          under the same permission. Nothing more is said of an act-id here:
+          another thing under an act-id that was used is decided as any
+          thing is.
+
+  Two more that a history is held to, which the review of piece 2 showed
+  missing (src/proposal/runtime-2026-11-21/overnight-audit/REVIEW-store-piece-2.md,
+  section 1). Each compares the gate with the statements, so the run holds
+  them (`gate-histories.run`); this namespace gives what they need: the
+  answer that the statements give each thing (`judge`), and who is inside
+  a permission (`inside`).
+
+    T1  An act that the statements take is taken by the gate, and its
+        sender is told so.
+    T2  Nothing that is sent by a who other than the holder, the giver and
+        those above the giver changes whether the holder's permitted act is
+        taken.
+
+  `judge` takes the state and one thing as it arrived. It gives whether the
+  statements take the act, the first reason when they do not, the answer
+  that its sender is to be told, and the state after.
 
   `may-see` says whether an asker may see the layer.
 
@@ -94,28 +128,33 @@
 
 (def ^:dynamic *short-gives?*
   "False: R10 holds, a permission for a run or for an act gives nothing.
-  True: the statements as they were before R10, for `gate-histories.design`
-  to show what they let through."
+  True: the statements as they were before R10, to show what they let
+  through."
   false)
 
-(def ^:dynamic *digest-of*
-  "Takes a thing as it arrives. Gives what an act's permission holds of it:
-  the act part for part, without its time and its permission. Here the
-  plainest thing that says so; a run against the gate puts the store's own
-  digest in its place."
-  (fn [thing] (pr-str (into (sorted-map) (dissoc thing :permission :door-time)))))
+(def ^:dynamic *act-named*
+  "Takes [uuid text], the two that a permission for one act names in its
+  sixth slot. Gives the act that its giver said yes to, as the thing would
+  arrive, or nil for a yes that nobody made. It is what the history knows of
+  each yes, written down when the yes was made: a person who says yes to an
+  act knows the act. The statements hold an act to it part for part
+  (`the-act`), and never compute a digest."
+  (constantly nil))
 
 (def start
   "The state before the layer is made.
 
-    :made?   whether the layer is made
-    :at      place -> what sits there: a grant's number, or :end. A place
-             is [:layer holder], [:run session] or [:act uuid]
-    :grants  number -> {:holder :permission :parent}, each grant ever taken
-    :killed  the numbers of the grants that an end named
+    :made?    whether the layer is made
+    :at       place -> what sits there: a grant's number, or :end. A place
+              is [:layer holder], [:run session] or [:act uuid]
+    :given    place -> each grant's number and each :end that was put
+              there, in order
+    :grants   number -> {:holder :permission :parent}, each grant ever taken
+    :killed   the numbers of the grants that an end named
+    :answers  act-id -> the thing as sent (`as-sent`) -> its first answer
     :everyone?  whether the layer is open to everyone. A layer starts
                 open to its members only"
-  {:made? false :at {} :grants {} :killed #{} :n 0 :everyone? false})
+  {:made? false :at {} :given {} :grants {} :killed #{} :answers {} :n 0 :everyone? false})
 
 (defn covers
   "What a permission covers, from its id: [:layer], [:run session] or
@@ -128,7 +167,7 @@
   [permission]
   (if (<= 5 (count permission)) (nth permission 4) :see-and-act))
 
-(defn- above
+(defn above
   "The permission above a permission, from its id, or nil."
   [permission]
   (nth permission 3 nil))
@@ -141,12 +180,47 @@
           (= p upper) true
           :else (recur (above p)))))
 
-(defn- place-of
+(defn inside
+  "Who is inside a permission, for T2: its holder, its giver, and each
+  holder above the giver, read from its id. Takes a permission. Gives a set
+  of whos."
+  [permission]
+  (into #{} (map first) (take-while some? (iterate above permission))))
+
+(defn place-of
   "The place where a permission sits, from its id: on its holder, on the
   session of its run, or on the uuid of its act."
   [permission]
   (let [[kind id] (covers permission)]
     (if (= :layer kind) [:layer (first permission)] [kind id])))
+
+(def ^:private left-out-parts
+  "The parts of an act that its maker may leave out, with what a part that
+  is left out says. The act's form gives each of them a default
+  (`softland.store.act/shapes`); they are said here again, in plain words,
+  so that an act that leaves a part out and one that gives it empty are the
+  same act part for part."
+  {:based-on {} :because-of nil :claimed-when nil :subjects #{}})
+
+(defn the-act
+  "An act part for part, as the statements compare two acts. Takes a thing
+  as it arrived, or nil. Gives each of its parts but the time on it and its
+  permission; a part that its maker left out, as that part says when it is
+  empty; and its facts as a vector, each fact with its four parts, a part
+  left out as nil. Two things are the same act when what this gives is
+  equal by Clojure's `=`: so a list and a vector of the same facts are one
+  act, and so are an act that gives `:subjects #{}` and one that leaves it
+  out. nil for nil."
+  [thing]
+  (when thing
+    (-> (merge left-out-parts (dissoc thing :permission :door-time))
+        (update :facts (fn [facts] (mapv (fn [fact] (merge {:v nil :replaces nil} fact)) facts))))))
+
+(defn as-sent
+  "A thing as the statement `once` compares two sends: the act part for
+  part (`the-act`), and the permission that it names."
+  [thing]
+  (assoc (the-act thing) :permission (:permission thing)))
 
 (defn alive?
   "True when the grant with this number stands: no end named it, and the
@@ -159,7 +233,7 @@
             (nil? (:parent grant)) true
             :else (recur (:parent grant))))))
 
-(defn- grant-at
+(defn grant-at
   "The grant at a place, with its number, or nil for a place that is empty
   or holds an end."
   [state place]
@@ -176,6 +250,27 @@
     (when (and grant (= permission (:permission grant)) (alive? state (:n grant)))
       grant)))
 
+(defn given-again?
+  "True when the place of a permission held something before what sits
+  there now: an end, or a grant before it. So what is there now was given
+  again (S2, R5)."
+  [state permission]
+  (< 1 (count (get-in state [:given (place-of permission)]))))
+
+(defn place-state
+  "What the place of a permission holds now, in a word: `:nothing`, `:ended`,
+  `:stands` when the grant there stands and has exactly that id,
+  `:another` when another permission is there, or `:ended-above` when that
+  permission is there and one above it ended."
+  [state permission]
+  (let [at (get-in state [:at (place-of permission)])
+        grant (grant-at state (place-of permission))]
+    (cond (nil? at) :nothing
+          (= :end at) :ended
+          (not= permission (:permission grant)) :another
+          (alive? state (:n grant)) :stands
+          :else :ended-above)))
+
 (defn- heard-under
   "Under what a thing is heard: {:grant g} when the permission that it names
   stands for it, by S1, R1 and R2; else {:why word}."
@@ -187,7 +282,9 @@
       (not= who (first permission)) {:why :who-not-the-permissions-holder}
       (and (= :run kind) (not= session id)) {:why :permission-for-another-run}          ; R1, R9
       (and (= :act kind) (not= id (nth act-id 2 nil))) {:why :permission-for-another-act} ; R2, R9
-      (and (= :act kind) (not= digest (*digest-of* thing))) {:why :act-not-the-one-permitted} ; R2
+      (and (= :act kind) (let [named (*act-named* [id digest])]
+                           (or (nil? named) (not= (the-act named) (the-act thing)))))
+      {:why :act-not-the-one-permitted}                                                 ; R2
       (not (and grant (= permission (:permission grant)) (alive? state (:n grant))))
       {:why :permission-does-not-stand}                                                ; S1, R3
       :else {:grant grant})))
@@ -241,30 +338,31 @@
         kind (permission-keys k)]
     (cond
       (and kind (some? v))
-      (let [n (:n state)]
+      (let [n (:n state)
+            place (place-of v)]
         (-> state
             (assoc-in [:grants n] {:holder (first v) :permission v :parent (:n own)})
-            (assoc-in [:at (place-of v)] n)
+            (assoc-in [:at place] n)
+            (update-in [:given place] (fnil conj []) n)
             (update :n inc)))
 
       kind
       (let [there (grant-at state [kind e])]
         (-> state
             (update :killed conj (:n there))
-            (assoc-in [:at [kind e]] :end)))
+            (assoc-in [:at [kind e]] :end)
+            (update-in [:given [kind e]] (fnil conj []) :end)))
 
       (= :softland.store/who-may-see k)
       (assoc state :everyone? (= :everyone v))
 
       :else state)))
 
-(defn judge
-  "Takes the state, the layer's id, and a thing as its maker sent it: `:who`,
-  `:permission` and `:facts`, each fact with `:e`, `:k` and maybe `:v`; and,
-  for a thing under a permission for a run or for an act, its `:session` and
-  its `:act-id`. Gives {:accept? :why :state}, and `:under`, the grant that
-  an act that was taken was under."
-  [state _layer thing]
+(defn- judge-afresh
+  "The statements' judgment of a thing that is not a repeat: S1 to S12 and
+  R1 to R10. Gives {:accept? :why :state}, and `:under`, the grant that an
+  act that was taken was under."
+  [state thing]
   (let [{:keys [who permission facts]} thing]
     (if-not (:made? state)
       ;; the making act: the first permission, written by its holder
@@ -274,21 +372,43 @@
                     (assoc :made? true)
                     (assoc-in [:grants 0] {:holder who :permission permission :parent nil})
                     (assoc-in [:at [:layer who]] 0)
+                    (update-in [:given [:layer who]] (fnil conj []) 0)
                     (assoc :n 1))}
         {:accept? false :why :layer-not-made :state state})
       (let [{own :grant why :why} (heard-under state thing)]
         (cond
           (nil? own)
           {:accept? false :why why :state state}                                   ; S1
-
           (= :see (allows permission))
           {:accept? false :why :may-only-see :state state}                         ; S9
-
           :else
           (if-let [why (some #(fact-reason state who own %) facts)]
             {:accept? false :why why :state state}                                 ; S10
             {:accept? true :under own
              :state (reduce #(apply-fact %1 own %2) state facts)}))))))
+
+(defn judge
+  "Takes the state, the layer's id, and a thing as it arrived: `:act-id`,
+  `:who`, `:permission`, `:session` and `:facts`, each fact with `:e`, `:k`
+  and maybe `:v`. Gives {:accept? :why :answer :state}: whether the
+  statements take it now, the first reason when they do not, the answer
+  that its sender is to be told, {:answer :accepted} or {:answer :refused
+  :reason word}, and the state after; and `:under`, the grant that an act
+  that was taken was under.
+
+  A repeat (`once`): the same thing under an act-id under which it was
+  decided. Then nothing is decided, `:repeat?` is true, `:accept?` is false
+  and `:answer` is its first answer."
+  [state _layer thing]
+  (let [act-id (:act-id thing)
+        sent (as-sent thing)]
+    (if-let [first-answer (get-in state [:answers act-id sent])]
+      {:accept? false :repeat? true :answer first-answer :state state}
+      (let [{:keys [accept? why] :as ruled} (judge-afresh state thing)
+            answer (if accept? {:answer :accepted} {:answer :refused :reason why})]
+        (-> ruled
+            (assoc :answer answer)
+            (assoc-in [:state :answers act-id sent] answer))))))
 
 (defn may-see
   "Whether an asker may see the layer, by S11, S12 and R8: `:not-made` before
@@ -332,11 +452,6 @@
       (nil? p) true
       (not= p (:permission (grant-at state (place-of p)))) false
       :else (recur (above p)))))
-
-(defn chain
-  "The grants of a grant's chain, itself first, then each one above."
-  [state grant]
-  (take-while some? (iterate (fn [g] (when-let [n (:parent g)] (assoc (get-in state [:grants n]) :n n))) grant)))
 
 (defn summary
   "For a trace: what stands in the layer now, by place."
