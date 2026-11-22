@@ -271,6 +271,18 @@ the proof is named in the [verification map](../test-store/README.md)).
 - **An act's answer,** through the door, by act-id: accepted, refused, nothing
   yet, or not mine ([door.clj](softland/store/door.clj), `answer-of`;
   [door/words.clj](softland/store/door/words.clj)).
+- **A layer's acts, by stamp,** through the read path: the decisions of one
+  layer from a stamp on, in the order of its stamps, taken and refused, each
+  with its answer and the act whole as it arrived; at most a count, and acts
+  of a bounded weight in all, and the stamp where the next read begins
+  ([read_path/acts.clj](softland/store/read_path/acts.clj)). It is asked once
+  and not kept live. Whoever holds a permission that stands in the layer reads
+  each decision whole. A visitor of a layer that everyone may see reads her
+  own whole and every other as its stamp alone, unless the layer's first
+  holder set who may read its acts to everyone. An asker is given her own
+  acts in any layer, one that she may not see too, and nothing else of it.
+  An act that the gate kept not is given with its answer and the word of
+  why.
 
 ## What the gate judges
 
@@ -328,27 +340,29 @@ of a tool.
 
 ## What cannot be got back, said plainly
 
-- **What an act carried besides its facts:** its `:session`, `:because-of`,
-  `:based-on`, `:subjects`, `:claimed-when` and `:version`. The depot holds them,
-  and the layer's line holds the act whole when the gate kept it
-  ([record/tables.clj](softland/store/record/tables.clj), `things`); no read of
-  the line is built yet, so no read gives them. Whether a read should reach "the whole act from a fact" is
-  not decided
+- **What an act carried besides its facts,** for an act over its bound, or
+  for an asker who may not read it whole. The depot holds its `:session`,
+  `:because-of`, `:based-on`, `:subjects`, `:claimed-when` and `:version`; the
+  line holds the act whole when the gate kept it
+  ([record/tables.clj](softland/store/record/tables.clj), `things`), and the
+  read of a layer's acts gives it to whoever may read it whole. An act over
+  its bound is in its depot alone. The read of acts reaches an act by its
+  stamp; whether a read should reach "the whole act from a fact" is not
+  decided
   ([decisions of 11 and 12 October](README.md#decisions-of-11-and-12-october-2026--reading-back-out),
   entry 7).
-- **An act by its act-id.** The read by act-id gives the act's answer and not
-  the act. The depot holds the act, and no row keeps where in its partition the
-  act is ([gate/stamp.clj](softland/store/gate/stamp.clj);
+- **An act by its act-id, in one read.** The read by act-id gives the act's
+  answer, its stamp among it, and not the act. No row keeps where in its
+  partition the act is ([gate/stamp.clj](softland/store/gate/stamp.clj);
   [record/rows.clj](softland/store/record/rows.clj), `answer-row`). The line
-  keeps it by its stamp, which the answer gives; no read of the line is built
-  yet.
+  keeps it by its stamp: a second read, of the layer's acts from that stamp
+  and one at most, gives it to an asker who may read it.
 - **A fact that was replaced, and the facts that one act wrote.** A table holds
   the current fact at each place. A fact's row names its act, and no table is
   kept by act ([record/tables.clj](softland/store/record/tables.clj)).
-- **A layer's refusals, as a list.** Each decision of a layer has its row in
-  the layer's line, in the order of the stamps, refusals among them
-  ([record/rows.clj](softland/store/record/rows.clj), `line-key`), but no read
-  is built for them yet.
+- **A layer's refusals alone.** The read of a layer's acts gives each of its
+  decisions in the order of the stamps, refusals among them; no read gives
+  the refusals and nothing else.
 - **Every fact under one key,** in one read.
 - **Who sent an act.** For the store, `:who` is what the sending program said.
   Beyond its form as an id, a gate holds it only against the permission that
@@ -415,3 +429,4 @@ Each is said in full where its code is.
 | How deep a value nests, and a permission | `max-depth`, the same |
 | The layers of one read | `max-layers-of-one-read`, [read_path/query.clj](softland/store/read_path/query.clj) |
 | A read's runs, checks, pushes and wait | `default-numbers`, the same |
+| The decisions of one read of a layer's acts, and the weight of its acts in all | `:max-acts-of-one-read` and `:max-thing-weight-of-one-read`, the same |

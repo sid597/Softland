@@ -12,6 +12,9 @@
                      | [:entity entity]         an entity: every place of it
                      | [:run first-end last-end] any run of neighbouring places
                      | [:points-at key thing]   what points at a thing
+                     | [:acts start most]       a layer's decisions by stamp,
+                                                  from a stamp on, `most` at
+                                                  most
      :asker            id                       who asks: exactly one of
      :not-signed-in    true                       these two
      :session          id                       the run that the read is
@@ -54,17 +57,22 @@
   which they are examined; `rule-checks` holds the code of each. `check`
   reads the three and holds no knowledge of the form itself.
 
-  A new word is added once, in code, in three maps that are keyed by the
+  A new word of facts is added once, in code, in three maps that are keyed by the
   word: `words` here, `softland.store.read-path.sources/of-word` (what it
   reads in one layer) and `softland.store.read-path.answer/of-word` (how its
   rows are put together). The read path's pure proof holds that the three
-  have the same keys.
+  have the same keys, but for the one word that reads no facts: `:acts`, a
+  layer's line, which `softland.store.read-path.acts` reads and puts
+  together. A query of `:acts` names its one layer by `:from-layer` or as the
+  one layer of `:layers`, and is read once: its `:with` and its
+  `:stores-own-facts` say what of a fact's row a read gives, and it gives
+  none.
 
   Inputs and results, by call:
 
     check    anything -> {:ok query} in the one form, or
              {:refuse word :at part}
-    numbers  what an opener gave, or nil -> the read path's seven numbers
+    numbers  what an opener gave, or nil -> the read path's nine numbers
 
   State and effects. None. Each function is pure, and `check` never throws.
 
@@ -94,7 +102,7 @@
   (inc declaration/max-builds-on))
 
 (def default-numbers
-  "The read path's seven numbers, each with its default. Each is the
+  "The read path's nine numbers, each with its default. Each is the
   builder's, kept and not decided, and an opener can give another at
   `softland.store.read-path/open`.
 
@@ -141,20 +149,37 @@
     :wait-ms                 10,000  how long a call of the read path waits
                                      for Rama, in all, before it gives a
                                      word
+    :max-acts-of-one-read    1,000   the decisions that one read of a
+                                     layer's acts gives at most: the `most`
+                                     of a query is cut to it. A page of
+                                     1,000 line rows is about 250 KB
+    :max-thing-weight-of-one-read
+                         33,554,432  the weight of the things that one read
+                                     of a layer's acts fetches and gives,
+                                     in all: 32 MiB, the heaviest thing that
+                                     a gate keeps, so that each kept thing
+                                     can be read. A thing that alone weighs
+                                     more is given with no thing, and one
+                                     that does not fit in what is left ends
+                                     the read before it
+                                     (`softland.store.read-path.acts`)
 
-  None bounds the bytes of a run: no table gives the size of a run's values
-  before it is read."
+  None of the first seven bounds the bytes of a run: no table gives the size
+  of a run's values before it is read. The line does: each of its rows holds
+  its thing's weight, so a read of acts is bounded in bytes by the last."
   {:run-start-places                256
    :max-places-of-one-run           20000
    :max-checks-of-one-read          40000
    :max-checks-of-one-live-read     250
    :max-pushes-under-one-routing-id 900
    :max-paths-in-one-call           2000
-   :wait-ms                         10000})
+   :wait-ms                         10000
+   :max-acts-of-one-read            1000
+   :max-thing-weight-of-one-read    33554432})
 
 (defn numbers
   "Takes what an opener gave for the read path's numbers: a map, or nil.
-  Gives the seven numbers: for each name of `default-numbers` the number
+  Gives the nine numbers: for each name of `default-numbers` the number
   given when it is a fixed-width integer above zero, as a long, and the
   default when it is left out or is none. A name that `default-numbers` does
   not hold is dropped. It never throws: a thing that is no map gives the
@@ -170,7 +195,7 @@
 ;; ------------------------------------------------------ the declared form
 
 (def words
-  "What can be asked: the four words of a query. Each has the shape that the
+  "What can be asked: the five words of a query. Each has the shape that the
   whole of `:asks` must have under that word, in the language of
   `softland.store.act/shapes`, and the reason word when it does not fit.
 
@@ -179,13 +204,18 @@
     :run        a run of neighbouring places, from one end to the other
     :points-at  what points at a thing: the places under one key whose
                 value is the thing
+    :acts       one layer's decisions by stamp: from a stamp on, a whole
+                number from 0, and at most a count of 1 or more
+                (`softland.store.read-path.acts`). The one word that reads
+                a layer's line and no facts, and is read once
 
   A word that does not exist yet, such as finding by text or looking back,
   would be one entry here and one in each of the two maps `of-word`."
   {:place     {:shape [:tuple [:enum :place] :id :key]        :reason :place-not-named}
    :entity    {:shape [:tuple [:enum :entity] :id]            :reason :entity-not-named}
    :run       {:shape [:tuple [:enum :run] :run-end :run-end] :reason :run-not-named}
-   :points-at {:shape [:tuple [:enum :points-at] :key :value] :reason :points-at-not-named}})
+   :points-at {:shape [:tuple [:enum :points-at] :key :value] :reason :points-at-not-named}
+   :acts      {:shape [:tuple [:enum :acts] [:int {:min 0}] [:int {:min 1}]] :reason :acts-not-named}})
 
 (def shapes
   "The query's map of shapes: each entry of `softland.store.act/shapes`, as
@@ -226,6 +256,9 @@
                                 somebody's
     :names-its-layers-one-way   exactly one of `:layers` and `:from-layer`;
                                 a list holds one layer at least
+    :acts-of-one-layer          a read of `:acts` names one layer: a list of
+                                it holds one; two lines have no order between
+                                them
     :ids-within-the-limit       the asker, the session, each layer and each entity are
                                 ids within the limit of a key's text; each
                                 key is a readable keyword within it
@@ -252,6 +285,7 @@
    [:names-one-asker          :no-one-asker]
    [:a-run-has-an-asker       :run-with-no-asker]
    [:names-its-layers-one-way :layers-not-named-one-way]
+   [:acts-of-one-layer        :acts-not-of-one-layer]
    [:ids-within-the-limit     :id-over-the-limit]
    [:run-ends-in-order        :run-ends-out-of-order]
    [:run-ends-are-ordered     :run-end-not-ordered]
@@ -304,6 +338,7 @@
     :entity    (declaration/usable-id? a)
     :run       (and (end-usable? a) (end-usable? b))
     :points-at (usable-key? a)
+    :acts      true
     false))
 
 (defn- end-ordered?
@@ -336,6 +371,10 @@
    :names-its-layers-one-way
    (fn [q] (when (or (= (some? (:layers q)) (some? (:from-layer q)))
                      (and (some? (:layers q)) (empty? (:layers q))))
+             :layers))
+
+   :acts-of-one-layer
+   (fn [q] (when (and (= :acts (first (:asks q))) (some? (:layers q)) (not= 1 (count (:layers q))))
              :layers))
 
    :ids-within-the-limit

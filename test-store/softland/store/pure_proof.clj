@@ -4345,6 +4345,14 @@
                            [(= (vec d) (vec (digest/digest x))) (= w (text/utf8-count (text/text x)))]))
                  plain-things))
     (vec (repeat (count plain-things) [true true]))]
+   ["the time on a thing weighs the bytes of its own text, as the thing's one text writes it, whatever the time holds: a string, a vector, a run of bytes, a map that holds a set"
+    (fn [] (mapv (fn [t] (let [x {:p 1 declaration/time-part t}] (= (weight-of x) (text/utf8-count (text/text x)))))
+                 ["noon" [1 2 3] (byte-array 10) {:a [1 #{2 3}]}]))
+    [true true true true]]
+   ["a time that is a run of 200,000 bytes, or 30,000 longs of nineteen digits, weighs its text, more than 256 KiB: a thing that holds one is too heavy at that bound, where what the time holds would be under it"
+    (fn [] [(:weight (digest/weighed {:p 1 declaration/time-part (byte-array 200000)} 262144))
+            (:weight (digest/weighed {:p 1 declaration/time-part (vec (repeat 30000 1000000000000000000))} 262144))])
+    [:too-heavy :too-heavy]]
    ["a part that the text writes as #other weighs, beside its text, what it holds: a record of one string, a Java list of two longs, a symbol with a namespace, a ratio, a float, a character, an array of 100 ints, an array of three objects"
     (fn [] (mapv held [(->Holds "abc") (java.util.ArrayList. [1 2]) 'a.b/cd 1/3 (float 1.5) \x
                        (int-array 100) (object-array [1 "ab" nil])]))

@@ -230,8 +230,8 @@ cluster. No source speaks of it.
 **Seen.** One such select stopped a worker of the in-process cluster (`reads/PROGRESS.md`, ruling
 70).
 
-**Meanwhile.** The read path sends five forms of path and no other, and never asks for a whole table
-or a whole collection.
+**Meanwhile.** The read path sends only the forms of path that one of its functions makes (`path-of`),
+and never asks for a whole table or a whole collection.
 
 ## 8. An append with `:ack` inside a microbatch
 

@@ -12,8 +12,10 @@
 
   The proof is the read path's one asker: a hand-played one. No view, no
   screen, no tool and no agent asks. Each read of this proof goes through
-  the read path's five calls, and each act goes in through the door. So
-  every row that this proof reads was written by a gate, and a gate's write
+  the read path's five calls, and each act goes in through the door, but
+  for three things that the check of a layer's acts appends straight to
+  the streaming depot, as a sender with no door can. So every row that
+  this proof reads was written by a gate, and a gate's write
   leaves one of three things at a place: no fact, a retract, or a value. The
   fourth thing that a reader can be told, a row that holds no value of the
   form, is not reached here: the read path's pure proof holds it, on a row
@@ -74,7 +76,8 @@
   one small number: one that may hold 3 pushes on one table under one
   routing id, and one whose live reads may need 1 check. The group of the
   base that is read where the asker's layer lives opens one more, for its
-  counts of pushes. It owns atoms: what
+  counts of pushes; the check of a layer's acts opens two more, each with
+  small bounds of a read of acts. It owns atoms: what
   it holds of the cluster, the lines that it showed, each permission that it
   made, each thing that the door sent, and each live read that it opened.
   Near the end it starts the module again in the cluster, by Rama's module
@@ -382,6 +385,12 @@
                      (.-microbatch-facts rp)          [:microbatch :facts]
                      (.-streaming-facts-by-value rp)  [:streaming :facts-by-value]
                      (.-microbatch-facts-by-value rp) [:microbatch :facts-by-value]
+                     (.-streaming-line rp)            [:streaming :line]
+                     (.-microbatch-line rp)           [:microbatch :line]
+                     (.-streaming-things rp)          [:streaming :things]
+                     (.-microbatch-things rp)         [:microbatch :things]
+                     (.-streaming-task rp)            [:streaming :task]
+                     (.-microbatch-task rp)           [:microbatch :task]
                      [:another nil]))
         note! (fn [calls pstate options] (swap! calls conj (conj (table-of pstate) (:pkey options))))]
     (with-redefs [rama/compiled-foreign-select-async (fn [the-path pstate & more]
@@ -2192,6 +2201,176 @@
            "times in all, and that of the read through the layer" elsewhere "on task" (task-of elsewhere) "(the base is on task" (str base-task ")") (count all-elsewhere)
            "times: once for that act with the stamp" (:stamp first-row) "of the first attempt's row, and once for the act after it")))
 
+;; ------------------------------------------------- a layer's acts by stamp
+
+(defn- raw!
+  "Appends a thing straight to the streaming depot, with no door, as any
+  sender that can reach Rama's ports can, and waits for the streaming gate
+  (the ack level :ack). Takes the thing."
+  [thing]
+  (rama/foreign-append! (rama/foreign-depot (:ipc @round) (:module @round) "*streaming-depot") thing :ack))
+
+(defn- acts-read
+  "Reads a layer's acts once: from a stamp, at most a count, by an asker, an
+  id or nil for one who is not signed in, and with a session when one is
+  given; through the read path of most checks, or through the one given."
+  ([layer start most asker] (acts-read (the-rp) layer start most asker nil))
+  ([rp layer start most asker session]
+   (ask rp (cond-> {:asks [:acts start most] :from-layer layer}
+             asker (assoc :asker asker)
+             (nil? asker) (assoc :not-signed-in true)
+             session (assoc :session session)))))
+
+(defn- given-of
+  "Takes an answer of a read of acts. Gives each decision given as [stamp
+  what]: `:withheld`, `:whole`, or the word of `:no-thing`."
+  [answer]
+  (mapv (fn [d] [(:stamp d) (cond (contains? d :thing) :whole
+                                  (contains? d :no-thing) (:no-thing d)
+                                  :else :withheld)])
+        (:acts answer)))
+
+(defn- thing-of-act
+  "Takes what `act!` gave for an act that the door sent. Gives the thing as
+  it arrived on the depot: the act as the proof made it, with the door's
+  three additions."
+  [got who layer facts]
+  (assoc {:version 1 :who who :layer layer :permission (perm who layer) :session :read-path-proof :facts facts}
+         :act-id (:act-id got) :depot (nth (:act-id got) 1) :door-time (:time (:answer got))))
+
+(defn- every-page
+  "Reads a layer's acts from stamp 0 in pages of a count, each from where
+  the last ended, until a page begins past the last stamp. Gives the pages."
+  [rp layer most asker]
+  (loop [start 0 pages []]
+    (let [a (acts-read rp layer start most asker nil)]
+      (if (or (:could-not a) (> start (long (:last-stamp a))) (< 40 (count pages)))
+        (conj pages a)
+        (recur (:next a) (conj pages a))))))
+
+(deftest a-layers-acts-by-stamp
+  (let [layer :acts-lab
+        _ (make! layer :ann)
+        _ (give! layer :ann :bo)
+        note [(fact :note :n 1)]
+        taken (put! :ann layer note)
+        cy-sent (door/send-act (the-door) {:version 1 :who :cy :layer layer :permission [:cy layer layer]
+                                           :session :read-path-proof :facts [(fact :note :n 2)]})
+        cy-answer (door/answer-of (the-door) (:act-id cy-sent) (:digest cy-sent))
+        no-time {:act-id [layer :streaming (UUID. 51 1)] :depot :streaming :version 1 :who :cy :layer layer
+                 :facts [(fact :x :n 3)]}
+        _ (raw! no-time)
+        no-who {:act-id [layer :streaming (UUID. 51 2)] :depot :streaming :door-time 1 :layer layer}
+        _ (raw! no-who)
+        heavy {:act-id [layer :streaming (UUID. 51 3)] :depot :streaming :version 1 :who :cy :layer layer
+               :blob (apply str (repeat 300000 "h"))}
+        _ (raw! heavy)
+        bo-facts [(fact :note :n 4)]
+        bo-act (put! :bo layer bo-facts)
+        ann (acts-read layer 0 100 :ann)
+        bo (acts-read layer 0 100 :bo)
+        cy (acts-read layer 0 100 :cy)
+        nobody (acts-read layer 0 100 nil)
+        all-whole [[0 :whole] [1 :whole] [2 :whole] [3 :whole] [4 :whole] [5 :whole] [6 :too-heavy] [7 :whole]]
+        entry (fn [answer stamp] (first (filter #(= stamp (:stamp %)) (:acts answer))))]
+    (check "a holder of a layer, its first or one given beneath her, reads each of its decisions whole: taken acts, an act refused for its standing, things that the declaration refused, a thing that names no who, and a thing too heavy to keep, with its word; and the last stamp"
+           [all-whole 7 8 [] all-whole]
+           [(given-of ann) (:last-stamp ann) (:next ann) (:left-out ann) (given-of bo)])
+    (check "a decision given whole holds the door's answer and the thing as it arrived on the depot: a taken act, and an act refused for its standing, each with its act-id"
+           [[(:act-id taken) {:verdict :accepted :reason nil :stamp 2 :time (:time (:answer taken)) :digest (:digest (:sent taken))}
+             (thing-of-act taken :ann layer note)]
+            [(:act-id cy-sent) :refused (:reason cy-answer) 3]]
+           [((juxt :act-id :answer :thing) (entry ann 2))
+            (let [e (entry ann 3)] [(:act-id e) (:verdict (:answer e)) (:reason (:answer e)) (:stamp (:answer e))])])
+    (check "a thing that the declaration refused is given as it arrived, its who read from the raw thing; one that names no who is the holders' alone"
+           [no-time :refused no-who]
+           [(:thing (entry ann 4)) (:verdict (:answer (entry ann 4))) (:thing (entry ann 5))])
+    (check "an asker who may not see a layer is given her own decisions there, taken or refused, and nothing else: no stamp of another's, no last stamp; the layer is left out. One who is not signed in is given nothing"
+           [[[3 :whole] [4 :whole] [6 :too-heavy]] false [{:layer layer :why :may-not-see}] 7
+            [] [{:layer layer :why :may-not-see}]]
+           [(given-of cy) (contains? cy :last-stamp) (:left-out cy) (:next cy) (given-of nobody) (:left-out nobody)])
+    (let [_ (setting! layer :ann :everyone)
+          cy-open (acts-read layer 0 100 :cy)
+          nobody-open (acts-read layer 0 100 nil)
+          _ (put! :ann layer [(fact layer :softland.store/who-may-read-acts :everyone)])
+          cy-read (acts-read layer 0 100 :cy)
+          nobody-read (acts-read layer 0 100 nil)
+          _ (put! :ann layer [(fact layer :softland.store/who-may-read-acts :members)])
+          cy-again (acts-read layer 0 100 :cy)
+          _ (put! :ann layer [{:e :bo :k :softland.store/permission}])
+          bo-visitor (acts-read layer 0 100 :bo)
+          _ (setting! layer :ann :members)
+          bo-outside (acts-read layer 0 100 :bo)]
+      (check "in a layer that everyone may see, while its acts setting is members, a visitor reads her own decisions whole and every other one as its stamp alone, with the last stamp; one who is not signed in reads each as its stamp alone"
+             [[[0 :withheld] [1 :withheld] [2 :withheld] [3 :whole] [4 :whole] [5 :withheld] [6 :too-heavy] [7 :withheld] [8 :withheld]]
+              8 #{#{:stamp}} (vec (for [s (range 9)] [s :withheld]))]
+             [(given-of cy-open) (:last-stamp cy-open)
+              (set (map (comp set keys) (remove #(contains? % :act-id) (:acts cy-open))))
+              (given-of nobody-open)])
+      (check "the layer's first holder turns its acts setting to everyone: whoever may see the layer reads its acts whole, one who is not signed in too; she turns it back, and a visitor's read is withheld again"
+             [(conj all-whole [8 :whole] [9 :whole]) (conj all-whole [8 :whole] [9 :whole])
+              [[0 :withheld] [3 :whole] [4 :whole] [6 :too-heavy] [10 :withheld]]]
+             [(given-of cy-read) (given-of nobody-read)
+              (filterv (fn [[s]] (#{0 3 4 6 10} s)) (given-of cy-again))])
+      (check "a holder whose permission ended reads the layer's acts as anyone who is no holder: in a layer that everyone may see, his own whole and the rest withheld; once it is open to its members, his own alone, and the layer left out"
+             [[[0 :withheld] [7 :whole]] [[[7 :whole]] [{:layer layer :why :may-not-see}]]]
+             [(filterv (fn [[s]] (#{0 7} s)) (given-of bo-visitor))
+              [(given-of bo-outside) (:left-out bo-outside)]]))
+    (let [counted (counting #(acts-read layer 0 100 :ann))
+          bounded (read-path/open (:ipc @round) (:module @round) {:max-acts-of-one-read 3 :max-thing-weight-of-one-read 1})
+          pages (every-page bounded layer 100 :ann)
+          small (read-path/open (:ipc @round) (:module @round)
+                                {:max-thing-weight-of-one-read (+ (:weight (digest/weighed (:thing (entry ann 0)) 100000))
+                                                                  (:weight (digest/weighed (:thing (entry ann 1)) 100000)))})
+          two (acts-read small layer 0 100 :ann nil)]
+      (check "a read of a holder's acts is four rounds of one call each: the last stamp, the rights, the line, the things"
+             [1 1 1 1] (:rounds counted))
+      (check "a read gives `most` decisions at most, cut to the read path's number, and the pages joined from stamp 0 give each decision once, in order; with a bound on weight that no thing fits in, each kept thing is given as heavier than the read, and the line goes on past it"
+             [true (vec (range 13)) #{:heavier-than-the-read :too-heavy}]
+             [(every? #(<= (count (:acts %)) 3) pages)
+              (vec (mapcat #(map :stamp (:acts %)) pages))
+              (set (map :no-thing (mapcat :acts pages)))])
+      (check "the things of one answer weigh no more than the read's bound: with the weight of the first two, a read gives those two and ends before the third, where the next one begins"
+             [[[0 :whole] [1 :whole]] 2]
+             [(given-of two) (:next two)]))
+    (check "a read of acts is asked once: kept live it is turned away, with no call to Rama; a read of acts of no count is a query that is turned away"
+           [:keep-a-read-of-acts-live [:read-the-query :acts-not-named]]
+           [(:could-not (read-path/read-live (the-rp) {:asks [:acts 0 5] :asker :ann :from-layer layer} (fn [_])))
+            ((juxt :could-not :why) (ask {:asks [:acts 0 0] :asker :ann :from-layer layer}))])
+    (let [_ (dotimes [i 3] (put! :system :base [(fact :acts-of-the-base :n i)]))
+          first-read (acts-read :base 0 1 :system)
+          last-stamp (:last-stamp first-read)
+          from (max 0 (- (long last-stamp) 2))
+          noted (noting-routing-ids (the-rp) #(acts-read :base from 10 :system))
+          cy-base (acts-read :base from 10 :cy)]
+      (check "the base's acts: its holder reads its last decisions whole, and each call of the read is made on the base's own task, in the tables of the microbatch gate"
+             [(vec (for [s (range from (inc (long last-stamp)))] [s :whole])) #{[:microbatch :base]}]
+             [(given-of (:result noted)) (set (map (juxt first last) (:selects noted)))])
+      (check "a visitor of the base, which everyone may see, reads its acts as its stamps alone while the base's acts setting is members, as every layer's starts"
+             (vec (for [s (range from (inc (long last-stamp)))] [s :withheld]))
+             (given-of cy-base)))
+    (let [wide (String. (Character/toChars 0x1D49C))
+          far (keyword (str "acts" wide))
+          far-who (keyword (str "cy" "ﬀ"))
+          _ (make! far :ann)
+          _ (put! :ann far [(fact :note :n 1)])
+          sent (door/send-act (the-door) {:version 1 :who far-who :layer far :permission [far-who far far]
+                                          :session :read-path-proof :facts [(fact :note :n 2)]})
+          _ (door/answer-of (the-door) (:act-id sent) (:digest sent))
+          _ (put! :ann far [(fact :note :n 3)])
+          holder-pages (every-page (the-rp) far 1 :ann)
+          own (acts-read far 0 100 far-who)
+          prefix (acts-read :pfx 0 100 :alice)]
+      (check "a layer whose id holds a letter outside the first plane, and a who whose id holds one from U+E000 on: a holder's pages of one give each decision once, and the who reads her own decision there and nothing else"
+             [[0 1 2 3] [[2 :whole]] (:act-id sent)]
+             [(vec (mapcat #(map :stamp (:acts %)) holder-pages)) (given-of own) (:act-id (first (:acts own)))])
+      (check "a layer whose text is the start of another's on the same task: the read of its line gives its own decisions, each stamp once from 0 to its last, and no thing of the other's"
+             [true #{:pfx}]
+             [(= (mapv :stamp (:acts prefix)) (vec (range (inc (long (:last-stamp prefix))))))
+              (set (map (comp :layer :thing) (:acts prefix)))]))
+    (shown "a layer's acts by stamp, read by each kind of asker: a holder" (pr-str (given-of ann))
+           "| an asker who may not see the layer" (pr-str (given-of cy)) "| one who is not signed in" (pr-str (given-of nobody)))))
+
 (defn- on-a-cluster
   "Starts an in-process cluster, launches the module `Store` in it, opens
   the proof's door and read paths, calls f, and closes the cluster."
@@ -2233,6 +2412,7 @@
   (the-function-and-its-threads)
   (one-reader-in-the-source)
   (the-order-of-the-tables-keys)
+  (a-layers-acts-by-stamp)
   (a-function-that-leaves-or-asks-inside-its-call)
   (the-opening)
   (the-first-thing-a-function-is-given)

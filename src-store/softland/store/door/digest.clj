@@ -149,6 +149,34 @@
   the one text of a map writes an entry: `:door-time `."
   (inc (count (str declaration/time-part))))
 
+(def ^:private past-the-bound
+  "What the walk of the time's text throws to stop, once the weight has its
+  word: one object, made once, which `weigh-the-time!` alone catches."
+  (ex-info "the weight has its word" {}))
+
+(defn- weigh-the-time!
+  "Adds the bytes of the time's own text to a weight in the making, as the
+  thing's one text writes it, one collection deep
+  (`softland.store.door.text/feed-part`); a part of it that the text does
+  not write out whole is weighed for what it holds, as in the rest of the
+  thing. Takes the time's value, the function that adds bytes, the function
+  that weighs such a part, and the array that holds the weight's word. The
+  walk stops as soon as the weight has a word: past its bound, the weight
+  is `:too-heavy`, so the walk is bounded by the bound, but for a set,
+  whose text is made whole before it is given, as the digest's walk makes
+  a set's. A time that throws while it is read is `:not-weighed`. It never
+  throws."
+  [t add! held! ^objects word]
+  (let [stop! (fn [] (when (some? (aget word 0)) (throw past-the-bound)))]
+    (try
+      (text/feed-part t 1
+                      (fn [^String s] (add! (text/utf8-count s)) (stop!))
+                      (fn [b] (add! (+ 2 (* 2 (alength ^bytes b)))) (stop!))
+                      (fn [part] (held! part) (stop!)))
+      (catch Throwable e
+        (when-not (identical? e past-the-bound)
+          (aset word 0 :not-weighed))))))
+
 (defn weighed
   "The digest of a thing and its weight, in one walk. Takes anything, and a
   bound, a whole number not below zero. Gives {:digest the 32 bytes that
@@ -161,16 +189,20 @@
   not write out whole, a part that it writes as #other or #too-deep and a
   decimal, what the part holds is added (`softland.store.door.weight`).
   The walk is that of `digest`, which leaves the time on the act out, so
-  the time's entry is added after it: its name, a space, the digits of a
-  time that is a whole number or what any other value holds, and the space
-  that parts it from an entry beside it.
+  the time's entry is added after it: its name, a space, the bytes of the
+  time's own text as the thing's text writes it (`weigh-the-time!`), and
+  the space that parts it from an entry beside it. So a thing that the text
+  writes out whole weighs the bytes of its one text, the time on it too,
+  whatever the time holds.
 
   w is that weight, a long, when it is not over the bound; `:too-heavy`
   when it passes the bound; `:not-weighed` when the thing holds a part of a
   class that the weight does not know, or throws while it is read. The word
   that the walk finds first is the one given. Once the weight passes the
   bound no part is weighed further, and the weight keeps no number: so the
-  work of the weight beyond the digest's own walk is bounded by the bound.
+  work of the weight beyond the digest's own walk is bounded by the bound,
+  but for a set in the time, whose text is made whole before it is weighed,
+  as the digest's walk makes the text of a set.
   The digest's walk goes to its end whatever the weight: the digest is of
   the whole thing.
 
@@ -203,9 +235,7 @@
       (let [d (.digest md)]
         (when-let [[t beside?] (the-time-entry x)]
           (add! (+ time-name-bytes (if beside? 1 0)))
-          (if (int? t)
-            (add! (count (Long/toString (long t))))
-            (held! t)))
+          (weigh-the-time! t add! held! word))
         {:digest d :weight (or (aget word 0) (aget total 0))})
       (catch Throwable _
         {:digest (.digest (sha-256) (.getBytes "#unreadable" StandardCharsets/UTF_8))

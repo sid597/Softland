@@ -57,6 +57,7 @@
             [softland.store.door.words :as door-words]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
+            [softland.store.read-path.acts :as acts]
             [softland.store.read-path.answer :as answer]
             [softland.store.read-path.layers :as layers]
             [softland.store.read-path.query :as query]
@@ -1007,7 +1008,9 @@
                "what points at a thing"  {:asks [:points-at :parent (UUID. 0 7)] :asker :alice :layers [:team]
                                           :with #{:writer :permission} :stores-own-facts true}
                "a place, with each part of a row" {:asks [:place :note-41 :text] :asker :alice :layers [:team]
-                                                   :with #{:writer :permission :time}}}
+                                                   :with #{:writer :permission :time}}
+               "a layer's acts by stamp"  {:asks [:acts 0 100] :asker :alice :from-layer :team}
+               "a layer's acts, named as a list of one" {:asks [:acts 7 1] :not-signed-in true :layers [:base]}}
         faults [["no map"                          5                                                [:not-a-query nil]]
                 ["a record"                        (->Thing [:place :note-41 :text] :alice [:team]) [:not-a-query nil]]
                 ["a part that the form does not hold" (assoc good :live true)                     [:part-not-known :live]]
@@ -1020,6 +1023,10 @@
                 ["a run whose end is no end"       (assoc good :asks [:run [:e] :middle])           [:run-not-named :asks]]
                 ["what points at, with no thing"   (assoc good :asks [:points-at :parent])          [:points-at-not-named :asks]]
                 ["what points at nil"              (assoc good :asks [:points-at :parent nil])      [:points-at-not-named :asks]]
+                ["a read of acts from below 0"     (assoc good :asks [:acts -1 5])                  [:acts-not-named :asks]]
+                ["a read of acts of no count"      (assoc good :asks [:acts 0 0])                   [:acts-not-named :asks]]
+                ["a read of acts from a start that is no whole number" (assoc good :asks [:acts 1.5 5]) [:acts-not-named :asks]]
+                ["a read of acts of two layers"    (assoc good :asks [:acts 0 5] :layers [:team :base]) [:acts-not-of-one-layer :layers]]
                 ["an asker that is no id"          (assoc good :asker "alice")                      [:asker-is-no-id :asker]]
                 ["no asker"                        (dissoc good :asker)                             [:no-one-asker :asker]]
                 ["an asker, and not signed in"     (assoc good :not-signed-in true)                 [:no-one-asker :asker]]
@@ -1087,9 +1094,10 @@
             (query/numbers {:wait-ms 300 :run-start-places 4 :max-places-of-one-run 0 :max-checks-of-one-read "many"
                             :max-pushes-under-one-routing-id 5 :max-checks-of-one-live-read -1 :more 1})
             (query/numbers 7)])
-    (check "the read path's seven numbers, written out a second time: a read kept live may need 250 checks of nearer layers where one asked once may need 40,000, and the read path holds 900 pushes on one table under one routing id, under the 1,000 that Rama opens on one table on one task"
+    (check "the read path's nine numbers, written out a second time: a read kept live may need 250 checks of nearer layers where one asked once may need 40,000, and the read path holds 900 pushes on one table under one routing id, under the 1,000 that Rama opens on one table on one task; a read of acts gives 1,000 decisions at most, and things that weigh 32 MiB in all, the heaviest thing that a gate keeps"
            {:run-start-places 256 :max-places-of-one-run 20000 :max-checks-of-one-read 40000 :max-checks-of-one-live-read 250
-            :max-pushes-under-one-routing-id 900 :max-paths-in-one-call 2000 :wait-ms 10000}
+            :max-pushes-under-one-routing-id 900 :max-paths-in-one-call 2000 :wait-ms 10000
+            :max-acts-of-one-read 1000 :max-thing-weight-of-one-read 33554432}
            query/default-numbers)
     (shown "the form of a query:" (count forms) "queries are taken, one for each word and each kind of end;"
            (count faults) "faults are each turned away with a word and the part,"
@@ -1097,10 +1105,11 @@
     (shown "the check never throws: a thing that throws when it is read gives :not-a-query, and a list of layers with no end gives :too-many-layers after 66 are counted")))
 
 (deftest a-word-is-declared-in-three-places
-  (check "the words of a query, what each reads in one layer, and how its rows are put together have the same keys"
-         [#{:place :entity :run :points-at} true true]
-         [(set (keys query/words)) (= (set (keys query/words)) (set (keys sources/of-word)))
-          (= (set (keys query/words)) (set (keys answer/of-word)))])
+  (check "the words of a query that read facts, what each reads in one layer, and how its rows are put together have the same keys; the word of a layer's acts is in the first map alone, since `softland.store.read-path.acts` reads it and puts it together"
+         [#{:place :entity :run :points-at :acts} true true false false]
+         (let [of-facts (disj (set (keys query/words)) :acts)]
+           [(set (keys query/words)) (= of-facts (set (keys sources/of-word))) (= of-facts (set (keys answer/of-word)))
+            (contains? sources/of-word :acts) (contains? answer/of-word :acts)]))
   (shown "a word of a query is declared in three maps or in none:" (pr-str (sort (keys query/words)))))
 
 (deftest the-layers
@@ -2181,12 +2190,16 @@
 (deftest the-words
   (let [each (keys words/words)
         made (words/word :serve-a-read-that-large {:what :places-of-one-run :most 20000 :places {:a 1} :layers [:l]})]
-    (check "the read path's own eight words"
+    (check "the read path's own ten words"
            #{:find-the-module :read-the-query :reach-the-store :get-an-answer-within-its-wait
-             :read-inside-an-askers-function :serve-a-read-that-large :keep-more-reads-live :keep-the-read-live}
+             :read-inside-an-askers-function :serve-a-read-that-large :keep-more-reads-live :keep-the-read-live
+             :find-the-line-whole :keep-a-read-of-acts-live}
            (set each))
     (check "the word of the read path's own bound on its pushes is given by a read that is kept live, and by no read asked once"
            #{:read-live} (:from (get words/words :keep-more-reads-live)))
+    (check "the two words of a read of a layer's acts: a line that is not whole, given by a read asked once; and the read of acts kept live, which is turned away"
+           [#{:read-once} #{:read-live}]
+           [(:from (get words/words :find-the-line-whole)) (:from (get words/words :keep-a-read-of-acts-live))])
     (check "each word says what it is and which call gives it; a word that is not declared is not made"
            [true nil]
            [(every? (fn [w] (let [entry (get words/words w)] (and (string? (:says entry)) (seq (:from entry))))) each)
@@ -2194,7 +2207,7 @@
     (check "a word holds :could-not and what it carries, and no part of an answer"
            {:could-not :serve-a-read-that-large :what :places-of-one-run :most 20000} made)
     (check "what a word can carry is declared, and so are the five reasons for which a live read ends and the two words for a layer that is left out"
-           [#{:module :why :at :threw :said :waited-ms :what :most :because}
+           [#{:module :why :at :threw :said :waited-ms :what :most :because :stamp}
             #{:the-store-ended-a-push :a-run-grew-too-large :a-read-it-came-to-need-failed :no-room-for-a-push-it-came-to-need
               :its-function-threw}
             #{:may-not-see :not-made}]
@@ -2209,8 +2222,297 @@
            [#{} #{} #{}]
            [(set (filter act/reasons query/reasons)) (set (filter declaration/reasons query/reasons))
             (set (filter (set (keys door-words/words)) query/reasons))])
-    (shown "the read path's eight words are declared, each with what it says:" (pr-str (sort each))
+    (shown "the read path's ten words are declared, each with what it says:" (pr-str (sort each))
            "| none is a gate's reason or a word of a stray; one, :find-the-module, is spelled as the door's word for its own opening")))
+
+;; ------------------------------------------------- a layer's acts by stamp
+
+(defn- digest-of
+  "The digest of a decision in this proof's line: 32 bytes made of its
+  stamp, so that two decisions have two digests. The read path reads none:
+  it hands the line row's hex text on."
+  [stamp]
+  (byte-array (repeat 32 (unchecked-byte (long stamp)))))
+
+(defn- acts-setting
+  "Stands for a gate that takes the layer's acts setting: puts the row of
+  `:softland.store/who-may-read-acts` on the layer's entity, as a fact of
+  its maker. Takes the tables, the layer, the word and the stamp."
+  [tables layer word stamp]
+  (put tables (first-act/depot-at-making layer) :facts
+       (rows/place-key layer layer :softland.store/who-may-read-acts)
+       (fact-row* layer :maker layer :softland.store/who-may-read-acts word stamp)))
+
+(defn- decide
+  "Stands for a gate's decision in a layer's line: puts its line row, its
+  thing when it is kept, the layer's last stamp, and its row by who when
+  the thing names a who, in the tables, as `softland.store.gate.decision`
+  has a gate write them. Takes the tables, the layer, the stamp, and a map:
+  `:who` the who that the thing names, or none; `:refused` the reason
+  word, or none for an accept; `:thing` the thing; `:not-kept` the word of
+  a thing that the gate keeps not, or none; `:weight` its weight, the
+  length of its printed text when none is given."
+  [tables layer stamp {:keys [who refused thing not-kept weight]}]
+  (let [gate (first-act/depot-at-making layer)
+        k (rows/line-key layer stamp)
+        weight (when-not not-kept (or weight (count (pr-str thing))))
+        row (rows/line-row (UUID. 3 (long stamp)) refused (time-of stamp) (digest-of stamp) who weight not-kept)]
+    (cond-> (-> tables
+                (put gate :line k row)
+                (put gate :last-stamp (declaration/id-text layer) stamp))
+      (not not-kept) (put gate :things k thing)
+      who (put gate :by-who (rows/by-who-key layer who stamp) stamp))))
+
+(defn- window-of
+  "Takes a table, the two ends of a run and a count. Gives what the read
+  path's window gives: that many rows from the first end on, cut at the
+  last end."
+  [t from to n]
+  (into (sorted-map-by by-code-point)
+        (filter (fn [[k]] (rows/before? k to)))
+        (take n (subseq t >= from))))
+
+(defn- acts-value
+  "Takes the tables and a source of a read of acts. Gives what Rama would
+  give for it now: a layer's last stamp, a window of the line, of the
+  things or of the rows by who, or a row or the rows of the facts
+  (`table-value`)."
+  [tables source]
+  (let [[kind a b n] (:path source)
+        gate (:gate source)]
+    (case [(:table source) kind]
+      [:task :last-stamp] (get (table tables gate :last-stamp) a)
+      [:task :by-who] (window-of (table tables gate :by-who) a b n)
+      [:line :window] (window-of (table tables gate :line) a b n)
+      [:things :window] (window-of (table tables gate :things) a b n)
+      (table-value tables source))))
+
+(defn- play-acts
+  "Plays a read of acts asked once, as `softland.store.read-path` plays it:
+  what is wanted, fetch what is missing, again. Takes a function from the
+  number of a round to the tables as they are when that round is served,
+  the query in its one form, and the numbers. Gives {:answer or :fault,
+  :rounds how many rounds fetched something, :read the set of the sources
+  that each round fetched}; `:stuck` when a reading wanted nothing and gave
+  nothing, or seven rounds were not enough."
+  ([tables query] (play-acts (constantly tables) query numbers))
+  ([tables-at query nums]
+   (loop [round 0 known {} read []]
+     (let [{:keys [answer fault missing]} (acts/reading query known nums)]
+       (cond
+         answer {:answer answer :rounds round :read read}
+         fault {:fault fault :rounds round :read read}
+         (or (empty? missing) (< 6 round)) {:stuck true :rounds round :read read}
+         :else (let [t (tables-at round)]
+                 (recur (inc round)
+                        (into known (map (fn [s] [s (acts-value t s)])) missing)
+                        (conj read (set missing)))))))))
+
+(defn- acts-of
+  "The query of a read of a layer's acts from a stamp, at most a count, by
+  an asker: an id, or nil for one who is not signed in; with a session when
+  one is given. In its one form."
+  ([layer start most asker] (acts-of layer start most asker nil))
+  ([layer start most asker session]
+   (q (cond-> {:asks [:acts start most] :from-layer layer}
+        asker (assoc :asker asker)
+        (nil? asker) (assoc :not-signed-in true)
+        session (assoc :session session)))))
+
+(defn- given
+  "Takes an answer of a read of acts. Gives each decision given as [stamp
+  what]: `:withheld`, `:whole`, or the word of `:no-thing`."
+  [answer]
+  (mapv (fn [d] [(:stamp d) (cond (contains? d :thing) :whole
+                                  (contains? d :no-thing) (:no-thing d)
+                                  :else :withheld)])
+        (:acts answer)))
+
+(def ^:private lab-things
+  "The things of the line of the proof's layer `:lab`, by stamp: what each
+  thing names as its who, and what the gate decided."
+  [{:who :ann :thing {:who :ann :facts [:make]}}
+   {:who :ann :thing {:who :ann :facts [:give :bo]}}
+   {:who :cy :refused :permission-not-found :thing {:who :cy :facts [:try 1]}}
+   {:who :bo :thing {:who :bo :facts [:note]}}
+   {:refused :malformed :thing {:facts [:no-who]}}
+   {:who :cy :refused :permission-not-found :not-kept :too-heavy :thing {:who :cy :facts [:heavy]}}
+   {:who :ann :thing {:who :ann :facts [:last]}}])
+
+(defn- lab-world
+  "The tables of the proof's layer `:lab`, a streaming layer: made by Ann at
+  stamp 0 with her first permission, Bo given one beneath hers at stamp 1,
+  and the seven decisions of `lab-things` in its line. Takes the writes of
+  facts to add after those, each as `write` takes it, with the acts
+  setting as [:acts-setting layer word stamp]."
+  [& more]
+  (let [facts (reduce (fn [t w]
+                        (if (= :acts-setting (first w))
+                          (apply acts-setting t (rest w))
+                          (write t w)))
+                      {}
+                      (concat [[:make :lab 0] [:permission :lab :ann 0] [:give :lab :bo :ann 1]] more))]
+    (reduce (fn [t [stamp d]] (decide t :lab stamp d)) facts (map-indexed vector lab-things))))
+
+(deftest who-reads-a-layers-acts
+  (let [holder (play-acts (lab-world) (acts-of :lab 0 10 :ann))
+        given-one (play-acts (lab-world) (acts-of :lab 0 10 :bo))
+        outside (play-acts (lab-world) (acts-of :lab 0 10 :cy))
+        open (lab-world [:setting :lab :everyone 7])
+        open-and-read (lab-world [:setting :lab :everyone 7] [:acts-setting :lab :everyone 8])
+        bo-ended (lab-world [:end :lab :bo 7])
+        all-whole [[0 :whole] [1 :whole] [2 :whole] [3 :whole] [4 :whole] [5 :too-heavy] [6 :whole]]]
+    (check "a holder of a layer, its first or one given beneath her, reads each decision of its line whole, from the start: its answer and its thing, a thing that the gate kept not with its word, and the last stamp"
+           [all-whole 6 7 [] all-whole]
+           [(given (:answer holder)) (:last-stamp (:answer holder)) (:next (:answer holder)) (:left-out (:answer holder))
+            (given (:answer given-one))])
+    (check "a decision given whole holds its act-id, the answer of the door's read by act-id, and the thing as it arrived"
+           [[:lab :streaming (UUID. 3 2)]
+            {:verdict :refused :reason :permission-not-found :stamp 2 :time (time-of 2) :digest (text/hex (digest-of 2))}
+            {:who :cy :facts [:try 1]}]
+           (let [d (nth (:acts (:answer holder)) 2)] [(:act-id d) (:answer d) (:thing d)]))
+    (check "an asker who may not see a layer is given her own decisions there, taken or refused, and nothing else of it: not the stamps of others, not its last stamp; the answer says that the layer is left out"
+           [[[2 :whole] [5 :too-heavy]] false [{:layer :lab :why :may-not-see}] 6]
+           [(given (:answer outside)) (contains? (:answer outside) :last-stamp) (:left-out (:answer outside))
+            (:next (:answer outside))])
+    (check "a visitor of a layer that everyone may see, while its acts setting is members, reads her own decisions whole and every other one as its stamp alone; one who is not signed in, each as its stamp alone"
+           [[[0 :withheld] [1 :withheld] [2 :whole] [3 :withheld] [4 :withheld] [5 :too-heavy] [6 :withheld]] 6
+            #{#{:stamp}}
+            [[0 :withheld] [1 :withheld] [2 :withheld] [3 :withheld] [4 :withheld] [5 :withheld] [6 :withheld]]]
+           (let [cy (:answer (play-acts open (acts-of :lab 0 10 :cy)))
+                 nobody (:answer (play-acts open (acts-of :lab 0 10 nil)))]
+             [(given cy) (:last-stamp cy)
+              (set (map (comp set keys) (remove #(contains? % :act-id) (:acts cy))))
+              (given nobody)]))
+    (check "with the acts setting at everyone, whoever may see the layer reads its acts whole, one who is not signed in too; a holder reads them as before"
+           [all-whole all-whole all-whole]
+           [(given (:answer (play-acts open-and-read (acts-of :lab 0 10 :cy))))
+            (given (:answer (play-acts open-and-read (acts-of :lab 0 10 nil))))
+            (given (:answer (play-acts open-and-read (acts-of :lab 0 10 :ann))))])
+    (check "the acts setting turns nothing on in a layer that is open to its members alone: an asker who may not see it is given her own and nothing else"
+           [[2 :whole] [5 :too-heavy]]
+           (given (:answer (play-acts (lab-world [:acts-setting :lab :everyone 7]) (acts-of :lab 0 10 :cy)))))
+    (check "a holder whose permission ended reads the layer's acts as an asker who may not see it: her own alone"
+           [[[3 :whole]] [{:layer :lab :why :may-not-see}]]
+           (let [a (:answer (play-acts bo-ended (acts-of :lab 0 10 :bo)))] [(given a) (:left-out a)]))
+    (check "a holder beneath a permission that ended reads as one who may not see the layer: the rows above hers are read, and her permission stands only while each of them does"
+           [[[9 :whole]] [{:layer :lab :why :may-not-see}]]
+           (let [w (lab-world [:give :lab :dee :bo 7] [:end :lab :bo 8])
+                 w (decide w :lab 7 {:who :bo :thing {:who :bo :facts [:give :dee]}})
+                 w (decide w :lab 8 {:who :ann :thing {:who :ann :facts [:end :bo]}})
+                 w (decide w :lab 9 {:who :dee :thing {:who :dee :facts [:mine]}})
+                 a (:answer (play-acts w (acts-of :lab 0 10 :dee)))]
+             [(given a) (:left-out a)]))
+    (check "the permission of the run that she asks in lets a holder of no permission of her own read the acts whole; a yes for one act lets nobody read them"
+           [all-whole [[2 :whole] [5 :too-heavy]]]
+           (let [run (lab-world [:give-run :lab :run-1 :cy :ann 7])
+                 yes (lab-world [:give-act :lab (UUID. 9 9) :cy :ann 7])]
+             [(given (:answer (play-acts run (acts-of :lab 0 10 :cy :run-1))))
+              (given (:answer (play-acts yes (acts-of :lab 0 10 :cy))))]))
+    (check "in a layer that is not made, the who that a refused thing names reads it whole, and nobody else is given anything of the layer"
+           [[[0 :whole] [2 :whole]] [{:layer :void :why :not-made}] [] [{:layer :void :why :not-made}]]
+           (let [w (-> {}
+                       (decide :void 0 {:who :cy :refused :layer-not-made :thing {:who :cy :n 0}})
+                       (decide :void 1 {:who :zed :refused :layer-not-made :thing {:who :zed :n 1}})
+                       (decide :void 2 {:who :cy :refused :layer-not-made :thing {:who :cy :n 2}}))
+                 cy (:answer (play-acts w (acts-of :void 0 10 :cy)))
+                 nobody (:answer (play-acts w (acts-of :void 0 10 nil)))]
+             [(given cy) (:left-out cy) (given nobody) (:left-out nobody)]))
+    (check "the base's acts are read on the base's own task, where its gate decides: each source of the read has the base as its routing id, in the microbatch gate"
+           [[[0 :whole] [1 :whole]] #{[:microbatch :base]}]
+           (let [w (-> {}
+                       (write [:make :base 0]) (write [:permission :base :system 0])
+                       (decide :base 0 {:who :system :thing {:who :system :n 0}})
+                       (decide :base 1 {:who :cy :refused :permission-not-found :thing {:who :cy :n 1}}))
+                 played (play-acts w (acts-of :base 0 10 :system))]
+             [(given (:answer played)) (set (map (juxt :gate :routing-id) (apply concat (:read played))))]))
+    (shown "who reads a layer's acts, on the proof's layer of seven decisions:"
+           "a holder" (pr-str (given (:answer holder)))
+           "| an asker outside" (pr-str (given (:answer outside))))))
+
+(deftest a-read-of-acts-is-bounded
+  (let [w (lab-world)
+        light (assoc numbers :max-thing-weight-of-one-read 60)
+        made (-> {} (write [:make :lab 0]) (write [:permission :lab :ann 0]))
+        three (-> made
+                  (decide :lab 0 {:who :ann :thing {:n 0} :weight 30})
+                  (decide :lab 1 {:who :ann :thing {:n 1} :weight 30})
+                  (decide :lab 2 {:who :ann :thing {:n 2} :weight 30}))
+        heavy (-> made
+                  (decide :lab 0 {:who :ann :thing {:n 0} :weight 6})
+                  (decide :lab 1 {:who :ann :thing {:n 1} :weight 61})
+                  (decide :lab 2 {:who :ann :thing {:n 2} :weight 6}))]
+    (check "a read gives `most` decisions at most, and says where the next one begins; `most` is cut to the read path's number"
+           [[[0 :whole] [1 :whole] [2 :whole]] 3 3]
+           (let [a (:answer (play-acts (constantly w) (acts-of :lab 0 3 :ann) numbers))
+                 cut (:answer (play-acts (constantly w) (acts-of :lab 0 100 :ann) (assoc numbers :max-acts-of-one-read 3)))]
+             [(given a) (:next a) (count (:acts cut))]))
+    (check "the things of one answer weigh no more than the read's bound: the answer ends before the first thing that does not fit, and the next read begins at its stamp"
+           [[[0 :whole] [1 :whole]] 2]
+           (let [a (:answer (play-acts (constantly three) (acts-of :lab 0 10 :ann) light))]
+             [(given a) (:next a)]))
+    (check "a thing that alone weighs more than the read's bound does not stop the line: its stamp, act-id and answer are given, with the word that tells it from a withheld one, and the read goes on behind it"
+           [[[0 :whole] [1 :heavier-than-the-read] [2 :whole]] 3 true]
+           (let [a (:answer (play-acts (constantly heavy) (acts-of :lab 0 10 :ann) light))]
+             [(given a) (:next a) (every? #(contains? % :answer) (:acts a))]))
+    (check "from a stamp past the last one, an asker who may see the layer is given nothing, the last stamp, and the same stamp to begin from"
+           [[] 6 20]
+           (let [a (:answer (play-acts w (acts-of :lab 20 10 :ann)))] [(:acts a) (:last-stamp a) (:next a)]))
+    (shown "a read of acts within its bounds: three things of 30 against a bound of 60 give two;"
+           "things of 6, 61 and 6 give" (pr-str (given (:answer (play-acts (constantly heavy) (acts-of :lab 0 10 :ann) light)))))))
+
+(deftest the-rounds-of-a-read-of-acts
+  (let [w (lab-world)
+        holder (play-acts w (acts-of :lab 0 10 :ann))
+        given-one (play-acts w (acts-of :lab 0 10 :bo))
+        outside (play-acts w (acts-of :lab 0 10 :cy))
+        kinds (fn [played] (mapv (fn [round] (into (sorted-set) (map (fn [s] [(:table s) (first (:path s))])) round)) (:read played)))
+        line-reads (fn [played] (for [round (:read played) s round :when (#{:line :things} (:table s))] s))]
+    (check "the last stamp is read in a round of its own, before the rights; the rights before the line; the line before its things"
+           [[#{[:task :last-stamp]} #{[:facts :own-rows] [:facts :row]} #{[:line :window]} #{[:things :window]}]
+            [#{[:task :last-stamp]} #{[:facts :own-rows] [:facts :row]} #{[:facts :row]} #{[:line :window]} #{[:things :window]}]]
+           [(kinds holder) (kinds given-one)])
+    (check "an asker who may not see the layer reads her rows by who and no window of the line: each row of the line and each thing that her read fetches is one of hers"
+           [[#{[:task :last-stamp]} #{[:facts :own-rows] [:facts :row]} #{[:task :by-who]} #{[:line :window]} #{[:things :window]}]
+            #{2 5}]
+           [(kinds outside)
+            (into #{} (mapcat (fn [s] (let [[_ from to] (:path s)]
+                                        (keep rows/stamp-of-line-key [from (str/trim to)]))))
+                  (line-reads outside))])
+    (check "a holder's page of kept things is one window of the things table, across a decision whose thing the gate kept not; a visitor's own things are read alone, never a withheld one's"
+           [[[(rows/line-key :lab 0) (str (rows/line-key :lab 6) " ") 6]]
+            [[(rows/line-key :lab 2) (str (rows/line-key :lab 2) " ") 1]]]
+           (let [visitor (play-acts (lab-world [:setting :lab :everyone 7]) (acts-of :lab 0 10 :cy))]
+             [(for [s (last (:read holder))] (rest (:path s)))
+              (for [s (last (:read visitor))] (rest (:path s)))]))
+    (check "a read of acts takes six rounds at most: four for the layer's first holder, five for a holder given hers beneath another's and for an asker outside, six for an asker outside whose permission's rows above must be read"
+           [4 5 5 6]
+           (let [dee (-> (lab-world [:give :lab :dee :bo 7] [:end :lab :bo 8])
+                         (decide :lab 7 {:who :bo :thing {:n 7}})
+                         (decide :lab 8 {:who :ann :thing {:n 8}})
+                         (decide :lab 9 {:who :dee :thing {:n 9}}))]
+             [(:rounds holder) (:rounds given-one) (:rounds outside) (:rounds (play-acts dee (acts-of :lab 0 10 :dee)))]))
+    (check "a decision that lands after the last stamp was read is not given, though the window holds it: it is decided after the rights were read, and the next read gives it"
+           [[0 1 2 3 4 5 6] 6 7]
+           (let [later (decide w :lab 7 {:who :ann :thing {:n 7}})
+                 a (:answer (play-acts (fn [round] (if (zero? round) w later)) (acts-of :lab 0 10 :ann) numbers))]
+             [(mapv :stamp (:acts a)) (:last-stamp a) (:next a)]))
+    (check "a line that is not whole gives the first stamp at which a row is not there, and no answer: a row of the line up to the last stamp, or a thing that the line says is kept"
+           [{:stamp 3} {:stamp 2} {:stamp 3}]
+           (let [no-row (update w [:streaming :line] dissoc (rows/line-key :lab 3))
+                 no-thing (update w [:streaming :things] dissoc (rows/line-key :lab 2))]
+             [(:fault (play-acts no-row (acts-of :lab 0 10 :ann)))
+              (:fault (play-acts no-thing (acts-of :lab 0 10 :ann)))
+              (:fault (play-acts no-row (acts-of :lab 0 10 :bo)))]))
+    (check "the runs of neighbouring stamps: a gap or a stamp to break ends a run, a stamp to bridge goes on, and each run counts what it takes"
+           [[[0 1 2]] [[0 0 1] [2 2 1]] [[0 2 2]] [[0 0 1] [3 3 1]] [] [[5 6 2] [9 9 1]]]
+           [(acts/runs [[0 :take] [1 :take]])
+            (acts/runs [[0 :take] [1 :break] [2 :take]])
+            (acts/runs [[0 :take] [1 :bridge] [2 :take]])
+            (acts/runs [[0 :take] [3 :take]])
+            (acts/runs [[0 :bridge] [1 :break]])
+            (acts/runs [[4 :bridge] [5 :take] [6 :take] [7 :bridge] [9 :take]])])
+    (shown "the rounds of a read of acts: a holder" (pr-str (kinds holder)) "| an asker outside" (pr-str (kinds outside)))))
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them."
@@ -2231,6 +2533,9 @@
   (a-step-that-joins-or-leaves-a-source-owes-the-whole-answer)
   (every-order-of-the-callbacks)
   (the-size-of-a-run-and-the-order-of-its-keys)
+  (who-reads-a-layers-acts)
+  (a-read-of-acts-is-bounded)
+  (the-rounds-of-a-read-of-acts)
   (the-words))
 
 (defn -main

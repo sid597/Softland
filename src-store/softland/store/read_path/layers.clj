@@ -34,6 +34,8 @@
     own-row       own rows, a layer, a store key -> the row, or nil
     made?         own rows, a layer -> true when the layer is made
     who-may-see   own rows, a layer -> `:members` or `:everyone`
+    who-may-read-acts
+                  own rows, a layer -> `:members` or `:everyone`
     builds-on     own rows, a layer -> the layers that it builds on
     marked-since  own rows, a layer, a key -> the stamp of the key's mark
     permission-state
@@ -107,6 +109,23 @@
         [kind v] (rows/read-value row)]
     (cond
       (nil? row) (first-act/starts-with layer :softland.store/who-may-see)
+      (and (= :value kind) (= :everyone v)) :everyone
+      :else :members)))
+
+(defn who-may-read-acts
+  "Takes a layer's own rows and the layer. Gives who may read the layer's
+  acts whole: `:everyone` or `:members`. With no row it is what the layer
+  starts with, `:members` for every layer, the base too
+  (`softland.store.gate.first-act/starts-with`). A row whose value is
+  neither word reads as `:members`, the answer that shows less, as
+  `who-may-see` reads its own. Only a read of a layer's acts asks it
+  (`softland.store.read-path.acts`): a read of facts reads a layer's facts
+  as it did, whatever the setting says."
+  [own-rows layer]
+  (let [row (own-row own-rows layer :softland.store/who-may-read-acts)
+        [kind v] (rows/read-value row)]
+    (cond
+      (nil? row) (first-act/starts-with layer :softland.store/who-may-read-acts)
       (and (= :value kind) (= :everyone v)) :everyone
       :else :members)))
 

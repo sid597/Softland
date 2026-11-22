@@ -1,6 +1,6 @@
 (ns softland.store.read-path.words
   "Everything that the read path says to a caller in place of an answer,
-  declared as data: its own eight words, the five reasons for which a live
+  declared as data: its own ten words, the five reasons for which a live
   read ends, and the two words for a layer that gave nothing. Pure code. It
   needs no cluster, and it requires nothing outside Clojure.
 
@@ -12,7 +12,7 @@
 
   A word, as a caller gets it, is a map:
 
-    :could-not  the word, one of the eight of `words`. Each reads after
+    :could-not  the word, one of the ten of `words`. Each reads after
                 \"the read path could not\"
     and what the word carries, each under its own name (`carried`)
 
@@ -20,7 +20,7 @@
 
   Inputs and results, by call:
 
-    word  one of the eight, and a map of what it carries -> the word as a
+    word  one of the ten, and a map of what it carries -> the word as a
           caller gets it, or nil for a word that `words` does not hold
 
   State and effects. None. `word` is pure.
@@ -36,9 +36,10 @@
   its own opening, and the read path's is its own.")
 
 (def words
-  "The read path's own eight words. Each has the calls that can give it and
+  "The read path's own ten words. Each has the calls that can give it and
   what it says. `:keep-the-read-live` is given to an asker's function, under
-  `:ended`, and by no call."
+  `:ended`, and by no call. The last two are of a read of a layer's acts
+  (`softland.store.read-path.acts`)."
   {:find-the-module
    {:from #{:open}
     :says "the cluster gave no table of the module under that name; no read path is opened"}
@@ -69,7 +70,15 @@
 
    :keep-the-read-live
    {:from #{:the-askers-function}
-    :says "the live read ended; the function is not called again, and the caller asks again"}})
+    :says "the live read ended; the function is not called again, and the caller asks again"}
+
+   :find-the-line-whole
+   {:from #{:read-once}
+    :says "a read of a layer's acts found no row of the layer's line at a stamp where one must be: up to the layer's last stamp, at a stamp of the asker's own, or the thing that a row says is kept; the read gave no answer that ends there"}
+
+   :keep-a-read-of-acts-live
+   {:from #{:read-live}
+    :says "a read of a layer's acts is asked once and is not kept live; the caller asks again from where the last read ended"}})
 
 (def carried
   "What a word can carry, by name, with what each is. A word carries no row,
@@ -82,7 +91,8 @@
    :waited-ms "how long the call waited, in milliseconds"
    :what      "what was too many: `:places-of-one-run`, `:checks-of-one-read`, or `:pushes-under-one-routing-id`"
    :most      "the greatest number of them that one read may hold, or for the pushes that the read path may hold"
-   :because   "why a live read ended, one of `because`"})
+   :because   "why a live read ended, one of `because`"
+   :stamp     "the first stamp of a layer's line that the read did not find whole"})
 
 (def because
   "The five reasons for which a live read ends, each with what it says. A
@@ -107,13 +117,14 @@
 
 (defn word
   "Makes one of the read path's own words as a caller gets it. Takes the
-  word, one of the eight, and a map of what it carries, or nil. Gives the
+  word, one of the ten, and a map of what it carries, or nil. Gives the
   map of what is carried with `:could-not` in it. A part of an answer among
   what is carried is left out (`:layers`, `:left-out`, `:place`, `:places`,
-  `:orders`), and `:could-not` cannot be given: a word is never an answer.
+  `:orders`, `:acts`, `:next`, `:last-stamp`), and `:could-not` cannot be
+  given: a word is never an answer.
   Gives nil for a word that `words` does not hold, so that no word is made
   that is not declared."
   [the-word carries]
   (when (contains? words the-word)
-    (assoc (dissoc (or carries {}) :layers :left-out :place :places :orders)
+    (assoc (dissoc (or carries {}) :layers :left-out :place :places :orders :acts :next :last-stamp)
            :could-not the-word)))

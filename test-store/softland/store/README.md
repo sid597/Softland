@@ -8,8 +8,9 @@
 | [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the time on the act, the stamp, the first act of a layer, the record's rows, and the checks of the decision, each alone and as the walk of one thing calls them, one thing after the other. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and the numbers of its wait. And the source of the store's tree, read as data. It needs no cluster. | One atom: the lines that it showed. It reads the clock for nothing and draws no random number. It reads the source files of the store's tree and of the proofs, and writes none. |
 | [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the two reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts two functions of its own into the vars of two pure functions of the store that the walk of one thing calls, and puts the store's back when that cluster is closed. Its atoms: the lines shown, the things sent to each depot, the first answers of the streaming gate, what later checks come back to, and, for the second cluster, the batch that is to fail and the events of the streaming gate that it watches, each with the calls that were noted for it. It reads the clock for the time that the hand writes on a thing, and to end a loop that watches a table. |
 | [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's five calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens seven doors on the module. It pauses the microbatch gate with Rama's test tool, and lets it go on each time. Three atoms: the lines shown, each result that a door gave, and what later checks come back to. It reads two clocks of its JVM and sets neither. |
-| [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) five pure namespaces: the form of a query and its check, the layers, the sources, the answer and the steps of a live read, the words; and the six functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
-| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts one function of its own into the var of one pure function that the walk of both gates calls, and puts the store's back. It opens one door and four read paths on each; and on the first, three read paths more: two, each with one small number, for the group of the read path's own bound, and one for the counts of pushes of the group of the base that is read where the asker's layer lives. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of facts of each decision, the place at whose decision a throw is asked, and how many throws were made. |
+| [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) six pure namespaces: the form of a query and its check, the layers, the sources, the answer and the steps of a live read, the read of a layer's acts by stamp, the words; and the functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
+| [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live; and a layer's acts, taken and refused, back out by stamp, read once by each kind of asker. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts one function of its own into the var of one pure function that the walk of both gates calls, and puts the store's back. It opens one door and four read paths on each; and on the first, five read paths more: two, each with one small number, for the group of the read path's own bound, one for the counts of pushes of the group of the base that is read where the asker's layer lives, and two with small bounds of a read of acts. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of facts of each decision, the place at whose decision a throw is asked, and how many throws were made. |
+| [line_statements.clj](line_statements.clj) | Piece 3's statements (`src/proposal/runtime-2026-11-21/store-piece-3/statements/`), which another session wrote from the spec alone, over the store: the judge's probe of the bounds and its generated histories, played through the door, the two gates and the read of a layer's acts on Rama's in-process cluster, each step held against the judge's model. | It starts one cluster in its own JVM and closes it, with a module of its own for each history, four at once, each destroyed after. It writes no file. |
 | [run_again_proof.clj](run_again_proof.clj) | That the store comes out the same when it is run again from its depots of acts. A rule that names the acts decided out of their layer's line, held on lines made by hand. Then, on Rama's in-process cluster: a second module that mirrors the two depots and runs the store's own gates over them from their beginning, every row of every table compared; the kept acts of [the fixture](run_again_fixture/README.md) fed to a fresh store with 4 tasks and to one with 8, held against the kept tables; and the run again after failures that the proof makes. | It starts four clusters in its own JVM, one after the other, and closes each. The first and the fourth also hold a module of its own, `StoreAgain`. For the fourth alone it puts three functions of its own into the vars of three pure functions that the walk calls, and puts the store's back. It opens a door, appends by its own hand, and selects every row of every table. Two atoms: the lines shown, and what the check after a failure plans and notes. A run of the proof writes no file; its mode `make-fixture` writes the two files of the fixture. |
 | [read_measures.clj](read_measures.clj) | Nothing: it is a run that is no proof. It measures the gates under acts, with and without live reads, the opening of a canvas, and how late a push is, and holds nothing to a number. | It starts one cluster in its own JVM and closes it. It opens one door and two read paths. It reads the clock and the heap. |
 | [gate_measures.clj](gate_measures.clj) | Nothing: it is a run that is no proof. It measures an act through the door and each gate, with no live read open, and holds nothing to a number. | It starts two clusters in its own JVM, one after the other, and closes each: the first with the module `Store`, the second with a module of its own, `StoreAtOne`, which is `Store` with one setting of Rama at 1. It opens doors and no read path, and no depot and no table itself. It reads the clock, and asks `git` which tree it is on. |
@@ -480,7 +481,7 @@ clojure -M:store -m softland.store.read-path-pure-proof
 ```
 
 It runs on the alias that holds Clojure alone, so a pass also holds that the read
-path's five pure namespaces load with no Rama. It takes a few seconds.
+path's six pure namespaces load with no Rama. It takes a few seconds.
 
 The tables are a value in this proof: a map from a gate and a table to a sorted
 map from a row's key to the row. A small function of the proof's own stands for a
@@ -489,7 +490,12 @@ value of a marked key as a gate keeps it, and writes a give or an end of a
 permission only where a gate would take it. No task is played: a source's routing
 id is not looked at when it is read, so a source of the base gives the same
 rows under every home, as the store's tables do when every task holds the
-base's rows. The home of a read is the layer that it starts from.
+base's rows. The home of a read is the layer that it starts from. For a read of
+a layer's acts a second function stands for a gate's decision: it puts the
+decision's line row, its thing when it is kept, the layer's last stamp and the
+row by who in the same maps, and a read of acts is played round by round on
+them, with the tables of each round given by a function, so that a decision can
+land between two rounds.
 
 What it checks. Each check states itself: its sentence is in the test file, as
 the first argument of `check`, or the first part of a case. A run prints each
@@ -526,7 +532,13 @@ group observed. This page does not retell the checks.
   next is taken;
 - the time on a row as a gate writes it from the time on the act: the proof
   makes its rows' times itself, of the stamp, running back as the stamp runs
-  on.
+  on;
+- a read of acts whose window has an end with a letter from U+E000 on: the
+  proof's window always cuts at its end, as Rama does for every other end.
+  The read path's proof reads such a layer and such a who on the cluster;
+- a line row and its thing written by a gate: the proof's decisions are its
+  own, and the weight of a thing is its printed length, or what the proof
+  names. The module's proof holds what a gate writes.
 
 ## The read path's proof
 
@@ -587,7 +599,9 @@ read path (the test `a-very-large-run`).
 
 ### What it changes outside the read path
 
-It appends to both depots through the door, and nothing by its own hand. To
+It appends to both depots through the door, and by its own hand only three
+things, to the streaming depot, in the test `a-layers-acts-by-stamp`: things
+that the declaration refuses, as a sender with no door can send them. To
 find the task of a layer it selects, with two handles of its own, the layer's
 last stamp in the table that the layer's gate keeps for a task, in the tests `the-base-is-read-where-the-askers-layer-lives`, `the-order-of-the-tables-keys` and `a-batch-that-runs-a-second-time`: only the task that decides the layer's acts holds one. It reads no
 table of facts round the read path. It reads the read path's own memory, its
@@ -595,7 +609,9 @@ three maps, from the field of its type, for what no call shows. It writes the
 base's setting to
 "members" and back in the test `what-shapes-a-read-changes-under-it`. It starts the module again once, in the test `the-module-is-started-again`. It
 opens two more read paths in the test `the-read-paths-own-bound-on-its-pushes`, each with one small number, and one more
-in the test `the-base-is-read-where-the-askers-layer-lives`, for its counts of pushes. For
+in the test `the-base-is-read-where-the-askers-layer-lives`, for its counts of pushes, and two more in the test
+`a-layers-acts-by-stamp`, with small bounds of a read of acts; that test writes
+who may read its layer's acts, and to everyone and back. For
 its second cluster it puts one function of its own into the var of one pure
 function that the walk of both gates calls, before the cluster is launched, and
 puts the store's own back after; there it pauses the microbatch gate once with
@@ -647,6 +663,15 @@ Rama's test tool, and lets it go on.
 - how long after its maker's answer a fact of the base shows on another task
   than the base's: the test `the-base-is-read-where-the-askers-layer-lives` prints how many reads gave it at once, and holds
   only the proof's wait;
+- a read of acts by an asker outside the base: her rows by who in the base
+  are read on the base's task, as a holder's line is, and only a holder and a
+  visitor read the base's acts here;
+- a thing of 32 MiB read back whole, and a page of 1,000 decisions: the test
+  `a-layers-acts-by-stamp` reads a line of thirteen, with things of a few
+  hundred bytes and one too heavy to keep. Piece 3's statements send a thing
+  over 32 MiB;
+- a decision that lands between two rounds of a read of acts: the pure proof
+  plays one, on its own tables;
 - a tool, a view, an inhabitant;
 - how fast anything is.
 
@@ -667,6 +692,49 @@ that was not opened. With the function that ends a read put back as it was
 before it took the read's turn first, the check failed in the turns that met a
 read that was not opened: run once, by a scratch file of the build that changed
 no source.
+
+## Piece 3's statements over the store
+
+The statements of a layer's line and of the read by stamp, with their model,
+their generator and their runner, are another session's, written from piece 3's
+spec alone (`src/proposal/runtime-2026-11-21/store-piece-3/statements/`). This
+tree changes none of them: [line_statements.clj](line_statements.clj) is the
+target that they are played against, and the run. Run it from the statements'
+folder, behind the machine's cluster lock:
+
+```sh
+cd src/proposal/runtime-2026-11-21/store-piece-3/statements
+flock ../../../backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock \
+  clojure -Sdeps '{:aliases {:the-store {:extra-paths ["../../../../../src-store" "../../../../../test-store"]}}}' \
+  -M:store:the-store -m softland.store.line-statements
+```
+
+The judge's own alias `:store` names `src-store` and `test-store` one folder
+short of the repository root, so the run adds the two paths itself and changes
+nothing of the judge's. With no argument it runs the judge's probe of the bounds
+on a module of its own, then 80 histories under each of the seeds 1, 2 and 3, as
+the judge's own run plays them on its model; `[histories-per-seed] [seed ...]`
+asks for others. Each history begins with nothing made, so each is played on a
+module of its own, four at once, in one in-process cluster with four tasks; the
+judge's five calls are the door's three, an append with no door, and the read of
+a layer's acts, by a read path whose bound on the weight of one read's things is
+the judge's. It takes about four minutes.
+
+A pass shows that at every step and every read of every history, the store's
+answers, its line and its read gave what the judge's model gives. That the model
+says what the spec says is the judge's claim, with the broken copies that its
+own run catches on its model. Rama's client prints lines marked ERROR as each
+module is destroyed; they are no failed check.
+
+### What the statements' run does not reach
+
+- what the judge does not generate: an act whose thing weighs more than 32 MiB
+  and is taken, a decimal or a big number in a thing, a who or a layer whose id
+  holds a letter from U+E000 on, a read kept live;
+- the judge's statements at a number of tasks other than four;
+- the judge's model where it differs from the spec: the judge's K1 keeps every
+  taken act whole, where Sid's call bounds a taken act at 32 MiB; no generated
+  act reaches the difference.
 
 ## The run-again proof
 

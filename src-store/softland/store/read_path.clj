@@ -23,7 +23,11 @@
   asker may see each layer, reads each layer that she may see, and puts the
   layers together: for each place the nearest layer that holds a fact wins.
   It reads the gates' four tables of facts straight; no query of the store
-  stands between.
+  stands between. A query can also ask for one layer's acts by stamp
+  (`:acts`): the read path then reads that layer's line, its things and its
+  gate's table for a task, as straight, and puts the answer together with
+  `softland.store.read-path.acts`, which holds the one rule of who reads a
+  decision whole. That read is asked once, and is not kept live.
 
   The calls, each of which but `open` takes the read path first:
 
@@ -38,9 +42,10 @@
     leave       a handle that `read-live` gave -> :left, or :not-open
     open-count  nothing more -> {:live-reads n :pushes n}
 
-  An answer is a plain map (`softland.store.read-path.answer`). A word is
-  one of the read path's own eight (`softland.store.read-path.words`): a
-  map that holds `:could-not`. No call throws for a query, a function or a
+  An answer is a plain map (`softland.store.read-path.answer`; of a read of
+  acts, `softland.store.read-path.acts`). A word is one of the read path's
+  own ten (`softland.store.read-path.words`): a map that holds
+  `:could-not`. No call throws for a query, a function or a
   handle that a caller gave, or for what Rama did, and a read that failed
   has never said \"no fact\". What must hold: the first thing that a call
   is given is a read path that `open` gave. Every
@@ -49,7 +54,8 @@
 
   How it reads. `softland.store.read-path.sources/reading` says, from what
   is known so far, which sources a read wants and which of them are
-  missing; a source is one row or one run of neighbouring rows of one table
+  missing, and `softland.store.read-path.acts/reading` says it for a read of
+  acts; a source is one row or one run of neighbouring rows of one table
   on one task. This file only fetches what is missing and asks again, at
   most as many times as `max-rounds` gives for how the read is asked, and
   hands `softland.store.read-path.answer` what it fetched. Asked once, every missing source of one table under one
@@ -57,7 +63,7 @@
   `foreign-proxy-async`, shared by every live read that wants the same
   source and closed when the last of them leaves.
 
-  Every path that the read path gives Rama is one of five forms that
+  Every path that the read path gives Rama is one of the forms that
   `path-of` builds from texts of `softland.store.record.rows`. No caller
   gives a path, a table or a routing id. So the read path never opens a
   push on a whole table: the widest thing that a query can name is the
@@ -80,10 +86,11 @@
 
   State. The read path owns no durable state, and it writes nothing: it
   appends to no depot and keeps no record of who read what. An opened read
-  path borrows four handles of Rama's client, the tables of facts and of
-  facts by value of both gates; the opener owns the cluster handle, and
-  nothing closes the read path. It holds its seven numbers, fixed at the
-  opening. Its one memory is `held`, an atom of three maps, in the memory of
+  path borrows ten handles of Rama's client: the tables of facts and of
+  facts by value of both gates, and, for a read of a layer's acts, each
+  gate's line, its things and its table for a task. The opener owns the
+  cluster handle, and nothing closes the read path. It holds its nine
+  numbers, fixed at the opening. Its one memory is `held`, an atom of three maps, in the memory of
   one process:
 
     :pushes  a source -> {:opening a delay around the one call that opens
@@ -279,11 +286,12 @@
       (`softland.store.read-path.query/words`).
 
   Approach. The file has these sections, in this order: the read path as a
-  value; the calls of Rama's client and the five forms of path; a read
-  asked once; the pushes and their sharing; the steps of a live read; the
-  five calls."
+  value; the calls of Rama's client and the forms of path; a read asked
+  once, of facts and of acts; the pushes and their sharing; the steps of a
+  live read; the five calls."
   (:require [com.rpl.rama :as rama]
             [com.rpl.rama.path :as path]
+            [softland.store.read-path.acts :as acts]
             [softland.store.read-path.answer :as answer]
             [softland.store.read-path.query :as query]
             [softland.store.read-path.sources :as sources]
@@ -311,6 +319,12 @@
                    microbatch-facts
                    streaming-facts-by-value
                    microbatch-facts-by-value
+                   streaming-line
+                   microbatch-line
+                   streaming-things
+                   microbatch-things
+                   streaming-task
+                   microbatch-task
                    numbers
                    held
                    next-id]
@@ -326,8 +340,8 @@
 (alter-meta! #'->ReadPath assoc
              :private true
              :doc "Makes an opened read path, an object of a type of its own.
-  `open` is the one caller. A read path holds the module's name; the four
-  handles of Rama's client, borrowed; its seven numbers; `held`, an atom of
+  `open` is the one caller. A read path holds the module's name; the ten
+  handles of Rama's client, borrowed; its nine numbers; `held`, an atom of
   {:pushes :counts :reads} (the namespace docstring says what each holds); and the
   count from which the ids of its live reads are made. It prints as
   `printed` says, by the type's two print methods and its `toString`.")
@@ -358,7 +372,8 @@
 
     :once   6. A read asked once settles within 6 rounds whatever is written
             while it reads, so a read that the derivation holds never meets
-            the bound
+            the bound. A read of acts takes 6 at most, in the order of
+            `softland.store.read-path.acts`
     :live   16. A live read opens within 8 rounds on tables that do not
             change while it opens, and is given 8 more for writes that make
             a part of it wanted anew while it opens: a list that gains a
@@ -412,20 +427,43 @@
 
 (defn- pstate-of
   "Takes the read path and a source. Gives the handle of the source's table:
-  the facts, or the facts by value, of the source's gate. nil for a source
-  whose gate or table the read path does not know."
+  the facts, the facts by value, the line, the things or the table for a
+  task, of the source's gate. nil for a source whose gate or table the read
+  path does not know."
   [^ReadPath read-path source]
   (case [(:gate source) (:table source)]
     [:streaming :facts]           (.-streaming-facts read-path)
     [:microbatch :facts]          (.-microbatch-facts read-path)
     [:streaming :facts-by-value]  (.-streaming-facts-by-value read-path)
     [:microbatch :facts-by-value] (.-microbatch-facts-by-value read-path)
+    [:streaming :line]            (.-streaming-line read-path)
+    [:microbatch :line]           (.-microbatch-line read-path)
+    [:streaming :things]          (.-streaming-things read-path)
+    [:microbatch :things]         (.-microbatch-things read-path)
+    [:streaming :task]            (.-streaming-task read-path)
+    [:microbatch :task]           (.-microbatch-task read-path)
     nil))
+
+(defn- window
+  "Takes the two ends of a run and a count. Gives the path of a window: that
+  many rows of the table from the run's first end, cut at its last end, so
+  that the walk reads that many rows at most. For a run of which an end
+  holds a UTF-16 unit from U+D800 on, the walk alone and no cut: such a cut
+  is one that this build did not find Rama to make rightly
+  (`softland.store.read-path.sources/first-read-holds?`), so the reader drops
+  the keys past the end itself (`softland.store.read-path.sources/keys-of-run`).
+  A layer and a who are each such an id, so the run of one who's rows by who
+  takes the same care as the run of a layer's line. What must hold: the
+  count is a whole number of 1 or more."
+  [from to n]
+  (if (or (sources/outside-the-agreed-range? from) (sources/outside-the-agreed-range? to))
+    (path/sorted-map-range-from from {:max-amt n})
+    [(path/sorted-map-range-from from {:max-amt n}) (path/sorted-map-range from to)]))
 
 (defn- path-of
   "The one function that makes a path of Rama's. Takes a source, the numbers
-  and a step. Gives one of four forms, or nil for a source or a step of any
-  other kind; the read path then makes no call.
+  and a step. Gives one of the forms below, or nil for a source or a step
+  of any other kind; the read path then makes no call. Of a read of facts:
 
     a source of one row, `:whole`    (keypath key)
     the layer's own rows, `:whole`   (sorted-map-range from to)
@@ -444,13 +482,28 @@
                                      row. Alone in its call, since it gives
                                      one value or two
 
-  The fifth form is a `multi-path` of these, which `select-now` makes for
-  the reads of one call. What must hold: the two texts of a source were
-  made by `softland.store.record.rows` of ids that were tested first. A
-  push is opened on the first three only."
+  And of a read of a layer's acts (`softland.store.read-path.acts`), each
+  `:whole`:
+
+    a window, of the line or of the things
+                                     a walk of a count of rows from the
+                                     run's first end, cut at its last
+                                     (`window`)
+    a layer's last stamp             (keypath :last-stamp text), in the
+                                     gate's table for a task
+    one who's rows by who            (keypath :by-who) and a window of them,
+                                     in the same table
+
+  A `multi-path` of these is what `select-now` makes for the reads of one
+  call. What must hold: the texts of a source were made by
+  `softland.store.record.rows` of ids that were tested first. A push is
+  opened on the first three only."
   [source numbers step]
-  (let [[kind a b] (:path source)
-        ok? (and (string? a) (or (= :row kind) (string? b)))]
+  (let [[kind a b n] (:path source)
+        window? (contains? #{:window :by-who} kind)
+        ok? (and (string? a)
+                 (or (contains? #{:row :last-stamp} kind) (string? b))
+                 (or (not window?) (and (int? n) (pos? (long n)))))]
     (when ok?
       (case [kind step]
         [:row :whole]      (path/keypath a)
@@ -463,6 +516,9 @@
                             (path/view count)]
         [:run :size]       [(path/sorted-map-range-from a {:max-amt (inc (:max-places-of-one-run numbers))})
                             (path/multi-path (path/view count) [path/LAST path/FIRST])]
+        [:window :whole]       (window a b n)
+        [:last-stamp :whole]   (path/keypath :last-stamp a)
+        [:by-who :whole]       [(path/keypath :by-who) (window a b n)]
         nil))))
 
 (defn- select-async
@@ -589,6 +645,35 @@
           (= :word outcome) [:word runs]
           (some #(< (:max-places-of-one-run numbers) (count (first %))) runs) [:word (too-large read-path)]
           :else [:ok (zipmap run-sources (map first runs))])))))
+
+(defn- read-acts-once
+  "The body of `read-once` for a query of the word `:acts`, a layer's acts
+  by stamp. Takes the read path and the query in its one form. Gives the
+  answer of `softland.store.read-path.acts`, or a word. It goes round as a
+  read of facts does: what is wanted (`softland.store.read-path.acts/reading`);
+  each missing source read by a select, every source of one table under one
+  routing id in one call; again, at most as many times as `max-rounds`
+  gives a read asked once. A reading that names the first stamp at which
+  the line is not whole ends in `:find-the-line-whole`, with that stamp. A
+  reading that wants nothing and gives neither an answer nor that stamp
+  cannot be reached, and would end in `:reach-the-store`. Every path is
+  one of `path-of`'s; no run of this read needs its size first, since each
+  window is bounded by its own count."
+  [^ReadPath read-path query]
+  (let [numbers (.-numbers read-path)
+        deadline (+ (now-ms) (:wait-ms numbers))]
+    (loop [round 0 known {}]
+      (let [{:keys [answer fault missing]} (acts/reading query known numbers)]
+        (cond
+          answer answer
+          fault (words/word :find-the-line-whole fault)
+          (empty? missing) (words/word :reach-the-store
+                                       {:said "a read of acts wanted nothing and gave no answer"})
+          (<= (:once max-rounds) round) (late read-path)
+          :else (let [[outcome got] (select-now read-path (sources/calls-for-once missing numbers) deadline)]
+                  (if (= :word outcome)
+                    got
+                    (recur (inc round) (merge known got)))))))))
 
 ;; ------------------------------------------------- the pushes, and their sharing
 
@@ -1131,11 +1216,13 @@
   Rama gives the module `Store`; and, when the opener wants, a map of the
   read path's numbers (`softland.store.read-path.query/default-numbers`
   says what each is, with its default and its reason). Gives a read path,
-  or the word `:find-the-module` when the cluster gave one of the module's
-  four tables of facts not under that name; no read path is then opened.
+  or the word `:find-the-module` when the cluster gave one of the ten
+  tables that the read path reads not under that name; no read path is
+  then opened.
 
-  Four fetches of a client, once for a process and on no read's way: the
-  facts and the facts by value of each gate. The read path borrows the
+  Ten fetches of a client, once for a process and on no read's way: the
+  facts and the facts by value of each gate, and each gate's line, its
+  things and its table for a task, which only a read of acts reads. The read path borrows the
   handles and uses them from every caller's thread; the opener owns the
   cluster handle, and nothing closes the read path. A read path starts
   with no live read and no push.
@@ -1152,6 +1239,12 @@
                  (rama/foreign-pstate cluster module-name "$$microbatch-facts")
                  (rama/foreign-pstate cluster module-name "$$streaming-facts-by-value")
                  (rama/foreign-pstate cluster module-name "$$microbatch-facts-by-value")
+                 (rama/foreign-pstate cluster module-name "$$streaming-line")
+                 (rama/foreign-pstate cluster module-name "$$microbatch-line")
+                 (rama/foreign-pstate cluster module-name "$$streaming-things")
+                 (rama/foreign-pstate cluster module-name "$$microbatch-things")
+                 (rama/foreign-pstate cluster module-name "$$streaming-task")
+                 (rama/foreign-pstate cluster module-name "$$microbatch-task")
                  (query/numbers numbers)
                  (atom {:pushes {} :counts {} :reads {}})
                  (AtomicLong. 0))
@@ -1234,8 +1327,11 @@
   (`softland.store.read-path.query`). Gives an answer
   (`softland.store.read-path.answer`), or one of the read path's words:
   `:read-the-query`, `:read-inside-an-askers-function`, `:reach-the-store`,
-  `:get-an-answer-within-its-wait` or `:serve-a-read-that-large`. It never
-  throws, and it holds nothing when it returns.
+  `:get-an-answer-within-its-wait` or `:serve-a-read-that-large`. A query of
+  a layer's acts (`:acts`) is read by `read-acts-once`, and gives the answer
+  of `softland.store.read-path.acts` or one of the same words but the last,
+  or `:find-the-line-whole`; what it costs is in that namespace's docstring.
+  It never throws, and it holds nothing when it returns.
 
   What it costs. Each round is the calls that are missing, one for each
   table under each routing id, sent at once; how many rounds a read takes
@@ -1281,9 +1377,10 @@
   [^ReadPath read-path query]
   (try
     (let [[outcome query] (checked query)]
-      (if (= :word outcome)
-        query
-        (read-once* read-path query)))
+      (cond
+        (= :word outcome) query
+        (= :acts (first (:asks query))) (read-acts-once read-path query)
+        :else (read-once* read-path query)))
     (catch Throwable t
       (words/word :reach-the-store (what-threw t)))))
 
@@ -1397,7 +1494,10 @@
   "Reads, and keeps the read live. Takes the read path, a query
   (`softland.store.read-path.query`) and a function of one argument. Gives
   {:now the answer, :leave-with a handle}, or one of the read path's
-  words: those of `read-once`, and `:keep-more-reads-live`. It never throws.
+  words: those of `read-once`, and `:keep-more-reads-live`. A query of a
+  layer's acts is not kept live: it gives `:keep-a-read-of-acts-live` at
+  once, with no call to Rama, and the caller asks again by `read-once` from
+  where its last read ended. It never throws.
 
   The function is called with one map at a time, as the namespace docstring
   says: first, on the caller's own thread and before `read-live` returns,
@@ -1457,9 +1557,10 @@
   [^ReadPath read-path query f]
   (try
     (let [[outcome query] (checked query)]
-      (if (= :word outcome)
-        query
-        (read-live* read-path query f)))
+      (cond
+        (= :word outcome) query
+        (= :acts (first (:asks query))) (words/word :keep-a-read-of-acts-live nil)
+        :else (read-live* read-path query f)))
     (catch Throwable t
       (words/word :reach-the-store (what-threw t)))))
 

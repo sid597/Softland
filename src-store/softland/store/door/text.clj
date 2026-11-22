@@ -260,6 +260,19 @@
    (feed* x 0 take-text take-bytes take-held)
    nil))
 
+(defn feed-part
+  "The walk of `feed` for one part of a thing, as the walk of the whole
+  thing walks it. Takes the part, the number of collections around it in
+  the thing, and the three functions of `feed`. So the pieces that it gives
+  are the part's text inside the thing's one text: a part deeper than
+  `max-depth` collections is written #too-deep as it is there. Gives nil.
+  It can throw, as `feed` can. Its caller is
+  `softland.store.door.digest/weighed`, for the time on a thing, which the
+  digest's walk leaves out."
+  [x depth take-text take-bytes take-held]
+  (feed* x depth take-text take-bytes take-held)
+  nil)
+
 (defn text
   "Takes anything. Gives its one text, a string. It never throws: a thing
   that throws while it is read has the text #unreadable."
