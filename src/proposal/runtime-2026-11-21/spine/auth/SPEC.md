@@ -130,6 +130,12 @@ Rules for every call:
   every email in lower case, and Auth holds that as form: an email that
   Java's `toLowerCase`, in the root locale, would change does not fit, in a
   claim or in an enter, whatever else the enter holds.
+- A string that UTF-8 cannot carry, one that holds a surrogate `char`
+  without its pair, does not fit wherever the contract takes a string: a
+  text, a code, a provider's name, a key or a value of `:says`. (The
+  build's default of 23 November, for Sid to turn: Rama keeps a string as
+  UTF-8, so such a string would be kept changed, and two accounts whose
+  subjects differ only there would be one.)
 - The other words of `:could-not`: `:find-the-module`, when the cluster
   that `open` is given holds no module of that name, or what it is given
   stands for no cluster; `:reach-the-module`, when Rama threw or gave no

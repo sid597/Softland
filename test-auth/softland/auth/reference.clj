@@ -115,15 +115,32 @@
   [x]
   (and (string? x) (= 64 (count x)) (some? (re-matches #"[0-9a-f]{64}" x))))
 
+(defn- carried?
+  "Whether UTF-8 can carry the string `s`: it holds no surrogate character
+  without its pair. A string that holds one does not fit wherever the
+  contract takes a string (the spec, \"What fits\": the build's default of
+  23 November, for Sid to turn)."
+  [^String s]
+  (let [n (count s)]
+    (loop [i 0]
+      (cond
+        (>= i n) true
+        (Character/isHighSurrogate (.charAt s i))
+        (and (< (inc i) n) (Character/isLowSurrogate (.charAt s (inc i))) (recur (+ i 2)))
+        (Character/isLowSurrogate (.charAt s i)) false
+        :else (recur (inc i))))))
+
 (defn- code?
-  "Whether `x` is the code of an ask: a string of 8 characters."
+  "Whether `x` is the code of an ask: a string of 8 characters that UTF-8
+  can carry."
   [x]
-  (and (string? x) (= 8 (count x))))
+  (and (string? x) (= 8 (count x)) (carried? x)))
 
 (defn- text?
-  "Whether `x` is a text: a string of at most 256 characters."
+  "Whether `x` is a text: a string of at most 256 characters that UTF-8 can
+  carry."
   [x]
-  (and (string? x) (<= (count x) longest-text)))
+  (and (string? x) (<= (count x) longest-text) (carried? x)))
 
 (defn- email?
   "Whether `x` is an email: a text in lower case. The spec says that the
@@ -133,9 +150,12 @@
 
 (defn- provider?
   "Whether `x` is a provider: a keyword whose name, with its namespace when
-  it has one, is at most 256 characters (Sid's call of 22 November)."
+  it has one, is at most 256 characters (Sid's call of 22 November), and can
+  be carried by UTF-8."
   [x]
-  (and (keyword? x) (<= (count (subs (str x) 1)) longest-text)))
+  (and (keyword? x)
+       (let [full (subs (str x) 1)]
+         (and (<= (count full) longest-text) (carried? full)))))
 
 (defn- account?
   "Whether `x` is an account: a vector of a provider and the provider's
@@ -146,11 +166,11 @@
 
 (defn- says?
   "Whether `x` is what a provider said: a map of at most 32 entries, each
-  from a text to a string of at most 2,048 characters."
+  from a text to a string of at most 2,048 characters that UTF-8 can carry."
   [x]
   (and (map? x)
        (<= (count x) most-said)
-       (every? (fn [[k v]] (and (text? k) (string? v) (<= (count v) longest-said))) x)))
+       (every? (fn [[k v]] (and (text? k) (string? v) (<= (count v) longest-said) (carried? v))) x)))
 
 (defn- shaped?
   "Whether `m` is a map that holds every key of `parts`, each with a value

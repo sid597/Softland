@@ -343,6 +343,22 @@
                 (every? #(= unfit (last-of (conj asha-waits (c :enter :says %))))
                         [(says-of 33) {(text-of 257) "v"} {"k" (text-of 2049)} {:name "Asha"} nil ["name" "Asha"]]))))
 
+  (let [lone (str (char 0xD800))
+        lone-low (str (char 0xDC00))]
+    (check "A string that UTF-8 cannot carry, one that holds a surrogate character without its pair, does not fit wherever the contract takes a string (the build's default of 23 November, for Sid to turn): a subject, a provider's name, an email, a key and a value of :says, a label, an ask's :asks and code, and a :model; a pair that stands together fits."
+           (and (every? #(= unfit (last-of (conj asha-waits (c :enter %))))
+                        [{:account [:google (str lone "x")]} {:account [:google (str "x" lone-low)]}
+                         {:account [(keyword (str "goo" lone)) "1"]} {:email (str "asha" lone "@example.com")}
+                         {:says {"name" (str "A" lone)}} {:says {(str lone-low "k") "v"}}])
+                (every? #(= unfit (last-of (conj signed-in %)))
+                        [(c :open-session :driven-by {:kind :model :model (str "m" lone)})])
+                (= unfit (second (r/step (:state (run sitting)) (c :make-actor :label (str "a" lone-low)))))
+                (= unfit (second (r/step r/empty-state [:ask {:code "ABCDEFGH" :hash (h 1) :asks (str "x" lone)
+                                                                :ends 10 :at 1}])))
+                (= unfit (second (r/step r/empty-state [:ask {:code (str "ABCDEFG" lone) :hash (h 1) :asks "x"
+                                                                :ends 10 :at 1}])))
+                (= asha (:person (last-of (conj asha-waits (c :enter :says {"name" "A\uD83D\uDE00sha"}))))))))
+
   (let [before (:state (run sitting))
         [after got] (r/step before (c :open-session :until "later" :at 99999999))]
     (check "A write whose input does not fit gives {:could-not :read-the-event} and writes nothing, also when its time has passed what is live under its root."

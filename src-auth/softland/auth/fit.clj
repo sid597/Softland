@@ -52,15 +52,41 @@
        (= 64 (.length ^String x))
        (some? (re-matches #"[0-9a-f]{64}" x))))
 
+(defn carried?
+  "Whether UTF-8 can carry the string `s` as it is: it holds no surrogate
+  `char` without its pair. Rama keeps a string as UTF-8, so a string that
+  holds one would be kept changed (the unpaired surrogate becomes `?`), and
+  two accounts whose subjects differ only there would be one. Such a string
+  does not fit wherever the contract takes a string (the build's default of
+  23 November, for Sid to turn; SPEC.md)."
+  [^String s]
+  (let [n (.length s)]
+    (loop [i 0]
+      (if (>= i n)
+        true
+        (let [c (.charAt s i)]
+          (cond
+            (Character/isHighSurrogate c)
+            (if (and (< (inc i) n) (Character/isLowSurrogate (.charAt s (inc i))))
+              (recur (+ i 2))
+              false)
+
+            (Character/isLowSurrogate c)
+            false
+
+            :else
+            (recur (inc i))))))))
+
 (defn code-str?
-  "Whether `x` is an 8-character ask code string."
+  "Whether `x` is an 8-character ask code string that UTF-8 can carry."
   [x]
-  (and (string? x) (= 8 (.length ^String x))))
+  (and (string? x) (= 8 (.length ^String x)) (carried? x)))
 
 (defn text?
-  "Whether `x` is a string of at most 256 JVM `char`s."
+  "Whether `x` is a string of at most 256 JVM `char`s that UTF-8 can carry
+  (`carried?`)."
   [x]
-  (and (string? x) (<= (.length ^String x) longest-text)))
+  (and (string? x) (<= (.length ^String x) longest-text) (carried? x)))
 
 (defn email?
   "Whether `x` is a lower-case email text (`Locale/ROOT`)."
@@ -69,9 +95,11 @@
 
 (defn provider?
   "Whether `x` is a keyword whose full name (including namespace and `/` if
-  qualified) is at most 256 JVM `char`s."
+  qualified) is at most 256 JVM `char`s and can be carried by UTF-8."
   [x]
-  (and (keyword? x) (<= (.length (subs (str x) 1)) longest-text)))
+  (and (keyword? x)
+       (let [full (subs (str x) 1)]
+         (and (<= (.length full) longest-text) (carried? full)))))
 
 (defn account?
   "Whether `x` is `[provider subject]` with a valid provider keyword and text
@@ -84,14 +112,15 @@
 
 (defn says?
   "Whether `x` is a `:says` map: at most 32 entries, each from a text key to
-  a string value of at most 2,048 JVM `char`s."
+  a string value of at most 2,048 JVM `char`s that UTF-8 can carry."
   [x]
   (and (map? x)
        (<= (count x) most-said)
        (every? (fn [[k v]]
                  (and (text? k)
                       (string? v)
-                      (<= (.length ^String v) longest-said)))
+                      (<= (.length ^String v) longest-said)
+                      (carried? v)))
                x)))
 
 (defn- or-nil

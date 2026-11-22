@@ -301,30 +301,40 @@
     [w [kind input] j]))
 
 (defn unfit-parts
-  "For each write, parts that make its input not fit."
+  "For each write, parts that make its input not fit. Among them, strings
+  that UTF-8 cannot carry: each holds a surrogate character without its
+  pair (`lone`, a high one, and `lone-low`)."
   [w]
   (let [rnd (:rnd w)
-        long-text (text-of 257)]
+        long-text (text-of 257)
+        lone (str (char 0xD800))
+        lone-low (str (char 0xDC00))]
     {:invite [{:person "a person"} {:claim {:by :email :email "A@x.org"}} {:claim {:by :phone :phone "1"}}
-              {:claim {:by :code :hash "abc"}} {:claim {:by :email :email "a@x.org" :more 1}} {:invited-by "someone"}]
+              {:claim {:by :code :hash "abc"}} {:claim {:by :email :email "a@x.org" :more 1}} {:invited-by "someone"}
+              {:claim {:by :email :email (str "a" lone "@x.org")}}]
      :enter [{:account [:google]} {:account (list :google "1")} {:account ["google" "1"]}
              {:account [:google long-text]} {:says {"k" (text-of 2049)}}
              {:says (into {} (map (fn [i] [(str i) "v"])) (range 33))} {:says {:k "v"}} {:says nil}
              {:email "A@x.org"} {:email 7} {:code-hash (apply str (repeat 64 "A"))}
              {:making {:uuid (uuid-of rnd)}} {:account [(keyword long-text) "1"]} {:own-layer "a layer"}
-             {:own-layer nil}]
+             {:own-layer nil} {:account [:google (str lone "1")]} {:account [:google (str "1" lone-low)]}
+             {:account [(keyword (str "goo" lone "gle")) "1"]} {:says {"name" (str "A" lone "sha")}}
+             {:says {(str "na" lone-low "me") "Asha"}} {:email (str "asha" lone "@x.org")}]
      :own-layer-made [{:person "a person"}]
      :begin-sign-in [{:kind :robot} {:hash (apply str (repeat 64 "A"))} {:hash (apply str (repeat 63 "a"))}
-                     {:label long-text} {:until "5"} {:root "a root"}]
+                     {:label long-text} {:until "5"} {:root "a root"} {:label (str "lap" lone "top")}]
      :replace-secret [{:old-hash nil} {:new-hash "x"} {:previous-until 1.5}]
      :end-sign-in [{:sign-in "a sign-in"}]
-     :make-actor [{:label nil} {:label long-text} {:made-by :system}]
+     :make-actor [{:label nil} {:label long-text} {:made-by :system} {:label (str lone-low "runner")}]
      :end-actor [{:actor "an actor"}]
      :open-session [{:driven-by {:kind :model}} {:driven-by {:kind :model :model long-text}}
-                    {:driven-by {:kind :person :model "x"}} {:driven-by "a person"} {:session 5}]
+                    {:driven-by {:kind :person :model "x"}} {:driven-by "a person"} {:session 5}
+                    {:driven-by {:kind :model :model (str "model" lone)}}]
      :close-session [{:session "a session"}]
-     :ask [{:code "CODE001"} {:code "CODE00011"} {:asks long-text} {:ends nil}]
+     :ask [{:code "CODE001"} {:code "CODE00011"} {:asks long-text} {:ends nil} {:asks (str "asks" lone)}
+           {:code (str "CODE00" lone "1")}]
      :answer-ask [{:yes? "yes"} {:new-agent {:label nil}} {:new-agent {:label "x" :more 1}} {:code 7} {:yes? nil}
+                  {:new-agent {:label (str "x" lone)}}
                   {:yes? false :actor "an actor"} {:yes? false :sign-in nil} {:yes? false :until "later"}]}))
 
 (defn unfit-call
