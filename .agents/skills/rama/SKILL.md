@@ -4,10 +4,14 @@ description: >-
   Rama module development process and API reference. ALWAYS use this skill
   before writing, reading, debugging, or explaining any Rama code. Do not
   write Rama modules, topologies, PStates, or depot code without loading
-  this skill first and following its phased build process.
+  this skill first. In Softland its phased process is not the default: see "How Softland uses this skill".
 ---
 
 # Rama Development Skill
+
+## How Softland uses this skill
+
+The design rules in this file and everything under `references/` on Rama's API, costs and failure cases apply to all Rama work here. The phased process described next (one phase per session, a required page per phase) is not the default in Softland; Sid asks for it when he wants it. What we keep from it is the idea under it: a different session checks a module's design, and what counts in that check is a run: a model of a cross-task protocol that runs, a probe on a real cluster, a proof against a reference.
 
 ## How to Build a Rama Module
 

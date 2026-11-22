@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 # sync-rama-skill.sh — vendor the Rama skill from redplanetlabs/rama-ai-learn
-# into both agent lanes, pinned to an upstream commit.
+# into both agent lanes, pinned to an upstream commit, with Softland's overlay.
 #
-#   scripts/sync-rama-skill.sh check          lanes == pinned upstream?  has upstream moved?
+#   scripts/sync-rama-skill.sh check          lanes == pinned upstream + overlay?  has upstream moved?
 #   scripts/sync-rama-skill.sh update [REF]   vendor REF (default origin/HEAD), re-apply overlay, rewrite pin
 #
 # Layout
-#   .claude/skills/rama/   verbatim upstream plugins/rama-skill/skills/rama   (Claude Code lane)
-#   .agents/skills/rama/   same + Softland overlay paragraph in SKILL.md
+#   .claude/skills/rama/   upstream plugins/rama-skill/skills/rama
+#                          + Softland overlay in SKILL.md                      (Claude Code lane)
+#   .agents/skills/rama/   same + Codex paragraph in SKILL.md
 #                          + agents/openai.yaml (Codex-only metadata, local)   (Codex lane)
 #   <lane>/UPSTREAM        the pin: repo / path / sha / date. Written by `update`, read by `check`.
+#
+# The overlay's text is kept in this script and update writes it into the
+# lanes, so it is edited here, never there. In both lanes' SKILL.md it inserts
+# the section "How Softland uses this skill" and rewrites one phrase of the
+# frontmatter description; the Codex lane also gets the Codex paragraph.
+# update and check build the lanes the same way, from upstream + overlay, so a
+# hand-edit in either lane shows as DRIFT. An anchor or a replaced phrase that
+# does not match exactly once stops the script before any lane is touched.
 #
 # Upstream never bumps its plugin version string (1.0.0 across every skill
 # update so far), so the commit SHA in UPSTREAM is the only honest version.
@@ -22,11 +31,24 @@ CLAUDE_LANE=$ROOT/.claude/skills/rama
 CODEX_LANE=$ROOT/.agents/skills/rama
 PIN=$CLAUDE_LANE/UPSTREAM
 
-# Softland-only paragraph. Lives here, not in the vendored files, so the
-# vendored tree stays byte-identical to upstream. Inserted into the Codex
-# lane's SKILL.md immediately before OVERLAY_ANCHOR.
-OVERLAY_ANCHOR='## Implementation Goals'
-read -r -d '' OVERLAY <<'EOF' || true
+# --- The overlay -------------------------------------------------------------
+# Both lanes: this section, inserted immediately before SECTION_ANCHOR.
+SECTION_ANCHOR='## How to Build a Rama Module'
+read -r -d '' SECTION <<'EOF' || true
+## How Softland uses this skill
+
+The design rules in this file and everything under `references/` on Rama's API, costs and failure cases apply to all Rama work here. The phased process described next (one phase per session, a required page per phase) is not the default in Softland; Sid asks for it when he wants it. What we keep from it is the idea under it: a different session checks a module's design, and what counts in that check is a run: a model of a cross-task protocol that runs, a probe on a real cluster, a proof against a reference.
+EOF
+
+# Both lanes: in the frontmatter description, DESC_OLD becomes DESC_NEW.
+# DESC_NEW holds ': ', which breaks a plain YAML scalar, so the description has
+# to be a block scalar (`description: >-`), as upstream writes it.
+DESC_OLD='this skill first and following its phased build process.'
+DESC_NEW='this skill first. In Softland its phased process is not the default: see "How Softland uses this skill".'
+
+# Codex lane only: this paragraph, inserted immediately before CODEX_ANCHOR.
+CODEX_ANCHOR='## Implementation Goals'
+read -r -d '' CODEX_PARAGRAPH <<'EOF' || true
 For Softland Rama work on existing modules, source adapters, common kernels, or product-path reviews, also use `$rama-retro-lens` before accepting a plan or final diff. The phased artifacts are not evidence by themselves; the retro lens checks whether product paths, ownership boundaries, retries/idempotency, terminal states, and runtime tests actually avoid prior failure patterns.
 EOF
 
@@ -47,12 +69,45 @@ fetch_upstream() {
   [ -d "$WORK/$SKILL_PATH" ] || die "$SKILL_PATH not present at $SHA"
 }
 
-apply_overlay() {
-  local file=$1 n
-  n=$(grep -cxF "$OVERLAY_ANCHOR" "$file" || true)
-  [ "$n" = 1 ] || die "overlay anchor '$OVERLAY_ANCHOR' found $n times in $file (need exactly 1) — upstream restructured SKILL.md; fix OVERLAY_ANCHOR"
-  awk -v anchor="$OVERLAY_ANCHOR" -v text="$OVERLAY" '$0==anchor{print text; print ""} {print}' "$file" > "$file.tmp"
+# insert_before FILE ANCHOR TEXT: TEXT and a blank line go in immediately
+# before the one line of FILE that equals ANCHOR. TEXT may span lines; it
+# reaches awk through ENVIRON, which passes it whole and as written (awk -v
+# would rewrite backslash escapes in it).
+insert_before() {
+  local file=$1 anchor=$2 text=$3 n
+  n=$(grep -cxF -- "$anchor" "$file" || true)
+  [ "$n" = 1 ] || die "anchor '$anchor' found $n times in $file (need exactly 1) — upstream restructured SKILL.md; fix the anchor in $0"
+  ANCHOR=$anchor TEXT=$text awk '$0 == ENVIRON["ANCHOR"] { print ENVIRON["TEXT"]; print "" } { print }' "$file" > "$file.tmp"
   mv "$file.tmp" "$file"
+}
+
+# replace_in_description FILE OLD NEW: OLD, which must occur exactly once in
+# FILE and that once in the frontmatter, becomes NEW. The frontmatter's
+# description must be a block scalar (see DESC_NEW).
+replace_in_description() {
+  local file=$1 old=$2 new=$3 all infm block
+  read -r all infm block < <(OLD=$old awk '
+    NR == 1 && $0 == "---" { fm = 1; next }
+    fm && $0 == "---"      { fm = 0 }
+    fm && /^description:[ \t]*[>|]/ { block = 1 }
+    { s = $0
+      while ((i = index(s, ENVIRON["OLD"])) > 0) { all++; if (fm) infm++; s = substr(s, i + length(ENVIRON["OLD"])) } }
+    END { print all + 0, infm + 0, block + 0 }' "$file") || true
+  [ "$all $infm" = "1 1" ] || die "phrase '$old' found $all times in $file, $infm of them in the frontmatter (need exactly 1, there) — upstream rewrote the description; fix DESC_OLD in $0"
+  [ "$block" = 1 ] || die "the description in $file is not a block scalar (description: >-) — DESC_NEW holds ': ', which would break its YAML; fix the overlay in $0"
+  OLD=$old NEW=$new awk '{ i = index($0, ENVIRON["OLD"]); if (i) $0 = substr($0, 1, i - 1) ENVIRON["NEW"] substr($0, i + length(ENVIRON["OLD"])); print }' "$file" > "$file.tmp"
+  mv "$file.tmp" "$file"
+}
+
+# From upstream's tree in $WORK, build the two lanes as they must be:
+# $WORK/expected-claude and $WORK/expected-codex. update copies them into the
+# lanes and check diffs the lanes against them, so the two cannot disagree.
+build_expected() {
+  cp -Rp "$WORK/$SKILL_PATH" "$WORK/expected-claude"
+  insert_before          "$WORK/expected-claude/SKILL.md" "$SECTION_ANCHOR" "$SECTION"
+  replace_in_description "$WORK/expected-claude/SKILL.md" "$DESC_OLD" "$DESC_NEW"
+  cp -Rp "$WORK/expected-claude" "$WORK/expected-codex"
+  insert_before          "$WORK/expected-codex/SKILL.md" "$CODEX_ANCHOR" "$CODEX_PARAGRAPH"
 }
 
 write_pin() {
@@ -74,9 +129,9 @@ cmd_update() {
   local ref=${1:-origin/HEAD} old
   old=$( [ -f "$PIN" ] && sed -n 's/^sha=//p' "$PIN" || echo none )
   fetch_upstream "$ref"
-  rsync -a --delete --exclude=UPSTREAM                   "$WORK/$SKILL_PATH/" "$CLAUDE_LANE/"
-  rsync -a --delete --exclude=UPSTREAM --exclude=agents/ "$WORK/$SKILL_PATH/" "$CODEX_LANE/"
-  apply_overlay "$CODEX_LANE/SKILL.md"
+  build_expected
+  rsync -a --delete --exclude=UPSTREAM                   "$WORK/expected-claude/" "$CLAUDE_LANE/"
+  rsync -a --delete --exclude=UPSTREAM --exclude=agents/ "$WORK/expected-codex/"  "$CODEX_LANE/"
   write_pin "$CLAUDE_LANE"; write_pin "$CODEX_LANE"
   echo "pin: ${old:0:7} -> ${SHA:0:7} ($SHA_DATE)   upstream tip: ${TIP:0:7}"
   git -C "$ROOT" diff --stat -- .claude/skills/rama .agents/skills/rama | tail -1
@@ -87,16 +142,18 @@ cmd_check() {
   pinned=$(pinned_sha)
   fetch_upstream "$pinned"
   echo "pin ${pinned:0:7} ($SHA_DATE)"
-  if diff -r --exclude=UPSTREAM "$WORK/$SKILL_PATH" "$CLAUDE_LANE" >/dev/null; then
-    echo "  .claude/skills/rama  == upstream"
+  build_expected
+  # `|| true` on each listing: under pipefail a diff that finds drift would
+  # otherwise end the script here, before the other lane and the tip are shown.
+  if diff -r --exclude=UPSTREAM "$WORK/expected-claude" "$CLAUDE_LANE" >/dev/null; then
+    echo "  .claude/skills/rama  == upstream + overlay"
   else
-    drift=1; echo "  .claude/skills/rama  DRIFT:"; diff -rq --exclude=UPSTREAM "$WORK/$SKILL_PATH" "$CLAUDE_LANE" | sed 's/^/    /'
+    drift=1; echo "  .claude/skills/rama  DRIFT:"; { diff -rq --exclude=UPSTREAM "$WORK/expected-claude" "$CLAUDE_LANE" || true; } | sed 's/^/    /'
   fi
-  cp -r "$WORK/$SKILL_PATH" "$WORK/expected-codex"; apply_overlay "$WORK/expected-codex/SKILL.md"
   if diff -r --exclude=UPSTREAM --exclude=agents "$WORK/expected-codex" "$CODEX_LANE" >/dev/null; then
-    echo "  .agents/skills/rama  == upstream + overlay"
+    echo "  .agents/skills/rama  == upstream + overlay + Codex paragraph"
   else
-    drift=1; echo "  .agents/skills/rama  DRIFT:"; diff -rq --exclude=UPSTREAM --exclude=agents "$WORK/expected-codex" "$CODEX_LANE" | sed 's/^/    /'
+    drift=1; echo "  .agents/skills/rama  DRIFT:"; { diff -rq --exclude=UPSTREAM --exclude=agents "$WORK/expected-codex" "$CODEX_LANE" || true; } | sed 's/^/    /'
   fi
   behind=$(git -C "$WORK" log --oneline "$pinned..origin/HEAD" -- "$SKILL_PATH" | wc -l)
   if [ "$behind" = 0 ]; then
@@ -111,5 +168,5 @@ cmd_check() {
 case "${1:-}" in
   check)  cmd_check ;;
   update) shift; cmd_update "$@" ;;
-  *)      sed -n '2,15p' "$0"; exit 1 ;;
+  *)      awk 'NR > 1 { if (/^#/) print; else exit }' "$0"; exit 1 ;;
 esac
