@@ -103,6 +103,24 @@ name. A thing in the cluster's place that is no cluster, a client among them,
 gives `{:could-not :find-the-module}` too: the reference's reading, since the
 contract gives `open` that word alone.
 
+**29. A string that UTF-8 cannot carry.** The spec named a text by its
+length alone: "a string of at most 256 characters, a character being one
+`char` of the JVM". A Java string can hold a surrogate `char` without its
+pair, which no UTF-8 text holds; Rama keeps a string as UTF-8 and keeps such
+a string changed (the `char` becomes `?`). So the module made one account of
+`[:t "\uD800x"]` and `[:t "?x"]`, one claim of two emails that differ there,
+and read back a changed label and `:asks`, while the reference kept them apart
+(the review of 22 November ran it).
+
+- (a) Such a string does not fit, wherever the contract takes a string: a
+  text, a code, a provider's name, a key or a value of `:says`.
+- (b) It fits, and the module keeps it unchanged, by encoding every key and
+  value that it stores so that UTF-8 carries it.
+
+The reference takes (a), with the module (`softland.auth.fit/carried?`), and
+the spec says so in "What fits". **The build's default of 23 November, not
+Sid's call: his to turn.** A surrogate pair that stands together fits.
+
 ## invite, enter, own-layer-made
 
 **6. What an enter that is run again says of the own layer.** Three sentences

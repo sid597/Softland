@@ -118,8 +118,8 @@
 (defn- carried?
   "Whether UTF-8 can carry the string `s`: it holds no surrogate character
   without its pair. A string that holds one does not fit wherever the
-  contract takes a string (the spec, \"What fits\": the build's default of
-  23 November, for Sid to turn)."
+  contract takes a string (QUESTIONS.md, 29: the build's default of 23
+  November, for Sid to turn)."
   [^String s]
   (let [n (count s)]
     (loop [i 0]
