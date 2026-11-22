@@ -128,7 +128,7 @@
             [softland.wire.watching :as watching]
             [softland.wire.words :as words])
   (:import [java.io Writer]
-           [java.util UUID]
+           [java.util Locale UUID]
            [java.util.concurrent ExecutorService Executors ScheduledExecutorService
             ScheduledFuture ThreadFactory TimeUnit]))
 
@@ -685,7 +685,7 @@
           (from-auth (auth/invite client {:person (derived :person root (:uuid word))
                                           :claim (let [claim (:claim word)]
                                                    (cond-> claim
-                                                     (= :email (:by claim)) (update :email str/lower-case)))
+                                                     (= :email (:by claim)) (update :email #(.toLowerCase ^String % Locale/ROOT))))
                                           :invited-by (.-who caller) :at (now-ms)})))
 
       :make-agent (or (needs-a-who caller) (make-agent-now seam caller word))

@@ -217,3 +217,25 @@ PASSED After close!, each of the sixteen calls on that client gives {:could-not 
 
 3 passed, 0 failed.
 ```
+
+### Step 2: Runtime proofs on `softland.auth.reference`
+
+All three runtime proofs passed whole on the reference adapter without changing any check. Auditing every `softland.auth.client/*` call in `src-runtime/` against `softland.auth.reference`'s strict forms found one locale mismatch: email lower-casing used `clojure.string/lower-case` (JVM default locale) instead of `Locale/ROOT` as required by `spine/auth/SPEC.md` ("an email that Java's `toLowerCase`, in the root locale, would change does not fit"). Fixed in:
+- `src-runtime/softland/runtime/seam.clj` (`:invite` email claim)
+- `src-runtime/softland/runtime/sign_in.clj` (`enter!` email and `setup!` email)
+
+**What was run (after the `Locale/ROOT` fix):**
+```text
+SDEPS='{:aliases {:runtime {:replace-paths ["/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store" "src/proposal/runtime-2026-11-21/spine/runtime-oracle/src" "test-auth" "src-wire" "src-runtime" "src-command" "test-wire" "test-runtime"]}}}'
+LOCK=/mnt/data/projects/Softland/src/proposal/backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock
+clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.pure-proof
+flock "$LOCK" clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.proof
+flock "$LOCK" clojure -Sdeps "$SDEPS" -J-Dsoftland.store.path=/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store -M:runtime -m softland.runtime.command-proof
+```
+
+**Output:**
+```text
+softland.runtime.pure-proof:    22 passed, 0 failed. (exit 0)
+softland.runtime.proof:         49 passed, 0 failed. (exit 0)
+softland.runtime.command-proof: 16 passed, 0 failed. (exit 0)
+```

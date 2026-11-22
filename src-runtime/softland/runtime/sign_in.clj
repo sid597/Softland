@@ -71,7 +71,7 @@
             [softland.store.gate.first-act :as first-act]
             [softland.wire.credential :as credential]
             [softland.wire.words :as words])
-  (:import [java.util UUID]))
+  (:import [java.util Locale UUID]))
 
 (def name-key
   "The key under which a person's own id holds the name that she
@@ -136,7 +136,7 @@
   (let [client (seam/auth-of the-seam)
         entered (auth/enter client {:account account
                                     :says says
-                                    :email (some-> email str/lower-case)
+                                    :email (some-> ^String email (.toLowerCase Locale/ROOT))
                                     :code-hash code-hash
                                     :own-layer (UUID/randomUUID)
                                     :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)}
@@ -338,7 +338,7 @@
   [the-seam {:keys [email person]}]
   (let [client (seam/auth-of the-seam)
         person (or person (UUID/randomUUID))
-        invited (auth/invite client {:person person :claim {:by :email :email (str/lower-case email)}
+        invited (auth/invite client {:person person :claim {:by :email :email (.toLowerCase ^String email Locale/ROOT)}
                                      :invited-by :system :at (seam/now-ms)})]
     (cond
       (:could-not invited) (words/could-not :reach-auth {:got invited})
