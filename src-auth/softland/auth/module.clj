@@ -614,15 +614,20 @@
                      $$root-data
                      {:allow-yield? true}
                      :> *ao-map)
+      (local-select> [(sorted-map-range (s/k-ae-lo *root) (s/k-ae-hi *root))]
+                     $$root-data
+                     {:allow-yield? true}
+                     :> *ae-map)
      (else>)
-      (identity nil :> *ao-map))
+      (identity nil :> *ao-map)
+      (identity nil :> *ae-map))
     (<<if (s/root-has-signins? *r)
       (local-select> [(keypath *root) (sorted-map-range s/live-signin-lo s/live-signin-hi)]
                      $$live
                      :> *live-g-map)
      (else>)
       (identity nil :> *live-g-map))
-    (s/build-under-result *ao-map *live-g-map :> *result)
+    (s/build-under-result *ao-map *ae-map *live-g-map :> *result)
     (|origin))
 
   ;; ========================================================================

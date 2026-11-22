@@ -196,12 +196,16 @@
   (str p "\u0000a:" a))
 
 (defn k-ao
-  "Key of agent order record at `seq-n` under root `P`."
+  "Key of the order record of a live agent made at `seq-n` under root `P`
+  (`\"<P>\\0ao:<seq>\"`). An agent's order record stays here while the
+  agent is live, and moves to `k-ae` when it ends: so `end-actor`, which
+  scans for the live agents made after the one it ends, reads no agent that
+  ended before."
   ^String [^UUID p ^long seq-n]
   (str p "\u0000ao:" (hex16 seq-n)))
 
 (defn k-ao-lo
-  "Inclusive lower bound of root `P`'s `ao:` range."
+  "Inclusive lower bound of root `P`'s `ao:` range (live agents)."
   ^String [^UUID p]
   (str p "\u0000ao:"))
 
@@ -209,6 +213,23 @@
   "Exclusive upper bound of root `P`'s `ao:` range (`;` is ASCII 0x3b > `:` 0x3a)."
   ^String [^UUID p]
   (str p "\u0000ao;"))
+
+(defn k-ae
+  "Key of the order record of an ended agent made at `seq-n` under root `P`
+  (`\"<P>\\0ae:<seq>\"`), where `end-actor` moves it from `k-ao`. `under`
+  reads both ranges and merges them by `:seq`."
+  ^String [^UUID p ^long seq-n]
+  (str p "\u0000ae:" (hex16 seq-n)))
+
+(defn k-ae-lo
+  "Inclusive lower bound of root `P`'s `ae:` range (ended agents)."
+  ^String [^UUID p]
+  (str p "\u0000ae:"))
+
+(defn k-ae-hi
+  "Exclusive upper bound of root `P`'s `ae:` range."
+  ^String [^UUID p]
+  (str p "\u0000ae;"))
 
 (defn k-signin
   "Key of sign-in `G` under root `P` in `$$root-data`."
@@ -1209,7 +1230,11 @@
 (defn plan-end-actor-2scan
   "Pure planner for Revision 2's 3-seek 2-scan `end-actor` cascade (`a:<A>`,
   forward `ao:` scan from `target.seq`, and a scan of the root's map in
-  `$$live`, keyed by inner keys)."
+  `$$live`, keyed by inner keys). `ao:` holds live agents alone, so the scan
+  reads the live agents made after the target and none that ended before;
+  each agent that this cascade ends has its order record moved from `ao:`
+  to `ae:`. A live descendant of the target is reached through live makers
+  alone: an agent that ended took its whole subtree with it."
   [root ^ActorRec target-rec ao-map live-map]
   (let [target-id (:actor target-rec)
         ended-as (volatile! #{target-id})
@@ -1225,7 +1250,8 @@
                    (or (= aid target-id)
                        (contains? @ended-as (:made-by ao))))
           (vswap! ended-as conj aid)
-          (conj! rd-upserts [(k-ao root (:seq ao)) (assoc ao :ended? true)])
+          (conj! rd-deletes (k-ao root (:seq ao)))
+          (conj! rd-upserts [(k-ae root (:seq ao)) (assoc ao :ended? true)])
           (conj! rd-upserts [(k-actor root aid)
                              (->ActorRec aid (:made-by ao) (:depth ao) (:label ao) true (:seq ao))]))))
     ;; Pass 2a: live sign-ins of any ended actor (0 point seeks on g:).
@@ -1590,12 +1616,14 @@
   (boolean (and (instance? RootEntered r) (pos? (long (:next-sign-in-seq r))))))
 
 (defn build-under-result
-  "Builds the exact contract result map of `under` from `ao-map` (`ao:` sorted
-  range) and `live-g-map` (the `g:` range of the root's map in `$$live`, live
-  sign-ins only, sorted by `:seq`)."
-  [ao-map live-g-map]
-  {:actors (if (seq ao-map)
-             (->> (vals ao-map)
+  "Builds the exact contract result map of `under` from `ao-map` (the `ao:`
+  range: live agents), `ae-map` (the `ae:` range: ended agents), merged in
+  the order in which the agents were made (`:seq`), and `live-g-map` (the
+  `g:` range of the root's map in `$$live`, live sign-ins only, sorted by
+  `:seq`)."
+  [ao-map ae-map live-g-map]
+  {:actors (if (or (seq ao-map) (seq ae-map))
+             (->> (concat (vals ao-map) (vals ae-map))
                   (sort-by :seq)
                   (mapv (fn [^ActorOrderRec ao]
                           {:actor (:actor ao)

@@ -18,6 +18,10 @@
        Revision 2's `< 2,000 ms` bound (far under the `8,000 ms` `ping-task`
        ceiling), and ZERO watchers of a sibling root on the same task receive
        `:softland.auth.client/not-reached`.
+    3b. `end-actor` reads the live agents made after the one it ends, and
+       none that ended before: ending each of 100 agents of a root under
+       which 3,000 agents made after them have ended costs what it costs
+       under a root with no ended history (mean at most 1.5 ms more).
     4. No write and no read of one person passes through a task that every
        person's passes through (static audit + empirical 4-task depot partition
        accounting across 40 persons)."
@@ -501,6 +505,86 @@
       ok?)))
 
 ;; ============================================================================
+;; Measure 3b: end-actor over a long ended history
+;; ============================================================================
+
+(defn- entered-root!
+  "Invites and enters a new person through client `c`. Gives her root."
+  [c tag]
+  (let [P (UUID/randomUUID)]
+    (client/invite c {:person P :claim {:by :email :email (str tag "@example.com")} :invited-by :system :at 10})
+    (client/enter c {:account [:google tag] :says {} :email (str tag "@example.com") :code-hash nil
+                     :own-layer (UUID/randomUUID)
+                     :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
+    (client/own-layer-made c {:person P :at 25})
+    P))
+
+(defn- make-agents!
+  "Makes `n` agents of root `P`, each made by `P`, in order. Gives their ids."
+  [c P n tag]
+  (let [ids (vec (repeatedly n #(UUID/randomUUID)))]
+    (doseq [[i a] (map-indexed vector ids)]
+      (let [res (client/make-actor c {:root P :actor a :made-by P :label (str tag "-" i) :at (+ 100 i)})]
+        (assert (= {:made a} res) (str "make-actor failed: " res))))
+    ids))
+
+(defn- end-times
+  "Ends each agent of `ids` under root `P`, in order, one call at a time.
+  Gives the time of each call, in ms."
+  [c P ids]
+  (mapv (fn [a]
+          (let [[res ms] (time-ms #(client/end-actor c {:root P :actor a :at 60000}))]
+            (assert (= {:ended a} res) (str "end-actor failed: " res))
+            ms))
+        ids))
+
+(defn- mean
+  "The mean of a non-empty collection of numbers."
+  [xs]
+  (/ (reduce + xs) (count xs)))
+
+(defn measure-3b-ended-history!
+  "On one task: root `P-hist` makes 100 agents and then 3,000 more, and the
+  3,000 are ended; root `P-base` makes 100 agents and nothing else. Then the
+  100 agents of each are ended one by one, first made first. The live agents
+  that each of these end-actors finds after its own are the same under both
+  roots (the rest of the 100); under `P-hist` 3,000 ended agents lie after
+  them too. Passes when the mean end-actor under `P-hist` is at most 1.5 ms
+  above the mean under `P-base`: the scan does not read the ended history
+  (at 1.2 µs an entry, the review's measure, reading it would add 3.6 ms)."
+  []
+  (println "\n=== MEASURE 3b: end-actor over 3,000 ended agents made after it ===")
+  (with-open [ipc (rtest/create-ipc)]
+    (let [mod-name (rama/get-module-name mod/Auth)
+          _ (rtest/launch-module! ipc mod/Auth {:tasks 1 :threads 1})
+          c (client/open ipc mod-name)
+          P-hist (entered-root! c "hist")
+          P-base (entered-root! c "base")
+          hist-probes (make-agents! c P-hist 100 "probe")
+          fillers (make-agents! c P-hist 3000 "filler")
+          [_ fill-end-ms] (time-ms #(parallel-run! 8 fillers
+                                                    (fn [a] (client/end-actor c {:root P-hist :actor a :at 50000}))))
+          base-probes (make-agents! c P-base 100 "probe")
+          ;; Warm both paths once, on agents that are not measured.
+          _ (end-times c P-base (make-agents! c P-base 5 "warm"))
+          base-ms (end-times c P-base base-probes)
+          hist-ms (end-times c P-hist hist-probes)
+          und (client/under c P-hist)
+          _ (client/close! c)
+          ok? (and (<= (mean hist-ms) (+ 1.5 (mean base-ms)))
+                   (= 3100 (count (:actors und)))
+                   (every? :ended? (:actors und))
+                   (= (concat hist-probes fillers) (map :actor (:actors und))))]
+      (println (format "  Ended the 3,000 later agents of P-hist in %.1f ms" fill-end-ms))
+      (println (format "  end-actor of each of 100 agents: no ended history mean=%.3f p95=%.3f ms | 3,000 ended agents after them mean=%.3f p95=%.3f ms"
+                       (mean base-ms) (percentile base-ms 0.95) (mean hist-ms) (percentile hist-ms 0.95)))
+      (println (format "  under P-hist afterwards: %d agents, all ended=%s, in the order they were made=%s"
+                       (count (:actors und)) (every? :ended? (:actors und))
+                       (= (concat hist-probes fillers) (map :actor (:actors und)))))
+      (println (if ok? "PASSED" "FAILED") "Measure 3b: end-actor reads no agent that ended before, and under still gives every agent in the order it was made.")
+      ok?)))
+
+;; ============================================================================
 ;; Measure 4: No write and no read of one person goes through a shared task
 ;; ============================================================================
 
@@ -594,17 +678,18 @@
         ok?))))
 
 (defn -main
-  "Runs all four STEP 4 full-life cluster measurements and exits non-zero if any fails."
+  "Runs the STEP 4 full-life cluster measurements (1, 2, 3, 3b, 4) and exits non-zero if any fails."
   [& _]
   (let [t0 (System/nanoTime)
         m1 (measure-1-who-is!)
         m2 (measure-2-20k-watches!)
         m3 (measure-3-heavy-end-actor!)
+        m3b (measure-3b-ended-history!)
         m4 (measure-4-no-shared-task!)
         elapsed-s (/ (- (System/nanoTime) t0) 1e9)
-        all-ok? (and m1 m2 m3 m4)]
-    (println (format "\nSTEP 4 Summary: m1=%s m2=%s m3=%s m4=%s (ALL_PASSED=%s, elapsed=%.1f s)"
-                     m1 m2 m3 m4 all-ok? elapsed-s))
+        all-ok? (and m1 m2 m3 m3b m4)]
+    (println (format "\nSTEP 4 Summary: m1=%s m2=%s m3=%s m3b=%s m4=%s (ALL_PASSED=%s, elapsed=%.1f s)"
+                     m1 m2 m3 m3b m4 all-ok? elapsed-s))
     (flush)
     (shutdown-agents)
     (System/exit (if all-ok? 0 1))))
