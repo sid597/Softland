@@ -52,6 +52,14 @@
   of a file's acts beside the file, so that a run that was cut off sends
   each act again under its own UUID and the store takes it once.
 
+  Two commands at once. Each change of the file is made while the command
+  holds the file (`with-file-lock`: a lock of the file `sign-in.edn.lock`
+  beside it, which the system holds against every other process), and is
+  made to what the file holds then, never to what the command read when it
+  started. A replacement of the secret holds the file from its decision to
+  its last write, so a second command that waited finds the replacement
+  done and replaces nothing.
+
   The session. One sitting is one session: the commands of one sign-in
   share it until `new-session`. A run of an agent that wants a session of
   its own says `new-session` first.
@@ -69,8 +77,9 @@
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame])
   (:import [java.io File PushbackReader]
+           [java.nio.channels FileChannel]
            [java.nio.charset StandardCharsets]
-           [java.nio.file CopyOption Files StandardCopyOption]
+           [java.nio.file CopyOption Files OpenOption StandardCopyOption StandardOpenOption]
            [java.nio.file.attribute FileAttribute PosixFilePermissions]
            [java.util UUID]))
 
@@ -82,6 +91,11 @@
   "With less than this left of a secret's time, a command replaces the
   secret before it does its work: two days. A number of the build."
   (* 2 24 60 60 1000))
+
+(def ^:private paced-wait-ms
+  "How long `sign-in` waits before it asks again about its ask when the
+  runtime said `:take-more`: three seconds. A number of the build."
+  3000)
 
 ;; ------------------------------------------------------------------- the file
 
@@ -104,18 +118,25 @@
     (let [[outcome form] (frame/read-one (slurp file))]
       (when (and (= :ok outcome) (map? form)) form))))
 
+(defn- owner-only
+  "Gives the attribute of a file that its owner alone reads and writes,
+  where the file system has such attributes, and none otherwise."
+  []
+  (try (into-array FileAttribute [(PosixFilePermissions/asFileAttribute
+                                   (PosixFilePermissions/fromString "rw-------"))])
+       (catch Throwable _ (make-array FileAttribute 0))))
+
 (defn- keep!
   "Writes a map atomically into a file created with `rw-------` permissions
-  from birth (no world-readable window)."
+  from birth (no world-readable window). It takes no lock: a change of the
+  sign-in file goes through `update-kept!`, or is made while the command
+  holds the file (`with-file-lock`)."
   [^File file thing]
   (let [parent (or (.getParentFile (.getAbsoluteFile file)) (io/file "."))
         _ (.mkdirs parent)
         target (.toPath (.getAbsoluteFile file))
         bytes (.getBytes (str (frame/write thing) "\n") StandardCharsets/UTF_8)
-        attrs (try (into-array FileAttribute [(PosixFilePermissions/asFileAttribute
-                                               (PosixFilePermissions/fromString "rw-------"))])
-                   (catch Throwable _ (make-array FileAttribute 0)))
-        tmp (Files/createTempFile (.toPath parent) ".softland-" ".tmp" attrs)]
+        tmp (Files/createTempFile (.toPath parent) ".softland-" ".tmp" (owner-only))]
     (try
       (Files/write tmp bytes (make-array java.nio.file.OpenOption 0))
       (try (Files/move tmp target
@@ -128,6 +149,49 @@
         (try (Files/deleteIfExists tmp) (catch Throwable _ nil))
         (throw t))))
   nil)
+
+(def ^:private held-in-this-process
+  "One object for each sign-in file that a thread of this process holds or
+  waits for, by the file's absolute path. A lock of a file's channel is held
+  by a whole process, and a second lock of it from the same process throws,
+  so threads of one process take the file one after the other on this
+  object first."
+  (atom {}))
+
+(defn- with-file-lock
+  "Runs `f`, a function of no argument, while this command holds the file:
+  the object of this process for the file (`held-in-this-process`) and an
+  exclusive lock of the file `<file>.lock` beside it, which the system holds
+  against every other process and lets go of when the process ends. Gives
+  what `f` gives. The lock file holds nothing and is made, when it is not
+  there, readable by its owner alone."
+  [^File file f]
+  (let [target (.getAbsoluteFile file)
+        path (.getPath target)
+        lock-file (io/file (str path ".lock"))
+        monitor (get (swap! held-in-this-process (fn [m] (if (contains? m path) m (assoc m path (Object.)))))
+                     path)]
+    (.mkdirs (.getParentFile lock-file))
+    (locking monitor
+      (with-open [channel (FileChannel/open (.toPath lock-file)
+                                            #{StandardOpenOption/CREATE StandardOpenOption/WRITE}
+                                            (owner-only))]
+        (let [lock (.lock channel)]
+          (try (f) (finally (.release lock))))))))
+
+(defn- update-kept!
+  "Changes the sign-in file while this command holds it: reads what it
+  holds now, calls `f` with that map (or nil), and writes what `f` gives
+  when it is a map other than the one read. Gives what the file holds
+  after."
+  [^File file f]
+  (with-file-lock file
+    (fn []
+      (let [now (kept file)
+            changed (f now)]
+        (if (and (map? changed) (not= changed now))
+          (do (keep! file changed) changed)
+          now)))))
 
 ;; ------------------------------------------------------------- the arguments
 
@@ -180,32 +244,48 @@
     (and (= root (:root parts)) (= sign-in (:sign-in parts)))))
 
 (defn- replace-on-line!
-  "Replaces the sign-in's secret on an open connection. Keeps the new
-  credential on disk as `:next-credential` before sending `:replace-secret`
-  so a lost answer never locks the command line out; promotes it to
-  `:credential` on `:replaced`, drops `:next-credential` on a definitive
-  Auth refusal (`:take-that`), and keeps `:next-credential` on an uncertain
-  failure so the next run recovers."
-  [file held connection hello]
-  (let [{:keys [root sign-in]} hello
-        existing-next (:next-credential held)
-        reuse? (same-sign-in? existing-next root sign-in)
-        secret (if reuse?
-                 (:secret (credential/parts existing-next))
-                 (credential/make-secret))
-        next-cred (if reuse?
-                    existing-next
-                    (credential/text root sign-in secret))
-        pending (assoc held :session (:session hello) :next-credential next-cred)]
-    (keep! file pending)
-    (let [got (client/say connection {:word :replace-secret :hash (credential/hash-of secret)})]
-      (cond
-        (:replaced got)
-        (keep! file (-> pending (assoc :credential next-cred) (dissoc :next-credential)))
+  "Replaces the sign-in's secret on an open connection. Takes the file, the
+  credential that the connection came in with, the connection and the
+  hello. Gives the runtime's answer to `:replace-secret`, or
+  `{:replaced sign-in :by :another-command}` when another command replaced
+  the secret first.
 
-        (= :take-that (:could-not got))
-        (keep! file (dissoc pending :next-credential)))
-      got)))
+  It holds the file from the decision to the last write
+  (`with-file-lock`), and decides on what the file holds then: when its
+  credential is no longer the one that this connection came in with, and
+  no replacement waits, another command has replaced the secret and kept
+  the new credential, and nothing is sent. Otherwise the new credential is
+  kept on disk as `:next-credential` before `:replace-secret` is sent, so a
+  lost answer never locks the command line out; a `:next-credential` of
+  this sign-in that a cut-off run left is sent again rather than a new one.
+  It becomes `:credential` on `:replaced`; it is dropped on a definitive
+  refusal of Auth (`:take-that`); and it is kept on an uncertain failure,
+  so the next run recovers it."
+  [file connected-with connection hello]
+  (with-file-lock file
+    (fn []
+      (let [{:keys [root sign-in]} hello
+            held (kept file)
+            waiting (:next-credential held)
+            reuse? (same-sign-in? waiting root sign-in)]
+        (if (and (not reuse?) (not= connected-with (:credential held)))
+          {:replaced sign-in :by :another-command}
+          (let [secret (if reuse?
+                         (:secret (credential/parts waiting))
+                         (credential/make-secret))
+                next-cred (if reuse?
+                            waiting
+                            (credential/text root sign-in secret))
+                pending (assoc held :next-credential next-cred)]
+            (keep! file pending)
+            (let [got (client/say connection {:word :replace-secret :hash (credential/hash-of secret)})]
+              (cond
+                (:replaced got)
+                (keep! file (-> pending (assoc :credential next-cred) (dissoc :next-credential)))
+
+                (= :take-that (:could-not got))
+                (keep! file (dissoc pending :next-credential)))
+              got)))))))
 
 (defn- connect-held
   "Opens the line for a kept sign-in. When a prior replacement left
@@ -232,9 +312,10 @@
         {:connection conn :credential credential :promoted? false}))))
 
 (defn- with-line*
-  "Like `with-line`, passing `[connection hello promoted?]` to `f`, where
-  `promoted?` is true when a pending `:next-credential` connected and was
-  promoted on this run."
+  "Like `with-line`, passing `[connection hello promoted? connected-with]`
+  to `f`, where `promoted?` is true when a pending `:next-credential`
+  connected and was promoted on this run, and `connected-with` is the
+  credential that the connection came in with."
   [flags f auto-replace?]
   (let [file (file-of flags)
         {:keys [credential session] :as held} (kept file)]
@@ -248,16 +329,26 @@
             (try
               (if (:could-not hello)
                 hello
-                (let [held' (cond-> held
-                              promoted? (-> (assoc :credential active-cred) (dissoc :next-credential))
-                              (not= session (:session hello)) (assoc :session (:session hello)))]
+                (do
+                  ;; Made to what the file holds now: a credential that
+                  ;; connected is kept when it still waits there, and a new
+                  ;; session when the file is still in the one read at the
+                  ;; start, so another command's change is never written over.
                   (when (or promoted? (not= session (:session hello)))
-                    (keep! file held'))
+                    (update-kept! file
+                                  (fn [now]
+                                    (when now
+                                      (cond-> now
+                                        (and promoted? (= active-cred (:next-credential now)))
+                                        (-> (assoc :credential active-cred) (dissoc :next-credential))
+
+                                        (and (not= session (:session hello)) (= session (:session now)))
+                                        (assoc :session (:session hello)))))))
                   (when (and auto-replace?
                              (:until hello)
                              (< (- (:until hello) (System/currentTimeMillis)) replace-under-ms))
-                    (replace-on-line! file held' connection hello))
-                  (f connection hello promoted?)))
+                    (replace-on-line! file active-cred connection hello))
+                  (f connection hello promoted? active-cred)))
               (finally (client/close! connection)))))))))
 
 (defn- with-line
@@ -270,7 +361,7 @@
   not be opened."
   ([flags f] (with-line flags f true))
   ([flags f auto-replace?]
-   (with-line* flags (fn [connection hello _] (f connection hello)) auto-replace?)))
+   (with-line* flags (fn [connection hello _ _] (f connection hello)) auto-replace?)))
 
 (defn- act-of
   "Builds one act of this program. Takes the hello, the flags, and the
@@ -313,11 +404,24 @@
           (when agent (println (str "  On that page, choose \"an agent of its own\" and call it: " agent))))
         (loop []
           (let [got (client/waited url (:code asked) (:secret asked))]
-            (case (:state got)
-              :waiting (do (Thread/sleep 1000) (recur))
-              :yes (do (keep! (file-of flags) {:url url :credential (:credential got)})
-                       (with-line flags (fn [_ hello] hello)))
-              got)))))))
+            (cond
+              (= :waiting (:state got))
+              (do (Thread/sleep 1000) (recur))
+
+              ;; A runtime that paces sign-ins says so with `:take-more`; the
+              ;; ask still waits for her, so the program waits and asks again
+              ;; until the ask's end.
+              (and (= :take-more (:could-not got))
+                   (number? (:ends asked))
+                   (< (System/currentTimeMillis) (long (:ends asked))))
+              (do (Thread/sleep paced-wait-ms) (recur))
+
+              (= :yes (:state got))
+              (let [file (file-of flags)]
+                (with-file-lock file (fn [] (keep! file {:url url :credential (:credential got)})))
+                (with-line flags (fn [_ hello] hello)))
+
+              :else got)))))))
 
 (defn- send-file!
   "The command `send`: the acts of a file, in order, each once. The file
@@ -432,42 +536,52 @@
 
       "replace-secret"
       (with-line* flags
-        (fn [connection hello promoted?]
+        (fn [connection hello promoted? connected-with]
           (if promoted?
             {:replaced (:sign-in hello) :until (:until hello)}
-            (let [file (file-of flags)]
-              (replace-on-line! file (kept file) connection hello))))
+            (replace-on-line! (file-of flags) connected-with connection hello)))
         false)
 
       "new-session"
+      ;; The file is moved off the session before that session is closed:
+      ;; a run that is cut off between the two leaves the file in the new
+      ;; session, or in none, and never in one that is closed.
       (let [file (file-of flags)
-            held (kept file)]
+            held (kept file)
+            drop-session! (fn [] (update-kept! file (fn [now] (when now (dissoc now :session)))))]
         (if-not (or (:credential held) (:next-credential held))
           {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
           (if (contains? flags :model)
             (let [open-word {:word :open-session :driven-by {:kind :model :model (or (:model flags) "")}}
-                  open-and-close
+                  open-then-close
                   (fn []
                     (with-line flags
-                      (fn [connection _]
+                      (fn [connection hello]
                         (let [opened (client/say connection open-word)]
                           (if (:could-not opened)
                             opened
-                            (do (client/say connection {:word :close-session})
+                            (do (update-kept! file (fn [now]
+                                                     (when (and now (= (:session hello) (:session now)))
+                                                       (assoc now :session (:open opened)))))
+                                (client/say connection {:word :close-session})
                                 opened))))))
-                  opened (let [first-try (open-and-close)]
+                  opened (let [first-try (open-then-close)]
                            (if (and (:could-not first-try) (= 401 (:status first-try)))
-                             (do (keep! file (dissoc (or (kept file) held) :session))
-                                 (open-and-close))
+                             (do (drop-session!)
+                                 (open-then-close))
                              first-try))]
               (if (:could-not opened)
                 opened
-                (do (keep! file (assoc (or (kept file) held) :session (:open opened)))
-                    (with-line flags (fn [_ hello] hello)))))
-            (let [closed (with-line flags (fn [connection _] (client/say connection {:word :close-session})))]
+                (with-line flags (fn [_ hello] hello))))
+            (let [closed (with-line flags
+                           (fn [connection hello]
+                             (update-kept! file (fn [now]
+                                                  (when (and now (= (:session hello) (:session now)))
+                                                    (dissoc now :session))))
+                             (client/say connection {:word :close-session})))]
               (if (and (:could-not closed) (not= 401 (:status closed)))
                 closed
-                (do (keep! file (dissoc (or (kept file) held) :session))
+                (do (when (= 401 (:status closed)) (drop-session!))
                     (with-line flags (fn [_ hello] hello))))))))
 
       "sign-out" (with-line flags (fn [connection _] (client/say connection {:word :sign-out})))
