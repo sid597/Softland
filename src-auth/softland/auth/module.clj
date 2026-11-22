@@ -9,6 +9,14 @@
   `(ack-return> result)`. No global depot, no global PState, no `|global` or
   `|all` partitioner, and no `TaskGlobal` exist anywhere in the module.
 
+  Each depot's dataflow is a function of its own (`invites-source!`,
+  `enters-source!`, `root-events-source!`, `asks-source!`), and each first
+  holds the record against the form that the client gives it
+  (`softland.auth.schema/invite-record-fits?` and the like): a record that
+  another appender wrote, of another type or with a field of another type,
+  is acked with `{:could-not :read-the-event}` and changes nothing, so that
+  it can never throw in a step and, under `:all-after`, hold its partition.
+
   Cross-key agreement (`invite`, `enter`, `answer-ask`) executes the
   model-checked single-task step functions in `softland.auth.schema` via
   `loop<-` + `|hash` + `continue>` so every cross-task hop flushes and
@@ -65,36 +73,18 @@
     (apply-root-plan! *root *tp *rd *live))
   (:>))
 
-(defmodule Auth [setup topologies]
-  ;; Four partitioned depots (zero global or internal depots).
-  (declare-depot setup *root-events (hash-by :root-id))
-  (declare-depot setup *asks (hash-by :code))
-  (declare-depot setup *invites (hash-by :claim-key))
-  (declare-depot setup *enters (hash-by :account-key))
-
-  (let [st (stream-topology topologies "auth")]
-    ;; Six strictly typed PStates (zero Object positions, zero byte arrays).
-    (declare-pstate st $$root-data {String IRootDatum})
-    ;; $$live: under each root, a subindexed map from an inner key ("g:<G>",
-    ;; "s:<S>") to what is live there. A watch of a root is a proxy on that
-    ;; root's map alone (softland.auth.client/watch-root), so a write is
-    ;; matched against the watches of its own root and no other. Its size is
-    ;; never read, so it is not tracked: no extra read on each write.
-    (declare-pstate st $$live {UUID (map-schema String ILiveEntry {:subindex-options {:track-size? false}})})
-    (declare-pstate st $$accounts {String IAccountState})
-    (declare-pstate st $$claims {String IClaimState})
-    (declare-pstate st $$asks {String IAskState})
-    (declare-pstate st $$enter-ops {UUID IEnterOpState})
-
-    ;; Allow 20,000 watched roots per task on $$live (SPEC.md): one proxy
-    ;; for each root that a client watches.
-    (set-launch-pstate-dynamic-option! setup "$$live" "pstate.proxy.limit" 20000)
-
-    (<<sources st
-      ;; ====================================================================
-      ;; 1. *invites -> invite (cross-key H(C) <-> H(P), Revision 1)
-      ;; ====================================================================
-      (source> *invites source-opts :> *ev)
+(defn- invites-source!
+  "Adds to the stream topology `st` the dataflow of `*invites`: `invite`,
+  with its hops between H(C) and H(P). A record that does not have the
+  client's form is refused (`s/invite-record-fits?`) before any field of it
+  is used."
+  [st]
+  (<<sources st
+    ;; ====================================================================
+    ;; 1. *invites -> invite (cross-key H(C) <-> H(P), Revision 1)
+    ;; ====================================================================
+    (source> *invites source-opts :> *ev)
+    (<<if (s/invite-record-fits? *ev)
       (loop<- [*step :invite/step-1
                *st {}
                :> *result]
@@ -183,11 +173,21 @@
             (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))
           (:> (s/act-result *act))))
       (ack-return> *result)
+     (else>)
+      (ack-return> s/does-not-fit))))
 
-      ;; ====================================================================
-      ;; 2. *enters -> enter (uniform choose-at-account, Revisions 1 & 5)
-      ;; ====================================================================
-      (source> *enters source-opts :> *ev)
+(defn- enters-source!
+  "Adds to the stream topology `st` the dataflow of `*enters`: `enter`, with
+  its hops between H(Acc), H(C), H(op) and H(P). A record that does not
+  have the client's form is refused (`s/enter-record-fits?`) before any
+  field of it is used."
+  [st]
+  (<<sources st
+    ;; ====================================================================
+    ;; 2. *enters -> enter (uniform choose-at-account, Revisions 1 & 5)
+    ;; ====================================================================
+    (source> *enters source-opts :> *ev)
+    (<<if (s/enter-record-fits? *ev)
       (loop<- [*step :enter/step-1
                *st {}
                :> *result]
@@ -332,11 +332,21 @@
             (|hash (s/act-hop-key *act))
             (continue> (s/act-next-step *act) (s/act-next-st *act)))))
       (ack-return> *result)
+     (else>)
+      (ack-return> s/does-not-fit))))
 
-      ;; ====================================================================
-      ;; 3. *root-events -> single-task writes on H(P) (0 hops, atomic batch)
-      ;; ====================================================================
-      (source> *root-events source-opts :> *ev)
+(defn- root-events-source!
+  "Adds to the stream topology `st` the dataflow of `*root-events`: the eight
+  writes under a root, each in one event on H(P). A record that does not
+  have the client's form is refused (`s/root-record-fits?`) before any field
+  of it is used."
+  [st]
+  (<<sources st
+    ;; ====================================================================
+    ;; 3. *root-events -> single-task writes on H(P) (0 hops, atomic batch)
+    ;; ====================================================================
+    (source> *root-events source-opts :> *ev)
+    (<<if (s/root-record-fits? *ev)
       (<<subsource *ev
         (case> OwnLayerMadeEvent)
         (s/k-root (get *ev :root-id) :> *rk)
@@ -440,11 +450,21 @@
         (s/plan-close-session *ev *s :> *plan)
         (apply-root-plan! *P *plan $$root-data $$live)
         (ack-return> (s/plan-result *plan)))
+     (else>)
+      (ack-return> s/does-not-fit))))
 
-      ;; ====================================================================
-      ;; 4. *asks -> ask (0 hops) & answer-ask (H(U) <-> H(P), Revision 4)
-      ;; ====================================================================
-      (source> *asks source-opts :> *ev)
+(defn- asks-source!
+  "Adds to the stream topology `st` the dataflow of `*asks`: `ask` on H(U),
+  and `answer-ask` with its hops between H(U) and H(P). A record that does
+  not have the client's form is refused (`s/ask-record-fits?`) before any
+  field of it is used."
+  [st]
+  (<<sources st
+    ;; ====================================================================
+    ;; 4. *asks -> ask (0 hops) & answer-ask (H(U) <-> H(P), Revision 4)
+    ;; ====================================================================
+    (source> *asks source-opts :> *ev)
+    (<<if (s/ask-record-fits? *ev)
       (<<subsource *ev
         (case> AskEvent)
         (get *ev :code :> *U)
@@ -522,7 +542,41 @@
                 (continue> (s/act-next-step *act) (s/act-next-st *act))
                (else>)
                 (continue> (s/act-next-step *act) (s/act-next-st *act))))))
-        (ack-return> *result))))
+        (ack-return> *result))
+     (else>)
+      (ack-return> s/does-not-fit))))
+
+(defmodule Auth [setup topologies]
+  ;; Four partitioned depots (zero global or internal depots).
+  (declare-depot setup *root-events (hash-by :root-id))
+  (declare-depot setup *asks (hash-by :code))
+  (declare-depot setup *invites (hash-by :claim-key))
+  (declare-depot setup *enters (hash-by :account-key))
+
+  (let [st (stream-topology topologies "auth")]
+    ;; Six strictly typed PStates (zero Object positions, zero byte arrays).
+    (declare-pstate st $$root-data {String IRootDatum})
+    ;; $$live: under each root, a subindexed map from an inner key ("g:<G>",
+    ;; "s:<S>") to what is live there. A watch of a root is a proxy on that
+    ;; root's map alone (softland.auth.client/watch-root), so a write is
+    ;; matched against the watches of its own root and no other. Its size is
+    ;; never read, so it is not tracked: no extra read on each write.
+    (declare-pstate st $$live {UUID (map-schema String ILiveEntry {:subindex-options {:track-size? false}})})
+    (declare-pstate st $$accounts {String IAccountState})
+    (declare-pstate st $$claims {String IClaimState})
+    (declare-pstate st $$asks {String IAskState})
+    (declare-pstate st $$enter-ops {UUID IEnterOpState})
+
+    ;; Allow 20,000 watched roots per task on $$live (SPEC.md): one proxy
+    ;; for each root that a client watches.
+    (set-launch-pstate-dynamic-option! setup "$$live" "pstate.proxy.limit" 20000)
+
+    ;; Each depot's dataflow is a function of its own: in one body the
+    ;; module's code is more than one JVM method can hold.
+    (invites-source! st)
+    (enters-source! st)
+    (root-events-source! st)
+    (asks-source! st))
 
   ;; ========================================================================
   ;; Query Topology 1: "who-is" (1 RT to 1 task, Revision 3: 2-seek fast path)

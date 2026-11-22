@@ -514,6 +514,79 @@
           (println "FAILED" label (str "seen=" (pr-str seen)))))
       (every? second checks))))
 
+(defn check-unfit-records!
+  "Verifies that a depot record that does not have the client's form is
+  refused in the topology and never holds its partition. Records are
+  appended straight to Auth's depots (`foreign-depot`, as an appender other
+  than the client would): on each of the four depots a record of Auth's own
+  type with a field of another type, and on `*root-events` a map that is no
+  record of Auth's and a thing that is no map. Each must be acked with
+  `{:could-not :read-the-event}` within 10 s; and right after each, a write
+  through the client that lands on the same partition (the same root,
+  claim, account or code) must be taken. Under the module before this
+  repair, such a record throws in the topology, is tried again for ever
+  under `:all-after`, and the write behind it on its partition is not
+  taken."
+  []
+  (with-open [ipc (rtest/create-ipc)]
+    (let [mod-name (rama/get-module-name mod/Auth)
+          _ (rtest/launch-module! ipc mod/Auth {:tasks 4 :threads 2})
+          c (client/open ipc mod-name)
+          appended (fn [depot-name rec]
+                     (try
+                       (get (.get ^java.util.concurrent.CompletableFuture
+                                  (rama/foreign-append-async! (rama/foreign-depot ipc mod-name depot-name) rec :ack)
+                                  10 TimeUnit/SECONDS)
+                            "auth")
+                       (catch Throwable t {:threw (.getName (class t))})))
+          unfit {:could-not :read-the-event}
+          P (UUID/randomUUID)
+          G (UUID/randomUUID)
+          _ (seed-person! c P G "unfit-1")
+          open! (fn [] (client/open-session c {:root P :sign-in G :session (UUID/randomUUID)
+                                               :until 999999999 :at 50}))
+          ;; *root-events: a begin whose :until is a text.
+          r1 (appended "*root-events" (s/->BeginSignInEvent P P (UUID/randomUUID) :program (format "%064x" 5)
+                                                            "later" nil 40))
+          w1 (open!)
+          ;; *root-events: a map of no type of Auth's, on P's partition.
+          r2 (appended "*root-events" {:root-id P :what "a map"})
+          w2 (open!)
+          ;; *root-events: a thing that is no map.
+          r3 (appended "*root-events" "a text")
+          w3 (open!)
+          ;; *invites: an invite whose :at is a text, on the claim's partition.
+          P2 (UUID/randomUUID)
+          r4 (appended "*invites" (s/->InviteEvent P2 "e:unfit-2@example.com" :email "unfit-2@example.com"
+                                                   :system nil "now"))
+          w4 (client/invite c {:person P2 :claim {:by :email :email "unfit-2@example.com"}
+                               :invited-by :system :at 60})
+          ;; *enters: an enter whose :says is a vector, on the account's partition.
+          r5 (appended "*enters" (s/->EnterEvent (UUID/randomUUID) (s/account-key :google "unfit-2") :google "unfit-2"
+                                                 ["not" "a" "map"] "unfit-2@example.com" nil (UUID/randomUUID)
+                                                 (UUID/randomUUID) (UUID/randomUUID) 70))
+          w5 (client/enter c {:account [:google "unfit-2"] :says {} :email "unfit-2@example.com" :code-hash nil
+                              :own-layer (UUID/randomUUID)
+                              :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 80})
+          ;; *asks: an ask whose :ends is nil, on the code's partition.
+          r6 (appended "*asks" (s/->AskEvent "UNFIT001" (format "%064x" 6) "a program" nil 90))
+          w6 (client/ask c {:code "UNFIT001" :hash (format "%064x" 6) :asks "a program" :ends 999999 :at 95})
+          _ (client/close! c)
+          checks [["A record on *root-events of Auth's own type with a field of another type, a map of no type of Auth's, and a thing that is no map are each refused with {:could-not :read-the-event}; and after each, a write of the same root on the same partition is taken."
+                   (and (= unfit r1 r2 r3) (every? #(contains? % :open) [w1 w2 w3]))
+                   {:refused [r1 r2 r3] :after [w1 w2 w3]}]
+                  ["A record on *invites, on *enters and on *asks with a field of another type is refused with {:could-not :read-the-event}; and after each, a write of the same claim, account or code is taken."
+                   (and (= unfit r4 r5 r6)
+                        (= {:invited P2} w4)
+                        (= P2 (:person w5))
+                        (= {:asked "UNFIT001"} w6))
+                   {:refused [r4 r5 r6] :after [w4 w5 w6]}]]]
+      (doseq [[label ok? seen] checks]
+        (if ok?
+          (println "PASSED" label)
+          (println "FAILED" label (str "seen=" (pr-str seen)))))
+      (every? second checks))))
+
 (defn -main
   "Entry point for slice checks:
     `says`      — run direct `$$accounts` `:says` check;
@@ -523,7 +596,8 @@
     `slice-c`   — run `:says` check + carbon step3 all 8 scenarios (without watches);
     `step3`     — run full carbon step3 suite (all 9 scenarios with live watches, 2..8 threads) + `:says` + `:not-reached`;
     `late-open` — a watch whose opening outlasts its wait leaves no proxy behind;
-    `partial-outage` — a partial outage is swept within one probe deadline."
+    `partial-outage` — a partial outage is swept within one probe deadline;
+    `unfit-record` — a depot record of another form is refused and holds no partition."
   [& [mode rounds-str]]
   (let [rounds (or (some-> rounds-str parse-long) 2)
         ok? (case mode
@@ -542,6 +616,7 @@
                                                     :strip-watches? true}))
               "late-open" (check-late-open!)
               "partial-outage" (check-partial-outage!)
+              "unfit-record" (check-unfit-records!)
               "step3" (and (check-says-table!)
                            (check-watch-not-reached!)
                            (run-step3-scenarios! {:allowed-prefixes nil

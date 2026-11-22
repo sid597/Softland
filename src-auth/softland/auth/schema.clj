@@ -278,6 +278,115 @@
   "Exclusive upper bound of the sessions of a root's map in `$$live`."
   "s;")
 
+;; ------------------------------------------------ the form of a depot record
+;; The client (`softland.auth.client`) checks each input (`softland.auth.fit`)
+;; before it builds a record. A record that some other appender wrote is
+;; checked here, in the topology, before any of its fields is used: a field
+;; of another type would throw in a step, and under `:all-after` the record
+;; would be tried again for ever and hold its partition.
+
+(def does-not-fit
+  "What the topology gives a depot record that does not have the form that
+  the client gives it."
+  {:could-not :read-the-event})
+
+(defn- long-val?
+  "Whether `x` is a `Long`, the type that the client gives every time."
+  [x]
+  (instance? Long x))
+
+(defn- text-or-nil?
+  "Whether `x` is a string or nil."
+  [x]
+  (or (nil? x) (string? x)))
+
+(defn- said?
+  "Whether `x` is a map from strings to strings, as `:says` is."
+  [x]
+  (and (map? x) (every? (fn [[k v]] (and (string? k) (string? v))) x)))
+
+(defn- driven-by-val?
+  "Whether `x` is nil or a typed `:driven-by` record as `to-driven-by` makes
+  it."
+  [x]
+  (or (nil? x)
+      (instance? DrivenByPerson x)
+      (and (instance? DrivenByModel x) (string? (:model x)))))
+
+(defn- record-fits?
+  "Whether `ev`, a record of one of this namespace's event types, has each
+  field of the type that the client puts there. False for anything else."
+  [ev]
+  (boolean
+   (cond
+     (instance? InviteEvent ev)
+     (and (uuid? (:person ev)) (string? (:claim-key ev)) (contains? #{:email :code} (:claim-kind ev))
+          (string? (:claim-val ev)) (contains? #{:system :actor} (:invited-by-kind ev))
+          (or (nil? (:invited-by-id ev)) (uuid? (:invited-by-id ev))) (long-val? (:at ev)))
+
+     (instance? EnterEvent ev)
+     (and (uuid? (:op-id ev)) (string? (:account-key ev)) (keyword? (:provider ev)) (string? (:subject ev))
+          (said? (:says ev)) (text-or-nil? (:email ev)) (text-or-nil? (:code-hash ev))
+          (uuid? (:own-layer ev)) (uuid? (:making-uuid ev)) (uuid? (:making-session ev)) (long-val? (:at ev)))
+
+     (instance? AskEvent ev)
+     (and (string? (:code ev)) (string? (:hash ev)) (string? (:asks ev)) (long-val? (:ends ev)) (long-val? (:at ev)))
+
+     (instance? AnswerAskEvent ev)
+     (and (uuid? (:op-id ev)) (string? (:code ev)) (boolean? (:yes? ev)) (uuid? (:root ev)) (uuid? (:actor ev))
+          (text-or-nil? (:new-agent-label ev)) (uuid? (:sign-in ev)) (long-val? (:until ev)) (long-val? (:at ev)))
+
+     (instance? OwnLayerMadeEvent ev)
+     (and (uuid? (:root-id ev)) (long-val? (:at ev)))
+
+     (instance? BeginSignInEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:actor ev)) (uuid? (:sign-in ev)) (contains? #{:browser :program} (:kind ev))
+          (string? (:hash ev)) (long-val? (:until ev)) (text-or-nil? (:label ev)) (long-val? (:at ev)))
+
+     (instance? ReplaceSecretEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:sign-in ev)) (string? (:old-hash ev)) (string? (:new-hash ev))
+          (long-val? (:until ev)) (long-val? (:previous-until ev)) (long-val? (:at ev)))
+
+     (instance? EndSignInEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:sign-in ev)) (long-val? (:at ev)))
+
+     (instance? MakeActorEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:actor ev)) (uuid? (:made-by ev)) (string? (:label ev)) (long-val? (:at ev)))
+
+     (instance? EndActorEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:actor ev)) (long-val? (:at ev)))
+
+     (instance? OpenSessionEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:sign-in ev)) (uuid? (:session ev)) (long-val? (:until ev))
+          (driven-by-val? (:driven-by ev)) (long-val? (:at ev)))
+
+     (instance? CloseSessionEvent ev)
+     (and (uuid? (:root-id ev)) (uuid? (:session ev)) (long-val? (:at ev)))
+
+     :else false)))
+
+(defn invite-record-fits?
+  "Whether a record of `*invites` is an `InviteEvent` of the client's form."
+  [ev]
+  (and (instance? InviteEvent ev) (record-fits? ev)))
+
+(defn enter-record-fits?
+  "Whether a record of `*enters` is an `EnterEvent` of the client's form."
+  [ev]
+  (and (instance? EnterEvent ev) (record-fits? ev)))
+
+(defn ask-record-fits?
+  "Whether a record of `*asks` is an `AskEvent` or an `AnswerAskEvent` of
+  the client's form."
+  [ev]
+  (and (or (instance? AskEvent ev) (instance? AnswerAskEvent ev)) (record-fits? ev)))
+
+(defn root-record-fits?
+  "Whether a record of `*root-events` is one of the eight root events, of
+  the client's form."
+  [ev]
+  (and (instance? IRootEvent ev) (record-fits? ev)))
+
 ;; ------------------------------------------------------- action accessors
 ;; Named Clojure functions so Rama dataflow never puts keywords in op position.
 
