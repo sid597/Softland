@@ -12,6 +12,14 @@ deployment is born by one setup command; an invitation is a person id that
 waits for an account; a break between Auth and the store is met by writing
 Auth first. Everything else here is this session's, and his to turn.
 
+**22 November 2026.** Sid's calls on the contract, in the prompt that he
+pasted to the build of the reference, are written below where each belongs,
+each marked "Sid's call of 22 November". Two of them are rules: what fits,
+and that a repeat's result comes from what stands, never from a memory of
+calls. With them, questions 1 to 7, 20 and 23 of the reference's questions
+(`test-auth/softland/auth/QUESTIONS.md`) are settled. Questions 10, 17 and
+24 stand as the reference took them, and stay his to turn.
+
 ## What Auth is
 
 Auth is a Rama module of its own beside the module `Store`. It holds what
@@ -80,9 +88,12 @@ Rules for every call:
   runtime ever chooses the id of a person, an actor, a sign-in or a session.
   Auth trusts that, and checks an id only within its root.
 - A write that arrives twice, from one copy of the runtime or from two,
-  leaves the same state as once. The second call gives the result of the
-  first, which says that the write was taken; it does not say how the thing
-  stands now, which a read says. Two writes are the same write when the
+  leaves the same state as once. Its result comes from what stands, never
+  from a memory of calls (Sid's call of 22 November). The second call gives
+  the result of the first, which says that the write was taken; it does not
+  say how the thing stands now, which a read says. One part is the
+  exception: an `enter` gives `:own-layer-made?` as it stands at that
+  enter. Two writes are the same write when the
   parts that say what is bound are the same: for `invite`, the person and
   the claim; for `begin-sign-in`, the root, the actor, the kind and the
   hash; for `make-actor`, the root and the maker; for `open-session`, the
@@ -90,28 +101,44 @@ Rules for every call:
   are dropped, but for `open-session`, whose repeat moves the session's
   time on. A refusal binds nothing: the same write after the state changed
   can be taken.
+- Where two refusals apply to one write, a repeat is recognised first, then
+  the refusals in the order in which the contract lists them.
 - A write returns when its effect can be read by any copy of the runtime.
 - No write reads a clock. The runtime puts its own clock's time on each
   write as `:at`, milliseconds since 1970. Where a rule below depends on a
   time, it names the time in the event that it is held against.
 - Times are fixed-width integers. Ids of persons, actors, sign-ins and
-  sessions are UUIDs. A hash is 64 lower-case hex characters. A code is a
-  string of 8 characters, compared exactly. A text (`:label`, `:asks`, an
-  email, a provider's subject, a `:driven-by` `:model`) is a string of at
-  most 256 characters, a character being one `char` of the JVM. A provider
-  is a keyword. A `:driven-by`, optional on `open-session`, is nil or
-  either `{:kind :person}` or `{:kind :model :model text}` (with `:model` a
-  text of at most 256 characters). A `:says`
-  map holds at most 32 entries, each from a string of at most 256
-  characters to a string of at most 2,048. A write or a read whose input
-  does not fit gives `{:could-not :read-the-event}`, and a write then
-  writes nothing.
+  sessions are UUIDs, and so are `:own-layer` and the two ids of a
+  `:making`, its `:uuid` and its `:session`. A hash is 64 lower-case hex
+  characters. A code is a string of 8 characters, compared exactly. A text
+  (`:label`, `:asks`, an email, a provider's subject, a `:driven-by`
+  `:model`) is a string of at most 256 characters, a character being one
+  `char` of the JVM. A provider is a keyword whose name is at most 256
+  characters. A `:driven-by`, optional on `open-session`, is nil or either
+  `{:kind :person}` or `{:kind :model :model text}` (with `:model` a text of
+  at most 256 characters). A `:says` map holds at most 32 entries, each
+  from a string of at most 256 characters to a string of at most 2,048.
+- What fits (Sid's call of 22 November): every part that the contract
+  names is there, a part written `-or-nil` as nil when it holds nothing,
+  each in its stated form, and nothing that the contract does not name.
+  `:driven-by` alone may be left out. A provider's name and `:own-layer`
+  are forms like the others, and Auth checks them. The parts of a write
+  that it does not judge, as those of a no, must fit all the same. A write
+  or a read whose input does not fit gives `{:could-not :read-the-event}`,
+  and a write then writes nothing.
 - Two emails are the same when their texts are the same. The runtime gives
-  every email in lower case.
-- The other words of `:could-not`: `:reach-the-module`, when Rama threw or
-  gave no answer in time, with what it threw; and `:closed`, for a call on
-  a client that was closed. A `:could-not` from a write says nothing of
-  whether the write was taken.
+  every email in lower case, and Auth holds that as form: an email that
+  Java's `toLowerCase`, in the root locale, would change does not fit, in a
+  claim or in an enter, whatever else the enter holds.
+- The other words of `:could-not`: `:find-the-module`, when the cluster
+  that `open` is given holds no module of that name, or what it is given
+  stands for no cluster; `:reach-the-module`, when Rama threw or gave no
+  answer in time, with what it threw; and `:closed`, for a call on a client
+  that was closed. `watch-root` on a closed client gives
+  `{:could-not :closed}` in place of the function, and `close!` calls no
+  `f` again. A call whose client is no client at all gives
+  `{:could-not :read-the-event}`, and `close!` of it gives nil. A
+  `:could-not` from a write says nothing of whether the write was taken.
 
 ```text
 (open cluster module-name)        -> a client, or {:could-not :find-the-module ...}
@@ -238,7 +265,11 @@ build.
 checked the provider's token before it calls; Auth takes the account as
 proven.
 
-- An account that has a link gives its person, whatever claim came with it.
+- An account that has a link gives its person, whatever claim came with it,
+  with the own layer and the `:making` that were fixed, and
+  `:own-layer-made?` as it stands at that enter (Sid's call of 22
+  November). An enter that is sent again is answered so like any other:
+  Auth keeps no memory of what an enter gave.
 - An account that has none takes the person of the claim that it proves: the
   code's, when `:code-hash` names an invitation that waits; else the
   email's, when `:email` names one. The link is written, the claim is used
@@ -248,15 +279,18 @@ proven.
 - `:own-layer` and `:making` are what the runtime offers for a person who
   has none yet. The first enter that makes her an actor fixes them; every
   later enter gives the ones that were fixed, and its own offer is dropped.
-- `:says` is kept with the link as what the provider said at the enter
-  that was decided last, with its `:at`. What earlier enters said is in the
-  events alone.
+- `:says` is kept with the link from the enter with the latest `:at`, with
+  that `:at`: an enter whose `:at` is not later than the kept one's leaves
+  it (Sid's call of 22 November). What other enters said is in the events
+  alone. The link keeps no memory of each enter: at full life that would
+  grow with every sign-in.
 
 What must hold: two enters of one new account at the same moment, through
 two copies of the runtime, give one person, one own layer and one `:making`.
 Two accounts that prove one claim at the same moment: one becomes the person
 and the other is refused. An enter that is run again after a failure gives
-what it gave.
+the person, the own layer and the `:making` that it gave, and
+`:own-layer-made?` as it stands.
 
 `:own-layer` and `:making` are how a break between Auth and the store is
 met. The runtime writes Auth first. Then it sends the act that makes her own
@@ -266,7 +300,8 @@ the two and gives them back, and nothing more: that session is no session of
 Auth's. The act is built from nothing but what the enter gave, so that any
 copy sends the same act with the same digest. Then the runtime calls
 `own-layer-made`. Until that call every enter says `:own-layer-made? false`,
-and the copy that made that enter sends the act again. Only an enter does:
+and the copy that made that enter sends the act again. From that call on,
+every enter says true, one that is sent again among them. Only an enter does:
 no sign-in of hers begins before her layer is made, so the flag of `who-is`
 informs and nothing acts on it. `own-layer-made` of a person who waits is
 refused with `:no-such-person`: she has no layer yet.
@@ -281,7 +316,12 @@ with a new end `t1`. `H` is the sign-in's hash now; or it is the same
 replacement again, which is so when `H'` is the sign-in's hash now and `H`
 is the one before it. A replacement that arrives after a newer one is no
 repeat, and is refused with `:wrong-secret`. The old secret keeps standing until `t2`
-and no longer. No session changes.
+and no longer. No session changes. A replacement whose new `:until` is at or
+before its own `:at` is taken, and its event takes the sign-in out at once,
+ended as by `end-sign-in`, with its sessions: they close because the
+sign-in's time has passed, not because its secret was replaced. (Question
+10: Sid let the reference's reading stand on 22 November, and it stays his
+to turn.)
 
 **end-sign-in.** The sign-in ends, and every session under it is closed.
 Ending it again changes nothing.
@@ -307,7 +347,11 @@ the runtime's page. The same id under the same sign-in again, while the
 session is open, moves its time to the `:until` that came, when that is
 later: that is how the runtime keeps a session that is in use. A session
 that is closed, or was taken out because its time passed, is not opened
-again.
+again: the same id under the same sign-in then gives `{:open S}`, the result
+of the first, and the session stays closed; only `who-is` says that it is
+closed. (Question 17: Sid let the reference's reading stand on 22 November,
+and it stays his to turn.) A session's id that is another sign-in's, open or
+not, is `:in-use`.
 
 **ask, answer-ask.** A program asks under a code, with the hash of the
 secret that it made. A person answers once:
@@ -318,16 +362,23 @@ secret that it made. A person answers once:
   the sign-in begins for it;
 - no: the ask is refused for good.
 
-An answer whose `:at` is at or after the ask's `:ends` is refused with
-`:over`. The first answer stands: the same answer again gives the same
-result, and another answer gives what stands. Two persons who answer one ask
-at the same moment: one answer stands, and both are told which; what of
-that the runtime shows the other person is the runtime's.
+The first answer stands. Once an ask has an answer, every answer that fits
+gives what stands, before any refusal, and changes nothing but what its time
+takes out (below): the same answer again, another answer, and one at or
+after the ask's `:ends` alike (Sid's call of 22 November). An answer to an ask that still waits is judged: one
+whose `:at` is at or after the ask's `:ends` is refused with `:over`, and
+then come the refusals of the actor and of the ids, in the contract's order.
+Two persons who answer one ask at the same moment: one answer stands, and
+both are told which; what of that the runtime shows the other person is the
+runtime's.
 
 A yes names the actor that the program becomes: the person herself; a new
-agent, which is made by her; or a live agent of hers that exists. The
+agent, which is made by her; or a live agent of hers that exists, which is
+any live agent of her root, in any depth. (Question 24: Sid let the
+reference's reading stand on 22 November, and it stays his to turn.) The
 sign-in that a yes begins has the ask's `:asks` as its label. A no needs a
-person who has entered, and judges no other part. `ask-of` judges no time:
+person who has entered, and judges no other part; its other parts must fit
+all the same (Sid's call of 22 November). `ask-of` judges no time:
 it says `:waiting` for an ask that nobody answered, and the runtime holds
 `:ends` against its clock. A code is bound for good: an ask that is over
 keeps its code, so that a program that still asks under an old code never
@@ -371,19 +422,11 @@ is watched for ever. So:
   runtime's order of calls: an enter whose `own-layer-made` did not go
   through ends with no sign-in. Auth refuses nothing for a person whose
   layer is not marked as made.
-- Where two refusals apply to one write, a repeat is recognised first, then
-  the refusals in the order in which the contract lists them. A session's
-  id that is another sign-in's, open or not, is `:in-use`.
-- A provider's name is at most 256 characters. `:own-layer` is a UUID.
-- `watch-root` on a closed client gives `{:could-not :closed}` in place of
-  the function, and `close!` calls no `f` again.
-- The numbers that the plan sizes: the module lets 20,000 roots be watched
-  on one task, the figure that Red Planet Labs run their own TPC-C module
-  with (`src-store/OPEN-QUESTIONS-rama.md`, section 4), and the build
-  measures it. `who-is` is made for each request and each opening of a
-  connection. `open-session` is made once for a new session, and then at
-  most once in half of a session's span for each session that is held; the
-  runtime's default span is a day.
+- How often the runtime calls. `who-is` is made for each request and each
+  opening of a connection. `open-session` is made once for a new session,
+  and then at most once in half of a session's span for each session that
+  is held; the runtime's default span is a day. Auth counts no calls, and
+  the plan sizes the module for these numbers.
 
 ## What can be erased later
 
@@ -411,8 +454,10 @@ Judge each of these against many writers, many readers and years of data.
   on one task (`pstate.proxy.limit`; seen at 1,000 on Rama 1.6.0, with no
   option set: `src-store/OPEN-QUESTIONS-rama.md`, section 4). The watched
   roots of one task, over all copies of the runtime together, must not be
-  held to that default. The module sets what it needs at launch, and the
-  build measures what the option bounds.
+  held to that default. The module sets what it needs at launch: it lets
+  20,000 roots be watched on one task, the figure that Red Planet Labs run
+  their own TPC-C module with (the same section), and the build measures
+  what the option bounds.
 - **Nothing is deleted.** An ended sign-in, a closed session, an ended actor
   and an answered ask can still be read: the facts of them stay. What is
   watched and what is read on each request is kept apart from that history.
