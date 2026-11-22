@@ -350,3 +350,193 @@ softland.runtime.attacks.watch-caps:           1 passed, 0 failed. (exit 0)
 softland.runtime.proof:                       49 passed, 0 failed. (exit 0)
 softland.runtime.command-proof:               16 passed, 0 failed. (exit 0)
 ```
+
+### Step 6: The runtime on real Auth (`7a381f3a`)
+
+Waited for `7a381f3a` (`Auth: the module and its client, held against the reference`) in `git log -- src-auth`, then ran the full suite against real `src-auth` in place of `runtime-oracle` / `test-auth`:
+
+#### 6a. Runtime proofs, new proofs, and carbon's seven attacks on real `src-auth` (IPC)
+
+**What was run:**
+```text
+LOCK=/mnt/data/projects/Softland/src/proposal/backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock
+SDEPS_REAL='{:aliases {:runtime {:replace-paths ["/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store" "src-auth" "src-wire" "src-runtime" "src-command" "test-wire" "test-runtime"]}}}'
+STORE_PROP="-J-Dsoftland.store.path=/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store"
+
+clojure -Sdeps "$SDEPS_REAL" -M:runtime -m softland.runtime.pure-proof
+for ns in \
+  softland.runtime.proof \
+  softland.runtime.command-proof \
+  softland.runtime.review-faults-proof \
+  softland.runtime.open-session-proof \
+  softland.runtime.attacks.slow-readers \
+  softland.runtime.attacks.yes-page \
+  softland.runtime.attacks.closed-session \
+  softland.runtime.attacks.unwatched-standing \
+  softland.runtime.attacks.lost-replacement \
+  softland.runtime.attacks.sign-in-pace \
+  softland.runtime.attacks.watch-caps; do
+  flock "$LOCK" clojure -Sdeps "$SDEPS_REAL" "$STORE_PROP" -M:runtime -m "$ns"
+done
+```
+
+**Output:**
+```text
+softland.runtime.pure-proof:                  22 passed, 0 failed. (exit 0)
+softland.runtime.proof:                       49 passed, 0 failed. (exit 0)
+softland.runtime.command-proof:               16 passed, 0 failed. (exit 0)
+softland.runtime.review-faults-proof:          6 passed, 0 failed. (exit 0)
+softland.runtime.open-session-proof:           5 passed, 0 failed. (exit 0)
+softland.runtime.attacks.slow-readers:         1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.yes-page:             1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.closed-session:       1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.unwatched-standing:   1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.lost-replacement:     1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.sign-in-pace:         1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.watch-caps:           1 passed, 0 failed. (exit 0)
+```
+
+#### 6b. Proof cluster JARs, open ports, `cluster-proof`, `worker-kill-proof`, and `two-lines-proof`
+
+Built both module JARs under `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/build/`:
+- `store.jar` (`255K`), compiled from `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store`
+- `auth.jar` (`31K`), compiled from `src-auth`
+
+Started the Rama 1.6.0 proof cluster behind `flock cluster.lock` using standalone `zoo.cfg` (bound to `127.0.0.1:2101`), `rama.yaml` (`conductor.host: 127.0.0.1`, `supervisor.port.range: 13000-13009`), and deployed `softland.store.module/Store` and `softland.auth.module/Auth` (`--tasks 4 --threads 2 --workers 1 --replicationFactor 1`).
+
+**Ports open while the proof cluster runs (`ss -tln`):**
+```text
+LISTEN 0      50                      *:1983             *:*   (Conductor Thrift — wildcard)
+LISTEN 0      50                      *:8898             *:*   (Conductor Admin UI — wildcard)
+LISTEN 0      50     [::ffff:127.0.0.1]:2101             *:*   (Standalone ZooKeeper — loopback only)
+LISTEN 0      50                      *:13000            *:*   (Supervisor HTTP — wildcard)
+LISTEN 0      4096                    *:13001            *:*   (Store worker Netty — wildcard)
+LISTEN 0      4096                    *:13002            *:*   (Auth worker Netty — wildcard)
+```
+Every cluster daemon (ZooKeeper, Conductor, Supervisor, Store worker, Auth worker) is stopped immediately after each run (`trap cleanup EXIT`), verified by `ss -tln` printing `(none listening)` across `1983, 2101, 8898, 13000-13009` and zero matching processes in `ps`.
+
+**1) Unmodified `softland.runtime.cluster-proof`:**
+Ran `test-runtime/softland/runtime/cluster_proof.clj` untouched (with `java.lang.ProcessHandle` pre-imported in `-e` so the file compiles without editing it):
+```text
+flock "$LOCK" ... clojure -Sdeps "$SDEPS_REAL" -M:runtime -e \
+  '(in-ns (quote softland.runtime.cluster-proof)) (import (quote [java.lang ProcessHandle])) (in-ns (quote user)) (require (quote softland.runtime.cluster-proof)) (softland.runtime.cluster-proof/-main "--conductor" "127.0.0.1" "--conductor-port" "1983" "--cluster-root" ".../cluster")'
+```
+Output: **`55 passed, 4 failed`** (exit 1).
+- **Passed (55):** all 3 runtime-copy process starts; all 44 `checks.clj` checks across 3 separate runtime JVM processes; all 4 `runtime-killed!` checks (killing a runtime JVM mid-act, reconnecting on another copy in the same session, retrying the act under its UUID, restarting a fresh copy); 2 of 3 `auth-worker-killed!` checks; the **6,000 simultaneously watched roots** check on real `Auth` (`pstate.proxy.limit` 20,000, bypassing Rama's default 1,000-per-task bound); and ran to its end without a throw.
+- **Failed (4) — three pre-existing defects in unmodified `cluster_proof.clj` (not edited per path boundary):**
+  1. `cluster_proof.clj:53`: omits `java.lang.ProcessHandle` from `:import`, causing a compile error (`Unable to resolve classname: ProcessHandle` at line 116) unless pre-imported.
+  2. `cluster_proof.clj:110-121` (`worker-of`): inspects `(.arguments (.info ph))` via `ProcessHandle.Info.arguments()`. On Linux OpenJDK 21, `ProcessHandle.Info.arguments()` returns `Optional.empty()` when `/proc/<pid>/cmdline` exceeds ~4 KiB; Rama 1.6.0 worker processes have ~15 KiB `-cp` command lines, so `worker-of` never locates either worker (`{:killed nil, :back nil}`).
+  3. `cluster_proof.clj:191` (`store-worker-killed!`): writes vector entity `[:tile n]`, which `softland.store.act` rejects (entities must be keywords or UUIDs), causing all 40 acts to be refused by the Store gate (`:accepted 0`, `:stamps 1`).
+
+**2) Real Store & Auth worker SIGKILL proof (`test-runtime/softland/runtime/worker_kill_proof.clj`, new file):**
+Added a standalone proof reading `/proc/<pid>/cmdline` directly and using valid keyword entities (`:worker-kill/tile-N`), so both real worker kills are verified without touching `cluster_proof.clj`:
+```text
+flock "$LOCK" ... clojure -Sdeps "$SDEPS_REAL" -M:runtime -m softland.runtime.worker-kill-proof \
+  --conductor 127.0.0.1 --conductor-port 1983 --cluster-root .../cluster
+```
+Output:
+```text
+PASSED Runtime copy process starts on the proof cluster for worker-kill checks.
+PASSED Rama's worker of the store's module is killed while a series of acts is on its way, and the supervisor starts it again.
+PASSED After Rama's store worker is killed mid-series, retrying each unanswered act under its UUID accepts all forty acts.
+PASSED Each of the forty acts was taken once across the store worker kill: forty distinct stamps, and a second sending reads the same forty answers.
+PASSED Rama's worker of Auth is killed while a connection is held, and the supervisor starts it again.
+PASSED When Auth's worker is killed, a held connection is not left unwatched: it is told :reach-auth and ends, or its watch recovered and answers words.
+PASSED When Auth's worker is back, the same credential is let in, in the same session: nothing durable in Auth was lost with the killed worker.
+
+7 passed, 0 failed. (exit 0)
+```
+
+**3) Where the two lines meet (`test-runtime/softland/runtime/two_lines_proof.clj`, new file):**
+Proves on the real proof cluster with two separate runtime JVM processes that a watch open on both copies closes off its layer (`:anew` with `:left-out [{:layer L :why :may-not-see}]`, `:place {:holds :no-fact}`, zero subsequent writes, and gate refusal `:permission-ended`) when its permission in the store is ended — directly, through a chain permission above it, or for a run-scoped permission:
+```text
+flock "$LOCK" ... clojure -Sdeps "$SDEPS_REAL" -M:runtime -m softland.runtime.two-lines-proof \
+  --conductor 127.0.0.1 --conductor-port 1983
+```
+Output:
+```text
+PASSED Two runtime processes start on the cluster for the two-lines proof.
+PASSED A watch open on two copies of the runtime sees live changes while its permission stands, closes off the layer with :may-not-see on both copies when its permission is ended in the store, receives no subsequent writes, and acts under the ended permission are refused.
+PASSED When a permission above a watcher's own ends in the store, the watcher's open watches on both copies of the runtime close off the layer and receive no further writes.
+PASSED A watch held under a run-scoped permission on two copies of the runtime closes off the layer on both copies when that run permission ends in the store, and receives no further writes.
+
+4 passed, 0 failed. (exit 0)
+```
+
+---
+
+## 7. Summary of the 22 November Pass (for Sid)
+
+### What changed
+
+Six commits on `main` (each staged strictly by name; `test-runtime/softland/runtime/checks.clj`, `cluster_proof.clj`, `attacks/*`, `test-auth/`, `src-auth/`, `src-store/`, `spine/auth/`, `deps.edn`, `as-written-2026-11-22/`, and `store-at-head/` untouched):
+
+1. **`ee2e92a5` — Step 1 (`Runtime oracle: adapt Auth client onto softland.auth.reference`):**
+   - `spine/runtime-oracle/src/softland/auth/client.clj`: replaced stand-in rules with thin adapter forwarding unchanged to `softland.auth.reference`, delivering `watch-root` callbacks asynchronously in order on a dedicated daemon thread per client.
+   - Moved superseded `client.clj` and `oracle_proof.clj` to `spine/runtime-oracle/set-aside/` (nothing deleted).
+2. **`d8ee975c` — Step 2 (`Runtime: pass proofs on Auth reference and use Locale/ROOT for emails`):**
+   - `src-runtime/softland/runtime/seam.clj`, `sign_in.clj`: lower-case emails with `Locale/ROOT` to match Auth's contract.
+3. **`35aef211` — Step 3 (`Runtime: fix the five faults named in the spine review`):**
+   - `src-runtime/softland/runtime/jetty.clj`, `line.clj`, `seam.clj`: non-blocking Jetty `sendPing` on the single ping thread; `ReentrantLock` in place of `synchronized`/`locking` monitors in `say!`, `standing`, and `watch`.
+   - `src-runtime/softland/runtime/http.clj`: `POST /yes` compares chosen actor (including agent label via `:under`) against standing actor; returns 409 on actor mismatch and tells a person who says no after her own yes that the program is signed in as her (or her agent).
+   - `src-runtime/softland/runtime/seam.clj`: `moved-on!` returns held `:until` so `standing` re-reads via `who-is` within 1s instead of extending a closed session on `{:open S}`.
+   - `src-runtime/softland/runtime/line.clj`, `seam.clj`: failing `standing` flow fails closed (`:reach-auth` + `end!`).
+   - `src-command/softland/command/main.clj`: persists `:next-credential` before `:replace-secret`, tries it first on connect, reuses it on retry, drops it only on promotion or definitive `:take-that`.
+   - New test: `test-runtime/softland/runtime/review_faults_proof.clj`.
+4. **`755b7b6e` — Step 4 (`Wire & runtime: add :open-session word and :driven-by support`):**
+   - `src-wire/softland/wire/words.clj`, `test-wire/softland/wire/pure_proof.clj`: added `{:word :open-session :driven-by D}` and `driven-by?` validation.
+   - `src-runtime/softland/runtime/seam.clj`, `http.clj`: handled `:open-session`, populated immutable `:driven-by` from `who-is` on `Caller`/`about`, browser faces pass `{:kind :person}`.
+   - `src-command/softland/command/main.clj`: `new-session --model <name>` opens a model-driven session via `:open-session`.
+   - New test: `test-runtime/softland/runtime/open_session_proof.clj`.
+5. **`f7163f93` — Step 5 (`Runtime: add copy-local sign-in pacing and live-watch caps, pass all seven attacks`):**
+   - `src-runtime/softland/runtime/standing.clj`: evict poisoned `delay` entry when `auth/watch-root` throws on open (found by carbon's `attacks.unwatched-standing`).
+   - `src-wire/softland/wire/words.clj`: added `:take-more` (HTTP 429).
+   - `src-runtime/softland/runtime/seam.clj`, `http.clj`, `main.clj`: copy-local sliding-window pacing on `POST /sign-in/*` before Google/Auth, atomic per-root and visitor live-watch caps using carbon's number keys, CLI flags for all four numbers.
+6. **Step 6 commit (this commit):**
+   - New tests: `test-runtime/softland/runtime/two_lines_proof.clj`, `test-runtime/softland/runtime/worker_kill_proof.clj`.
+   - `src/proposal/runtime-2026-11-21/spine/BUILD.md`: Steps 6a–6b and this summary.
+   - Outside repo: `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/build/{store.jar,auth.jar}` built; all cluster daemons stopped.
+
+### Each command with its output
+
+| Step | Command / target | Result |
+|---|---|---|
+| 1 | `softland.auth.module-check` (seed 42, 200 histories) + async watch order on `runtime-oracle` adapter | **3 passed, 0 failed** (exit 0) |
+| 2 | `runtime.pure-proof` / `runtime.proof` / `runtime.command-proof` on reference adapter | **22/22**, **49/49**, **16/16** (exit 0) |
+| 3 | `runtime.review-faults-proof` before fixes -> after fixes | **0/6** (exit 1) -> **6/6** (exit 0) |
+| 3 | `runtime.pure-proof` / `proof` / `command-proof` on reference after fixes | **22/22**, **49/49**, **16/16** (exit 0) |
+| 4 | `runtime.open-session-proof` before impl -> after impl | **0/5** (exit 1) -> **5/5** (exit 0) |
+| 4 | `wire.pure-proof` / `runtime.pure-proof` / `proof` / `command-proof` on reference | **38/38**, **22/22**, **49/49**, **16/16** (exit 0) |
+| 5 | All 7 carbon attacks (`402efee6`) on reference: `slow-readers`, `yes-page`, `closed-session`, `unwatched-standing`, `lost-replacement`, `sign-in-pace`, `watch-caps` | **1/1** each (7/7, exit 0) |
+| 5 | `wire.pure-proof` / `runtime.pure-proof` / `proof` / `command-proof` on reference | **38/38**, **22/22**, **49/49**, **16/16** (exit 0) |
+| 6a | `runtime.pure-proof` / `proof` / `command-proof` on **real `src-auth`** (`7a381f3a`) | **22/22**, **49/49**, **16/16** (exit 0) |
+| 6a | `review-faults-proof`, `open-session-proof`, and all 7 carbon attacks on **real `src-auth`** | **6/6**, **5/5**, **7×(1/1)** (exit 0) |
+| 6b | Unmodified `softland.runtime.cluster-proof` on proof cluster (`store.jar` + `auth.jar`) | **55 passed, 4 failed** (exit 1; all 4 from 3 pre-existing defects in `cluster_proof.clj`) |
+| 6b | `softland.runtime.worker-kill-proof` on proof cluster (`Store` + `Auth` worker SIGKILLs) | **7 passed, 0 failed** (exit 0) |
+| 6b | `softland.runtime.two-lines-proof` on proof cluster (two runtime JVMs, permission ended in Store) | **4 passed, 0 failed** (exit 0) |
+| 6b | `ss -tln` across `1983, 2101, 8898, 13000-13009` after stopping daemons | `(none listening)` |
+
+### What is open
+
+1. **Three pre-existing defects in `test-runtime/softland/runtime/cluster_proof.clj`:** missing `java.lang.ProcessHandle` import (line 53), `ProcessHandle.Info.arguments()` returning empty on Linux JDK 21 for Rama's ~15 KiB worker command lines (lines 110–121), and vector entity `[:tile n]` rejected by `softland.store.act` (line 191). Left untouched per path boundary; proved via `worker_kill_proof.clj` instead.
+2. **Ration layer 2 (per-person write pacing in Auth) and account blocks:** deliberately excluded from Step 5; still open when needed.
+3. **Remaining pre-existing items noted in `REVIEW-runtime-spine.md`:**
+   - Refusing `:replace-secret` over `/line` for `:browser` sign-ins (until the pages replace browser cookies);
+   - Updating `about`'s `:until` on a held connection after `:replace-secret` (currently `Caller.until` holds the initial secret's time, only shown by `:who-am-i`);
+   - A web page to end a program's sign-in (today only `end-sign-in` over the line does);
+   - The third check in `checks.clj` ("No live read and no watched root is left behind by connections that ended"), which does not yet assert watched roots.
+4. **Browser client (Piece 7)** and real Google OAuth client ID configuration (live runs used the test stand-in provider; no money spent).
+5. **Re-validating against live `src-store`:** all runs today used `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store` because another session is editing `src-store/` concurrently. Once `src-store/` settles, rebuild `store.jar` from `src-store/` and re-run without the `-Sdeps` path swap.
+6. **`spine/runtime-oracle/`:** can be retired now that real `src-auth` (`7a381f3a`) passes every proof.
+
+### Choices of mine for Sid to turn
+
+1. **Non-empty `:model` text on the wire (`src-wire/softland/wire/words.clj`):** `words/driven-by?` checks `:model` with `words/text?` (`1..256` characters, rejecting `""`, matching `:label` and `:email` on the wire) rather than `0..256` as Auth itself allows.
+2. **`:driven-by` presence in `seam/about` (`src-runtime/softland/runtime/seam.clj`):** included whenever the caller holds a session (populated from `auth/who-is`, including one `who-is` read after `new-session?` opens a session so `:driven-by` always comes from `who-is`); omitted when the caller has no session or is a visitor.
+3. **CLI surface for model sessions (`src-command/softland/command/main.clj`):** added `--model <name>` to `new-session` (opens the new session via `:open-session`, closes the previous session, saves the new session id, prints `hello`), rather than adding a separate top-level subcommand.
+4. **Ration defaults and wire word (`src-wire/softland/wire/words.clj`, `src-runtime/softland/runtime/seam.clj`):** added `:take-more` (HTTP `429`) to `words/could-nots`; set the four copy-local defaults in `seam/default-numbers` to `:sign-in-window-ms 10000`, `:max-sign-in-posts-per-address 30`, `:max-watches-per-root 256`, `:max-visitor-watches 64` (matching carbon's key names), with the per-address table capped at `10000` entries in copy memory.
+5. **Yes-page actor check (`src-runtime/softland/runtime/http.clj`):** when a person submits a second `yes` naming an agent while an agent stands, the runtime also checks the standing agent's label via `auth/under` so submitting a *different* agent name returns 409 rather than `"Done"`.
+6. **In-flight secret replacement state (`src-command/softland/command/main.clj`):** stored under `:next-credential` inside `sign-in.edn` (same mode-0600 atomic file), tried first on subsequent connections and cleared on promotion or definitive `:take-that` refusal.
+7. **Locking beyond pings (`src-runtime/softland/runtime/line.clj`, `seam.clj`):** in addition to switching `jetty.clj` to non-blocking `sendPing`, replaced `synchronized`/`locking` monitors with `ReentrantLock` in `line/say!`, `seam/standing`, and `seam/watch` so slow I/O or Auth calls do not pin JDK 21 virtual-thread carriers.
+8. **Proving worker kills without editing `cluster_proof.clj` (`test-runtime/softland/runtime/worker_kill_proof.clj`):** left `cluster_proof.clj` untouched per path rules, documented its three defects verbatim, and verified actual `Store` and `Auth` worker SIGKILL + supervisor restart in a separate proof file.
+
