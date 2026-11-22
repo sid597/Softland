@@ -33,8 +33,9 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 21 November 2026. It is the fifth making; the first
-three were made on 14 October 2026, and the fourth earlier on 21 November. The
+This fixture was made on 22 November 2026. It is the sixth making; the first
+three were made on 14 October 2026, and the fourth and the fifth on 21
+November. The
 first two were made by the build "run again", in which both depots came to
 place an act by its layer and the base's gate came to decide each act on the
 layer's task in the depot's order: the first after the build's part B, the
@@ -145,6 +146,41 @@ facts, 30 facts by value and 14 rows of the task's table; in the microbatch
 gate 192, 74, 6 and 7. The run of all seven proofs after it passed. The
 receipt of the change says that the fixture was made again, and why
 (`src/proposal/runtime-2026-11-21/BUILD-store-piece-2.md`).
+
+The sixth making ran on 22 November 2026 at 14:22 IST, and replaced the fifth
+for the rules of a permission for one act, which were changed on purpose, for
+the form of a yes for one act in the prompt that Sid pasted on 22 November
+2026 as his go for the build, a session's form
+(`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`):
+
+- a yes for one act sits on an id of its own, a uuid that its giver makes,
+  and not on the uuid of its act's act-id; the act goes under any act-id of
+  its maker's;
+- the digest that a yes names is of the act as its maker made it, in its one
+  form, without its act-id, its depot, its time and its permission, where it
+  was of the thing as it arrived, with its act-id and its depot;
+- the gate uses a yes up when it takes its act, writing its use at the yes's
+  place, and an act under a used yes is refused; a yes's place takes one
+  give.
+
+The hand changed with the rules: in each gate it now sends a line of twelve
+things under a permission for one run and under yeses for one act, the act
+taken under a yes and sent again, and the making holds the word of each. The
+fifth making's records hold the act of a permission for one act in the first
+form, whose digest is of the thing with its act-id: under the new rules that
+act is refused `:act-not-the-one-permitted`, in each gate. So the proof failed
+on the fifth making before this one replaced it, at exactly those rows: of 559,
+the answers of the two acts, now refusals, and their facts, and the one fact
+by value, now unwritten, on each task of the base. It was made again for the
+rules, and not to make the proof pass.
+
+It wrote `acts.edn`, 123,504 bytes, 387 records (the streaming depot's four
+partitions 157, 0, 17 and 5; the microbatch depot's 7, 0, 201 and 0), and
+`tables.edn`, 106,629 bytes, 563 rows: in the streaming gate 167 answers, 71
+facts, 30 facts by value and 14 rows of the task's table; in the microbatch
+gate 194, 74, 6 and 7. The receipt of the change says that the fixture was
+made again, and why
+(`src/proposal/runtime-2026-11-21/BUILD-store-piece-2-repair.md`).
 
 From the repository root, behind the lock of this machine's cluster runs:
 

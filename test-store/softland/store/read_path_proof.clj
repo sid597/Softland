@@ -91,6 +91,7 @@
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
             [softland.store.door.declaration :as declaration]
+            [softland.store.door.digest :as digest]
             [softland.store.gate.decision :as decision]
             [softland.store.module :as module]
             [softland.store.read-path :as read-path]
@@ -1403,6 +1404,108 @@
     (shown "a read asked in a run: once, in the run, in no run, in another run, and by another who in that run:" (pr-str (mapv first once))
            "| live, at the end of the run's permission:" (pr-str (:left-out (:anew cal-left))))))
 
+(deftest the-reviews-cluster-probe-written-again
+  (let [act-key :softland.store/act-permission
+        run-key :softland.store/run-permission
+        send! (fn [an-act act-id]
+                (let [sent (if act-id (door/send-act (the-door) an-act act-id) (door/send-act (the-door) an-act))]
+                  {:sent sent
+                   :answer (when-not (:could-not sent) (door/answer-of (the-door) (:act-id sent) (:digest sent)))}))
+        word (fn [{:keys [answer]}] (if (= :refused (:answer answer)) (:reason answer) (:answer answer)))
+        ;; receipt 1: a yes ended, a try while it is ended, and a yes given again
+        _ (make! :c-lab :asha)
+        root (perm :asha :c-lab)
+        x {:version 1 :who :ben :layer :c-lab :session :run-1 :facts [(fact :exp-1 :dose "5 mg")]}
+        hex-x (digest/hex-for-a-yes x)
+        [u1 u2] (repeatedly 2 #(UUID/randomUUID))
+        pa1 [:ben :c-lab :c-lab root :see-and-act [:act u1 hex-x]]
+        _ (put! :asha :c-lab [{:e u1 :k act-key :v pa1}])
+        _ (put! :asha :c-lab [{:e u1 :k act-key}])
+        attempt-1 (send! (assoc x :permission pa1) nil)
+        _ (give! :c-lab :asha :cal :see-and-act)
+        cal-perm (perm :cal :c-lab)
+        cals (fn [facts] {:version 1 :who :cal :layer :c-lab :permission cal-perm :session :s0 :facts facts})
+        again-at-u1 (send! (cals [{:e u1 :k act-key :v [:ben :c-lab :c-lab cal-perm :see-and-act [:act u1 hex-x]]}]) nil)
+        pa2 [:ben :c-lab :c-lab cal-perm :see-and-act [:act u2 hex-x]]
+        re-grant (send! (cals [{:e u2 :k act-key :v pa2}]) nil)
+        attempt-2 (send! (assoc x :permission pa2) nil)
+        exp-read (ask {:asks [:place :exp-1 :dose] :asker :asha :layers [:c-lab]})
+        ;; receipt 2: a holder who may only see finds the yes's id, and sends under an act-id that holds it
+        _ (make! :c-studio :ida)
+        ida (perm :ida :c-studio)
+        _ (give! :c-studio :ida :cal :see)
+        cal-see (perm :cal :c-studio)
+        joes {:version 1 :who :joe :layer :c-studio :session :run-1 :facts [(fact :secret :dose "5 mg")]}
+        u (UUID/randomUUID)
+        pa [:joe :c-studio :c-studio ida :see-and-act [:act u (digest/hex-for-a-yes joes)]]
+        _ (put! :ida :c-studio [{:e u :k act-key :v pa}])
+        cal-saw (ask {:asks [:run :first :last] :asker :cal :layers [:c-studio] :stores-own-facts true})
+        found (first (keep (fn [[[e k] _]] (when (= act-key k) e)) (:places cal-saw)))
+        cal-under-it (send! {:version 1 :who :cal :layer :c-studio :permission cal-see :session :s-cal
+                             :facts [(fact :x :y 1)]}
+                            [:c-studio :streaming found])
+        joe-res (send! (assoc joes :permission pa) nil)
+        secret (ask {:asks [:place :secret :dose] :asker :ida :layers [:c-studio]})
+        ;; receipt 3: a live read in a run, of a layer that she may not see, while another holder's
+        ;; permission for her run is given and ended; a witness holds the run's push and is told each change
+        _ (make! :c-near :root)
+        _ (give! :c-near :root :bea)
+        _ (put! :root :c-near [(fact :p :text "secret")])
+        _ (make! :c-far :root)
+        _ (setting! :c-far :root :everyone)
+        _ (put! :root :c-far [(fact :p :text "public")])
+        ann (live {:asks [:place :p :text] :asker :ann :session :run-7 :layers [:c-near :c-far]})
+        witness (live {:asks [:place :run-7 run-key] :asker :root :layers [:c-near] :stores-own-facts true})
+        dovs [:dov :c-near :c-near (perm :bea :c-near) :see [:run :run-7]]
+        _ (put! :bea :c-near [{:e :run-7 :k run-key :v dovs}])
+        _ (wait-until #(= :value (:holds (:place (screen witness)))))
+        bea-row-held? (contains? (:pushes (held (the-rp))) (sources/permission-source :c-near :c-near :bea))
+        _ (put! :bea :c-near [{:e :run-7 :k run-key}])
+        _ (wait-until #(= :nothing-here (:holds (:place (screen witness)))))
+        ann-changes (changes ann)
+        _ (leave! ann)
+        _ (leave! witness)
+        ;; receipt 4: the longest live read, with one write while it opens
+        runs-of (fn [layer] {:e :run-7 :k run-key :v [:cal layer layer (perm :root layer) :see [:run :run-7]]})
+        _ (make! :c-start :root)
+        _ (put! :root :c-start [(fact :c-start :softland.store/builds-on [:c-mid :c-far2]) (runs-of :c-start)])
+        _ (make! :c-mid :root)
+        _ (put! :root :c-mid [(runs-of :c-mid)])
+        _ (make! :c-far2 :root)
+        _ (put! :root :c-far2 [(fact :c-far2 :softland.store/marked-keys #{:parent}) (runs-of :c-far2)])
+        _ (put! :root :c-far2 [(fact :item-1 :parent :canvas-1)])
+        open-push @#'softland.store.read-path/open-push
+        wrote? (atom false)
+        opened (with-redefs [softland.store.read-path/open-push
+                             (fn [rp source called]
+                               (let [fut (open-push rp source called)]
+                                 (when (and (= :c-start (:layer source))
+                                            (= [:row (rows/place-key :c-start :item-1 :parent)] (:path source))
+                                            (compare-and-set! wrote? false true))
+                                   (put! :root :c-far2 [(fact :item-2 :parent :canvas-1)])
+                                   (Thread/sleep 100))
+                                 fut))]
+                 (read-path/read-live (the-rp) {:asks [:points-at :parent :canvas-1] :asker :cal :session :run-7
+                                                :from-layer :c-start}
+                                      (fn [_])))
+        _ (when (:leave-with opened) (read-path/leave (the-rp) (:leave-with opened)))]
+    (check "the review's receipt 1, written again for a yes on an id of its own: the try under the ended yes is refused; Cal's give at the ended yes's id is refused, a yes's id taking one give; his yes on a new id is taken, and Ben's act under it, whose fact is in the store"
+           [:permission-ended :a-yes-is-given-once :accepted :accepted [:value "5 mg"]]
+           [(word attempt-1) (word again-at-u1) (word re-grant) (word attempt-2) ((juxt :holds :value) (:place exp-read))])
+    (check "the review's receipt 2, written again: a holder who may only see reads the yes's id among the store's own facts and sends under an act-id that holds it, and is refused; the holder's act under the yes, under an act-id of the door's, is taken and its fact is in the store"
+           [u :permission-does-not-allow-acting :accepted [:value "5 mg"]]
+           [found (word cal-under-it) (word joe-res) ((juxt :holds :value) (:place secret))])
+    (check "the review's receipt 3: a live read in a run, of a layer that she may not see, is handed nothing while another holder's permission for her run is given and ended, as a witness of the same push was told both; and the read path holds no push of the row above that permission"
+           [1 false]
+           [(count ann-changes) bea-row-held?])
+    (check "the review's receipt 4: the longest live read, from a start layer through two more in a run, with one write while it opens, opens with an answer, within the rounds that it is given"
+           [true true]
+           [(some? (:now opened)) @wrote?])
+    (shown "the review's cluster probe, written again: receipt 1" (pr-str (mapv word [attempt-1 again-at-u1 re-grant attempt-2]))
+           "| receipt 2" (pr-str [(= u found) (word cal-under-it) (word joe-res)])
+           "| receipt 3, the calls of her function:" (count ann-changes)
+           "| receipt 4:" (if (:now opened) "opened" (pr-str opened)))))
+
 (deftest one-push-for-one-thing
   (let [rp (:counted @round)
         _ (make! :t16 :alice)
@@ -2122,6 +2225,7 @@
   (what-shapes-a-read-changes-under-it)
   (a-permission-ends-under-a-live-read)
   (a-read-asked-in-a-run)
+  (the-reviews-cluster-probe-written-again)
   (one-push-for-one-thing)
   (the-read-paths-own-bound-on-its-pushes)
   (nothing-is-shown-that-is-not-in-the-tables)

@@ -14,15 +14,26 @@
 
     digest         anything -> 32 bytes
     hex-of         anything -> the digest as hex text, 64 characters
-    hex-for-its-permission
-                   anything -> the hex text that a permission for this one
-                   act holds: the digest of the thing without its
-                   `:permission` too
+    act-for-a-yes  a maker's act, or a thing as it arrives -> the act that a
+                   yes for one act names, in its one form, or nil
+    hex-for-a-yes  the same -> the hex text that a yes for that act holds,
+                   or nil
     is-digest-of?  a digest as hex text, and anything -> true or false
     readable-hex-of  anything -> the digest as hex text, or nil for a thing
                      that throws while it is read
 
-  What the digest is taken of. The thing as it arrived, each value plain,
+  Two digests, of two things. The digest of a thing, `digest` and
+  `hex-of`, is of the thing as it arrived: it holds the act-id, the depot
+  and the maker's syntax, so that a maker tells her own answer from another
+  thing's under the same act-id. The digest that a yes for one act holds,
+  `hex-for-a-yes`, is of the act as its maker made it, in the one form that
+  `softland.store.act/parse` gives, without the four parts that are no part
+  of the act that a yes names: the act-id, the depot, the time and the
+  permission. So a maker, or whoever says yes to her act, makes it before
+  the act has an act-id or a permission, and the gate makes the same of the
+  thing that arrives under any act-id of hers: one function for both.
+
+  What the digest of a thing is taken of. The thing as it arrived, each value plain,
   without the time on the act: when the thing is a plain map, a map that is
   no record, its top-level `:door-time` is taken out first
   (`softland.store.door.declaration/time-part` holds the name). Anything
@@ -45,7 +56,8 @@
   width of a standard hash needs no argument about what short enough means.
 
   State and effects. None. Each function is pure, and none throws."
-  (:require [softland.store.door.declaration :as declaration]
+  (:require [softland.store.act :as act]
+            [softland.store.door.declaration :as declaration]
             [softland.store.door.text :as text])
   (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest]))
@@ -107,25 +119,66 @@
   [x]
   (text/hex (digest x)))
 
-(defn hex-for-its-permission
-  "Takes a thing as it arrives on a depot, or as a door is about to send it:
-  an act with its act-id and its depot, with the time on it or without.
-  Gives the text that a permission for this one act holds in its sixth slot
-  (`softland.store.act/covers`): the digest, as 64 hex characters, of the
-  thing without the time on it and without its top-level `:permission`. So
-  it holds the act-id, the act's who, its session, its facts and every other
-  part, and whoever says yes to the act can make it before the permission
-  exists. The act names its permission and the permission names this text:
-  were the permission in it, neither could be made first.
+(def ^:private yes-shapes
+  "The map of shapes by which the act that a yes names is read:
+  `softland.store.act/shapes` as `act.clj` declares it, and one entry more,
+  `:act-for-a-yes`: the maker's `:act` without its `:permission`, each other
+  part as `act.clj` declares it, in its order and with its options. So the
+  one form that it gives is the one form of `softland.store.act/parse`
+  without the permission, part for part, and is never written a second
+  time."
+  (assoc act/shapes
+         :act-for-a-yes (into [:parts] (remove #(= :permission (first %))) (rest (get act/shapes :act)))))
 
-  A gate makes it of the thing that arrived and holds it against the
-  permission that the act names (`softland.store.gate.decision/standing`).
-  Anything that is no plain map is taken as `hex-of` takes it. It never
-  throws. Cost: one walk of the thing."
+(def ^:private no-part-of-the-act-a-yes-names
+  "The four parts that a thing can hold and that are no part of the act
+  that a yes names: the door's three additions, the act-id, the depot and
+  the time on the act (`softland.store.door.declaration/time-part`), and
+  the act's permission. A yes names its act before the act has any of
+  them: the act names its permission, and the permission names the act."
+  [:act-id :depot declaration/time-part :permission])
+
+(defn act-for-a-yes
+  "Takes anything: a maker's act as she made it, with its permission or
+  without one; or a thing as it arrives on a depot, with the door's three
+  additions. Gives the act that a yes for one act names: the act in the one
+  form that `softland.store.act/parse` gives, without its act-id, its depot,
+  its time and its permission, and with every other part, its who and its
+  session among them. Each part that the maker left out is there as the
+  one form has it, nil or the declared default; facts are a vector, each
+  with its four parts; each integer is a long. Gives nil for a thing whose
+  other parts are no act: not a plain map, a part that the form does not
+  name, a part that is wrong. It never throws.
+
+  So `5` and `5N`, facts as a list or as a vector, and an empty part left
+  out or given are one act here, as they are one act to `parse`: for any
+  act that `parse` takes, this gives what `parse` gives without
+  `:permission`. A maker who has no permission yet is given it all the
+  same, since the permission is no part of it."
   [x]
-  (hex-of (if (and (map? x) (not (record? x)))
-            (try (dissoc x :permission) (catch Throwable _ x))
-            x)))
+  (when (and (map? x) (not (record? x)))
+    (let [[verdict one-form] (try (act/as-shape yes-shapes :act-for-a-yes
+                                                (apply dissoc x no-part-of-the-act-a-yes-names))
+                                  (catch Throwable _ [:no nil]))]
+      (when (= :ok verdict) one-form))))
+
+(defn hex-for-a-yes
+  "The digest that a yes for one act holds in its sixth slot
+  (`softland.store.act/covers`): SHA-256 over the one text of the act that
+  the yes names (`act-for-a-yes`), as 64 hex characters. Takes what
+  `act-for-a-yes` takes, a maker's act or a thing as it arrives. Gives nil
+  where that gives nil. It never throws.
+
+  The door's one call for a maker who asks a yes for her act, and the
+  gate's for a thing that arrives under one
+  (`softland.store.gate.decision/hex-for-its-permission`): the same
+  function, so the two never make two texts of one act. The act goes under
+  any act-id of its maker's: the act-id is no part of what the yes names.
+  Cost: one reading of the act's parts, as `parse` reads them, and one walk
+  of its one form into the hash."
+  [x]
+  (when-let [one-form (act-for-a-yes x)]
+    (hex-of one-form)))
 
 (defn is-digest-of?
   "The comparison of a sender that still holds its thing, as the hand of the

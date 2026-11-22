@@ -39,6 +39,7 @@ store, with one total order in each layer and overlay reads, built on Rama.
 | depot | Where a layer's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch layer. | write mode; log |
 | stack | The layers that one read looks through, nearest first. | overlay view |
 | permission | The right to see a layer, or to see it and act in it: `[who layer granted-in]`, or a given one that holds the permission above it. A given one can say what it covers: one run, or one act; with nothing said it covers the layer. It can be ended, and what was given beneath it ends with it. | grant; capability; scope; revocation |
+| a yes | A permission for one act: on an id of its own, which its giver makes, for the act as its maker made it, and used up by the act that is taken under it. | one-time grant; approval |
 | run | What an act names as its `:session`: one sitting of a person, or one run of an agent. A permission can cover one run. | session |
 | stamp | An act's number in its layer's order, with no gaps. A refused act gets one too. | per-layer sequence number |
 | mark | A key that a layer indexes by value, so that a read can ask what points at a value. | secondary index |
@@ -191,13 +192,22 @@ chair-7's colour is red and that its material is oak.
     is taken under it, and no act of another run; ten thousand runs of one
     agent each have a permission of their own, or none. Then bio-agent shows
     her one act, "experiment-3, dose, 5 mg", and she gives a permission for
-    that act: `[:act uuid digest]`, on the act's uuid, with the digest of
-    the act without its permission. That act is taken. The same act-id with
-    "50 mg" is refused. bio-agent now has three permissions in the layer at
-    once, each ended by itself. A permission for a run or for an act gives
-    nothing: a holder for one run cannot give herself one for the layer
+    that act, a yes: `[:act yes digest]`, on an id of its own that her tool
+    makes, with the digest of the act as bio-agent made it, which bio-agent
+    or her tool makes before the act has an act-id or a permission
+    ([door/digest.clj](softland/store/door/digest.clj), `hex-for-a-yes`).
+    bio-agent sends the act under any act-id of its own: it is taken, and
+    the yes is used up. The same act sent again under another act-id is
+    refused; so is "50 mg" under the yes; a try that is refused uses
+    nothing, and is sent again under a new act-id. For the act a second
+    time she gives a second yes, on another id: two can stand at once,
+    each used once, and a yes's id is never given again. bio-agent now has
+    permissions for the layer and for the run, and yeses, each ended by
+    itself. A permission for a run or a yes gives nothing: a holder for one
+    run cannot give herself one for the layer
     ([act.clj](softland/store/act.clj), `covers`;
-    [gate/decision.clj](softland/store/gate/decision.clj), `standing`).
+    [gate/decision.clj](softland/store/gate/decision.clj), `standing` and
+    `use-of-its-yes`).
 
 ## What the store keeps
 
@@ -258,8 +268,8 @@ the proof is named in the [verification map](../test-store/README.md)).
   its bytes and, under a marked key, hashes it (`with-texts`).
 - **The standing:** the act's permission names the act's `:who`, the record
   holds that permission, it covers the act (the layer, the act's run, or
-  this one act by its digest), each permission above it stands, and it
-  allows acting
+  this one act by its digest, by a yes that is not used up), each
+  permission above it stands, and it allows acting
   ([gate/decision.clj](softland/store/gate/decision.clj), `standing`;
   [gate/chain.clj](softland/store/gate/chain.clj)); or the
   act makes a layer that is not made
@@ -282,10 +292,12 @@ What a gate does not check is said plainly in
 
 ## What nobody can forge
 
-Four things are made by a gate, from the act and its own rows: an act's stamp,
-its verdict, its digest, and the order by value under a marked key, where a read
-finds a place only when a gate wrote that value there. Everything else is what a
-maker said: its `:who`, all that its act carries, and every fact of a tool.
+Five things are made by a gate, from the act and its own rows: an act's stamp,
+its verdict, its digest, the order by value under a marked key, where a read
+finds a place only when a gate wrote that value there, and the use of a yes for
+one act, the end at the yes's place that the accept of its act writes. Everything
+else is what a maker said: its `:who`, all that its act carries, and every fact
+of a tool.
 
 ## What the store promises
 
@@ -347,7 +359,7 @@ Each is said in full where its code is.
   `in-order`).
 - Whether a holder can have two permissions for the layer that stand at once,
   "see" from one giver and "see and act" from another: today one, beside her
-  permissions for runs and acts
+  permissions for runs and her yeses
   ([gate/decision.clj](softland/store/gate/decision.clj), `permission-place`).
 - A permission to see that is sized by a query, a yes for one read, and a
   run that may give

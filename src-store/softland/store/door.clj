@@ -28,6 +28,15 @@
                  maker wants to wait, a bound in milliseconds -> one of
                  four answers, or a word
 
+  And one call that takes no door, for a maker who asks a yes for one act:
+  `softland.store.door.digest/hex-for-a-yes`, her act as she made it, with
+  a permission or none -> the digest that a yes for that act names. It is
+  the function by which a gate makes the digest of the thing that arrives
+  under the yes, so the two agree whatever act-id the act is sent under.
+  The yes is a permission that its giver gives, beneath her own, at an id
+  that she makes; the maker then sends the act under any act-id of hers,
+  with the yes as its permission, through `send-act` as any act.
+
   A word is one of the door's own seven (`softland.store.door.words`): a
   map that holds `:could-not`. It says what the door could not do, and
   whether nothing was appended for the act or the door does not know. No
@@ -97,7 +106,8 @@
   and leaves no fact in the record: an act of an unknown version; an act
   with no session; an act under a permission of another layer, under one
   that does not stand, under one that says see, or under one whose holder
-  is not the act's who; an act into a layer that is not made; and an act
+  is not the act's who; an act under a yes for another act, or under one
+  that was used up; an act into a layer that is not made; and an act
   whose act-id names the other gate's depot. A refused act sent in a loop
   leaves one record on a depot for each try, and one answer for each act-id
   that it is sent under. A value of any size that Rama's client can write is appended

@@ -19,7 +19,7 @@ and the gate is the authority: anything can append to a depot without the door.
 |---|---|---|
 | [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the name of the part that holds the time on the act, and the range of that time; the test for a stray; the check, whose last step makes the one text of each value and holds the bound on one value and the bound on one act. | None. |
 | [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
-| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text, with the time on the act left out. The door and the gates share it. Also the text that a permission for one act holds: the same digest with the act's `:permission` left out too, so that it can be made before the permission is given. | None. |
+| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text, with the time on the act left out. The door and the gates share it. Also the digest that a yes for one act holds: of the act as its maker made it, in its one form, without its act-id, its depot, its time and its permission; the maker makes it before her act has an act-id or a permission, and the gate makes the same of the thing that arrives, with the one function. | None. |
 
 **The door's own pure parts.** No gate requires these three. They are the rules
 of the door that need no cluster, split from [door.clj](../door.clj) so that the

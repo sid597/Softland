@@ -89,9 +89,10 @@
                   other layer. A permission that stands and says `:see` is
                   refused here, with no read more: an act needs \"act\".
                   An act under a permission for another run than its own,
-                  or for another act, is refused here too; for an act
-                  under a permission for one act the walk makes one digest
-                  more, of the thing without its permission.
+                  or under a yes for another act, is refused here too, and
+                  so is an act under a yes that is used up; for an act
+                  under a yes for one act the walk makes the digest of the
+                  act as its maker made it, which the yes names.
     5. places     Read the place of each fact that names something to
                   replace and of each fact under one of the three keys of
                   a permission
@@ -122,9 +123,11 @@
                   on the act; for a fact under a marked key the entry of
                   its value in the facts by value, and the entry of the
                   value before taken out; the answer and the layer's last
-                  stamp. The answer holds the time when the thing has a
-                  usable one. The last write is the walk's last step before it
-                  gives its result.
+                  stamp. An accept under a yes for one act writes the
+                  yes's use too, an end at the yes's place, so that no act
+                  is taken under it again. The answer holds the time when
+                  the thing has a usable one. The last write is the walk's
+                  last step before it gives its result.
 
   The stamp is counted in the layer, in both gates. Each layer has its own
   last stamp, so a decision in one layer does not raise the stamps of
@@ -165,11 +168,13 @@
       (`softland.store.act`, `nesting`), so 31 rows more at most.
     - An act under a permission for one run reads what an act under a
       given permission for the layer reads: the run's row where the
-      holder's was, and the rows above it. An act under a permission for
-      one act reads the same, and costs one SHA-256 more over the thing,
-      the digest without its permission that the permission names
-      (`softland.store.gate.decision/hex-for-its-permission`). No other
-      act pays for that hash.
+      holder's was, and the rows above it. An act under a yes for one act
+      reads the same, the yes's row on its own id where the holder's was;
+      it costs one reading of the act's parts and one SHA-256 over its one
+      form, the digest that the yes names
+      (`softland.store.gate.decision/hex-for-its-permission`), and its
+      accept writes one row more, the yes's use. No other act pays for
+      either.
     - An act whose permission does not stand: 5 reads at most when the
       record does not hold it, whatever the act carries, the answer, the
       two places of its standing and the two of the layer's last stamp,
@@ -182,9 +187,11 @@
       the layer, a run or an act: 5 reads, the
       answer, the giver's permission, the place of the permission given and
       the two of the layer's last stamp, and 3 writes. An end costs the
-      same. A give at a place that holds a permission reads the row of
-      each permission above that one too, unless step 4 read it: they say
-      whether what is there still stands.
+      same. A give at a place that holds a permission for the layer or for
+      a run reads the row of each permission above that one too, unless
+      step 4 read it: they say whether what is there still stands. A give
+      of a yes at a place that holds a row reads nothing more: a yes's
+      place takes one give.
     - One accepted act with one value under a plain key: 5 reads and 3
       writes. The reads are the answer, the permission, the marked keys and
       the two of the layer's last stamp; the writes are the fact, the
@@ -201,8 +208,9 @@
   (`softland.store.door.declaration/max-facts`), and each place is read
   once. Under a first permission and with no give at a place that holds a
   permission, a call makes 261 reads at most, the 256 places, the answer,
-  the permission, the marked keys and the two of the last stamp, and 770
-  writes at most, three for each fact and two more. The chains add to the
+  the permission, the marked keys and the two of the last stamp, and 771
+  writes at most, three for each fact, two more, and the use of a yes for
+  one act. The chains add to the
   reads and not to the writes: 31 rows at most for the act's own
   permission, and 31 at most for each give at a place that holds a
   permission, when no two of those chains share a holder. So the bound on
@@ -307,7 +315,7 @@
   on the task that holds the rows of the thing's layer; and the things of
   one partition are handed to it in the depot's order, one call ended
   before the next begins. Limits: it holds the task's thread from its
-  first read to its last write, for 8,228 reads and 770 writes at most
+  first read to its last write, for 8,228 reads and 771 writes at most
   (the namespace docstring says of what the first number is made). It
   holds no partitioner, no yield, no read that may yield and no append, and
   none may be added: the namespace docstring says why."

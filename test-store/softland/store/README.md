@@ -75,11 +75,14 @@ group observed. This page does not retell the checks.
 
 ### What the pure proof does not reach
 
-- whether the statements of a permission for a run and for an act are the
-  right ones: the cases hold the gate to the words that the proof's writer
-  expected. A check by another hand is in
+- whether the statements of a permission for a run and of a yes for one act
+  are the right ones: the cases hold the gate to the words that the proof's
+  writer expected. A check by another hand is in
   `src/proposal/runtime-2026-11-21/gate-histories/`, which holds the gate's
   pure code against statements in plain code, on generated histories;
+- a yes in the base, walked in memory: the line of yeses is one streaming
+  layer. The module's proof sends yeses in the base, in one batch, on a
+  cluster;
 - a line of acts with an end in it, walked in memory: the cases of a permission
   that ends hold the checks on rows that the proof builds, with stamps that the
   proof chose. The module's proof sends such a line through both gates, where
@@ -205,11 +208,13 @@ No check holds a number of milliseconds.
 
 ### What the module's proof does not reach
 
-- a permission for a run or for an act that was given before the module is
-  started again, held after it; and one in a batch or an event that fails and
-  runs again;
-- what the digest for a permission of one act costs on a large act: the
-  groups send acts of one small fact;
+- a permission for a run or a yes for one act that was given before the
+  module is started again, held after it; and one in a batch or an event that
+  fails and runs again: above all the use of a yes, written in an attempt of
+  a batch that fails and set back with it, which no run makes fail;
+- what the digest of a yes costs on a large act: the groups send acts of one
+  small fact. The digest reads the act's parts as `parse` reads them and
+  hashes its one form, so it costs a walk of the act and a hash of its text;
 - an end that was made before the module is started again, held after it: the
   two groups of a permission that ends run before the start, and no check
   after it sends an act of a holder beneath an end. An idea for a check: in
@@ -416,7 +421,10 @@ has none of these ways.
   a send does not come back: the proof sends none, since that check would not
   end;
 - a thing nested so deep that a client writes it and a task cannot read it;
-- a count of act-ids that the memory of the process does not hold.
+- a count of act-ids that the memory of the process does not hold;
+- a yes for one act in the base through the door: the test
+  `a-permission-for-a-run-and-a-yes-for-one-act-through-the-door` sends into
+  a streaming layer; the module's proof sends yeses in the base by hand.
 
 ### The checks that rest on a time
 
@@ -489,6 +497,8 @@ group observed. This page does not retell the checks.
 - the rounds of a live read while it opens under more than one write: the
   rounds are counted on tables that do not change, and with one write before
   one round (`the-rounds-of-a-read-are-the-chains-of-its-sources`);
+- a yes for one act beyond that it lets nobody see: the read path reads no
+  row of one, and the worlds hold one only for that check;
 - a live read whose mark holds nothing of what it told its asker, played in
   every order: such a read can end on a screen that the tables do not give,
   as a check shows on purpose, and the read path marks each read when it

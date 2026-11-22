@@ -196,6 +196,14 @@
                                             holder's does not stand
     [:end-and-give-run layer giver session holder stamp] the same, with a
                                             permission for the holder's run
+    [:give-act layer yes holder giver stamp] a yes for one act of a holder,
+                                            straight beneath the giver's
+                                            permission for the layer, on
+                                            the yes's own id. As a gate:
+                                            only when the giver's stands and
+                                            the place is empty. Its digest
+                                            is one of the proof's own: the
+                                            read path reads none
     [:list layer layers stamp]              what the layer builds on
     [:marks layer keys stamp]               the layer's marked keys. A key
                                             that was marked keeps its stamp;
@@ -263,6 +271,15 @@
                                      (fact-row* layer giver session :softland.store/run-permission
                                                 [holder layer layer above :see [:run session]] stamp)))
                             tables))
+      :give-act (let [[yes holder giver stamp] more
+                      above (rows/held-permission (get facts (rows/place-key layer giver :softland.store/permission)))
+                      k (rows/place-key layer yes :softland.store/act-permission)]
+                  (if (and above (chain/stands? layer above facts) (nil? (get facts k)))
+                    (put tables gate :facts k
+                         (fact-row* layer giver yes :softland.store/act-permission
+                                    [holder layer layer above :see-and-act [:act yes (apply str (repeat 64 "a"))]]
+                                    stamp))
+                    tables))
       :end-run (let [[session stamp] more
                      k (rows/place-key layer session :softland.store/run-permission)]
                  (if (rows/held-permission (get facts k))
@@ -1795,6 +1812,27 @@
            [true true] [(pos? (:tells without-the-rule)) (boolean (seq (:wrong without-the-memory)))])
     (shown "an asker whose own permission in a layer does not stand is told nothing of the layer: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything; without the rule, steps did")))
 
+(deftest a-yes-for-one-act-lets-nobody-see
+  (let [yes (UUID. 0 77)
+        tables (reduce write {} [[:make :near 1] [:permission :near :root 2] [:give :near :bea :root 3]
+                                 [:give-act :near yes :ann :bea 4] [:fact :near :maker :p :text "n0" 10]])
+        asks [{:asks [:place :p :text] :asker :ann :layers [:near]}
+              {:asks [:place :p :text] :asker :ann :session yes :layers [:near]}]
+        left-out {:layers [:near] :left-out [{:layer :near :why :may-not-see}] :place {:holds :no-fact}}
+        yes-row (get (table tables :streaming :facts) (rows/place-key :near yes :softland.store/act-permission))]
+    (check "the yes is where the gate keeps it: on its own id, under the key of a permission for one act, and it holds a permission whose holder is the asker"
+           [:ann [:act yes]]
+           (let [held (rows/held-permission yes-row)] [(first held) (vec (take 2 (act/covers held)))]))
+    (check "a holder whose one permission in a layer that is open to its members is a yes for one act may not see it: asked once and kept live, in no run and in a run whose id is the yes's own"
+           [left-out left-out left-out left-out]
+           (into (mapv #(:answer (play-once tables (q %))) asks)
+                 (mapv #(:screen (open-live tables [] (q %))) asks)))
+    (check "the read wants no row under the key of a permission for one act: her place, her run's place and the layer's own rows, and the place asked"
+           #{}
+           (into #{} (filter #(= :softland.store/act-permission (nth (rows/place-of-key (second (:path %))) 2 nil)))
+                 (:wanted (:reading (play-once tables (q (second asks)))))))
+    (shown "a yes for one act lets nobody see (R8): its holder, asking once or live, in no run or in a run whose id is the yes's, is left out with :may-not-see")))
+
 (deftest the-reviews-probe-of-the-read-path-written-again
   (let [rounds-live (fn [tables query] (:rounds (open-live tables [] query)))
         once (fn [tables query] (let [{:keys [rounds calls]} (play-once tables query)] [rounds calls]))
@@ -2188,6 +2226,7 @@
   (which-changes-reach-an-asker)
   (an-asker-who-may-not-see-a-layer-is-told-nothing-of-it)
   (an-asker-whose-own-permission-does-not-stand-is-told-nothing)
+  (a-yes-for-one-act-lets-nobody-see)
   (the-reviews-probe-of-the-read-path-written-again)
   (a-step-that-joins-or-leaves-a-source-owes-the-whole-answer)
   (every-order-of-the-callbacks)

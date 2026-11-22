@@ -1140,6 +1140,58 @@
            (pr-str (dissoc answer :stamp)) "| its value is plain in the log, and no row is at its place")
     (shown "her act with no value goes in and is refused under its own act-id:" (told no-value))))
 
+(deftest a-permission-for-a-run-and-a-yes-for-one-act-through-the-door
+  (let [d (the-door)
+        run-key :softland.store/run-permission
+        act-key :softland.store/act-permission
+        wills-run [:will :alice :alice (own :alice) :see-and-act [:run :run-w]]
+        wills (fn [permission session facts]
+                {:version 1 :who :will :layer :alice :permission permission :session session :facts facts})
+        give-run (decide! d (act-of :alice [{:e :run-w :k run-key :v wills-run}]))
+        in-run (decide! d (wills wills-run :run-w [(value :w-1 "in his run")]))
+        in-another-run (decide! d (wills wills-run :run-v [(value :w-2 "in another run")]))
+        ;; a yes for one act: the maker's act, with no permission yet, and its digest
+        the-act (wills nil :run-w [(value :w-3 "the act said yes to")])
+        hex (digest/hex-for-a-yes the-act)
+        [y1 y2] (repeatedly 2 #(UUID/randomUUID))
+        yes-1 [:will :alice :alice (own :alice) :see-and-act [:act y1 hex]]
+        yes-2 [:will :alice :alice (own :alice) :see-and-act [:act y2 hex]]
+        give-yes-1 (decide! d (act-of :alice [{:e y1 :k act-key :v yes-1}]))
+        id (act-id-for! d :alice)
+        taken (decide! d (assoc the-act :permission yes-1) id)
+        again (decide! d (assoc the-act :permission yes-1))
+        same-again (send! d (assoc the-act :permission yes-1) id)
+        same-again-told (answer! d id (:digest same-again))
+        another-under-id (send! d (assoc the-act :permission yes-1 :facts [(value :w-3 "another value")]) id)
+        another-told (answer! d id (:digest another-under-id))
+        give-yes-2 (decide! d (act-of :alice [{:e y2 :k act-key :v yes-2}]))
+        another-act (decide! d (assoc the-act :permission yes-2 :facts [(value :w-3 "another value")]))
+        written-another-way (decide! d (assoc the-act :permission yes-2 :subjects #{} :based-on {}
+                                              :facts (list (value :w-3 "the act said yes to"))))
+        [yes-1-row yes-2-row] (map #(row-of :alice % act-key) [y1 y2])]
+    (check "through the door, Alice gives Will a permission for his run; his act in that run is taken, and in another run refused"
+           [true :accepted [:refused :permission-for-another-run]]
+           [(accepted? give-run) (:answer (:answer in-run))
+            [(:answer (:answer in-another-run)) (:reason (:answer in-another-run))]])
+    (check "a maker makes the digest that a yes names of her act as she made it, before it has an act-id or a permission: the door's one call for it, which the gate makes of the thing that arrives; Alice gives the yes on an id of its own, and it is accepted"
+           [true true] [(hex64? hex) (accepted? give-yes-1)])
+    (check "Will sends the act under the yes, under an act-id that he asked for ahead: taken; the same act again, under another act-id, is refused, the yes being used up"
+           [:accepted [:refused :permission-used-up]]
+           [(:answer (:answer taken)) [(:answer (:answer again)) (:reason (:answer again))]])
+    (check "under the act-id of the taken act, the same thing sent again is told that it was taken, and another thing is told that the answer is not its own: an act-id names one act"
+           [:accepted :not-mine] [(:answer same-again-told) (:answer another-told)])
+    (check "a second yes for the same act: another act under it is refused; the act written another way, its facts a list and its empty parts given, is the same act and is taken"
+           [true [:refused :act-not-the-one-permitted] :accepted]
+           [(accepted? give-yes-2) [(:answer (:answer another-act)) (:reason (:answer another-act))]
+            (:answer (:answer written-another-way))])
+    (check "each yes's place holds its use: an end, written by the act that used it"
+           [[true (nth (:act-id (:sent taken)) 2)] [true (nth (:act-id (:sent written-another-way)) 2)]]
+           [[(record/ended? yes-1-row) (:by-act yes-1-row)] [(record/ended? yes-2-row) (:by-act yes-2-row)]])
+    (shown "a permission for a run and a yes for one act, through the door: in his run" (told in-run)
+           "| the act under its yes:" (told taken) "| again under another act-id:" (told again)
+           "| under the taken act's act-id, the same thing and another:" (pr-str [(:answer same-again-told) (:answer another-told)])
+           "| written another way under a second yes:" (told written-another-way))))
+
 (deftest reads-that-throw
   (let [d (the-door)
         logs-before (log-counts)
@@ -1759,6 +1811,7 @@
   (the-answer-back)
   (a-maker-who-may-not-act)
   (a-holder-of-see)
+  (a-permission-for-a-run-and-a-yes-for-one-act-through-the-door)
   (reads-that-throw)
   (the-openers-numbers)
   (an-append-that-threw)

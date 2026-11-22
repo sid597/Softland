@@ -107,7 +107,9 @@
   Limit of the count: the rows of the facts by value hold who and
   permission once more for each fact under a marked key, and the bound
   does not count those. Which keys are marked is read from the record,
-  after this check."
+  after this check. Nor does it count the use of a yes for one act, the
+  one row more that an accept under a yes writes, which holds who and the
+  yes once more (`softland.store.gate.decision`, `use-of-its-yes`)."
   18874368)
 
 (def max-id-text
@@ -229,16 +231,18 @@
   A permission sits on what it covers, under a key of its own for each
   kind (`softland.store.act/covers`): one that covers the layer on its
   holder, under `:softland.store/permission`; one for a run on the run's
-  session, under `:softland.store/run-permission`; one for an act on the
-  uuid of the act's act-id, under `:softland.store/act-permission`. Three
-  keys and not one: a holder, a session and an act are each named by an id
-  of one kind, so under one key a give for a run whose session has the id of
-  a holder would land on that holder's place. So a holder can have, beside
-  her permission for the layer, one for each of any number of runs and acts
-  (Sid, 21 November 2026, src-store/README.md, entry 6 of 20 and 21
+  session, under `:softland.store/run-permission`; a yes for one act on the
+  yes's own id, the uuid that its giver made, under
+  `:softland.store/act-permission`. Three keys and not one: a holder, a
+  session and a yes are each named by an id of one kind, so under one key a
+  give for a run whose session has the id of a holder would land on that
+  holder's place. So a holder can have, beside her permission for the
+  layer, one for each of any number of runs, and any number of yeses for
+  acts (Sid, 21 November 2026, src-store/README.md, entry 6 of 20 and 21
   November); the two keys' words are a session's. The gate finds the
   permission that an act names with one read, on the place that the
-  permission's own form names (`softland.store.gate.chain/place`).
+  permission's own form names (`softland.store.gate.chain/place`). A yes's
+  place takes one give (`softland.store.gate.decision`, `store-key-fault`).
 
   A holder has one permission for the layer at a time: she cannot hold
   \"see\" from one giver and \"see and act\" from another. That is not
@@ -265,9 +269,9 @@
     :setting       false
     :written-again false}
    :softland.store/act-permission
-   {:why           "a gate must read whether the permission of one act stands"
+   {:why           "a gate must read whether a yes for one act stands and is not used up"
     :value         :permission-id
-    :sits-on       :the-act-that-the-permission-covers
+    :sits-on       :the-yes-own-id
     :setting       false
     :written-again false}
    :softland.store/who-may-see
@@ -605,8 +609,8 @@
                                         (= (:e fact) (nth (:v fact) 0))))
                          act))
 
-   ;; A permission for a run sits on the run's session, and one for an act
-   ;; on the uuid of the act's act-id.
+   ;; A permission for a run sits on the run's session, and a yes for one
+   ;; act on its own id.
    :permission-fact-sits-on-what-it-covers
    (fn [act] (each-fact? (fn [fact]
                            (or (not (contains? #{:softland.store/run-permission :softland.store/act-permission}

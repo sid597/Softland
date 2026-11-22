@@ -2613,13 +2613,13 @@
         (:answers record)))
 
 (def ^:private covers-cases
-  "The cases of what a permission covers: one run, or one act
-  (`softland.store.act/covers`). The first cases hold the forms and the
-  places. The line is a layer's acts walked in memory, each against the rows
-  that the acts before it wrote, so every stamp in it is the walk's own:
-  Alice is the layer's first holder, and gives permissions for runs and
-  acts, and for the layer, to Bob, Carol, Dave and Frank; Dave gives one to
-  Erin."
+  "The cases of what a permission covers: one run (`softland.store.act/covers`);
+  a yes for one act has its own cases (`yes-cases`). The first cases hold
+  the forms and the places. The line is a layer's acts walked in memory,
+  each against the rows that the acts before it wrote, so every stamp in it
+  is the walk's own: Alice is the layer's first holder, and gives
+  permissions for runs, and for the layer, to Bob, Carol, Dave and Frank;
+  Dave gives one to Erin."
   (let [run-key :softland.store/run-permission
         act-key :softland.store/act-permission
         holder-key :softland.store/permission
@@ -2629,10 +2629,6 @@
                  :facts (vec facts)})
         note (fn [n] {:e (keyword (str "covered-" n)) :k :text :v (str "act " n)})
         for-run (fn [who session allows] [who :alice :alice alice-own allows [:run session]])
-        for-act (fn [who a-thing]
-                  [who :alice :alice alice-own :see-and-act
-                   [:act (nth (:act-id a-thing) 2) (digest/hex-for-its-permission a-thing)]])
-        named (fn [a-thing permission] (assoc a-thing :permission permission))
         gives (fn [n giver held given]
                 (thing n giver held :alice-s1
                        {:e (case (first (act/covers given)) :run (second (act/covers given)) :act (second (act/covers given)) (first given))
@@ -2646,10 +2642,6 @@
         daves [:dave :alice :alice alice-own]
         re [:erin :alice :alice daves :see-and-act [:run :run-e]]
         rf (for-run :frank :run-f :see)
-        x (thing 30 :bob nil :run-7 {:e :experiment-3 :k :dose :v "5 mg"})
-        pa (for-act :bob x)
-        y (thing 32 :bob nil :run-7 {:e :experiment-3 :k :dose :v "5 mg"})
-        pb (for-act :bob y)
         line [(thing 1 :alice alice-own :alice-s1
                      {:e :alice :k :softland.store/depot :v :streaming} {:e :alice :k holder-key :v alice-own})
               (gives 2 :alice alice-own r7)
@@ -2670,12 +2662,6 @@
               (thing 17 :bob r7 :run-7 (note 17))
               (thing 18 :alice alice-own :alice-s1 {:e :run-8 :k run-key})
               (thing 19 :bob r8 :run-8 (note 19))
-              (gives 20 :alice alice-own pa)
-              (thing 21 :bob pa :run-7 (note 21))
-              (gives 22 :alice alice-own pb)
-              (named (assoc y :facts [{:e :experiment-3 :k :dose :v "50 mg"}]) pb)
-              (named x pa)
-              (thing 26 :alice alice-own :alice-s1 {:e (uuid 32) :k act-key})
               (gives 40 :alice alice-own carols)
               (gives 41 :alice alice-own rc)
               (thing 42 :carol carols :carol-s1 {:e :run-c :k run-key})
@@ -2689,28 +2675,13 @@
               (gives 50 :alice alice-own rf)
               (thing 51 :frank rf :run-f (note 51))]
         after (walked-line empty-task :streaming line)]
-    [["what a permission covers is its sixth slot, and what it allows its fifth: none for a permission with fewer slots; a run; an act with its digest"
-      (fn [] [(mapv act/covers [alice-own bobs bobs-see r7 pa]) (mapv act/allows [r7 rf pa])])
-      [[nil nil nil [:run :run-7] [:act (uuid 30) (digest/hex-for-its-permission x)]] [:see-and-act :see :see-and-act]]]
-     ["a permission sits on what it covers, under a key of its own for each kind: the layer's on its holder, a run's on the session, an act's on the uuid of the act"
-      (fn [] (mapv #(chain/place :alice %) [bobs r7 pa]))
-      [":alice :bob :softland.store/permission" ":alice :run-7 :softland.store/run-permission"
-       (str ":alice " (uuid 30) " :softland.store/act-permission")]]
-     ["the digest that a permission for one act holds is of the thing without the time on it and without its permission: 64 hex characters, the same with a permission, another permission or another time on the thing, and another for another fact, who, session or act-id"
-      (fn [] (let [hex (digest/hex-for-its-permission x)]
-               [(count hex) (some? (re-matches #"[0-9a-f]{64}" hex))
-                (= hex (digest/hex-for-its-permission (named x pa)) (digest/hex-for-its-permission (named x alice-own))
-                   (digest/hex-for-its-permission (assoc x declaration/time-part (inc now))))
-                (mapv (fn [other] (= hex (digest/hex-for-its-permission other)))
-                      [(assoc x :facts [{:e :experiment-3 :k :dose :v "50 mg"}]) (assoc x :who :carol)
-                       (assoc x :session :run-8) y])
-                (= (digest/hex-of (named x pa)) (digest/hex-for-its-permission (named x pa)))]))
-      [64 true true [false false false false] false]]
-     ["the gate makes that digest only for an act under a permission for one act"
-      (fn [] (mapv (fn [a-thing] (some? (decision/hex-for-its-permission a-thing (act-of a-thing))))
-                   [(named x pa) (thing 3 :bob r7 :run-7 (note 3)) good]))
-      [true false false]]
-     ["a line of a layer's acts: a permission for a run covers the acts of that run by its holder, and no other run or who; it gives nothing, so its holder cannot give herself one for the layer beneath it; it writes no setting; it stands beside her permission for the layer; a run ends its own permission and no other of hers; an end of one leaves the others; a run is given one again. A permission for one act covers the act with its uuid and its digest, and nothing else. A holder ends a run's permission of hers under her permission for the layer. What was given beneath a permission for the layer, a run's too, ends with it. A run has one permission that stands"
+    [["what a permission covers is its sixth slot, and what it allows its fifth: none for a permission with fewer slots; a run"
+      (fn [] [(mapv act/covers [alice-own bobs bobs-see r7]) (mapv act/allows [r7 rf])])
+      [[nil nil nil [:run :run-7]] [:see-and-act :see]]]
+     ["a permission sits on what it covers, under a key of its own for each kind: the layer's on its holder, a run's on the session"
+      (fn [] (mapv #(chain/place :alice %) [bobs r7]))
+      [":alice :bob :softland.store/permission" ":alice :run-7 :softland.store/run-permission"]]
+     ["a line of a layer's acts: a permission for a run covers the acts of that run by its holder, and no other run or who; it gives nothing, so its holder cannot give herself one for the layer beneath it; it writes no setting; it stands beside her permission for the layer; a run ends its own permission and no other of hers; an end of one leaves the others; a run is given one again. A holder ends a run's permission of hers under her permission for the layer. What was given beneath a permission for the layer, a run's too, ends with it. A run has one permission that stands"
       (fn [] (words-by-number after))
       {1 :accepted
        2 :accepted 3 :accepted 4 :permission-for-another-run 5 :who-not-the-permissions-holder
@@ -2718,20 +2689,277 @@
        8 :accepted 9 :permission-does-not-allow-acting 10 :accepted
        11 :accepted 12 :not-above-the-permission 13 :accepted 14 :permission-ended 15 :accepted
        16 :accepted 17 :accepted 18 :accepted 19 :permission-ended
-       20 :accepted 21 :permission-for-another-act
-       22 :accepted 32 :act-not-the-one-permitted 30 :accepted 26 :accepted
        40 :accepted 41 :accepted 42 :accepted 43 :permission-ended
        44 :accepted 45 :accepted 46 :accepted 47 :accepted 48 :permission-above-ended
        49 :holder-has-a-permission
        50 :accepted 51 :permission-does-not-allow-acting}]
-     ["after that line a holder has a permission for the layer, one for each of two runs and one for an act, each on its own place: Bob's for the layer and for the run :run-7 stand, his for :run-8 is an end, and the one for his act is there still"
+     ["after that line a holder has a permission for the layer and one for each of two runs, each on its own place: Bob's for the layer and for the run :run-7 stand, and his for :run-8 is an end"
       (fn [] (let [facts (:facts after)]
                [(record/held-permission (get facts (chain/place :alice bobs-standing-see)))
                 (record/held-permission (get facts (chain/place :alice r7)))
-                (record/ended? (get facts (chain/place :alice r8)))
-                (record/held-permission (get facts (chain/place :alice pa)))
-                (:value (get facts ":alice :experiment-3 :dose"))]))
-      [bobs-standing-see r7 true pa "\"5 mg\""]]]))
+                (record/ended? (get facts (chain/place :alice r8)))]))
+      [bobs-standing-see r7 true]]]))
+
+(declare copies-of-as-written)
+
+(def ^:private yes-cases
+  "The cases of a yes for one act, in the form of 22 November 2026
+  (`softland.store.act`): `[who layer granted-in above :see-and-act [:act
+  yes digest]]`, on the yes's own id, naming the act as its maker made it
+  (`softland.store.door.digest/hex-for-a-yes`), used once. The first cases
+  hold the digest; then a line of a layer's acts walked in memory, each
+  against the rows that the acts before it wrote. Alice is the layer's first
+  holder; she gives Bob and Erin a permission for the layer, and Bob gives
+  Dan one beneath his. Each yes is for Erin: for her act X, a fact of one
+  value under a plain key in her run :run-x, unless a case says other. A
+  number is the uuid of an act-id, and of a yes's id from 201 on."
+  (let [act-key :softland.store/act-permission
+        holder-key :softland.store/permission
+        thing (fn [n who permission session & facts]
+                {:act-id (act-id n) :depot :streaming declaration/time-part now
+                 :version 1 :who who :layer :alice :permission permission :session session
+                 :facts (vec facts)})
+        maker (fn [who session & facts] {:version 1 :who who :layer :alice :session session :facts (vec facts)})
+        under (fn [n permission maker-act]
+                (merge maker-act {:act-id (act-id n) :depot :streaming declaration/time-part now :permission permission}))
+        yes (fn [n holder above maker-act]
+              [holder :alice :alice above :see-and-act [:act (uuid n) (digest/hex-for-a-yes maker-act)]])
+        give (fn [n giver held given]
+               (thing n giver held :giver-s1
+                      (if (= :act (first (act/covers given)))
+                        {:e (second (act/covers given)) :k act-key :v given}
+                        {:e (first given) :k holder-key :v given})))
+        end-yes (fn [n who held a-yes] (thing n who held :ender-s1 {:e (second (act/covers a-yes)) :k act-key}))
+        erins [:erin :alice :alice alice-own]
+        dans [:dan :alice :alice bobs]
+        x (maker :erin :run-x {:e :experiment-3 :k :dose :v 5})
+        x-another-way {:version 1 :who :erin :layer :alice :session :run-x :subjects #{} :based-on {}
+                       :because-of nil :claimed-when nil :facts (list {:e :experiment-3 :k :dose :v 5N :replaces nil})}
+        x-changed (maker :erin :run-x {:e :experiment-3 :k :dose :v 50})
+        x-in-another-run (maker :erin :run-y {:e :experiment-3 :k :dose :v 5})
+        end-of-yi (maker :erin :run-x {:e (uuid 207) :k act-key})
+        its-own-end (maker :erin :run-x {:e (uuid 210) :k act-key})
+        a-give (maker :erin :run-x {:e :fay :k holder-key :v [:fay :alice :alice erins]})
+        ya (yes 201 :erin bobs x)
+        yb (yes 202 :erin alice-own x)
+        yc (yes 203 :erin bobs x)
+        yd (yes 201 :erin bobs x-changed)
+        ye (yes 204 :erin bobs x)
+        yg (yes 205 :erin dans x)
+        yh (yes 206 :erin dans x)
+        yi (yes 207 :erin dans x)
+        yk (yes 209 :erin alice-own end-of-yi)
+        yl (yes 210 :erin alice-own its-own-end)
+        ym (yes 211 :erin dans x)
+        yn (yes 212 :erin alice-own a-give)
+        line [(thing 1 :alice alice-own :alice-s1
+                     {:e :alice :k :softland.store/depot :v :streaming} {:e :alice :k holder-key :v alice-own})
+              (give 2 :alice alice-own bobs)
+              (give 3 :alice alice-own erins)
+              (give 4 :bob bobs dans)
+              (under 5 ya x)
+              (give 6 :bob bobs ya)
+              (under 7 ya x-changed)
+              (under 8 ya x-in-another-run)
+              (under 5 ya x)
+              (under 10 ya x-another-way)
+              (under 11 ya x)
+              (end-yes 12 :bob bobs ya)
+              (give 13 :bob bobs yd)
+              (give 14 :alice alice-own yb)
+              (give 15 :bob bobs yc)
+              (under 16 yc x)
+              (under 17 yb x)
+              (under 18 yb x)
+              (give 19 :bob bobs ye)
+              (end-yes 20 :bob bobs ye)
+              (under 21 ye x)
+              (give 22 :bob bobs ye)
+              (give 23 :dan dans yg)
+              (end-yes 24 :bob bobs yg)
+              (under 25 yg x)
+              (give 26 :dan dans yh)
+              (end-yes 27 :erin erins yh)
+              (give 28 :dan dans yi)
+              (give 29 :alice alice-own yk)
+              (under 30 yk end-of-yi)
+              (give 31 :alice alice-own yl)
+              (under 32 yl its-own-end)
+              (under 33 yl its-own-end)
+              (give 34 :alice alice-own yn)
+              (under 35 yn a-give)
+              (give 36 :dan dans ym)
+              (thing 37 :alice alice-own :alice-s1 {:e :bob :k holder-key})
+              (under 38 ym x)
+              (give 39 :alice alice-own bobs)
+              (under 40 ym x)
+              (under 41 yi x)
+              (end-yes 42 :erin erins ym)]
+        after (walked-line empty-task :streaming line)
+        writes (writes-of-line empty-task :streaming line)
+        facts (:facts after)
+        row-of (fn [a-yes] (get facts (chain/place :alice a-yes)))
+        hex (digest/hex-for-a-yes x)]
+    [["a yes for one act sits on its own id, the uuid that its giver made, under the key of a yes; what it covers is [:act yes digest]"
+      (fn [] [(chain/place :alice ya) (act/covers ya) (act/allows ya)])
+      [(str ":alice " (uuid 201) " :softland.store/act-permission") [:act (uuid 201) hex] :see-and-act]]
+     ["the digest that a yes holds is of the act as its maker made it, in its one form: 64 hex characters; the same for 5 and 5N, facts as a list or a vector, an empty part left out or given, with a permission or none, and as the thing arrives under any act-id with the time on it (the review's 1C, both halves)"
+      (fn [] [(count hex) (some? (re-matches #"[0-9a-f]{64}" hex))
+              (mapv #(= hex (digest/hex-for-a-yes %))
+                    [x-another-way (assoc x :permission ya) (assoc x :permission alice-own)
+                     (under 10 ya x) (under 99 ya x-another-way) (assoc (under 10 ya x) declaration/time-part (inc now))])])
+      [64 true [true true true true true true]]]
+     ["it is the act's one form without its permission: what `softland.store.act/parse` gives, part for part, less the permission"
+      (fn [] [(= (digest/act-for-a-yes x) (dissoc (:ok (act/parse (assoc x :permission ya))) :permission))
+              (= (digest/act-for-a-yes x-another-way) (digest/act-for-a-yes x))])
+      [true true]]
+     ["another act has another digest: another value, another who, another session, another layer, a time that its maker claims, an act that it is because of, a subject"
+      (fn [] (mapv #(= hex (digest/hex-for-a-yes %))
+                   [x-changed (assoc x :who :bob) x-in-another-run (assoc x :layer :other) (assoc x :claimed-when 5)
+                    (assoc x :because-of (act-id 1)) (assoc x :subjects #{:experiment-3})]))
+      [false false false false false false false]]
+     ["no digest of what is no act: no map, a part that the form does not name, a fact that is wrong"
+      (fn [] (mapv digest/hex-for-a-yes [nil 5 (assoc x :sealed 1) (assoc x :facts [{:e :x :k "no key"}])]))
+      [nil nil nil nil]]
+     ["the gate makes the digest of a thing under a yes as the maker makes it of her act, and makes none for an act under another permission"
+      (fn [] [(= hex (decision/hex-for-its-permission (under 10 ya x-another-way) (act-of (under 10 ya x-another-way))))
+              (decision/hex-for-its-permission good (act-of good))])
+      [true nil]]
+     ["a line of a layer's acts under yeses for one act: a try before the yes lands, one with another value and one in another run are refused and use nothing; the same thing again under its act-id is not decided; the act written another way is taken under any act-id of its maker's and uses the yes up, so the same act again is refused and the used yes has nothing to end; its id takes no give again. Two yeses for one act stand at once, and each is used once. A yes is ended by its giver, by one above the giver, and by its holder under her permission for the layer; never under another yes; it ends itself only when its act is its end, and that end is its use. A yes gives nothing, and a refused give uses nothing. A yes stands as any permission does: the end of a permission above it ends it, and the give again of the one above does not bring it back; its holder ends it all the same"
+      (fn [] (words-by-number after))
+      {1 :accepted 2 :accepted 3 :accepted 4 :accepted
+       5 :permission-does-not-stand 6 :accepted 7 :act-not-the-one-permitted 8 :act-not-the-one-permitted
+       10 :accepted 11 :permission-used-up 12 :no-permission-to-end 13 :a-yes-is-given-once
+       14 :accepted 15 :accepted 16 :accepted 17 :accepted 18 :permission-used-up
+       19 :accepted 20 :accepted 21 :permission-ended 22 :a-yes-is-given-once
+       23 :accepted 24 :accepted 25 :permission-ended
+       26 :accepted 27 :accepted 28 :accepted 29 :accepted 30 :not-above-the-permission
+       31 :accepted 32 :accepted 33 :permission-used-up 34 :accepted 35 :only-a-permission-for-the-layer-gives
+       36 :accepted 37 :accepted 38 :permission-above-ended 39 :accepted 40 :permission-above-ended
+       41 :permission-above-ended 42 :accepted}]
+     ["the same thing again under the act-id of a refused try is not decided and writes nothing; the try's answer stays its own"
+      (fn [] [(nth writes 8) (:refused (get-in after [:answers (record/answer-key :alice (uuid 5))]))])
+      [[] :permission-does-not-stand]]
+     ["the accept under a yes writes the act's fact, the yes's use, the answer and the last stamp; the use is an end at the yes's place, the act's own row one index after its last fact, naming the yes as the permission that its act named; a gate may copy it to other tasks with the fact"
+      (fn [] (let [w (nth writes 9)
+                   [_ use-key use-row] (second w)]
+               [(mapv first w) use-key (record/ended? use-row) (:by-act use-row) (:by-index use-row)
+                (:permission use-row) (mapv first ((copies-of-as-written) w))]))
+      [[:fact :fact :answer :last-stamp] (chain/place :alice ya) true (uuid 10) 1 (text/text ya) [:fact :fact]]]
+     ["after the line: the places of the used yeses hold their use, by the act that used each; a yes that ends itself holds its own end, which is its use; an ended yes holds an end that is no use; a yes under which a try was refused stands still"
+      (fn [] [(mapv (fn [a-yes] [(decision/used-up? (row-of a-yes) a-yes) (.getLeastSignificantBits ^UUID (:by-act (row-of a-yes)))])
+                    [ya yb yc yl ye yg yh])
+              (mapv #(record/held-permission (row-of %)) [yk yn])])
+      [[[true 10] [true 17] [true 16] [true 32] [false 20] [false 24] [false 27]] [yk yn]]]
+     ["no other act is taken under a yes: of the line's acts under a yes, the taken are the act once for each yes that stood, and the yes's own end"
+      (fn [] (into (sorted-set)
+                   (keep (fn [x] (let [n (.getLeastSignificantBits ^UUID (nth (:act-id x) 2))]
+                                   (when (and (= :act (first (act/covers (:permission x))))
+                                              (nil? (:refused (get-in after [:answers (record/answer-key :alice (nth (:act-id x) 2))]))))
+                                     n))))
+                   line))
+      #{10 16 17 32}]]))
+
+(def ^:private review-cases
+  "The histories of the overnight review's probe of the gate
+  (src/proposal/runtime-2026-11-21/overnight-audit/probes/break_piece_2.clj,
+  probes 1A, 1B, 2, 6C and 6D), written again for a yes with an id of its
+  own, since the probe was written for the form before it and no longer
+  loads: a yes then sat on the uuid of its act's act-id, and its digest was
+  of the thing with its act-id. Each history keeps the probe's who, layers,
+  acts and order, with the yes on an id of its own and its digest of the act
+  as its maker made it; the act goes under an act-id of its maker's. Walked
+  in memory, each act against the rows that the acts before it wrote."
+  (let [act-key :softland.store/act-permission
+        holder-key :softland.store/permission
+        thing (fn [layer n who permission session & facts]
+                {:act-id [layer :streaming (uuid n)] :depot :streaming declaration/time-part now
+                 :version 1 :who who :layer layer :permission permission :session session :facts (vec facts)})
+        making (fn [layer who] (thing layer 1 who [who layer layer] :s0
+                                      {:e layer :k :softland.store/depot :v :streaming}
+                                      {:e who :k holder-key :v [who layer layer]}))
+        under (fn [layer n permission maker-act]
+                (merge maker-act {:act-id [layer :streaming (uuid n)] :depot :streaming
+                                  declaration/time-part now :permission permission}))
+        words (fn [layer line] (let [after (walked-line empty-task :streaming line)]
+                                 (mapv (fn [x] (or (:refused (get-in after [:answers (record/answer-key layer (nth (:act-id x) 2))]))
+                                                   :accepted))
+                                       line)))
+        ;; 1A: Asha's layer; Ben's yes, ended, a try while it is ended, Cal given a permission, a yes again
+        lab-root [:asha :lab :lab]
+        x {:version 1 :who :ben :layer :lab :session :run-1 :facts [{:e :exp-1 :k :dose :v "5 mg"}]}
+        pa1 [:ben :lab :lab lab-root :see-and-act [:act (uuid 301) (digest/hex-for-a-yes x)]]
+        cal-perm [:cal :lab :lab lab-root :see-and-act]
+        pa2-same-id [:ben :lab :lab cal-perm :see-and-act [:act (uuid 301) (digest/hex-for-a-yes x)]]
+        pa2 [:ben :lab :lab cal-perm :see-and-act [:act (uuid 302) (digest/hex-for-a-yes x)]]
+        history-1a [(making :lab :asha)
+                    (thing :lab 2 :asha lab-root :s0 {:e (uuid 301) :k act-key :v pa1})
+                    (thing :lab 3 :asha lab-root :s0 {:e (uuid 301) :k act-key})
+                    (under :lab 4 pa1 x)
+                    (thing :lab 5 :asha lab-root :s0 {:e :cal :k holder-key :v cal-perm})
+                    (thing :lab 6 :cal cal-perm :s0 {:e (uuid 301) :k act-key :v pa2-same-id})
+                    (thing :lab 7 :cal cal-perm :s0 {:e (uuid 302) :k act-key :v pa2})
+                    (under :lab 8 pa2 x)]
+        ;; 1B: Ida's layer; Cal may only see; Joe's yes; Cal sends under an act-id whose uuid is the yes's id
+        ida-own [:ida :studio :studio]
+        cal-see [:cal :studio :studio ida-own :see]
+        joes {:version 1 :who :joe :layer :studio :session :run-1 :facts [{:e :secret-exp :k :dose :v "5 mg"}]}
+        pa [:joe :studio :studio ida-own :see-and-act [:act (uuid 399) (digest/hex-for-a-yes joes)]]
+        history-1b [(making :studio :ida)
+                    (thing :studio 2 :ida ida-own :s0 {:e :cal :k holder-key :v cal-see})
+                    (thing :studio 3 :ida ida-own :s0 {:e (uuid 399) :k act-key :v pa})
+                    (thing :studio 399 :cal cal-see :cal-s {:e :anything :k :v :v 1})
+                    (thing :studio 398 :zed [:zed :studio :studio ida-own] :zed-s {:e :anything :k :v :v 2})
+                    (under :studio 5 pa joes)]
+        ;; 6C: Ben's yes for the act that ends it, and his run's permission that says see
+        u50 (uuid 350)
+        ends-itself {:version 1 :who :ben :layer :lab6 :session :run-1 :facts [{:e u50 :k act-key}]}
+        a-doc {:version 1 :who :ben :layer :lab6 :session :run-1 :facts [{:e :doc :k :v :v 1}]}
+        root6 [:asha :lab6 :lab6]
+        pa-doc [:ben :lab6 :lab6 root6 :see-and-act [:act (uuid 351) (digest/hex-for-a-yes a-doc)]]
+        pa-end [:ben :lab6 :lab6 root6 :see-and-act [:act u50 (digest/hex-for-a-yes ends-itself)]]
+        r-see [:ben :lab6 :lab6 root6 :see [:run :run-1]]
+        history-6c [(making :lab6 :asha)
+                    (thing :lab6 2 :asha root6 :s0
+                           {:e (uuid 351) :k act-key :v pa-doc} {:e u50 :k act-key :v pa-end}
+                           {:e :run-1 :k :softland.store/run-permission :v r-see})
+                    (under :lab6 3 pa-doc (assoc a-doc :facts [{:e (uuid 351) :k act-key}]))
+                    (under :lab6 4 pa-end ends-itself)
+                    (under :lab6 5 pa-end ends-itself)
+                    (thing :lab6 6 :ben r-see :run-1 {:e :run-1 :k :softland.store/run-permission})]
+        ;; 2 and 6D: the maker's act, the thing that the door appends, the act written another way
+        maker-act {:version 1 :who :joe :layer :studio :session :run-1 :facts [{:e :exp :k :dose :v "5 mg"}]}
+        door-id [:studio :streaming (uuid 77)]
+        appended (fn [an-act permission]
+                   (:thing (additions/thing-to-append (additions/reading (assoc an-act :permission permission) door-id)
+                                                      door-id now)))
+        a1 {:version 1 :who :ben :layer :lab :session :s1 :facts [{:e :x :k :n :v 5}]}
+        a2 {:version 1 :who :ben :layer :lab :session :s1 :subjects #{} :based-on {} :facts (list {:e :x :k :n :v 5N})}]
+    [["probe 1A, a yes given again after an end and a refused try: the try under the ended yes is refused and uses nothing; a give at the ended yes's id is refused, a yes's id taking one give; a yes on an id of its own, given by Cal beneath his permission, is taken, and so is Ben's act under it"
+      (fn [] (words :lab history-1a))
+      [:accepted :accepted :accepted :permission-ended :accepted :a-yes-is-given-once :accepted :accepted]]
+     ["probe 1A: Ben's act is in the store, and the yes that took it is used up"
+      (fn [] (let [after (walked-line empty-task :streaming history-1a)]
+               [(:value (get-in after [:facts (record/place-key :lab :exp-1 :dose)]))
+                (decision/used-up? (get-in after [:facts (chain/place :lab pa2)]) pa2)]))
+      ["\"5 mg\"" true]]
+     ["probe 1B, an outsider sends under an act-id whose uuid is the yes's own id: Cal, who may only see, is refused, and so is Zed, who names a permission that does not stand; Joe's act under the yes, under an act-id of his own, is taken: the yes's id is no act-id, and nothing another sends under it touches the yes"
+      (fn [] (words :studio history-1b))
+      [:accepted :accepted :accepted :permission-does-not-allow-acting :permission-does-not-stand :accepted]]
+     ["probe 2, the maker's act and the thing that the door appends: the digest that the maker makes of her act is the gate's of the thing, under the door's act-id, and the door takes her act as she gave it"
+      (fn [] (let [hex (digest/hex-for-a-yes maker-act)
+                   permission [:joe :studio :studio [:ida :studio :studio] :see-and-act [:act (uuid 377) hex]]
+                   thing (appended maker-act permission)]
+               [(= hex (decision/hex-for-its-permission thing (act-of thing))) (contains? thing :act-id)]))
+      [true true]]
+     ["probe 6C, a holder ends her yes under itself: a yes for another act cannot, its act being another; a yes for the act that ends it does, and that end is its use, so the same end again is refused; a run's permission that says see takes no act, its own end neither"
+      (fn [] (words :lab6 history-6c))
+      [:accepted :accepted :act-not-the-one-permitted :accepted :permission-used-up :permission-does-not-allow-acting]]
+     ["probe 6D, the act written two ways, 5 and 5N, a vector and a list, empty parts left out and given: one act in its one form, and one digest"
+      (fn [] [(= (dissoc (:ok (act/parse (assoc a1 :permission [:ben :lab :lab]))) :permission)
+                 (dissoc (:ok (act/parse (assoc a2 :permission [:ben :lab :lab]))) :permission))
+              (= (digest/hex-for-a-yes a1) (digest/hex-for-a-yes a2))])
+      [true true]]]))
 
 (defn- rows-by-place
   "Takes a record in the form of `empty-task`. Gives a map from [table key]
@@ -4225,6 +4453,8 @@
   (holds standing-cases)
   (holds chain-cases)
   (holds covers-cases)
+  (holds yes-cases)
+  (holds review-cases)
   (holds base-standing-cases)
   (holds other-gate-cases)
   (holds places-cases)

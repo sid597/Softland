@@ -8,16 +8,17 @@
   (`softland.store.act`, the forms of a permission id). So the chain of a
   permission is read from its id alone, and each permission of the chain
   sits on a place of its own in the same layer, which its id names
-  (`place`): on its holder, or on the run or the act that it covers. A gate
-  takes a give only
+  (`place`): on its holder, on the run that it covers, or, for a yes for
+  one act, on the yes's own id. A gate takes a give only
   straight beneath the giver's own permission, in the giver's layer
   (`softland.store.gate.decision`, check (g)).
 
   When a permission stands. All of these hold:
 
-  1. the row at its holder's place holds it: the last fact taken at that
-     place gave exactly this permission. A row with no value is an end, and
-     a row with another permission is another give;
+  1. the row at its place (`place`) holds it: the last fact taken at that
+     place gave exactly this permission. A row with no value is an end, or
+     for a yes for one act its use, and a row with another permission is
+     another give;
   2. it is a first permission; or the permission above it stands, and the
      row of the one above is older than its own row: the stamp of the row
      above is less than the stamp of its own row.
@@ -53,7 +54,8 @@
   Inputs and results, by call:
 
     above         a permission -> the permission above it, or nil
-    place         a layer, a permission -> the key of its holder's place
+    place         a layer, a permission -> the key of its place: on its
+                  holder, on its run, or on a yes's own id
     places-above  a layer, a permission -> the keys of the places of the
                   permissions above it, nearest first
     above?        two permissions -> true when the first is in the chain
@@ -81,10 +83,12 @@
   permission sits in that layer, read from what the permission covers
   (`softland.store.act/covers`): one that covers the layer sits on its
   holder, under `:softland.store/permission`; one for a run on the run's
-  session, under `:softland.store/run-permission`; one for an act on the
-  uuid of the act's act-id, under `:softland.store/act-permission`. So a
-  holder's permission for the layer, and her permissions for runs and acts,
-  sit on places of their own and stand or end each by itself."
+  session, under `:softland.store/run-permission`; a yes for one act on the
+  yes's own id, the uuid that its giver made, under
+  `:softland.store/act-permission`. So a holder's permission for the layer,
+  her permissions for runs and her yeses for acts sit on places of their
+  own and stand or end each by itself, and two yeses for one act sit on two
+  places."
   [layer permission]
   (let [[kind what] (act/covers permission)]
     (case kind

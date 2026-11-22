@@ -699,28 +699,41 @@ beneath the first ends with it.
 
 **A permission says what it covers.** A sixth slot of the id, behind what it
 allows: `[:run session]`, the acts and the reads of one run, or
-`[:act uuid digest]`, one act (`covers` in [act.clj](act.clj)); with no sixth
-slot it covers the layer until it is ended, so each permission that exists
-keeps its meaning. Each kind sits on what it covers, under a key of its own:
-the layer's on its holder, a run's on the session, an act's on the uuid of the
-act's act-id (`place` in [chain.clj](gate/chain.clj)). Three keys and not one,
-because a holder, a session and an act are each named by an id of one kind:
-under one key a give for a run whose session has the id of a holder would land
-on that holder's place. So a holder can have, beside her permission for the
-layer, one for each of any number of runs and acts, each standing or ended by
-itself (Sid, 21 November 2026); the forms and the two keys' words are a
-session's. A gate holds an act to what its permission covers before it reads
-the chain: the act's `:session` against the run, the uuid of its act-id and
-its digest against the act. The digest is of the thing without the time on it
-and without its `:permission` (`hex-for-its-permission` in
-[digest.clj](door/digest.clj)): the act names the permission, so the permission
-cannot hold a digest that covers itself. **A permission for a run or for an
-act gives nothing**: what is given beneath a permission must cover no more
-than it does, and a holder for one run who could give would give herself a
-permission for the layer. And a run ends no permission of its holder's but
-its own. The session that writes the generated histories found the first of
-those roads in the statements before any of this was built
-(`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`, R10).
+`[:act yes digest]`, a yes for one act (`covers` in [act.clj](act.clj)); with
+no sixth slot it covers the layer until it is ended, so each permission that
+exists keeps its meaning. Each kind sits on what it covers, under a key of its
+own: the layer's on its holder, a run's on the session, a yes on its own id, a
+uuid that its giver makes (`place` in [chain.clj](gate/chain.clj)). Three keys
+and not one, because a holder, a session and a yes are each named by an id of
+one kind: under one key a give for a run whose session has the id of a holder
+would land on that holder's place. So a holder can have, beside her permission
+for the layer, one for each of any number of runs, and any number of yeses,
+each standing or ended by itself (Sid, 21 November 2026); the form of a run's
+permission and the two keys' words are a session's. A gate holds an act to
+what its permission covers before it reads the chain: the act's `:session`
+against the run; for a yes, the act itself, by its digest. The digest is of
+the act as its maker made it, in the one form that `parse` gives, with its
+who and its session, without its act-id, its depot, its time and its
+permission (`hex-for-a-yes` in [digest.clj](door/digest.clj)): one function,
+which a maker calls before her act has an act-id or a permission, and the
+gate calls on the thing that arrives. So the act goes under any act-id of its
+maker's. **A yes is used once**: the accept of its act writes the yes's use,
+an end at its place, so that no act is taken under it again, the same act
+under another act-id neither; a try that is refused uses nothing, and is sent
+again under a new act-id. A yes's place takes one give, so a yes that was
+ended or used is never given again; another yes for the same act is given on
+an id of its own, and two can stand at once, each used once. That form is a
+session's, in the prompt that Sid pasted on 22 November 2026 as his go for the
+build, and his to turn; that the use is kept as an end at the yes's place,
+written in the decision's one write, is a session's too (`use-of-its-yes` in
+[decision.clj](gate/decision.clj)).
+**A permission for a run or a yes gives nothing**: what is given beneath a
+permission must cover no more than it does, and a holder for one run who
+could give would give herself a permission for the layer. And a run ends no
+permission of its holder's but its own. The session that writes the
+generated histories found the first of those roads in the statements before
+any of this was built (`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`,
+R10).
 
 **A permission ends, and what was given beneath it ends with it.** An end is a
 fact with no value at the holder's place, sent by her giver, by anyone above the
@@ -1211,12 +1224,15 @@ order, and "digest" is this store's word since its module.
 | `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
 | `chain-needed`, `chains-needed` | In [decision.clj](gate/decision.clj): the rows of the permissions above an act's own, and above a permission that a give would write over |
 | `above`, `place`, `places-above`, `above?`, `stands?` | In [chain.clj](gate/chain.clj): the chain of a permission, and whether it stands |
-| `covers` | In [act.clj](act.clj): a permission → nil, `[:run session]` or `[:act uuid digest]` |
-| `hex-for-its-permission` | In [digest.clj](door/digest.clj) and, for a gate, [decision.clj](gate/decision.clj): the digest that a permission for one act holds |
+| `covers` | In [act.clj](act.clj): a permission → nil, `[:run session]` or `[:act yes digest]` |
+| a yes | A permission for one act, `[who layer granted-in above :see-and-act [:act yes digest]]`: on its own id, for one act, used once. Sid's word |
+| `act-for-a-yes`, `hex-for-a-yes` | In [digest.clj](door/digest.clj): the act that a yes names, in its one form, and its digest, which a yes holds; the maker's call and the gate's |
+| `hex-for-its-permission` | In [decision.clj](gate/decision.clj): `hex-for-a-yes` of a thing, made only for an act under a yes |
+| the use of a yes, `used-up?`, `use-of-its-yes` | In [decision.clj](gate/decision.clj): the end at a yes's place that the accept of its act writes, which names the yes as its act's permission; the test of a row for it; the write |
 | `permission-keys` | In [declaration.clj](door/declaration.clj): the three store keys under which a permission is given and ended |
 | a run | What an act names as its `:session`: one sitting of a person, or one run of an agent |
 | `held-permission`, `ended?` | In [rows.clj](record/rows.clj): the permission that the row at a permission's place holds, and whether that row is an end |
-| an end | A fact with no value under `:softland.store/permission`, at a place that holds a permission: its row holds no value |
+| an end | A fact with no value under one of the three keys of a permission, at a place that holds a permission: its row holds no value. The use of a yes is an end too |
 | the first holder | The holder of a layer's first permission, the one with nothing above it |
 | `plain-bytes`, `plain-bytes-of` | In [rows.clj](record/rows.clj): the UTF-8 bytes of the String that a fact's row holds for its value; and those bytes of a row's value |
 | `holds-value?`, `value-of` | In [rows.clj](record/rows.clj): whether a row's value is the one text of a value given, and the first form that a row's value reads as |
@@ -1356,8 +1372,10 @@ word.
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
 | `:store-key-not-known` | A fact's key is in the namespace `softland.store` and is not one of the store keys |
 | `:depot-fact-not-a-depot-word` | A `:softland.store/depot` fact's value is not `:streaming` or `:microbatch` |
-| `:permission-fact-not-a-permission` | A `:softland.store/permission` fact's value is not a permission id |
+| `:permission-fact-not-a-permission` | A permission fact's value, under any of the three keys of a permission, is not a permission id |
+| `:permission-fact-under-another-key` | A permission fact is under the key of another kind than the permission's: the layer's, a run's or a yes's |
 | `:permission-fact-not-on-its-holder` | A `:softland.store/permission` fact's entity is not the holder that its permission names |
+| `:permission-fact-not-on-what-it-covers` | A permission fact for a run is not on the run's session, or a yes is not on its own id |
 | `:who-may-see-fact-not-members-or-everyone` | A `:softland.store/who-may-see` fact's value is not `:members` or `:everyone` |
 | `:builds-on-fact-not-a-list-of-layers` | A `:softland.store/builds-on` fact's value is not a vector of ids |
 | `:builds-on-too-many-layers` | A `:softland.store/builds-on` fact names more than 64 layers |
@@ -1375,7 +1393,8 @@ word.
 Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
 `:facts-within-the-limit`, `:based-on-within-the-limit`, `:store-key-is-known`,
 `:depot-fact-holds-a-depot-word`,
-`:permission-fact-holds-a-permission`, `:permission-fact-sits-on-its-holder`,
+`:permission-fact-holds-a-permission`, `:permission-fact-is-of-its-key`,
+`:permission-fact-sits-on-its-holder`, `:permission-fact-sits-on-what-it-covers`,
 `:who-may-see-fact-holds-its-word`,
 `:builds-on-fact-holds-layers`, `:builds-on-within-the-limit`,
 `:marked-keys-fact-holds-keys`, `:marked-keys-within-the-limit`,
@@ -1392,24 +1411,25 @@ fact sits.
 | `:layer-belongs-to-the-other-gate` | The record holds nothing for the layer, and the layer starts with the other gate's depot: the act was sent to the wrong depot. The same word whether or not the other gate has made the layer |
 | `:layer-not-made` | The record holds nothing for the layer, the layer is not the other gate's, and the act is not a right making act |
 | `:who-not-the-permissions-holder` | The holder that the act's permission names is not the act's `:who` |
-| `:permission-does-not-stand` | The record does not hold the act's permission for its holder: the place is empty, or holds another permission |
-| `:permission-ended` | The place of the act's `:who` holds an end: her permission in the layer was ended, and she was not given one again |
+| `:permission-does-not-stand` | The record does not hold the act's permission at the place that its form names, on its holder, its run or a yes's own id: the place is empty, or holds another permission |
+| `:permission-used-up` | The act's permission is a yes for one act, and its place holds the yes's use: an act was taken under it |
+| `:permission-ended` | The place of the act's permission holds an end: the holder's permission for the layer, her run's, or the yes, was ended, and none was given there again |
 | `:permission-above-ended` | The record holds the act's permission, and a permission above it does not stand, or was given again after the act's own was given |
 | `:permission-for-another-run` | The act's permission covers one run, and the act's `:session` is not that run |
-| `:permission-for-another-act` | The act's permission covers one act, and the uuid of the act's act-id is not the one that it names |
-| `:act-not-the-one-permitted` | The act's permission covers this act-id, and the thing's digest, without its permission and its time, is not the one that the permission names |
-| `:only-a-permission-for-the-layer-gives` | A give in an act under a permission for a run or for an act |
+| `:act-not-the-one-permitted` | The act's permission is a yes for one act, and the act is not the one that it names: the digest of the act as its maker made it is not the yes's. So a yes for another act is refused |
+| `:only-a-permission-for-the-layer-gives` | A give in an act under a permission for a run or a yes |
 | `:permission-does-not-allow-acting` | The act's permission stands, and it says `:see`: an act needs "act" |
 | `:replaced-fact-not-current` | A fact that the act replaces is not the current fact of its place |
 | `:setting-not-on-the-layer` | A fact under a setting key is on an entity that is not the act's layer |
-| `:permission-fact-for-another-layer` | A `:softland.store/permission` fact writes a permission for a layer that is not the act's |
-| `:permission-fact-granted-in-another-layer` | A `:softland.store/permission` fact writes a permission whose `granted-in` is not the act's layer |
-| `:permission-fact-not-beneath-the-acts-own` | A `:softland.store/permission` fact writes a permission that is not straight beneath the one the act acts under |
+| `:permission-fact-for-another-layer` | A permission fact, under any of the three keys, writes a permission for a layer that is not the act's |
+| `:permission-fact-granted-in-another-layer` | A permission fact, under any of the three keys, writes a permission whose `granted-in` is not the act's layer |
+| `:permission-fact-not-beneath-the-acts-own` | A permission fact, under any of the three keys, writes a permission that is not straight beneath the one the act acts under |
 | `:only-the-first-holder-writes-a-setting` | A fact under one of the three keys that take a second write, in an act under a given permission |
-| `:no-permission-to-end` | An end at a place that holds no permission: it is empty, or holds an end |
+| `:no-permission-to-end` | An end at a place that holds no permission: it is empty, or holds an end; a used yes is one |
 | `:first-permission-does-not-end` | An end at the place of the layer's first permission |
 | `:not-above-the-permission` | An end by an act whose permission is not the one at the place and is not above it |
-| `:holder-has-a-permission` | A give at a place whose permission stands: a holder has one permission in a layer |
+| `:holder-has-a-permission` | A give at a place whose permission stands: a holder has one permission for the layer, and a run one |
+| `:a-yes-is-given-once` | A give of a yes at a place that holds a row: a yes's place takes one give |
 | `:changing-a-depot-not-decided` | A `:softland.store/depot` fact, in a layer that is made, with a depot that is not the layer's |
 | `:store-key-takes-one-write` | A depot fact with the layer's own depot after the making. Not earned by the three keys that take a second write, or by a permission |
 | `:store-key-retract-not-built` | A fact with no value under any store key but a permission's |

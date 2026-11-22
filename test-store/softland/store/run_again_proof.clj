@@ -1030,44 +1030,51 @@
   "The words that a gate gives the things of `a-permission-covers!`, in the
   order in which they are sent."
   [:accepted :accepted :permission-for-another-run :only-a-permission-for-the-layer-gives
-   :accepted :accepted
-   :accepted :act-not-the-one-permitted
+   :accepted :accepted :permission-used-up
+   :accepted :act-not-the-one-permitted :accepted
    :accepted :permission-ended])
 
 (defn- a-permission-covers!
   "Sends by the hand, to the depot of the gate given, a line of acts under
-  permissions that cover one run and one act. Takes the gate, a layer that
-  it has made, a holder who may act in the layer under a permission that
-  covers the layer, her permission there, and the key of the facts. In this
-  order: the holder gives Ivy a permission for the run `:run-i`; Ivy acts
-  in that run, which is taken, and in another run, which is not; Ivy gives
-  under it, which is refused; the holder gives Ivy a permission for one
-  act, and Ivy sends that act; the holder gives one for a second act, and
-  Ivy sends under that act-id an act with another value, which is refused;
-  the holder ends the run's permission, and Ivy's next act in the run is
-  refused. The digest that a permission for an act holds leaves the time on
-  the thing out, so the hand's clock at the send does not change it. Waits
-  for the microbatch gate when the things are its. Gives the things as they
-  were built; `words-of-what-a-permission-covers` holds the word of each."
+  a permission that covers one run and under yeses for one act. Takes the
+  gate, a layer that it has made, a holder who may act in the layer under
+  a permission that covers the layer, her permission there, and the key of
+  the facts. In this order: the holder gives Ivy a permission for the run
+  `:run-i`; Ivy acts in that run, which is taken, and in another run, which
+  is not; Ivy gives under it, which is refused; the holder gives Ivy a yes
+  for one act on an id of its own, and Ivy sends that act under an act-id
+  of hers, which is taken and uses the yes up, and the same act again
+  under another act-id, which is refused; the holder gives Ivy a second yes
+  for the same act, and Ivy sends under it an act with another value,
+  which is refused, and then the act, which is taken; the holder ends the
+  run's permission, and Ivy's next act in the run is refused. The digest
+  that a yes holds is of the act as its maker made it, without its act-id,
+  its depot, its time and its permission, so neither the act-id that the
+  hand makes nor its clock at the send changes it. Waits for the
+  microbatch gate when the things are its. Gives the things as they were
+  built; `words-of-what-a-permission-covers` holds the word of each."
   [gate layer who permission k]
   (let [run-key :softland.store/run-permission
         act-key :softland.store/act-permission
         for-run [:ivy layer layer permission :see-and-act [:run :run-i]]
-        for-act (fn [x] [:ivy layer layer permission :see-and-act
-                         [:act (nth (:act-id x) 2) (digest/hex-for-its-permission x)]])
         ivys (fn [held session entity says]
                (assoc (arrived gate layer :ivy held [{:e entity :k k :v says}]) :session session))
-        x (ivys nil :run-i :covers-3 "the act that was permitted")
-        y (ivys nil :run-i :covers-4 "the act that was shown")
+        x (ivys nil :run-i :covers-3 "the act that was said yes to")
+        yes-for (fn [id] [:ivy layer layer permission :see-and-act [:act id (digest/hex-for-a-yes x)]])
+        [ya yb] (map yes-for (repeatedly 2 #(UUID/randomUUID)))
+        x-under (fn [a-yes] (assoc (ivys nil :run-i :covers-3 "the act that was said yes to") :permission a-yes))
+        give-yes (fn [a-yes] (arrived gate layer who permission [{:e (second (nth a-yes 5)) :k act-key :v a-yes}]))
         things [(arrived gate layer who permission [{:e :run-i :k run-key :v for-run}])
                 (ivys for-run :run-i :covers-1 "in her run")
                 (ivys for-run :run-j :covers-2 "in another run")
                 (assoc (arrived gate layer :ivy for-run [{:e :ivy :k permission-key :v [:ivy layer layer for-run]}])
                        :session :run-i)
-                (arrived gate layer who permission [{:e (nth (:act-id x) 2) :k act-key :v (for-act x)}])
-                (assoc x :permission (for-act x))
-                (arrived gate layer who permission [{:e (nth (:act-id y) 2) :k act-key :v (for-act y)}])
-                (assoc y :permission (for-act y) :facts [{:e :covers-4 :k k :v "another act than the one shown"}])
+                (give-yes ya)
+                (x-under ya)
+                (x-under ya)
+                (give-yes yb)
+                (assoc (x-under yb) :facts [{:e :covers-4 :k k :v "another act than the one said yes to"}])
+                (x-under yb)
                 (arrived gate layer who permission [{:e :run-i :k run-key}])
                 (ivys for-run :run-i :covers-5 "after the end of her run's permission")]]
     (run! (fn [thing] (by-hand! gate thing)) things)
@@ -1227,7 +1234,8 @@
        (`strays-of-each-word!`), acts refused for several reasons
        (`refused-for-several-reasons!`), a line in which a permission
        ends and is given again (`a-permission-ends!`), and a line under
-       permissions for one run and for one act (`a-permission-covers!`)
+       a permission for one run and under yeses for one act
+       (`a-permission-covers!`)
     7. seven more streaming layers, with their acts in turn (`rooms!`)
     8. the load (`load!`), and two acts that write one place
        (`two-acts-on-one-place!`)
@@ -1686,9 +1694,10 @@
    [:ends (str "the line in which a permission ends and is given again, by gate, the word of each thing in the order sent: "
                "two gives and an act beneath them; the end, then an act of its holder and one of the holder beneath; the "
                "second give, then an act of each; the second give of the one beneath, and his act; his end of his own, and his act")]
-   [:covers (str "the line under permissions for one run and for one act, by gate, the word of each thing in the order sent: "
-                 "the give for a run, an act in that run, one in another run, a give under it; the give for one act, and that "
-                 "act; the give for a second act, and another act under its act-id; the end of the run's permission, and an act in the run")]
+   [:covers (str "the line under a permission for one run and yeses for one act, by gate, the word of each thing in the order sent: "
+                 "the give for a run, an act in that run, one in another run, a give under it; a yes for one act, that act, "
+                 "and the same act again; a second yes, another act under it, and the act; the end of the run's permission, "
+                 "and an act in the run")]
    [:strays "the strays that each gate keeps: how many digests under each word"]
    [:x-and-y "the place that X wrote and then Y holds the fact of"]
    [:layers-by-task "the layers that the streaming gate made, by the task that holds them"]
@@ -3106,7 +3115,7 @@
       (each-gate? (fn [gate] (= :accepted (get-in gave [:each-part gate]))))]
      ["in the line in which a permission ends: after the end the holder's act is refused :permission-ended and the act of the holder beneath :permission-above-ended; after the second give the holder's act is accepted and the one beneath is still refused; after his own second give his act is accepted; after he ends his own his act is refused, in each gate"
       (each-gate? (fn [gate] (= words-of-a-permission-that-ends (get-in gave [:ends gate]))))]
-     ["in the line under permissions for one run and for one act: an act in the run is accepted and one in another run refused; a give under the run's permission is refused; the permitted act is accepted and another act under a permitted act-id refused; after the end of the run's permission an act in the run is refused, in each gate"
+     ["in the line under a permission for one run and yeses for one act: an act in the run is accepted and one in another run refused; a give under the run's permission is refused; the act under its yes is accepted and uses it up, so the same act again is refused; under a second yes another act is refused and the act accepted; after the end of the run's permission an act in the run is refused, in each gate"
       (each-gate? (fn [gate] (= words-of-what-a-permission-covers (get-in gave [:covers gate]))))]
      ["each act into each room is accepted"
       (= {:accepted (* (count rooms) (inc rounds-in-a-room))} (:rooms gave))]

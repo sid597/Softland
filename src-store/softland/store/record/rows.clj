@@ -46,7 +46,8 @@
   covers (`softland.store.gate.chain/place`), at
   \"<layer> <holder> :softland.store/permission\" for the layer,
   \"<layer> <session> :softland.store/run-permission\" for one run and
-  \"<layer> <act uuid> :softland.store/act-permission\" for one act, and
+  \"<layer> <yes> :softland.store/act-permission\" for a yes for one act,
+  on the yes's own id; the use of a yes is an end there; and
   at the layer's own entity who may see it, what it builds on and its
   marked keys. A value is
   held as one String, its one text, so the field has one class, a push on
@@ -373,9 +374,10 @@
 
 (defn held-permission
   "Takes the row at a permission's place, or nil. Gives the permission that
-  the row holds as its value, in its one form: the permission that was given
-  to the place's holder by the fact that wrote the row. nil when there is no
-  row, when the row holds no value, which is an end of a permission, and
+  the row holds as its value, in its one form: the permission that the fact
+  which wrote the row gave at that place, to a holder for the layer, to a
+  run, or as a yes on its own id. nil when there is no row, when the row
+  holds no value, which is an end of a permission or the use of a yes, and
   when its value does not read as a permission id; a gate writes no such
   row under that key. It never throws. `permission-of` is another thing: the
   permission that the writing act named, which for a give is the giver's."
@@ -553,8 +555,10 @@
   keys of the store's namespace
   (`softland.store.door.declaration/store-namespace`), `to` not in the run.
   Those are the layer's depot, who may see it, what it builds on and its
-  marked keys; and its holder's permission, when the layer's id is also a
-  holder's id. Every key of that namespace prints as `:softland.store/...`,
+  marked keys; and a permission at the layer's own entity, when the layer's
+  id is also the id of what that permission sits on: a holder's permission
+  for the layer, a run's when a session has the layer's id, a yes's when its
+  own id is the layer's. Every key of that namespace prints as `:softland.store/...`,
   so `from` is \"<layer> <layer> :softland.store/\", and `to` is the same
   text with `0`, the character after `/`, in the place of its last
   character. What must hold: the layer is an id within the limit."

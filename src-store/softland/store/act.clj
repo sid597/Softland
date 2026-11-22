@@ -34,16 +34,24 @@
   covers its layer, until it is ended.
   `[who layer granted-in parent allows [:run session]]` covers one run: the
   acts that carry that session, and the reads that are asked in it.
-  `[who layer granted-in parent :see-and-act [:act uuid digest]]` covers one
-  act: the act whose act-id holds that uuid and whose digest, taken without
-  the time on it and without its `:permission`, is that text of 64 hex
-  characters (`softland.store.door.digest/hex-for-its-permission`). A
-  permission for an act says `:see-and-act`: one that said `:see` would
-  allow nothing. That a permission covers an act, or a run, and that a
-  holder can have more than one in a layer, are Sid's decisions of 21
-  November 2026 (src-store/README.md, entries 4 to 6 of 20 and 21
-  November); these two forms of it are a session's
-  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md).
+  `[who layer granted-in parent :see-and-act [:act yes digest]]` is a yes
+  for one act. `yes` is a UUID that its giver makes, the yes's own id, and
+  the yes sits on it. `digest` is a text of 64 hex characters: the digest
+  of the act as its maker made it, in the one form that `parse` gives, with
+  its who and its session, and without its act-id, its depot, its time and
+  its permission (`softland.store.door.digest/hex-for-a-yes`). So the act
+  goes under any act-id of its maker's, and a yes is made before the act
+  has an act-id. A yes covers its act once: a gate uses it up when it takes
+  the act, and a try that is refused uses nothing. A yes says
+  `:see-and-act`: one that said `:see` would allow nothing. That a
+  permission covers an act, or a run, and that a holder can have more than
+  one in a layer, are Sid's decisions of 21 November 2026
+  (src-store/README.md, entries 4 to 6 of 20 and 21 November). The form of
+  a permission for a run is a session's
+  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md); the form of a
+  yes, with an id of its own and used once, is a session's, in the prompt
+  that Sid pasted on 22 November 2026 as his go for the build, and his to
+  turn.
 
   Why the shape is in code and not a fact in the store. Each shape that a
   tool gives enters the store as a fact, inside an act. So the shape of the
@@ -61,7 +69,7 @@
     normal-value  a value -> its one normal form
     allows        a permission id in its one form -> :see or :see-and-act
     covers        a permission id in its one form -> nil, [:run session]
-                  or [:act uuid digest]
+                  or [:act yes digest]
 
   State and effects. The namespace owns no state, and each function is pure.
   Nothing here reads a clock, takes a random id, appends, or reads a
@@ -544,11 +552,11 @@
 (defn covers
   "Takes a permission id in its one form. Gives what the permission covers,
   its sixth slot: `[:run session]`, the acts and the reads of one run;
-  `[:act uuid digest]`, one act; or nil for a permission with no sixth slot,
-  which covers its layer until it is ended. The one place where that slot is
-  read. A gate holds an act to it (`softland.store.gate.decision/standing`),
-  and it says on which place the permission sits
-  (`softland.store.gate.chain/place`).
+  `[:act yes digest]`, one act, once, for a yes with that id; or nil for a
+  permission with no sixth slot, which covers its layer until it is ended.
+  The one place where that slot is read. A gate holds an act to it
+  (`softland.store.gate.decision/standing`), and it says on which place the
+  permission sits (`softland.store.gate.chain/place`).
 
   What must hold: the thing has the shape `:permission-id`. It never throws:
   anything that is no vector of six slots gives nil."
