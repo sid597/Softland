@@ -2,11 +2,23 @@
 
 Parent: [softland](../README.md).
 
-Implements the Rama module `Auth` and its foreign client contract (`softland.auth.client`), following `src/proposal/runtime-2026-11-21/spine/auth/SPEC.md` and `PLAN.md` (with cross-key agreement verified in `spine/auth/agreement/`).
+Owns both sides of `Auth`: the Rama module (`Auth`) that decides writes and serves reads inside the cluster, and the foreign client (`softland.auth.client`) that runtime copies call.
 
-## Files
+## Boundaries
 
-- `fit.clj` — Pure input-form validation for all 18 calls, enforcing Sid's Call 1 (`contains?` on `-or-nil` keys, `:driven-by` alone optional, `Locale/ROOT` lower-case emails, `fn?` for `watch-root`, fixed-width integer coercion to `Long`, throwing-comparator safety).
-- `schema.clj` — Typed Java marker interfaces and `defrecord`s for all 4 depots and 6 PStates (zero `Object` positions, zero byte arrays), 7-bit ASCII key encoders, read projections, and pure single-task state-machine transitions.
-- `module.clj` — `defmodule Auth`: declares `*root-events`, `*asks`, `*invites`, `*enters`; `$$root-data`, `$$live` (`pstate.proxy.limit = 20000`), `$$accounts`, `$$claims`, `$$asks`, `$$enter-ops`; stream topology `"auth"` (`{:start-from :beginning :retry-mode :all-after}`); and query topologies `"who-is"` (2-seek fast path), `"under"` (live sign-ins only), and `"ping-task"`.
-- `client.clj` — Public contract namespace `softland.auth.client` exposing all 18 functions (`open`, `close!`, 12 writes, `who-is`, `ask-of`, `under`, `watch-root`). Never throws; validates at the client edge before touching Rama.
+- **Contract edge (`client.clj` + `fit.clj`):** Callers outside this tree depend only on `softland.auth.client` (its 18 public functions) and, when launching a cluster, on `softland.auth.module/Auth`. No public function throws; malformed inputs fail in `fit.clj` with `{:could-not :read-the-event}` before touching Rama.
+- **No clock inside Auth:** Every timestamp comes from the caller's `:at` (or stored `:until` / `:ends`); neither `module.clj` nor `schema.clj` reads wall-clock time.
+- **No external systems or caches:** Zero `TaskGlobal`s inside `Auth`, zero global depots or global PStates, and zero cross-module dependencies.
+
+## State (kept apart)
+
+- **Durable cluster state (owned by `Auth` in `module.clj`):** Four partitioned depots (`*root-events`, `*asks`, `*invites`, `*enters`) and six partitioned PStates (`$$root-data`, `$$live` launched with `pstate.proxy.limit = 20000`, `$$accounts`, `$$claims`, `$$asks`, `$$enter-ops`), all owned by the single stream topology `"auth"`.
+- **Borrowed cluster handles (held by each `Client` in `client.clj`):** Foreign handles to the four depots, `$$asks`, `$$live`, and the three query topologies (`"who-is"`, `"under"`, `"ping-task"`). The caller of `open` owns the underlying Rama cluster handle; `close!` does not close the cluster.
+- **Process-local memory (owned by each `Client` in `client.clj`):** A closed flag, one shared `foreign-proxy` subscription and incrementally projected live map per locally watched root, per-watcher turn locks, and a daemon scheduler running `"ping-task"` while watches are active. Holds no Auth truth and is discarded on `close!` or process exit.
+
+## How the files relate
+
+1. `fit.clj` — Pure form validation and fixed-width integer coercion (`Long`) for every write, read, and `watch-root` argument. Depends on nothing else in this folder.
+2. `schema.clj` — Pure typed record definitions, 7-bit ASCII key encoders, read projections, and pure single-task transition/planning functions for every write (`invite`, `enter`, `own-layer-made`, root writes, take-out, 2-scan `end-actor`, `ask`, `answer-ask`). Depends on nothing else in this folder.
+3. `module.clj` — Declares `defmodule Auth`, wires the four depots and six PStates in stream topology `"auth"`, invokes `schema.clj`'s pure step/plan functions across partitioner hops (`|hash`) and flat `<<atomic` + `ops/explode` writes, and declares `"who-is"`, `"under"`, and `"ping-task"`. Depends on `schema.clj`.
+4. `client.clj` — Exposes the 18 contract calls. Validates arguments with `fit.clj`, encodes events and projects `ask-of` / `$$live` diffs with `schema.clj`, and communicates with a launched `Auth` module solely through Rama's foreign client APIs. Depends on `fit.clj` and `schema.clj` (never on `module.clj`).
