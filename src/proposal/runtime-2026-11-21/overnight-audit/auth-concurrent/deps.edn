@@ -3,6 +3,10 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.4"}}
  :aliases {:step1 {:jvm-opts ["-Xmx4g"]
                    :main-opts ["-m" "auth-concurrent.step1-run"]}
+           :probes {:extra-paths ["../../../../../src-store"]
+                    :extra-deps {com.rpl/rama {:mvn/version "1.6.0"}}
+                    :jvm-opts ["-Xss16m" "-Xmx4g"]
+                    :main-opts ["-m" "auth-concurrent.step2-probes"]}
            :step3 {:extra-paths ["../../../../../test-auth"]
                    :jvm-opts ["-Xmx4g"]
                    :main-opts ["-m" "auth-concurrent.step3-run"]}}}
