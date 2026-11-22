@@ -616,7 +616,13 @@
    (:pstates world)
    (:depot-cursors world)
    (into {} (map (fn [[k v]] [k (mapv #(dissoc % :attempt-id) v)])) (:depots world))
-   (into {} (map (fn [[e q]] [e (mapv #(select-keys % [:call-id :step :self-op :phase :curr-claim :target :ask-outcome :other-won?]) q)]))
+   (into {}
+         (map (fn [[e q]]
+                [e (mapv (fn [m]
+                           (-> (select-keys m [:call-id :step :self-op :phase :curr-claim :target :ask-outcome :other-won?])
+                               (assoc :active? (= (:attempt-id m)
+                                                  (get-in world [:call-meta (:call-id m) :active-attempt])))))
+                         q)]))
          (:channels world))
    (into {} (map (fn [[cid c]] [cid (:result c)])) (:completed world))
    (:deferred world)
@@ -639,21 +645,25 @@
 (defn explore-scenario
   "Exhaustively explores schedules of `scenario` under `mode`:
    - `:pure`            — every interleaving, 0 failures (plus client re-run checks)
-   - `:individual`      — every interleaving + 1 `:individual` crash/retry after each step
-   - `:all-after`       — every interleaving + 1 `:all-after` partition replay at each step
-   - `:timeout-overlap` — every interleaving + 1 overlapping timeout retry at each step.
+   - `:individual`      — every interleaving + `fault-budget` `:individual` crashes/retries
+   - `:all-after`       — every interleaving + `fault-budget` `:all-after` partition replays
+   - `:timeout-overlap` — every interleaving + `fault-budget` overlapping timeout retries
+   - `:mixed`           — every interleaving + `fault-budget` faults drawn from ANY of
+                          `:individual`, `:all-after`, or `:timeout-overlap` in one history.
 
-  Returns `{:scenario name :mode mode :states-explored int :terminal-histories int
+  Returns `{:scenario name :mode mode :fault-budget int :states-explored int :terminal-histories int
             :violations [{:question ... :subkind ... :detail ... :trace [...] :completed ... :pstates ...}]}`."
-  [{:keys [name entities] :as scenario} mode {:keys [max-states check-reruns?]
+  [{:keys [name entities] :as scenario} mode {:keys [max-states check-reruns? fault-budget]
                                               :or {max-states 25000 check-reruns? true}}]
   (let [w0 (init-world scenario)
-        fault-budget (if (= mode :pure) 0 1)
+        init-fb (if (some? fault-budget)
+                  fault-budget
+                  (if (= mode :pure) 0 1))
         visited (java.util.HashSet.)
         states-cnt (volatile! 0)
         term-cnt (volatile! 0)
         violations-by-subkind (atom {})]
-    (loop [queue (conj clojure.lang.PersistentQueue/EMPTY [w0 fault-budget])]
+    (loop [queue (conj clojure.lang.PersistentQueue/EMPTY [w0 init-fb])]
       (when (and (seq queue) (< @states-cnt max-states))
         (let [[w fb] (peek queue)
               queue' (pop queue)
@@ -684,12 +694,13 @@
                              #(or % (assoc v
                                            :scenario name
                                            :mode mode
+                                           :fault-budget init-fb
                                            :trace (:trace w)
                                            :completed (:completed w)
                                            :pstates (:pstates w)))))
-                    ;; In :all-after mode, also explore post-commit uncheckpointed worker restart!
+                    ;; In :all-after or :mixed mode, also explore post-commit uncheckpointed worker restart!
                     (let [post-commit-replays
-                          (when (and (= mode :all-after) (pos? fb))
+                          (when (and (contains? #{:all-after :mixed} mode) (pos? fb))
                             (for [[t _] (:depots w)
                                   :let [cur (get-in w [:depot-cursors t] 0)]
                                   :when (pos? cur)
@@ -708,7 +719,7 @@
                               [(inject-individual-retry w edge) (dec fb)])
 
                             :all-after
-                            (for [[t recs] (:depots w)
+                            (for [[t _] (:depots w)
                                   :let [cur (get-in w [:depot-cursors t] 0)]
                                   :when (pos? cur)
                                   idx (range cur)]
@@ -719,12 +730,25 @@
                                   :when (seq q)]
                               [(inject-timeout-overlap-retry w edge) (dec fb)])
 
+                            :mixed
+                            (concat
+                             (for [[edge q] (:channels w)
+                                   :when (seq q)]
+                               [(inject-individual-retry w edge) (dec fb)])
+                             (for [[t _] (:depots w)
+                                   :let [cur (get-in w [:depot-cursors t] 0)]
+                                   :when (pos? cur)
+                                   idx (range cur)]
+                               [(inject-all-after-replay w t idx) (dec fb)])
+                             (for [[edge q] (:channels w)
+                                   :when (seq q)]
+                               [(inject-timeout-overlap-retry w edge) (dec fb)]))
+
                             nil))]
-                    ;; Also check `:all-after` right AT quiescence? Wait: let's also allow `:all-after` when `empty? acts` and `fb > 0`!
                     (recur (into queue' (concat normal-next fault-next)))))))))))
-    ;; If mode == :all-after, also test post-quiescence uncheckpointed restart!
     {:scenario name
      :mode mode
+     :fault-budget init-fb
      :capped? (>= @states-cnt max-states)
      :states-explored @states-cnt
      :terminal-histories @term-cnt
