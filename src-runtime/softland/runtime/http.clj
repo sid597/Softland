@@ -51,12 +51,25 @@
   to the box: her provider's name for her, which she confirms or changes
   (Sid, 21 November 2026: \"we can make C default\").
 
+  Where a request comes from. The address by which posts are paced is the
+  request's own; or, when the request comes from a proxy that the opener
+  names as trusted, the last address in its `X-Forwarded-For` that is not
+  one of those proxies. An IPv6 address counts by its first 64 bits, the
+  part that one network is given, so that one network cannot take a new
+  address for each post (`client-address`).
+
+  The pace. Each post to `/sign-in/*` is paced by that address
+  (`softland.runtime.seam/ration-sign-in!`). A poll that proves a
+  program's own ask, its code with its secret, is given back to the
+  address, so that programs that wait behind one address do not use it up
+  for a person's sign-in; the polls of one ask are paced on their own.
+
   State. None of its own. `handler` and `accept` close over the seam and
   the options.
 
   Not here. The browser's client, which is another build (the runtime's
-  page, piece 7). MCP (piece 6). A bound on how many requests one system
-  makes: `softland.runtime.seam/ration`, not built."
+  page, piece 7). MCP (piece 6). Counts by person in Auth, and blocks:
+  `softland.runtime.seam/ration`, not built."
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [ring.util.codec :as codec]
@@ -68,6 +81,7 @@
             [softland.wire.frame :as frame]
             [softland.wire.words :as words])
   (:import [java.io ByteArrayOutputStream InputStream]
+           [java.net Inet4Address Inet6Address InetAddress]
            [java.nio.charset StandardCharsets]
            [java.util UUID]))
 
@@ -131,17 +145,85 @@
             (when (= cookie k) v)))
         (str/split (or (get-in request [:headers "cookie"]) "") #";")))
 
+(defn- carried
+  "Takes a text and the most characters that it may have. Gives it cut to
+  at most that many, never between the two halves of a surrogate pair, and
+  with each surrogate that has no other half written as U+FFFD, as a UTF-8
+  reader writes what it cannot read: Auth does not take a text that UTF-8
+  cannot carry, and a provider's claim, read from JSON, can hold one."
+  [text most]
+  (let [text (str text)
+        n (count text)
+        end (let [end (min n (long most))]
+              (if (and (< 0 end n) (Character/isHighSurrogate (.charAt text (dec end)))
+                       (Character/isLowSurrogate (.charAt text end)))
+                (dec end)
+                end))
+        out (StringBuilder.)]
+    (loop [i 0]
+      (when (< i end)
+        (let [c (.charAt text i)]
+          (cond
+            (and (Character/isHighSurrogate c) (< (inc i) end) (Character/isLowSurrogate (.charAt text (inc i))))
+            (do (.append out c) (.append out (.charAt text (inc i))) (recur (+ i 2)))
+
+            (Character/isSurrogate c)
+            (do (.append out \uFFFD) (recur (inc i)))
+
+            :else
+            (do (.append out c) (recur (inc i)))))))
+    (str out)))
+
 (defn- uuid-of
   "Takes a text. Gives the UUID that it is, or nil."
   [text]
   (when (and (string? text) (re-matches #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" text))
     (UUID/fromString text)))
 
+(defn- address-key
+  "Takes an address as a text, an IPv4 or IPv6 literal. Gives the key by
+  which its posts are paced: an IPv4 address as it is, an IPv4 address
+  mapped into IPv6 as the IPv4 one, and an IPv6 address by its first 64
+  bits, written `<hex>/64`. A text that is no literal address is given as
+  it is. It looks up no name: a text without `:` is never parsed."
+  [text]
+  (let [text (str text)
+        bare (-> text (str/replace #"^\[|\]$" "") (str/replace #"%.*$" ""))]
+    (if-not (str/includes? bare ":")
+      text
+      (try
+        (let [address (InetAddress/getByName bare)]
+          (cond
+            (instance? Inet4Address address) (.getHostAddress address)
+            (instance? Inet6Address address)
+            (let [bytes (.getAddress address)]
+              (str (apply str (map (fn [b] (format "%02x" (bit-and 0xff (long b)))) (take 8 bytes))) "/64"))
+            :else text))
+        (catch Throwable _ text)))))
+
+(defn- client-address
+  "Takes the options and a request. Gives the key of the address that the
+  request comes from (`address-key`): the request's own; or, when that is
+  one of the opener's `:trusted-proxies`, the last address of its
+  `X-Forwarded-For` that is not a trusted proxy, and the request's own when
+  there is none."
+  [{:keys [trusted-proxies]} request]
+  (let [own (str (:remote-addr request))]
+    (address-key
+     (if-not (contains? trusted-proxies own)
+       own
+       (let [chain (->> (str/split (str (get-in request [:headers "x-forwarded-for"])) #",")
+                        (map str/trim)
+                        (remove str/blank?))]
+         (or (some (fn [address] (when-not (contains? trusted-proxies address) address))
+                   (reverse chain))
+             own))))))
+
 (defn- from
-  "Takes a face's name and a request. Gives what the face says of the
-  request, for the seam's `ration`."
-  [face request]
-  {:face face :address (:remote-addr request)})
+  "Takes the options, a face's name and a request. Gives what the face says
+  of the request, for the seam's `ration`."
+  [options face request]
+  {:face face :address (client-address options request)})
 
 ;; ------------------------------------------------------------ the answers
 
@@ -234,19 +316,21 @@
   (contains? origins (get-in request [:headers "origin"])))
 
 (defn- of-cookie
-  "Takes the options, a request, and when a page will send an act, the
-  session to be in: the id of a session that the page named, or `:new`.
-  Gives the caller that the request's cookie stands for now, or nil.
-  A new session opened by a browser page carries `:driven-by {:kind :person}`."
+  "Takes the options, a request, and when a page will send an act, the UUID
+  of that one act. Gives the caller that the request's cookie stands for
+  now, or nil. With the act's UUID, the caller is in the session that the
+  seam derives from it (`softland.runtime.seam/caller`, `:session-for`),
+  opened when it is not open yet, with `:driven-by {:kind :person}`: a
+  page opens a session only when it sends, and a form that is posted twice
+  is in one session."
   ([options request] (of-cookie options request nil))
-  ([{:keys [the-seam]} request session]
+  ([{:keys [the-seam] :as options} request act]
    (when-let [text (credential/of-cookie (get-in request [:headers "cookie"]))]
      (let [caller (m/? (seam/caller the-seam (cond-> {:credential text
                                                       :carrier :cookie
-                                                      :session (when (uuid? session) session)
-                                                      :new-session? (= :new session)
-                                                      :from (from :pages request)}
-                                               (= :new session) (assoc :driven-by {:kind :person}))))]
+                                                      :from (from options :pages request)}
+                                               (uuid? act) (assoc :session-for act
+                                                                  :driven-by {:kind :person}))))]
        (when (seam/caller? caller) caller)))))
 
 ;; -------------------------------------------------------------------- the pages
@@ -312,8 +396,7 @@
                 says (into {}
                            (comp (keep (fn [[k v]]
                                          (when (and (string? k) (or (string? v) (number? v) (boolean? v)))
-                                           [(subs k 0 (min words/max-text (count k)))
-                                            (let [text (str v)] (subs text 0 (min 2048 (count text))))])))
+                                           [(carried k words/max-text) (carried v 2048)])))
                                  (take 32))
                            claims)
                 person (sign-in/enter! the-seam
@@ -337,7 +420,7 @@
                 (if (:could-not begun)
                   (page 503 "<p>The sign-in could not be begun. Try again.</p>")
                   (let [caller (m/? (seam/caller the-seam {:credential (:credential begun) :carrier :cookie
-                                                           :from (from :pages request)}))
+                                                           :from (from options :pages request)}))
                         named? (and (seam/caller? caller) (some? (sign-in/name-of the-seam caller)))
                         next (way-on (get fields "next"))]
                     (redirect (if named?
@@ -380,19 +463,19 @@
   "GET /sign-in/name. The box: her provider's name for her, which she
   confirms or changes. The name comes in the address, from the sign-in
   that sent her here: it is her own, in her own browser, and Auth is not
-  read for it. The page opens a session for the one act that the box
-  sends, and carries its id and the act's UUID in the form, so that a form
-  that is posted twice is one act."
+  read for it. The page opens no session: it carries the UUID of the one
+  act that the box sends, and the post opens the session that the seam
+  derives from it, so that a form that is posted twice is one act in one
+  session."
   [{:keys [the-seam] :as options} request]
-  (if-let [caller (of-cookie options request :new)]
+  (if-let [caller (of-cookie options request)]
     (let [fields (query-of request)
           next (way-on (get fields "next"))
           offer (str (get fields "offer"))
           offered (or (sign-in/name-of the-seam caller)
-                      (subs offer 0 (min words/max-text (count offer))))]
+                      (carried offer words/max-text))]
       (page 200 (str "<p>What should you be called here? You can change it.</p>"
                      "<form method=\"post\" action=\"/sign-in/name?next=" (escaped (codec/url-encode next)) "\">"
-                     "<input type=\"hidden\" name=\"session\" value=\"" (seam/session-of caller) "\">"
                      "<input type=\"hidden\" name=\"act\" value=\"" (UUID/randomUUID) "\">"
                      "<input name=\"name\" maxlength=\"" words/max-text "\" value=\"" (escaped offered) "\" autofocus> "
                      "<button>This is my name</button></form>")))
@@ -400,16 +483,16 @@
 
 (defn- name!
   "POST /sign-in/name. Writes the name that she confirms, as her own act in
-  her own layer, and sends her on. The post must come from this runtime's
-  own page and rest on a cookie that stands for her."
+  her own layer, in the session derived from the act's UUID, closes that
+  session, and sends her on. The post must come from this runtime's own
+  page and rest on a cookie that stands for her."
   [{:keys [the-seam] :as options} request]
   (let [form (form-of request)
-        session (uuid-of (get form "session"))
         act (uuid-of (get form "act"))
         name (str/trim (str (get form "name")))
         next (way-on (get (query-of request) "next"))
-        caller (when (and form session (own-origin? options request))
-                 (of-cookie options request session))]
+        caller (when (and form act (own-origin? options request))
+                 (of-cookie options request act))]
     (cond
       (not (and caller act (seam/person? caller)))
       (page 400 "<p>That was not taken.</p>")
@@ -426,9 +509,10 @@
 
 (defn- yes-page
   "GET /yes. The page on which she answers a program: the code, which the
-  program shows too; what the program says of itself; and the choice, as
-  herself or as a new agent with a name. Somebody who is not signed in is
-  sent to sign in first and comes back."
+  program shows too; what the program says of itself; and the choice, as a
+  new agent with a name, which is chosen when the page opens, or as
+  herself. Somebody who is not signed in is sent to sign in first and
+  comes back."
   [{:keys [the-seam] :as options} request]
   (let [code (credential/of-shown (get (query-of request) "code"))
         shown (when code (sign-in/ask-shown the-seam code))]
@@ -453,9 +537,12 @@
                  (escaped (:asks shown)) "</code></p>"
                  "<form method=\"post\" action=\"/yes\">"
                  "<input type=\"hidden\" name=\"code\" value=\"" code "\">"
-                 "<p><label><input type=\"radio\" name=\"as\" value=\"me\" checked> It acts as me</label></p>"
-                 "<p><label><input type=\"radio\" name=\"as\" value=\"agent\"> It is an agent of its own, called "
+                 ;; An agent of its own is chosen at the start: each program has a
+                 ;; who of its own by default (the runtime's page, entry 8). The
+                 ;; build's default, for Sid to turn.
+                 "<p><label><input type=\"radio\" name=\"as\" value=\"agent\" checked> It is an agent of its own, called "
                  "<input name=\"label\" maxlength=\"" words/max-text "\" placeholder=\"a name\"></label></p>"
+                 "<p><label><input type=\"radio\" name=\"as\" value=\"me\"> It acts as me</label></p>"
                  "<button name=\"say\" value=\"yes\">Yes</button> "
                  "<button name=\"say\" value=\"no\">No</button></form>")))))
 
@@ -566,8 +653,12 @@
 
 (defn- program-waits!
   "POST /sign-in/program/poll. A program posts {:code :secret} and is told
-  the state of its ask (`softland.runtime.sign-in/asked`)."
-  [{:keys [the-seam]} request]
+  the state of its ask (`softland.runtime.sign-in/asked`). The polls of one
+  code are paced before Auth is read (`softland.runtime.seam/ration-poll!`);
+  a poll that proves its ask is given back to the address that it came
+  from (`softland.runtime.seam/give-back-sign-in!`): a program's waiting
+  does not use up the posts of the address."
+  [{:keys [the-seam] :as options} request]
   (let [[outcome form] (edn-of request)]
     (cond
       (= :no outcome) form
@@ -576,7 +667,12 @@
                 (credential/code? (:code form)) (credential/secret? (:secret form))))
       (answered (words/could-not :read-the-word {:why :part-has-no-form :at nil}))
 
-      :else (answered (sign-in/asked the-seam (:code form) (:secret form))))))
+      :else
+      (or (some-> (seam/ration-poll! the-seam (:code form)) answered)
+          (let [got (sign-in/asked the-seam (:code form) (:secret form))]
+            (when (:state got)
+              (seam/give-back-sign-in! the-seam (client-address options request)))
+            (answered got))))))
 
 ;; -------------------------------------------------------------------- the line
 
@@ -603,7 +699,7 @@
         cookie (credential/of-cookie cookie-header)
         named (or (get-in request [:headers "softland-session"]) (get (query-of request) "session"))
         session (uuid-of named)
-        about (from :line request)
+        about (from options :line request)
         taken (fn [credential carrier]
                 (let [caller (m/? (seam/caller the-seam
                                                (cond-> {:credential credential :carrier carrier
@@ -647,9 +743,14 @@
     :stand-in  a stand-in for Google
                (`softland.runtime.google-stand-in/make`), or nil. With one,
                `:google` is made from it and anybody can sign in as any
-               account that is invited"
-  [{:keys [origin origins stand-in google] :as options}]
+               account that is invited
+    :trusted-proxies
+               the addresses of the proxies in front of this runtime whose
+               `X-Forwarded-For` is believed (`client-address`); left out,
+               none"
+  [{:keys [origin origins stand-in google trusted-proxies] :as options}]
   (assoc options
+         :trusted-proxies (set trusted-proxies)
          :origins (or origins #{origin})
          :google (if stand-in
                    {:client-id (:client-id stand-in)
@@ -671,7 +772,7 @@
           (and (= :get method) (= "/" uri)) (home options request)
           (and (= :get method) (= "/health" uri)) (edn 200 {:ready true})
           (and (= :post method) (str/starts-with? uri "/sign-in/"))
-          (if-let [paced (seam/ration-sign-in! (:the-seam options) (:remote-addr request))]
+          (if-let [paced (seam/ration-sign-in! (:the-seam options) (client-address options request))]
             (if (or (= "/sign-in/program" uri) (= "/sign-in/program/poll" uri))
               (answered paced)
               (page 429 "<p>Too many sign-in requests from this address. Wait a moment and try again.</p>"))

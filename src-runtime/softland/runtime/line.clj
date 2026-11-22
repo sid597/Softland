@@ -43,7 +43,13 @@
   the frame is in memory. A frame's longest token, before it is read as
   EDN (`softland.wire.frame`). The words that wait on one connection, at
   `max-waiting`: a system that sends faster than its words are done is
-  closed. The watches of one connection, at `max-watches`.
+  closed. The watches of one connection, at the seam's number for its
+  caller (`softland.runtime.seam/watches-per-connection`), which is below
+  what all of a root's connections, or all visitors', share in a copy.
+  How long one write of a frame may take, by what carries the connection
+  (`softland.runtime.jetty`, `send-ms`): a system that does not read is
+  ended, so one that is told its end and does not read is ended all the
+  same.
 
   The calls:
 
@@ -66,12 +72,6 @@
 (def max-waiting
   "How many words can wait on one connection. A number of the build, kept
   and not decided."
-  256)
-
-(def max-watches
-  "How many watches one connection can hold. The read path bounds its own
-  pushes beside this (`softland.store.read-path`, \"How many pushes\"). A
-  number of the build, kept and not decided."
   256)
 
 (deftype Connection [the-seam caller send! close! queue state send-lock]
@@ -140,8 +140,12 @@
       (contains? (:watches @state) id)
       (say! connection {:id id :ended (words/could-not :find-the-watch {:why :number-in-use})})
 
-      (<= max-watches (count (:watches @state)))
-      (say! connection {:id id :ended (words/could-not :find-the-watch {:why :too-many :most max-watches})})
+      (<= (seam/watches-per-connection (.-the-seam connection) (.-caller connection))
+          (count (:watches @state)))
+      (say! connection {:id id :ended (words/could-not :find-the-watch
+                                                       {:why :too-many
+                                                        :most (seam/watches-per-connection (.-the-seam connection)
+                                                                                           (.-caller connection))})})
 
       :else
       (let [token (Object.)

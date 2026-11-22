@@ -98,8 +98,7 @@
                 offered (second (re-find #"name=\"name\"[^>]*value=\"([^\"]*)\"" (:body box)))
                 posted (request :post (str url "/sign-in/name?next=%2F")
                                 {:cookie cookie :origin url
-                                 :form {:session (hidden (:body box) "session")
-                                        :act (hidden (:body box) "act")
+                                 :form {:act (hidden (:body box) "act")
                                         :name (or call-her offered)}})]
             {:status (:status signed) :cookie cookie :person person :named? true
              :offered offered :name-status (:status posted)}))))))

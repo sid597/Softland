@@ -129,27 +129,34 @@
             cookie (:cookie signed-raw)
             {:keys [root sign-in]} (credential/parts cookie)
             name-box (drive/request :get (str url-a (:location signed-raw)) {:cookie cookie})
-            box-session (some-> (second (re-find #"name=\"session\" value=\"([^\"]*)\"" (:body name-box)))
-                                UUID/fromString)
+            box-act (second (re-find #"name=\"act\" value=\"([^\"]*)\"" (:body name-box)))
+            ;; The box's post is in the session that the seam derives from the
+            ;; act's UUID; the proof derives it the same way to read it.
+            box-session (some->> box-act UUID/fromString (@#'seam/derived :session root))
             the-auth (seam/auth-of (:the-seam copy-a))
+            before-post (when box-session
+                          (auth/who-is the-auth {:root root :sign-in sign-in :session box-session}))
+            posted (drive/request :post (str url-a "/sign-in/name?next=%2F")
+                                  {:cookie cookie :origin url-a
+                                   :form {:act box-act :name "Session Person"}})
             box-who-is (when box-session
                          (auth/who-is the-auth {:root root :sign-in sign-in :session box-session}))
-            ;; Complete name box so normal flows work cleanly
-            box-act (second (re-find #"name=\"act\" value=\"([^\"]*)\"" (:body name-box)))
-            _ (drive/request :post (str url-a "/sign-in/name?next=%2F")
-                             {:cookie cookie :origin url-a
-                              :form {:session (str box-session) :act box-act :name "Session Person"}})
             ;; Browser WebSocket face
             ws-hello (browser-ws-hello url-a cookie)
             ws-who-is (when (uuid? (:session ws-hello))
                         (auth/who-is the-auth {:root root :sign-in sign-in :session (:session ws-hello)}))]
-        (check "The browser's faces (the name box on GET /sign-in/name and a cookie connection to /line) open sessions with :driven-by {:kind :person}, readable from who-is and reported in hello."
+        (check "The browser's faces open sessions with :driven-by {:kind :person}, readable from who-is and reported in hello: the name box opens none when it is shown, and its post opens one for its act and closes it after; a cookie connection to /line opens one."
                (and (uuid? box-session)
+                    (not (re-find #"name=\"session\"" (str (:body name-box))))
+                    (nil? (:session before-post))
+                    (= 303 (:status posted))
                     (= {:kind :person} (get-in box-who-is [:session :driven-by]))
+                    (true? (get-in box-who-is [:session :closed?]))
                     (uuid? (:session ws-hello))
                     (= {:kind :person} (:driven-by ws-hello))
                     (= {:kind :person} (get-in ws-who-is [:session :driven-by])))
-               {:box-who-is box-who-is :ws-hello ws-hello :ws-who-is ws-who-is})
+               {:before-post before-post :posted (:status posted) :box-who-is box-who-is
+                :ws-hello ws-hello :ws-who-is ws-who-is})
 
         ;; Visitor refused :open-session
         (let [vis (client/connect {:url url-a})

@@ -30,8 +30,12 @@
                            `setup`, and for `serve` on the in-process
                            cluster, which is born at each start
     --person uuid          for `setup`: the id that an earlier run printed
-    --secret-ms n, --previous-ms n, --session-ms n
-                           the seam's numbers
+    --trusted-proxy a,b    the addresses of the proxies in front of the
+                           runtime whose `X-Forwarded-For` is believed for
+                           the pace of sign-ins
+                           (`softland.runtime.http/options-of`)
+    --<number> n           any of the seam's numbers by its name, such as
+                           --secret-ms or --max-watches-per-connection
                            (`softland.runtime.seam/default-numbers`), for a
                            proof that cannot wait a week
 
@@ -66,6 +70,14 @@
            [java.util UUID]
            [org.eclipse.jetty.server Server]))
 
+(def ^:private takes-a-value
+  "The arguments that take a value: the program's own, and each of the
+  seam's numbers by its name."
+  (into #{"--port" "--host" "--origin" "--conductor" "--conductor-port" "--google-client-id"
+          "--first-person-email" "--person" "--trusted-proxy"}
+        (map (fn [k] (str "--" (name k))))
+        (keys seam/default-numbers)))
+
 (defn- arguments
   "Takes the arguments of the command line after the command. Gives a map
   of them: an argument that takes a value holds the next one, and a flag
@@ -73,29 +85,29 @@
   [args]
   (loop [args args got {}]
     (if-let [[flag & more] (seq args)]
-      (case flag
-        ("--stand-in-google" "--thrown-away")
+      (cond
+        (contains? #{"--stand-in-google" "--thrown-away"} flag)
         (recur more (assoc got (keyword (subs flag 2)) true))
-        ("--port" "--host" "--origin" "--conductor" "--conductor-port" "--google-client-id"
-         "--first-person-email" "--person" "--secret-ms" "--previous-ms" "--session-ms"
-         "--sign-in-window-ms" "--max-sign-in-posts-per-address"
-         "--max-watches-per-root" "--max-visitor-watches")
+
+        (contains? takes-a-value flag)
         (recur (rest more) (assoc got (keyword (subs flag 2)) (first more)))
-        (recur more got))
+
+        :else (recur more got))
       got)))
 
 (defn start
   "Opens everything that the runtime stands on. Takes a map: `:cluster`, a
   cluster handle of Rama's on which the modules `Store` and `Auth` run;
   `:origin`; `:google`, {:client-id} or nil; `:stand-in`, a stand-in for
-  Google or nil; and, when the opener wants, `:numbers`, the seam's. Gives
+  Google or nil; `:trusted-proxies`, a set of addresses, or nil; and, when
+  the opener wants, `:numbers`, the seam's. Gives
   a map: `:the-seam`; `:read-path` and `:standing`, for a proof that counts
   what is left open; `:options`, what the faces share; `:handler`, the
   Ring handler of the pages; `:accept`, who a connection to the line is;
   and `:stop`, a function of no argument that closes what this call
   opened. Gives a map that holds `:could-not` when a part could not be
   opened; nothing is then left open. It writes nothing."
-  [{:keys [cluster origin google stand-in numbers]}]
+  [{:keys [cluster origin google stand-in trusted-proxies numbers]}]
   (let [the-door (door/open cluster (rama/get-module-name store/Store))
         the-read-path (read-path/open cluster (rama/get-module-name store/Store))
         the-auth (auth/open cluster (rama/get-module-name auth-module/Auth))
@@ -110,6 +122,7 @@
                      {:the-seam the-seam
                       :origin origin
                       :stand-in stand-in
+                      :trusted-proxies trusted-proxies
                       :google (when (and google (not stand-in))
                                 {:client-id (:client-id google)
                                  :issuers google/issuers
@@ -160,15 +173,11 @@
   [& args]
   (let [[command & more] args
         {:keys [port host origin conductor conductor-port google-client-id stand-in-google thrown-away
-                first-person-email person secret-ms previous-ms session-ms
-                sign-in-window-ms max-sign-in-posts-per-address
-                max-watches-per-root max-visitor-watches]} (arguments more)
-        numbers (into {} (keep (fn [[k v]] (when-let [n (some-> v parse-long)] [k n])))
-                      {:secret-ms secret-ms :previous-ms previous-ms :session-ms session-ms
-                       :sign-in-window-ms sign-in-window-ms
-                       :max-sign-in-posts-per-address max-sign-in-posts-per-address
-                       :max-watches-per-root max-watches-per-root
-                       :max-visitor-watches max-visitor-watches})
+                first-person-email person trusted-proxy] :as given} (arguments more)
+        numbers (into {} (keep (fn [k] (when-let [n (some-> (get given k) parse-long)] [k n])))
+                      (keys seam/default-numbers))
+        trusted-proxies (when (seq trusted-proxy)
+                          (set (remove str/blank? (map str/trim (str/split trusted-proxy #",")))))
         port (or (some-> port parse-long) 8500)
         origin (or origin (str "http://localhost:" port))
         client-id (or google-client-id (System/getenv "SOFTLAND_GOOGLE_CLIENT_ID"))]
@@ -186,6 +195,7 @@
                           :origin origin
                           :google (when (seq client-id) {:client-id client-id})
                           :stand-in (when stand-in-google (stand-in/make))
+                          :trusted-proxies trusted-proxies
                           :numbers numbers})
           close! (fn [] (when-not (:could-not started) ((:stop started))) (.close ^Closeable cluster))]
       (when (:could-not started)

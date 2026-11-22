@@ -105,11 +105,16 @@
   holds its numbers, an executor of virtual threads and one timer thread.
   It keeps no row, no answer and no caller between two calls.
 
-  The duties that are named here and not built. `ration` is the one place
-  where a sender would be paced and a block held; it is handed the caller,
-  with what the face said of the request, and what the caller is about to
-  do. The keeping of reads is the trail's (the runtime's page, piece 5):
-  `call` and `watch` write nothing of a read today.
+  Pacing, in this copy's memory (the first layer of `ration`): posts to
+  `/sign-in/*` by the address that they came from, with a post that proved
+  a program's own ask given back (`ration-sign-in!`, `give-back-sign-in!`);
+  the polls of one ask (`ration-poll!`); the sessions opened under one
+  sign-in (`session-paced`); and live watches, by root, for visitors, and
+  for one connection (`acquire-watch!`, `watches-per-connection`). Counts
+  by person in Auth and blocks are not built: `ration` is the place where
+  they will sit, handed the caller and what the caller is about to do. The
+  keeping of reads is the trail's (the runtime's page, piece 5): `call` and
+  `watch` write nothing of a read today.
 
   The system. `softland.runtime.sign-in` sends the acts that only the
   system sends: the making of a person's own layer, and the first acts of a
@@ -163,14 +168,37 @@
                   in one copy of the runtime: 256
     :max-visitor-watches
                   the most live watches all visitors together may hold open
-                  at once in one copy of the runtime: 64"
+                  at once in one copy of the runtime: 64
+    :max-watches-per-connection
+                  the most live watches one connection of a signed-in
+                  caller may hold, so that one connection cannot take all
+                  of its root's: 128
+    :max-visitor-watches-per-connection
+                  the most live watches one connection of a visitor may
+                  hold, so that one visitor cannot take all of the
+                  visitors': 8
+    :max-polls-per-ask
+                  the most polls of one ask, in `:sign-in-window-ms`, that
+                  are let in after they proved the ask: 20
+    :session-window-ms
+                  the sliding window over which the sessions opened under
+                  one sign-in in one copy are counted: one minute
+    :max-sessions-opened-per-sign-in
+                  the most sessions opened under one sign-in in
+                  `:session-window-ms` in one copy, by a connection that
+                  names none, by `:open-session`, or by a page: 30"
   {:secret-ms (* 7 24 60 60 1000)
    :previous-ms 60000
    :session-ms (* 24 60 60 1000)
    :sign-in-window-ms 10000
    :max-sign-in-posts-per-address 30
    :max-watches-per-root 256
-   :max-visitor-watches 64})
+   :max-visitor-watches 64
+   :max-watches-per-connection 128
+   :max-visitor-watches-per-connection 8
+   :max-polls-per-ask 20
+   :session-window-ms 60000
+   :max-sessions-opened-per-sign-in 30})
 
 ;; ------------------------------------------------------------------ the caller
 
@@ -253,8 +281,9 @@
              :private true
              :doc "Makes an opened seam. `open` is the one caller. It holds the door, the
   read path, Auth's client and the standing, borrowed; its numbers; its
-  in-memory copy-local ration state (`:sign-in` per-address timestamps and
-  `:watches` live counts by root and for visitors); an executor of virtual
+  in-memory copy-local ration state (`:sign-in` per-address moments,
+  `:polls` per-ask moments, `:sessions` per-sign-in moments, and `:watches`
+  live counts by root and for visitors); an executor of virtual
   threads, on which every call of the store and of Auth and every handing on
   of a flow runs; and one timer thread, for a secret whose time passes.")
 
@@ -270,7 +299,7 @@
   [{:keys [door read-path auth standing numbers]}]
   (->Seam door read-path auth standing
           (merge default-numbers (select-keys numbers (keys default-numbers)))
-          {:sign-in (atom {}) :watches (atom {})}
+          {:sign-in (atom {}) :polls (atom {}) :sessions (atom {}) :watches (atom {})}
           (Executors/newVirtualThreadPerTaskExecutor)
           ;; A timer that is cancelled leaves the queue at once: a timer of a
           ;; standing can be set hours ahead, and a cancelled one that stayed
@@ -397,11 +426,39 @@
                                           :until (+ now span) :at now}))
     until))
 
+(declare derived session-paced)
+
+(defn- opened-in
+  "Opens a session under a caller's sign-in and makes the caller in it.
+  Takes the seam, the root, the sign-in, the session's id, what drives it
+  or nil, and a function of the session and its `:driven-by` that makes
+  the caller. The opening is paced (`session-paced`); then one write of
+  Auth and one `who-is` read, so that `:driven-by` comes from Auth and a
+  session that is closed is not taken: a repeat of `open-session` gives
+  `{:open S}` for a session that is closed too."
+  [^Seam seam root sign-in session driven-by made]
+  (or (session-paced seam sign-in)
+      (let [client (.-client seam)
+            now (now-ms)
+            opened (auth/open-session client
+                                      (cond-> {:root root :sign-in sign-in :session session
+                                               :until (+ now (long (:session-ms (.-numbers seam))))
+                                               :at now}
+                                        (some? driven-by) (assoc :driven-by driven-by)))]
+        (cond
+          (:could-not opened) (words/could-not :reach-auth {:got opened})
+          (= :in-use (:refused opened)) (words/could-not :find-her-session {:why :not-hers})
+          (:refused opened) (no-sign-in :ended)
+          :else (let [after (auth/who-is client {:root root :sign-in sign-in :session session})]
+                  (if (:could-not after)
+                    (words/could-not :reach-auth {:got after})
+                    (or (session-fault after sign-in (now-ms))
+                        (made session (get-in after [:session :driven-by])))))))))
+
 (defn- caller-now
   "The body of `caller`. One read of Auth; and, for a face that asked for a
-  new session, one write and one `who-is` read so `:driven-by` comes from
-  Auth."
-  [^Seam seam {:keys [credential carrier session new-session? driven-by from]}]
+  new session or a page's session, what `opened-in` does."
+  [^Seam seam {:keys [credential carrier session new-session? session-for driven-by from]}]
   (if-let [{:keys [root sign-in secret]} (credential/parts credential)]
     (let [client (.-client seam)
           got (auth/who-is client {:root root :sign-in sign-in :session session})]
@@ -418,21 +475,12 @@
             (some? session) (or (session-fault got sign-in (now-ms))
                                 (do (moved-on! seam root sign-in session (:until (:session got)))
                                     (made session (get-in got [:session :driven-by]))))
+            (some? session-for)
+            (opened-in seam root sign-in (derived :session root session-for) driven-by made)
+
             new-session?
-            (let [session (UUID/randomUUID)
-                  now (now-ms)
-                  opened (auth/open-session client
-                                            (cond-> {:root root :sign-in sign-in :session session
-                                                     :until (+ now (long (:session-ms (.-numbers seam))))
-                                                     :at now}
-                                              (some? driven-by) (assoc :driven-by driven-by)))]
-              (cond
-                (:could-not opened) (words/could-not :reach-auth {:got opened})
-                (:refused opened) (no-sign-in :ended)
-                :else (let [after (auth/who-is client {:root root :sign-in sign-in :session session})]
-                        (if (:could-not after)
-                          (words/could-not :reach-auth {:got after})
-                          (made session (get-in after [:session :driven-by]))))))
+            (opened-in seam root sign-in (UUID/randomUUID) driven-by made)
+
             :else (made nil nil)))))
     (no-sign-in :not-a-credential)))
 
@@ -443,6 +491,11 @@
     :carrier       `:header` or `:cookie`: where the face found it
     :session       the id of the session that the system named, or nil
     :new-session?  whether to open a new session when none was named
+    :session-for   a UUID that a page made for its one act, when none was
+                   named: the session is derived from the root and it
+                   (`derived`), so that a form that is posted twice is in
+                   one session, and is opened when it is not open yet
+    :driven-by     what drives a session that is opened here, or nil
     :from          what the face says of the request, for `ration`
 
   Gives a task of a caller, or of a word:
@@ -456,6 +509,8 @@
     a text of another form                  -> the same,
                                                `:why :not-a-credential`
     a session that is not open under it     -> `:find-her-session`
+    more sessions opened under the sign-in in this copy than its pace
+                                            -> `:take-more`
     a call of Auth that failed              -> `:reach-auth`
 
   A credential that stands for nobody is told so and is not made a
@@ -527,49 +582,113 @@
     (contains? query :asker) (words/could-not :send-as-another {:at :asker})
     (some? (get query :session)) (words/could-not :send-as-another {:at :session})))
 
-(def ^:private max-paced-addresses
-  "Upper bound on remote addresses tracked concurrently in one copy's
-  sign-in pacer so a distributed flood cannot grow memory without bound."
+(def ^:private max-paced-keys
+  "Upper bound on the keys (addresses, asks, sign-ins) that one pacer of a
+  copy tracks at once, so that a flood of new keys cannot grow memory
+  without bound: when the table is full, the keys whose moments have all
+  passed are let go, and then the one with the oldest last moment."
   10000)
+
+(defn- paced!
+  "One sliding window of a pacer in this copy's memory. Takes the pacer's
+  atom, a map from a key to the moments (by `System/nanoTime`) of what it
+  counted; the key; the most that the window holds; and the window in
+  milliseconds. When fewer than the most were counted in the window, counts
+  this one and gives true; else counts nothing and gives false."
+  [pacer k limit window-ms]
+  (let [limit (long limit)
+        now (System/nanoTime)
+        cutoff (unchecked-subtract now (* 1000000 (long window-ms)))
+        recent? (fn [ts] (pos? (unchecked-subtract (long ts) cutoff)))
+        allowed? (volatile! false)]
+    (swap! pacer
+           (fn [m]
+             (let [m (if (>= (count m) max-paced-keys)
+                       (let [pruned (into {}
+                                          (keep (fn [[k' v]]
+                                                  (let [kept (filterv recent? v)]
+                                                    (when (seq kept) [k' kept]))))
+                                          m)]
+                         (if (and (>= (count pruned) max-paced-keys) (not (contains? pruned k)))
+                           (dissoc pruned (key (apply min-key (fn [[_ v]] (peek v)) pruned)))
+                           pruned))
+                       m)
+                   kept (filterv recent? (get m k []))]
+               (if (< (count kept) limit)
+                 (do (vreset! allowed? true)
+                     (assoc m k (conj kept now)))
+                 (do (vreset! allowed? false)
+                     (if (seq kept) (assoc m k kept) (dissoc m k)))))))
+    @allowed?))
+
+(defn- given-back!
+  "Takes back the newest moment that `paced!` counted under a key. Takes the
+  pacer's atom and the key. Gives nil."
+  [pacer k]
+  (swap! pacer (fn [m]
+                 (let [v (get m k)]
+                   (cond
+                     (empty? v) m
+                     (= 1 (count v)) (dissoc m k)
+                     :else (assoc m k (pop v))))))
+  nil)
 
 (defn ration-sign-in!
   "First-layer ration in this copy's memory: paces posts to `/sign-in/*` by
-  remote address over a sliding window (`:sign-in-window-ms`,
-  `:max-sign-in-posts-per-address`) before any call to Google or Auth. Gives
-  nil when allowed, or the word `:take-more` (`:why :sign-in-paced`)."
+  the address that the face says that they came from, over a sliding window
+  (`:sign-in-window-ms`, `:max-sign-in-posts-per-address`), before any call
+  to Google or Auth. Takes the seam and the address, a text. Gives nil when
+  allowed, or the word `:take-more` (`:why :sign-in-paced`). A post that the
+  face finds was a program's poll of its own ask is given back
+  (`give-back-sign-in!`): a program's waiting does not use up the address."
   [^Seam seam address]
   (let [numbers (.-numbers seam)
         limit (long (:max-sign-in-posts-per-address numbers))
-        window-ns (* 1000000 (long (:sign-in-window-ms numbers)))
-        addr (let [s (str address)] (if (seq s) s "unknown"))
-        now (System/nanoTime)
-        cutoff (unchecked-subtract now window-ns)
-        recent? (fn [ts] (pos? (unchecked-subtract (long ts) cutoff)))
-        allowed? (volatile! false)
-        sign-in-atom (:sign-in (.-ration-state seam))]
-    (swap! sign-in-atom
-           (fn [m]
-             (let [m (if (>= (count m) max-paced-addresses)
-                       (let [pruned (into {}
-                                          (keep (fn [[k v]]
-                                                  (let [kept (filterv recent? v)]
-                                                    (when (seq kept) [k kept]))))
-                                          m)]
-                         (if (and (>= (count pruned) max-paced-addresses) (not (contains? pruned addr)))
-                           (let [oldest (key (apply min-key (fn [[_ v]] (peek v)) pruned))]
-                             (dissoc pruned oldest))
-                           pruned))
-                       m)
-                   kept (filterv recent? (get m addr []))]
-               (if (< (count kept) limit)
-                 (do (vreset! allowed? true)
-                     (assoc m addr (conj kept now)))
-                 (do (vreset! allowed? false)
-                     (if (seq kept)
-                       (assoc m addr kept)
-                       (dissoc m addr)))))))
-    (when-not @allowed?
+        addr (let [s (str address)] (if (seq s) s "unknown"))]
+    (when-not (paced! (:sign-in (.-ration-state seam)) addr limit (:sign-in-window-ms numbers))
       (words/could-not :take-more {:why :sign-in-paced :most limit}))))
+
+(defn give-back-sign-in!
+  "Gives back to an address the post that `ration-sign-in!` counted last,
+  for a post that proved a program's own ask (`softland.runtime.http`, the
+  poll). Takes the seam and the address. Gives nil."
+  [^Seam seam address]
+  (given-back! (:sign-in (.-ration-state seam)) (let [s (str address)] (if (seq s) s "unknown"))))
+
+(defn ration-poll!
+  "Paces the polls of one ask that proved it, in this copy's memory: at most
+  `:max-polls-per-ask` in `:sign-in-window-ms`. Takes the seam and the
+  ask's code. Gives nil when allowed, or the word `:take-more`
+  (`:why :polls-paced`)."
+  [^Seam seam code]
+  (let [numbers (.-numbers seam)
+        limit (long (:max-polls-per-ask numbers))]
+    (when-not (paced! (:polls (.-ration-state seam)) code limit (:sign-in-window-ms numbers))
+      (words/could-not :take-more {:why :polls-paced :most limit}))))
+
+(defn- session-paced
+  "Paces the opening of sessions under one sign-in, in this copy's memory:
+  at most `:max-sessions-opened-per-sign-in` in `:session-window-ms`, by a
+  connection that names no session, by the word `:open-session`, and by a
+  page. Takes the seam and the sign-in's id. Gives nil and counts the
+  opening, or gives the word `:take-more` (`:why :sessions-paced`)."
+  [^Seam seam sign-in]
+  (let [numbers (.-numbers seam)
+        limit (long (:max-sessions-opened-per-sign-in numbers))]
+    (when-not (paced! (:sessions (.-ration-state seam)) sign-in limit (:session-window-ms numbers))
+      (words/could-not :take-more {:why :sessions-paced :most limit}))))
+
+(defn watches-per-connection
+  "Takes the seam and a caller. Gives how many live watches one connection
+  of that caller may hold at once: `:max-watches-per-connection` for a
+  caller who is signed in, `:max-visitor-watches-per-connection` for a
+  visitor. It sits below the cap that every connection of a root, or every
+  visitor, shares in this copy (`acquire-watch!`), so that one connection
+  cannot take the whole of it."
+  [^Seam seam ^Caller caller]
+  (long (get (.-numbers seam) (if (.-root caller)
+                                :max-watches-per-connection
+                                :max-visitor-watches-per-connection))))
 
 (defn- watch-bucket
   "The ration key and cap for live watches opened by `caller` in this copy."
@@ -797,6 +916,7 @@
 
       :open-session
       (or (needs-a-who caller)
+          (session-paced seam (.-sign-in caller))
           (let [session (UUID/randomUUID)
                 now (now-ms)
                 until (+ now (long (:session-ms (.-numbers seam))))

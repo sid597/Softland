@@ -10,7 +10,7 @@
 | [standing.clj](standing.clj) | One watch of Auth for each root that has something open in this process, shared by everything of that root. | In the memory of one process: a root's listeners and its one watch, while it has listeners. |
 | [sign_in.clj](sign_in.clj) | What sign-in does: an account becomes a person with a layer of her own; a browser's sign-in; her name; a program's sign-in that is under way; a deployment's birth. | None of its own; it writes Auth through its client, and acts through the seam. |
 | [line.clj](line.clj) | The line: one connection, many words and many watches, in one session, ended when its caller stops being live. It knows no socket. | In the memory of one process, for a connection's life: the words that wait and its watches. |
-| [jetty.clj](jetty.clj) | What carries the faces: one Jetty server, a Ring handler for the pages, and one path upgraded to a WebSocket for the line, with the frame's bound set for each connection. | The server and the open connections, for the ping. |
+| [jetty.clj](jetty.clj) | What carries the faces: one Jetty server, a Ring handler for the pages, and one path upgraded to a WebSocket for the line, with the frame's bound set for each connection, a bound on how long one write waits, and the close of a connection that is not heard from. | The server and the open connections, each with when it was last heard from, for the ping. |
 | [http.clj](http.clj) | The pages of sign-in, of her name and of her answer to a program; a program's two requests; and who a connection to the line is. | None. |
 | [google.clj](google.clj) | The check of Google's ID token, and the fetch of Google's public keys. | None; the fetch keeps nothing. |
 | [google_stand_in.clj](google_stand_in.clj) | A stand-in for Google that signs ID tokens with a key pair of its own, for the proofs and for a store that is thrown away. | A key pair in the memory of the process. |
@@ -87,12 +87,22 @@ Each is a session's, kept and not decided.
   they arrived.
 - **The numbers:** a secret lasts 7 days, the one before it a minute, a
   session a day from its last moving on, an ask 10 minutes; a connection holds
-  256 waiting words and 256 watches; a ping every 20 seconds.
+  256 waiting words, and 128 watches (a visitor's 8), beneath 256 for all of a
+  root's connections and 64 for all visitors in one copy; one copy takes 30
+  posts to `/sign-in/*` from one address in 10 seconds, 20 polls of one ask in
+  that time, and opens 30 sessions under one sign-in in a minute; a ping every
+  20 seconds, a connection not heard from for a minute is closed, and one write
+  of a frame waits at most 30 seconds. Each is in `seam.clj`'s
+  `default-numbers`, in `line.clj` or in `jetty.clj`.
 
 ## Not built
 
-A ration of acts and of live reads, and a block: `seam.clj`, `ration`, is the
-one place, and it is handed what the face said of the request. The keeping of
+Counts of acts and of reads by person in Auth, and a block: `seam.clj`,
+`ration`, is the one place, and it is handed what the face said of the
+request. Its first layer, in each copy's memory, is built: the paces of
+sign-in posts by address, of an ask's polls and of a sign-in's new sessions,
+and the caps of live watches by root, for visitors and for one connection.
+The keeping of
 reads, which is the trail's (piece 5). MCP (piece 6). The browser's client
 (piece 7). An agent's branch layer and `promote` (pieces 6 and 8). The
 replacing of a browser's secret by the pages. Erasing a link.
