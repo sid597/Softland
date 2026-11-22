@@ -15,10 +15,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/link-memory.sh"
-          },
-          {
-            "type": "command",
             "command": ".claude/hooks/session-notes.sh"
           }
         ]

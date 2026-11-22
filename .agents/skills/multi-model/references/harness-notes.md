@@ -10,7 +10,7 @@ Kept here because Antigravity and Codex do not auto-load `.claude/memory/`, and 
 
 ## Brief Mechanics by Harness
 - **Claude Code (`Fable` / `Opus`):**
-  - *Unattended builds:* `.claude/output-styles/build.md` pauses for Sid's go unless the prompt states *"This is a build (not exploration); this message is my go — do not wait for confirmation"*, runs under `/output-style Build`, and bypasses permission prompts.
+  - *Unattended builds:* Launch with `claude --settings '{"outputStyle":"Build"}'` (do not use `/output-style Build`, which writes `.claude/settings.local.json` for all windows) and bypass permission prompts. `.claude/output-styles/build.md` proceeds without pausing unless the prompt and target page conflict.
   - *Safeguard stops (`reasoning_extraction`):* Never ask for first-person "thinking", "reasoning", "working", or a "design difficulty log"; for long plans, create the target file first and write section-by-section.
   - *Subagents & shell:* `CLAUDE_CODE_SUBAGENT_MODEL` defaults subagents to `opus` (set `model:` explicitly when needed); shell is `zsh` (wrap multi-word loops in `bash -c`).
 - **Antigravity (`Neon` / `Carbon`):**

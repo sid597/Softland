@@ -149,7 +149,9 @@ change. Protect the architecture we want while examining the one we have.
   it. `.claude/skills/staff-product-architect.md` gives the perspective.
 - **Codex** loads only this page. It reads for itself the output style that
   fits, the memory index, a tree's `CLAUDE.md`, and at the start of a build
-  the files under `.claude/rules/`.
+  the files under `.claude/rules/`. **Antigravity** also loads only this page,
+  and reads for itself the memory index, a tree's `CLAUDE.md`, and at the
+  start of a build the files under `.claude/rules/`.
 
 ## Terminology
 

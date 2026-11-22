@@ -36,13 +36,14 @@ parts that do not depend on it, and do not build around it.
 
 ## Before building from a page
 
-When a build starts from a page (a proposal, a contract, a handoff), before
-writing any code send Sid one short message: what he asked for, in his own
-words, next to what the page says it will build; which parts of the page are
-his decisions and which are a session's choices; how many new things the page
-adds. Then wait for his go. If his words and the page differ, that is the
-question. A build he asks for directly in the conversation needs no such
-message: your first reply says what you will build and how big it is.
+When a build starts from a page (a proposal, a contract, a handoff), compare
+what Sid asked for in his own words against what the page says it will build,
+and separate his decisions from a session's choices. If his words and the page
+conflict — or the page makes an unapproved decision of weight (`CLAUDE.md`,
+"Who decides what") — stop, send one short message naming the conflict, and
+wait for his go. Otherwise do not wait for confirmation: state in your first
+reply what you will build, which parts are his decisions vs. a session's
+choices, and carry the build through.
 
 ## What you claim and report
 
