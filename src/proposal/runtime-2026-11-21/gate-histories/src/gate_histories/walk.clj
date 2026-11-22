@@ -44,17 +44,28 @@
   [facts ks]
   (into {} (map (fn [k] [k (get facts k)])) ks))
 
+(def ^:private hex-for-its-permission
+  "The store's `softland.store.gate.decision/hex-for-its-permission`, when
+  the store has it: the gate of piece 2 holds an act under a permission for
+  one act to the digest of the thing. nil for a store that has no such
+  permission, whose `standing` takes one argument less."
+  (ns-resolve 'softland.store.gate.decision 'hex-for-its-permission))
+
 (defn- checks
   "Steps 4 and 5 for an act that the declaration took. Takes the record's
-  facts, the gate's depot and the act. Gives {:word :makes?}: the word of
-  the first check that fails, or nil, and whether the act makes its layer."
-  [facts gate-depot act]
+  facts, the gate's depot, the thing as it arrived and the act. Gives
+  {:word :makes?}: the word of the first check that fails, or nil, and
+  whether the act makes its layer."
+  [facts gate-depot thing act]
   (let [permission-key (decision/permission-place act)
         permission-row (get facts permission-key)
         depot-key (decision/depot-place act)
         depot-row (when (nil? permission-row) (get facts depot-key))
         chain-rows (rows-at facts (decision/chain-needed act permission-row))
-        standing-word (decision/standing gate-depot act permission-row depot-row chain-rows)
+        standing-word (if hex-for-its-permission
+                        (decision/standing gate-depot act permission-row depot-row chain-rows
+                                           (hex-for-its-permission thing act))
+                        (decision/standing gate-depot act permission-row depot-row chain-rows))
         makes? (decision/makes-the-layer? gate-depot act permission-row depot-row)]
     (if standing-word
       {:word standing-word :makes? false}
@@ -116,7 +127,7 @@
               act (:ok checked)
               time-millis (decision/time-on thing)
               {:keys [word makes?]} (if act
-                                      (checks (:facts rec) gate-depot act)
+                                      (checks (:facts rec) gate-depot thing act)
                                       {:word (:refuse checked) :makes? false})
               stamp (stamp/next-stamp (get (:last-stamp rec) layer))
               in-hand (when-not word (accept-in-hand (:facts rec) act stamp))
