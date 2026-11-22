@@ -9,8 +9,8 @@
   It checks three ways.
 
   - By cases: one check for each sentence of the spec that says what a call
-    gives or refuses, and the client over one atom, two copies of the
-    runtime at one moment among them.
+    gives or refuses, and the clients that `open` gives over a cluster of
+    the reference, two copies of the runtime at one moment among them.
   - By generated histories: thousands of random sequences of calls, from a
     seed that the run prints, with repeats of calls, inputs that do not fit
     and times that pass, some going back as a slower clock would. After
@@ -103,6 +103,22 @@
   [n]
   (apply str (repeat n "x")))
 
+(def ^:private auth-name
+  "The name under which the proof launches Auth in a cluster of the
+  reference: any string does."
+  "Auth")
+
+(defn- new-client
+  "A client of a new Auth with nothing written in it."
+  []
+  (r/open (r/cluster auth-name) auth-name))
+
+(defn- two-clients
+  "Two clients of one new Auth, as two copies of the runtime."
+  []
+  (let [cl (r/cluster auth-name)]
+    [(r/open cl auth-name) (r/open cl auth-name)]))
+
 (def ^:private defaults
   "One call of each write, as Asha's first day would make it: invited at
   100, in at 110, signed in at 130 until 100000, a session at 140 until
@@ -192,7 +208,7 @@
 (defn- rules-checks
   "The checks of \"Rules for every call\" and of the forms."
   []
-  (let [cl (r/open)
+  (let [cl (new-client)
         odd [nil 7 "x" [] {} (range) (sorted-map-by (fn [_ _] (throw (ex-info "no order" {}))) :a 1)
              {:root "x" :at "y"} [1 2 3] (Object.)]
         could-not? (fn [x] (and (map? x) (contains? x :could-not)))
@@ -203,7 +219,8 @@
                   (for [f [r/who-is r/ask-of r/under r/live-under] v odd] (could-not? (f v asha)))
                   (for [v odd] (could-not? (r/watch-root cl v v)))
                   (for [v odd] (could-not? (r/watch-root v asha (fn [_] nil))))
-                  (for [v odd] (= {:could-not :find-the-module} (r/open v "auth")))
+                  (for [v odd] (= {:could-not :find-the-module} (r/open v auth-name)))
+                  (for [v odd] (= {:could-not :find-the-module} (r/open (r/cluster auth-name) v)))
                   (for [v odd] (nil? (r/close! v)))
                   (for [v odd] (= unfit (second (r/step r/empty-state v))))
                   (for [v odd] (= unfit (second (r/step r/empty-state [:invite v])))))]
@@ -308,12 +325,14 @@
          (every? #(= unfit (last-of (conj asha-waits (c :enter :account %))))
                  [["google" "1082"] [:google] [:google "1082" "more"] (list :google "1082")]))
 
-  (let [{:keys [state last]} (run (conj asha-waits (c :enter :account [(keyword (text-of 300)) "1"] :own-layer "a layer")))]
-    (check "A provider's name of at most 256 characters, and an :own-layer that is a UUID, are the runtime's to keep, and Auth does not check them (QUESTIONS.md): an enter whose provider has 300 characters and whose :own-layer is no UUID is let in, and who-is gives that :own-layer back as it came."
-           (and (= asha (:person last))
-                (= "a layer" (:own-layer (who state sign-in-1))))))
+  (check "A provider is a keyword whose name is at most 256 characters, and :own-layer is a UUID: forms, which Auth checks (Sid's call of 22 November). An enter whose provider's name has 257 characters, its namespace counted, or whose :own-layer is no UUID or nil, does not fit; a provider's name of 256 characters fits."
+         (and (every? #(= unfit (last-of (conj asha-waits %)))
+                      [(c :enter :account [(keyword (text-of 257)) "1"])
+                       (c :enter :account [(keyword "g" (text-of 255)) "1"])
+                       (c :enter :own-layer "a layer") (c :enter :own-layer (str layer-1)) (c :enter :own-layer nil)])
+              (= asha (:person (last-of (conj asha-waits (c :enter :account [(keyword (text-of 256)) "1"])))))))
 
-  (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md): a :making without its session, or whose session is no UUID, does not fit."
+  (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md, 4, which Sid's call of 22 November let stand): a :making without its session, or whose session is no UUID, does not fit."
          (every? #(= unfit (last-of (conj asha-waits %)))
                  [(c :enter :making {:uuid (id 51)}) (c :enter :making {:uuid (id 51) :session "s"})]))
 
@@ -346,7 +365,7 @@
                     (r/who-is state {:root (str asha) :sign-in sign-in-1 :session nil})
                     (r/ask-of state "ABCD234") (r/under state (str asha)) (r/live-under state (str asha))])))
 
-  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (QUESTIONS.md): an enter without :email or :code-hash, a begin-sign-in without :label, an answer without :new-agent and an invite with one part more do not fit; the optional :driven-by may be left out."
+  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (Sid's call of 22 November): an enter without :email or :code-hash, a begin-sign-in without :label, an answer without :new-agent and an invite with one part more do not fit; :driven-by alone may be left out."
          (and (every? #(= unfit (last-of (conj asked %)))
                       [(without :enter :email) (without :enter :code-hash) (without :begin-sign-in :label)
                        (without :answer-ask :new-agent) (c :invite :more 1) (c :open-session :at 140 :more 1)])
@@ -358,18 +377,26 @@
                           (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email %))))
                       ["bo@example.or" "b0@example.org" "bo@example.org."])))
 
-  (check "The runtime gives every email in lower case, which the reference holds as form (QUESTIONS.md): an email with a capital letter does not fit, in a claim or in an enter."
+  (check "The runtime gives every email in lower case, and Auth holds that as form (QUESTIONS.md, 3, which Sid's call of 22 November let stand): an email with a capital letter does not fit, in a claim or in an enter, also an enter of an account that has a link."
          (and (= unfit (last-of [(c :invite :claim {:by :email :email "Bo@example.org"})]))
-              (= unfit (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email "Bo@example.org"))))))
+              (= unfit (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email "Bo@example.org"))))
+              (= unfit (last-of (conj asha-in (c :enter :email "Asha@example.org" :at 120))))))
 
-  (let [cl (r/open)]
-    (check "open gives a client that a program can write through and read through; in the place of a cluster, anything but a client of the reference gives {:could-not :find-the-module}."
-           (and (= {:invited asha} (r/invite cl (second (c :invite))))
-                (= layer-1 (:own-layer (r/enter cl (second (c :enter)))))
-                (= {:could-not :find-the-module} (r/open :a-cluster "auth"))
-                (= {:could-not :find-the-module} (r/open nil)))))
+  (let [cl (r/cluster auth-name "Another")
+        a (r/open cl auth-name)
+        b (r/open cl auth-name)
+        other (r/open cl "Another")]
+    (check "open takes what stands for the cluster and a module's name, and gives a client that a program can write through and read through: clients opened under one name share one Auth, and another name is another Auth. A name that the cluster does not hold, a cluster that holds none, and a thing that stands for no cluster, a client among them, give {:could-not :find-the-module}."
+           (and (= {:invited asha} (r/invite a (second (c :invite))))
+                (= layer-1 (:own-layer (r/enter b (second (c :enter)))))
+                (= {:refused :not-invited} (r/enter other (second (c :enter))))
+                (= {:could-not :find-the-module} (r/open cl "Auth2"))
+                (= {:could-not :find-the-module} (r/open (r/cluster) auth-name))
+                (= {:could-not :find-the-module} (r/open a auth-name))
+                (= {:could-not :find-the-module} (r/open :a-cluster auth-name))
+                (= {:could-not :find-the-module} (r/open nil auth-name)))))
 
-  (let [cl (r/open)]
+  (let [cl (new-client)]
     (check "close! gives nil, also a second time."
            (and (nil? (r/close! cl)) (nil? (r/close! cl))))))
 
@@ -448,26 +475,33 @@
          (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false}
             (last-of (conj asha-in (c :enter :own-layer layer-2 :making making-2 :at 120)))))
 
-  (let [{:keys [state]} (run (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)))]
-    (check ":says is kept with the link as what the provider said at the enter decided last, with its :at."
+  (let [{:keys [state]} (run (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)
+                                   (c :enter :says {"name" "Asha, from a clock behind"} :at 250)
+                                   (c :enter :says {"name" "Asha, at the same time"} :at 300)))]
+    (check ":says is kept from the enter with the latest :at, with that :at; an enter whose :at is not later, earlier or the same, leaves it (Sid's call of 22 November)."
            (= {:person asha :says {"name" "Asha K"} :said-at 300}
               (select-keys (get-in state [:links asha-google]) [:person :says :said-at]))))
 
-  (check "A copy of an enter that the link has decided already is a repeat and no new decision: it gives what it gave and changes nothing, also when another enter of the account came between (QUESTIONS.md)."
+  (check "A copy of an enter, sent again after a later enter of the account, gives its person, own layer and :making, and leaves :says as the later enter left it: nothing changes (Sid's call of 22 November)."
          (unchanged? (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)) (c :enter)
                      {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false}))
 
+  (let [{:keys [state]} (run (into asha-in (map (fn [i] (c :enter :says {"n" (str i)} :at (+ 200 i)))) (range 100)))]
+    (check "The link keeps no memory of each enter: after a hundred enters of one account, its link holds the person, one :says and one :at, and nothing more (Sid's call of 22 November)."
+           (= {:person asha :says {"n" "99"} :said-at 299} (get-in state [:links asha-google]))))
+
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115)))]
-    (check "An enter that is run again after a failure gives what it gave."
+    (check "An enter that is run again after a failure gives the person, the own layer and the :making that it gave, and :own-layer-made? as it stands."
            (= (nth results 1) (nth results 2))))
 
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115) (c :own-layer-made) (c :enter :at 125)))]
-    (check "Until own-layer-made, every enter says :own-layer-made? false; after it, an enter says true (QUESTIONS.md)."
+    (check "Until own-layer-made, every enter says :own-layer-made? false; after it, an enter says true (Sid's call of 22 November)."
            (= [false false true] (map :own-layer-made? [(nth results 1) (nth results 2) (nth results 4)]))))
 
   (let [{:keys [results]} (run (conj asha-in (c :own-layer-made) (c :enter)))]
-    (check "A copy of the first enter, sent again after own-layer-made, gives what it gave, :own-layer-made? false with it: a repeat does not say how the thing stands now (QUESTIONS.md)."
-           (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false} (nth results 1) (nth results 3))))
+    (check "A copy of the first enter, sent again after own-layer-made, gives the person, the own layer and the :making that the first gave, and :own-layer-made? true: an enter says the flag as it stands at that enter (Sid's call of 22 November)."
+           (and (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false} (nth results 1))
+                (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? true} (nth results 3)))))
 
   (let [{:keys [state last]} (run (conj asha-in (c :own-layer-made)))]
     (check "own-layer-made of a person who has entered gives {:made P}, and who-is then says :own-layer-made? true, with her own layer."
@@ -517,7 +551,7 @@
   (check "Auth refuses nothing for a person whose layer is not marked as made: her sign-in begins before own-layer-made."
          (= {:begun sign-in-1} (last-of signed-in)))
 
-  (check "A repeat of begin-sign-in is known by the hash with which the sign-in began, also after its secret was replaced (QUESTIONS.md)."
+  (check "A repeat of begin-sign-in is known by the hash with which the sign-in began, also after its secret was replaced (QUESTIONS.md, 8)."
          (unchanged? (conj signed-in (c :replace-secret)) (c :begin-sign-in :at 145) {:begun sign-in-1})))
 
 ;; ----------------------------------------------------------- replace-secret
@@ -545,7 +579,7 @@
          (unchanged? (conj signed-in (c :replace-secret)) (c :replace-secret :until 7 :previous-until 8 :at 145)
                      {:replaced sign-in-1}))
 
-  (check "A replacement that arrives after a newer one is no repeat, and is refused with :wrong-secret."
+  (check "A replacement that arrives after a newer one is no repeat, and is refused with :wrong-secret when its old hash is no longer the hash now (Sid's call of 22 November)."
          (= {:refused :wrong-secret}
             (last-of (conj signed-in (c :replace-secret) (c :replace-secret :old-hash (h 102) :new-hash (h 103) :at 145)
                            (c :replace-secret :at 146)))))
@@ -555,7 +589,7 @@
     (check "No session changes when the secret is replaced with a new time after the replacement's :at; for one whose new time is not, see QUESTIONS.md."
            (= (:session (who before sign-in-1 session-1)) (:session (who after sign-in-1 session-1)))))
 
-  (check "A replacement's :previous-until is kept as given, also when it is later than the new :until (QUESTIONS.md)."
+  (check "A replacement's :previous-until is kept as given, also when it is later than the new :until (QUESTIONS.md, 13)."
          (= {:until 200000 :previous {:hash (h 101) :until 900000}}
             (select-keys (:sign-in (who (:state (run (conj signed-in (c :replace-secret :previous-until 900000)))) sign-in-1))
                          [:until :previous])))
@@ -567,16 +601,21 @@
                                                             :previous-until 160000 :at 145))))
                                       sign-in-1)))))
 
-  (let [cycled (conj signed-in (c :replace-secret) (c :replace-secret :old-hash (h 102) :new-hash (h 101) :at 141))]
-    (check "A replacement that the sign-in took before is no repeat once a newer one came, also when its hash has come back: after H1 to H2 and H2 to H1, H1 to H2 again is refused with :wrong-secret and changes nothing; and a replacement whose old and new hash are one is taken (QUESTIONS.md)."
-           (and (unchanged? cycled (c :replace-secret :at 142) {:refused :wrong-secret})
+  (let [cycled (conj signed-in (c :replace-secret) (c :replace-secret :old-hash (h 102) :new-hash (h 101) :at 141))
+        {:keys [state last]} (run (conj cycled (c :replace-secret :at 142)))]
+    (check "A replacement is judged by the present hash and the one before it alone, and a sign-in keeps no history of its replacements (Sid's call of 22 November): after H1 to H2 and H2 to H1, H1 to H2 again is taken, since H1 is the hash now, and the secret is then H2 with H1 before it; a replacement whose old and new hash are one is taken."
+           (and (= {:replaced sign-in-1} last)
+                (= {:hash (h 102) :until 200000 :previous {:hash (h 101) :until 150000}}
+                   (select-keys (:sign-in (who state sign-in-1)) [:hash :until :previous]))
+                (= #{:actor :kind :hash :first-hash :until :previous :label :begun :ended?}
+                   (set (keys (get-in state [:roots asha :sign-ins sign-in-1]))))
                 (= {:replaced sign-in-1} (last-of (conj signed-in (c :replace-secret :new-hash (h 101))))))))
 
   (check "Where both refusals of replace-secret apply, :not-live comes first: an ended sign-in with a wrong old hash is :not-live."
          (= {:refused :not-live} (last-of (conj signed-in (c :end-sign-in :at 135) (c :replace-secret :old-hash (h 109))))))
 
   (let [{:keys [state last]} (run (conj sitting (c :replace-secret :until 140 :at 145)))]
-    (check "A replacement whose new until is at or before its own :at is taken, and takes the sign-in out at once, with its sessions (QUESTIONS.md)."
+    (check "A replacement whose new until is at or before its own :at is taken, and takes the sign-in out at once, with its sessions (QUESTIONS.md, 10, which Sid's call of 22 November let stand)."
            (and (= {:replaced sign-in-1} last)
                 (:ended? (:sign-in (who state sign-in-1)))
                 (:closed? (:session (who state sign-in-1 session-1)))
@@ -679,7 +718,7 @@
            (and (= [{:refused :is-a-person} {:begun sign-in-2}] (take-last 2 results))
                 (= #{sign-in-1 sign-in-2} (set (keys (:sign-ins (r/live-under state asha))))))))
 
-  (check "end-actor again gives {:ended A} and changes nothing; so does end-actor of an agent that ended with one above it (QUESTIONS.md)."
+  (check "end-actor again gives {:ended A} and changes nothing; so does end-actor of an agent that ended with one above it (QUESTIONS.md, 16)."
          (and (unchanged? (conj with-agent (c :end-actor)) (c :end-actor :at 160) {:ended agent-1})
               (unchanged? (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131) (c :end-actor))
                           (c :end-actor :actor agent-2 :at 160) {:ended agent-2})))
@@ -712,7 +751,7 @@
 
   (let [closed (run (conj sitting (c :close-session) (c :open-session :until 90000 :at 151)))
         passed (run (conj sitting (c :end-sign-in :sign-in sign-in-2 :at 50000) (c :open-session :until 90000 :at 50001)))]
-    (check "A session that is closed, or was taken out because its time passed, is not opened again: open-session of it gives {:open S}, the result of the first, and it stays closed (QUESTIONS.md)."
+    (check "A session that is closed, or was taken out because its time passed, is not opened again: open-session of it gives {:open S}, the result of the first, and it stays closed (QUESTIONS.md, 17, which Sid's call of 22 November let stand)."
            (and (= {:open session-1} (:last closed) (:last passed))
                 (= {:closed? true :until 50000}
                    (select-keys (:session (who (:state closed) sign-in-1 session-1)) [:closed? :until])
@@ -793,7 +832,7 @@
   (check "answer-ask under a code that has no ask is refused with :no-such-ask."
          (= {:refused :no-such-ask} (last-of (conj asha-in (c :answer-ask)))))
 
-  (check "An answer whose :at is at or after the ask's :ends is refused with :over; one just before is taken."
+  (check "An answer to an ask that waits, whose :at is at or after the ask's :ends, is refused with :over; one just before is taken."
          (and (= {:refused :over} (last-of (conj asked (c :answer-ask :at 1000))))
               (= {:refused :over} (last-of (conj asked (c :answer-ask :at 1001))))
               (contains? (last-of (conj asked (c :answer-ask :at 999))) :yes)))
@@ -823,25 +862,29 @@
     (check "The sign-in that a yes begins has the ask's :asks as its label."
            (= "the importer on a laptop" (:label (first (:sign-ins (r/under state asha)))))))
 
-  (check "The same answer is the same yes or no, root, actor and sign-in, with a new agent or with none as the one that stands: after a yes as herself, a yes of those parts that asks for a new agent of her own id is another answer, refused with :in-use (QUESTIONS.md)."
-         (= {:refused :in-use} (last-of (conj asked (c :answer-ask) (c :answer-ask :new-agent {:label "x"} :at 141)))))
+  (let [once (conj asha-in (c :invite :person bo :claim bo-email :at 101) (c :begin-sign-in) (c :ask) (c :answer-ask))]
+    (check "Once an ask has an answer, every answer that fits gives what stands, before any refusal, and changes nothing: a yes that asks for a new agent of her own id, a yes as an actor that is nobody's, a yes whose sign-in id is in use, a no from a root who waits, and a yes from a root that is nobody's (Sid's call of 22 November)."
+           (every? #(unchanged? once % {:yes {:root asha :actor asha :sign-in sign-in-2}})
+                   [(c :answer-ask :new-agent {:label "x"} :at 141) (c :answer-ask :actor agent-3 :at 142)
+                    (c :answer-ask :sign-in sign-in-1 :at 143) (c :answer-ask :yes? false :root bo :at 144)
+                    (c :answer-ask :root cy :at 145)])))
 
-  (check "A no at or after the ask's :ends is refused with :over, as every answer is (QUESTIONS.md)."
+  (check "A no to an ask that waits, at or after its :ends, is refused with :over, as every answer to an ask that waits is (QUESTIONS.md, 21)."
          (= {:refused :over} (last-of (conj asked (c :answer-ask :yes? false :at 1000)))))
 
-  (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md)."
+  (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md, 24, which Sid's call of 22 November let stand)."
          (= {:yes {:root asha :actor agent-2 :sign-in sign-in-2}}
             (last-of (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131) (c :ask) (c :answer-ask :actor agent-2)))))
 
-  (check "A yes whose sign-in id is a sign-in of the root already is :in-use, also when that sign-in has the very parts that the yes would bind (QUESTIONS.md)."
+  (check "A yes whose sign-in id is a sign-in of the root already is :in-use, also when that sign-in has the very parts that the yes would bind (QUESTIONS.md, 25)."
          (= {:refused :in-use}
             (last-of (conj asked (c :begin-sign-in :sign-in sign-in-2 :kind :program :hash (h 201) :at 135) (c :answer-ask)))))
 
-  (check "A no needs a person who has entered, and judges no other part: a no with an actor and a sign-in that are nobody's is taken, and a no from a root who waits is :no-such-actor (QUESTIONS.md)."
+  (check "A no needs a person who has entered, and judges no other part: a no with an actor and a sign-in that are nobody's is taken, and a no from a root who waits is :no-such-actor (QUESTIONS.md, 22)."
          (and (= {:no code-1} (last-of (conj asked (c :answer-ask :yes? false :actor agent-3 :sign-in sign-in-1))))
               (= {:refused :no-such-actor} (last-of [(c :invite) (c :ask) (c :answer-ask :yes? false)]))))
 
-  (check "The parts of a no that it does not judge must still fit (QUESTIONS.md): a no whose actor or sign-in is no UUID, or whose :until is no time, does not fit."
+  (check "The parts of a no that it does not judge must still fit (Sid's call of 22 November): a no whose actor or sign-in is no UUID, or whose :until is no time, does not fit."
          (every? (fn [[k v]] (= unfit (last-of (conj asked (c :answer-ask :yes? false k v)))))
                  [[:actor "an actor"] [:sign-in "a sign-in"] [:until "later"]]))
 
@@ -849,19 +892,19 @@
          (let [state (:state (run (conj asked (c :make-actor :at 5000))))]
            (and (= :waiting (:state (r/ask-of state code-1))) (nil? (r/ask-of state "ZZZZ9999")))))
 
-  (check "Where several refusals of answer-ask apply, they come in the order of the contract: a late answer with an actor that is nobody's is :over, and an answer under a code with no ask is :no-such-ask."
+  (check "Where several refusals of answer-ask apply, they come in the order of the contract: a late answer to an ask that waits, with an actor that is nobody's, is :over, and an answer under a code with no ask is :no-such-ask."
          (and (= {:refused :over} (last-of (conj asked (c :answer-ask :actor agent-3 :at 1000))))
               (= {:refused :no-such-ask} (last-of (conj asha-in (c :answer-ask :code "ZZZZ9999" :actor agent-3 :at 1000))))))
 
-  (check "After the ask's end, the same answer again still gives what stands, since a repeat is recognised first, and another answer is :over (QUESTIONS.md)."
+  (check "After the ask's end, every answer to an ask that has an answer gives what stands and changes nothing: the same answer again, and another answer, a no (Sid's call of 22 November)."
          (let [once (conj asked (c :answer-ask))]
            (and (unchanged? once (c :answer-ask :at 2000) {:yes {:root asha :actor asha :sign-in sign-in-2}})
-                (= {:refused :over} (last-of (conj once (c :answer-ask :yes? false :at 2000)))))))
+                (unchanged? once (c :answer-ask :yes? false :at 2000) {:yes {:root asha :actor asha :sign-in sign-in-2}}))))
 
-  (check "Another answer binds nothing, as a refusal binds nothing: told what stands before the ask's end, it is :over when it comes again after the end (QUESTIONS.md)."
+  (check "An answer that was told what stands is told it again when it comes again, before the ask's end or after: its result comes from what stands (Sid's call of 22 November)."
          (let [once (conj asked (c :answer-ask) (c :answer-ask :yes? false :at 141))]
            (and (= {:yes {:root asha :actor asha :sign-in sign-in-2}} (last-of once))
-                (= {:refused :over} (last-of (conj once (c :answer-ask :yes? false :at 2000))))))))
+                (= {:yes {:root asha :actor asha :sign-in sign-in-2}} (last-of (conj once (c :answer-ask :yes? false :at 2000))))))))
 
 ;; -------------------------------------------------------------------- reads
 
@@ -959,7 +1002,7 @@
   (let [{:keys [state results]} (run (conj asha-in (c :begin-sign-in :until 130) (c :begin-sign-in :sign-in sign-in-2 :hash (h 102) :at 131)
                                            (c :open-session :sign-in sign-in-2 :until 132 :at 132) (c :ask :ends 120)
                                            (c :answer-ask :sign-in sign-in-3 :at 100)))]
-    (check "A sign-in, a session or an ask whose end is at or before the :at of the event that makes it is taken and is never live: the sign-in begins ended, the session opens closed, and the ask is over, also to an answer from a slower clock (QUESTIONS.md)."
+    (check "A sign-in, a session or an ask whose end is at or before the :at of the event that makes it is taken and is never live: the sign-in begins ended, the session opens closed, and the ask is over, also to an answer from a slower clock (QUESTIONS.md, 9 and 19)."
            (and (= [{:begun sign-in-1} {:begun sign-in-2} {:open session-1} {:asked code-1} {:refused :over}] (drop 2 results))
                 (:ended? (:sign-in (who state sign-in-1)))
                 (:closed? (:session (who state sign-in-2 session-1)))
@@ -995,21 +1038,22 @@
   (reduce (fn [_ [kind input]] ((get client-writes kind) client input)) nil calls))
 
 (defn- client-checks
-  "The checks of the client over one atom: the functions, two copies of the
-  runtime, watch-root, and close!."
+  "The checks of the clients that `open` gives over a cluster of the
+  reference: the functions, two copies of the runtime, watch-root, and
+  close!."
   []
-  (check "The client over one atom has the eighteen functions of the contract under their own names."
+  (check "The reference has the eighteen functions of the contract under their own names."
          (and (= 18 (count contract-names))
               (every? #(fn? (some-> (ns-resolve 'softland.auth.reference %) deref)) contract-names)))
 
-  (let [a (r/open) b (r/open a)]
+  (let [[a b] (two-clients)]
     (r/invite a (second (c :invite)))
     (check "A write returns when its effect can be read by any copy of the runtime: what one client wrote, another over the same atom reads at once."
            (and (= asha (:person (r/enter b (second (c :enter)))))
                 (= layer-1 (:own-layer (r/who-is a {:root asha :sign-in sign-in-1 :session nil}))))))
 
   (let [runs (vec (for [_ (range 100)]
-                    (let [a (r/open) b (r/open a)]
+                    (let [[a b] (two-clients)]
                       (r/invite a (second (c :invite)))
                       (at-once [#(r/enter a (second (c :enter)))
                                 #(r/enter b (second (c :enter :own-layer layer-2 :making making-2)))]))))]
@@ -1017,14 +1061,14 @@
            (every? (fn [[x y]] (and (= x y) (= asha (:person x)))) runs)))
 
   (let [runs (vec (for [_ (range 100)]
-                    (let [a (r/open) b (r/open a)]
+                    (let [[a b] (two-clients)]
                       (r/invite a (second (c :invite)))
                       (at-once [#(r/enter a (second (c :enter))) #(r/enter b (second (c :enter :account bo-google)))]))))]
     (check "Two accounts that prove one claim through two copies at one moment: one becomes the person and the other is refused with :not-invited; so in 100 tries."
            (every? (fn [results] (= #{asha :not-invited} (set (map #(or (:person %) (:refused %)) results)))) runs)))
 
   (let [runs (vec (for [_ (range 100)]
-                    (let [a (r/open) b (r/open a)]
+                    (let [[a b] (two-clients)]
                       (through! a (concat asha-in bo-in [(c :ask)]))
                       [(at-once [#(r/answer-ask a (second (c :answer-ask)))
                                  #(r/answer-ask b (second (c :answer-ask :root bo :actor bo :sign-in sign-in-3)))])
@@ -1032,7 +1076,7 @@
     (check "Two persons who answer one ask through two copies at one moment: one answer stands, and both are told which; so in 100 tries."
            (every? (fn [[[x y] k]] (and (= x y) (some? (:yes x)) (= (:yes x) (:answer k)))) runs)))
 
-  (let [a (r/open) b (r/open a)
+  (let [[a b] (two-clients)
         seen (atom [])]
     (through! a asha-in)
     (let [stop (r/watch-root a asha #(swap! seen conj %))
@@ -1057,7 +1101,7 @@
       (check "watch-root gives a function of no argument that stops the watching: a change after it calls nothing."
              (= two @seen))))
 
-  (let [a (r/open) b (r/open a)
+  (let [[a b] (two-clients)
         seen (atom 0)]
     (through! a asha-in)
     (r/watch-root a asha (fn [_] (swap! seen inc)))
@@ -1071,20 +1115,20 @@
                   (zero? @seen)
                   (= {:begun sign-in-1} later)))))
 
-  (let [a (r/open)
+  (let [a (new-client)
         calls (atom 0)]
     (through! a asha-in)
     (r/watch-root a asha (fn [_] (swap! calls inc) (throw (ex-info "a watch that throws" {}))))
     (let [first-write (r/begin-sign-in a (second (c :begin-sign-in)))
           second-write (r/open-session a (second (c :open-session)))]
-      (check "A watching function that throws makes no call throw, and is called again at the next change (QUESTIONS.md)."
+      (check "A watching function that throws makes no call throw, and is called again at the next change (QUESTIONS.md, 27)."
              (and (= {:begun sign-in-1} first-write) (= {:open session-1} second-write) (= 2 @calls)))))
 
-  (let [a (r/open)]
-    (check "watch-root takes a function: a keyword, a map or a var in its place gives {:could-not :read-the-event} (QUESTIONS.md)."
+  (let [a (new-client)]
+    (check "watch-root takes a function: a keyword, a map or a var in its place gives {:could-not :read-the-event} (QUESTIONS.md, 27)."
            (every? #(= unfit (r/watch-root a asha %)) [:a-keyword {} #'clojure.core/inc])))
 
-  (let [a (r/open)
+  (let [a (new-client)
         calls (atom [])
         stop-second (promise)]
     (through! a asha-in)
@@ -1093,8 +1137,7 @@
     (r/begin-sign-in a (second (c :begin-sign-in)))
     (r/open-session a (second (c :open-session)))
     (let [stopped @calls
-          a2 (r/open)
-          b2 (r/open a2)
+          [a2 b2] (two-clients)
           calls2 (atom [])]
       (through! a2 asha-in)
       (r/watch-root a2 asha (fn [_] (swap! calls2 conj :first) (r/close! b2)))
@@ -1104,7 +1147,7 @@
       (check "A watch that an earlier watch's function stops, or whose client it closes, is not called for that change nor for any later one."
              (and (= [:first :first] stopped) (= [:first :first] @calls2)))))
 
-  (let [a (r/open)
+  (let [a (new-client)
         seen-first (atom [])
         seen-second (atom [])
         wrote? (atom false)]
@@ -1280,7 +1323,10 @@
       :replace-secret (let [P (a-signed-in-root w state)
                             G (a-sign-in w state P)
                             g (get-in state [:roots P :sign-ins G])
-                            [w H'] (fresh-hash w)
+                            ;; Now and then the hash before the present one comes back.
+                            [w H'] (if (and (:previous g) (chance? rnd 0.2))
+                                     [w (get-in g [:previous :hash])]
+                                     (fresh-hash w))
                             old (cond (and g (chance? rnd 0.8)) (:hash g)
                                       (and (:previous g) (chance? rnd 0.5)) (get-in g [:previous :hash])
                                       :else (h (pick rnd [7 8 9])))]
@@ -1402,7 +1448,8 @@
              {:account [:google long-text]} {:says {"k" (text-of 2049)}}
              {:says (into {} (map (fn [i] [(str i) "v"])) (range 33))} {:says {:k "v"}} {:says nil}
              {:email "A@x.org"} {:email 7} {:code-hash (apply str (repeat 64 "A"))}
-             {:making {:uuid (uuid-of rnd)}}]
+             {:making {:uuid (uuid-of rnd)}} {:account [(keyword long-text) "1"]} {:own-layer "a layer"}
+             {:own-layer nil}]
      :own-layer-made [{:person "a person"}]
      :begin-sign-in [{:kind :robot} {:hash (apply str (repeat 64 "A"))} {:hash (apply str (repeat 63 "a"))}
                      {:label long-text} {:until "5"} {:root "a root"}]
@@ -1414,7 +1461,8 @@
                     {:driven-by {:kind :person :model "x"}} {:driven-by "a person"} {:session 5}]
      :close-session [{:session "a session"}]
      :ask [{:code "CODE001"} {:code "CODE00011"} {:asks long-text} {:ends nil}]
-     :answer-ask [{:yes? "yes"} {:new-agent {:label nil}} {:new-agent {:label "x" :more 1}} {:code 7} {:yes? nil}]}))
+     :answer-ask [{:yes? "yes"} {:new-agent {:label nil}} {:new-agent {:label "x" :more 1}} {:code 7} {:yes? nil}
+                  {:yes? false :actor "an actor"} {:yes? false :sign-in nil} {:yes? false :until "later"}]}))
 
 (defn- unfit-call
   "A call whose input does not fit: a call that fits, with a part made
@@ -1457,13 +1505,13 @@
   the words that its check prints."
   [[:no-throw "no step throws"]
    [:one-person "an account names one person at most, and the same one for good; a claim names one person for good; a person has one claim"]
-   [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, and leaves the state as once, but for what its own time takes out, the time that a repeat of open-session moves on, and the :says of an enter that is no copy of one decided before; a replacement that arrives after a newer one is no repeat, and is refused"]
+   [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-layer-made? as it stands, and leaves the state as once, but for what its own time takes out, the time that a repeat of open-session moves on, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
    [:refusal "a write that is refused changes nothing but what its time takes out"]
    [:no-revival "an end is never taken back: no later call makes an ended sign-in, a closed session or an ended actor live again"]
    [:time "what is live under a root holds no sign-in and no session whose time is at or before the :at of that root's latest write"]
    [:standing "what is live under a root holds no open session whose sign-in is not live in it"]
    [:end-actor "end-actor ends every actor beneath it, in any depth, with every sign-in and session of each, and an actor that an ended one made has ended"]
-   [:answer "the first answer to an ask stands, the ask keeps its hash, :asks and :ends, and an answer at or after :ends, or to an ask that was over when it was made, is refused with :over unless it is the answer that stands"]
+   [:answer "the first answer to an ask stands, and the ask keeps its hash, :asks and :ends; every answer to an ask that has an answer gives what stands; and an answer to an ask that waits, at or after its :ends or to an ask that was over when it was made, is refused with :over"]
    [:driven-by "who-is of a session gives the :driven-by that it was opened with"]
    [:fit "an input that does not fit gives {:could-not :read-the-event} and changes nothing, and an input that fits is judged"]])
 
@@ -1506,10 +1554,9 @@
 (defn- expected-after-repeat
   "The state that a repeat of `kind` with `input` must leave after
   `before`: what its time takes out; then for open-session the session's
-  time moved on while it is open; and for an enter that is no copy of one
-  that its link decided, the link's :says and its :at set, and the enter
-  kept as decided, with `result`, what it gave."
-  [kind input before result]
+  time moved on while it is open; and for an enter whose :at is later than
+  the :at that its link keeps, the link's :says and its :at set from it."
+  [kind input before]
   (let [s0 (swept before kind input)]
     (case kind
       :open-session (let [path [:roots (:root input) :sessions (:session input)]
@@ -1518,28 +1565,27 @@
                         (assoc-in s0 (conj path :until) (max (:until s) (:until input)))
                         s0))
       :enter (let [link (get-in s0 [:links (:account input)])]
-               (if (and link (not (contains? (:decided link) input)))
-                 (update-in s0 [:links (:account input)]
-                            #(-> % (assoc :says (:says input) :said-at (:at input)) (assoc-in [:decided input] result)))
+               (if (and link (> (:at input) (:said-at link)))
+                 (update-in s0 [:links (:account input)] assoc :says (:says input) :said-at (:at input))
                  s0))
       s0)))
 
 (defn- bound-parts
   "The parts of a result that a repeat must give again: all of it, but for
-  enter, whose :own-layer-made? says how things stand now."
+  enter, whose :own-layer-made? says how the flag stands at the repeat."
   [kind result]
   (if (= kind :enter) (select-keys result [:person :own-layer :making]) result))
 
 (defn- repeat-violations
   "Checks a repeat of the taken call `j` of the world: it gives the first
-  result, whole when it is a copy of that call and by the parts that bind
-  when not, and leaves the state as once; a replacement that arrives after
-  a newer one is refused instead, with :not-live when its sign-in is no
-  longer live, else :wrong-secret."
+  result by the parts that bind, an enter with :own-layer-made? as it
+  stands, and leaves the state as once. A replacement that arrives after a
+  newer one is no repeat: it is judged by the present hash and the one
+  before it alone, and so refused with :not-live when its sign-in is no
+  longer live, with :wrong-secret when its old hash is not the hash now,
+  and taken, as a new replacement, when that hash has come back."
   [w before [kind input :as call] result after j]
-  (let [first-call (:call (nth (:taken w) j))
-        first-result (:result (nth (:taken w) j))
-        bound (if (= call first-call) identity (partial bound-parts kind))
+  (let [first-result (:result (nth (:taken w) j))
         s0 (swept before kind input)
         g (when (= kind :replace-secret)
             (:sign-in (r/who-is s0 {:root (:root input) :sign-in (:sign-in input) :session nil})))
@@ -1547,13 +1593,24 @@
                    (not (and g (= (:new-hash input) (:hash g)) (= (:old-hash input) (get-in g [:previous :hash])))))]
     (if late?
       (let [live? (and g (not (:ended? g)) (not (:actor-ended? g)) (< (:at input) (:until g)))
-            want {:refused (if live? :wrong-secret :not-live)}]
+            want (cond (not live?) {:refused :not-live}
+                       (not= (:old-hash input) (:hash g)) {:refused :wrong-secret}
+                       :else {:replaced (:sign-in input)})
+            g' (:sign-in (r/who-is after {:root (:root input) :sign-in (:sign-in input) :session nil}))]
         (cond-> []
           (not= want result) (conj [:late-replacement call want result])
-          (not= s0 after) (conj [:late-replacement-changed call])))
+          (and (contains? want :refused) (not= s0 after)) (conj [:late-replacement-changed call])
+          (and (contains? want :replaced)
+               (not= [(:new-hash input) {:hash (:old-hash input) :until (:previous-until input)}]
+                     [(:hash g') (:previous g')]))
+          (conj [:hash-that-came-back-not-taken call])))
       (cond-> []
-        (not= (bound first-result) (bound result)) (conj [:other-result call first-result result])
-        (not= (expected-after-repeat kind input before result) after) (conj [:state-changed call])))))
+        (not= (bound-parts kind first-result) (bound-parts kind result)) (conj [:other-result call first-result result])
+        (and (= kind :enter)
+             (not= (:own-layer-made? result)
+                   (:own-layer-made? (r/who-is before {:root (:person result) :sign-in (:person result) :session nil}))))
+        (conj [:flag-not-as-it-stands call result])
+        (not= (expected-after-repeat kind input before) after) (conj [:state-changed call])))))
 
 (defn- ended-in
   "The sign-ins that have ended, the sessions that are closed, and the
@@ -1644,35 +1701,26 @@
          :when (and (contains? ended (:made-by a)) (not (:ended? a)))]
      [:made-by-an-ended-agent P (:actor a)])))
 
-(defn- same-as-standing?
-  "Whether the answer `input` is the one that the tracker knows to stand on
-  its ask: the same yes or no and root, and for a yes the same actor and
-  sign-in, with a new agent or with none as that one."
-  [standing input]
-  (boolean (and standing
-                (= (:yes? input) (:yes? standing))
-                (= (:root input) (:root standing))
-                (or (not (:yes? input))
-                    (and (= (:actor input) (:actor standing))
-                         (= (:sign-in input) (:sign-in standing))
-                         (= (some? (:new-agent input)) (:new-agent? standing)))))))
-
 (defn- answer-violations
   "Checks that each ask keeps its hash, :asks and :ends; that a standing
-  answer stays; and that a late answer, or one to an ask that was over when
-  made, is refused with :over unless it is the answer that stands."
+  answer stays; that every answer to an ask that has an answer gives what
+  stands; and that an answer to an ask that waits, at or after its :ends
+  or to an ask that was over when made, is refused with :over."
   [tracker before [kind input] result after]
   (concat
    (for [[U k] (:asks tracker) :when (not= k (select-keys (r/ask-of after U) [:hash :asks :ends]))] [:ask-changed U])
-   (for [[U {:keys [read]}] (:standing tracker) :when (not= read (select-keys (r/ask-of after U) [:state :answer]))]
+   (for [[U read] (:standing tracker) :when (not= read (select-keys (r/ask-of after U) [:state :answer]))]
      [:answer-changed U])
    (when (= kind :answer-ask)
      (let [U (:code input)
            k (r/ask-of before U)]
-       (when (and k
-                  (or (>= (:at input) (:ends k)) (contains? (:over-when-made tracker) U))
-                  (not (same-as-standing? (get-in tracker [:standing U]) input))
-                  (not= {:refused :over} result))
+       (cond
+         (nil? k) nil
+         (not= :waiting (:state k))
+         (let [stands (if (= :yes (:state k)) {:yes (:answer k)} {:no U})]
+           (when (not= stands result) [[:not-what-stands input stands result]]))
+         (and (or (>= (:at input) (:ends k)) (contains? (:over-when-made tracker) U))
+              (not= {:refused :over} result))
          [[:not-over input result]])))))
 
 (defn- driven-by-violations
@@ -1711,10 +1759,7 @@
                 (assoc :ended (ended-in after))
                 (update :asks first-seen (map (fn [[U _]] [U (select-keys (r/ask-of after U) [:hash :asks :ends])]) (:asks after))))
       (and new-ask? (<= (:ends input) (:at input))) (update :over-when-made conj (:code input))
-      answered? (assoc-in [:standing (:code input)]
-                          (assoc (select-keys input [:yes? :root :actor :sign-in])
-                                 :new-agent? (some? (:new-agent input))
-                                 :read (select-keys (r/ask-of after (:code input)) [:state :answer])))
+      answered? (assoc-in [:standing (:code input)] (select-keys (r/ask-of after (:code input)) [:state :answer]))
       opened? (assoc-in [:driven-by [(:root input) (:session input)]]
                         {:sign-in (:sign-in input) :driven-by (:driven-by input)}))))
 
@@ -1769,15 +1814,11 @@
           (if (instance? Throwable stepped)
             (conj found {:rule :no-throw :seed seed :step k :call call :threw (str stepped)})
             (let [[after result] stepped
-                  [tracker violations] (check-step tracker w state call result after meta)
-                  [kind input] (when (vector? call) call)]
+                  [tracker violations] (check-step tracker w state call result after meta)]
               (recur (inc k)
-                     (if (and (taken? result)
-                              (not (:repeat-of meta))
-                              ;; An answer that is told what stands binds nothing, as a refusal
-                              ;; binds nothing; only the answer that stands is taken (QUESTIONS.md).
-                              (or (not= kind :answer-ask)
-                                  (same-as-standing? (get-in tracker [:standing (:code input)]) input)))
+                     ;; An answer that was told what stands is taken too: told it again, it
+                     ;; must hear the same, since its result comes from what stands.
+                     (if (and (taken? result) (not (:repeat-of meta)))
                        (update w :taken conj {:call call :result result})
                        w)
                      after

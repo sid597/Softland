@@ -16,9 +16,9 @@ Auth first. Everything else here is this session's, and his to turn.
 pasted to the build of the reference, are written below where each belongs,
 each marked "Sid's call of 22 November". Two of them are rules: what fits,
 and that a repeat's result comes from what stands, never from a memory of
-calls. With them, questions 1 to 7, 20 and 23 of the reference's questions
-(`test-auth/softland/auth/QUESTIONS.md`) are settled. Questions 10, 17 and
-24 stand as the reference took them, and stay his to turn.
+calls. With them, questions 1 to 7, 12, 20 and 23 of the reference's
+questions (`test-auth/softland/auth/QUESTIONS.md`) are settled. Questions
+10, 17 and 24 stand as the reference took them, and stay his to turn.
 
 ## What Auth is
 
@@ -315,8 +315,12 @@ other parts it is refused.
 with a new end `t1`. `H` is the sign-in's hash now; or it is the same
 replacement again, which is so when `H'` is the sign-in's hash now and `H`
 is the one before it. A replacement that arrives after a newer one is no
-repeat, and is refused with `:wrong-secret`. The old secret keeps standing until `t2`
-and no longer. No session changes. A replacement whose new `:until` is at or
+repeat. Like every replacement, it is judged by the present hash and the one
+before it alone, for a sign-in keeps no history of its replacements, which
+would grow with every one (Sid's call of 22 November): it is refused with
+`:wrong-secret` when its old hash is no longer the hash now, and a hash that
+has come back is taken when the replacement's old hash is the hash now. The
+old secret keeps standing until `t2` and no longer. No session changes. A replacement whose new `:until` is at or
 before its own `:at` is taken, and its event takes the sign-in out at once,
 ended as by `end-sign-in`, with its sessions: they close because the
 sign-in's time has passed, not because its secret was replaced. (Question

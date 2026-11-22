@@ -10,7 +10,7 @@ requires nothing outside Clojure.
 
 | File | What it is | State that it changes |
 |---|---|---|
-| [reference.clj](reference.clj) | The twelve writes as a pure state machine, the pure reads of a state, and a client over one atom with the eighteen functions of the contract, so that a program can stand on it. | A client's atom, in memory: the state, the watches, which clients are closed. A client opened from another shares its atom, as two copies of the runtime share one Auth. |
+| [reference.clj](reference.clj) | The twelve writes as a pure state machine, the pure reads of a state, a thing that stands for a cluster in which Auth is launched under the names it is given, and the eighteen functions of the contract, `open` among them, so that a program can stand on it. | The atoms of a cluster, in memory, one for each name: the state, the watches, which clients are closed. Every client opened under one name shares its atom, as copies of the runtime share one Auth. |
 | [reference_proof.clj](reference_proof.clj) | The checks of the reference: by cases, by generated histories, by broken copies. | None outside its process. |
 | [QUESTIONS.md](QUESTIONS.md) | Each place where the spec does not say what happens, or says two things, with the reading that the reference takes. | None. |
 
@@ -25,8 +25,8 @@ clojure -M:auth -m softland.auth.reference-proof [seed]
 ```
 
 **What it checks.** One check for each sentence of the spec that says what a
-call gives or refuses, and the client over one atom, with races of two copies of
-the runtime among them. Then generated histories, from the seed that the run
+call gives or refuses, and the clients that `open` gives over a cluster of the
+reference, with races of two copies of the runtime among them. Then generated histories, from the seed that the run
 prints: random sequences of calls with repeats, inputs that do not fit, and
 times that pass and now and then go back. A rule of its own is checked after
 every step of every history. Last, each broken copy of the rules (`breaks` in
@@ -58,7 +58,7 @@ makes the same ones again.
 - The client's lock is checked by three races of two threads, a hundred times
   each. No race of many threads is written.
 - Where no read of the contract shows a fact (which account is linked to whom,
-  which claim names whom, a link's `:says` and the enters that it decided), the
+  which claim names whom, a link's `:says`), the
   histories read the reference's state map, whose form `reference.clj` gives.
   A check of the module could read those facts only through results.
 - Erasing, which the spine does not build.

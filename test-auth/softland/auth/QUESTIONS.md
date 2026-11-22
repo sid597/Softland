@@ -6,8 +6,15 @@ The places where the spec does not say what happens, or says two things, as the
 reference (`reference.clj`) met them, against the spec as of commit `37bc0e01`.
 For each: the sentences, the readings, and the reading that the reference takes.
 That is the reading that refuses more or changes less, unless it is said why
-not. None is settled here: each is Sid's to turn, and a turn changes
-`reference.clj` and the check that cites the question.
+not. A turn changes `reference.clj` and the check that cites the question.
+
+**22 November 2026.** Sid's calls of that day, in the prompts that he pasted to
+the build of the reference, settled questions 1 to 7, 12, 20 and 23, and let
+10, 17 and 24 stand as the reference took them, which stay his to turn. Each
+says so under it, and the spec now says each where it belongs. The calls are
+two rules: what fits, and that a repeat's result comes from what stands, never
+from a memory of calls. The others are his to turn. Question 28 is new: what in
+the reference's state grows with the number of calls.
 
 ## Forms
 
@@ -26,6 +33,11 @@ The reference takes (a), with `:driven-by` free to be left out. So `who-is`
 needs `:session nil` when no session is asked for, an `enter` needs
 `:email nil` and `:code-hash nil`, and an `answer-ask` needs `:new-agent nil`.
 
+**Settled by Sid's call of 22 November: (a).** Every part that the contract
+names is there, nil where the contract says `-or-nil`, each in its stated form,
+and nothing that the contract does not name. `:driven-by` alone may be left
+out. The broken copy `:loose-form` takes (b).
+
 **2. What the runtime keeps, and Auth does not check.** Under the heading "What
 the runtime does, and Auth does not check": "A provider's name is at most 256
 characters. `:own-layer` is a UUID." Under "Rules for every call", an input
@@ -36,10 +48,18 @@ section also holds rules that Auth does keep, such as the order of refusals.
 - (a) Auth keeps them too, as form: an input that breaks them does not fit.
 - (b) The runtime keeps them, and Auth does not check them.
 
-The reference takes (b), though (a) refuses more. The grounds are the heading,
+The reference took (b), though (a) refuses more. The grounds were the heading,
 and the brief, which asks the reference to hold only the order of refusals from
 that section. A provider must still be a keyword, and `:own-layer` must be there
 (1).
+
+**Turned by Sid's call of 22 November, to (a).** A provider's length and
+`:own-layer` being a UUID are forms, and Auth checks them: an input that breaks
+either does not fit. The spec moved both, with the other sentences that Auth
+keeps, out of that heading. A provider's name is counted with its namespace
+when it has one, `:g/x` as the three characters `g/x`: the reference's reading
+of "name", which the spec does not say. The broken copy
+`:provider-and-layer-unchecked` takes (b).
 
 **3. An email that is not in lower case.** "Two emails are the same when their
 texts are the same. The runtime gives every email in lower case."
@@ -54,6 +74,9 @@ so an enter of an account that has a link, with such an email, is not let in,
 though "an account that has a link gives its person, whatever claim came with
 it".
 
+**Stands, by Sid's call of 22 November.** The spec now says it as form. The
+broken copy `:capital-email-fits` takes (b).
+
 **4. The two ids of `:making`.** "`:making` holds its UUID and the id that it
 names as its session ... that session is no session of Auth's." And "Ids of
 persons, actors, sign-ins and sessions are UUIDs."
@@ -62,7 +85,7 @@ persons, actors, sign-ins and sessions are UUIDs."
 - (b) The session's id is the store's, of any form, since that session is no
   session of Auth's.
 
-The reference takes (a).
+The reference takes (a). **Stands, by Sid's call of 22 November.**
 
 **5. A call whose client is no client.** "No call throws for what a caller
 gave", and "a call that could not be made gives `{:could-not <word> ...}`". The
@@ -70,7 +93,15 @@ contract's words are `:read-the-event`, `:reach-the-module`, `:closed` and
 `:find-the-module`, and none is for this.
 
 The reference gives `{:could-not :read-the-event}`, and `close!` of a thing that
-is no client gives nil.
+is no client gives nil. **Stands, by Sid's call of 22 November**, and the spec
+now says it.
+
+`open` itself has the contract's form since 22 November: it takes what stands
+for the cluster, a thing that `cluster` gives, and a module's name, and a name
+that is not there gives `{:could-not :find-the-module}`. Before, it ignored the
+name. A thing in the cluster's place that is no cluster, a client among them,
+gives `{:could-not :find-the-module}` too: the reference's reading, since the
+contract gives `open` that word alone.
 
 ## invite, enter, own-layer-made
 
@@ -92,11 +123,16 @@ The readings:
   and all. An enter that is no copy is decided anew, and says how the flag
   stands.
 
-The reference takes (b), which holds all three sentences, and neither reading
-refuses more. A copy that is run again after `own-layer-made` says false, so
-its runtime sends the act once more. That is the same act, with the same digest,
-since it is built from nothing but what the enter gave; and a repeat of
-`own-layer-made` changes nothing.
+The reference took (b), which held all three sentences, and neither reading
+refuses more. A copy that was run again after `own-layer-made` said false, so
+its runtime sent the act once more.
+
+**Turned by Sid's call of 22 November, to (a).** A repeat's result comes from
+what stands, never from a memory of calls. An enter of an account that has a
+link gives its person, the fixed own layer and making, and `:own-layer-made?` as
+it stands at that enter, a copy of the first enter among them. The spec's rule
+for every call names it as the one part of a repeat's result that says how
+things stand now. The broken copy `:enter-repeats-what-it-gave` takes (b).
 
 **7. The `:says` of an enter that comes again late, and what makes a copy.**
 "`:says` is kept with the link as what the provider said at the enter that was
@@ -112,12 +148,17 @@ another enter of the same account.
 - (c) The `:says` of an enter is kept only when its `:at` is later than the
   kept one's: a rule that the spec does not say.
 
-The reference takes (b), which changes less and holds both sentences. A copy is
-the same input whole, its `:at` among the rest. An enter that is run again with
-a fresh `:at` is therefore a new decision, and the spec does not say whether a
-run again keeps its `:at`. The reading costs the link a memory of each enter
-that it decided, with what it gave (`:decided`). The module would need the
-same memory, or its events. No read of the contract gives `:says`.
+The reference took (b), which changes less and holds both sentences. A copy was
+the same input whole, its `:at` among the rest. The reading cost the link a
+memory of each enter that it decided, with what it gave (`:decided`).
+
+**Turned by Sid's call of 22 November, to (c).** `:says` is kept from the enter
+with the latest `:at`, and an enter whose `:at` is not later leaves it. The link
+keeps no memory of each enter: at full life that grows with every sign-in. The
+reference no longer keeps `:decided`, and "the same state as once" holds of an
+enter by (c), since a copy has the same `:at`. No read of the contract gives
+`:says`, so a module's `:says` can be checked only by reading its tables. The
+broken copy `:says-of-every-enter` takes (a).
 
 ## Sign-ins
 
@@ -177,6 +218,9 @@ replacement: the sessions close because their sign-in's time passed, as by
 `end-sign-in`, and not because its secret was replaced. The checks of both
 sentences say so.
 
+**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
+spec now says it at replace-secret.
+
 **11. A replacement that arrives after a newer one, when its sign-in is no longer
 live.** "A replacement that arrives after a newer one is no repeat, and is
 refused with `:wrong-secret`." And the refusals come "in the order in which the
@@ -195,10 +239,23 @@ and is refused with `:wrong-secret`." Two cases show where these part:
   which the second refuses.
 - A replacement whose old hash and new hash are one.
 
-The reference refuses the first case with `:wrong-secret` (or `:not-live`, by
-the order of 11), which refuses more and changes less. A sign-in keeps the pairs
+The reference refused the first case with `:wrong-secret` (or `:not-live`, by
+the order of 11), which refuses more and changes less. A sign-in kept the pairs
 of hashes of the replacements that it took (`:replaced`). The reference takes
 the second case, as the first sentence says, since no sentence refuses it.
+
+**Turned by Sid's call of 22 November, under his call that a repeat's result
+comes from what stands.** A sign-in keeps its present hash and the one before
+it, and no history of its replacements: `:replaced` grew with every
+replacement, a memory of calls. A replacement is judged by the present hash and
+the one before it alone. The first case is taken, since H1 is the hash now; a
+replacement that arrives after a newer one is still refused with
+`:wrong-secret` whenever its old hash is no longer the hash now, which is every
+case but a hash that has come back. The second case is taken, as before. The
+spec says it at replace-secret, beside the sentence on a replacement that
+arrives after a newer one. The broken copy `:replacements-remembered` takes the
+old reading, and the generated histories now and then bring the hash before
+the present one back, so that a module which remembers is caught.
 
 **13. A replacement's `:previous-until` later than its `:until`.** "The old secret
 keeps standing until `t2` and no longer." "A sign-in's time is its present
@@ -245,6 +302,9 @@ said of the sign-in, which may still be live. What follows for the runtime: one
 that keeps a session in use by calling `open-session` again reads `{:open S}`
 for a session that has closed. Only `who-is` tells it so.
 
+**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
+spec now says it at open-session.
+
 **18. `under` and `live-under` of a root that is no person.** Nothing is said. The
 reference gives no agents, no sign-ins and no sessions.
 
@@ -258,7 +318,9 @@ before `:ends`, from a copy whose clock is behind, would be taken by the second
 sentence. The first says that the ask is never live.
 
 The reference refuses every answer to such an ask with `:over`. `ask-of` says
-`:waiting`, since it judges no time.
+`:waiting`, since it judges no time. Such an ask never has an answer, so
+Sid's call on question 20 leaves this as it was: an answer to an ask that waits
+is judged as before.
 
 **20. Where "another answer gives what stands" falls, and what is "the same
 answer".** "An answer whose `:at` is at or after the ask's `:ends` is refused
@@ -276,24 +338,23 @@ nor which parts make two answers the same.
   order, `:over` among them. Then another answer that passes them gives what
   stands, and changes nothing.
 
-The reference takes (b), which refuses more. The same answer is the same yes or
-no and the same root; for a yes, also the same actor and sign-in, with a new
-agent or with none as the one that stands. Its `:until` and a new agent's label
-are dropped. What follows:
+The reference took (b), which refuses more. The same answer was the same yes
+or no and the same root; for a yes, also the same actor and sign-in, with a new
+agent or with none as the one that stands, which the ask kept (`:answered`).
+What followed: another answer, told what stands before `:ends`, was `:over`
+when it came again after `:ends`; and when the clocks of two copies fell on
+either side of `:ends`, the second person was told `:over`, not which answer
+stands.
 
-- Another answer binds nothing, as a refusal binds nothing. Told what stands
-  before `:ends`, it is `:over` when it comes again after `:ends`, so its second
-  coming does not give the result of its first. The generated histories count
-  an answer as taken only when it is the one that stands.
-- "Both are told which" holds only for an answer that passes the refusals.
-  When the clocks of the two copies fall on either side of `:ends`, the second
-  person is told `:over`, not which answer stands.
-- The brief's line "an answer at or after `:ends` is refused with `:over`"
-  holds for every answer but the one that stands, given again: a repeat is
-  recognised first. The histories check it so.
-
-(a) would be simpler for the runtime: an answered ask is decided, and every
-answer learns what stands. But it refuses less.
+**Turned by Sid's call of 22 November, to (a).** Once an ask has an answer,
+every answer that fits gives what stands, before any refusal, and changes
+nothing but what its time takes out. An answer to an ask that still waits is
+judged as before: `:no-such-ask`, `:over`, then the refusals of the actor and
+of the ids. What follows: "both are told which" holds whatever the clocks; an
+answer that was told what stands is told it again whenever it comes, so the
+generated histories take it as a call that can come again; and the ask keeps
+the answer that stands and nothing more, no `:answered`. The broken copy
+`:answered-ask-judged-first` takes (b).
 
 **21. A no after the ask's end.** "A no needs a person who has entered, and judges
 no other part." And "An answer whose `:at` is at or after the ask's `:ends` is
@@ -302,13 +363,15 @@ refused with `:over`."
 - (a) A no is an answer, and a late one is `:over`.
 - (b) A no judges no time either, and is taken.
 
-The reference takes (a), which refuses more.
+The reference takes (a), which refuses more. Since Sid's call on question 20,
+this is of an ask that waits: a no to an ask that has an answer is told what
+stands.
 
 **22. A no from a root who has not entered.** "A no needs a person who has
 entered." The contract's refusals of `answer-ask` have no word for it.
 
 The reference refuses it with `:no-such-actor`, the word for "no actor of this
-root".
+root". Since Sid's call on question 20, this is of an ask that waits.
 
 **23. The other parts of a no.** "Judges no other part", and an input that "does
 not fit gives `{:could-not :read-the-event}`".
@@ -317,7 +380,9 @@ not fit gives `{:could-not :read-the-event}`".
   and are not judged.
 - (b) They may be anything.
 
-The reference takes (a).
+The reference takes (a). **Stands, by Sid's call of 22 November**, which the
+spec now says under "What fits". The broken copy `:no-takes-any-parts` takes
+(b).
 
 **24. "A live agent of hers".** "A yes names the actor that the program becomes:
 the person herself; a new agent, which is made by her; or a live agent of hers
@@ -328,7 +393,10 @@ that exists."
 
 (b) refuses more. The reference takes (a): the spec calls all of them "the
 agents of the root" (`under`), and the sentence keeps "made by her" for the new
-agent alone. Sid may read it otherwise.
+agent alone.
+
+**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
+spec now says it at answer-ask.
 
 **25. A yes whose sign-in id is a sign-in already, with the parts that the yes
 would bind.** "`{:refused :in-use}` the new agent's id or the sign-in's id is
@@ -337,7 +405,8 @@ of kind `:program`, with the ask's hash, holds exactly what the yes would bind.
 `begin-sign-in` would take the same as a repeat.
 
 The reference refuses it with `:in-use`, which refuses more: the id is a
-sign-in already, and no answer made it.
+sign-in already, and no answer made it. Since Sid's call on question 20, this
+is of an ask that waits.
 
 **26. `ask-of`'s `:answer` for a no.** "`:answer {:root P :actor A :sign-in G}-or-nil`".
 
@@ -361,6 +430,38 @@ The reference reads these as follows:
   the same change stopped, or whose client it closed, is not called.
 - A write that `f` makes, which "must return at once" forbids, puts its calls
   after the ones still owed. Each watch is handed the changes in their order.
+
+## What the state keeps
+
+**28. What grows with the number of calls.** Asked in the prompt that Sid pasted
+on 22 November, after his call on question 12: what in the whole state grows
+with the number of calls and is not history that the spec asks to keep.
+
+Since the calls, a repeat, a refusal and an input that does not fit add nothing
+to the state, and a write that is taken adds only a thing that the spec keeps
+for good: a person and her claim, a link, an agent, a sign-in, a session, an
+ask. `:agent-order` is kept whole because `under` gives every agent, ended
+ones too, in the order in which they were made. Kept for a rule, one each and
+not growing: `:first-hash` for each sign-in (8), `:over-when-made?` for each
+ask (19), and `:invited-by`, `:invited-at` and `:entered-at` for each person.
+Two parts grow otherwise:
+
+- `:sign-in-order` keeps every sign-in that a root ever began, ended ones too.
+  An ended sign-in's record is history that the spec keeps; its place in the
+  order is read by nothing, since `under`, the one read of the order, gives the
+  live ones alone. Because of it, `under` and `live-under` walk every sign-in
+  that the root ever began, and `live-under` every session, closed ones too:
+  cost, which the reference does not model, and which "What must hold at full
+  life" forbids a module ("bounded by what is live under her, not by what has
+  ended"). Keeping the order of the live sign-ins alone would bound it, and
+  would change no result and no read.
+- The atom of a cluster's Auth keeps in `:closed` the id of every client that
+  was ever closed. That is no part of Auth's state and no history: it is how
+  the reference's clients know that they are closed, which a real client holds
+  on itself. It grows with each `close!`.
+
+The reference keeps both as they are, and neither changes a result or a read.
+Each is Sid's to turn.
 
 ## Where the brief and the spec differ
 

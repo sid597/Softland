@@ -12,9 +12,11 @@
   - The pure reads of a state: `who-is`, `ask-of`, `under`, and
     `live-under`, which is what is live under a root: the value that
     `watch-root` hands to its function.
-  - `open`, a client over one atom, with the eighteen functions of the
-    contract under their own names, so that a program can stand on it. The
-    reads take a client or a state.
+  - `cluster`, a thing that stands for a cluster in which Auth is launched
+    under the names that it is given; and the eighteen functions of the
+    contract under their own names, `open` among them, which takes such a
+    thing and a module's name, so that a program can stand on it. The reads
+    take a client or a state.
 
   The state is one map:
 
@@ -22,34 +24,37 @@
                          enter :account :own-layer :making :own-layer-made?
                          :entered-at}
     :claims   claim -> the person whom it names, for good
-    :links    account -> {:person :says :said-at :decided {enter result}}
+    :links    account -> {:person :says :said-at}
     :roots    person -> {:agents {agent {:made-by :label :made-at :depth
                                          :ended?}}
                          :agent-order [agent ...]
                          :sign-ins {sign-in {:actor :kind :hash :first-hash
-                                             :until :previous :replaced
-                                             :label :begun :ended?}}
+                                             :until :previous :label :begun
+                                             :ended?}}
                          :sign-in-order [sign-in ...]
                          :sessions {session {:sign-in :until :driven-by
                                              :opened-at :closed?}}}
     :asks     code -> {:hash :asks :ends :asked-at :over-when-made? :state
-                       :answer :answered}
+                       :answer}
 
   A person is in `:roots` from her first enter on. She is then an actor of
   her root, at depth 0, and is not one of its `:agents`. Nothing is ever
   taken out of the map: an end is a flag. The reference keeps no log of
-  events, and a refused enter leaves nothing; but a link keeps, in
-  `:decided`, each enter that it decided with what it gave, so that a copy
-  of one is known as a repeat; and a sign-in keeps, in `:replaced`, each
-  replacement that it took, as a pair of hashes, so that one that arrives
-  after a newer one is known.
+  events, and a refused enter leaves nothing. A result comes from what
+  stands, never from a memory of calls (Sid's calls of 22 November): a
+  link keeps one `:says`, an ask keeps the answer that stands, and a
+  sign-in keeps its present hash and the one before it, with no history of
+  its replacements. A sign-in keeps, as `:first-hash`, the hash that its
+  begin bound, one for each sign-in, by which a repeat of that begin is
+  known (QUESTIONS.md, 8).
 
   Approach. `step` reads the form of the call first: an input that does
   not fit gives `{:could-not :read-the-event}` and the state as it was. A
   write that names a `:root` then takes out of what is live under that root
   whatever has passed at its `:at` (`take-out`), however it is judged after.
-  Then the write is judged: a repeat is recognised first, then the refusals
-  in the order in which the contract lists them, and only then is the write
+  Then the write is judged: a repeat is recognised first, and an answer to
+  an ask that has an answer is told what stands; then come the refusals in
+  the order in which the contract lists them, and only then is the write
   taken. A refusal leaves the state as the take-out left it. Nothing reads a
   clock: every time is the `:at` of a call. Standing is worked out as the
   spec words it (`actor-live?`, `sign-in-live?`); what a read costs is not
@@ -57,17 +62,20 @@
 
   Where the spec does not say what happens, or says two things, the
   reference takes the reading that refuses more or changes less.
-  `QUESTIONS.md`, beside this file, names each place and the reading.
+  `QUESTIONS.md`, beside this file, names each place and the reading, and
+  says which of them Sid's calls of 22 November settled.
 
   Broken copies. `step` takes a third argument, a key of `breaks`, which
-  breaks the one rule that `breaks` says; nil breaks none. They are for the
-  proof, whose generated histories must catch each one.
+  breaks the one rule that `breaks` says; nil breaks none; and
+  `broken-cluster` launches Auth with one rule so broken. They are for the
+  proofs, whose generated histories must catch each one.
 
-  State. `step` and the reads are pure. A client is over one atom, which
-  every client opened from it shares, as copies of the runtime share one
-  Auth: the atom holds the state, the watches, the calls that the watches
-  are owed, and which clients are closed. A lock on the atom puts the
-  writes, and the calls of the watches that follow each write, in one
+  State. `step` and the reads are pure. A cluster holds one atom for each
+  name that it was made with: one Auth. Every client opened under that
+  name shares the atom, as copies of the runtime share one Auth: the atom
+  holds the state, the watches, the calls that the watches are owed, which
+  clients are closed, and the broken rule, if any. A lock on the atom puts
+  the writes, and the calls of the watches that follow each write, in one
   order."
   (:import [java.util Locale]))
 
@@ -119,21 +127,22 @@
 
 (defn- email?
   "Whether `x` is an email: a text in lower case. The spec says that the
-  runtime gives emails so; the reference holds it as form (QUESTIONS.md)."
+  runtime gives emails so, and Auth holds it as form (QUESTIONS.md, 3)."
   [x]
   (and (text? x) (= x (.toLowerCase ^String x Locale/ROOT))))
 
 (defn- provider?
-  "Whether `x` is a provider: a keyword. That its name is at most 256
-  characters is the runtime's to keep, and not checked (QUESTIONS.md)."
+  "Whether `x` is a provider: a keyword whose name, with its namespace when
+  it has one, is at most 256 characters (Sid's call of 22 November)."
   [x]
-  (keyword? x))
+  (and (keyword? x) (<= (count (subs (str x) 1)) longest-text)))
 
 (defn- account?
   "Whether `x` is an account: a vector of a provider and the provider's
-  subject, a text."
-  [x]
-  (and (vector? x) (= 2 (count x)) (provider? (nth x 0)) (text? (nth x 1))))
+  subject, a text. `provider-ok?` is the test of the provider."
+  ([x] (account? x provider?))
+  ([x provider-ok?]
+   (and (vector? x) (= 2 (count x)) (provider-ok? (nth x 0)) (text? (nth x 1)))))
 
 (defn- says?
   "Whether `x` is what a provider said: a map of at most 32 entries, each
@@ -164,10 +173,12 @@
   (fn [x] (= k x)))
 
 (defn- claim?
-  "Whether `x` is a claim: `{:by :email :email e}` or `{:by :code :hash h}`."
-  [x]
-  (or (shaped? x {:by (is :email) :email email?} {})
-      (shaped? x {:by (is :code) :hash hash?} {})))
+  "Whether `x` is a claim: `{:by :email :email e}` or `{:by :code :hash h}`.
+  `email-ok?` is the test of the email."
+  ([x] (claim? x email?))
+  ([x email-ok?]
+   (or (shaped? x {:by (is :email) :email email-ok?} {})
+       (shaped? x {:by (is :code) :hash hash?} {}))))
 
 (defn- kind?
   "Whether `x` is the kind of a sign-in: `:browser` or `:program`."
@@ -176,7 +187,8 @@
 
 (defn- making?
   "Whether `x` is a `:making`: the UUID of the act that makes an own layer,
-  and the id that the act names as its session, a UUID too (QUESTIONS.md)."
+  and the id that the act names as its session, a UUID too (QUESTIONS.md,
+  4)."
   [x]
   (shaped? x {:uuid id? :session id?} {}))
 
@@ -200,11 +212,12 @@
 
 (def ^:private forms
   "The form of each write's map: every part, with its test. A part that the
-  contract writes `-or-nil` must be there, and may be nil (QUESTIONS.md).
-  `:own-layer` passes anything: that it is a UUID is the runtime's to keep."
+  contract writes `-or-nil` must be there, and may be nil; a part that the
+  contract does not name does not fit; `:own-layer` is a UUID (Sid's call
+  of 22 November)."
   {:invite {:person id? :claim claim? :invited-by maker-or-system? :at time?}
    :enter {:account account? :says says? :email (or-nil email?) :code-hash (or-nil hash?)
-           :own-layer any? :making making? :at time?}
+           :own-layer id? :making making? :at time?}
    :own-layer-made {:person id? :at time?}
    :begin-sign-in {:root id? :actor id? :sign-in id? :kind kind? :hash hash? :until time?
                    :label (or-nil text?) :at time?}
@@ -224,24 +237,53 @@
   `open-session`, which, absent, is not said."
   {:open-session {:driven-by driven-by?}})
 
-(def ^:private forms-with-any-label
-  "The forms of the broken copy `:long-label-fits`, in which a label of any
-  length fits."
-  (-> forms
-      (assoc-in [:begin-sign-in :label] (or-nil string?))
-      (assoc-in [:make-actor :label] string?)))
+(def ^:private broken-forms
+  "The forms of the broken copies that break a form, each under its key of
+  `breaks`."
+  {:long-label-fits (-> forms
+                        (assoc-in [:begin-sign-in :label] (or-nil string?))
+                        (assoc-in [:make-actor :label] string?))
+   :provider-and-layer-unchecked (-> forms
+                                     (assoc-in [:enter :account] #(account? % keyword?))
+                                     (assoc-in [:enter :own-layer] any?))
+   :capital-email-fits (-> forms
+                           (assoc-in [:invite :claim] #(claim? % text?))
+                           (assoc-in [:enter :email] (or-nil text?)))})
+
+(defn- form-of
+  "The form by which the input of the write `kind` is judged in the copy
+  `broken` of the rules; nil for a keyword that is no write's. In the
+  broken copy `:no-takes-any-parts`, the parts of a no that it does not
+  judge may be anything."
+  [kind input broken]
+  (let [form (get (get broken-forms broken forms) kind)]
+    (if (and form (= broken :no-takes-any-parts) (= kind :answer-ask) (map? input) (false? (get input :yes?)))
+      (merge form {:actor any? :sign-in any? :new-agent any? :until any?})
+      form)))
+
+(defn- loosened
+  "The broken copy `:loose-form`: the input with each part of `form` that it
+  leaves out read as nil, and each part that neither `form` nor `optional`
+  names dropped. Gives nil for an input that is no map."
+  [input form optional]
+  (when (map? input)
+    (merge (zipmap (keys form) (repeat nil))
+           (select-keys input (concat (keys form) (keys optional))))))
 
 (defn- fitting
-  "Gives `call` when it is a vector of a write's keyword and a map of that
-  write's form, and nil when it does not fit. A test that throws, as the
-  comparator of a sorted map can, counts as no fit."
+  "Gives the call when it is a vector of a write's keyword and a map of that
+  write's form, as `[kind input]` with the input as it is judged, and nil
+  when it does not fit. A test that throws, as the comparator of a sorted
+  map can, counts as no fit."
   [call broken]
   (try
     (when (and (vector? call) (= 2 (count call)) (keyword? (nth call 0)))
       (let [[kind input] call
-            form (get (if (= broken :long-label-fits) forms-with-any-label forms) kind)]
-        (when (and form (shaped? input form (get optional-parts kind {})))
-          call)))
+            form (form-of kind input broken)
+            optional (get optional-parts kind {})
+            input (if (and form (= broken :loose-form)) (loosened input form optional) input)]
+        (when (and form (shaped? input form optional))
+          [kind input])))
     (catch Throwable _ nil)))
 
 ;; ------------------------------------------------------------------- the state
@@ -371,38 +413,44 @@
              {:invited person}])))
 
 (defn- entered
-  "What an enter that is decided gives for the person `P`: her id, the own
-  layer and the `:making` that her first enter fixed, and whether her layer
-  is marked as made at that enter (QUESTIONS.md)."
+  "What an enter of an account that is linked to the person `P` gives: her
+  id, the own layer and the `:making` that her first enter fixed, and
+  whether her layer is marked as made, as it stands at that enter (Sid's
+  call of 22 November)."
   [state P]
   (let [p (get-in state [:persons P])]
     {:person P :own-layer (:own-layer p) :making (:making p) :own-layer-made? (boolean (:own-layer-made? p))}))
 
 (defn- write-enter
   "enter: an account that has a link gives its person, whatever claim came
-  with it. One that has none takes the person of the claim that it proves,
-  the code's when `:code-hash` names an invitation that waits, else the
-  email's: the link is written, the claim is used up, and the person becomes
-  an actor, her own root, with the offered own layer and `:making` fixed.
-  One that proves no claim is `:not-invited`, and nothing of it is kept.
-  The link keeps the `:says` of the enter decided last, with its `:at`. An
-  enter that is a copy of one that the link has decided already is a
-  repeat and no new decision: it gives what that one gave, its
-  `:own-layer-made?` too, and changes nothing (QUESTIONS.md)."
+  with it, with the own layer and the `:making` that were fixed, and
+  `:own-layer-made?` as it stands. One that has none takes the person of
+  the claim that it proves, the code's when `:code-hash` names an
+  invitation that waits, else the email's: the link is written, the claim
+  is used up, and the person becomes an actor, her own root, with the
+  offered own layer and `:making` fixed. One that proves no claim is
+  `:not-invited`, and nothing of it is kept. The link keeps the `:says` of
+  the enter with the latest `:at`, with that `:at`: an enter whose `:at`
+  is not later leaves it. Nothing remembers what an enter gave (Sid's call
+  of 22 November). The broken copy `:enter-repeats-what-it-gave` keeps
+  that memory, under `:decided`, as the reading that the call set aside
+  did."
   [state {:keys [account says email code-hash own-layer making at] :as input} broken]
   (let [link (get-in state [:links account])
         waits (fn [claim]
                 (when-let [P (get-in state [:claims claim])]
                   (when-not (entered? state P) P)))
         proven (or (when code-hash (waits {:by :code :hash code-hash}))
-                   (when email (waits {:by :email :email email})))]
+                   (when email (waits {:by :email :email email})))
+        remembering? (= broken :enter-repeats-what-it-gave)]
     (cond
       (and link (not (and proven (= broken :link-moves))))
-      (if-let [given (get (:decided link) input)]
-        [state given]
-        (let [state' (update-in state [:links account] assoc :says says :said-at at)
-              result (entered state' (:person link))]
-          [(assoc-in state' [:links account :decided input] result) result]))
+      (let [state' (if (or (> at (:said-at link)) (= broken :says-of-every-enter))
+                     (update-in state [:links account] assoc :says says :said-at at)
+                     state)
+            result (or (when remembering? (get-in state' [:decided account input]))
+                       (entered state' (:person link)))]
+        [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       proven
       (let [state' (-> state
                        (assoc-in [:links account] {:person proven :says says :said-at at})
@@ -410,7 +458,7 @@
                                   :making making :own-layer-made? false :entered-at at)
                        (update-in [:roots proven] #(or % empty-root)))
             result (entered state' proven)]
-        [(assoc-in state' [:links account :decided] {input result}) result])
+        [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       :else (refuse state :not-invited))))
 
 (defn- write-own-layer-made
@@ -429,7 +477,7 @@
   [state P G g at broken]
   (-> state
       (assoc-in [:roots P :sign-ins G]
-                (assoc g :first-hash (:hash g) :previous nil :replaced #{} :begun at
+                (assoc g :first-hash (:hash g) :previous nil :begun at
                        :ended? (and (passed? (:until g) at broken) (not= broken :born-live))))
       (update-in [:roots P :sign-in-order] conj G)))
 
@@ -461,24 +509,29 @@
   until, and the old one stands until `:previous-until`, in place of any
   secret before it. The same replacement again (the new hash is the hash
   now and the old one is the one before it) is a repeat. Else a sign-in
-  that is not live is `:not-live`; and an old hash that is not the hash
-  now, or a replacement that the sign-in took before and that so arrives
-  after a newer one, is `:wrong-secret`, also when its hash has come back
-  (QUESTIONS.md). No session changes. A new until at or before `:at` takes
-  the sign-in out at once, with its sessions (QUESTIONS.md)."
+  that is not live is `:not-live`, and an old hash that is not the hash now
+  is `:wrong-secret`. A replacement is judged by the present hash and the
+  one before it alone (Sid's call of 22 November): one that arrives after
+  a newer one is refused, and one whose hash has come back is taken when
+  its old hash is the hash now. No session changes. A new until at or
+  before `:at` takes the sign-in out at once, with its sessions
+  (QUESTIONS.md, 10). The broken copy `:replacements-remembered` keeps, in
+  `:replaced`, each replacement that the sign-in took, as the reading that
+  the call set aside did."
   [state {:keys [root sign-in old-hash new-hash until previous-until at]} broken]
-  (let [g (get-in state [:roots root :sign-ins sign-in])]
+  (let [g (get-in state [:roots root :sign-ins sign-in])
+        remembering? (= broken :replacements-remembered)]
     (cond
       (and g
            (or (and (= new-hash (:hash g)) (= old-hash (get-in g [:previous :hash])))
                (and (= broken :late-replacement-is-a-repeat) (= new-hash (get-in g [:previous :hash])))))
       [state {:replaced sign-in}]
       (not (sign-in-live? state root g at broken)) (refuse state :not-live)
-      (or (not= old-hash (:hash g)) (contains? (:replaced g) [old-hash new-hash])) (refuse state :wrong-secret)
+      (or (not= old-hash (:hash g)) (and remembering? (contains? (:replaced g) [old-hash new-hash])))
+      (refuse state :wrong-secret)
       :else
-      (let [g' (-> g
-                   (assoc :hash new-hash :until until :previous {:hash old-hash :until previous-until})
-                   (update :replaced (fnil conj #{}) [old-hash new-hash]))
+      (let [g' (cond-> (assoc g :hash new-hash :until until :previous {:hash old-hash :until previous-until})
+                 remembering? (update :replaced (fnil conj #{}) [old-hash new-hash]))
             state' (assoc-in state [:roots root :sign-ins sign-in] g')]
         [(if (passed? (sign-in-time g' broken) at broken) (end-sign-ins state' root #{sign-in} true) state')
          {:replaced sign-in}]))))
@@ -536,7 +589,7 @@
   "end-actor: the agent ends, with every actor that it made, in any depth,
   and every sign-in and session of each. An agent that has ended already,
   by this call or with one above it, gives the same and nothing changes
-  (QUESTIONS.md). An actor that is not of this root is `:no-such-actor`;
+  (QUESTIONS.md, 16). An actor that is not of this root is `:no-such-actor`;
   the person is `:is-a-person`."
   [state {:keys [root actor]} broken]
   (let [a (actor-of state root actor)]
@@ -604,7 +657,7 @@
       (and k (not= broken :bound-code-asks-again)) (refuse state :in-use)
       :else [(assoc-in state [:asks code] {:hash hash :asks asks :ends ends :asked-at at
                                            :over-when-made? (passed? ends at broken)
-                                           :state :waiting :answer nil :answered nil})
+                                           :state :waiting :answer nil})
              {:asked code}])))
 
 (defn- over?
@@ -614,10 +667,29 @@
   (or (:over-when-made? k)
       (if (= broken :answer-at-the-end-taken) (> at (:ends k)) (>= at (:ends k)))))
 
+(defn- answered?
+  "Whether the ask `k` has an answer: a yes or a no stands on it."
+  [k]
+  (not= :waiting (:state k)))
+
+(defn- what-stands
+  "The result of the answer that stands on the ask `k` under the code `U`."
+  [k U]
+  (if (= :yes (:state k)) {:yes (:answer k)} {:no U}))
+
+(defn- as-it-would-stand
+  "What the answer `input` would give under the code `U`, were it the one
+  that stands. The broken copy `:later-answer-stands` gives what stands to
+  an answer that would give the same, and takes any other."
+  [{:keys [yes? root actor sign-in]} U]
+  (if yes? {:yes {:root root :actor actor :sign-in sign-in}} {:no U}))
+
 (defn- same-answer?
-  "Whether `input` is the answer that stands on the ask `k`: the same yes or
-  no, the same root, and for a yes the same actor and sign-in, with a new
-  agent or with none as that one (QUESTIONS.md)."
+  "The broken copy `:answered-ask-judged-first`, which keeps under
+  `:answered` the parts of the answer that stands, as the reading that Sid's
+  call of 22 November set aside did: whether `input` is that answer, by the
+  same yes or no, the same root, and for a yes the same actor and sign-in,
+  with a new agent or with none as that one."
   [k {:keys [yes? root actor new-agent sign-in]}]
   (let [given (:answered k)]
     (boolean (and given
@@ -627,11 +699,6 @@
                       (and (= actor (:actor given))
                            (= sign-in (:sign-in given))
                            (= (some? new-agent) (:new-agent? given))))))))
-
-(defn- what-stands
-  "The result of the answer that stands on the ask `k` under the code `U`."
-  [k U]
-  (if (= :yes (:state k)) {:yes (:answer k)} {:no U}))
 
 (defn- answer-refusal
   "The refusal that applies to the answer `input` after `:no-such-ask` and
@@ -651,33 +718,43 @@
                   sign-in-taken? :in-use))))
 
 (defn- write-answer-ask
-  "answer-ask: a person answers an ask once. The answer that stands, given
-  again, gives its result. Else an ask that is not there is
-  `:no-such-ask`, an answer at or after the ask's `:ends` is `:over`, and
-  then come the refusals of `answer-refusal`. Another answer that passes
-  them gives what stands and changes nothing. A yes on a waiting ask makes
-  the new agent when there is one, made by the person, and begins a sign-in
-  of kind `:program` for the actor, with the ask's hash and the ask's
-  `:asks` as its label; a no refuses the ask for good."
+  "answer-ask: a person answers an ask once. An ask that is not there is
+  `:no-such-ask`. Once an ask has an answer, every answer gives what
+  stands, before any refusal, and changes nothing (Sid's call of 22
+  November). An answer to an ask that waits is `:over` at or after the
+  ask's `:ends`, or when the ask was over when it was made, and then come
+  the refusals of `answer-refusal`. A yes makes the new agent when there is
+  one, made by the person, and begins a sign-in of kind `:program` for the
+  actor, with the ask's hash and the ask's `:asks` as its label; a no
+  refuses the ask for good."
   [state {:keys [code yes? root actor new-agent sign-in until at] :as input} broken]
-  (let [k (get-in state [:asks code])]
+  (let [k (get-in state [:asks code])
+        judged-first? (= broken :answered-ask-judged-first)]
     (cond
-      (and k (same-answer? k input)) [state (what-stands k code)]
       (nil? k) (refuse state :no-such-ask)
+      (and (answered? k)
+           (case broken
+             :later-answer-stands (= (what-stands k code) (as-it-would-stand input code))
+             :answered-ask-judged-first (same-answer? k input)
+             true))
+      [state (what-stands k code)]
       (over? k at broken) (refuse state :over)
       :else
       (if-let [word (answer-refusal state input)]
         (refuse state word)
         (cond
-          (and (:answered k) (not= broken :later-answer-stands)) [state (what-stands k code)]
+          (and (answered? k) judged-first?) [state (what-stands k code)]
           yes? (let [answer {:root root :actor actor :sign-in sign-in}]
                  [(-> (if (some? new-agent) (make-agent state root actor root (:label new-agent) at 1) state)
                       (begin root sign-in {:actor actor :kind :program :hash (:hash k) :until until :label (:asks k)}
                              at broken)
-                      (assoc-in [:asks code] (assoc k :state :yes :answer answer
-                                                    :answered (assoc answer :yes? true :new-agent? (some? new-agent)))))
+                      (assoc-in [:asks code]
+                                (cond-> (assoc k :state :yes :answer answer)
+                                  judged-first? (assoc :answered (assoc answer :yes? true :new-agent? (some? new-agent))))))
                   {:yes answer}])
-          :else [(assoc-in state [:asks code] (assoc k :state :no :answer nil :answered {:yes? false :root root}))
+          :else [(assoc-in state [:asks code]
+                           (cond-> (assoc k :state :no :answer nil)
+                             judged-first? (assoc :answered {:yes? false :root root})))
                  {:no code}])))))
 
 (def ^:private writes
@@ -703,7 +780,9 @@
 
 (def breaks
   "The broken copies of the rules. Each key, given to `step`, breaks one
-  rule, and its value says how."
+  rule, and its value says how. The last eight take, each, a reading that
+  Sid's calls of 22 November set aside or let stand against another; a
+  module built on that reading is one of them."
   {:link-moves
    "an enter of an account that has a link, which proves another invitation that waits, moves the link to that invitation's person"
    :used-claim-names-another
@@ -743,7 +822,23 @@
    :unfit-input-takes-out
    "an input that does not fit, but names a root and a time, takes out what has passed under that root"
    :long-label-fits
-   "a label of more than 256 characters fits"})
+   "a label of more than 256 characters fits"
+   :loose-form
+   "a part that the contract names may be left out, and reads as nil, and a part that it does not name is dropped"
+   :provider-and-layer-unchecked
+   "a provider's name of more than 256 characters, and an :own-layer that is no UUID, fit"
+   :capital-email-fits
+   "an email with a capital letter fits, and is compared as given"
+   :no-takes-any-parts
+   "the parts of a no that it does not judge may be anything"
+   :enter-repeats-what-it-gave
+   "an enter that is a copy of one that its link decided gives what that one gave, its :own-layer-made? too"
+   :says-of-every-enter
+   "every enter of an account that has a link keeps its own :says, whatever its :at"
+   :answered-ask-judged-first
+   "an answer to an ask that has an answer, unless it is the same answer, meets the refusals first, :over among them, and only then is told what stands"
+   :replacements-remembered
+   "a sign-in keeps each replacement that it took, and refuses one that it took before, also when that one's old hash has come back and is the hash now"})
 
 (defn- take-out-for-unfit
   "The broken copy `:unfit-input-takes-out`: an input that does not fit, but
@@ -845,7 +940,30 @@
 
 ;; ------------------------------------------------------------------ the client
 
+(deftype Cluster [modules])
+
 (deftype Client [place id])
+
+(defn- new-place
+  "The atom of one Auth with nothing written in it, whose writes are judged
+  by the copy `broken` of the rules, nil for the rules as they are."
+  [broken]
+  (atom {:state empty-state :watches {} :queue [] :closed #{} :next-id 1 :broken broken}))
+
+(defn cluster
+  "Gives a thing that stands for a cluster in which Auth is launched under
+  each of `names`, each a string and each an Auth of its own with nothing
+  written in it. It is what a program that stands on the reference gives
+  `open` in the place of a Rama cluster."
+  [& names]
+  (Cluster. (into {} (map (fn [n] [n (new-place nil)])) (filter string? names))))
+
+(defn broken-cluster
+  "As `cluster`, but each Auth judges its writes by the copy of the rules in
+  which the rule `broken`, a key of `breaks`, is broken: for the proofs
+  that must catch it."
+  [broken & names]
+  (Cluster. (into {} (map (fn [n] [n (new-place broken)])) (filter string? names))))
 
 (defn- client?
   "Whether `x` is a client of the reference."
@@ -923,7 +1041,7 @@
           (let [w @place]
             (if (closed? w client)
               {:could-not :closed}
-              (let [[state' result] (step (:state w) [kind input])]
+              (let [[state' result] (step (:state w) [kind input] (:broken w))]
                 (reset! place (-> w
                                   (assoc :state state')
                                   (update :queue into (watch-calls w (:state w) state'))))
@@ -932,22 +1050,22 @@
         (catch Throwable t {:could-not :reach-the-module :threw t})))))
 
 (defn open
-  "Gives a client. With no argument, over a new atom: a new Auth with
-  nothing in it. With a client of the reference, open or closed, in the
-  place of the contract's cluster, another client over that client's atom,
-  as a second copy of the runtime over the same Auth; the module's name is
-  not read.
-  Anything else in that place gives `{:could-not :find-the-module}`."
-  ([] (Client. (atom {:state empty-state :watches {} :queue [] :closed #{} :next-id 1}) 0))
-  ([cluster] (open cluster nil))
-  ([cluster _module-name]
-   (if (client? cluster)
-     (let [place (.-place ^Client cluster)]
-       (locking place
-         (let [id (:next-id @place)]
-           (swap! place update :next-id inc)
-           (Client. place id))))
-     {:could-not :find-the-module})))
+  "Takes what stands for the cluster, a thing that `cluster` gave, and a
+  module's name, a string. Gives a client of the Auth that the cluster
+  holds under that name: every client opened under one name shares that
+  Auth, as copies of the runtime do. A name under which the cluster holds
+  no module, and anything in the place of the cluster that is not one,
+  give `{:could-not :find-the-module}`."
+  [cluster module-name]
+  (try
+    (if-let [place (and (instance? Cluster cluster) (string? module-name)
+                        (get (.-modules ^Cluster cluster) module-name))]
+      (locking place
+        (let [id (:next-id @place)]
+          (swap! place update :next-id inc)
+          (Client. place id)))
+      {:could-not :find-the-module})
+    (catch Throwable t {:could-not :reach-the-module :threw t})))
 
 (defn close!
   "Closes the client: every later call on it gives `{:could-not :closed}`,
@@ -1065,13 +1183,13 @@
 (defn watch-root
   "Takes a client, a root and a function of one argument. From now on,
   each time what is live under the root changes, through this client or
-  any other over the same atom, calls the function with the new value of
+  any other opened under the same name, calls the function with the new value of
   `live-under`, on the thread that made the write, before the write
   returns, in the order of the changes. No call is made at the
   registration, and this reference never hands
   `:softland.auth.client/not-reached`. Gives a function of no argument
   that stops the watching; on a closed client, `{:could-not :closed}` in
-  its place. The function must be a function (`fn?`) (QUESTIONS.md)."
+  its place. The function must be a function (`fn?`) (QUESTIONS.md, 27)."
   [client P f]
   (if-not (client? client)
     {:could-not :read-the-event}
