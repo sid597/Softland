@@ -51,8 +51,8 @@
   is known so far, which sources a read wants and which of them are
   missing; a source is one row or one run of neighbouring rows of one table
   on one task. This file only fetches what is missing and asks again, at
-  most `max-rounds` times, and hands `softland.store.read-path.answer` what
-  it fetched. Asked once, every missing source of one table under one
+  most as many times as `max-rounds` gives for how the read is asked, and
+  hands `softland.store.read-path.answer` what it fetched. Asked once, every missing source of one table under one
   routing id goes in one call of `foreign-select-async`. Kept live, every source is one push,
   `foreign-proxy-async`, shared by every live read that wants the same
   source and closed when the last of them leaves.
@@ -93,20 +93,30 @@
              `:pushes` are under them (`counted-under`): the count that the
              read path's own bound on its pushes is held to
     :reads   a read's id -> its query, its function, its turn, the set of
-             the sources that it holds, whether it is opened, and whether
-             the whole answer is owed
+             the sources that it holds, whether it is opened, and its mark:
+             whether the whole answer is owed, or what its asker was told
+             of each layer and which layers wait
 
   That is who looks at what, what each asked for, the pushes with a count
-  of them, and one mark for each read. It holds no row, no value, no answer
-  and no place-answer.
+  of them, and one mark for each read. It holds no row, no value and no
+  place-answer; of an answer, the mark holds what it said of each layer,
+  seen or left out and why, and nothing more.
   The values are in Rama's pushes and nowhere else: each holds the current
   value of its path, and Rama keeps it level (Sid, 11 October 2026: \"i
   also don't consider it a cache\"). What a live read gives is worked out
   at each change, from the values that the pushes hold at that moment, for
-  the places that the change names. The mark \"the whole answer is owed\" is
-  true or false and no value of the tables: one step sets it when it finds
-  that what shapes the read changed, and the step that gives the whole
-  answer takes it off. A read asked once holds what it fetched until it
+  the places that the change names. A read's mark is true while the whole
+  answer is owed; else it is what its asker was last told of each layer, seen
+  or left out and why, and the layers that wait, and no value of the tables:
+  one step sets it to true when it finds that what shapes the read changed,
+  the step that gives the whole answer makes it again from that answer, and
+  `read-live` makes it from the first answer
+  (`softland.store.read-path.answer/mark-of`). A layer waits when she was
+  told that she may not see it and a change of her rights there leaves her
+  standing not known yet: whether she is owed anything is said when its
+  rows are given (`softland.store.read-path.answer/after-change`). So the
+  read path holds, of what it told an asker, the standing of each layer and
+  nothing of its facts. A read asked once holds what it fetched until it
   returns, and it fetches every source from the tables by a select of its
   own: it takes no value of a push, also where a live read holds one open
   on the same source (`read-once`). Nothing shown to a caller is anything
@@ -340,13 +350,25 @@
   prints as the words \"live-read\" and that id.")
 
 (def ^:private max-rounds
-  "At how many rounds a read stops when it does not settle. A round fetches
-  every source that is missing and asks what is wanted again. Six are
-  derived from the six ranks of a source
-  (`softland.store.read-path.sources`); three more are for a list, a
-  setting or a permission that is written while a live read opens. A number
-  of the build, kept and not decided."
-  9)
+  "How many rounds a read is given, by how it is asked, before it stops
+  with `:get-an-answer-within-its-wait`. A round fetches every source that
+  is missing, or joins every push that is wanted and not held, and asks
+  what is wanted again. Set from the chains of a read's sources
+  (`softland.store.read-path.sources`, \"How many rounds a read takes\"):
+
+    :once   6. A read asked once settles within 6 rounds whatever is written
+            while it reads, so a read that the derivation holds never meets
+            the bound
+    :live   16. A live read opens within 8 rounds on tables that do not
+            change while it opens, and is given 8 more for writes that make
+            a part of it wanted anew while it opens: a list that gains a
+            layer asks 5. A step of an opened read (`settle!`) is held to
+            the same number
+
+  The 8 more are the builder's choice, and not decided: a read that writes
+  keep from settling is turned away, and its caller asks again; `:wait-ms`
+  bounds every read in time as well."
+  {:once 6 :live 16})
 
 (defn- now-ms
   "Gives the JVM's steady clock in milliseconds, to bound a wait. It is no
@@ -936,7 +958,7 @@
             (:too-large reading)
             (do (end-read! read-path id :a-run-grew-too-large (:too-large reading)) nil)
 
-            (or (and (empty? join) (empty? leave)) (<= max-rounds round))
+            (or (and (empty? join) (empty? leave)) (<= (:live max-rounds) round))
             {:reading reading :known known :joined joined :left left}
 
             :else
@@ -1181,7 +1203,7 @@
           (empty? (:missing reading))
           (answer/whole query reading known)
 
-          (<= max-rounds round)
+          (<= (:once max-rounds) round)
           (late read-path)
 
           :else
@@ -1216,19 +1238,30 @@
   throws, and it holds nothing when it returns.
 
   What it costs. Each round is the calls that are missing, one for each
-  table under each routing id, sent at once: a place through three layers
-  is three calls in one round; from a layer, one call and then the others;
-  what points at a thing, one round for the rights and the marks, one for
-  the orders, and one for the checks of nearer layers, each check one seek.
-  A run of more than `:run-start-places` places costs two calls more. A
-  microbatch layer is read on the task of the read's home, in a call of its
-  own table: a run across its entities is one call, as in a streaming
-  layer. A query that names its run reads the row of the run's permission
-  in the call that reads her own, and the rows above it in the round that
-  reads those above hers: rows more, and no call more (read from
-  `softland.store.read-path.sources/reading`, and counted by no run). One
-  bound, `:wait-ms`, holds for the whole call. No count of pushes bounds it: it
-  opens none.
+  table under each routing id, sent at once; how many rounds a read takes
+  is derived in `softland.store.read-path.sources` (\"How many rounds a read
+  takes\"), at most 6. A layer's rights and a place in it are one call: a
+  place through three layers is three calls in one round, when no
+  permission of hers in a layer that is open to its members was given her
+  by another; for each that was, the rows above it are one round more, one
+  call for each such layer, in one round for all of them. From a layer,
+  the start layer's calls come first and the others after them. What
+  points at a thing takes one round more for the orders and one for the
+  checks of nearer layers, each check one seek. A run of more than
+  `:run-start-places` places costs two calls more. A microbatch layer is
+  read on the task of the read's home, in a call of its own table: a run
+  across its entities is one call, as in a streaming layer.
+
+  A query that names its run reads the row of the run's permission in the
+  call that reads her own. When that row holds a permission of hers, the
+  rows above it are read in the round that reads the rows above her own
+  permissions: rows more and no call more when that round is there anyway,
+  because a permission of hers in the same layer was given her; one round
+  more, with one call, when she holds none in that layer or holds its first
+  permission. When the row holds another holder's permission, nothing above
+  it is read. Counted by the read path's pure proof (`the-loop-ends`). One
+  bound, `:wait-ms`, holds for the whole call. No count of pushes bounds
+  it: it opens none.
 
   It reads the tables, and takes no value of a push. Where a live read
   holds a push open on a source that this read wants, the read makes its
@@ -1317,7 +1350,7 @@
       (loop [round 0]
         (let [{:keys [reading join leave]} (wanted-now)]
           (cond
-            (or (<= max-rounds round) (< deadline (now-ms)))
+            (< deadline (now-ms))
             (give-up (late read-path))
 
             (nil? reading)
@@ -1325,6 +1358,10 @@
 
             (:too-large reading)
             (give-up (words/word :serve-a-read-that-large (:too-large reading)))
+
+            (and (or (seq join) (seq leave) (seq (:missing reading)))
+                 (<= (:live max-rounds) round))
+            (give-up (late read-path))
 
             (or (seq join) (seq leave) (seq (:missing reading)))
             (do (leave-sources! read-path id leave false)
@@ -1343,7 +1380,9 @@
                                         (empty? join) (empty? leave) (empty? (:missing reading)))
                                (let [answer (answer/whole query reading known)]
                                  (swap! held (fn [now] (if (contains? (:reads now) id)
-                                                         (assoc-in now [:reads id :opened?] true)
+                                                         (-> now
+                                                             (assoc-in [:reads id :opened?] true)
+                                                             (assoc-in [:reads id :owed?] (answer/mark-of answer)))
                                                          now)))
                                  (tell! read-path id {:anew answer})
                                  {:now answer :leave-with (->LiveRead held id)}))))]

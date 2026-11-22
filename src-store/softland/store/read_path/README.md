@@ -110,8 +110,17 @@ not served from an open run that holds it: they are two sources.
 **One call for each table under each routing id, asked once.** Every missing
 source of one table under one routing id goes in one call. A layer's rights and
 its fact are one round trip; a place through three layers is three calls in one
-round. What a read reads of the base is one call more, to the task of the
-read's home.
+round, and one round more when a permission of the asker's there was given her,
+for the rows above it. What a read reads of the base is one call more, to the
+task of the read's home.
+
+**A read settles in a bounded number of rounds.** Each source is wanted on the
+values of the sources before it: a layer's own rows, then her permissions, then
+the rows above them, then its facts, then the checks; and the layers of a start
+layer's list only after the start layer. So a read asked once settles within 6
+rounds, whatever is written meanwhile, and a live read opens within 8 on tables
+that do not change. [sources.clj](sources.clj) derives the numbers, and each
+loop's bound is set from them.
 
 **A read asked once reads a layer's fact with its rights.** So the runtime can
 read one row, or the first places of a run, of a layer that the asker may then
@@ -178,17 +187,26 @@ of its own rests on what a row holds: a push on rows that hold a byte array was
 sent the whole value anew about once a second, so a fact's row holds its value
 as a String ([tables.clj](../record/tables.clj) says what was run).
 
-**No value is kept between two changes.** At a change the read path works out
-what the asker is told from the values that the pushes hold at that moment. It
-does not compare with what she was told before, because it does not keep that.
-Three tests let a step say nothing of a place: the row is the same; a layer's
-own rows mean the same for this query; a nearer layer that she may see holds a
-row at the place, in a source that the read still holds. Everything else is
-told, so a place can be told a second time with the answer that it already had.
-A read holds one mark, "the whole answer is owed", which is true or false and
-no value of the tables. The argument, and the orders of callbacks that were
-played for it with no cluster, are in the namespace docstring of
-[answer.clj](answer.clj) and in the proofs' map.
+**No value is kept between two changes; of what was told, each layer's
+standing.** At a change the read path works out what the asker is told from the
+values that the pushes hold at that moment. It compares no place with what she
+was told before. Three tests let a step say nothing of a place: the row is the
+same; a layer's own rows mean the same for this query; a nearer layer that she
+may see holds a row at the place, in a source that the read still holds.
+Everything else is told, so a place can be told a second time with the answer
+that it already had. A read holds one mark: true while the whole answer is owed;
+else what the last whole answer said of each layer, seen or left out and why,
+and the layers that wait. It is no value of the tables. It is there for the
+promise that an asker who may not see a layer is told nothing of it, not even
+an answer that says what it said: a change of her rights in a layer that she
+was told she may not see, and may not see after it, tells her nothing, and one
+that leaves her standing not known waits for the rows that say it. Without the
+mark a step cannot tell such a change from one that took the layer from her:
+two changes that are taken before either is handled each read the other's new
+value. The argument, and the orders of callbacks that were played for it with
+no cluster, are in the namespace docstring of [answer.clj](answer.clj) and in
+the proofs' map. Keeping each layer's standing is a session's choice of 22
+November 2026, for Sid to turn.
 
 **The whole answer anew when what shapes a read changes.** A setting, a
 permission, the list of the start layer or a mark that changes gives the asker
@@ -230,8 +248,10 @@ task of the home holds the rows: it rests on the gate's copy.
 decided: 256 places in the first read of a run; 20,000 places in one run; 40,000
 checks of nearer layers in one read that is asked once, and 250 in one that is
 kept live; 900 pushes held on one table under one routing id; 2,000 paths in one
-call; a wait of 10 seconds; 65 layers in one read; 9 rounds before a read that
-does not settle ends in a word. None bounds the bytes of a run.
+call; a wait of 10 seconds; 65 layers in one read; and the rounds before a read
+that does not settle ends in a word: 6 for a read asked once, which the chains
+of its sources give, and 16 for a live read, the 8 that they give and 8 more for
+writes while it opens. None bounds the bytes of a run.
 
 **The read path bounds its own pushes.** Rama bounds the pushes on one table on
 one task, by a dynamic option of its own whose default is 1,000, and it refuses
@@ -308,7 +328,7 @@ measures, `softland.store.read-measures`.
 | `:asks`, with `:place`, `:entity`, `:run`, `:points-at` | What is asked, and its four words |
 | `:first`, `:last` | The two ends of a layer, as ends of a run |
 | `:asker`, `:not-signed-in` | Who asks |
-| `:session` | The run that the read is asked in, as an act names its `:session`. With an asker only. The asker then sees a layer that is open to its members under her permission for the layer, or under that run's |
+| `:session` | The run that the read is asked in, as an act names its `:session`. With an asker only. The asker then sees a layer that is open to its members under her permission for the layer, or under that run's when it names her as its holder; another holder's permission for a run of that id gives her nothing, and the read reads nothing above it |
 | `:layers`, `:from-layer` | Through which layers; the layer to take the list from |
 | `:with`, with `:writer`, `:permission` and `:time` | The parts of a row that are asked for |
 | `:stores-own-facts` | Whether the store's own facts are asked for |
@@ -363,7 +383,8 @@ door's word for its own opening and is the read path's own.
 | the first read of a run; the size of a run | The two bounded reads that come before a run is read whole |
 | rank; round | The order in which sources can be wanted; one turn of fetching what is missing |
 | the read's turn | What lets one call of an asker's function run at a time for one read. Never called a lock: a lock is an encryption key in this tree |
-| the whole answer is owed | The one mark that a live read holds between two changes |
+| a read's mark | What a live read holds between two changes: that the whole answer is owed; or what its asker was last told of each layer, and which layers wait |
+| a layer that waits | One that she was told she may not see, whose standing a change of her rights has left not known yet, until its rows are given |
 | `:run-start-places`, `:max-places-of-one-run`, `:max-checks-of-one-read`, `:max-checks-of-one-live-read`, `:max-pushes-under-one-routing-id`, `:max-paths-in-one-call`, `:wait-ms` | The seven numbers that an opener can give |
 
 **Words inside the code**, which no caller is handed. Each is a session's, as the
@@ -375,13 +396,14 @@ others are.
 | `:layers`, `:list-known?`, `:standing`, `:by-layer`, `:wanted`, `:missing`, `:too-large`, `:digest` | What "what a read wants now" gives: the layers; whether the list of a start layer can be said yet; each layer's standing; what is read in each layer; every source that is wanted; those that are not read yet; whether the checks are more than one read may have; the digest of the thing asked about |
 | `:own`, `:permission`, `:run-permission`, `:chain`, `:facts`, `:since`, `:checks` | What is read in one layer: the source of its own rows, of the asker's permission, of the permission of the run that she asks in, of the row of each permission above those two, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
 | `:join`, `:leave`; `:joined`, `:left` | The sources that a live read is to hold and to let go; and those that one step did |
-| `:tell`, `:owed?` | What a step gives back: what to hand the asker's function, and whether the whole answer is owed after it |
+| `:tell`, `:owed?` | What a step gives back: what to hand the asker's function, and the read's mark after it |
+| `:told`, `:waiting` | The two parts of a read's mark when the whole answer is not owed: each layer's standing as the last whole answer said it, and the layers that wait |
 | `:walk`, `:places`, `:holds?`, `:gives`; `:given`, `:none`, `:waits` | How the rows of one word of a query are put together; and the three outcomes of the walk of one place |
 | `:made?`, `:who-may-see`, `:permission` with `:stands`, `:none`, `:not-known-yet`, `:builds-on`, `:marked-since` | What a layer's own rows, an asker's permission row and the rows above it mean for one query |
 | `:pushes`, with `:opening`, `:readers`, `:called` | What the read path holds for each push: the one call that opens it, the live reads that hold it, and a mark that its first callback came |
 | `:counts` | How many pushes the read path holds on each table under each routing id: what its own bound is held to |
 | `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |
-| `:reads`, with `:query`, `:tell`, `:turn`, `:sources`, `:opened?`, `:owed?` | What the read path holds for each live read: its query, its function, its turn, the sources that it holds, whether it is opened, and whether the whole answer is owed |
+| `:reads`, with `:query`, `:tell`, `:turn`, `:sources`, `:opened?`, `:owed?` | What the read path holds for each live read: its query, its function, its turn, the sources that it holds, whether it is opened, and its mark |
 | `:whole`, `:first`, `:count`, `:size` | The step of a read for which a path is made: the row or the run itself; the first read of a run; its count; its size |
 | `:ok`, `:refuse` | What the check of a query gives: the query in its one form, or the word with which it is turned away, beside `:at`. The form is that of the act's check |
 | `:put`, `:out`, `:all` | What a diff names: a key that was put, a key that went out, or no key |

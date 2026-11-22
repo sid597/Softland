@@ -80,15 +80,44 @@
     named, places-of                    which keys, and which places, a
                                         change names
 
-  A source is wanted by rank: a source of a rank is wanted as a function of
-  the query and of the values of sources of lower ranks, and never of its
-  own rank or above. Rank 0: the own rows of a start layer. 1: the own rows
-  of each layer of the list. 2: the asker's permission, and that of the run
-  that she asks in. 3: the rows of the permissions above those, which each
-  row names all at once. 4: a place,
-  a run, or the order by value. 5: the checks of nearer layers. So a loop
-  that fetches what is missing and asks `reading` again ends within six
-  rounds.
+  How many rounds a read takes. A source is wanted as a function of the
+  query and of the values of other sources that the read holds
+  (`reading`), never of its own value. So a loop that fetches what is
+  missing and asks `reading` again settles in as many rounds as the
+  longest chain of sources in which each is wanted on the value of the one
+  before. In one layer of a read the chain is:
+
+    rights   the layer's own rows; her permission and her run's, once the
+             own rows say that the layer is made and open to its members,
+             or for a read asked once in the round of the own rows; and
+             the rows above whichever of the two holds a given permission
+             of hers, one round after that row, all at once, since the row
+             names each (`chain-sources`)
+    facts    once she may see the layer; for a read asked once, a place and
+             the first read of a run in the round of the own rows
+             (`before-standing?`). The order by value waits for the own
+             rows, which say whether the key is marked
+    checks   one round after the orders of the farther layers
+             (`nearer-checks`)
+
+  A read has two ranks of layers at most: the layers of `:layers`, or the
+  start layer of `:from-layer`; and then the layers of the start layer's
+  list, which is known only once she may see the start layer, so that the
+  rights of those layers begin one round after the start layer's last.
+  No list is read further (`softland.store.read-path.layers/in-order`).
+
+  So, counted as rounds that fetch something, at most: asked once, the
+  rights of a rank take 2 rounds, the orders 1 and the checks 1; a given
+  list settles in 4 rounds, a start layer and its list in 6. Kept live, the
+  rights of a rank take 3 rounds, the facts 1 and the checks 1; a given
+  list opens in 5 rounds, a start layer and its list in 8. A read asked
+  once fetches each source once and keeps its value, so nothing that is
+  written while it reads makes its chain longer: it settles within 6
+  rounds whatever is written. A live read takes the values that its pushes
+  hold now, so a write while it opens can make a part of its chain wanted
+  anew: a list that gains a layer, 5 rounds more for that layer. The bound
+  of each loop is set from these numbers (`softland.store.read-path`,
+  `max-rounds`).
 
   State and effects. None. Each function is pure.
 
@@ -152,20 +181,36 @@
   (source-of home layer :facts [:row (rows/place-key layer session :softland.store/run-permission)]))
 
 (defn chain-sources
-  "Takes the home of a read, a layer, and the asker's permission row in the
-  layer: a row, nil, or `:not-known-yet`. Gives the sources of the rows
-  above it, nearest first: one row for each permission above the one that
-  her row holds, each on its own holder
-  (`softland.store.gate.chain/places-above`). An empty vector when her row
-  is not known, when she holds no row, when her row is an end, and when it
-  holds a first permission. Her permission stands only while each of those
-  rows holds the permission above, with an older stamp, so a read keeps
-  them as it keeps her own row: the end of one above her is a change of
-  one of them."
+  "Takes the home of a read, a layer, and the row of a permission of the
+  asker's in the layer: her permission row, or the row of her run's
+  permission; a row, nil, or `:not-known-yet`. Gives the sources of the
+  rows above it, nearest first: one row for each permission above the one
+  that the row holds, each on its own place
+  (`softland.store.gate.chain/places-above`). An empty vector when the row
+  is not known, when it is empty, when it is an end, and when it holds a
+  first permission. A permission stands only while each of those rows holds
+  the permission above, with an older stamp, so a read keeps them as it
+  keeps the row itself: the end of one above her is a change of one of
+  them. What must hold: the row's permission is hers; the caller tests a
+  run's row first (`askers-run-row`)."
   [home layer permission-row]
   (if-let [held (when-not (= :not-known-yet permission-row) (rows/held-permission permission-row))]
     (mapv (fn [k] (source-of home layer :facts [:row k])) (chain/places-above layer held))
     []))
+
+(defn askers-run-row
+  "Takes the row at the place of the permission of the run that a query
+  names, a row, nil or `:not-known-yet`, and the asker. Gives the row when it
+  holds a permission whose holder is the asker, and nil for any other row: a
+  run's permission is its holder's, and one that another holder holds for a
+  run of the same id lets the asker see nothing
+  (`softland.store.read-path.layers/run-permission-state`). So the rows above
+  another holder's permission are never wanted: a read that held them would
+  join and leave pushes, and owe its asker a whole answer, at a give or an
+  end that tells her nothing (`softland.store.read-path.answer/after-change`)."
+  [run-row asker]
+  (when-let [held (when-not (= :not-known-yet run-row) (rows/held-permission run-row))]
+    (when (= asker (nth held 0)) run-row)))
 
 (defn chain-rows
   "Takes the home of a read, a layer, the asker's permission row in the
@@ -201,7 +246,7 @@
             for-the-run (if session
                           (let [run-row (row-of (run-permission-source home layer session))]
                             (layers/run-permission-state layer asker run-row
-                                                         (chain-rows home layer run-row known)))
+                                                         (chain-rows home layer (askers-run-row run-row asker) known)))
                           :none)]
         (layers/either for-the-layer for-the-run)))))
 
@@ -531,6 +576,9 @@
     query names a run.
     The rows above her permission, and above her run's (`chain-sources`),
     when the permission is wanted and its row is known: the row names them.
+    Above her run's only when its row holds a permission of hers
+    (`askers-run-row`): another holder's permission for a run of the same id
+    shapes nothing of her read.
     A place or a run in a layer, when her standing is `:yes`. While her
     standing is `:not-known-yet`: for a read asked once, by
     `before-standing?`; for a live read, when the read holds the source
@@ -542,9 +590,9 @@
     A check, by `nearer-checks`.
 
   A layer whose standing is `:may-not-see` wants nothing but its own rows,
-  her permission and the rows above it: those are what could let it in
-  later. A layer that is
-  `:not-made` wants its own rows alone. The start layer of `:from-layer` is
+  her permission, her run's, and the rows above whichever of the two holds
+  a permission of hers: those are what could let it in later. A layer that
+  is `:not-made` wants its own rows alone. The start layer of `:from-layer` is
   in the list from the first round, before its own rows are known, so its
   permission and its fact source go with its own rows.
 
@@ -571,18 +619,20 @@
                                      (if (nil? own-rows)
                                        (= :once mode)
                                        (and (layers/made? own-rows layer)
-                                            (= :members (layers/who-may-see own-rows layer)))))]
+                                            (= :members (layers/who-may-see own-rows layer)))))
+                        standing (layers/standing layer own-rows
+                                                  (permission-state query home layer known)
+                                                  signed-in?)]
                     {:own own
                      :own-rows own-rows
                      :permission (when wanted? permission)
                      :run-permission (when wanted? run-permission)
                      :chain (if wanted?
                               (into (chain-sources home layer (row-of permission))
-                                    (when run-permission (chain-sources home layer (row-of run-permission))))
+                                    (when run-permission
+                                      (chain-sources home layer (askers-run-row (row-of run-permission) asker))))
                               [])
-                     :standing (layers/standing layer own-rows
-                                                (permission-state query home layer known)
-                                                signed-in?)}))
+                     :standing standing}))
          start (:from-layer query)
          start-rights (when start (rights start))
          listed (layers/in-order query (:own-rows start-rights) (:standing start-rights))

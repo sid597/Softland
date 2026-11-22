@@ -188,6 +188,14 @@
                                             that stands
     [:end-run layer session stamp]          the end of the permission at a
                                             run's place
+    [:end-and-give layer giver holder stamp] the giver ends her own
+                                            permission and, in the same
+                                            act, gives the holder one
+                                            straight beneath it: as a gate,
+                                            when the giver's stands. The
+                                            holder's does not stand
+    [:end-and-give-run layer giver session holder stamp] the same, with a
+                                            permission for the holder's run
     [:list layer layers stamp]              what the layer builds on
     [:marks layer keys stamp]               the layer's marked keys. A key
                                             that was marked keeps its stamp;
@@ -236,6 +244,25 @@
                          (fact-row* layer giver session :softland.store/run-permission
                                     [holder layer layer above :see [:run session]] stamp))
                     tables))
+      :end-and-give (let [[giver holder stamp] more
+                          giver-key (rows/place-key layer giver :softland.store/permission)
+                          above (rows/held-permission (get facts giver-key))]
+                      (if (and above (chain/stands? layer above facts))
+                        (-> tables
+                            (put gate :facts giver-key (fact-row* layer giver giver :softland.store/permission nil stamp))
+                            (put gate :facts (rows/place-key layer holder :softland.store/permission)
+                                 (fact-row* layer giver holder :softland.store/permission [holder layer layer above] stamp)))
+                        tables))
+      :end-and-give-run (let [[giver session holder stamp] more
+                              giver-key (rows/place-key layer giver :softland.store/permission)
+                              above (rows/held-permission (get facts giver-key))]
+                          (if (and above (chain/stands? layer above facts))
+                            (-> tables
+                                (put gate :facts giver-key (fact-row* layer giver giver :softland.store/permission nil stamp))
+                                (put gate :facts (rows/place-key layer session :softland.store/run-permission)
+                                     (fact-row* layer giver session :softland.store/run-permission
+                                                [holder layer layer above :see [:run session]] stamp)))
+                            tables))
       :end-run (let [[session stamp] more
                      k (rows/place-key layer session :softland.store/run-permission)]
                  (if (rows/held-permission (get facts k))
@@ -451,10 +478,11 @@
 (defn- open-live
   "Opens a live read in a world, as `softland.store.read-path/read-live`
   does: what is wanted, join what is missing and serve it from the tables
-  at once, again; then the first answer is the asker's screen. Takes the
-  tables, the writes that are to come and a query in its one form. Gives
-  the world, with `:rounds`, how many rounds joined something, and
-  `:first-joined`, the sources of the first round."
+  at once, again; then the first answer is the asker's screen, and the
+  read's mark is made of it (`softland.store.read-path.answer/mark-of`).
+  Takes the tables, the writes that are to come and a query in its one
+  form. Gives the world, with `:rounds`, how many rounds joined something,
+  and `:first-joined`, the sources of the first round."
   [tables writes query]
   (loop [world {:tables tables :writes (vec writes) :query query :held #{} :pushes {} :owed? false}
          round 0
@@ -463,7 +491,8 @@
           reading (sources/reading query known :live numbers (:held world))
           {:keys [join leave]} (sources/moves reading (:held world))]
       (if (and (empty? join) (empty? leave))
-        (assoc world :screen (answer/whole query reading known) :rounds round :first-joined first-joined)
+        (let [screen (answer/whole query reading known)]
+          (assoc world :screen screen :owed? (answer/mark-of screen) :rounds round :first-joined first-joined))
         (recur (-> world
                    (update :held #(into (reduce disj % leave) join))
                    (update :pushes #(into (reduce dissoc % leave)
@@ -732,6 +761,96 @@
                             writes)]
     (open-live tables writes (q {:asks asks :asker :ann :session :run-7 :layers [:near :far]}))))
 
+(defn- unseen-world
+  "A world for one place through two layers, for an asker who may not see
+  the nearer one: it is open to its members, `:root` holds its first
+  permission and `:bea` one beneath it, and the asker `:ann` holds none
+  there, for the layer or for her run. She asks in the run `:run-7`. The
+  farther layer is open to everyone and holds a fact at the place, and no
+  write is made there, so nothing that is written may reach her. Takes the
+  writes: `[:give-run-to-another]`, the run given a permission whose holder
+  is `:dov`, beneath Bea's; `[:end-run]`, the end of the run's permission;
+  `[:end-above]`, the end of Bea's; `[:give-above]`, Bea given hers again;
+  and `[:near]`, a fact of the nearer layer at the place."
+  [writes]
+  (let [tables (reduce write {}
+                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                        [:permission :near :root 2] [:give :near :bea :root 3]
+                        [:fact :near :maker :p :text "n0" 10] [:fact :far :maker :p :text "f0" 11]])
+        writes (map-indexed (fn [i [kind]]
+                              (case kind
+                                :give-run-to-another [:give-run :near :run-7 :dov :bea (+ 100 i)]
+                                :end-run    [:end-run :near :run-7 (+ 100 i)]
+                                :end-above  [:end :near :bea (+ 100 i)]
+                                :give-above [:give :near :bea :root (+ 100 i)]
+                                :near       [:fact :near :maker :p :text (str "n" i) (+ 100 i)]))
+                            writes)]
+    (open-live tables writes (q {:asks [:place :p :text] :asker :ann :session :run-7 :layers [:near :far]}))))
+
+(defn- own-unseen-world
+  "A world for one place through two layers, for an asker who may not see
+  the nearer one, and whose own permissions there never stand: it is open
+  to its members, `:root` holds its first permission, and `:bea` and `:cal`
+  each one beneath it. She asks in the run `:run-7`; the farther layer is
+  open to everyone, holds a fact at the place, and no write is made there.
+  Takes the writes: `[:bea-ends-and-gives]`, Bea ends her own and in the
+  same act gives the asker one beneath it, the road that the generated
+  histories found; `[:cal-ends-and-gives-run]`, Cal ends hers and gives the
+  asker's run one beneath it; `[:root-ends-hers]` and `[:root-ends-the-run]`,
+  the first holder ends the asker's and her run's; `[:near]`, a fact of the
+  nearer layer at the place."
+  [writes]
+  (let [tables (reduce write {}
+                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                        [:permission :near :root 2] [:give :near :bea :root 3] [:give :near :cal :root 4]
+                        [:fact :near :maker :p :text "n0" 10] [:fact :far :maker :p :text "f0" 11]])
+        writes (map-indexed (fn [i [kind]]
+                              (case kind
+                                :bea-ends-and-gives     [:end-and-give :near :bea :ann (+ 100 i)]
+                                :cal-ends-and-gives-run [:end-and-give-run :near :cal :run-7 :ann (+ 100 i)]
+                                :root-ends-hers         [:end :near :ann (+ 100 i)]
+                                :root-ends-the-run      [:end-run :near :run-7 (+ 100 i)]
+                                :near                   [:fact :near :maker :p :text (str "n" i) (+ 100 i)]))
+                            writes)]
+    (open-live tables writes (q {:asks [:place :p :text] :asker :ann :session :run-7 :layers [:near :far]}))))
+
+(defn- every-small-own-unseen
+  "Every list of up to three writes of `own-unseen-world`, each played in
+  every order. Gives {:lists :states :tells :wrong}, as `every-small-unseen`
+  does."
+  []
+  (let [tells (atom 0)
+        options [[:bea-ends-and-gives] [:cal-ends-and-gives-run] [:root-ends-hers] [:root-ends-the-run] [:near]]
+        played (with-redefs [told (let [told* told]
+                                    (fn [world tell]
+                                      (when tell (swap! tells inc))
+                                      (told* world tell)))]
+                 (vec (for [writes (lists-up-to 3 options)]
+                        (assoc (every-order (own-unseen-world writes) nil) :is writes))))]
+    {:lists (count played)
+     :states (reduce + (map :states played))
+     :tells @tells
+     :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
+
+(defn- every-small-unseen
+  "Every list of up to three writes of `unseen-world`, each played in every
+  order. Gives {:lists :states :tells :wrong}: `:tells`, how many times a
+  step handed the asker anything, over every order; `:wrong`, the lists that
+  have an order which ends wrong."
+  []
+  (let [tells (atom 0)
+        options [[:give-run-to-another] [:end-run] [:end-above] [:give-above] [:near]]
+        played (with-redefs [told (let [told* told]
+                                    (fn [world tell]
+                                      (when tell (swap! tells inc))
+                                      (told* world tell)))]
+                 (vec (for [writes (lists-up-to 3 options)]
+                        (assoc (every-order (unseen-world writes) nil) :is writes))))]
+    {:lists (count played)
+     :states (reduce + (map :states played))
+     :tells @tells
+     :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
+
 (defn- every-small-run
   "Every list of up to n writes of `run-world`. Takes n, what is asked, and
   the fault that the player is to make, or nil. Gives {:lists :states
@@ -794,6 +913,60 @@
            [:fact :team :alice :block-3 :parent :canvas-1 710]
            [:fact :team :alice :block-1 :parent :canvas-2 711]
            [:fact :team :bob :note-41 :text "from the team" 712]]))
+
+(def ^:private chains
+  "Tables in which each permission of the asker's is a given one, so that
+  the rights of every layer take their whole chain. `:start`, `:mid`,
+  `:far` and `:extra` are each open to its members; in each, `:root` holds
+  the first permission, `:bea` one beneath it, `:cal` one beneath the
+  first, the asker `:ann` one beneath Bea's, and her run `:run-7` one of
+  hers beneath Cal's, whose rows above are not hers. `:start` builds on
+  `:mid` and `:far`. Each marks `:parent`; `:mid` and `:far` each hold a
+  place that points at `:canvas-1`, so that a read of what points at it
+  wants checks of nearer layers, and `:extra` holds one too, for a list
+  that gains it."
+  (reduce write {}
+          (concat
+           (for [l [:start :mid :far :extra]
+                 w [[:make l 1] [:setting l :members 2] [:permission l :root 3] [:give l :bea :root 4]
+                    [:give l :cal :root 5] [:give l :ann :bea 6] [:give-run l :run-7 :ann :cal 7]
+                    [:marks l #{:parent} 8]]]
+             w)
+           [[:list :start [:mid :far] 9]
+            [:fact :mid :maker :b1 :parent :canvas-1 20]
+            [:fact :far :maker :b2 :parent :canvas-1 21]
+            [:fact :extra :maker :b3 :parent :canvas-1 22]])))
+
+(defn- play-once-while-written
+  "Plays a read asked once as `play-once` does, with one write while it
+  reads: before the round that `round` names, the write is made in the
+  tables, so that each source fetched from that round on is read from the
+  tables after it. Gives how many rounds fetched something."
+  [tables query at-round a-write]
+  (loop [tables tables round 0 known {}]
+    (let [tables (if (= round at-round) (write tables a-write) tables)
+          missing (:missing (sources/reading query known :once numbers))]
+      (if (or (empty? missing) (< 20 round))
+        round
+        (recur tables (inc round)
+               (into known (map (fn [source] [source (table-value tables source)])) missing))))))
+
+(defn- open-live-while-written
+  "Opens a live read as `open-live` does, with one write while it opens:
+  before the round that `round` names, the write is made, and each push
+  that the read holds takes the value that the tables then give. Gives how
+  many rounds joined something."
+  [tables query at-round a-write]
+  (loop [tables tables held {} round 0]
+    (let [tables (if (= round at-round) (write tables a-write) tables)
+          held (into {} (map (fn [[source _]] [source (table-value tables source)])) held)
+          reading (sources/reading query held :live numbers (set (keys held)))
+          {:keys [join leave]} (sources/moves reading (set (keys held)))]
+      (if (or (and (empty? join) (empty? leave)) (< 40 round))
+        round
+        (recur tables
+               (into (reduce dissoc held leave) (map (fn [source] [source (table-value tables source)])) join)
+               (inc round))))))
 
 (defn- live-rounds
   "Opens a live read of a query on the traces' tables. Gives how many rounds
@@ -1055,13 +1228,13 @@
         unmarked (-> open (move [:write] nil) (move [:take own] nil) (move [:handle own] nil))]
     (check "a fact's step that sees the new setting first joins her permission, tells nothing of its place, and owes"
            [true true (:screen world)]
-           [(contains? (:held fact-first) permission) (:owed? fact-first) (:screen fact-first)])
+           [(contains? (:held fact-first) permission) (true? (:owed? fact-first)) (:screen fact-first)])
     (check "when her permission is given, the whole answer comes, with the fact in it, and the mark is taken off"
            [false "n1" :near]
-           [(:owed? given-her) (get-in given-her [:screen :place :value]) (get-in given-her [:screen :place :layer])])
+           [(true? (:owed? given-her)) (get-in given-her [:screen :place :value]) (get-in given-her [:screen :place :layer])])
     (check "a step that leaves an order whose mark was taken off gives the whole answer anew, with not-marked and no place"
            [false {} [{:layer :l1 :not-marked true}] 1]
-           [(:owed? unmarked) (get-in unmarked [:screen :places]) (get-in unmarked [:screen :orders]) (count (:held unmarked))])
+           [(true? (:owed? unmarked)) (get-in unmarked [:screen :places]) (get-in unmarked [:screen :orders]) (count (:held unmarked))])
     (shown "a step that joins or leaves a source that is no check owes the whole answer: a fact's step that joins her permission tells nothing and owes, and the arrival of her permission gives the answer with the fact; a step that leaves an order gives the answer anew with :not-marked")))
 
 (deftest the-sources
@@ -1274,6 +1447,61 @@
     (shown "asked once, the base is one call of its table under the home's routing id, with the rights and the fact in it: 1 call from the base itself, also for a run across its entities and for the whole layer; 1 call more than her own layer's when it is read through her layer")
     (shown "the loop ends: asked once, a place is 1 round (1 call in one layer, 3 through three layers), from a layer 2 rounds (1 call, then 2), what points at a thing 3 rounds, from a layer 4; kept live, a place opens in 2 or 3 rounds, what points at a thing through a given list in 4, and from a start layer that is members in 6; none takes more than 6")
     (shown "a read asked once wants the place in the same round as the rights, a live read only when she may see the layer; with before-standing? giving false the read asked once takes the rights first, 2 rounds of 3 calls, and gives the same answer")))
+
+(deftest the-rounds-of-a-read-are-the-chains-of-its-sources
+  (let [rounds-once (fn [tables query] (:rounds (play-once tables query)))
+        rounds-live (fn [tables query] (:rounds (open-live tables [] query)))
+        asking (fn [parts] (q (merge {:asker :ann :session :run-7} parts)))
+        place-given (asking {:asks [:place :b1 :parent] :layers [:start :mid :far]})
+        place-from (asking {:asks [:place :b1 :parent] :from-layer :start})
+        points-given (asking {:asks [:points-at :parent :canvas-1] :layers [:start :mid :far]})
+        points-from (asking {:asks [:points-at :parent :canvas-1] :from-layer :start})
+        writes [[:list :start [:mid :far :extra] 30] [:end :start :bea 30] [:end-run :mid :run-7 30]
+                [:setting :far :everyone 30] [:end :far :ann 30] [:fact :far :maker :b4 :parent :canvas-1 30]]
+        ;; the run of the next checks: a layer where the asker holds no
+        ;; permission and her run holds one beneath the first; another
+        ;; holder's run; and a layer where her permission and her run's are
+        ;; both given, beneath two givers
+        runs (reduce write {}
+                     (concat
+                      (for [l [:solo :given]
+                            w [[:make l 1] [:setting l :members 2] [:permission l :root 3]
+                               [:give l :bea :root 4] [:give l :cal :root 5]
+                               [:fact l :maker :p :text "p0" 10]]]
+                        w)
+                      [[:give-run :solo :run-7 :ann :root 11] [:give-run :solo :run-8 :dov :root 12]
+                       [:give :given :ann :bea 11] [:give-run :given :run-7 :ann :cal 12]]))
+        per-round (fn [query]
+                    (loop [known {} out []]
+                      (let [missing (:missing (sources/reading query known :once numbers))]
+                        (if (empty? missing)
+                          out
+                          (recur (into known (map (fn [source] [source (table-value runs source)])) missing)
+                                 (conj out [(count (sources/calls-for-once missing numbers)) (count missing)]))))))
+        in (fn [layer & session] (q (cond-> {:asks [:place :p :text] :asker :ann :layers [layer]}
+                                     (seq session) (assoc :session (first session)))))]
+    (check "asked once, where every permission of the asker's was given her: a place through a given list settles in 2 rounds and from a layer in 4; what points at a thing through a given list in 4 and from a layer in 6, the most that the chains of a read's sources give"
+           [2 4 4 6]
+           (mapv #(rounds-once chains %) [place-given place-from points-given points-from]))
+    (check "kept live, the same reads open in 4, 7, 5 and 8 rounds: a layer's rights take one round more than asked once, since her permissions are joined only when its own rows say that it is open to its members; 8 is the most that the chains give"
+           [4 7 5 8]
+           (mapv #(rounds-live chains %) [place-given place-from points-given points-from]))
+    (check "asked once, a write before any round of the longest read lengthens nothing: each source is fetched once, so the read settles within 6 rounds whatever is written"
+           true
+           (every? (fn [[w r]] (<= (play-once-while-written chains points-from r w) 6))
+                   (for [w writes r (range 7)] [w r])))
+    (check "kept live, a list that gains a layer at the round at which the longest read would open asks 5 rounds more, the rights, the order and the checks of that layer: 13, within the 16 that a live read is given; none of the other writes, made before any round, asks more"
+           [13 true]
+           [(open-live-while-written chains points-from 8 [:list :start [:mid :far :extra] 30])
+            (every? (fn [[w r]] (<= (open-live-while-written chains points-from r w) 13))
+                    (for [w writes r (range 9)] [w r]))])
+    (check "asked once: in a layer where she holds no permission, a read in a run whose permission is hers is one round more than the same read in no run, since the row above the run's permission is read after it; a read in a run whose permission is another holder's is not, since no row above it is read"
+           [[[1 3]] [[1 4] [1 1]] [[1 4]]]
+           [(per-round (in :solo)) (per-round (in :solo :run-7)) (per-round (in :solo :run-8))])
+    (check "asked once: where her permission was given her too, the rows above her run's ride the round that reads those above hers, one call each: rows more, and no call more"
+           [[[1 3] [1 2]] [[1 4] [1 3]]]
+           [(per-round (in :given)) (per-round (in :given :run-7))])
+    (shown "the rounds of a read are the chains of its sources: asked once, at most 6 (a place 2 through a given list and 4 from a layer; what points at a thing 4 and 6), and no write while it reads makes it longer; kept live, at most 8 on tables that do not change (4, 7, 5 and 8), and a list that gains a layer while it opens asks 5 more, 13 of its 16; a read in a run reads the rows above the run's permission only when it is hers, one round more when no permission of hers in the layer asks for that round anyway")))
 
 (deftest the-checks-of-nearer-layers
   (let [query (q (merge alice {:asks [:points-at :parent :canvas-1] :layers [:alice-notes :team :base]}))
@@ -1518,6 +1746,134 @@
               (sources/places-of points (sources/by-value-source :team :base :parent 300 :canvas-1)
                                  [(rows/by-value-key :base :parent 300 digest :block-2)])]))
     (shown "which changes reach an asker: a change in the layer that wins the place; not one under a nearer row, not one in a layer that she may not see, and one of a store key's row only when she asked for the store's own facts")))
+
+(deftest an-asker-who-may-not-see-a-layer-is-told-nothing-of-it
+  (let [now (every-small-unseen)
+        before (with-redefs [sources/askers-run-row (fn [run-row _asker] run-row)
+                             softland.store.read-path.answer/unseen-layers (constantly #{})]
+                 (every-small-unseen))
+        either-alone [(with-redefs [sources/askers-run-row (fn [run-row _asker] run-row)] (:tells (every-small-unseen)))
+                      (with-redefs [softland.store.read-path.answer/unseen-layers (constantly #{})] (:tells (every-small-unseen)))]
+        alone (fn [writes] (every-order (unseen-world writes) nil))
+        joined (fn [world] (set (map :path (filter #(= :near (:layer %)) (:held world)))))
+        given (unseen-world [[:give-run-to-another]])
+        after-give (-> given (move [:write] nil))
+        bea-row [:row (rows/place-key :near :bea :softland.store/permission)]]
+    (check "a live read in a run, of a layer that she may not see, is handed nothing in any order of up to three writes there: another holder's permission for her run, its end, the end of the one above it and its give again, a fact; and each order ends on the screen that a read asked once gives"
+           [155 0 []]
+           [(:lists now) (:tells now) (:wrong now)])
+    (check "her read holds the layer's own rows, her permission's place and her run's, and never the rows above another holder's permission for her run"
+           [false false]
+           [(contains? (joined after-give) bea-row)
+            (contains? (joined (-> after-give (move [:take (sources/run-permission-source :near :near :run-7)] nil)
+                                   (move [:handle (sources/run-permission-source :near :near :run-7)] nil)))
+                       bea-row)])
+    (check "as the read path was before this build, with the rows above any holder's permission for her run wanted and every move of a source that is no check owing a whole answer, the same writes hand her an answer that says what it said: the review's 2A; and each of the two rules of this build is enough by itself to hand her nothing"
+           [true [0 0]]
+           [(pos? (:tells before)) either-alone])
+    (check "one order of the review's history alone: the give to another holder and its end hand her nothing"
+           nil
+           (:wrong (alone [[:give-run-to-another] [:end-run]])))
+    (shown "an asker who may not see a layer is told nothing of it while she asks in a run: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything; with the rows above another holder's run permission wanted, as before, a step did")))
+
+(deftest an-asker-whose-own-permission-does-not-stand-is-told-nothing
+  (let [now (every-small-own-unseen)
+        without-the-rule (with-redefs [softland.store.read-path.answer/unseen-layers (constantly #{})]
+                           (every-small-own-unseen))
+        without-the-memory (with-redefs [answer/mark-of (constantly false)]
+                             (every-small-chain 2 [:points-at :parent :canvas-1] nil))
+        one (fn [writes] (let [tells (atom 0)
+                               played (with-redefs [told (let [told* told]
+                                                           (fn [world tell] (when tell (swap! tells inc)) (told* world tell)))]
+                                        (every-order (own-unseen-world writes) nil))]
+                           [@tells (:wrong played)]))]
+    (check "a live read in a run, of a layer that she may not see, whose own permission and whose run's are given her beneath one that ends in the same act, and ended: in every order of every list of up to three such writes and a fact, no step hands her anything, and each order ends on what a read asked once gives"
+           [155 0 []] [(:lists now) (:tells now) (:wrong now)])
+    (check "the road that the generated histories found, alone: Bea ends her own and gives her one beneath it; and then its end by the first holder"
+           [[0 nil] [0 nil]] [(one [[:bea-ends-and-gives]]) (one [[:bea-ends-and-gives] [:root-ends-hers]])])
+    (check "the player can fail: without the rule that a change of her rights in a layer that she was told she may not see tells nothing, steps hand her answers that say what they said; and with a read that keeps nothing of what it told, which steps then judge by the meaning before each change, an order in which two changes are taken before either is handled ends on a screen that the tables do not give"
+           [true true] [(pos? (:tells without-the-rule)) (boolean (seq (:wrong without-the-memory)))])
+    (shown "an asker whose own permission in a layer does not stand is told nothing of the layer: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything; without the rule, steps did")))
+
+(deftest the-reviews-probe-of-the-read-path-written-again
+  (let [rounds-live (fn [tables query] (:rounds (open-live tables [] query)))
+        once (fn [tables query] (let [{:keys [rounds calls]} (play-once tables query)] [rounds calls]))
+        ;; probe 3: a live read from a start layer in a run, the farthest layer open to everyone and marked
+        probe-3 (reduce write {}
+                        [[:make :start 1] [:permission :start :root 2] [:list :start [:mid :far] 3]
+                         [:give-run :start :run-7 :cal :root 4]
+                         [:make :mid 1] [:permission :mid :root 2] [:give-run :mid :run-7 :cal :root 3]
+                         [:make :far 1] [:setting :far :everyone 2] [:marks :far #{:parent} 3]
+                         [:fact :far :root :item-1 :parent :target 4]])
+        ;; probe 6B: the same with the farthest layer open to its members
+        probe-6b (reduce write {}
+                         [[:make :start 1] [:permission :start :root 2] [:list :start [:mid :far] 3]
+                          [:give-run :start :run-7 :cal :root 4]
+                          [:make :mid 1] [:permission :mid :root 2] [:give-run :mid :run-7 :cal :root 3]
+                          [:make :far 1] [:permission :far :root 2] [:marks :far #{:parent} 3]
+                          [:give-run :far :run-7 :cal :root 4]
+                          [:fact :far :root :item-1 :parent :canvas-1 10]])
+        in-run-7 (fn [thing] (q {:asks [:points-at :parent thing] :asker :cal :session :run-7 :from-layer :start}))
+        ;; probe 4: another holder's permission for her run, given and ended, in a layer that she may not see
+        probe-4 (reduce write {}
+                        [[:make :near 1] [:permission :near :root 2] [:give :near :bea :root 3]
+                         [:fact :near :root :p :text "secret" 4]
+                         [:make :far 1] [:setting :far :everyone 2] [:fact :far :root :p :text "public" 3]])
+        tells (atom 0)
+        probe-4-played (with-redefs [told (let [told* told]
+                                            (fn [world tell] (when tell (swap! tells inc)) (told* world tell)))]
+                         (every-order (open-live probe-4 [[:give-run :near :run-7 :dov :bea 100] [:end-run :near :run-7 101]]
+                                                 (q {:asks [:place :p :text] :asker :ann :session :run-7 :layers [:near :far]}))
+                                      nil))
+        ;; probe 5: its five worlds, every order of the callbacks
+        base-tables (reduce write {}
+                            [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                             [:marks :near #{:parent} 3] [:marks :far #{:parent} 3]
+                             [:permission :near :root 4] [:give :near :bea :root 5] [:give :near :cal :bea 6]
+                             [:give :near :ann :root 7]
+                             [:fact :near :root :p1 :parent :canvas-x 10] [:fact :far :root :p1 :parent :canvas-1 11]
+                             [:fact :near :root :p2 :parent :canvas-1 12]])
+        scenarios [[base-tables
+                    [[:give-run :near :run-7 :ann :cal 100] [:end :near :ann 101] [:fact :near :root :p1 :parent :canvas-1 102]]
+                    {:asks [:points-at :parent :canvas-1] :asker :ann :session :run-7 :layers [:near :far]}]
+                   [base-tables
+                    [[:give-run :near :run-7 :ann :cal 100] [:end :near :ann 101] [:end :near :bea 102]
+                     [:fact :far :root :p3 :parent :canvas-1 103]]
+                    {:asks [:points-at :parent :canvas-1] :asker :ann :session :run-7 :layers [:near :far]}]
+                   [(write base-tables [:list :near [:far] 8])
+                    [[:end :near :ann 100] [:give-run :near :run-7 :ann :cal 101] [:fact :near :root :p1 :parent :canvas-1 102]]
+                    {:asks [:points-at :parent :canvas-1] :asker :ann :session :run-7 :from-layer :near}]
+                   [base-tables
+                    [[:give-run :near :run-7 :ann :cal 100] [:end :near :ann 101] [:end :near :cal 102]]
+                    {:asks [:place :cal :softland.store/permission] :asker :ann :session :run-7
+                     :layers [:near :far] :stores-own-facts true}]
+                   [(reduce write {} [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                                      [:permission :near :root 3] [:give :near :bea :root 4]
+                                      [:fact :far :root :near :note "far-note" 10]])
+                    [[:give-run :near :near :ann :bea 100] [:end-run :near :near 101] [:give-run :near :near :ann :bea 102]]
+                    {:asks [:entity :near] :asker :ann :session :near :layers [:near :far] :stores-own-facts true}]]
+        probe-5 (mapv (fn [[tables writes query]] (every-order (open-live tables writes (q query)) nil)) scenarios)
+        ;; probe 6A: the calls of a read asked once in a run
+        m-run (reduce write {} [[:make :m-run 1] [:permission :m-run :ada 2] [:give-run :m-run :run-9 :cal :ada 3]
+                                [:fact :m-run :ada :note :text "from m-run" 4]])
+        m-run-bea (reduce write {} [[:make :m-run 1] [:permission :m-run :ada 2] [:give :m-run :bea :ada 3]
+                                    [:give-run :m-run :run-9 :dov :bea 4] [:fact :m-run :ada :note :text "from m-run" 5]])
+        note (fn [who & session] (q (cond-> {:asks [:place :note :text] :asker who :layers [:m-run]}
+                                       (seq session) (assoc :session (first session)))))]
+    (check "the review's probe 3, a live read from a start layer in a run with the farthest layer open to everyone: 7 rounds, within the 8 that the chains of its sources give"
+           7 (rounds-live probe-3 (in-run-7 :target)))
+    (check "the review's probe 6B, the same with the farthest layer open to its members: 8 rounds, the most that the chains give, and half of the 16 that a live read is given"
+           8 (rounds-live probe-6b (in-run-7 :canvas-1)))
+    (check "the review's probe 4: an asker who may not see the nearer layer, asking in her run, while another holder's permission for that run is given and ended there: no step hands her anything, in any order, and each order ends on what a read asked once gives"
+           [0 nil] [@tells (:wrong probe-4-played)])
+    (check "the review's probe 5: its five worlds, every order of the callbacks, and none ends wrong"
+           [nil nil nil nil nil] (mapv :wrong probe-5))
+    (check "the review's probe 6A, asked once: Cal, who holds no permission in the layer, in no run is one round; in her run, whose permission is beneath the first, one round more, for the row above it; Ada, the first holder, in a run whose permission is Dov's, is one round, as in no run: nothing above another holder's is read"
+           [[1 [1]] [2 [1 1]] [1 [1]] [1 [1]]]
+           [(once m-run (note :cal)) (once m-run (note :cal :run-9)) (once m-run-bea (note :ada)) (once m-run-bea (note :ada :run-9))])
+    (shown "the review's probe of the read path, written again for this build's code: probe 3 opens in" (rounds-live probe-3 (in-run-7 :target))
+           "rounds and 6B in" (rounds-live probe-6b (in-run-7 :canvas-1))
+           "| probe 4 hands her nothing over" (:states probe-4-played) "worlds | probe 5's five worlds:" (pr-str (mapv :states probe-5)) "worlds, none wrong")))
 
 (deftest every-order-of-the-callbacks
   (let [played (mapv (fn [[what k marks facts seen writes]]
@@ -1826,9 +2182,13 @@
   (the-layers)
   (the-sources)
   (the-loop-ends)
+  (the-rounds-of-a-read-are-the-chains-of-its-sources)
   (the-checks-of-nearer-layers)
   (what-a-read-gives)
   (which-changes-reach-an-asker)
+  (an-asker-who-may-not-see-a-layer-is-told-nothing-of-it)
+  (an-asker-whose-own-permission-does-not-stand-is-told-nothing)
+  (the-reviews-probe-of-the-read-path-written-again)
   (a-step-that-joins-or-leaves-a-source-owes-the-whole-answer)
   (every-order-of-the-callbacks)
   (the-size-of-a-run-and-the-order-of-its-keys)

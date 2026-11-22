@@ -7,9 +7,13 @@
   works that out from two things that it is handed at the moment of the
   call: what `softland.store.read-path.sources/reading` gave for the read,
   and `known`, the values that selects gave or that Rama's pushes hold now.
-  None keeps anything, and none is handed anything that was put together
-  before. So what a live read gives is worked out anew at each change, from
-  the pushes' values, for the places that the change names.
+  None keeps anything. The steps of a live read are handed one thing more,
+  the read's mark: whether the whole answer is owed, or what the last whole
+  answer said of each layer, seen or left out and why, and which layers wait
+  (`mark-of`), and nothing of any fact. So what a live read gives is worked
+  out anew at each change, from the pushes' values, for the places that the
+  change names; and what it says of a layer that the asker may not see is
+  held against what she was told of it.
 
   An answer is a plain map. For every word of a query it holds
 
@@ -79,6 +83,8 @@
     whole               a query, a reading, `known` -> the answer
     told-by?            whether a change of a source at a place is to be told
     meanings            what a rights source meant before and after a change
+    mark-of             a whole answer -> the mark of a read that was just
+                        given it
     after-change        what a live read does at a change of a push
     after-arrival       what a live read does when a push that it came to
                         need is given
@@ -452,15 +458,118 @@
   [query joined left]
   (boolean (some #(not (sources/check? query %)) (concat joined left))))
 
+(defn mark-of
+  "Takes the whole answer that a live read was just given. Gives the read's
+  mark after it: {:told {layer standing}}, what the answer said of each of
+  its layers, `:yes` for one that it gives, or the word of `:left-out`
+  (`:may-not-see`, `:not-made`). It is the read's one memory of what its
+  asker was told, a layer's standing and nothing of its facts, and it is
+  made again at each whole answer. `softland.store.read-path/read-live`
+  marks a read with it when it opens."
+  [answer]
+  {:told (into (zipmap (:layers answer) (repeat :yes))
+               (map (fn [{:keys [layer why]}] [layer why]))
+               (:left-out answer))})
+
+(defn- told-of
+  "Takes a read's mark. Gives what it holds of what the asker was told of
+  each layer, a map, empty for a mark that holds nothing of it."
+  [mark]
+  (or (when (map? mark) (:told mark)) {}))
+
+(defn- waiting-of
+  "Takes a read's mark. Gives the layers that wait in it, a set."
+  [mark]
+  (or (when (map? mark) (:waiting mark)) #{}))
+
+(defn- marked
+  "Takes what the asker was told of each layer, a map, and the layers that
+  wait, a set. Gives the read's mark: false when both are empty, as a read
+  that was never told a whole answer is marked."
+  [told waiting]
+  (if (and (empty? told) (empty? waiting))
+    false
+    (cond-> {:told told} (seq waiting) (assoc :waiting waiting))))
+
+(defn- only-rights-of?
+  "Takes a query, a set of layers, and the sources that a step joined and
+  left. Gives true when each of them that is no check is a row of her
+  rights in one of those layers other than its own rows: her permission,
+  her run's, or a row under a key of a permission
+  (`softland.store.read-path.sources/rights-kind`). A move of a layer's own
+  rows is a move of the read's list, and is never one of these."
+  [query layers joined left]
+  (every? (fn [source]
+            (or (sources/check? query source)
+                (and (contains? layers (:layer source))
+                     (contains? #{:permission :run-permission :above} (sources/rights-kind query source)))))
+          (concat joined left)))
+
+(defn- unseen-layers
+  "Takes what the asker was told of each layer (`told-of`) and what
+  `reading` gave after a step. Gives the layers that she was told she may
+  not see and that she may not see now, or of which that is not known yet.
+  A change of her rights in such a layer, and the joining and the leaving
+  of its rights, tell her nothing: while she may not see a layer, the
+  answer says of it that it is left out, and nothing more, and an answer
+  that says what it said would tell her that something of the layer was
+  written (`softland.store.read-path.layers/meaning`). One whose standing
+  is not known yet waits, in the mark, until it is: then she is owed the
+  whole answer if she may see it, and nothing if she may not
+  (`told-or-waiting`)."
+  [told reading]
+  (into #{}
+        (keep (fn [[layer standing]]
+                (when (and (= :may-not-see standing)
+                           (contains? #{:may-not-see :not-known-yet} (get-in reading [:standing layer])))
+                  layer)))
+        told))
+
+(defn- with-the-meaning-before
+  "Takes a query, the source whose push changed, what it meant before the
+  change (`meanings`), and what the asker was told of each layer. Gives the
+  same map, with the source's layer as she was told it when the map holds
+  nothing of it: the standing that the layer's meaning had before the
+  change, for a source of her rights there. A read that the read path
+  opened holds what it told of each layer; another holds nothing of it, and
+  then the meaning before a change is what she was told only where each
+  change is handled before the next is taken, as in one order."
+  [query source meant-before told]
+  (let [layer (:layer source)]
+    (if (and (sources/rights-kind query source) (not (contains? told layer)))
+      (if-let [standing (layers/meaning-standing meant-before)]
+        (assoc told layer standing)
+        told)
+      told)))
+
 (defn- whole-if-nothing-is-missing
   "Takes a query, a reading and `known`, for a read that owes its asker the
-  whole answer. Gives {:tell {:anew answer} :owed? false} when nothing is
-  missing; else {:tell nil :owed? true}: the mark stays, and the step in
-  which the last missing source is given gives the whole answer."
+  whole answer. Gives {:tell {:anew answer} :owed? the mark of that answer}
+  when nothing is missing (`mark-of`); else {:tell nil :owed? true}: the
+  mark stays, and the step in which the last missing source is given gives
+  the whole answer."
   [query reading known]
   (if (empty? (:missing reading))
-    {:tell {:anew (whole query reading known)} :owed? false}
+    (let [answer (whole query reading known)]
+      {:tell {:anew answer} :owed? (mark-of answer)})
     {:tell nil :owed? true}))
+
+(defn- told-or-waiting
+  "Takes a query, a reading, `known`, what the asker was told of each layer,
+  the layers that wait (a set, empty for none), and the places to tell, a
+  map of place-answers. Gives {:tell :owed?}: the places, and the mark.
+  While something is missing the layers still wait, and the places are told
+  now, since none of them waits. When nothing is missing, each layer that
+  waited and is one that she may not see stops waiting, and she is told the
+  places alone; a layer that waited and that she may now see, or that left
+  the read, gives her the whole answer."
+  [query reading known told waiting given]
+  (let [tell (when (seq given) {:changed given})]
+    (cond
+      (empty? waiting) {:tell tell :owed? (marked told #{})}
+      (seq (:missing reading)) {:tell tell :owed? (marked told waiting)}
+      (every? #(= :may-not-see (get-in reading [:standing %])) waiting) {:tell tell :owed? (marked told #{})}
+      :else (whole-if-nothing-is-missing query reading known))))
 
 (defn after-change
   "What a live read does at a change of one of its pushes, once the joining
@@ -471,55 +580,87 @@
   (`softland.store.read-path.sources/places-of`); what the source meant
   before and after
   (`meanings`; nil and nil for a source that is no rights source); the
-  sources that the step joined and left; and whether the whole answer was
-  owed already. Gives {:tell :owed?}: what to hand the asker's function,
-  nil for nothing, {:changed {place place-answer}} or {:anew answer}; and
-  whether the whole answer is owed after the step.
+  sources that the step joined and left; and the read's mark: true when the
+  whole answer is owed; else what the asker was told of each layer and the
+  layers that wait (`mark-of`), or false for a read that holds nothing of
+  it. Gives {:tell :owed?}: what to hand the asker's function, nil for
+  nothing, {:changed {place place-answer}} or {:anew answer}; and the mark
+  after the step.
 
-  The whole answer is owed from this step on in two cases: the source is a
-  layer's own rows or her permission, and what it means for this query
-  differs; or the step joined or left a source that is no check, whatever
-  source called. While it is owed, no single
-  place is told: the asker gets {:anew answer} when nothing is missing.
+  The whole answer is owed from this step on in two cases: the source is one
+  of her rights in a layer, its own rows, her permission, her run's, or a
+  row above one of those (`softland.store.read-path.sources/rights-kind`),
+  and what it means for this query differs; or the step joined or left a
+  source that is no check, whatever source called. Neither counts when it
+  is of her rights in a layer that she was told she may not see and that she
+  may not see now, or of which that is not known yet (`unseen-layers`):
+  nothing of such a layer is told, and one whose standing is not known yet
+  waits, in the mark, until its rows are given (`after-arrival`). While the
+  whole answer is owed, no single place is told: the asker gets {:anew
+  answer} when nothing is missing. While a layer waits, a place that the
+  change names is told when it does not wait; one that waits makes the
+  whole answer owed.
 
   Else each place that the change names is told when `told-by?` says so,
   with what the read gives there now; a place that waits is left out, and
   is told when the source that it waits for is given.
 
-  The read path keeps no value between two changes: this function does not
-  compare with what the asker was told before. A place can so be told a
+  What the read keeps between two changes is its mark: what its asker was
+  told of each layer, and nothing of the facts. This function compares no
+  place with what the asker was told before: a place can so be told a
   second time with the answer that it already had."
   [query reading known source places meant-before meant-after joined left owed?]
-  (if (or owed?
-          (not= meant-before meant-after)
-          (owes-for-a-move? query joined left))
+  (if (true? owed?)
     (whole-if-nothing-is-missing query reading known)
-    (let [told (of-places query reading known
-                          (filter #(told-by? query reading known source %) places))]
-      {:tell (when (seq told) {:changed told}) :owed? false})))
+    (let [told (with-the-meaning-before query source meant-before (told-of owed?))
+          unseen (unseen-layers told reading)
+          own-change? (and (not= meant-before meant-after)
+                           (not (and (sources/rights-kind query source) (contains? unseen (:layer source)))))]
+      (if (or own-change? (not (only-rights-of? query unseen joined left)))
+        (whole-if-nothing-is-missing query reading known)
+        (let [waiting (into (waiting-of owed?) (filter #(= :not-known-yet (get-in reading [:standing %]))) unseen)
+              named (filter #(told-by? query reading known source %) places)
+              given (of-places query reading known named)]
+          (if (and (seq waiting) (< (count given) (count named)))
+            (whole-if-nothing-is-missing query reading known)
+            (told-or-waiting query reading known told waiting given)))))))
 
 (defn after-arrival
   "What a live read does when a push that it came to need is given, once the
   joining and the leaving of the step are done and `known` is made again.
   Takes the query in its one form; what `reading` gave on that `known`;
   `known`; the source that was given; the sources that the step joined and
-  left; and whether the whole answer was owed already. Gives {:tell :owed?}
-  as `after-change` does.
+  left; and the read's mark, as `after-change` takes it. Gives {:tell
+  :owed?} as `after-change` does.
 
   A step that joins or leaves a source that is no check owes the whole
-  answer. When it is owed, the asker gets {:anew answer} if nothing is
-  missing any more, whatever kind of source arrived. Else a check that
-  arrives tells its place, with no test, unless the place still waits. Any
-  other source that arrives with nothing owed tells nothing."
+  answer, unless each such source is of her rights in a layer that she was
+  told she may not see and that she may not see now, or of which that is not
+  known yet (`unseen-layers`). When it is owed, the asker gets {:anew
+  answer} if nothing is missing any more, whatever kind of source arrived.
+  While layers wait, the step says, once nothing is missing, whether each
+  is still one that she may not see: then it stops waiting and she is told
+  nothing of it; else she is given the whole answer (`told-or-waiting`).
+  Else a check that arrives tells its place, with no test, unless the place
+  still waits. Any other source that arrives with nothing owed tells
+  nothing."
   [query reading known source joined left owed?]
-  (cond
-    (or owed? (owes-for-a-move? query joined left))
+  (if (true? owed?)
     (whole-if-nothing-is-missing query reading known)
+    (let [told (told-of owed?)
+          unseen (unseen-layers told reading)
+          waiting (into (waiting-of owed?) (filter #(= :not-known-yet (get-in reading [:standing %]))) unseen)
+          named (when (sources/check? query source)
+                  (sources/places-of query source [(second (:path source))]))
+          given (of-places query reading known named)]
+      (cond
+        (not (only-rights-of? query unseen joined left))
+        (whole-if-nothing-is-missing query reading known)
 
-    (sources/check? query source)
-    (let [told (of-places query reading known
-                          (sources/places-of query source [(second (:path source))]))]
-      {:tell (when (seq told) {:changed told}) :owed? false})
+        (seq waiting)
+        (if (< (count given) (count named))
+          (whole-if-nothing-is-missing query reading known)
+          (told-or-waiting query reading known told waiting given))
 
-    :else
-    {:tell nil :owed? false}))
+        :else
+        {:tell (when (seq given) {:changed given}) :owed? (marked told #{})}))))

@@ -486,6 +486,16 @@ group observed. This page does not retell the checks.
   played. The read path's proof, below, reads the base on the task of an
   asker's own layer;
 - more than four writes in one played world;
+- the rounds of a live read while it opens under more than one write: the
+  rounds are counted on tables that do not change, and with one write before
+  one round (`the-rounds-of-a-read-are-the-chains-of-its-sources`);
+- a live read whose mark holds nothing of what it told its asker, played in
+  every order: such a read can end on a screen that the tables do not give,
+  as a check shows on purpose, and the read path marks each read when it
+  opens (`softland.store.read-path.answer/mark-of`). A caller that drives
+  the read path's pure steps and marks nothing, as the generated histories'
+  live read does, is right only where each change is handled before the
+  next is taken;
 - the time on a row as a gate writes it from the time on the act: the proof
   makes its rows' times itself, of the stamp, running back as the stamp runs
   on.
@@ -567,6 +577,8 @@ Rama's test tool, and lets it go on.
 
 - a read asked in a run through the base: the group `a-read-asked-in-a-run`
   reads a streaming layer;
+- the rounds and the calls of a read on the cluster: the pure proof counts
+  them, on its own tables, round by round;
 - an end under a live read of the base: the group
   `a-permission-ends-under-a-live-read` ends permissions in a streaming layer.
   The pure proof plays no task, so nothing holds that the rows above an

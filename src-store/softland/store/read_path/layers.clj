@@ -18,12 +18,16 @@
                           `:softland.store/permission`; nil says that she
                           holds none, and `:not-known-yet` that it is not
                           read. A row with no value is an end
-    the rows above it     the rows at the places of the permissions above
-                          the one that her row holds, as a map from the key
-                          of a place to its row; `:not-known-yet` says that
-                          one of them is not read. Her permission stands
-                          only while each one above it stands
-                          (`softland.store.gate.chain`)
+    her run's row         for a query that names the run that it is asked
+                          in, the row at the run's place under
+                          `:softland.store/run-permission`, read as hers
+                          only when its permission names her as its holder
+    the rows above them   the rows at the places of the permissions above
+                          the one that her row holds, or her run's, as a
+                          map from the key of a place to its row;
+                          `:not-known-yet` says that one of them is not
+                          read. A permission stands only while each one
+                          above it stands (`softland.store.gate.chain`)
 
   Inputs and results, by call:
 
@@ -226,6 +230,24 @@
             :stands :yes
             :may-not-see)))
 
+(defn meaning-standing
+  "Takes what `meaning` gave for a layer, or nil for a source that is no
+  rights source. Gives the standing that the meaning holds, by the table of
+  `standing`: `:not-known-yet` for rows that are not known, or for a
+  permission whose standing is not known; `:not-made`; `:yes`; or
+  `:may-not-see`. nil for nil. A meaning holds what `standing` reads: an
+  asker who is not signed in holds no permission that stands, so the
+  meaning of her rights is `:none`."
+  [meant]
+  (cond
+    (nil? meant) nil
+    (= :not-known-yet meant) :not-known-yet
+    (not (:made? meant)) :not-made
+    (= :everyone (:who-may-see meant)) :yes
+    (= :stands (:permission meant)) :yes
+    (= :not-known-yet (:permission meant)) :not-known-yet
+    :else :may-not-see))
+
 (defn in-order
   "Which layers a read looks through, nearest first. Takes a query in its
   one form; and, for a query that names `:from-layer`, the start layer's own
@@ -284,8 +306,10 @@
   {:layer layer :why why})
 
 (defn meaning
-  "What a layer's own rows and the asker's permission row mean for one
-  query, as a value that `=` compares. Takes the query in its one form, the
+  "What a layer's own rows and the asker's rights in it mean for one query,
+  as a value that `=` compares: her rights as one word, whether a
+  permission of hers that stands is there, for the layer or for her run
+  (`either`). Takes the query in its one form, the
   layer, its own rows (nil when not known), whether she holds a permission
   that stands in it (`either`), and whether she is signed in. Gives a map:
   whether the layer is made; who may see it; whether she holds a permission
