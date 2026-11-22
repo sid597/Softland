@@ -359,6 +359,161 @@
             (println "FAILED" label (str "seen=" (pr-str seen)))))
         (every? second checks)))))
 
+(defn- wait-until
+  "Calls `f` every 20 ms until it gives a truthy value or `ms` pass. Gives
+  the value, or nil."
+  [f ms]
+  (let [deadline (+ (System/currentTimeMillis) ms)]
+    (loop []
+      (or (f)
+          (when (< (System/currentTimeMillis) deadline)
+            (Thread/sleep 20)
+            (recur))))))
+
+(defn- seed-person!
+  "Invites, enters and begins one browser sign-in of a person `P` with
+  sign-in `G`, at small times, through client `c`."
+  [c P G tag]
+  (client/invite c {:person P :claim {:by :email :email (str tag "@example.com")} :invited-by :system :at 10})
+  (client/enter c {:account [:google tag] :says {} :email (str tag "@example.com") :code-hash nil
+                   :own-layer (UUID/randomUUID) :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
+  (client/own-layer-made c {:person P :at 25})
+  (client/begin-sign-in c {:root P :actor P :sign-in G :kind :browser :hash (format "%064x" 777)
+                           :until 999999999 :label nil :at 30}))
+
+(defn- told-of-new-session?
+  "Watches root `P` on client `c`, opens a new session under its sign-in
+  `G`, and gives {:told? :not-reached}: whether the watch was told of the
+  session within 8 s, and how many times it was told `:not-reached`."
+  [c P G]
+  (let [seen (atom [])
+        lost (atom 0)
+        stop (client/watch-root c P (fn [v]
+                                      (if (= v :softland.auth.client/not-reached)
+                                        (swap! lost inc)
+                                        (swap! seen conj v))))
+        S (UUID/randomUUID)
+        _ (client/open-session c {:root P :sign-in G :session S :until 999999999 :at 100})
+        told? (boolean (wait-until (fn [] (some #(contains? (:sessions %) S) @seen)) 8000))]
+    (when (fn? stop) (stop))
+    {:told? told? :not-reached @lost}))
+
+(defn check-late-open!
+  "Verifies that a watch whose opening outlasts `watch-root`'s wait leaves no
+  proxy behind. With the wait forced to 0 ms, three rounds of 7,000 watches
+  of roots that nobody writes are opened on one task, 21,000 in all, more
+  than `pstate.proxy.limit` (20,000); each round's callers are told
+  `:not-reached` (or got a watch, when the open beat the wait) and stop
+  their watches. Then, with the wait back, a normal watch of a root is told
+  of a new session and never `:not-reached`. Under the client before this
+  repair, each late proxy stayed open, and the review of 22 November saw
+  the normal watch told `:not-reached` with Rama logging that the proxies
+  of the task exceeded the limit."
+  []
+  (with-open [ipc (rtest/create-ipc)]
+    (let [mod-name (rama/get-module-name mod/Auth)
+          _ (rtest/launch-module! ipc mod/Auth {:tasks 1 :threads 1})
+          c (client/open ipc mod-name)
+          P (UUID/randomUUID)
+          G (UUID/randomUUID)
+          _ (seed-person! c P G "late-open")
+          before (told-of-new-session? c P G)
+          rounds 3
+          per-round 7000
+          told (java.util.concurrent.atomic.AtomicLong. 0)
+          pool (Executors/newFixedThreadPool 16)
+          watched (atom 0)
+          _ (try
+              (dotimes [_ rounds]
+                (let [stops (with-redefs [softland.auth.client/proxy-open-timeout-ms 0]
+                              (mapv (fn [^java.util.concurrent.Future f] (.get f 60 TimeUnit/SECONDS))
+                                    (mapv (fn [_]
+                                            (.submit pool ^Callable
+                                                     (fn []
+                                                       (client/watch-root c (UUID/randomUUID)
+                                                                          (fn [v]
+                                                                            (when (= v :softland.auth.client/not-reached)
+                                                                              (.incrementAndGet told)))))))
+                                          (range per-round))))]
+                  (swap! watched + (count (filter fn? stops)))
+                  (doseq [stop stops] (when (fn? stop) (stop)))
+                  ;; The late opens of this round finish and are closed.
+                  (Thread/sleep 3000)))
+              (finally (.shutdownNow pool)))
+          after (told-of-new-session? c P G)
+          _ (client/close! c)
+          checks [["Before: a normal watch of a root is told of a new session and never :not-reached."
+                   (and (:told? before) (zero? (:not-reached before)))
+                   before]
+                  [(str "With watch-root's wait forced to 0 ms, 21,000 watches on one task (more than pstate.proxy.limit, 20,000), each told :not-reached or given a watch, are stopped by their callers.")
+                   (= (* rounds per-round) @watched)
+                   {:stop-fns @watched :told-not-reached (.get told)}]
+                  ["After them, with the wait back: a normal watch of a root is still told of a new session and never :not-reached, so the proxies that opened after their wait were closed and none is left counting against the limit."
+                   (and (:told? after) (zero? (:not-reached after)))
+                   after]]]
+      (doseq [[label ok? seen] checks]
+        (if ok?
+          (println "PASSED" label)
+          (println "FAILED" label (str "seen=" (pr-str seen)))))
+      (every? second checks))))
+
+(defn check-partial-outage!
+  "Verifies that in a partial outage `:not-reached` reaches every watcher of
+  an unreached root within one probe deadline, however many roots are
+  watched. Forty roots are watched on a 4-task module; then the client's
+  calls are stubbed so that the ping of tasks 0 and 1 fails and the probe
+  of 20 of the roots (`probe-root`) never answers, and one liveness sweep
+  is run (the client's
+  own timer is stopped first, so that it runs once). It must end within
+  6 s (the probe deadline is 3 s; under the client before this repair the
+  20 probes ran one after another, up to 60 s), tell each watcher of an
+  unreached root `:not-reached` once, and tell no other."
+  []
+  (with-open [ipc (rtest/create-ipc)]
+    (let [mod-name (rama/get-module-name mod/Auth)
+          _ (rtest/launch-module! ipc mod/Auth {:tasks 4 :threads 2})
+          c (client/open ipc mod-name)
+          roots (vec (repeatedly 40 #(UUID/randomUUID)))
+          dead (set (take 20 roots))
+          lost (atom {})
+          stops (mapv (fn [r]
+                        (client/watch-root c r (fn [v]
+                                                 (when (= v :softland.auth.client/not-reached)
+                                                   (swap! lost update r (fnil inc 0))))))
+                      roots)
+          ;; Stop the client's own timer: the sweep below is the one that runs.
+          _ (when-let [^java.util.concurrent.Future f @(.-monitor-task ^softland.auth.client.Client c)]
+              (.cancel f false))
+          orig-query rama/foreign-invoke-query-async
+          sweep-ms (with-redefs [rama/foreign-invoke-query-async
+                                 (fn [q & args]
+                                   (if (and (= 1 (count args)) (contains? #{0 1} (first args)))
+                                     (java.util.concurrent.CompletableFuture/failedFuture (RuntimeException. "task down"))
+                                     (apply orig-query q args)))
+                                 softland.auth.client/probe-root
+                                 (fn [_client root]
+                                   (if (contains? dead root)
+                                     (java.util.concurrent.CompletableFuture.)
+                                     (java.util.concurrent.CompletableFuture/completedFuture [])))]
+                     (let [t0 (System/nanoTime)]
+                       (#'softland.auth.client/run-liveness-sweep! c)
+                       (/ (- (System/nanoTime) t0) 1e6)))
+          _ (wait-until (fn [] (= dead (set (keys @lost)))) 2000)
+          told @lost
+          _ (doseq [s stops] (when (fn? s) (s)))
+          _ (client/close! c)
+          checks [[(format "A partial outage (tasks 0 and 1 unreached, 20 of 40 watched roots unanswered) is swept in %.1f ms: within 6 s, one probe deadline and a margin, however many roots are watched." sweep-ms)
+                   (< sweep-ms 6000.0)
+                   {:sweep-ms sweep-ms}]
+                  ["Each watcher of an unreached root is told :not-reached once, and the watchers of the roots that answered are told nothing."
+                   (and (= dead (set (keys told))) (every? #(= 1 %) (vals told)))
+                   {:told (count told) :counts (frequencies (vals told))}]]]
+      (doseq [[label ok? seen] checks]
+        (if ok?
+          (println "PASSED" label)
+          (println "FAILED" label (str "seen=" (pr-str seen)))))
+      (every? second checks))))
+
 (defn -main
   "Entry point for slice checks:
     `says`      — run direct `$$accounts` `:says` check;
@@ -366,7 +521,9 @@
     `slice-a`   — run `:says` check + carbon step3 scenarios 1a, 1b, 2a, 2b, 3;
     `slice-b`   — run Slice b root rules vs reference + carbon step3 scenarios 1a..3, 5, 6;
     `slice-c`   — run `:says` check + carbon step3 all 8 scenarios (without watches);
-    `step3`     — run full carbon step3 suite (all 9 scenarios with live watches, 2..8 threads) + `:says` + `:not-reached`."
+    `step3`     — run full carbon step3 suite (all 9 scenarios with live watches, 2..8 threads) + `:says` + `:not-reached`;
+    `late-open` — a watch whose opening outlasts its wait leaves no proxy behind;
+    `partial-outage` — a partial outage is swept within one probe deadline."
   [& [mode rounds-str]]
   (let [rounds (or (some-> rounds-str parse-long) 2)
         ok? (case mode
@@ -383,6 +540,8 @@
                              (run-step3-scenarios! {:allowed-prefixes nil
                                                     :rounds rounds
                                                     :strip-watches? true}))
+              "late-open" (check-late-open!)
+              "partial-outage" (check-partial-outage!)
               "step3" (and (check-says-table!)
                            (check-watch-not-reached!)
                            (run-step3-scenarios! {:allowed-prefixes nil

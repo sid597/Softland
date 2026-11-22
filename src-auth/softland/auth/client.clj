@@ -32,7 +32,8 @@
            [java.util ArrayList UUID]
            [java.util.concurrent CompletableFuture CountDownLatch ExecutionException Executors
             ScheduledExecutorService ThreadFactory TimeUnit TimeoutException]
-           [java.util.concurrent.atomic AtomicBoolean AtomicLong]))
+           [java.util.concurrent.atomic AtomicBoolean AtomicLong]
+           [java.util.function BiConsumer]))
 
 ;; ----------------------------------------------------------------- constants
 
@@ -157,8 +158,8 @@
 ;; ------------------------------------------------------- watch-root engine
 
 (defn- make-daemon-scheduler
-  "Creates a single-thread daemon `ScheduledExecutorService` for `ping-task`
-  and async `:not-reached` delivery."
+  "Creates the single-thread daemon `ScheduledExecutorService` on which the
+  `ping-task` liveness sweep runs."
   ^ScheduledExecutorService []
   (Executors/newSingleThreadScheduledExecutor
    (reify ThreadFactory
@@ -333,24 +334,39 @@
           (doseq [w (vals @(:watchers entry))]
             (deliver-value! w next-proj)))))))
 
-(defn- probe-root-alive?
-  "Issues a bounded `fallback-probe-timeout-ms` select of the first entry of
-  `root`'s map in `$$live` during a partial task outage."
-  [^Client client root]
-  (try
-    (await-future
-     (rama/foreign-select-async [(path/keypath root) (path/sorted-map-range-from s/live-lo {:max-amt 1})]
-                                (.-p-live client)
-                                {:pkey root})
-     fallback-probe-timeout-ms)
-    true
-    (catch Throwable _ false)))
+(defn- probe-root
+  "Starts one probe of `root`'s task: a select of the first entry of the
+  root's map in `$$live`. Gives its `CompletableFuture`."
+  ^CompletableFuture [^Client client root]
+  (rama/foreign-select-async [(path/keypath root) (path/sorted-map-range-from s/live-lo {:max-amt 1})]
+                             (.-p-live client)
+                             {:pkey root}))
+
+(defn- unreached-roots
+  "During a partial task outage, probes every root of `roots` at once
+  (`probe-root`, on each root's own task), and waits for all of them against
+  ONE deadline, `fallback-probe-timeout-ms` from now: so the sweep takes that
+  long at most, however many roots are watched. Gives the set of roots whose
+  probe did not answer by then, or failed."
+  [^Client client roots]
+  (let [deadline (+ (System/currentTimeMillis) fallback-probe-timeout-ms)
+        probes (mapv (fn [root] [root (try (probe-root client root) (catch Throwable _ nil))])
+                     roots)]
+    (into #{}
+          (keep (fn [[root fut]]
+                  (when-not (and fut
+                                 (try (await-future fut (max 0 (- deadline (System/currentTimeMillis))))
+                                      true
+                                      (catch Throwable _ false)))
+                    root)))
+          probes)))
 
 (defn- run-liveness-sweep!
   "Pings all `N` tasks of `Auth` in parallel using `\"ping-task\"` (0 seeks).
   Does nothing when healthy or when no watches are active. Fires `:not-reached`
-  for all watches if all tasks fail, or probes individual watched roots if a
-  subset of tasks fail."
+  for all watches if all tasks fail; if a subset of tasks fail, probes every
+  watched root at once against one deadline (`unreached-roots`) and fires
+  `:not-reached` for the roots that did not answer."
   [^Client client]
   (when-not @(.-closed? client)
     (let [active-entries (locking (.-watch-lock client)
@@ -381,11 +397,14 @@
             (fail-all-proxies! client)
 
             :else
-            (doseq [e active-entries]
-              (when (and (not @(.-closed? client))
-                         (not @(:closed? e))
-                         (not (probe-root-alive? client (:root e))))
-                (fail-proxy-entry! client (:root e) e)))))))))
+            (let [live (filterv (fn [e] (not @(:closed? e))) active-entries)
+                  dead (when (and (seq live) (not @(.-closed? client)))
+                         (unreached-roots client (mapv :root live)))]
+              (doseq [e live]
+                (when (and (contains? dead (:root e))
+                           (not @(.-closed? client))
+                           (not @(:closed? e)))
+                  (fail-proxy-entry! client (:root e) e))))))))))
 
 (defn- ensure-monitor-started!
   "Starts the periodic `ping-task` liveness monitor on `client` (must be called
@@ -405,21 +424,12 @@
       (reset! (.-monitor-task client) fut))))
 
 (defn- schedule-not-reached!
-  "Dispatches `:not-reached` asynchronously on `client`'s scheduler (or a
-  daemon thread if closed/uninitialized) for a watch whose proxy failed to open."
-  [^Client client w]
-  (let [^ScheduledExecutorService exec
-        (locking (.-watch-lock client)
-          (or @(.-scheduler client)
-              (when-not @(.-closed? client)
-                (let [e (make-daemon-scheduler)]
-                  (reset! (.-scheduler client) e)
-                  e))))]
-    (if (and exec (not (.isShutdown exec)))
-      (.execute exec ^Runnable #(fail-watcher! w))
-      (doto (Thread. ^Runnable #(fail-watcher! w) "softland-auth-not-reached")
-        (.setDaemon true)
-        (.start)))))
+  "Tells watcher `w`, whose proxy failed to open, `:not-reached`, on a virtual
+  thread of its own: never on the scheduler's one thread, which a liveness
+  sweep can hold for seconds, and never on the caller's, which is inside
+  `watch-root`."
+  [^Client _client w]
+  (.start (Thread/ofVirtual) ^Runnable (fn [] (fail-watcher! w))))
 
 ;; ---------------------------------------------------------------- lifecycle
 
@@ -718,37 +728,47 @@
               {:could-not :closed}
 
               :created
-              (try
-                (let [pf-fut (rama/foreign-proxy-async
-                              [(path/keypath p) (path/sorted-map-range s/live-lo s/live-hi)]
-                              (.-p-live c)
-                              {:pkey p
-                               :callback-fn (fn [new-val diff old-val]
-                                              (on-proxy-callback! c p entry new-val diff old-val))})
-                      proxy (await-future pf-fut proxy-open-timeout-ms)]
-                  (let [should-close?
-                        (locking (.-watch-lock c)
-                          (reset! (:proxy entry) proxy)
-                          (or @(.-closed? c) @(:closed? entry)))]
-                    (if should-close?
+              (let [^CompletableFuture pf-fut
+                    (try
+                      (rama/foreign-proxy-async
+                       [(path/keypath p) (path/sorted-map-range s/live-lo s/live-hi)]
+                       (.-p-live c)
+                       {:pkey p
+                        :callback-fn (fn [new-val diff old-val]
+                                       (on-proxy-callback! c p entry new-val diff old-val))})
+                      (catch Throwable t (CompletableFuture/failedFuture t)))]
+                (try
+                  (let [proxy (await-future pf-fut proxy-open-timeout-ms)]
+                    (let [should-close?
+                          (locking (.-watch-lock c)
+                            (reset! (:proxy entry) proxy)
+                            (or @(.-closed? c) @(:closed? entry)))]
+                      (if should-close?
+                        (close-proxy-quietly! proxy)
+                        (locking (:proj-lock entry)
+                          (when (compare-and-set! (:initialized? entry) false true)
+                            (try
+                              (reset! (:projected entry) (s/project-live-map @proxy))
+                              (catch Throwable _ nil))))))
+                    (.countDown ^CountDownLatch (:open-done entry))
+                    (make-stop-fn c p entry w))
+                  (catch Throwable t
+                    ;; The open did not finish within the wait, or failed. A
+                    ;; proxy that Rama finishes opening after this is held by
+                    ;; nothing and counts against pstate.proxy.limit, so it is
+                    ;; closed when it comes, off Rama's completing thread.
+                    (.whenCompleteAsync pf-fut
+                                        (reify BiConsumer
+                                          (accept [_ proxy _err] (close-proxy-quietly! proxy))))
+                    (reset! (:open-err entry) t)
+                    (.countDown ^CountDownLatch (:open-done entry))
+                    (let [[proxy ws] (detach-proxy-entry! c p entry)]
                       (close-proxy-quietly! proxy)
-                      (locking (:proj-lock entry)
-                        (when (compare-and-set! (:initialized? entry) false true)
-                          (try
-                            (reset! (:projected entry) (s/project-live-map @proxy))
-                            (catch Throwable _ nil))))))
-                  (.countDown ^CountDownLatch (:open-done entry))
-                  (make-stop-fn c p entry w))
-                (catch Throwable t
-                  (reset! (:open-err entry) t)
-                  (.countDown ^CountDownLatch (:open-done entry))
-                  (let [[proxy ws] (detach-proxy-entry! c p entry)]
-                    (close-proxy-quietly! proxy)
-                    (doseq [ww ws]
-                      (schedule-not-reached! c ww)))
-                  (fn stop []
-                    (stop-watcher-sync! w)
-                    nil)))
+                      (doseq [ww ws]
+                        (schedule-not-reached! c ww)))
+                    (fn stop []
+                      (stop-watcher-sync! w)
+                      nil))))
 
               :joined
               (do
