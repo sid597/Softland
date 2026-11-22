@@ -7,7 +7,7 @@ Everything below reflects Sid's three mid-run changes of 22 November (`02:24:59`
 1. **Step 4 skipped:** No real `src-auth/` lands tonight (Session 1 is not running). Did not wait for it; did not build `auth.jar`, run `softland.runtime.cluster-proof`, or run the persistent-cluster Piece 1 + Piece 4 Join proof.
 2. **Step 3 — no guard code written:** `seam.clj/ration` remains a no-op stub and `http.clj` carries no `/sign-in/*` pacing code. The design options and tradeoffs for where the counts of `ration` live are laid out [below](#where-the-counts-of-ration-can-live) for Sid to decide in the morning.
 3. **`:driven-by` in the stand-in, not on the wire:** The non-production Auth oracle shim (`spine/runtime-oracle/`) implements optional `:driven-by` on `open-session` and `who-is` per `spine/auth/SPEC.md` (`37bc0e01`). The wire (`src-wire/`) was not touched; which word of the wire should carry `:driven-by` is analyzed [below](#which-word-of-the-wire-should-carry-driven-by).
-4. **Proof immutability rule honored:** No check or assertion in `test-runtime/` was modified to make a proof pass. The five failures in `test-runtime/softland/runtime/checks.clj` are documented verbatim [below](#proof-findings-in-unmodified-checksclj). `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/as-written-2026-11-22` was never modified.
+4. **Proof immutability rule honored:** No check or assertion in `test-runtime/` was modified to make a proof pass. The five failures in `test-runtime/softland/runtime/checks.clj` are documented verbatim [below](#proof-findings-in-unmodified-checksclj). `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/as-written-2026-11-22` was never modified. *(Since repaired: `a1cb405e`, "Runtime: the two defects in its own checks repaired", made `checks.clj` pass whole; `softland.runtime.proof` passes 49 of 49 in §6 and §8.)*
 
 ---
 
@@ -77,6 +77,8 @@ All runs executed after the final edit, behind `flock /mnt/data/projects/Softlan
 | `softland.runtime.cluster-proof` | — | **Not run (Step 4 skipped: no real `src-auth` tonight)** | — |
 
 ### Proof findings in unmodified `checks.clj`
+
+*(The state of the night of 22 November. Both defects were repaired in `a1cb405e`, and `checks.clj` passes whole since: §6, §8.)*
 
 All 5 failures in `softland.runtime.proof` were independently verified by the fresh breaker subagent to be defects in `test-runtime/softland/runtime/checks.clj` itself, not runtime bugs. Per Sid's rule (*"Never change a proof to make it pass. A proof that cannot pass is a finding in `spine/BUILD.md`"*), `checks.clj` is left completely untouched from `as-written-2026-11-22`.
 
@@ -518,7 +520,7 @@ Six commits on `main` (each staged strictly by name; `test-runtime/softland/runt
 
 ### What is open
 
-1. **Three pre-existing defects in `test-runtime/softland/runtime/cluster_proof.clj`:** missing `java.lang.ProcessHandle` import (line 53), `ProcessHandle.Info.arguments()` returning empty on Linux JDK 21 for Rama's ~15 KiB worker command lines (lines 110–121), and vector entity `[:tile n]` rejected by `softland.store.act` (line 191). Left untouched per path boundary; proved via `worker_kill_proof.clj` instead.
+1. **Three pre-existing defects in `test-runtime/softland/runtime/cluster_proof.clj`:** missing `java.lang.ProcessHandle` import (line 53), `ProcessHandle.Info.arguments()` returning empty on Linux JDK 21 for Rama's ~15 KiB worker command lines (lines 110–121), and vector entity `[:tile n]` rejected by `softland.store.act` (line 191). Left untouched per path boundary; proved via `worker_kill_proof.clj` instead. *(Repaired on 23 November, §8; `worker_kill_proof.clj` now runs the cluster proof's own kill steps.)*
 2. **Ration layer 2 (per-person write pacing in Auth) and account blocks:** deliberately excluded from Step 5; still open when needed.
 3. **Remaining pre-existing items noted in `REVIEW-runtime-spine.md`:**
    - Refusing `:replace-secret` over `/line` for `:browser` sign-ins (until the pages replace browser cookies);
@@ -526,7 +528,7 @@ Six commits on `main` (each staged strictly by name; `test-runtime/softland/runt
    - A web page to end a program's sign-in (today only `end-sign-in` over the line does);
    - The third check in `checks.clj` ("No live read and no watched root is left behind by connections that ended"), which does not yet assert watched roots.
 4. **Browser client (Piece 7)** and real Google OAuth client ID configuration (live runs used the test stand-in provider; no money spent).
-5. **Re-validating against live `src-store`:** all runs today used `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store` because another session is editing `src-store/` concurrently. Once `src-store/` settles, rebuild `store.jar` from `src-store/` and re-run without the `-Sdeps` path swap.
+5. **Re-validating against live `src-store`:** all runs today used `/mnt/data/projects/research/softland/runtime-spine-2026-11-21/store-at-head/src-store` because another session is editing `src-store/` concurrently. Once `src-store/` settles, rebuild `store.jar` from `src-store/` and re-run without the `-Sdeps` path swap. *(Done on 23 November against `5e9eca8d`, §8.)*
 6. **`spine/runtime-oracle/`:** can be retired now that real `src-auth` (`7a381f3a`) passes every proof.
 
 ### Choices of mine for Sid to turn
@@ -540,3 +542,101 @@ Six commits on `main` (each staged strictly by name; `test-runtime/softland/runt
 7. **Locking beyond pings (`src-runtime/softland/runtime/line.clj`, `seam.clj`):** in addition to switching `jetty.clj` to non-blocking `sendPing`, replaced `synchronized`/`locking` monitors with `ReentrantLock` in `line/say!`, `seam/standing`, and `seam/watch` so slow I/O or Auth calls do not pin JDK 21 virtual-thread carriers.
 8. **Proving worker kills without editing `cluster_proof.clj` (`test-runtime/softland/runtime/worker_kill_proof.clj`):** left `cluster_proof.clj` untouched per path rules, documented its three defects verbatim, and verified actual `Store` and `Auth` worker SIGKILL + supervisor restart in a separate proof file.
 
+
+---
+
+## 8. The review of 22 November, fixed (23 November 2026)
+
+A session reviewed `src-auth`, `src-runtime` and `src-command` on 22 November («4da7e5c2»; its probes are in `/mnt/data/projects/research/softland/review-2026-11-22/`). Sid pasted its points with a build prompt: fix the High, Medium and Low items, `cluster_proof.clj` with them; run the proofs against the live `src-store` on `main`, with `store.jar` rebuilt from it; where a point is his call, take the sound default, keep `reference.clj` agreeing, and mark it for him; leave the `.cljc` forms, the firewall of 8a and the replay dedup of `*root-events` out, as open items. That prompt is in no session text of the record, and has the shape of his line of 18:18 ("here are the points the reviewer found … now go and fix"). Auth's side was built by a fork of this session and is on [Auth's page](auth/BUILD.md), §6 ("The review pass of 23 November 2026"); this section holds the runtime and the command line, and the runs of both.
+
+### 8.1 What was wrong, what changed, and what shows it
+
+| Point | Was | Now | Shown by |
+|---|---|---|---|
+| 1 (High) | `replace-on-line!` wrote back the map that it read at the start: a second command, refused `:wrong-secret`, wrote the old credential over the first one's new one. | Each change of `sign-in.edn` is made while the command holds the file (`with-file-lock`: a lock of `sign-in.edn.lock` beside it, and an object of the process for its threads), to what the file holds then. A replacement holds the file from its decision to its last write; a command that waited finds the credential changed and sends nothing. (`src-command/softland/command/main.clj`) | The reviewer's probe `wire-fork/p3.clj`, both commands through `main/run`: the file ends with the credential that is the hash now (it held the one before), and the next command after the grace is let in (it was not). |
+| 2 (High) | `$$live` one flat map, each watched root a range proxy on it. | Nested by root, the inner map subindexed. | Auth's page, §6. |
+| 3 (High) | A lost watch was told to a root's connections one after another on one thread, each through a blocking write. | `standing.clj` tells each listener on a virtual thread of its own; the seam hands the end to its own thread and says it outside its lock; one write of a frame waits at most `send-ms` (30 s), past which the connection is dropped (`jetty.clj`). | `runtime-fork/probe_seam.clj` B, four trials: 8 of 8 siblings told and closed (it was 0 of 8). |
+| 4 (High) | Sessions opened without bound: each connection that names none, the word `:open-session`, and each GET of the name box. | The opening of sessions is paced per sign-in in each copy (30 a minute). The name box opens none when it is shown; its post opens the session that the seam derives from the act's UUID (`:session-for`) and closes it after the act. | A probe through the seam (`seam/caller`, Auth stubbed): of 35 connections of one sign-in in a minute, 30 let in, 5 told `:take-more :sessions-paced`; `:open-session` paced the same. `open_session_proof.clj`: the box shows no session, its post opens one with `{:kind :person}` and closes it. |
+| 5 (High) | A watch whose opening outlasted 5 s left its proxy open. | The late proxy is closed. | Auth's page, §6. |
+| 6 (Medium) | In a partial outage, roots probed one at a time. | One deadline for all. | Auth's page, §6. |
+| 7 (Medium) | The sign-in pace counted a program's own polls by `:remote-addr`; a 429 ended the command line's wait. | A poll that proves its ask is given back to the address, and an ask's polls are paced on their own (20 in 10 s); an IPv6 address counts by its /64; behind a proxy named with `--trusted-proxy`, by the last address of `X-Forwarded-For` that is not a trusted proxy (`http.clj`, `seam.clj`, `main.clj`). `sign-in` waits through `:take-more` until the ask's end. | A probe through the pages' handler (Auth's ask stubbed): three programs polling once a second for 12 s from one address, 0 of 36 refused, and a person's post after them taken; polls of a code that names no ask still use the address up; 2,000 posts from one /64, 1,970 refused (none were); behind a trusted proxy, 40 clients none refused, one client 10 of 40. The attack `sign-in-pace` still passes. |
+| 8 (Medium, Sid's call) | A text with a lone surrogate was stored changed. | Default: such a text does not fit, in Auth and in the reference. The runtime cuts what a provider says (`:says`, and the name that the box offers) at whole characters and writes a lone surrogate as U+FFFD, so a sign-in is not refused for one. | Auth's page, §6. |
+| 9 (Medium) | `module.clj` said that the model-checked steps run. | Says what holds. | Auth's page, §6. |
+| 10 (Medium) | Proofs said more than they asserted. | `cluster_proof.clj`: its three defects repaired (the import of `ProcessHandle`; a worker found by `/proc/<pid>/cmdline`; keyword entities), and each check after a kill fails when no worker was killed; the series check prints how many acts were cut off rather than claiming some were. Whether a held connection is still watched is proven by ending its sign-in through another connection, not by `:who-am-i`. `worker_kill_proof.clj` runs the cluster proof's own two kill steps. `two_lines_proof.clj` says and holds that the watch is told the layer is left out and stays open with no end. `checks.clj`'s two first sign-ins are let go at one moment and the check holds that they were in flight together. | The runs below. |
+| 11 (Medium) | One connection could take a whole cap. | 128 watches for one connection (a visitor's 8), beneath the 256 of a root and the 64 of all visitors. | `probe_seam.clj` C: one visitor's connection 56 of 64 refused and the next visitor let in; one agent's connection 128 of 256 refused and the person let in. The attack `watch-caps` still passes. |
+| Low | The server's ping kept a silent peer from the idle close. | `jetty.clj` keeps when it last heard from each connection, and closes one not heard from for `idle-ms`. | `probe_idle.clj`: a peer that sends nothing is closed at 2.0 s (ping 0.5 s, idle 1.5 s); it stayed open. |
+| Low | The standing's timers stayed queued up to 12 h after cancelling. | The seam's timer drops what it cancels. | `probe_seam.clj` D: after 300 connections opened and ended, 0 tasks queued. |
+| Low | `new-session --model` closed the old session before it saved the new one. | The file is moved off the old session first. | `command_proof.clj`. |
+| Low | The runtime's README said that ration is not built. | It says what is built. | — |
+| Low | §1.4 and §2 of this page said that `checks.clj` cannot pass. | Marked as repaired in `a1cb405e`. | — |
+| Low (Auth) | end-actor read every later agent; no form check in the topology; rows kept for good. | Auth's page, §6. | |
+| Drift, entry 8 | The yes page chose "It acts as me". | It chooses "an agent of its own" when it opens. | — |
+
+### 8.2 Defaults taken for Sid to turn
+
+- **The yes page chooses "an agent of its own" when it opens** (entry 8: each program has a who of its own). A post still says which; the server's reading of a post is unchanged.
+- **A text that UTF-8 cannot carry does not fit** (point 8), on Auth's page.
+- **The new numbers**, each in `seam.clj`'s `default-numbers` and a flag of `main.clj`: 30 sessions opened per sign-in a minute; 20 polls of one ask in 10 s; 128 watches for one connection and 8 for a visitor's; and `jetty.clj`'s `send-ms`, 30 s.
+- **`--trusted-proxy`**: no proxy is trusted unless the opener names it.
+- **A page's one act has a session derived from its UUID**, a session's choice, so that the rule that no system chooses an id still holds and a form posted twice is in one session.
+
+### 8.3 Left out, and open
+
+- **The `.cljc` forms** (entry 10: "share the `.cljc` forms"): the tree has none; `words.clj` requires the store's `.clj`. Left out of this pass by the prompt.
+- **Rama's ports kept from other programs, as code** (entry 12, 8a): the cluster's ports listen on every interface (§1, Step 1), and Auth takes any appender's word. Left out by the prompt.
+- **The replay dedup of `*root-events`**, and with it the rows that Auth keeps for good: Auth's page, §6.
+- **What `:driven-by` is worth** (entries 3 and 8): a program says what drives its session, and `{:kind :person}` is taken from it. It decides nothing today. By entry 3 the runtime is to write the trail of every session's reads, whatever drives it, so a program's word cannot keep a model's reads out of the trail once the trail is built; what `:driven-by` should mean in it is open.
+- **A watch whose permission ends.** The runtime's page wrote "a watch closes when its permission ends"; the store's read path tells it the layer is left out and keeps it open, and the two-lines proof now holds that. Which is meant is open.
+- **The pace of sessions bounds how fast they are opened, not how many stand.** A session that nobody uses still stands for a day. A bound on how many stand under one sign-in has to be counted where they all are, in Auth, and changes its contract.
+- **`spine/runtime-oracle/`** can still be retired (§7).
+
+### 8.4 The runs
+
+All behind `flock /mnt/data/projects/Softland/src/proposal/backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock`, from the repository root, with the live `src-store` (`5e9eca8d`, clean) and `src-auth` at `dc9142ff`, after the last edit. The scripts and every output are under `/mnt/data/projects/research/softland/review-fixes-2026-11-23/` (`bin/`, `runs/final/`, `runs/final-cluster/`); the reviewer's probes as run against the fixes are in `probes/` there.
+
+```text
+bin/runtime-run.sh runs/final  (each: clojure -M:runtime -m <ns>, the wire's with -M:wire)
+softland.wire.pure-proof:                    38 passed, 0 failed. (exit 0)
+softland.runtime.pure-proof:                 22 passed, 0 failed. (exit 0)
+softland.runtime.proof:                      49 passed, 0 failed. (exit 0)
+softland.runtime.command-proof:              16 passed, 0 failed. (exit 0)
+softland.runtime.review-faults-proof:         6 passed, 0 failed. (exit 0)
+softland.runtime.open-session-proof:          5 passed, 0 failed. (exit 0)
+softland.runtime.two-lines-proof:             3 passed, 0 failed. (exit 0)
+softland.runtime.attacks.slow-readers:        1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.yes-page:            1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.closed-session:      1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.unwatched-standing:  1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.lost-replacement:    1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.sign-in-pace:        1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.watch-caps:          1 passed, 0 failed. (exit 0)
+```
+
+The proof cluster, from a fresh state (`bin/cluster-run.sh`: what the last run kept is moved aside; standalone ZooKeeper on `127.0.0.1:2101`, conductor, supervisor; `Store` and `Auth` launched with `--tasks 4 --threads 2 --workers 1 --replicationFactor 1`; every daemon stopped after). `store.jar` is `src-store` at `5e9eca8d`, jarred as it is; `auth.jar` is `src-auth` at `dc9142ff`.
+
+```text
+== softland.runtime.cluster-proof        59 passed, 0 failed.
+== softland.runtime.worker-kill-proof     7 passed, 0 failed.
+== softland.runtime.two-lines-proof       4 passed, 0 failed.
+after stop, listening on the cluster's ports: (none listening)
+processes of the cluster left: 0
+```
+
+An earlier run of the same, with Auth at `c1b5554f`, gave the cluster proof 58 passed and 1 failed: the series check then held that some acts were cut off by the store worker's kill, and that run had none cut off (Rama's client sent the appends again while the worker came back). The check now prints that count and holds what holds every time; that is in `d99b0db6`. The 4,467 lines of "Executor pool is shut down" in that proof's output are Rama's client destroying the 6,000 watched roots' proxies after the proof has closed the cluster handle, within 0.2 s at its end.
+
+The probes, against the fixed code (no cluster; what they stub is named in each): `wire-fork/p3.clj` (point 1), `runtime-fork/probe_seam.clj` B, C and D, and `probe_idle.clj` (the reviewer's, with C's count of refusals and D's look into the timer made to read the new code), `probe_pace.clj` and `probe_sessions.clj` (written for points 7 and 4). Their outputs are in §8.1.
+
+### 8.5 Commits
+
+Runtime and command line, this session:
+
+- `ce2b1447` Command line: two commands at once change sign-in.edn one after the other
+- `9d3a9678` Runtime: a lost watch reaches every connection, and a system that does not read is ended
+- `736ad947` Runtime: sessions, polls and watches are paced per sign-in, ask and connection
+- `bea366f8` Runtime: the name box's post opens its session only when it will send its act
+- `d99b0db6` Runtime's proofs: each says what it holds, and the cluster proof runs again
+- this page
+
+Auth, the fork (its page, §6): `42e4e786`, `444e391c`, `c1b5554f`, `a3941d66`, `68ba4e07`, `dc9142ff`, `82a8ba48`.
+
+Nothing is pushed. `src-store/`, `test-store/` and `test-runtime/softland/runtime/attacks/` are not touched.
