@@ -8,15 +8,15 @@
   "The walk of one thing: the decision of one thing that arrived on a gate's
   depot, as one Rama operation, `decide`, for both gates. It requires Rama.
 
-  What it takes. The four tables of the calling gate's record; the gate's
+  What it takes. The six tables of the calling gate's record; the gate's
   depot word, `:streaming` or `:microbatch`; and one thing as it arrived on
   that gate's depot. Anything can arrive: the door is not the only sender.
   The tables are PStates that the calling topology owns, with the schemas
-  of `softland.store.record.tables`: `answers`, `facts`, `facts-by-value` and
-  `task`. The walk borrows them for the one call. It declares nothing and
-  keeps nothing in the memory of a process.
+  of `softland.store.record.tables`: `answers`, `facts`, `facts-by-value`,
+  `task`, `line` and `things`. The walk borrows them for the one call. It
+  declares nothing and keeps nothing in the memory of a process.
 
-  What it changes. Rows of those four tables on the task where it is
+  What it changes. Rows of those six tables on the task where it is
   called, and nothing else. Each row is `softland.store.record.rows`'s. The
   two gates differ in the names of their tables and in their word; the walk
   is handed both, so one decision is written once.
@@ -25,14 +25,15 @@
   tasks, as a vector in the order in which
   `softland.store.gate.decision/writes` gave them and the walk wrote them:
   each [:fact key row], and each [:by-value key row], where a row that is
-  nil says that the key is taken out. The answer and the layer's last stamp
-  are never in it: they stay on the task of the decision. For a refusal,
+  nil says that the key is taken out. The answer, the layer's last stamp
+  and the rows of the layer's line are never in it: they stay on the task
+  of the decision. For a refusal,
   for a thing under an act-id that has an answer, and for a stray, it gives
   an empty vector. The walk copies nothing itself, and a gate may ignore
   what it gives.
 
   What a decision is made of. The thing, the gate's word, and rows of the
-  four tables on the task of the call. Nothing else: the walk reads no
+  tables on the task of the call. Nothing else: the walk reads no
   clock, it reads no table of the other gate, it takes no random number, and
   it knows nothing of a batch. So the same thing against the same rows
   gives the same rows, with the same stamp, whenever it is decided.
@@ -56,14 +57,18 @@
                   repeat is not decided twice, and one act-id has one
                   answer: that of the first thing that the gate decided
                   under it.
-    2. the digest of the thing as it arrived, which leaves the time on the
-                  act out (`softland.store.door.digest`), and check (b),
-                  the door's declaration. A thing with no usable time is
-                  refused `:no-door-time` here. The declaration's last step
-                  makes the one text of each value and holds the bound on
-                  one value and the bound on the act, so a thing over
-                  either is refused here, before any row of its standing is
-                  read.
+    2. check (b), the door's declaration; then the digest of the thing as
+                  it arrived, which leaves the time on the act out, and its
+                  weight, in one walk (`softland.store.door.digest/weighed`):
+                  the weight up to the bound that the declaration's word
+                  gives (`softland.store.gate.decision/weighing-bound`), so
+                  that the weighing of a thing that the declaration refused
+                  stops at the smaller bound and one. A thing with no usable
+                  time is refused `:no-door-time` here. The declaration's
+                  last step makes the one text of each value and holds the
+                  bound on one value and the bound on the act, so a thing
+                  over either is refused here, before any row of its
+                  standing is read.
     3. the time   The time on the act, which the door writes, or whatever
                   else appended the thing
                   (`softland.store.gate.decision/time-on`); nil for a thing
@@ -126,8 +131,14 @@
                   stamp. An accept under a yes for one act writes the
                   yes's use too, an end at the yes's place, so that no act
                   is taken under it again. The answer holds the time when
-                  the thing has a usable one. The last write is the walk's
-                  last step before it gives its result.
+                  the thing has a usable one. Every decision, an accept or
+                  a refusal, first writes the layer's line
+                  (`softland.store.gate.decision/line-writes`): its line row
+                  at the stamp; the thing again, as it arrived, when its
+                  weight is within the bound that its sender's standing
+                  gives (`softland.store.gate.decision/kept-bound`); and a
+                  row by who, when the thing names a usable who. The last
+                  write is the walk's last step before it gives its result.
 
   The stamp is counted in the layer, in both gates. Each layer has its own
   last stamp, so a decision in one layer does not raise the stamps of
@@ -203,14 +214,27 @@
       the entry of a value before goes out.
     - An act with no fact under a plain key, a give, a setting or a list,
       reads no marked keys.
+    - The layer's line: every decision, each kind above but a stray and a
+      thing under an act-id that has an answer, writes one row more, its
+      line row; one more when the gate keeps the thing again, the thing's
+      own bytes a second time; and one more when the thing names a usable
+      who. It reads nothing for them: the weight is counted in the walk of
+      the digest, which each such thing pays already, and the who is read
+      from the thing. So a refusal of the declaration writes 3 to 5 rows
+      where it wrote 2, a refusal of the standing the same, a making act 7
+      where it wrote 4, and one accepted act with one value under a plain
+      key 6 where it wrote 3. A thing that the declaration refused and
+      whose text does not write out a part of it pays, beside the digest,
+      a walk of that part up to the bound of a thing with no standing and
+      one (`softland.store.door.weight`).
 
   The greatest call: an act holds 256 facts at most
   (`softland.store.door.declaration/max-facts`), and each place is read
   once. Under a first permission and with no give at a place that holds a
   permission, a call makes 261 reads at most, the 256 places, the answer,
-  the permission, the marked keys and the two of the last stamp, and 771
-  writes at most, three for each fact, two more, and the use of a yes for
-  one act. The chains add to the
+  the permission, the marked keys and the two of the last stamp, and 774
+  writes at most, three for each fact, two more, the use of a yes for one
+  act, and the three of the layer's line. The chains add to the
   reads and not to the writes: 31 rows at most for the act's own
   permission, and 31 at most for each give at a place that holds a
   permission, when no two of those chains share a holder. So the bound on
@@ -297,9 +321,9 @@
 
 (deframafn decide
   "Decides one thing, on the task where it is called, and writes what the
-  decision writes. Takes the calling gate's four tables, as PStates with the
-  schemas `answers`, `facts`, `facts-by-value` and `task` of
-  `softland.store.record.tables`; the gate's depot word, `:streaming` or
+  decision writes. Takes the calling gate's six tables, as PStates with the
+  schemas `answers`, `facts`, `facts-by-value`, `task`, `line` and `things`
+  of `softland.store.record.tables`; the gate's depot word, `:streaming` or
   `:microbatch`; and a thing as it arrived on that gate's depot, which can
   be anything. Emits exactly once: for an accept the writes that a gate may
   copy to other tasks (`copies-of`), in the order in which they were
@@ -311,15 +335,15 @@
   same write however often it runs. Every read and every write is a local
   one, on the task of the call.
 
-  What must hold: the caller's topology owns the four tables; the call is
+  What must hold: the caller's topology owns the six tables; the call is
   on the task that holds the rows of the thing's layer; and the things of
   one partition are handed to it in the depot's order, one call ended
   before the next begins. Limits: it holds the task's thread from its
-  first read to its last write, for 8,228 reads and 771 writes at most
+  first read to its last write, for 8,228 reads and 774 writes at most
   (the namespace docstring says of what the first number is made). It
   holds no partitioner, no yield, no read that may yield and no append, and
   none may be added: the namespace docstring says why."
-  [$$answers $$facts $$facts-by-value $$task *gate *thing]
+  [$$answers $$facts $$facts-by-value $$task $$line $$things *gate *thing]
 
   ;; 0. A stray gets no answer: its digest goes to the set of its word,
   ;; and the walk ends.
@@ -341,10 +365,13 @@
       (identity [] :> *copies)
 
      (else>)
-      ;; 2 and 3. The digest, check (b), and the time on the act, a label
-      ;; that no check reads. No clock is read: the time is the thing's own.
-      (digest/digest *thing :> *digest)
+      ;; 2 and 3. Check (b); the digest and the weight, in one walk, the
+      ;; weight up to the bound that the declaration's word gives; and the
+      ;; time on the act, a label that no check reads. No clock is read:
+      ;; the time is the thing's own.
       (declaration/check *thing :> {*act :ok *declarations-reason :refuse})
+      (decision/weighing-bound *declarations-reason :> *weighing-bound)
+      (digest/weighed *thing *weighing-bound :> {*digest :digest *weight :weight})
       (decision/time-on *thing :> *act-time)
 
       ;; 4. Standing: checks (c) and (d), and the first act of a layer.
@@ -456,7 +483,13 @@
                   :place-rows *rows-in-hand
                   :level-from *stamp
                   :> *in-hand))
-      (decision/writes *act-id *act *refused *stamp *act-time *digest *in-hand :> *writes)
+      (decision/writes *act-id *act *refused *stamp *act-time *digest *in-hand :> *record-writes)
+      ;; The layer's line, written first: the thing is kept again up to the
+      ;; bound that its sender's standing gives.
+      (decision/kept-bound *declarations-reason *refused-standing :> *kept-bound)
+      (decision/line-writes *act-id *thing *refused *stamp *act-time *digest *weight *kept-bound
+                            :> *line-writes)
+      (into *line-writes *record-writes :> *writes)
       ;; The writes: each a whole row at a fixed key, or a fixed key taken
       ;; out. One row at a time, in the order given, with no yield between
       ;; two. The loop ends when each is written, and then the walk gives
@@ -482,6 +515,15 @@
 
             (case> (= *which :last-stamp))
             (local-transform> [(keypath :last-stamp *layer-text) (termval *row)] $$task)
+
+            (case> (= *which :line))
+            (local-transform> [(keypath *key) (termval *row)] $$line)
+
+            (case> (= *which :thing))
+            (local-transform> [(keypath *key) (termval *row)] $$things)
+
+            (case> (= *which :by-who))
+            (local-transform> [(keypath :by-who *key) (termval *row)] $$task)
 
             (default>)
             (identity nil :> *no-row))

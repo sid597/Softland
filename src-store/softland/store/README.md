@@ -46,7 +46,7 @@ proof is its only asker.
 | [read_path/](read_path/README.md) | The rules of a read, as pure code: the form of a query and its check, the layers of a read and who may see each, the sources that a read asks of Rama, the answer, and the read path's words. | None. |
 | [gate/](gate/README.md) | What a gate decides with, as pure code that the walk of one thing calls for both gates: the checks of one act against rows of the record, the first act of a layer, and the stamp. | None. It reads no PState and no clock. |
 | [record/](record/README.md) | What the record is made of: its rows, the keys of its two orders of facts, and the schemas of the PStates that hold them. | None. It holds no record and declares nothing. |
-| [module/](module/README.md) | What runs in Rama beside the depots that the module declares: the walk of one thing, the two gates' topologies, which call it, and the two reads. | Each gate owns the four PStates of its record, durable in the cluster. The walk and the reads own nothing. |
+| [module/](module/README.md) | What runs in Rama beside the depots that the module declares: the walk of one thing, the two gates' topologies, which call it, and the two reads. | Each gate owns the six PStates of its record, durable in the cluster. The walk and the reads own nothing. |
 | [module.clj](module.clj) | The module `Store`: the two depots of acts, and the one call that adds the two gates and the reads. | The module has two depots, durable in the cluster and never trimmed. This file declares both. No topology appends to either. |
 
 [act.clj](act.clj), [door/](door/README.md), [read_path/](read_path/README.md),
@@ -65,7 +65,7 @@ builders' choices, and the words.
 
 The two gates share one walk and the pure code under it. The walk of one thing
 ([walk.clj](module/walk.clj)) is the decision, written once: each gate calls it
-with its own four tables and its depot word. The walk decides with
+with its own six tables and its depot word. The walk decides with
 [declaration.clj](door/declaration.clj), [digest.clj](door/digest.clj),
 [decision.clj](gate/decision.clj), [chain.clj](gate/chain.clj),
 [first_act.clj](gate/first_act.clj),
@@ -378,7 +378,20 @@ shape must hold when each fact is wrong.
   limits, and no speed is measured. The door bounds nothing: a thing of any
   size that Rama's client writes reaches the gate. The gate takes the digest of
   the whole thing before the declaration's check refuses it, and a value over
-  its bound costs the making of its text, once, before its refusal.
+  its bound costs the making of its text, once, before its refusal. The digest's
+  walk counts the thing's weight as it goes, and a gate writes the thing again
+  into the layer's line when it weighs no more than its bound: 32 MiB from a
+  sender whose permission stands, 256 KiB from any other
+  ([decision.clj](gate/decision.clj), `kept-bound`). So an act holds its task
+  for the write of its own bytes once more, and a stranger's thing for 256 KiB
+  of them at most; a thing that the declaration refused, whose text does not
+  write a part of it out, for a walk of that part up to that bound
+  ([weight.clj](door/weight.clj)). One cost is in the digest's walk itself and
+  not bounded by its bytes: the text of a decimal strips its trailing zeros,
+  which takes time that grows with the square of its digits, 8.2 seconds for a
+  decimal of 83 KB on JDK 21 (run on 22 November 2026; [text.clj](door/text.clj),
+  `scalar-text`). Each thing that is no stray pays it, a stranger's too,
+  before the declaration's check.
 
 ## The order of a layer's acts after a failure
 
@@ -896,7 +909,7 @@ caller still needs the act-id alone.
 
 **One walk for both gates.** The decision of one thing is the same in both
 gates but for the names of the tables and the gate's word. So it is written
-once, as one Rama operation that is handed the four tables and the word
+once, as one Rama operation that is handed the six tables and the word
 ([walk.clj](module/walk.clj)), and each gate calls it. It gives back the rows
 of an accept that a gate may copy to other tasks. The streaming gate does not
 use them: a stream topology commits each task's writes apart, and a copy must
@@ -1214,13 +1227,14 @@ order, and "digest" is this store's word since its module.
 | `:members`, `:everyone` | Its two values: whoever holds a permission in the layer, or everyone |
 | `:softland.store/builds-on` | The store key of the layers that a layer builds on, in the writer's order |
 | `:softland.store/marked-keys` | The store key of the keys that a layer marks |
+| `:softland.store/who-may-read-acts` | The store key of a layer's setting: who may read its acts whole, `:members` or `:everyone`. Piece 3's working word |
 | `:see`, `:see-and-act` | The fifth slot of a given permission: what it allows |
 | the facts by value | The one more order: for each marked key, each fact that has a value, by the key, the key's stamp, the value's digest and then the entity |
 | value digest | The SHA-256 of a value's bytes, as 64 hex characters: the value's text in that order |
 | the run of a value | The neighbouring keys of the facts by value that hold one value under one key: what points at that thing |
 | the row before | The row that a place held before a fact was written there |
 | `allows` | In [act.clj](act.clj): a permission → `:see` or `:see-and-act` |
-| `starts-with` | In [first_act.clj](gate/first_act.clj): what a layer reads as under one of the three keys while no fact says it |
+| `starts-with` | In [first_act.clj](gate/first_act.clj): what a layer reads as under one of the four keys while no fact says it |
 | `who-may-write-fault`, `marked-keys-place`, `reads-marked-keys?`, `since-by-place`, `rows-before-needed` | In [decision.clj](gate/decision.clj): who may write the three keys, and what a gate reads for the order by value |
 | `chain-needed`, `chains-needed` | In [decision.clj](gate/decision.clj): the rows of the permissions above an act's own, and above a permission that a give would write over |
 | `above`, `place`, `places-above`, `above?`, `stands?` | In [chain.clj](gate/chain.clj): the chain of a permission, and whether it stands |
@@ -1377,6 +1391,7 @@ word.
 | `:permission-fact-not-on-its-holder` | A `:softland.store/permission` fact's entity is not the holder that its permission names |
 | `:permission-fact-not-on-what-it-covers` | A permission fact for a run is not on the run's session, or a yes is not on its own id |
 | `:who-may-see-fact-not-members-or-everyone` | A `:softland.store/who-may-see` fact's value is not `:members` or `:everyone` |
+| `:who-may-read-acts-fact-not-members-or-everyone` | A `:softland.store/who-may-read-acts` fact's value is not `:members` or `:everyone` |
 | `:builds-on-fact-not-a-list-of-layers` | A `:softland.store/builds-on` fact's value is not a vector of ids |
 | `:builds-on-too-many-layers` | A `:softland.store/builds-on` fact names more than 64 layers |
 | `:marked-keys-fact-not-a-set-of-keys` | A `:softland.store/marked-keys` fact's value is not a set of keys |
@@ -1389,13 +1404,13 @@ word.
 | `:act-too-large` | The texts that an accept of the act would write into the rows of its facts hold more than 18,874,368 bytes |
 
 **The names in the declaration.** Its shapes: `:arrived-act`,
-`:depot-word`, `:who-may-see-word`, `:layer-list`, `:key-set`.
+`:depot-word`, `:who-may-see-word`, `:who-may-read-acts-word`, `:layer-list`, `:key-set`.
 Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
 `:facts-within-the-limit`, `:based-on-within-the-limit`, `:store-key-is-known`,
 `:depot-fact-holds-a-depot-word`,
 `:permission-fact-holds-a-permission`, `:permission-fact-is-of-its-key`,
 `:permission-fact-sits-on-its-holder`, `:permission-fact-sits-on-what-it-covers`,
-`:who-may-see-fact-holds-its-word`,
+`:who-may-see-fact-holds-its-word`, `:who-may-read-acts-fact-holds-its-word`,
 `:builds-on-fact-holds-layers`, `:builds-on-within-the-limit`,
 `:marked-keys-fact-holds-keys`, `:marked-keys-within-the-limit`,
 `:marked-keys-are-plain-keys`, `:place-named-once`,
@@ -1434,8 +1449,23 @@ fact sits.
 | `:store-key-takes-one-write` | A depot fact with the layer's own depot after the making. Not earned by the three keys that take a second write, or by a permission |
 | `:store-key-retract-not-built` | A fact with no value under any store key but a permission's |
 
+**The words of the line**, each a session's, of piece 3 of the store's line.
+
+| Word | What it is |
+|---|---|
+| the line | A layer's decisions in the order of their stamps, kept by its gate: the line rows, the things, the rows by who |
+| `line`, `things` | The two tables of the line in each gate's record: the row of each decision, and the thing again |
+| a line row | `{:act :refused :time :digest :who :weight :not-kept}` under `"<layer> <stamp>"` |
+| a row by who | The stamp of a decision under `"<layer> <who> <stamp>"`, in the field `:by-who` of the gate's table for a task |
+| the weight | The bytes of a thing's one text as it arrived, and what a part that the text does not write out holds ([digest.clj](door/digest.clj), `weighed`; [weight.clj](door/weight.clj)) |
+| `:not-kept`, `:too-heavy`, `:not-weighed` | The field of a line row whose thing the gate keeps not, and its two words |
+| `max-kept-weight`, `max-kept-weight-with-no-standing`, `weighing-bound`, `kept-bound`, `line-writes` | In [decision.clj](gate/decision.clj): the two bounds, the bound to weigh up to, the bound to keep up to, and the rows of the line |
+| `usable-who` | In [declaration.clj](door/declaration.clj): the who that a thing names, when it is an id within the limit |
+| `line-key`, `line-run`, `by-who-key`, `by-who-run`, `line-row`, `line-answer` | In [rows.clj](record/rows.clj): the keys, the runs and the row of the line, and the answer that a line row gives |
+
 **Words between the decision and the walk**, for the rows of one decision:
-`:fact`, `:by-value`, `:answer`, `:last-stamp`. A row of
+`:fact`, `:by-value`, `:answer`, `:last-stamp`; and of the line, `:line`,
+`:thing`, `:by-who` (`line-writes`). A row of
 the kind `:by-value` that is nil says that its key is to be taken out. The
 first two kinds are what the walk gives a gate to copy. And for
 what the walk hands `writes` for an accept:

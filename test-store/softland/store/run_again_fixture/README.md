@@ -15,7 +15,7 @@ same in short.
 | File | What it holds | Who writes it |
 |---|---|---|
 | [acts.edn](acts.edn) | The records of the two depots of acts as they stood on a store of four tasks: for each depot, for each partition in order, its records in the partition's order, each as it was appended, with its act-id, its depot word and the time on it. | `make-fixture`, below. Nothing else. |
-| [tables.edn](tables.edn) | The tables that those records gave, in a form that names no task: for each gate and each of its four tables, the rows as a sorted vector of `[key row]`. | The same run of `make-fixture`: the two files are one making, and neither is changed alone. |
+| [tables.edn](tables.edn) | The tables that those records gave, in a form that names no task: for each gate and each of its six tables, the rows as a sorted vector of `[key row]`. | The same run of `make-fixture`: the two files are one making, and neither is changed alone. |
 
 ## What the proof does with it, and what a pass shows
 
@@ -33,9 +33,9 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 22 November 2026. It is the sixth making; the first
-three were made on 14 October 2026, and the fourth and the fifth on 21
-November. The
+This fixture was made on 22 November 2026. It is the seventh making; the first
+three were made on 14 October 2026, the fourth and the fifth on 21 November,
+and the sixth and the seventh on 22 November. The
 first two were made by the build "run again", in which both depots came to
 place an act by its layer and the base's gate came to decide each act on the
 layer's task in the depot's order: the first after the build's part B, the
@@ -181,6 +181,36 @@ facts, 30 facts by value and 14 rows of the task's table; in the microbatch
 gate 194, 74, 6 and 7. The receipt of the change says that the fixture was
 made again, and why
 (`src/proposal/runtime-2026-11-21/BUILD-store-piece-2-repair.md`).
+
+The seventh making ran on 22 November 2026 at 15:07 IST, and replaced the
+sixth for two changes made on purpose, in piece 3 of the store's line
+(`src/proposal/runtime-2026-11-21/store-piece-3/SPEC.md`):
+
+- each gate keeps each layer's line: for each decision a line row under its
+  stamp, the thing again under the same key when it weighs no more than its
+  bound, and a row by the who that the thing names, in what the gate keeps
+  for a task. Three tables more, of which the sixth making holds none;
+- who may read a layer's acts whole is the eighth store key,
+  `:softland.store/who-may-read-acts`, a setting that the layer's first
+  holder writes, where the store refused the key as an unknown store key.
+
+The hand changed with the second: in each gate it now sends a line of seven
+things that write the setting and are refused for it, and the making holds the
+word of each, and that each answer of each gate has its line row with the
+same uuid, word, time and digest. On the sixth making the proof failed only
+at the rows of the three new tables, which the sixth making does not hold:
+every row of the four tables before them was the same, and the first module
+and the run again agreed on every row, the line's too. It was made again for
+the line and the key, and not to make the proof pass.
+
+It wrote `acts.edn`, 127,741 bytes, 401 records (the streaming depot's four
+partitions 164, 0, 17 and 5; the microbatch depot's 7, 0, 208 and 0), and
+`tables.edn`, 343,535 bytes, 1,706 rows: in the streaming gate 174 answers, 73
+facts, 30 facts by value, 174 line rows, 174 things and 188 rows of the task's
+table; in the microbatch gate 201, 76, 6, 201, 201 and 208. The file is three
+times the sixth's: it holds each thing again, as its line does. The receipt of
+the change says that the fixture was made again, and why
+(`src/proposal/runtime-2026-11-21/BUILD-store-piece-3.md`).
 
 From the repository root, behind the lock of this machine's cluster runs:
 

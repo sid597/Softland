@@ -20,9 +20,9 @@ record, are in [module/](../module/README.md).
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data, those of the facts by value among them, and the use of a yes for one act by the act that it was taken under. | None. It reads no PState. |
+| [decision.clj](decision.clj) | The checks of one act against rows of the record, and the rows that a decision writes, as data, those of the facts by value among them, and the use of a yes for one act by the act that it was taken under. And the rows that a decision writes in the layer's line, with the two bounds on what a gate keeps of a thing: 32 MiB of weight from a sender whose permission stands, 256 KiB from one with none or for a thing that the declaration refused. | None. It reads no PState. |
 | [chain.clj](chain.clj) | The chain of a permission: the permissions above it, the places of their rows, and when a permission stands. The place of a permission is read from what it covers: its holder for the layer, the session for one run, a yes's own id for a yes. It holds how a permission ends, how what was given beneath it ends with it, and how a permission that is given again is told from the one that ended. | None. |
-| [first_act.clj](first_act.clj) | The depot that a layer starts with, whether that is the other gate's depot, the form of a making act, and what a layer starts with when no fact says who may see it, what it builds on or which keys it marks. | None. |
+| [first_act.clj](first_act.clj) | The depot that a layer starts with, whether that is the other gate's depot, the form of a making act, and what a layer starts with when no fact says who may see it, who may read its acts whole, what it builds on or which keys it marks. | None. |
 | [stamp.clj](stamp.clj) | The stamp: the position of a decision in its layer, the layer's last stamp plus one. It holds no time and nothing that the act carries. | None. It reads no clock. |
 
 ## How the files relate

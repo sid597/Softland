@@ -74,6 +74,8 @@ record     answers: under each act-id, the verdict, the reason, the stamp,
   │        facts: the current fact at each place, from taken acts only
   │        facts by value: the same facts in the order of their values,
   │                 under the keys that a layer marks
+  │        line: each decision of a layer by its stamp, with its answer, and
+  │                 the act again as it arrived when the gate keeps it
   │
   ├──▶ door        reads an act's answer back by act-id
   └──▶ read path   reads facts through a stack, once or kept live
@@ -98,9 +100,9 @@ chair-7's colour is red and that its material is oak.
    ([store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly)).
    A new layer reads as open to its members only, building on nothing and
    marking nothing, until a fact says otherwise (`starts-with`).
-2. **She says what it builds on.** A layer has three settings, each a fact on the
-   layer's own entity: who may see it, the layers that it builds on in order, and
-   the keys that it marks. A setting can be written again and never retracted,
+2. **She says what it builds on.** A layer has four settings, each a fact on the
+   layer's own entity: who may see it, who may read its acts whole, the layers
+   that it builds on in order, and the keys that it marks. A setting can be written again and never retracted,
    and only the layer's first holder writes one, here Asha
    ([gate/decision.clj](softland/store/gate/decision.clj),
    `who-may-write-fault`); the depot is written once
@@ -211,7 +213,7 @@ chair-7's colour is red and that its material is oak.
 
 ## What the store keeps
 
-Three kinds of thing.
+Four kinds of thing.
 
 - **The acts.** Each act as it arrived, with all that it carries, is in its
   layer's depot. A layer's acts are one line of one depot partition, and the
@@ -230,6 +232,18 @@ Three kinds of thing.
   ([record/tables.clj](softland/store/record/tables.clj), `facts`). A new fact at
   a place takes the place of the row: the tables are the present, and the history
   is in the depots.
+- **Each layer's line.** For each decision of a layer, taken or refused, a row
+  under its stamp: the uuid of its act-id, its answer again, the who that the
+  act names and its weight; under the same key, the act again as it arrived,
+  when the gate keeps it; and a row under the who that the act names
+  ([record/rows.clj](softland/store/record/rows.clj), "The line";
+  [gate/decision.clj](softland/store/gate/decision.clj), `line-writes`). A gate
+  keeps an act again when it weighs no more than 32 MiB, the bytes of its one
+  text, from a sender whose permission stands; and no more than 256 KiB from
+  a sender with none, or when the declaration refused it (`kept-bound`). An act
+  over its bound is in its depot alone, and its row says so. A stray, and a
+  second thing under a used act-id, are in no line. So the act's bytes are
+  kept twice: once in its depot, and once in its line, in the tables.
 
 The tables are made from the depots: a second run of the gates over the two
 depots makes the same tables
@@ -276,13 +290,14 @@ the proof is named in the [verification map](../test-store/README.md)).
   ([gate/first_act.clj](softland/store/gate/first_act.clj)).
 - **A replace:** the fact that an act replaces is current, in the act's own
   layer ([record/rows.clj](softland/store/record/rows.clj), `written-by?`).
-- **The store's own keys:** seven, each with its shape, its entity, and whether it
+- **The store's own keys:** eight, each with its shape, its entity, and whether it
   takes a second write. Three are a permission's, one for each thing that a
   permission covers: the layer, a run, an act. A retract under the other
-  four is refused; under a permission's it is an end
+  five is refused; under a permission's it is an end
   ([door/declaration.clj](softland/store/door/declaration.clj), `store-keys`).
 - **Who writes a setting, and who ends a permission:** the layer's first holder
-  alone writes its setting, its list and its marks; a permission is ended by a
+  alone writes its settings, who may see it and who may read its acts whole, its
+  list and its marks; a permission is ended by a
   holder above it or by its own
   ([gate/decision.clj](softland/store/gate/decision.clj),
   `who-may-write-fault` and `end-fault`).
@@ -314,24 +329,26 @@ of a tool.
 ## What cannot be got back, said plainly
 
 - **What an act carried besides its facts:** its `:session`, `:because-of`,
-  `:based-on`, `:subjects`, `:claimed-when` and `:version`. The depot holds them
-  and no table does ([record/tables.clj](softland/store/record/tables.clj),
-  `facts`; [record/rows.clj](softland/store/record/rows.clj), `answer-row`), so
-  no read gives them. Whether a read should reach "the whole act from a fact" is
+  `:based-on`, `:subjects`, `:claimed-when` and `:version`. The depot holds them,
+  and the layer's line holds the act whole when the gate kept it
+  ([record/tables.clj](softland/store/record/tables.clj), `things`); no read of
+  the line is built yet, so no read gives them. Whether a read should reach "the whole act from a fact" is
   not decided
   ([decisions of 11 and 12 October](README.md#decisions-of-11-and-12-october-2026--reading-back-out),
   entry 7).
 - **An act by its act-id.** The read by act-id gives the act's answer and not
   the act. The depot holds the act, and no row keeps where in its partition the
   act is ([gate/stamp.clj](softland/store/gate/stamp.clj);
-  [record/rows.clj](softland/store/record/rows.clj), `answer-row`).
+  [record/rows.clj](softland/store/record/rows.clj), `answer-row`). The line
+  keeps it by its stamp, which the answer gives; no read of the line is built
+  yet.
 - **A fact that was replaced, and the facts that one act wrote.** A table holds
   the current fact at each place. A fact's row names its act, and no table is
   kept by act ([record/tables.clj](softland/store/record/tables.clj)).
-- **A layer's refusals, as a list.** Each answer sits under the key
-  `"<layer> <uuid>"`, so one layer's answers lie together on its task
-  ([record/rows.clj](softland/store/record/rows.clj), `answer-key`), but no read
-  is built for them.
+- **A layer's refusals, as a list.** Each decision of a layer has its row in
+  the layer's line, in the order of the stamps, refusals among them
+  ([record/rows.clj](softland/store/record/rows.clj), `line-key`), but no read
+  is built for them yet.
 - **Every fact under one key,** in one read.
 - **Who sent an act.** For the store, `:who` is what the sending program said.
   Beyond its form as an id, a gate holds it only against the permission that
@@ -392,6 +409,8 @@ Each is said in full where its code is.
 | The characters of an id or a key | `max-id-text`, the same |
 | The layers that one layer builds on | `max-builds-on`, the same |
 | The keys that one layer marks | `max-marked-keys`, the same |
+| The weight of an act that a gate keeps again, from a sender whose permission stands | `max-kept-weight`, [gate/decision.clj](softland/store/gate/decision.clj) |
+| The same, from a sender with none, or for a thing that the declaration refused | `max-kept-weight-with-no-standing`, the same |
 | The subjects of one act | `max-subjects`, [act.clj](softland/store/act.clj) |
 | How deep a value nests, and a permission | `max-depth`, the same |
 | The layers of one read | `max-layers-of-one-read`, [read_path/query.clj](softland/store/read_path/query.clj) |

@@ -133,6 +133,12 @@
 
     :softland.store/who-may-see  `:everyone` for the base, `:members` for
                                  any other layer
+    :softland.store/who-may-read-acts
+                                 `:members` for every layer, the base too:
+                                 its acts are read whole by its holders and
+                                 by the who that a thing names, until its
+                                 first holder says otherwise. So the base is
+                                 open to everyone and its acts are not
     :softland.store/builds-on    `[]`: a layer builds on nothing until a
                                  fact says so
     :softland.store/marked-keys  `#{}`: no key is marked
@@ -150,6 +156,7 @@
   [layer k]
   (case k
     :softland.store/who-may-see (if (= base layer) :everyone :members)
+    :softland.store/who-may-read-acts :members
     :softland.store/builds-on []
     :softland.store/marked-keys #{}
     nil))

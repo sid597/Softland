@@ -16,8 +16,10 @@
     *microbatch-depot     the depot to append a thing for a microbatch layer
     answer-by-act-id      the query: the recorded answer under an act-id
     depot-of-layer        the query: the depot of a layer
-    $$streaming-task      the PState of the streaming gate's strays, for an
-                          operator: select
+    $$streaming-task      what the streaming gate keeps for a task: for the
+                          read path, a layer's last stamp and its rows by
+                          who, selected with the layer as the partitioning
+                          key; and for an operator, the strays: select
                           [:strays (keypath word) (view count)] with a layer
                           as the partitioning key gives the number of
                           different strays of that word on that layer's task
@@ -34,6 +36,13 @@
     $$microbatch-facts-by-value
                           the same order for the microbatch layers, the
                           same rows on every task
+    $$streaming-line      the line of each streaming layer, its decisions by
+                          stamp, for the read path's read of a layer's acts:
+                          select with the layer as the partitioning key
+    $$streaming-things    the thing of each decision of the line, as it
+                          arrived, when the gate keeps it: select, the same
+    $$microbatch-line     the line of the base, on the base's task alone
+    $$microbatch-things   the base's things, on the base's task alone
 
   The name of the module, for a client, is `(get-module-name Store)`.
 
@@ -43,7 +52,7 @@
   the same gates and reads by this one definition.
 
   State. The module has two depots, and this namespace declares both. Each
-  gate owns the four PStates of its record: the streaming gate
+  gate owns the six PStates of its record: the streaming gate
   (`softland.store.module.streaming-gate`) those of the streaming layers,
   the microbatch gate (`softland.store.module.microbatch-gate`) those of
   the microbatch layers. The queries (`softland.store.module.door-reads`)

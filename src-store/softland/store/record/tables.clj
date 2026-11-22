@@ -1,12 +1,12 @@
 (ns softland.store.record.tables
   "The record as PStates: the schemas, written once. It requires Rama, and
-  it declares nothing: a gate declares four PStates with these schemas under
+  it declares nothing: a gate declares six PStates with these schemas under
   its own names, because in Rama only the topology that owns a PState can
-  write it. So \"the same record shape\" for each gate is these four
-  functions: the answers, the facts, the facts by value, and `task`, what a
-  gate keeps for a task. Each is one schema for both gates, so one walk of
-  one thing (`softland.store.module.walk`) reads and writes either gate's
-  four.
+  write it. So \"the same record shape\" for each gate is these six
+  functions: the answers, the facts, the facts by value, the line, the
+  things, and `task`, what a gate keeps for a task. Each is one schema for
+  both gates, so one walk of one thing (`softland.store.module.walk`) reads
+  and writes either gate's six.
 
   What each schema holds, field by field, is in the namespace docstring of
   `softland.store.record.rows`, which makes and reads the rows. Here is why each
@@ -30,12 +30,42 @@
              table of its own and not more keys of `facts`: its key has five
              parts where a place has three, so in one map a key of this
              order could sort into the run of an entity.
+    line     {String -> a row}. The layer's line: one row for each
+             decision, under \"<layer> <stamp>\" with the stamp in 19
+             digits, so that a layer's decisions are one run of
+             neighbouring keys in the order of their stamps, and a page of
+             n is one seek and n steps. A top-level map, as the facts: a
+             read of a run of its keys is the form that Rama's push was
+             seen to watch, and a second level would cost one seek more. Its
+             rows hold no byte array: the digest is hex text, as the facts
+             hold Strings, should a read of the line be kept live.
+    things   {String -> a thing}. The thing as it arrived, under the key of
+             its line row, when the gate keeps it. A table of its own and
+             not a field of the line row, although the two share a key and
+             a partitioner: a value inside a top-level map is one
+             serialised value, so a row that held its thing would load the
+             thing at every read of the row, and a read that withholds a
+             decision, or that weighs a page before it takes its things,
+             reads the row alone. The value's class is a Clojure map, the
+             one class of every thing that is no stray; what is inside it
+             has no schema and can have none, since a thing can be
+             anything.
     task     a fixed-keys value for each task, what a gate keeps beside
-             its three tables: under `:last-stamp`, for each layer that the
+             its five tables: under `:last-stamp`, for each layer that the
              gate has decided a thing of on the task, the last stamp that
-             it gave in that layer; and the strays seen on the task. Two
-             things that are no row of a fact or of an answer, in one
-             PState so that they cost one partition and not two.
+             it gave in that layer; under `:by-who`, the rows by who of the
+             layers of the task; and the strays seen on the task. Three
+             things that are no row of a fact, of an answer or of the line,
+             in one PState so that they cost one partition and not three.
+             The rows by who are a map from \"<layer> <who> <stamp>\" to the
+             stamp, subindexed with size tracking off, as `:last-stamp`
+             is: one write for each decision whose thing names a usable
+             who, and a read of one who's decisions in one layer is a run of
+             it. A field here and not a PState of its own: it is read only
+             by an asker who may not see a layer, for her own things, so
+             the one seek more that the field's level costs at that read
+             saves a partition on every task (Sid's call of 22 November
+             2026, on the plan's check).
              `:last-stamp` is a map from the printed text of a layer id to
              a number, subindexed, with size tracking off. A map with one
              key for each layer, and not one number for the task, because
@@ -64,11 +94,11 @@
   its whole key. So nothing may route by a whole key. The streaming gate
   writes each row of a layer on the layer's task, and each read of a
   streaming layer routes by the layer. The microbatch gate writes an
-  answer and a layer's last stamp on the layer's task, and each row of the
-  facts and of the facts by value on every task: a read of an answer
-  routes by the layer, and a read of a microbatch layer's facts finds each
-  row on whichever task it runs. `softland.store.record.rows` says it row
-  by row.
+  answer, a layer's last stamp, its line, its things and its rows by who on
+  the layer's task, and each row of the facts and of the facts by value on
+  every task: a read of an answer, or of the line, routes by the layer, and
+  a read of a microbatch layer's facts finds each row on whichever task it
+  runs. `softland.store.record.rows` says it row by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
@@ -79,9 +109,12 @@
   marked keys are each held as a String, the one text of what it is: the
   text of a value is the one that the declaration's check made
   (`softland.store.door.declaration/check`). The two tables that a reader is kept
-  live on, the facts and the facts by value, hold no byte array; the answers
-  do, and no read is kept live on them. A row of another class throws at
-  the write, so the rows are made only by `softland.store.record.rows`.
+  live on, the facts and the facts by value, hold no byte array; nor does
+  the line; the answers do, and no read is kept live on them. A row of
+  another class throws at the write, so the rows are made only by
+  `softland.store.record.rows`. The one position that holds a collection is
+  a thing's, in `things`: the thing as it arrived, whose class is checked
+  and whose inside is not (`things` says why).
 
   The strays. The outer map, a reason word to a set, is not subindexed: its
   keys are the words of `softland.store.door.declaration/stray-reasons`, a closed
@@ -99,7 +132,7 @@
   State and effects. None: each function gives a schema, a value. The
   PStates that a gate declares with them are durable state of the cluster."
   (:require [com.rpl.rama :refer [fixed-keys-schema map-schema set-schema]])
-  (:import [clojure.lang Keyword]
+  (:import [clojure.lang IPersistentMap Keyword]
            [java.util UUID]))
 
 (def ^:private byte-array-class
@@ -147,23 +180,50 @@
                               :who        String
                               :permission String})})
 
+(defn line
+  "Gives the schema of the line: the key of a decision,
+  `softland.store.record.rows/line-key`, to its line row
+  (`softland.store.record.rows/line-row`). One schema for both gates."
+  []
+  {String (fixed-keys-schema {:act      UUID
+                              :refused  Keyword
+                              :time     Long
+                              :digest   String
+                              :who      String
+                              :weight   Long
+                              :not-kept Keyword})})
+
+(defn things
+  "Gives the schema of the things: the key of a decision to the thing that
+  was decided, as it arrived, when the gate keeps it. The position has the
+  class of a Clojure map, which every thing that is no stray is
+  (`softland.store.door.declaration/stray-reason`); a thing of another
+  class throws at the write, and none is written."
+  []
+  {String IPersistentMap})
+
 (defn task
-  "Gives the schema of what a gate keeps for a task beside its three
+  "Gives the schema of what a gate keeps for a task beside its five
   tables. It serves both gates: the streaming gate declares
   `$$streaming-task` with it and the microbatch gate `$$microbatch-task`.
   `:last-stamp`: a map from the printed text of a layer id
   (`softland.store.door.declaration/id-text`) to the last stamp that the
   gate gave in that layer; a layer of which the gate has decided nothing on
-  the task has no key. `:strays`: by reason word, the digests, as hex text,
-  of the strays seen on the task.
+  the task has no key. `:by-who`: a map from the key of a row by who
+  (`softland.store.record.rows/by-who-key`) to the stamp of its decision.
+  `:strays`: by reason word, the digests, as hex text, of the strays seen
+  on the task.
 
-  The map of `:last-stamp` is subindexed, with size tracking off. The
-  choice and its reasons are in the namespace docstring: a task can hold
-  very many layers, and the gate reads and writes one layer's number at
-  each decision. What must hold of what is written: the key is a String of
+  The maps of `:last-stamp` and of `:by-who` are subindexed, with size
+  tracking off. The choice and its reasons are in the namespace docstring:
+  a task can hold very many layers, and the gate reads and writes one
+  layer's number at each decision, and writes one row by who. What must
+  hold of what is written: a key of `:last-stamp` is a String of
   `softland.store.door.declaration/max-id-text` characters at most, which
-  the layer of a thing that is no stray keeps, and the value is a Long; a
-  value of another class throws at the write."
+  the layer of a thing that is no stray keeps; a key of `:by-who` is made of
+  two such ids and a stamp; each value is a Long. A value of another class
+  throws at the write."
   []
   (fixed-keys-schema {:last-stamp (map-schema String Long {:subindex-options {:track-size? false}})
+                      :by-who     (map-schema String Long {:subindex-options {:track-size? false}})
                       :strays     (map-schema Keyword (set-schema String {:subindex? true}))}))

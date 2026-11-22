@@ -37,6 +37,8 @@
     id-text       an id or a fact's key -> its printed text
     id-within-the-limit?  an id or a fact's key -> true or false
     usable-id?    anything -> true for an id within the limit
+    usable-who    anything -> the who that a thing names, when it is an id
+                  within the limit, or nil
     act-id-in-layer?  a layer id, and anything -> true for an act-id of it
 
   The store's namespace, the store keys, the limits, the name and the bound
@@ -177,6 +179,25 @@
     (when (and (int? t) (<= 0 (long t)))
       (long t))))
 
+(declare usable-id?)
+
+(defn usable-who
+  "Takes a thing as it arrived, which can be anything. Gives what it holds
+  under `:who` when that is an id that a row's key can be made of
+  (`usable-id?`): the who that the thing names. Gives nil for anything
+  else: a thing that is no plain map, a thing with no `:who`, a who that is
+  a string, a symbol, a keyword that does not read back, or an id over the
+  limit. It gives the who also for a thing that `check` refuses for another
+  fault: the who is what the thing names, whatever else is wrong with it.
+  No gate holds it against a sender: it is what the sending program wrote.
+  A gate keeps it in the layer's line (`softland.store.gate.decision/line-writes`),
+  so that a read gives a thing whole to the who that it names. It never
+  throws: a thing that throws when the part is read names no usable who."
+  [thing]
+  (let [w (try (when (and (map? thing) (not (record? thing))) (get thing :who))
+               (catch Throwable _ nil))]
+    (when (usable-id? w) w)))
+
 ;; --------------------------------------------------------- the store keys
 
 (def store-namespace
@@ -202,7 +223,7 @@
   when it holds an end, and when the permission that it holds no longer
   stands; a fact with no value there is the end of the permission that the
   place holds (`softland.store.gate.decision`, `end-fault` and
-  `give-over-fault`). A retract under any of the other four is refused.
+  `give-over-fault`). A retract under any of the other five is refused.
 
   Who may see a layer, what it builds on and the keys that it marks are of
   the read build (src-store/README.md, decisions of 11 and 12 October 2026,
@@ -212,8 +233,13 @@
   the writer's order; an empty vector says \"nothing\". The keys that a
   layer marks: for each of them a gate keeps every fact in one more order,
   by value; the empty set says \"none\", and a mark is taken off by writing
-  the set again without it. What each reads as when no fact says it is
-  `softland.store.gate.first-act/starts-with`. The three words of the keys
+  the set again without it. Who may read the layer's acts whole: `:members`,
+  its holders and the who that a thing names, or `:everyone`, whoever may
+  see the layer (`softland.store.read-path.acts`). Sid, the runtime's page,
+  entry 9: a visitor of a layer that everyone may see reads no act whole
+  \"unless the layer turns it on\"; that the layer turns it on by this key is
+  a session's form. What each reads as when no fact says it is
+  `softland.store.gate.first-act/starts-with`. The four words of the keys
   are a session's, and Sid's to change.
 
   Each is in the namespace `softland.store` (`store-namespace`). Sid decided
@@ -280,6 +306,12 @@
     :sits-on       :the-layer
     :setting       true
     :written-again true}
+   :softland.store/who-may-read-acts
+   {:why           "a read must find who may read a layer's acts whole"
+    :value         :who-may-read-acts-word
+    :sits-on       :the-layer
+    :setting       true
+    :written-again true}
    :softland.store/builds-on
    {:why           "a read must find the layers that a layer builds on, in order"
     :value         :layer-list
@@ -329,7 +361,7 @@
 
 (def shapes
   "The door's map of shapes: each entry of `softland.store.act/shapes`, as
-  `act.clj` declares it, and five more, in the same language.
+  `act.clj` declares it, and six more, in the same language.
 
     :arrived-act   an act as it arrives on a depot: the act-id, the layer's
                    depot under `:depot`, the time on the act under
@@ -341,6 +373,8 @@
                    `:microbatch`
     :who-may-see-word  one of the two words for who may see a layer,
                    `:members` and `:everyone`
+    :who-may-read-acts-word  one of the two words for who may read a
+                   layer's acts whole, `:members` and `:everyone`
     :layer-list    layer ids in an order. A value is never a list, so what
                    fits is a vector
     :key-set       a set of keys
@@ -370,6 +404,7 @@
                              (rest (get act/shapes :act)))
          :depot-word   [:enum :streaming :microbatch]
          :who-may-see-word [:enum :members :everyone]
+         :who-may-read-acts-word [:enum :members :everyone]
          :layer-list   [:seq-of :id]
          :key-set      [:set-of :key]))
 
@@ -384,13 +419,20 @@
   it. No rule reads the value of a fact under a plain key: the bytes of
   such a value are held by the last step of the check (`with-texts`).
 
-  The six rules of the three keys that take a second write stand after the
+  The seven rules of the four keys that take a second write stand after the
   rules of a permission fact: the value under each has its shape; a
   builds-on fact names `max-builds-on` layers at most and a marked-keys
   fact holds `max-marked-keys` keys at most; and no marked key is in the
   store's namespace, so the store's own facts are never kept by value. Each
   keeps a fact with no value, as the rules beside them do; a gate refuses
-  the retract.
+  the retract. The rule of who may read a layer's acts stands right behind
+  the rule of who may see it. So of a thing that was refused
+  `:store-key-not-known` for a fact under that key before the key was
+  known, and has another fault that a later rule names, the word is now the
+  later rule's: no place of the new rule keeps it otherwise
+  (src/proposal/runtime-2026-11-21/store-piece-3/PLAN_VALIDATION-gates-keep-the-line.md,
+  item d, traces it). A thing that an earlier rule or the shape refuses
+  keeps its word.
 
   `:store-key-is-known` holds the store's namespace. A fact whose key is in
   `softland.store` and is not one of `store-keys` is refused
@@ -409,6 +451,7 @@
          [:permission-fact-sits-on-its-holder  :permission-fact-not-on-its-holder]
          [:permission-fact-sits-on-what-it-covers :permission-fact-not-on-what-it-covers]
          [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-members-or-everyone]
+         [:who-may-read-acts-fact-holds-its-word :who-may-read-acts-fact-not-members-or-everyone]
          [:builds-on-fact-holds-layers         :builds-on-fact-not-a-list-of-layers]
          [:builds-on-within-the-limit          :builds-on-too-many-layers]
          [:marked-keys-fact-holds-keys         :marked-keys-fact-not-a-set-of-keys]
@@ -621,6 +664,9 @@
 
    :who-may-see-fact-holds-its-word
    (fn [act] (value-fits-its-key? :softland.store/who-may-see act))
+
+   :who-may-read-acts-fact-holds-its-word
+   (fn [act] (value-fits-its-key? :softland.store/who-may-read-acts act))
 
    :builds-on-fact-holds-layers
    (fn [act] (value-fits-its-key? :softland.store/builds-on act))

@@ -17,7 +17,8 @@
     text  anything -> its one text, a string
     utf8  anything -> the UTF-8 bytes of its one text
     utf8-count  a string -> how many bytes its UTF-8 has
-    feed  anything, and two functions that take the pieces -> nil
+    feed  anything, two functions that take the pieces, and a third that
+          takes each part whose text does not hold what it holds -> nil
     hex   a run of bytes -> its hex text
 
   The text of each kind of thing:
@@ -60,6 +61,13 @@
 
   For a value that a fact can hold (`softland.store.act/value?`) the text is
   EDN, and `clojure.edn` reads it back.
+
+  What a text does not hold. The text of a part that is written as #other or
+  #too-deep is a few bytes, whatever the part holds, and the text of a
+  decimal leaves out its trailing zeros, whatever its digits hold. `feed`
+  hands each such part to a third function, so that one walk that feeds a
+  digest can also weigh the thing
+  (`softland.store.door.digest/weighed`); `text` hands them to none.
 
   State and effects. None. Each function is pure.
 
@@ -142,27 +150,44 @@
     (decimal? x) (str (.stripTrailingZeros ^BigDecimal x) "M")
     :else (str "#other " (.getName (class x)))))
 
+(defn- written-whole?
+  "Takes a thing that is no collection and no run of bytes. Gives true when
+  its text holds what it holds: nil, a boolean, a string, a keyword, a UUID,
+  an integer of any width, a double. A decimal is not, since its text
+  leaves out its trailing zeros; nor is a thing of any class that the text
+  writes as #other."
+  [x]
+  (boolean (or (nil? x) (boolean? x) (string? x) (keyword? x) (uuid? x) (int? x)
+               (instance? BigInt x) (instance? BigInteger x) (instance? Double x))))
+
+(defn- none
+  "The third function of `feed` that takes nothing: what `text` hands."
+  [_]
+  nil)
+
 (declare feed*)
 
 (defn- text*
-  "Takes a thing and the number of collections around it. Gives its text as
-  one string. It can throw, as `feed*` can."
-  [x depth]
+  "Takes a thing, the number of collections around it, and the third
+  function of `feed`. Gives its text as one string. It can throw, as
+  `feed*` can."
+  [x depth take-held]
   (let [sb (StringBuilder.)]
     (feed* x depth
            (fn [^String s] (.append sb s))
-           (fn [b] (.append sb (quoted (hex b)))))
+           (fn [b] (.append sb (quoted (hex b))))
+           take-held)
     (.toString sb)))
 
 (defn- feed-parts
   "Feeds an opening mark, the parts with one space between them, and a
   closing mark. Each part is fed by `feed*`, one collection deeper."
-  [open parts close depth take-text take-bytes]
+  [open parts close depth take-text take-bytes take-held]
   (take-text open)
   (loop [parts (seq parts) first? true]
     (when parts
       (when-not first? (take-text " "))
-      (feed* (first parts) (inc depth) take-text take-bytes)
+      (feed* (first parts) (inc depth) take-text take-bytes take-held)
       (recur (next parts) false)))
   (take-text close))
 
@@ -170,12 +195,14 @@
   "Feeds a plain map: its entries sorted by the text of the key. The text of
   a value is built only where two keys have one text, to order those
   entries; so a large value is fed piece by piece and never built as one
-  string."
-  [m depth take-text take-bytes]
-  (let [keyed (map (fn [[k v]] [(text* k (inc depth)) v]) m)
+  string. Each key is walked once, when its text is made, and each value
+  once, when it is fed: the text that orders two tied entries hands no
+  part to `take-held`, since the value is fed after."
+  [m depth take-text take-bytes take-held]
+  (let [keyed (map (fn [[k v]] [(text* k (inc depth) take-held) v]) m)
         tied? (and (seq keyed) (not (apply distinct? (map first keyed))))
         ordered (if tied?
-                  (sort-by (fn [[kt v]] [kt (text* v (inc depth))]) keyed)
+                  (sort-by (fn [[kt v]] [kt (text* v (inc depth) none)]) keyed)
                   (sort-by first keyed))]
     (take-text "{")
     (loop [entries (seq ordered) first? true]
@@ -184,27 +211,28 @@
           (when-not first? (take-text " "))
           (take-text kt)
           (take-text " ")
-          (feed* v (inc depth) take-text take-bytes))
+          (feed* v (inc depth) take-text take-bytes take-held))
         (recur (next entries) false)))
     (take-text "}")))
 
 (defn- feed*
-  "The walk. Takes a thing, the number of collections around it, and the two
-  functions of `feed`. It can throw, for a thing that throws when it is
-  read."
-  [x depth take-text take-bytes]
+  "The walk. Takes a thing, the number of collections around it, and the
+  three functions of `feed`. It can throw, for a thing that throws when it
+  is read."
+  [x depth take-text take-bytes take-held]
   (cond
-    (> depth max-depth) (take-text "#too-deep")
+    (> depth max-depth) (do (take-held x) (take-text "#too-deep"))
     (bytes? x) (do (take-text (str "#bytes " (alength ^bytes x) " "))
                    (take-bytes x))
-    (vector? x) (feed-parts "[" x "]" depth take-text take-bytes)
-    (record? x) (take-text (scalar-text x))
-    (map? x) (feed-map x depth take-text take-bytes)
+    (vector? x) (feed-parts "[" x "]" depth take-text take-bytes take-held)
+    (record? x) (do (take-held x) (take-text (scalar-text x)))
+    (map? x) (feed-map x depth take-text take-bytes take-held)
     (set? x) (do (take-text "#{")
-                 (take-text (apply str (interpose " " (sort (map #(text* % (inc depth)) x)))))
+                 (take-text (apply str (interpose " " (sort (map #(text* % (inc depth) take-held) x)))))
                  (take-text "}"))
-    (sequential? x) (feed-parts "(" x ")" depth take-text take-bytes)
-    :else (take-text (scalar-text x))))
+    (sequential? x) (feed-parts "(" x ")" depth take-text take-bytes take-held)
+    :else (do (when-not (written-whole? x) (take-held x))
+              (take-text (scalar-text x)))))
 
 (defn feed
   "Walks a thing and gives its one text piece by piece, in order. Takes
@@ -215,17 +243,28 @@
   takes the bytes as they are. One walk feeds both, so the two cannot drift
   apart. Gives nil.
 
+  A third function, `take-held`, when it is given, is called with each part
+  whose text does not hold what the part holds, right before that part's
+  text: a part inside more than `max-depth` collections, before its
+  #too-deep; a record, and a thing of a class that the text writes as
+  #other, before its #other; a decimal, before its text. It is called once
+  for each such part, in the order of the walk, and with no part inside one
+  that it was called with: the text does not walk into it. With two
+  functions it is called with nothing.
+
   It can throw, for a thing that throws when it is read. `text` and
   `softland.store.door.digest/digest` turn a throw into #unreadable."
-  [x take-text take-bytes]
-  (feed* x 0 take-text take-bytes)
-  nil)
+  ([x take-text take-bytes]
+   (feed x take-text take-bytes none))
+  ([x take-text take-bytes take-held]
+   (feed* x 0 take-text take-bytes take-held)
+   nil))
 
 (defn text
   "Takes anything. Gives its one text, a string. It never throws: a thing
   that throws while it is read has the text #unreadable."
   [x]
-  (try (text* x 0)
+  (try (text* x 0 none)
        (catch Throwable _ "#unreadable")))
 
 (defn utf8

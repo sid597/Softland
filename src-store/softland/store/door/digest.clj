@@ -14,6 +14,8 @@
 
     digest         anything -> 32 bytes
     hex-of         anything -> the digest as hex text, 64 characters
+    weighed        anything and a bound -> the digest and the thing's
+                   weight, in one walk
     act-for-a-yes  a maker's act, or a thing as it arrives -> the act that a
                    yes for one act names, in its one form, or nil
     hex-for-a-yes  the same -> the hex text that a yes for that act holds,
@@ -55,10 +57,21 @@
   different act would read the first act's answer as its own. The full
   width of a standard hash needs no argument about what short enough means.
 
+  The weight, in the same walk. A gate keeps each thing that it decides a
+  second time, for the read by stamp, up to a bound in weight
+  (`softland.store.gate.decision/kept-bound`). The walk that feeds the
+  digest is the walk of the thing's one text, so `weighed` counts the bytes
+  of that text as it feeds the hash: the weight of a thing is the number of
+  bytes of the UTF-8 of its one text as it arrived, the time on it too, and
+  for each part that the text does not write out whole what that part
+  holds (`softland.store.door.weight`). It walks the thing once, where a
+  digest and a weight apart would walk it twice.
+
   State and effects. None. Each function is pure, and none throws."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
-            [softland.store.door.text :as text])
+            [softland.store.door.text :as text]
+            [softland.store.door.weight :as weight])
   (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest]))
 
@@ -118,6 +131,85 @@
   gate keeps the digest of a stray."
   [x]
   (text/hex (digest x)))
+
+(defn- the-time-entry
+  "Takes anything. Gives [the time's value, whether another entry is beside
+  it] when it is a plain map that holds the part of the time on the act
+  (`softland.store.door.declaration/time-part`), the part that
+  `without-the-time` takes out; nil for anything else. It never throws: a
+  map that throws when the part is looked up cannot hold it, as
+  `without-the-time` says."
+  [x]
+  (try (when (and (map? x) (not (record? x)) (contains? x declaration/time-part))
+         [(get x declaration/time-part) (< 1 (count x))])
+       (catch Throwable _ nil)))
+
+(def ^:private time-name-bytes
+  "The bytes of the name of the time's part and of the space after it, as
+  the one text of a map writes an entry: `:door-time `."
+  (inc (count (str declaration/time-part))))
+
+(defn weighed
+  "The digest of a thing and its weight, in one walk. Takes anything, and a
+  bound, a whole number not below zero. Gives {:digest the 32 bytes that
+  `digest` gives for the thing, :weight w}.
+
+  The weight is the number of bytes of the UTF-8 of the one text of the
+  thing as it arrived (`softland.store.door.text/text`), where the text
+  writes the thing out whole; a run of bytes counts as its text does, two
+  hex digits for each byte and two quotes. For each part that the text does
+  not write out whole, a part that it writes as #other or #too-deep and a
+  decimal, what the part holds is added (`softland.store.door.weight`).
+  The walk is that of `digest`, which leaves the time on the act out, so
+  the time's entry is added after it: its name, a space, the digits of a
+  time that is a whole number or what any other value holds, and the space
+  that parts it from an entry beside it.
+
+  w is that weight, a long, when it is not over the bound; `:too-heavy`
+  when it passes the bound; `:not-weighed` when the thing holds a part of a
+  class that the weight does not know, or throws while it is read. The word
+  that the walk finds first is the one given. Once the weight passes the
+  bound no part is weighed further, and the weight keeps no number: so the
+  work of the weight beyond the digest's own walk is bounded by the bound.
+  The digest's walk goes to its end whatever the weight: the digest is of
+  the whole thing.
+
+  A thing that the declaration takes holds no part that its text does not
+  write out, but its decimals, which are weighed from their length with no
+  walk. It never throws: a thing that throws while it is read has the
+  digest of #unreadable, as `digest` gives it, and is not weighed. Cost: the
+  walk of `digest`, and one sum for each piece of its text."
+  [x bound]
+  (let [bound (long bound)
+        md (sha-256)
+        total (long-array 1)
+        word (object-array 1)
+        add! (fn [^long n]
+               (aset total 0 (+ (aget total 0) n))
+               (when (and (nil? (aget word 0)) (> (aget total 0) bound))
+                 (aset word 0 :too-heavy)))
+        held! (fn [part]
+                (when (nil? (aget word 0))
+                  (let [w (weight/weight-of part (- bound (aget total 0)))]
+                    (if (keyword? w) (aset word 0 w) (add! w)))))]
+    (try
+      (text/feed (without-the-time x)
+                 (fn [^String s] (let [b (.getBytes s StandardCharsets/UTF_8)]
+                                   (.update md b)
+                                   (add! (alength b))))
+                 (fn [b] (.update md ^bytes b)
+                   (add! (+ 2 (* 2 (alength ^bytes b)))))
+                 held!)
+      (let [d (.digest md)]
+        (when-let [[t beside?] (the-time-entry x)]
+          (add! (+ time-name-bytes (if beside? 1 0)))
+          (if (int? t)
+            (add! (count (Long/toString (long t))))
+            (held! t)))
+        {:digest d :weight (or (aget word 0) (aget total 0))})
+      (catch Throwable _
+        {:digest (.digest (sha-256) (.getBytes "#unreadable" StandardCharsets/UTF_8))
+         :weight :not-weighed}))))
 
 (def ^:private yes-shapes
   "The map of shapes by which the act that a yes names is read:

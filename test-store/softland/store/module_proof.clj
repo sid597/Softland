@@ -161,6 +161,7 @@
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
+            [softland.store.door.text :as text]
             [softland.store.gate.decision :as decision]
             [softland.store.gate.first-act :as first-act]
             [softland.store.module :as module]
@@ -204,7 +205,7 @@
 
 (def ^:dynamic ^:private *hand*
   "What the proof's hand holds of a cluster: the cluster itself, the name
-  of the module, the two depots of acts, the two queries and the four
+  of the module, the two depots of acts, the two queries and the six
   PStates of each gate; and `:checks`, which says which of the proof's two
   clusters it is. `-main` binds it for the run on each cluster."
   nil)
@@ -245,12 +246,16 @@
      :facts-ps   (rama/foreign-pstate ipc m "$$streaming-facts")
      :by-value-ps (rama/foreign-pstate ipc m "$$streaming-facts-by-value")
      :task-ps    (rama/foreign-pstate ipc m "$$streaming-task")
+     :line-ps    (rama/foreign-pstate ipc m "$$streaming-line")
+     :things-ps  (rama/foreign-pstate ipc m "$$streaming-things")
      :module     m
      :mb-depot      (rama/foreign-depot ipc m "*microbatch-depot")
      :mb-answers-ps (rama/foreign-pstate ipc m "$$microbatch-answers")
      :mb-facts-ps   (rama/foreign-pstate ipc m "$$microbatch-facts")
      :mb-by-value-ps (rama/foreign-pstate ipc m "$$microbatch-facts-by-value")
-     :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")}))
+     :mb-task-ps    (rama/foreign-pstate ipc m "$$microbatch-task")
+     :mb-line-ps    (rama/foreign-pstate ipc m "$$microbatch-line")
+     :mb-things-ps  (rama/foreign-pstate ipc m "$$microbatch-things")}))
 
 (defn- depot-of-layer
   "Reads the depot of a layer, or nil for a layer that is not made. The hand
@@ -4362,6 +4367,179 @@
            "| decisions of each" (pr-str decisions-of-the-befores) "| runs of the failed act's event before the hand's repeat:" runs-then
            "| after the repeat: runs" (peek after-the-repeat) "| decisions" (nth after-the-repeat 2) "| the layer's last stamp" (nth after-the-repeat 1))))
 
+;; ----------------------------------------------------------------- the line
+
+(defrecord Carried [a b])
+
+(defn- line-ps-of
+  "The names in the hand of the line, the things and the task table of a
+  layer's gate: the microbatch gate's for the base, else the streaming
+  gate's."
+  [layer]
+  (if (= :base layer)
+    {:line :mb-line-ps :things :mb-things-ps :task :mb-task-ps}
+    {:line :line-ps :things :things-ps :task :task-ps}))
+
+(defn- line-row-of
+  "The line row of a layer at a stamp, selected on the layer's task."
+  [layer stamp]
+  (row (:line (line-ps-of layer)) layer (record/line-key layer stamp)))
+
+(defn- thing-of
+  "The thing that a gate keeps at a stamp of a layer, selected on the
+  layer's task, or nil."
+  [layer stamp]
+  (row (:things (line-ps-of layer)) layer (record/line-key layer stamp)))
+
+(defn- line-of
+  "The whole line of a layer, as [stamp row] in the order of the stamps:
+  one select of its run on the layer's task."
+  [layer]
+  (let [[from to] (record/line-run layer 0)
+        run (rama/foreign-select-one (path/sorted-map-range from to)
+                                     (get *hand* (:line (line-ps-of layer))) {:pkey layer})]
+    (mapv (fn [[k row]] [(record/stamp-of-line-key k) row]) (sort-by key run))))
+
+(defn- by-who-of
+  "One who's rows by who in a layer, as the stamps of her decisions: one
+  select of the run in the gate's task table, on the layer's task."
+  [layer who]
+  (let [[from to] (record/by-who-run layer who 0)]
+    (vec (vals (into (sorted-map)
+                     (rama/foreign-select-one [(path/keypath :by-who) (path/sorted-map-range from to)]
+                                              (get *hand* (:task (line-ps-of layer))) {:pkey layer}))))))
+
+(defn- answer-in-the-line
+  "What the line row at a stamp says of its decision, in the form of the
+  read by act-id: `softland.store.record.rows/line-answer`."
+  [layer stamp]
+  (record/line-answer stamp (line-row-of layer stamp)))
+
+(def ^:private lena-own "Lena's permission in her layer of the line's checks, its first." [:lena :linebook :linebook])
+(def ^:private noa-in-linebook "Noa's permission in Lena's layer: she may act." [:noa :linebook :linebook lena-own])
+(def ^:private mia-sees "Mia's permission in Lena's layer: she may only see." [:mia :linebook :linebook lena-own :see])
+
+(defn- heavy-facts
+  "Five facts of 60,000 letters each, 300 KB of text: an act of them passes
+  the declaration, weighs more than the bound of a thing whose sender has no
+  standing, and far less than the other."
+  []
+  (mapv (fn [i] (value-fact (keyword (str "heavy-" i)) :text (apply str (repeat 60000 (char (+ 97 i))))))
+        (range 5)))
+
+(defn- sent-at
+  "Takes what `decide!` gave. Gives the stamp of its answer."
+  [decided]
+  (get-in decided [:answer :stamp]))
+
+(deftest the-line-of-a-layer
+  (let [made (decide! (making :linebook :lena :lena))
+        taken (decide! (thing :linebook :lena lena-own [(value-fact :note :text "first")]))
+        refused-raw {:act-id [:linebook :streaming (UUID/randomUUID)] :depot :streaming
+                     declaration/time-part (System/currentTimeMillis) :layer :linebook :who :zed :junk 1}
+        _ (decide! refused-raw)
+        stranger (decide! (thing :linebook :zed [:zed :linebook :linebook lena-own] [(value-fact :n :text "x")]))
+        carried-raw {:act-id [:linebook :streaming (UUID/randomUUID)] :depot :streaming
+                     declaration/time-part (System/currentTimeMillis) :layer :linebook :who :zed
+                     :record (->Carried 1 "two") :bytes (byte-array [1 2 3]) :sorted (sorted-map "b" 2 "a" 1)}
+        _ (decide! carried-raw)
+        heavy-stranger (decide! (thing :linebook :zed [:zed :linebook :linebook lena-own] (heavy-facts)))
+        behind (decide! (thing :linebook :lena lena-own [(value-fact :after :text "behind the heavy one")]))
+        heavy-holder (decide! (thing :linebook :lena lena-own
+                                     (assoc-in (heavy-facts) [0 :replaces] [[:linebook :streaming (UUID/randomUUID)] 0])))
+        gave (decide! (thing :linebook :lena lena-own [{:e :mia :k :softland.store/permission :v mia-sees}]))
+        heavy-seer (decide! (thing :linebook :mia mia-sees (heavy-facts)))
+        too-large (decide! (thing :linebook :lena lena-own [(value-fact :big :text (apply str (repeat 300000 "z")))]))
+        stamp-of (fn [x] (:stamp (answer-of (:act-id x))))
+        last (last-stamp :linebook)
+        line (line-of :linebook)]
+    (check "a taken act, a thing that the declaration refused, and a thing that a gate's check refused each have a line row at their stamp, with the uuid of its act-id, the answer that the door's read by act-id gives, the who and the weight"
+           [true true true]
+           (mapv (fn [[x s]] (let [row (line-row-of :linebook s)]
+                               (and (= (nth (:act-id x) 2) (:act row))
+                                    (= (answer-of (:act-id x)) (answer-in-the-line :linebook s))
+                                    (some? (:who row)) (pos? (long (:weight row))))))
+                 [[(:thing taken) (sent-at taken)] [refused-raw (stamp-of refused-raw)] [(:thing stranger) (sent-at stranger)]]))
+    (check "the thing under a stamp is the thing that was sent, as it arrived, its time on it: a taken act, a refusal of the declaration, a stranger's refusal"
+           [true true true]
+           (mapv (fn [[x s]] (= x (thing-of :linebook s)))
+                 [[(:thing taken) (sent-at taken)] [refused-raw (stamp-of refused-raw)] [(:thing stranger) (sent-at stranger)]]))
+    (check "a thing that holds a record, a run of bytes and a sorted map is read back under its stamp with the same one text and the same digest, each part of its class"
+           [true true [Carried (Class/forName "[B") clojure.lang.PersistentTreeMap]]
+           (let [back (thing-of :linebook (stamp-of carried-raw))]
+             [(= (text/text carried-raw) (text/text back)) (digest/is-digest-of? (digest/hex-of carried-raw) back)
+              (mapv #(class (get back %)) [:record :bytes :sorted])]))
+    (check "a stranger's thing of 300 KB, refused for its standing, has its line row and its answer and no thing, its row says too heavy and keeps no weight; the thing behind it in its layer is decided and kept"
+           [:permission-does-not-stand :too-heavy nil nil :accepted true]
+           (let [s (sent-at heavy-stranger) row (line-row-of :linebook s)]
+             [(get-in heavy-stranger [:answer :reason]) (:not-kept row) (:weight row) (thing-of :linebook s)
+              (:word behind) (= (:thing behind) (thing-of :linebook (sent-at behind)))]))
+    (check "a holder's act of 300 KB refused at the places, and one of a holder who may only see, are kept with their weight: a sender with standing is kept up to 32 MiB; a value over the bound of one value is refused by the declaration and not kept"
+           [[:replaced-fact-not-current true] [:permission-does-not-allow-acting true] [:value-too-large :too-heavy]]
+           [[(:word heavy-holder) (= (:thing heavy-holder) (thing-of :linebook (sent-at heavy-holder)))]
+            [(:word heavy-seer) (= (:thing heavy-seer) (thing-of :linebook (sent-at heavy-seer)))]
+            [(:word too-large) (:not-kept (line-row-of :linebook (sent-at too-large)))]])
+    (let [again (assoc (:thing taken) declaration/time-part 1)
+          other (assoc (:thing taken) :facts [(value-fact :note :text "another")])]
+      (send! 7)
+      (send! again)
+      (send! other)
+      (check "a stray has no line row, and a second thing under a used act-id changes none: the layer's last stamp is as it was, and the thing under the taken act's stamp still carries the first time"
+             [last (get (:thing taken) declaration/time-part) (count line)]
+             [(last-stamp :linebook) (get (thing-of :linebook (sent-at taken)) declaration/time-part)
+              (count (line-of :linebook))]))
+    (check "the line rows of a layer hold each stamp from 0 to its last stamp once"
+           (vec (range (inc last)))
+           (mapv first (line-of :linebook)))
+    (check "each decision whose thing names a usable who has a row by who, the stranger's refused things among them: Zed's, by stamp"
+           [(stamp-of refused-raw) (sent-at stranger) (stamp-of carried-raw) (sent-at heavy-stranger)]
+           (by-who-of :linebook :zed))
+    (shown "the line of :linebook, by stamp, as [the word, the who, the weight or why no thing is kept]:"
+           (pr-str (mapv (fn [[_ row]] [(:refused row) (:who row) (or (:weight row) (:not-kept row))]) (line-of :linebook))))))
+
+(deftest who-may-read-acts-is-a-setting
+  (let [k :softland.store/who-may-read-acts
+        gave (decide! (thing :linebook :lena lena-own [{:e :noa :k :softland.store/permission :v noa-in-linebook}]))
+        everyone (decide! (thing :linebook :lena lena-own [(value-fact :linebook k :everyone)]))
+        by-noa (decide! (thing :linebook :noa noa-in-linebook [(value-fact :linebook k :everyone)]))
+        elsewhere (decide! (thing :linebook :lena lena-own [(value-fact :chair-7 k :everyone)]))
+        no-value (decide! (thing :linebook :lena lena-own [{:e :linebook :k k}]))
+        neither (decide! (thing :linebook :lena lena-own [(value-fact :linebook k :visitors)]))
+        members (decide! (thing :linebook :lena lena-own [(value-fact :linebook k :members)]))]
+    (check "the first holder writes who may read the layer's acts, and writes it again; a holder of a given permission who may act is refused as for every setting; on another entity, with no value, and with a word that is neither, each is refused"
+           [:accepted :accepted :only-the-first-holder-writes-a-setting :setting-not-on-the-layer
+            :store-key-retract-not-built :who-may-read-acts-fact-not-members-or-everyone :accepted]
+           (mapv :word [gave everyone by-noa elsewhere no-value neither members]))
+    (check "the setting's row is at the layer's own entity, in the layer's own rows, and holds the last word written"
+           ":members"
+           (:value (row :facts-ps :linebook (record/place-key :linebook :linebook k))))))
+
+(deftest the-line-of-the-base
+  (let [k :softland.store/who-may-read-acts
+        heavy (decide-in-base! (thing :base :zed [:zed :base :base system-own] (heavy-facts)))
+        small (decide-in-base! (thing :base :zed [:zed :base :base system-own] [(value-fact :doc :text "a try")]))
+        everyone (decide-in-base! (system-act [(value-fact :base k :everyone)]))
+        members (decide-in-base! (system-act [(value-fact :base k :members)]))
+        line (line-of :base)
+        last (rama/foreign-select-one (path/keypath :last-stamp ":base") (:mb-task-ps *hand*) {:pkey :base})
+        held-by (fn [table k] (count (remove nil? (on-each-task table (path/keypath k)))))]
+    (check "the base's line holds each stamp from 0 to its last stamp once, on the base's task"
+           (vec (range (inc last)))
+           (mapv first line))
+    (check "the base's line, its things and its rows by who are on the base's task and on no other: one task holds the row of a stamp, its thing and its row by who"
+           [1 1 1]
+           (let [s (sent-at small)]
+             [(held-by :mb-line-ps (record/line-key :base s)) (held-by :mb-things-ps (record/line-key :base s))
+              (count (remove nil? (on-each-task :mb-task-ps (path/keypath :by-who (record/by-who-key :base :zed s)))))]))
+    (check "in the base, a stranger's thing of 300 KB is not kept and a small one is; each is in her rows by who"
+           [:too-heavy nil true true]
+           [(:not-kept (line-row-of :base (sent-at heavy))) (:not-kept (line-row-of :base (sent-at small)))
+            (= (:thing small) (thing-of :base (sent-at small)))
+            (every? (set (by-who-of :base :zed)) [(sent-at heavy) (sent-at small)])])
+    (check "the system writes who may read the base's acts, and the row is on every task, as each setting's is"
+           [:accepted :accepted 4]
+           [(:word everyone) (:word members) (count (facts-on-every-task :base k))])))
+
 (defn- the-checks-on-the-store-as-defined
   "The checks of the proof's first cluster, in their order: each runs on the
   functions as the store defines them."
@@ -4380,6 +4558,8 @@
   (what-a-permission-allows)
   (a-permission-ends)
   (a-permission-for-a-run-and-for-an-act)
+  (the-line-of-a-layer)
+  (who-may-read-acts-is-a-setting)
   (what-points-at-a-thing)
   (the-base-is-made)
   (an-act-lands-in-the-base)
@@ -4400,6 +4580,7 @@
   (what-a-permission-allows-in-the-base)
   (a-permission-ends-in-the-base)
   (a-permission-for-a-run-and-for-an-act-in-the-base)
+  (the-line-of-the-base)
   (what-points-at-a-thing-in-the-base)
   (one-batch-under-a-marked-key)
   (the-module-keeps-no-lock)

@@ -68,9 +68,10 @@
        value, against the fixture's one map of each;
     3. placement, with no task number: for each layer of the fixture, a
        select with that layer as the partitioning key reads one task, and
-       that task must hold the layer's answers and its last stamp, and for
-       the streaming gate its facts and its facts by value, each equal to
-       the fixture's rows of that layer.
+       that task must hold the layer's answers, its last stamp, its line,
+       its things and its rows by who, and for the streaming gate its facts
+       and its facts by value, each equal to the fixture's rows of that
+       layer.
 
   A check passes when no row differs in any of the three. When a file of
   the fixture is absent, each of the two checks fails with the line \"the
@@ -129,10 +130,14 @@
   on another task, so a row is compared by its key alone. Of the microbatch
   gate's facts and its facts by value every task holds a whole copy: the
   form holds that one map. Every other table holds a row on the task of
-  the row's layer alone: the form holds the union of the tasks' rows. What
-  a gate keeps for a task is in the form as rows too: each layer's last
-  stamp under [:last-stamp text], with the printed text of the layer id,
+  the row's layer alone: the form holds the union of the tasks' rows. The
+  line and the things are such tables, in both gates. What a gate keeps
+  for a task is in the form as rows too: each layer's last stamp under
+  [:last-stamp text], with the printed text of the layer id; each row by
+  who under [:by-who key], its key naming its layer, its who and its stamp;
   and the strays under [:strays word], as the sorted digests of all tasks.
+  No key and no value of the line holds a task or a position in a depot, so
+  the form leaves nothing of it out.
 
   Bytes. A run of bytes is written into `tables.edn` as hex text. It is
   told from a string by its place: the one position of a row that is a run
@@ -287,21 +292,23 @@
 
 (def ^:private gates
   "What the proof knows of each gate of the store: its depot of acts and
-  the ack level of an append by the hand; the names of its four tables;
+  the ack level of an append by the hand; the names of its six tables;
   and, for the gate that decides in batches, the name of its topology."
   {:streaming {:depot "*streaming-depot" :ack :ack
                :tables {:answers "$$streaming-answers" :facts "$$streaming-facts"
-                        :facts-by-value "$$streaming-facts-by-value" :task "$$streaming-task"}}
+                        :facts-by-value "$$streaming-facts-by-value" :line "$$streaming-line"
+                        :things "$$streaming-things" :task "$$streaming-task"}}
    :microbatch {:depot "*microbatch-depot" :ack :append-ack
                 :tables {:answers "$$microbatch-answers" :facts "$$microbatch-facts"
-                         :facts-by-value "$$microbatch-facts-by-value" :task "$$microbatch-task"}
+                         :facts-by-value "$$microbatch-facts-by-value" :line "$$microbatch-line"
+                         :things "$$microbatch-things" :task "$$microbatch-task"}
                 :topology "microbatch-gate"}})
 
 (def ^:private gate-order "The two gates, in the order of the proof's lines and files." [:streaming :microbatch])
 
 (def ^:private table-order
-  "The four tables of a gate, in the order of the proof's lines and files."
-  [:answers :facts :facts-by-value :task])
+  "The six tables of a gate, in the order of the proof's lines and files."
+  [:answers :facts :facts-by-value :line :things :task])
 
 (def ^:private copied-tables
   "The tables of which the store keeps one whole copy on every task: the
@@ -1081,6 +1088,38 @@
     (when (= :microbatch gate) (settle!))
     things))
 
+(def ^:private words-of-who-may-read-acts
+  "The words that a gate gives the things of `who-may-read-acts!`, in the
+  order in which they are sent."
+  [:accepted :accepted :only-the-first-holder-writes-a-setting :setting-not-on-the-layer
+   :store-key-retract-not-built :who-may-read-acts-fact-not-members-or-everyone :accepted])
+
+(defn- who-may-read-acts!
+  "Sends by the hand, to the depot of the gate given, a line of acts that
+  write who may read the layer's acts whole, the setting that only the
+  layer's first holder writes. Takes the gate, a layer that it has made,
+  the layer's first holder and her permission there. In this order: she
+  writes everyone; she gives Ivo a permission beneath hers; Ivo writes it,
+  and is refused; she writes it on another entity, with no value, and with
+  a word that is neither, each refused; she writes members again. The
+  rule of the key is new in piece 3 of the store's line, so the fixture
+  holds it from its sixth making on. Waits for the microbatch gate when the
+  things are its. Gives the things as they were built;
+  `words-of-who-may-read-acts` holds the word of each."
+  [gate layer who permission]
+  (let [k :softland.store/who-may-read-acts
+        ivos [:ivo layer layer permission]
+        things [(arrived gate layer who permission [{:e layer :k k :v :everyone}])
+                (arrived gate layer who permission [{:e :ivo :k permission-key :v ivos}])
+                (arrived gate layer :ivo ivos [{:e layer :k k :v :everyone}])
+                (arrived gate layer who permission [{:e :chair-7 :k k :v :everyone}])
+                (arrived gate layer who permission [{:e layer :k k}])
+                (arrived gate layer who permission [{:e layer :k k :v :visitors}])
+                (arrived gate layer who permission [{:e layer :k k :v :members}])]]
+    (run! (fn [thing] (by-hand! gate thing)) things)
+    (when (= :microbatch gate) (settle!))
+    things))
+
 (def ^:private rooms
   "Seven small streaming layers, the rooms: for each its id, its first
   holder, and who makes it. Six are Alice's, made by her. The seventh is a
@@ -1235,7 +1274,8 @@
        (`refused-for-several-reasons!`), a line in which a permission
        ends and is given again (`a-permission-ends!`), and a line under
        a permission for one run and under yeses for one act
-       (`a-permission-covers!`)
+       (`a-permission-covers!`), and a line that writes who may read the
+       layer's acts, by its first holder (`who-may-read-acts!`)
     7. seven more streaming layers, with their acts in turn (`rooms!`)
     8. the load (`load!`), and two acts that write one place
        (`two-acts-on-one-place!`)
@@ -1271,6 +1311,8 @@
         refused (in-each refused-for-several-reasons!)
         ends (in-each a-permission-ends!)
         covers (in-each a-permission-covers!)
+        reads-acts {:streaming (who-may-read-acts! :streaming :alice :alice alice-own)
+                    :microbatch (who-may-read-acts! :microbatch :base :system system-own)}
         in-rooms (rooms!)
         _ (load! numbers)
         x-and-y (two-acts-on-one-place!)]
@@ -1290,6 +1332,7 @@
      :refused refused
      :ends ends
      :covers covers
+     :reads-acts reads-acts
      :rooms in-rooms
      :x-and-y x-and-y}))
 
@@ -1399,16 +1442,20 @@
   table of rows. Takes the table's handle and a partitioning key, which
   names the task. Gives a map: under [:last-stamp text] the last stamp of
   each layer of which the gate decided a thing on the task, with the
-  printed text of the layer id; and under [:strays word] the set of the
-  digests of the strays of that word, for each word of which the task holds
-  one. So two stores are held against each other layer by layer and word by
-  word."
+  printed text of the layer id; under [:by-who key] the stamp of each row
+  by who of the task, under the key that the row has; and under
+  [:strays word] the set of the digests of the strays of that word, for
+  each word of which the task holds one. So two stores are held against
+  each other layer by layer, row by row and word by word."
   [handle pkey]
   (let [stamps (into {}
                      (map (fn [[layer-text n]] [[:last-stamp layer-text] n]))
                      (rama/foreign-select [(path/keypath :last-stamp) path/ALL] handle {:pkey pkey}))
+        by-who (into {}
+                     (map (fn [[k n]] [[:by-who k] n]))
+                     (rama/foreign-select [(path/keypath :by-who) path/ALL] handle {:pkey pkey}))
         words (rama/foreign-select [(path/keypath :strays) path/MAP-KEYS] handle {:pkey pkey})]
-    (into stamps
+    (into (merge stamps by-who)
           (keep (fn [word]
                   (let [digests (set (rama/foreign-select [(path/keypath :strays word) path/ALL] handle {:pkey pkey}))]
                     (when (seq digests) [[:strays word] digests]))))
@@ -1644,6 +1691,24 @@
      :refused (in-each (fn [gate] (by-word gate (get-in cases [:refused gate]))))
      :ends (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:ends gate]))))
      :covers (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:covers gate]))))
+     :reads-acts (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:reads-acts gate]))))
+     ;; of one gate: how many answers and line rows, and the key of each answer whose line row, at its
+     ;; stamp, is not there or holds another uuid, word, time or digest
+     :line (in-each (fn [gate]
+                      (let [line-rows (apply merge {} (vals (get-in held [gate :line])))
+                            answers (for [rows (vals (get-in held [gate :answers])) [k row] rows] [k row])]
+                        {:answers (count answers)
+                         :line-rows (count line-rows)
+                         :apart (vec (keep (fn [[k row]]
+                                             (let [[layer-text uuid] (record/answer-key-parts k)
+                                                   layer (record/id-of-text layer-text)
+                                                   line-row (when layer (get line-rows (record/line-key layer (:stamp row))))]
+                                               (when-not (and line-row (= uuid (:act line-row))
+                                                              (= (:refused row) (:refused line-row))
+                                                              (= (:time row) (:time line-row))
+                                                              (= (:digest row) (:digest line-row)))
+                                                 k)))
+                                           answers))})))
      :strays (in-each (fn [gate]
                         (apply merge-with + (sorted-map)
                                (for [rows (vals (get-in held [gate :task]))
@@ -1698,6 +1763,11 @@
                  "the give for a run, an act in that run, one in another run, a give under it; a yes for one act, that act, "
                  "and the same act again; a second yes, another act under it, and the act; the end of the run's permission, "
                  "and an act in the run")]
+   [:reads-acts (str "the line that writes who may read the layer's acts, by gate, the word of each thing in the order sent: "
+                     "everyone by the first holder, a give, the setting by the holder of the give, on another entity, with "
+                     "no value, with a word that is neither, and members again")]
+   [:line (str "each gate's line against its answers: how many answers, how many line rows, and the answers whose line "
+               "row at their stamp is not there or says another uuid, word, time or digest")]
    [:strays "the strays that each gate keeps: how many digests under each word"]
    [:x-and-y "the place that X wrote and then Y holds the fact of"]
    [:layers-by-task "the layers that the streaming gate made, by the task that holds them"]
@@ -1756,13 +1826,14 @@
 
 (defn- layer-text-of
   "Takes a key of a table in the proof's form: the text of a row's key, or
-  [:last-stamp text], or [:strays word]. Gives the printed text of the
-  layer that the row belongs to: the first part of a row's key, which every
-  key of a row begins with, or the text of a last stamp. nil for a
-  stray's."
+  [:last-stamp text], [:by-who key] or [:strays word]. Gives the printed
+  text of the layer that the row belongs to: the first part of a row's key,
+  which every key of a row begins with, a row by who's too, or the text of a
+  last stamp. nil for a stray's."
   [k]
   (cond (string? k) (first (str/split k #" " 2))
         (and (vector? k) (= :last-stamp (first k))) (second k)
+        (and (vector? k) (= :by-who (first k))) (first (str/split (second k) #" " 2))
         :else nil))
 
 (defn- rows-of-layer
@@ -2113,10 +2184,11 @@
                             [gate (into {} (map (fn [table] [table (rows-in-file-order (get-in tables [gate table]))])) table-order)]))
                      gate-order)]
     {:head {:what (str "The tables that the records of acts.edn gave, in a form that names no task: for each gate and "
-                       "each of its four tables, the rows as a sorted vector of [key row]. The microbatch gate's facts "
-                       "and facts by value: the one map that every task holds. Every other table: the union of the "
-                       "tasks' rows. What a gate keeps for a task: each layer's last stamp under [:last-stamp text], "
-                       "and the strays under [:strays word] as the sorted digests of all tasks.")
+                       "each of its six tables, the rows as a sorted vector of [key row]. The microbatch gate's facts "
+                       "and facts by value: the one map that every task holds. Every other table, the line and the "
+                       "things among them: the union of the tasks' rows. What a gate keeps for a task: each layer's "
+                       "last stamp under [:last-stamp text], each row by who under [:by-who key], and the strays under "
+                       "[:strays word] as the sorted digests of all tasks.")
             :made (str (LocalDate/now))
             :tasks tasks
             :rows (into {} (map (fn [[gate of-gate]] [gate (into {} (map (fn [[table rows]] [table (long (count rows))])) of-gate)])) sorted)
@@ -2389,9 +2461,10 @@
   and each layer of which the fixture holds an answer, a last stamp or,
   in the streaming gate, a fact, it reads one task: the task that a select
   with the layer as its partitioning key goes to. Of that task's part of
-  the gate's answers, of what the gate keeps for a task, and for the
-  streaming gate of its facts and its facts by value, it keeps the rows of
-  the layer, and holds them against the fixture's rows of the layer. The
+  the gate's answers, of what the gate keeps for a task, of its line and its
+  things, and for the streaming gate of its facts and its facts by value,
+  it keeps the rows of the layer, and holds them against the fixture's rows
+  of the layer. The
   microbatch gate's facts are left to the check of the copies: every task
   holds them. Gives {:layers :rows :apart}: for each gate the texts of the
   layers; how many rows of the fixture were looked for; and the rows that
@@ -2399,8 +2472,8 @@
   layer whose text is no id is looked for nowhere, so each of its rows
   differs."
   [reader expected]
-  (let [tables-of-gate {:streaming [:answers :task :facts :facts-by-value]
-                        :microbatch [:answers :task]}
+  (let [tables-of-gate {:streaming [:answers :task :facts :facts-by-value :line :things]
+                        :microbatch [:answers :task :line :things]}
         layers (into {}
                      (map (fn [[gate tables]]
                             [gate (vec (sort (distinct (keep layer-text-of
@@ -3117,6 +3190,11 @@
       (each-gate? (fn [gate] (= words-of-a-permission-that-ends (get-in gave [:ends gate]))))]
      ["in the line under a permission for one run and yeses for one act: an act in the run is accepted and one in another run refused; a give under the run's permission is refused; the act under its yes is accepted and uses it up, so the same act again is refused; under a second yes another act is refused and the act accepted; after the end of the run's permission an act in the run is refused, in each gate"
       (each-gate? (fn [gate] (= words-of-what-a-permission-covers (get-in gave [:covers gate]))))]
+     ["in the line that writes who may read the layer's acts: the first holder writes everyone; a holder of a given permission is refused; on another entity, with no value, and with a word that is neither, each is refused; members again is accepted, in each gate"
+      (each-gate? (fn [gate] (= words-of-who-may-read-acts (get-in gave [:reads-acts gate]))))]
+     ["each answer of each gate has a line row at its stamp, with the uuid of its act-id, its word, its time and its digest, and the line holds no other row, in each gate"
+      (each-gate? (fn [gate] (let [{:keys [answers line-rows apart]} (get-in gave [:line gate])]
+                               (and (pos? answers) (= answers line-rows) (empty? apart)))))]
      ["each act into each room is accepted"
       (= {:accepted (* (count rooms) (inc rounds-in-a-room))} (:rooms gave))]
      ["each gate keeps a stray of each of the five words"

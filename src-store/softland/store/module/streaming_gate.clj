@@ -7,7 +7,7 @@
 
 (ns softland.store.module.streaming-gate
   "The streaming gate: the stream topology that decides each thing of the
-  streaming depot, and the four PStates of its record. It requires Rama.
+  streaming depot, and the six PStates of its record. It requires Rama.
 
   What it takes. Each thing that arrives on `*streaming-depot`, which the
   module declares (`softland.store.module`) and which partitions by the
@@ -15,10 +15,11 @@
   things have the depot's order. Anything can arrive: the door is not the
   only sender.
 
-  What it changes. It owns four PStates, the record of the streaming layers,
+  What it changes. It owns six PStates, the record of the streaming layers,
   and it alone writes them (in Rama only the owning topology writes a
   PState): `$$streaming-answers`, `$$streaming-facts`,
-  `$$streaming-facts-by-value` and `$$streaming-task`. Their schemas are
+  `$$streaming-facts-by-value`, `$$streaming-task`, `$$streaming-line` and
+  `$$streaming-things`. Their schemas are
   `softland.store.record.tables`'s and their rows
   `softland.store.record.rows`'s. They are durable state of the cluster.
   Every row of a streaming layer is on the layer's task, and on no other.
@@ -27,7 +28,7 @@
 
   The walk. One event is one call of `softland.store.module.walk/decide`,
   the walk of one thing that the microbatch gate calls too, with the gate's
-  four tables and the word `:streaming`, on the task of the depot's
+  six tables and the word `:streaming`, on the task of the depot's
   partition, which is the layer's task. The walk's namespace docstring
   holds what a decision is made of, the steps, what each kind of thing
   costs in reads and writes, how a stamp is counted in its layer, and what
@@ -116,9 +117,9 @@
 
 (defn add-to
   "Adds the streaming gate to a module. Takes the module's `topologies`.
-  Declares the stream topology `streaming-gate` and its four PStates, and
+  Declares the stream topology `streaming-gate` and its six PStates, and
   the dataflow of one event: one call of the walk
-  (`softland.store.module.walk/decide`) with the four tables and the word
+  (`softland.store.module.walk/decide`) with the six tables and the word
   `:streaming`, whose result is not used. Every read and every write of the
   event are the walk's, on the task of the depot's partition: the event has
   no partitioner, no append and no wait. The source starts from the
@@ -133,7 +134,9 @@
     (declare-pstate gate $$streaming-facts (record-pstates/facts))
     (declare-pstate gate $$streaming-facts-by-value (record-pstates/facts-by-value))
     (declare-pstate gate $$streaming-task (record-pstates/task))
+    (declare-pstate gate $$streaming-line (record-pstates/line))
+    (declare-pstate gate $$streaming-things (record-pstates/things))
     (<<sources gate
       (source> *streaming-depot {:start-from :beginning :retry-mode :all-after} :> *thing)
       (walk/decide $$streaming-answers $$streaming-facts $$streaming-facts-by-value
-                   $$streaming-task :streaming *thing))))
+                   $$streaming-task $$streaming-line $$streaming-things :streaming *thing))))

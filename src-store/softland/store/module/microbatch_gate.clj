@@ -6,7 +6,7 @@
 
 (ns softland.store.module.microbatch-gate
   "The microbatch gate: the microbatch topology that decides each thing of
-  the microbatch depot, and the four PStates of its record. It requires
+  the microbatch depot, and the six PStates of its record. It requires
   Rama.
 
   What it takes. Each thing that arrives on `*microbatch-depot`, which the
@@ -15,11 +15,12 @@
   its things have the depot's order. Anything can arrive: the door is not
   the only sender.
 
-  What it changes. It owns four PStates, the record of the microbatch
+  What it changes. It owns six PStates, the record of the microbatch
   layers, and it alone writes them (in Rama only the owning topology writes
   a PState): `$$microbatch-answers`, `$$microbatch-facts`,
-  `$$microbatch-facts-by-value` and `$$microbatch-task`. Their schemas are
-  `softland.store.record.tables`'s, the same four as the streaming gate's,
+  `$$microbatch-facts-by-value`, `$$microbatch-task`, `$$microbatch-line`
+  and `$$microbatch-things`. Their schemas are
+  `softland.store.record.tables`'s, the same six as the streaming gate's,
   and their rows `softland.store.record.rows`'s. They are durable state of
   the cluster. The gate keeps nothing in the memory of a process. It
   declares no depot, appends to none, and borrows no PState.
@@ -40,13 +41,19 @@
     - The answer of an act, and the layer's last stamp: on the layer's task
       alone, the task of the layer's depot partition. A maker reads her
       answer there, as in a streaming layer.
+    - The layer's line, its things and its rows by who: on the layer's task
+      alone, with the answers and the last stamp, and no copy: the walk
+      gives the gate no write of the line to copy
+      (`softland.store.module.walk/copies-of`). So a read of the base's
+      acts reads the base's task, where the newest rows of its facts are
+      too, and the base's bytes are not held once on every task.
     - The digest of a stray: on the task of the partition where the stray
       arrived, under its reason word.
 
   The walk. One task decides: Rama emits a record of partition p on task p,
   which is the layer's task, and the gate decides it there, at once, with
   `softland.store.module.walk/decide`, the walk of one thing that the
-  streaming gate calls too. The gate hands it its four tables and the word
+  streaming gate calls too. The gate hands it its six tables and the word
   `:microbatch`. The walk's namespace docstring holds what a decision is
   made of, the steps, what each kind of thing costs, how a stamp is
   counted in its layer, and the contract that the walk never gives its
@@ -171,7 +178,7 @@
 
 (defn add-to
   "Adds the microbatch gate to a module. Takes the module's `topologies`.
-  Declares the microbatch topology `microbatch-gate` and its four PStates,
+  Declares the microbatch topology `microbatch-gate` and its six PStates,
   and the dataflow of one record: the walk on the task where the record is
   emitted, then, for an accept, the copy of its rows to every other task,
   as the namespace docstring says. Each write is a whole row at a fixed key,
@@ -188,6 +195,8 @@
     (declare-pstate gate $$microbatch-facts (record-pstates/facts))
     (declare-pstate gate $$microbatch-facts-by-value (record-pstates/facts-by-value))
     (declare-pstate gate $$microbatch-task (record-pstates/task))
+    (declare-pstate gate $$microbatch-line (record-pstates/line))
+    (declare-pstate gate $$microbatch-things (record-pstates/things))
     (<<sources gate
       (source> *microbatch-depot {:start-from :beginning} :> %things)
       ;; Each record of the batch, on the task of its partition, in the
@@ -197,7 +206,7 @@
       ;; The decision, whole, on this task: every read and every write of
       ;; it. What comes back is what may be copied.
       (walk/decide $$microbatch-answers $$microbatch-facts $$microbatch-facts-by-value
-                   $$microbatch-task :microbatch *thing
+                   $$microbatch-task $$microbatch-line $$microbatch-things :microbatch *thing
                    :> *copies)
 
       ;; The copy, only for an accept: to every task, and written on every

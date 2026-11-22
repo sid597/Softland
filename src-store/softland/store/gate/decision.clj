@@ -46,8 +46,12 @@
   `places-needed` says which rows `places` needs, and `chains-needed` which
   more, once those are read. `time-on` gives the time on the act, which
   `writes` puts beside the stamp as a label. `writes` gives each row that
-  the decision writes: for an act taken under a yes for one act, the yes's
-  use among them, an end at the yes's place (`use-of-its-yes`).
+  the decision writes in the record: for an act taken under a yes for one
+  act, the yes's use among them, an end at the yes's place
+  (`use-of-its-yes`). `line-writes` gives the rows that it writes in the
+  layer's line, for the read by stamp: the line row, the thing again when
+  it weighs no more than `kept-bound` allows, and the row by who. The walk
+  weighs the thing up to `weighing-bound`, in the walk of its digest.
 
   What an accept reads after the last check, for the order by value. No
   check reads a layer's marked keys, so a refused act pays nothing for them.
@@ -854,3 +858,85 @@
     (conj (if refused [] (accept-writes act act-uuid stamp time-millis in-hand))
           [:answer (record/answer-key layer act-uuid) (record/answer-row refused stamp time-millis digest)]
           [:last-stamp nil (long stamp)])))
+
+;; ----------------------------------------------------------------- the line
+
+(def max-kept-weight
+  "The heaviest thing that a gate keeps a second time, for the read by
+  stamp, when its sender has standing (`kept-bound`): 33,554,432, 32 MiB,
+  in weight (`softland.store.door.weight`). Sid's call of 22 November 2026,
+  the default of the plan's check. Every act that passes the declaration
+  weighs less, unless its decimals hold more digits than their text says;
+  a thing over the bound is in its depot and in no read by stamp. A number
+  of the build, kept and not decided."
+  33554432)
+
+(def max-kept-weight-with-no-standing
+  "The heaviest thing that a gate keeps a second time when its sender has no
+  standing in the layer, or the declaration refused it: 262,144, 256 KiB.
+  Sid's call of 22 November 2026. So a sender whom the layer let in nobody
+  makes the task write and hold the bytes of a large thing twice. A number
+  of the build, kept and not decided."
+  262144)
+
+(defn weighing-bound
+  "Takes the word of the declaration's refusal, or nil. Gives the bound up
+  to which the walk weighs the thing (`softland.store.door.digest/weighed`):
+  `max-kept-weight-with-no-standing` for a thing that the declaration
+  refused, since no standing is read for it; else `max-kept-weight`, the
+  most that the standing can give. The weighing stops at the bound and one,
+  so a thing that is too heavy keeps no exact weight."
+  [declarations-reason]
+  (if declarations-reason max-kept-weight-with-no-standing max-kept-weight))
+
+(defn kept-bound
+  "Takes the word of the declaration's refusal, or nil, and the word that
+  `standing` gave, or nil. Gives the bound up to which a gate keeps the
+  thing again: `max-kept-weight` when its sender has standing, else
+  `max-kept-weight-with-no-standing`. A sender has standing when the
+  declaration took the thing and the act's permission stands and is hers:
+  `standing` gave nil, for an act whose permission stands and allows acting
+  and for a right making act, or `:permission-does-not-allow-acting`, for a
+  holder who may only see. A taken act, and a thing that a check of the
+  places refused, have passed `standing`."
+  [declarations-reason refused-standing]
+  (if (and (nil? declarations-reason)
+           (or (nil? refused-standing) (= :permission-does-not-allow-acting refused-standing)))
+    max-kept-weight
+    max-kept-weight-with-no-standing))
+
+(defn line-writes
+  "The rows that one decision writes into the layer's line, as data. Takes
+  the act-id under which the thing arrived; the thing as it arrived; the
+  word of the refusal, or nil for an accept; the stamp; the time on the
+  thing (`time-on`), or nil; the digest of the thing, 32 bytes; its weight,
+  as `softland.store.door.digest/weighed` gave it (a long, `:too-heavy` or
+  `:not-weighed`); and the bound up to which it is kept (`kept-bound`).
+  Gives a vector of [which key row]:
+
+    [:line key row]    the line row at the decision's stamp
+                       (`softland.store.record.rows/line-row`), always
+    [:thing key t]     the thing as it arrived, under the same key, when its
+                       weight is a number not over the bound
+    [:by-who key s]    the stamp under the key of the thing's who
+                       (`softland.store.record.rows/by-who-key`), when the
+                       thing names a usable who
+                       (`softland.store.door.declaration/usable-who`)
+
+  A thing that is not kept has no weight in its row, only the word: so a
+  thing that is too heavy is weighed no further than the bound and one.
+
+  Each row is made of the thing, the stamp and the digest, and of nothing
+  else: no task, no position in a depot, no clock. So a second run of the
+  gates writes the same rows at the same keys, on a store of any number of
+  tasks. What must hold: the thing is no stray, and no answer was under its
+  act-id: the walk calls this behind check (a), as it calls `writes`."
+  [act-id thing refused stamp time-millis digest weight bound]
+  (let [[layer _ act-uuid] act-id
+        who (declaration/usable-who thing)
+        kept? (and (int? weight) (<= (long weight) (long bound)))
+        not-kept (cond kept? nil (= :not-weighed weight) :not-weighed :else :too-heavy)
+        k (record/line-key layer stamp)]
+    (cond-> [[:line k (record/line-row act-uuid refused time-millis digest who (when kept? weight) not-kept)]]
+      kept? (conj [:thing k thing])
+      (some? who) (conj [:by-who (record/by-who-key layer who stamp) (long stamp)]))))

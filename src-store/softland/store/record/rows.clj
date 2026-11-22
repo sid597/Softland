@@ -5,7 +5,9 @@
   (`softland.store.record.tables`), and a gate reads and writes it.
 
   The record has three kinds of row, each under a string key that begins
-  with its layer, and one value for each task.
+  with its layer, and one value for each task; and the layer's line, the
+  decisions of the layer by stamp, which the section \"The line\" below
+  says.
 
     an answer   key \"<layer> <act uuid>\"
                 {:refused the reason word, absent when the act was accepted
@@ -90,6 +92,21 @@
   (`routing-id`), and a read of a microbatch layer's facts finds each row
   on whichever task it runs. No row names a task.
 
+  The line. For each decision a gate writes a row of the layer's line under
+  \"<layer> <stamp>\", the stamp in 19 digits (`line-key`, `line-row`): the
+  uuid of the act-id, the answer's three fields again, the who that the
+  thing names, and the thing's weight, or the word of why the gate keeps no
+  copy of the thing. Under the same key, in a table of its own, the thing
+  as it arrived, when the gate keeps it. And, when the thing names a usable
+  who, a row by who under \"<layer> <who> <stamp>\" (`by-who-key`), whose
+  value is the stamp: in what a gate keeps for a task, beside the layer's
+  last stamp. So a layer's decisions are one run of neighbouring keys in the
+  order of their stamps (`line-run`), and one who's decisions in a layer are
+  another (`by-who-run`). All three are on the layer's task alone, in both
+  gates: the base's too, which no gate copies to another task
+  (`softland.store.gate.decision/line-writes` says what is written, and
+  why each row is made of the thing, the digest and the stamp alone).
+
   Why the keys are strings. A key is a pair or a triple of ids, and an id is
   a keyword or a UUID: two classes. A string made of the parts' printed
   texts is one class, equal keys are equal strings, and Rama gives the order
@@ -106,9 +123,18 @@
 
   Inputs and results, by group:
 
-    answer-key, place-key, by-value-key                -> the text of a key
+    answer-key, place-key, by-value-key, line-key, by-who-key
+                                      -> the text of a key
     by-value-run                      a layer, a key, a stamp, a value
                                       -> the two ends of that value's run
+    line-run, by-who-run              a layer, a who, a stamp -> the two
+                                      ends of the line, or of one who's
+                                      decisions, from that stamp on
+    stamp-of-line-key, stamp-of-by-who-key
+                                      the text of a key -> its stamp
+    line-row                          -> a row of the line to write
+    line-answer                       a stamp and its line row -> the
+                                      answer, as the read by act-id gives it
     entity-run, own-rows-run, run-of-ends
                                       a layer, and an entity or two ends
                                       -> the two ends of a run of places
@@ -533,6 +559,128 @@
           (when (= (nth parts 1) (str uuid))
             [(nth parts 0) uuid]))))
     (catch Throwable _ nil)))
+
+;; ----------------------------------------------------------------- the line
+
+(def ^:private stamp-zeros
+  "Nineteen zeros: a stamp in a key of the line is written with zeros in
+  front to 19 digits, the digits of 2^63 - 1, the greatest stamp
+  (`softland.store.gate.stamp`). Rama keeps the String keys of a table in
+  the order of their bytes, where \"10\" is before \"9\"; with a fixed width
+  the order of the keys of one layer is the order of its stamps."
+  "0000000000000000000")
+
+(defn- stamp-text
+  "Takes a stamp, a whole number from 0 to 2^63 - 1. Gives its 19 digits."
+  [stamp]
+  (let [s (Long/toString (long stamp))]
+    (str (subs stamp-zeros (count s)) s)))
+
+(defn line-key
+  "Takes a layer id and a stamp. Gives the key of the decision at that
+  stamp in the layer's line, and of its thing: \"<layer> <stamp>\", the
+  stamp in 19 digits. What must hold: the layer is an id within the limit,
+  and the stamp is a whole number from 0 to 2^63 - 1."
+  [layer stamp]
+  (str (declaration/id-text layer) " " (stamp-text stamp)))
+
+(defn line-run
+  "Takes a layer id and a stamp. Gives [from to], the two ends of the run of
+  the layer's line from that stamp on: every key from `from` up to `to`,
+  with `to` not in the run, is a decision of that layer at that stamp or a
+  later one, in the order of the stamps. `to` is the layer's text and `!`,
+  the character after a space. What must hold: as for `line-key`."
+  [layer stamp]
+  [(line-key layer stamp) (str (declaration/id-text layer) "!")])
+
+(defn by-who-key
+  "Takes a layer id, a who and a stamp. Gives the key of a row by who:
+  \"<layer> <who> <stamp>\", the who as the printed text of its id and the
+  stamp in 19 digits. The rows by who of one who in one layer are
+  neighbours, in the order of their stamps. What must hold: the layer and
+  the who are ids within the limit (`softland.store.door.declaration/usable-id?`),
+  and the stamp is as for `line-key`."
+  [layer who stamp]
+  (str (declaration/id-text layer) " " (declaration/id-text who) " " (stamp-text stamp)))
+
+(defn by-who-run
+  "Takes a layer id, a who and a stamp. Gives [from to], the two ends of the
+  run of that who's rows by who in that layer from that stamp on, `to` not
+  in it: the run's text, then `!` in the place of the space before the
+  stamp. No printed text of an id holds a space, so the run holds no row of
+  another who whose text begins with this one's. What must hold: as for
+  `by-who-key`."
+  [layer who stamp]
+  (let [run (str (declaration/id-text layer) " " (declaration/id-text who))]
+    [(str run " " (stamp-text stamp)) (str run "!")]))
+
+(defn- stamp-at-the-end
+  "Takes the text of a key. Gives the stamp of its last part, when that part
+  is 19 digits; nil for any other text. It never throws."
+  [k]
+  (try
+    (let [^String k k
+          i (.lastIndexOf k " ")]
+      (when (and (pos? i) (= 19 (- (.length k) i 1)))
+        (let [digits (subs k (inc i))]
+          (when (every? #(Character/isDigit ^char %) digits)
+            (Long/parseLong digits)))))
+    (catch Throwable _ nil)))
+
+(defn stamp-of-line-key
+  "Takes a key of the line, or of the things. Gives its stamp; nil for a
+  text that is no such key. It never throws."
+  [k]
+  (stamp-at-the-end k))
+
+(defn stamp-of-by-who-key
+  "Takes a key of the rows by who. Gives its stamp; nil for a text that is
+  no such key. It never throws."
+  [k]
+  (stamp-at-the-end k))
+
+(defn line-row
+  "Takes the uuid of the act-id under which the thing arrived; the reason
+  word of a refusal, or nil for an accept; the time on the thing, or nil;
+  the digest of the thing, 32 bytes; the who that the thing names, an id
+  that is usable (`softland.store.door.declaration/usable-id?`), or nil;
+  the thing's weight when the gate keeps the thing, or nil; and the word of
+  why the gate keeps no thing, or nil. Gives the line row:
+
+    {:act      the uuid of the act-id; the key says the layer, and the gate
+               that owns the table says the depot
+     :refused  the reason word; absent for an accept
+     :time     the time on the thing; absent when it held no usable one
+     :digest   the digest as 64 hex characters, the form in which a caller
+               gets it: a String, so that no field of the line is a byte
+               array (`softland.store.record.tables/line`)
+     :who      the printed text of the who that the thing names; absent
+               when it names no usable one
+     :weight   the thing's weight; only when the thing is kept
+     :not-kept `:too-heavy` or `:not-weighed`; only when it is not}
+
+  The answer's four fields are those of the answer's row under the
+  act-id, made of the same values in the same decision
+  (`line-answer`)."
+  [act-uuid refused time-millis digest who weight not-kept]
+  (cond-> {:act act-uuid :digest (text/hex digest)}
+    refused (assoc :refused refused)
+    (some? time-millis) (assoc :time (long time-millis))
+    (some? who) (assoc :who (declaration/id-text who))
+    (some? weight) (assoc :weight (long weight))
+    not-kept (assoc :not-kept not-kept)))
+
+(defn line-answer
+  "Takes a stamp and the line row at it. Gives the answer of the decision
+  as the read by act-id gives it (`answer-of` of the answer's row): its
+  verdict, the reason of a refusal or nil, the stamp, the time or nil, and
+  the digest as hex text."
+  [stamp row]
+  {:verdict (if (:refused row) :refused :accepted)
+   :reason  (:refused row)
+   :stamp   (long stamp)
+   :time    (:time row)
+   :digest  (:digest row)})
 
 ;; ------------------------------------------------ the runs that a read names
 

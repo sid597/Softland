@@ -11,9 +11,9 @@ and no other, and no topology appends to a depot.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [walk.clj](walk.clj) | The walk of one thing: the decision of one thing that arrived on a gate's depot, as one Rama operation that is handed the calling gate's four tables and its depot word. It reads rows, calls pure checks and writes rows, all on the task where it is called, and gives back the rows of an accept that a gate may copy. | None of its own. It borrows the calling gate's four PStates for one call. Nothing in the memory of a process. |
-| [streaming_gate.clj](streaming_gate.clj) | The stream topology `streaming-gate`: one event is one call of the walk. | It owns the four PStates of the streaming record, durable in the cluster: the answers, the facts, the facts by value, and what it keeps for a task, which holds the last stamp of each layer and the strays. Every row of a streaming layer is on the layer's task. It borrows no PState, appends to no depot and reads no clock. Nothing in the memory of a process. |
-| [microbatch_gate.clj](microbatch_gate.clj) | The microbatch topology `microbatch-gate`: for one record, the walk on the layer's task, and then the copy of an accept's rows of facts to every other task. | It owns the four PStates of the microbatch record, durable in the cluster, with the same four schemas. A fact's row and a row of the facts by value are on every task; an answer and a layer's last stamp are on the layer's task alone. It borrows no PState, appends to no depot and reads no clock. Nothing in the memory of a process. |
+| [walk.clj](walk.clj) | The walk of one thing: the decision of one thing that arrived on a gate's depot, as one Rama operation that is handed the calling gate's six tables and its depot word. It reads rows, calls pure checks and writes rows, all on the task where it is called, the layer's line among them, and gives back the rows of an accept that a gate may copy. | None of its own. It borrows the calling gate's six PStates for one call. Nothing in the memory of a process. |
+| [streaming_gate.clj](streaming_gate.clj) | The stream topology `streaming-gate`: one event is one call of the walk. | It owns the six PStates of the streaming record, durable in the cluster: the answers, the facts, the facts by value, the line, the things, and what it keeps for a task, which holds the last stamp of each layer, the rows by who and the strays. Every row of a streaming layer is on the layer's task. It borrows no PState, appends to no depot and reads no clock. Nothing in the memory of a process. |
+| [microbatch_gate.clj](microbatch_gate.clj) | The microbatch topology `microbatch-gate`: for one record, the walk on the layer's task, and then the copy of an accept's rows of facts to every other task. | It owns the six PStates of the microbatch record, durable in the cluster, with the same six schemas. A fact's row and a row of the facts by value are on every task; an answer, a layer's last stamp, its line, its things and its rows by who are on the layer's task alone. It borrows no PState, appends to no depot and reads no clock. Nothing in the memory of a process. |
 | [door_reads.clj](door_reads.clj) | The two query topologies, for layers of both depots: the answer by act-id, and the depot of a layer. Each is one read of one row on the layer's task. | None. It borrows the two gates' PStates to read. |
 
 ## How the files relate
@@ -43,7 +43,8 @@ depot can wait for the event.
 
 The microbatch gate is a microbatch topology. After the walk it goes to every
 task and writes the rows of an accept's facts, and of its facts by value, on
-each task but the deciding one. So a read of a microbatch layer's facts needs
+each task but the deciding one. It copies nothing of the line: the base's line
+and its things stay on the base's task. So a read of a microbatch layer's facts needs
 one task, whichever it is, and a maker still reads her answer on the layer's
 task. A batch is committed on every task or on none, and a second attempt of a
 batch makes the same rows. An append to its depot does not wait for the gate.

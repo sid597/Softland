@@ -10,16 +10,17 @@ that are kept apart.
 
 All of this folder is pure code and loads with Clojure alone.
 
-**What the door and the gates agree on.** A gate requires these three. They say
-the form of a thing as it arrives on a depot, and how a thing is given one text
-and one digest. A gate checks each thing that arrives against the declaration,
+**What the door and the gates agree on.** A gate requires these four. They say
+the form of a thing as it arrives on a depot, how a thing is given one text and
+one digest, and how much a thing weighs. A gate checks each thing that arrives against the declaration,
 and the gate is the authority: anything can append to a depot without the door.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [declaration.clj](declaration.clj) | The door's declaration: what arrives on a depot, as shapes and rules in `act.clj`'s language; the store's namespace and the store keys; the limits; the name of the part that holds the time on the act, and the range of that time; the test for a stray; the check, whose last step makes the one text of each value and holds the bound on one value and the bound on one act. | None. |
 | [text.clj](text.clj) | The one text of a thing: one function from anything to a string, the same in every process. | None. |
-| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text, with the time on the act left out. The door and the gates share it. Also the digest that a yes for one act holds: of the act as its maker made it, in its one form, without its act-id, its depot, its time and its permission; the maker makes it before her act has an act-id or a permission, and the gate makes the same of the thing that arrives, with the one function. | None. |
+| [digest.clj](digest.clj) | The digest of a thing, SHA-256 over its one text, with the time on the act left out. The door and the gates share it. Also the digest that a yes for one act holds: of the act as its maker made it, in its one form, without its act-id, its depot, its time and its permission; the maker makes it before her act has an act-id or a permission, and the gate makes the same of the thing that arrives, with the one function. And the weight of a thing, counted in the same walk as its digest: the bytes of its one text, up to a bound. | None. |
+| [weight.clj](weight.clj) | What a part of a thing holds, in bytes, for a part whose one text does not say it: a record, a Java collection, an array, a symbol, a part deeper than the text writes, a decimal. A walk with a stack of its own that stops at its bound. | None. |
 
 **The door's own pure parts.** No gate requires these three. They are the rules
 of the door that need no cluster, split from [door.clj](../door.clj) so that the
@@ -40,7 +41,10 @@ and reads its shapes with the engine of [act.clj](../act.clj); in the last step
 of its check it makes the text of each value with [text.clj](text.clj).
 [digest.clj](digest.clj) takes the digest of a thing over that text. It
 requires the declaration for one word, the name of the part that it leaves
-out: the time on the act.
+out: the time on the act. Its one walk also counts the bytes of the text, and
+hands [weight.clj](weight.clj) each part that the text hands over as holding
+more than its text says; [weight.clj](weight.clj) requires the text alone, for
+the count of a string's bytes.
 
 [words.clj](words.clj) and [wait.clj](wait.clj) require nothing.
 [additions.clj](additions.clj) requires the declaration, for what an act-id can

@@ -525,6 +525,7 @@
     [:facts [:seq-of :fact] {:empty :empty-act}]]
    :depot-word [:enum :streaming :microbatch]
    :who-may-see-word [:enum :members :everyone]
+   :who-may-read-acts-word [:enum :members :everyone]
    :layer-list [:seq-of :id]
    :key-set [:set-of :key]})
 
@@ -541,6 +542,7 @@
    [:permission-fact-sits-on-its-holder :permission-fact-not-on-its-holder]
    [:permission-fact-sits-on-what-it-covers :permission-fact-not-on-what-it-covers]
    [:who-may-see-fact-holds-its-word :who-may-see-fact-not-members-or-everyone]
+   [:who-may-read-acts-fact-holds-its-word :who-may-read-acts-fact-not-members-or-everyone]
    [:builds-on-fact-holds-layers :builds-on-fact-not-a-list-of-layers]
    [:builds-on-within-the-limit :builds-on-too-many-layers]
    [:marked-keys-fact-holds-keys :marked-keys-fact-not-a-set-of-keys]
@@ -552,7 +554,7 @@
 
 (def ^:private declared-reasons
   "Each word with which the check refuses: `act.clj`'s seven and the door's
-  nineteen, the word of the time's part and the two of the last step among
+  twenty, the word of the time's part and the two of the last step among
   them."
   #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
     :permission-not-in-layer
@@ -561,7 +563,8 @@
     :depot-fact-not-a-depot-word :permission-fact-not-a-permission
     :permission-fact-not-on-its-holder
     :permission-fact-under-another-key :permission-fact-not-on-what-it-covers
-    :who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-layers
+    :who-may-see-fact-not-members-or-everyone :who-may-read-acts-fact-not-members-or-everyone
+    :builds-on-fact-not-a-list-of-layers
     :builds-on-too-many-layers :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys
     :marked-key-in-the-stores-namespace
     :place-named-twice :replaces-own-fact :id-too-long
@@ -573,14 +576,14 @@
   [["the door's map of shapes holds each shape of act.clj as act.clj declares it"
     (fn [] (= act/shapes (select-keys declaration/shapes (keys act/shapes))))
     true]
-   ["the five shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the three keys that take a second write"
+   ["the six shapes that the door adds: what arrives, with the time on the act after the depot, whose facts are the maker's own; a depot word; and the values of the four keys that take a second write"
     (fn [] (apply dissoc declaration/shapes (keys act/shapes)))
     declared-shapes]
    ["the name of the part that holds the time on the act is the one that the shape of what arrives holds, and that shape takes any fixed-width integer not below zero: it has no bound above"
     (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
              [declaration/time-part (= part declaration/time-part) shape]))
     [:door-time true [:int {:min 0}]]]
-   ["the nineteen rules, the maker's first, each with its reason; the six of the keys that take a second write stand after the four rules of a permission fact"
+   ["the twenty rules, the maker's first, each with its reason; the seven of the keys that take a second write stand after the four rules of a permission fact, who may read a layer's acts right behind who may see it"
     (fn [] declaration/rules)
     declared-rules]
    ["the words with which the check refuses, read from the two declarations, the word of the time's part among them, and the two of its last step"
@@ -597,7 +600,7 @@
    ["the bound on an act is 256 values at the bound of one value, and 8,192 bytes of who and permission for each of 256 facts"
     (fn [] (= declaration/max-act-bytes (* 256 (+ 65536 8192))))
     true]
-   ["the seven store keys, the shape of the value of each, which is a setting, and which is written again; a key in the store's namespace that is none of the seven, and a bare word, is no store key"
+   ["the eight store keys, the shape of the value of each, which is a setting, and which is written again; a key in the store's namespace that is none of the eight, and a bare word, is no store key"
     (fn [] [(into {} (map (fn [[k entry]] [k (:value entry)])) declaration/store-keys)
             declaration/setting-keys
             declaration/second-write-keys
@@ -605,21 +608,23 @@
             (mapv declaration/store-key?
                   [:softland.store/depot :softland.store/permission
                    :softland.store/run-permission :softland.store/act-permission
-                   :softland.store/who-may-see :softland.store/builds-on :softland.store/marked-keys
+                   :softland.store/who-may-see :softland.store/who-may-read-acts
+                   :softland.store/builds-on :softland.store/marked-keys
                    :softland.store/lock-request :softland.store/owner
                    :class :depot :permission :lock-request :tool/depot :owner
-                   :who-may-see :builds-on :marked-keys :tool/marked-keys])])
+                   :who-may-see :who-may-read-acts :builds-on :marked-keys :tool/marked-keys])])
     [{:softland.store/depot :depot-word :softland.store/permission :permission-id
       :softland.store/run-permission :permission-id :softland.store/act-permission :permission-id
-      :softland.store/who-may-see :who-may-see-word
+      :softland.store/who-may-see :who-may-see-word :softland.store/who-may-read-acts :who-may-read-acts-word
       :softland.store/builds-on :layer-list :softland.store/marked-keys :key-set}
-     #{:softland.store/depot :softland.store/who-may-see :softland.store/builds-on :softland.store/marked-keys}
-     #{:softland.store/who-may-see :softland.store/builds-on :softland.store/marked-keys}
+     #{:softland.store/depot :softland.store/who-may-see :softland.store/who-may-read-acts
+       :softland.store/builds-on :softland.store/marked-keys}
+     #{:softland.store/who-may-see :softland.store/who-may-read-acts :softland.store/builds-on :softland.store/marked-keys}
      #{:softland.store/permission :softland.store/run-permission :softland.store/act-permission}
-     [true true true true true true true false false false false false false false false false false false false]]]
+     [true true true true true true true true false false false false false false false false false false false false false]]]
    ["the store's namespace, and each store key is in it"
     (fn [] [declaration/store-namespace (set (map namespace (keys declaration/store-keys))) (count declaration/store-keys)])
-    ["softland.store" #{"softland.store"} 7]]])
+    ["softland.store" #{"softland.store"} 8]]])
 
 (def ^:private stray-rows
   "One thing for each word of a stray, and things that are no stray."
@@ -760,7 +765,7 @@
    ["a retract under a plain key: no value"
     (fn [] (verdict (declaration/check (arrived 1 {:e :note-1 :k :text}))))
     :ok]
-   ["each of the seven store keys is known: a fact under each, with a right value, passes; a permission for a run sits on its session, and one for an act on the uuid of its act"
+   ["each of the eight store keys is known: a fact under each, with a right value, passes; a permission for a run sits on its session, and one for an act on the uuid of its act"
     (fn [] [(verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/depot :v :streaming})))
             (verdict (declaration/check (arrived 1 {:e :bob :k :softland.store/permission :v bobs})))
             (verdict (declaration/check (arrived 1 {:e :run-7 :k :softland.store/run-permission
@@ -769,9 +774,10 @@
                                                     :v [:bob :alice :alice alice-own :see-and-act
                                                         [:act (uuid 9) (apply str (repeat 64 "a"))]]})))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/who-may-see :v :everyone})))
+            (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v :everyone})))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base (uuid 7)]})))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent}})))])
-    [:ok :ok :ok :ok :ok :ok :ok]]
+    [:ok :ok :ok :ok :ok :ok :ok :ok]]
    ["the text of a set under a store key is sorted: the marked keys, with the set beside it"
     (fn [] ((juxt :v :text) (first (:facts (act-of (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent :b :a}}))))))
     [#{:on :tool/parent :b :a} "#{:a :b :on :tool/parent}"]]
@@ -885,6 +891,8 @@
    ["who may see a layer, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
    ["who may see a layer, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-see :v "everyone"}) :who-may-see-fact-not-members-or-everyone]
    ["who may see a layer, as a set of people" (arrived 1 {:e :alice :k :softland.store/who-may-see :v #{:bob}}) :who-may-see-fact-not-members-or-everyone]
+   ["who may read a layer's acts, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v :visitors}) :who-may-read-acts-fact-not-members-or-everyone]
+   ["who may read a layer's acts, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v "everyone"}) :who-may-read-acts-fact-not-members-or-everyone]
    ["what a layer builds on, as one layer and no list" (arrived 1 {:e :alice :k :softland.store/builds-on :v :base}) :builds-on-fact-not-a-list-of-layers]
    ["what a layer builds on, as a set: a set has no order" (arrived 1 {:e :alice :k :softland.store/builds-on :v #{:base}}) :builds-on-fact-not-a-list-of-layers]
    ["what a layer builds on, with a string in it" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base "team"]}) :builds-on-fact-not-a-list-of-layers]
@@ -950,10 +958,10 @@
      (fn [] (let [given (mapv (fn [[_ x _]] (verdict (declaration/check (without-time x)))) makers-rows)]
               [(first given) (frequencies (rest given))]))
      [:unknown-part {:no-door-time 16}]]
-    ["the time's word stands after the word of a depot that is absent or no depot word, and before each rule: of the things of `doors-rows` with the time taken off, the first two keep the depot's word, and each of the other thirty, whose fault a rule finds, gets the time's; a depot word that is not the act-id's is one of them"
+    ["the time's word stands after the word of a depot that is absent or no depot word, and before each rule: of the things of `doors-rows` with the time taken off, the first two keep the depot's word, and each of the other thirty-two, whose fault a rule finds, gets the time's; a depot word that is not the act-id's is one of them"
      (fn [] (let [given (mapv (fn [[_ x _]] (verdict (declaration/check (without-time x)))) doors-rows)]
               [(vec (take 2 given)) (frequencies (drop 2 given))]))
-     [[:depot-not-the-act-ids-depot :depot-not-the-act-ids-depot] {:no-door-time 30}]]]))
+     [[:depot-not-the-act-ids-depot :depot-not-the-act-ids-depot] {:no-door-time 32}]]]))
 
 ;; ------------------------------------------- the bounds of the check's last step
 
@@ -2487,10 +2495,11 @@
 (def ^:private empty-task
   "What one gate holds on one task, in memory, with nothing in it: the
   answers, the facts and the facts by value, each a map from key to row;
-  and the two parts of what a gate keeps for a task: the last stamps, a map
+  the two parts of what a gate keeps for a task: the last stamps, a map
   from the text of a layer id to a number, and the strays, a map from a
-  reason word to a set of digests as hex text."
-  {:answers {} :facts {} :by-value {} :last-stamp {} :strays {}})
+  reason word to a set of digests as hex text; and the layer's line: its
+  rows, its things and its rows by who, each a map from key to row."
+  {:answers {} :facts {} :by-value {} :last-stamp {} :strays {} :line {} :things {} :by-who {}})
 
 (defn- task-with
   "Takes rows, each [table key row], and the last stamps, a map from the text
@@ -2520,7 +2529,9 @@
   depot word; and a thing as it arrived, which can be anything. Gives the
   record after, with `:wrote`: the writes that
   `softland.store.gate.decision/writes` gave for the thing, or an empty
-  vector for a stray and for a thing under an act-id that has an answer.
+  vector for a stray and for a thing under an act-id that has an answer;
+  and with `:wrote-line`, the writes of the layer's line that
+  `softland.store.gate.decision/line-writes` gave, or an empty vector.
 
   The steps. A stray's digest goes to the set of its word. A thing under an
   act-id that has an answer changes nothing. Else: the declaration's check,
@@ -2533,7 +2544,10 @@
   (`softland.store.gate.stamp/next-stamp` of that last stamp alone), and
   the writes, with the time on the thing and with the act's own stamp as
   the stamp of a newly marked key. The last stamp is kept under the text
-  of the thing's layer.
+  of the thing's layer. The digest and the weight are one walk
+  (`softland.store.door.digest/weighed`), up to the bound that the
+  declaration's word gives, as the walk takes them; the line's writes keep
+  the thing up to the bound that the standing gives.
 
   It is the proof's own function. What it shows is what the pure functions
   give when they are called in this order, each against the rows that the
@@ -2543,13 +2557,14 @@
   (if-let [stray (declaration/stray-reason gate thing)]
     (-> record
         (update-in [:strays stray] (fnil conj #{}) (digest/hex-of thing))
-        (assoc :wrote []))
+        (assoc :wrote [] :wrote-line []))
     (let [[layer _ act-uuid :as act-id] (:act-id thing)]
       (if (get-in record [:answers (record/answer-key layer act-uuid)])
-        (assoc record :wrote [])
+        (assoc record :wrote [] :wrote-line [])
         (let [facts (:facts record)
               rows-at (fn [ks] (into {} (map (fn [k] [k (get facts k)])) ks))
               {act :ok reason :refuse} (declaration/check thing)
+              weighed (digest/weighed thing (decision/weighing-bound reason))
               time-millis (decision/time-on thing)
               early reason
               permission-row (when-not early (get facts (decision/permission-place act)))
@@ -2577,18 +2592,24 @@
                              place-rows)
               layer-text (declaration/id-text layer)
               stamp (stamp/next-stamp (get-in record [:last-stamp layer-text]))
-              writes (decision/writes act-id act refused stamp time-millis (digest/digest thing)
-                                      (if refused {} {:since-by-place since :place-rows rows-in-hand :level-from stamp}))]
+              writes (decision/writes act-id act refused stamp time-millis (:digest weighed)
+                                      (if refused {} {:since-by-place since :place-rows rows-in-hand :level-from stamp}))
+              line-writes (decision/line-writes act-id thing refused stamp time-millis (:digest weighed) (:weight weighed)
+                                                (decision/kept-bound reason no-standing))]
           (assoc (reduce (fn [record [which k row]]
                            (case which
                              :fact (assoc-in record [:facts k] row)
                              :by-value (if row (assoc-in record [:by-value k] row) (update record :by-value dissoc k))
                              :answer (assoc-in record [:answers k] row)
                              :last-stamp (assoc-in record [:last-stamp layer-text] row)
+                             :line (assoc-in record [:line k] row)
+                             :thing (assoc-in record [:things k] row)
+                             :by-who (assoc-in record [:by-who k] row)
                              record))
                          record
-                         writes)
-                 :wrote writes))))))
+                         (into line-writes writes))
+                 :wrote writes
+                 :wrote-line line-writes))))))
 
 (defn- walked-line
   "Takes a record in the form of `empty-task`, a gate's depot word, and
@@ -2596,7 +2617,7 @@
   record after `walked` decided each, one after the other: each against the
   rows that the things before it wrote. `:wrote` is not in it."
   [record gate things]
-  (dissoc (reduce (fn [record thing] (walked record gate thing)) record things) :wrote))
+  (dissoc (reduce (fn [record thing] (walked record gate thing)) record things) :wrote :wrote-line))
 
 (defn- writes-of-line
   "Takes what `walked-line` takes. Gives the writes of each thing, in the
@@ -3294,7 +3315,7 @@
                     (if answer (:refused answer) :no-answer)
                     (= (comparable (:wrote first-run)) (comparable (:wrote second-run)))
                     (:wrote on-what-it-left)
-                    (= (comparable (dissoc first-run :wrote)) (comparable (dissoc on-what-it-left :wrote)))]))
+                    (= (comparable (dissoc first-run :wrote :wrote-line)) (comparable (dissoc on-what-it-left :wrote :wrote-line)))]))
           [kinds word true [] true]])
        second-run-rows))
 
@@ -4278,6 +4299,306 @@
 
 ;; ---------------------------------------------------------------- the checks
 
+;; ----------------------------------------------------------------- the line
+
+(defrecord Holds [part])
+
+(def ^:private plain-things
+  "Things that the one text writes out whole: an act, an act with its
+  optional parts, a thing that is no act, one with a run of bytes and a time,
+  one with no time, and values of each kind."
+  [good
+   (assoc good :based-on {[(act-id 9) 0] 3} :subjects #{:bob} :claimed-when 5 :because-of (act-id 8))
+   {:act-id (act-id 2) :layer :alice}
+   {:act-id (act-id 3) :layer :alice :bytes (byte-array [1 2 3]) declaration/time-part 7}
+   (without-time good)
+   {:x #{:a "b" 3} :y {:k [1 2.5 -0.0 nil true]} declaration/time-part 12}
+   "a string" [1 2 3] 42])
+
+(defn- weight-of
+  "The weight that the one walk gives a thing, with a bound far above it."
+  [x]
+  (:weight (digest/weighed x 100000000)))
+
+(defn- held
+  "What the weight of `{:p part}` is beyond the bytes of its one text: what
+  the part holds, for a part that the text does not write out whole."
+  [part]
+  (let [x {:p part}]
+    (- (weight-of x) (text/utf8-count (text/text x)))))
+
+(defn- at-the-limits
+  "An act at the declaration's limits: 256 facts, each a value at the bound
+  of one value's text, 1,024 entries of based-on and 256 subjects."
+  []
+  (let [value (text-of-bytes 65000)]
+    (assoc (apply arrived 77 (map (fn [i] (value-at (keyword (str "e" i)) :text value)) (range 256)))
+           :based-on (into {} (map (fn [i] [[(act-id i) 0] i])) (range 1024))
+           :subjects (into #{} (map #(keyword (str "subject-" %))) (range 256)))))
+
+(def ^:private weight-cases
+  "The weight of a thing, counted in the walk of its digest
+  (`softland.store.door.digest/weighed`), and what a part that the text
+  does not write out holds (`softland.store.door.weight`)."
+  [["the weight of a thing that the one text writes out whole is the number of bytes of the UTF-8 of its one text, the time on it too and a run of bytes as its hex; and the digest of the one walk is the digest"
+    (fn [] (mapv (fn [x] (let [{d :digest w :weight} (digest/weighed x 100000000)]
+                           [(= (vec d) (vec (digest/digest x))) (= w (text/utf8-count (text/text x)))]))
+                 plain-things))
+    (vec (repeat (count plain-things) [true true]))]
+   ["a part that the text writes as #other weighs, beside its text, what it holds: a record of one string, a Java list of two longs, a symbol with a namespace, a ratio, a float, a character, an array of 100 ints, an array of three objects"
+    (fn [] (mapv held [(->Holds "abc") (java.util.ArrayList. [1 2]) 'a.b/cd 1/3 (float 1.5) \x
+                       (int-array 100) (object-array [1 "ab" nil])]))
+    [43 17 7 2 4 2 401 14]]
+   ["a decimal weighs, beside its text, its unscaled digits: 10^2000 at the scale 2000, whose text is 1M, holds 835 bytes, read from the length of its bits"
+    (fn [] (let [d (BigDecimal. (.pow BigInteger/TEN 2000) 2000)]
+             [(text/text d) (held d)]))
+    ["1M" 835]]
+   ["a part nested deeper than the text writes is weighed whole, with a stack of its own: a vector 100,000 deep weighs its 99,936 vectors past the text's 64, and its long"
+    (fn [] (held (nested 100000)))
+    99944]
+   ["a part of a class that the weight does not know, and a thing that throws when it is read, are not weighed; the second has the digest of #unreadable, and neither throws"
+    (fn [] [(weight-of {:p (Object.)}) (weight-of {:facts (throwing)})
+            (= (vec (:digest (digest/weighed {:facts (throwing)} 100))) (vec (digest/digest {:facts (throwing)})))])
+    [:not-weighed :not-weighed true]]
+   ["the weighing stops at the bound and one: a record that holds a sequence with no end is too heavy, and the walk ends; so is a string over the bound, with no walk of its characters"
+    (fn [] [(:weight (digest/weighed {:p (->Holds (range))} 262144))
+            (:weight (digest/weighed {:p (apply str (repeat 300000 "s"))} 262144))])
+    [:too-heavy :too-heavy]]
+   ["an array of a primitive is weighed from its length: 100,000 longs are too heavy at 256 KiB and weigh 800,001 bytes beside their text under a bound above that"
+    (fn [] [(:weight (digest/weighed {:p (long-array 100000)} 262144)) (held (long-array 100000))])
+    [:too-heavy 800001]]
+   ["a thing that is too heavy keeps no weight: at a bound one below its weight it is too heavy, at its weight it weighs that"
+    (fn [] (let [w (weight-of good)]
+             [(:weight (digest/weighed good (dec w))) (= w (:weight (digest/weighed good w)))]))
+    [:too-heavy true]]
+   ["an act at the declaration's limits, 256 values at the bound of one value, 1,024 entries of based-on and 256 subjects, passes the declaration and weighs less than the bound on what is kept with standing"
+    (fn [] (let [x (at-the-limits)]
+             [(verdict (declaration/check x)) (< (long (weight-of x)) decision/max-kept-weight)]))
+    [:ok true]]])
+
+(def ^:private bound-cases
+  "The bounds on what a gate keeps of a thing (Sid's call of 22 November
+  2026): 32 MiB from a sender with standing, 256 KiB from one with none or
+  for a thing that the declaration refused."
+  [["the two bounds, in bytes of weight: 32 MiB and 256 KiB"
+    (fn [] [decision/max-kept-weight decision/max-kept-weight-with-no-standing])
+    [33554432 262144]]
+   ["the walk weighs up to 256 KiB a thing that the declaration refused, and up to 32 MiB one that it took"
+    (fn [] [(decision/weighing-bound :malformed) (decision/weighing-bound :value-too-large) (decision/weighing-bound nil)])
+    [262144 262144 33554432]]
+   ["a sender has standing when the declaration took the thing and the act's permission stands and is hers: an accept, a refusal of the places, a holder who may only see, and a making act are kept up to 32 MiB; a permission that does not stand, ended, above ended, used up, of another holder or another run, a yes for another act, a layer not made or of the other gate, and a refusal of the declaration, up to 256 KiB"
+    (fn [] (mapv (fn [[decl standing]] (decision/kept-bound decl standing))
+                 [[nil nil] [nil :permission-does-not-allow-acting]
+                  [nil :permission-does-not-stand] [nil :permission-ended] [nil :permission-above-ended]
+                  [nil :permission-used-up] [nil :who-not-the-permissions-holder] [nil :permission-for-another-run]
+                  [nil :act-not-the-one-permitted] [nil :layer-not-made] [nil :layer-belongs-to-the-other-gate]
+                  [:malformed :malformed] [:no-door-time :no-door-time]]))
+    [33554432 33554432 262144 262144 262144 262144 262144 262144 262144 262144 262144 262144 262144]]])
+
+(def ^:private line-key-cases
+  "The keys of the line and of the rows by who."
+  [["the keys of the line put the stamps 9, 10 and 2^63 - 1 in their numeric order, in the order in which a table keeps its keys; a stamp is 19 digits"
+    (fn [] [(record/line-key :a 9)
+            (record/before? (record/line-key :a 9) (record/line-key :a 10))
+            (record/before? (record/line-key :a 10) (record/line-key :a 9223372036854775807))])
+    [":a 0000000000000000009" true true]]
+   ["a layer's run of its line, from a stamp on, holds its keys from that stamp and no key of a layer whose text begins with its text"
+    (fn [] (let [[from to] (record/line-run :a 5)
+                 in? (fn [k] (and (not (record/before? k from)) (record/before? k to)))]
+             [from to (in? (record/line-key :a 5)) (in? (record/line-key :a 9223372036854775807))
+              (in? (record/line-key :a 4)) (in? (record/line-key :ab 5))]))
+    [":a 0000000000000000005" ":a!" true true false false]]
+   ["one who's rows by who in one layer are one run, from a stamp on, which holds no row of a who whose text begins with hers or with which hers begins"
+    (fn [] (let [[from to] (record/by-who-run :a :asha 0)
+                 in? (fn [k] (and (not (record/before? k from)) (record/before? k to)))]
+             [(record/by-who-key :a :asha 3) (in? (record/by-who-key :a :asha 3))
+              (in? (record/by-who-key :a :ashab 3)) (in? (record/by-who-key :a :ash 3))
+              (in? (record/by-who-key :ab :asha 3))]))
+    [":a :asha 0000000000000000003" true false false false]]
+   ["the stamp of a key of the line and of a row by who reads back; a text that is no such key gives none, and nothing throws"
+    (fn [] [(record/stamp-of-line-key (record/line-key :a 42))
+            (record/stamp-of-by-who-key (record/by-who-key (uuid 3) :asha 7))
+            (record/stamp-of-line-key ":a 12") (record/stamp-of-line-key "nonsense") (record/stamp-of-line-key nil)])
+    [42 7 nil nil nil]]])
+
+(def ^:private line-writes-cases
+  "The rows that one decision writes in the layer's line
+  (`softland.store.gate.decision/line-writes`), against rows written out."
+  (let [thing {:act-id (act-id 5) :layer :alice :who :bob :junk 1}
+        d (byte-array (range 32))
+        hex (text/hex d)
+        k ":alice 0000000000000000005"]
+    [["a refusal of the declaration of a thing that names a usable who: its line row with the uuid, the word, the time, the digest as hex, the who and the weight; the thing under the same key; and its row by who"
+      (fn [] (decision/line-writes (act-id 5) thing :malformed 5 now d 40 262144))
+      [[:line k {:act (uuid 5) :refused :malformed :time now :digest hex :who ":bob" :weight 40}]
+       [:thing k thing]
+       [:by-who ":alice :bob 0000000000000000005" 5]]]
+     ["a thing heavier than its bound writes no thing, and its row says too heavy and keeps no weight; one that is not weighed says so; one that names no usable who writes no row by who"
+      (fn [] [(decision/line-writes (act-id 5) thing :malformed 5 now d 300000 262144)
+              (decision/line-writes (act-id 5) thing :malformed 5 now d :too-heavy 262144)
+              (decision/line-writes (act-id 5) (assoc thing :who "bob") :malformed 5 now d :not-weighed 262144)])
+      [[[:line k {:act (uuid 5) :refused :malformed :time now :digest hex :who ":bob" :not-kept :too-heavy}]
+        [:by-who ":alice :bob 0000000000000000005" 5]]
+       [[:line k {:act (uuid 5) :refused :malformed :time now :digest hex :who ":bob" :not-kept :too-heavy}]
+        [:by-who ":alice :bob 0000000000000000005" 5]]
+       [[:line k {:act (uuid 5) :refused :malformed :time now :digest hex :not-kept :not-weighed}]]]]
+     ["an accept, and a thing with no usable time: the line row holds no word, and no time"
+      (fn [] [(first (decision/line-writes (act-id 5) thing nil 5 now d 40 33554432))
+              (first (decision/line-writes (act-id 5) thing :no-door-time 5 nil d 40 262144))])
+      [[:line k {:act (uuid 5) :time now :digest hex :who ":bob" :weight 40}]
+       [:line k {:act (uuid 5) :refused :no-door-time :digest hex :who ":bob" :weight 40}]]]
+     ["the answer that a line row gives is the answer that its answer's row gives: the same verdict, reason, stamp, time and digest"
+      (fn [] (let [[[_ _ row]] (decision/line-writes (act-id 5) thing :malformed 5 now d 40 262144)
+                   [[_ _ accepted]] (decision/line-writes (act-id 5) thing nil 6 nil d 40 262144)]
+               [(= (record/line-answer 5 row) (record/answer-of (record/answer-row :malformed 5 now d)))
+                (= (record/line-answer 6 accepted) (record/answer-of (record/answer-row nil 6 nil d)))]))
+      [true true]]]))
+
+(def ^:private alice-making
+  "The making act of Alice's layer, as it arrives on the streaming depot."
+  (as-sent (making :alice :alice :alice) :streaming))
+
+(defn- with-facts
+  "Alice's act under the act-id `(act-id n)`, by `who` under `permission`,
+  with these facts."
+  [n who permission & facts]
+  (assoc (apply arrived n facts) :who who :permission permission))
+
+(def ^:private bob-sees "Bob's permission in Alice's layer: see, and not act." [:bob :alice :alice alice-own :see])
+
+(def ^:private a-line
+  "A line of Alice's layer, each kind of thing that the line is for: its
+  making act; a taken act; a thing that the declaration refused; a stranger's
+  act refused for its standing; a stray; the taken act again under its
+  act-id; another thing under that act-id; heavy things of 300 KB: a
+  stranger's, a holder's refused at the places, one that the declaration
+  refused, and one of a holder who may only see; and a thing whose part the
+  weight does not know."
+  (let [heavy (fn [] (map (fn [i] (value-at (keyword (str "h" i)) :text (text-of-bytes 60000))) (range 5)))
+        taken (arrived 2 (value-at :note-2 :text))]
+    [alice-making
+     taken
+     {:act-id (act-id 3) :layer :alice :who :carol :junk 1 declaration/time-part now}
+     (with-facts 4 :zed [:zed :alice :alice alice-own] (value-at :n4 :text))
+     5
+     taken
+     (arrived 2 (value-at :other :text))
+     (apply with-facts 6 :zed [:zed :alice :alice alice-own] (heavy))
+     (apply arrived 7 (assoc (first (heavy)) :replaces [(act-id 99) 0]) (rest (heavy)))
+     (arrived 8 (value-at :big :text (text-of-bytes 300000)))
+     (arrived 9 {:e :bob :k :softland.store/permission :v bob-sees})
+     (apply with-facts 10 :bob bob-sees (heavy))
+     {:act-id (act-id 11) :layer :alice :who :dee declaration/time-part now :p (Object.)}]))
+
+(def ^:private a-line-walked
+  "What `a-line` leaves, walked in memory from nothing."
+  (delay (walked-line empty-task :streaming a-line)))
+
+(defn- line-row-at
+  "The line row at a stamp of Alice's layer in a record."
+  [record stamp]
+  (get-in record [:line (record/line-key :alice stamp)]))
+
+(def ^:private line-walk-cases
+  "A line of things decided in memory, one after the other, by the walk's
+  steps (`walked`), and what its line holds."
+  [["each decision of the line has one line row at its stamp, from 0 to the layer's last stamp, and nothing else is in the line: a stray, the act again under its act-id and another thing under it add none"
+    (fn [] (let [after @a-line-walked]
+             [(get-in after [:last-stamp ":alice"])
+              (mapv record/stamp-of-line-key (sort (keys (:line after))))]))
+    [9 (vec (range 10))]]
+   ["the line row's answer is the answer of the decision, by its act-id: the word of each, by stamp"
+    (fn [] (let [after @a-line-walked]
+             [(mapv (fn [s] (:refused (line-row-at after s))) (range 10))
+              (every? (fn [s] (let [row (line-row-at after s)
+                                    answer (get-in after [:answers (record/answer-key :alice (:act row))])]
+                                (= (record/line-answer s row) (record/answer-of answer))))
+                      (range 10))]))
+    [[nil nil :unknown-part :permission-does-not-stand :permission-does-not-stand :replaced-fact-not-current
+      :value-too-large nil :permission-does-not-allow-acting :unknown-part] true]]
+   ["the thing kept under a stamp is the thing that was decided there: the taken act, not the other thing under its act-id; the stranger's small refused thing and the declaration's"
+    (fn [] (let [after @a-line-walked
+                 thing-at (fn [s] (get-in after [:things (record/line-key :alice s)]))]
+             [(= (thing-at 1) (nth a-line 1)) (= (thing-at 2) (nth a-line 2)) (= (thing-at 3) (nth a-line 3))]))
+    [true true true]]
+   ["of the things of 300 KB: a stranger's refused for its standing, and one that the declaration refused, are not kept and keep no weight; a holder's refused at the places, and one of a holder who may only see, are kept with their weight"
+    (fn [] (let [after @a-line-walked
+                 at (fn [s] (let [row (line-row-at after s)]
+                              [(:not-kept row) (some? (:weight row))
+                               (contains? (:things after) (record/line-key :alice s))]))]
+             (mapv at [4 6 5 8])))
+    [[:too-heavy false false] [:too-heavy false false] [nil true true] [nil true true]]]
+   ["a thing whose part the weight does not know is not kept, and says so"
+    (fn [] (let [row (line-row-at @a-line-walked 9)] [(:not-kept row) (:weight row) (:who row)]))
+    [:not-weighed nil ":dee"]]
+   ["each decision whose thing names a usable who has its row by who, the stranger's refused things among them; the who of each line row"
+    (fn [] (let [after @a-line-walked]
+             [(into (sorted-map) (:by-who after))
+              (mapv (fn [s] (:who (line-row-at after s))) (range 10))]))
+    [(into (sorted-map)
+           {":alice :alice 0000000000000000000" 0 ":alice :alice 0000000000000000001" 1
+            ":alice :carol 0000000000000000002" 2 ":alice :zed 0000000000000000003" 3
+            ":alice :zed 0000000000000000004" 4 ":alice :alice 0000000000000000005" 5
+            ":alice :alice 0000000000000000006" 6 ":alice :alice 0000000000000000007" 7
+            ":alice :bob 0000000000000000008" 8 ":alice :dee 0000000000000000009" 9})
+     [":alice" ":alice" ":carol" ":zed" ":zed" ":alice" ":alice" ":alice" ":bob" ":dee"]]]
+   ["the writes of a decision put the line first and the answer and the last stamp last; a decision run again on the record that it left writes nothing, of the line neither"
+    (fn [] (let [one (walked empty-task :streaming alice-making)
+                 again (walked one :streaming alice-making)]
+             [(mapv first (into (:wrote-line one) (:wrote one))) (:wrote again) (:wrote-line again)]))
+    [[:line :thing :by-who :fact :fact :answer :last-stamp] [] []]]])
+
+(def ^:private reads-acts-key :softland.store/who-may-read-acts)
+
+(def ^:private acts-setting-line
+  "A line of Alice's layer that writes who may read its acts, each way that
+  a gate takes or refuses: the making act; a give to Bob; Alice writes
+  everyone; Bob writes it; Alice writes it on another entity, with no value,
+  with a word that is neither, as a string; Alice marks it; Alice writes
+  members again; a making act of another layer that carries it."
+  [alice-making
+   (arrived 2 {:e :bob :k :softland.store/permission :v bobs})
+   (arrived 3 {:e :alice :k reads-acts-key :v :everyone})
+   (with-facts 4 :bob bobs {:e :alice :k reads-acts-key :v :everyone})
+   (arrived 5 {:e :chair-7 :k reads-acts-key :v :everyone})
+   (arrived 6 {:e :alice :k reads-acts-key})
+   (arrived 7 {:e :alice :k reads-acts-key :v :strangers})
+   (arrived 8 {:e :alice :k reads-acts-key :v "everyone"})
+   (arrived 9 {:e :alice :k :softland.store/marked-keys :v #{reads-acts-key}})
+   (arrived 10 {:e :alice :k reads-acts-key :v :members})])
+
+(def ^:private acts-setting-cases
+  "Who may read a layer's acts whole, as a rule of a gate: the eighth store
+  key."
+  [["with no fact, who may read a layer's acts reads as members, for a layer and for the base"
+    (fn [] [(first-act/starts-with :alice reads-acts-key) (first-act/starts-with :base reads-acts-key)])
+    [:members :members]]
+   ["the key is a store key, a setting that takes a second write, of the shape of its two words"
+    (fn [] [(declaration/store-key? reads-acts-key) (contains? declaration/setting-keys reads-acts-key)
+            (contains? declaration/second-write-keys reads-acts-key)
+            (get-in declaration/store-keys [reads-acts-key :value])])
+    [true true true :who-may-read-acts-word]]
+   ["the first holder writes everyone and members; a holder of a given permission is refused as for every setting; on another entity, with no value, with a word that is neither or a string, and as a marked key, each is refused with the word of the other settings or of its own"
+    (fn [] (words-by-number (walked-line empty-task :streaming acts-setting-line)))
+    (into (sorted-map) {1 :accepted 2 :accepted 3 :accepted 4 :only-the-first-holder-writes-a-setting
+                        5 :setting-not-on-the-layer 6 :store-key-retract-not-built
+                        7 :who-may-read-acts-fact-not-members-or-everyone
+                        8 :who-may-read-acts-fact-not-members-or-everyone
+                        9 :marked-key-in-the-stores-namespace 10 :accepted})]
+   ["the row that the first holder writes is the setting's, at the layer's own entity, and holds the last word written"
+    (fn [] (let [after (walked-line empty-task :streaming acts-setting-line)]
+             (:value (get-in after [:facts (record/place-key :alice :alice reads-acts-key)]))))
+    ":members"]
+   ["a making act that carries the key as a third fact is no making act: refused, the layer not made"
+    (fn [] (words-by-number (walked-line empty-task :streaming
+                                         [(update alice-making :facts conj {:e :alice :k reads-acts-key :v :everyone})])))
+    (sorted-map 1 :layer-not-made)]
+   ["a thing refused store-key-not-known for the key before it was known now has the word of its other fault, when a later rule names one: no place of the new rule keeps the old word (the plan's check, item d); a thing that an earlier rule refuses keeps its word"
+    (fn [] [(verdict (declaration/check (arrived 1 {:e :alice :k reads-acts-key :v :everyone}
+                                                  {:e :other :k :softland.store/who-may-see :v :invalid})))
+            (verdict (declaration/check (assoc (arrived 1 {:e :alice :k reads-acts-key :v :everyone}) :layer :bob)))])
+    [:who-may-see-fact-not-members-or-everyone :permission-not-in-layer]]])
+
 (deftest the-one-text-and-the-digest
   (holds text-cases)
   (holds digest-cases)
@@ -4525,6 +4846,23 @@
                          timed-acts)))
     (shown "a mark holds from the next act," marks "cases, for a layer of each gate: the key gets the stamp of the act that marks it; a fact under the key in that act is in no run; a fact under it in the next act has its entry in the facts by value under that stamp")))
 
+(deftest the-line-of-a-layer
+  (let [weights (holds weight-cases)
+        bounds (holds bound-cases)
+        keys-n (holds line-key-cases)
+        rows-n (holds line-writes-cases)
+        walk-n (holds line-walk-cases)
+        setting (holds acts-setting-cases)
+        after @a-line-walked]
+    (shown "the weight of a thing," weights "cases: the bytes of its one text, counted in the walk of its digest, and what a part that the text does not write out holds, up to a bound. Of the plain things of the cases, as [the weight, the bytes of the text]:"
+           (pr-str (mapv (fn [x] [(weight-of x) (text/utf8-count (text/text x))]) plain-things)))
+    (shown "the bounds on what a gate keeps," bounds "cases: 32 MiB with standing, 256 KiB with none or for a refusal of the declaration")
+    (shown "the keys of the line," keys-n "cases, and its rows," rows-n "cases")
+    (shown "a line of" (count a-line) "things walked in memory," walk-n "cases. Its line, by stamp, as [the word, the who, the weight or why no thing is kept]:"
+           (pr-str (mapv (fn [s] (let [row (line-row-at after s)] [(:refused row) (:who row) (or (:weight row) (:not-kept row))]))
+                         (range (count (:line after))))))
+    (shown "who may read a layer's acts whole, the eighth store key," setting "cases")))
+
 (deftest a-line-is-decided-in-the-depots-order
   (let [n (holds line-cases)
         after (walked-line (:record line) :microbatch (:things line))]
@@ -4728,6 +5066,7 @@
   (the-records-rows)
   (the-decision)
   (the-walk-of-one-thing-in-memory)
+  (the-line-of-a-layer)
   (a-line-is-decided-in-the-depots-order)
   (a-line-under-marked-keys)
   (the-doors-words)

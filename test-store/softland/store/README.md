@@ -75,6 +75,16 @@ group observed. This page does not retell the checks.
 
 ### What the pure proof does not reach
 
+- a thing heavier than 32 MiB that the declaration takes: none can be, but
+  for decimals whose unscaled digits hold more than their text says. The case
+  of the limits builds an act at the declaration's limits of plain values,
+  and no act of decimals;
+- what the weight of a thing is in bytes that Rama writes, on disk or on the
+  wire: the weight is the gate's measure, and no run here compares the two;
+- the cost of the digest's walk on a decimal, whose text strips its trailing
+  zeros: a run outside the proofs found 8.2 seconds for a decimal of 83 KB,
+  on JDK 21 (`BUILD-store-piece-3.md`); the case of a decimal here holds one
+  of 2,000 zeros;
 - whether the statements of a permission for a run and of a yes for one act
   are the right ones: the cases hold the gate to the words that the proof's
   writer expected. A check by another hand is in
@@ -208,6 +218,14 @@ No check holds a number of milliseconds.
 
 ### What the module's proof does not reach
 
+- a thing of 32 MiB kept again, on a cluster of more than one machine, with
+  its replication: the groups of the line keep things of 300 KB, in process.
+  An idea for a check: a holder's act refused at its places, of about 20 MB,
+  in each gate, read back from its line;
+- the line in a batch of the base, or an event, that fails and runs again:
+  the two groups that make a gate fail read no line. The run-again proof's
+  check 4 holds every table of both gates, the line among them, against a
+  store run again after its failures;
 - a permission for a run or a yes for one act that was given before the
   module is started again, held after it; and one in a batch or an event that
   fails and runs again: above all the use of a yes, written in an attempt of
@@ -697,9 +715,10 @@ checks.
 A store with another number of tasks puts a layer on another task, so the tests `the-fixtures-records-give-its-tables-with-4-tasks` and `the-fixtures-records-give-its-tables-with-8-tasks` compare a row by its key alone. Of the microbatch gate's facts and its
 facts by value every task holds a whole copy: the form holds that one map.
 Every other table holds a row on the task of the row's layer alone: the form
-holds the union of the tasks' rows. What a gate keeps for a task is in the form
-as rows too: each layer's last stamp, and the strays of each word as the sorted
-digests of all tasks.
+holds the union of the tasks' rows; the line and the things are such tables,
+in both gates. What a gate keeps for a task is in the form as rows too: each
+layer's last stamp, each row by who under its own key, and the strays of each
+word as the sorted digests of all tasks.
 
 ### The fixture
 
