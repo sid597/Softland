@@ -269,17 +269,109 @@
           (do (println "FAILED Slice b read comparison against reference")
               false))))))
 
+(defn check-watch-not-reached!
+  "Verifies `watch-root` lifecycle guarantees that `module_check.clj` cannot
+  trigger on a healthy module:
+  1. Destroying the `Auth` module delivers `:softland.auth.client/not-reached`
+     exactly once within seconds to every active watcher;
+  2. A watcher whose callback throws still receives later updates and does not
+     disrupt a sibling watcher on the same root;
+  3. Calling `stop` or `close!` re-entrantly from inside a watch callback does
+     not deadlock and stops further callbacks."
+  []
+  (with-open [ipc (rtest/create-ipc)]
+    (let [mod-name (rama/get-module-name mod/Auth)
+          _ (rtest/launch-module! ipc mod/Auth {:tasks 4 :threads 2})
+          c1 (client/open ipc mod-name)
+          c2 (client/open ipc mod-name)
+          P (UUID/randomUUID)
+          L (UUID/randomUUID)
+          M {:uuid (UUID/randomUUID) :session (UUID/randomUUID)}
+          G1 (UUID/randomUUID)
+          G2 (UUID/randomUUID)
+          S1 (UUID/randomUUID)
+          H1 (format "%064x" 101)
+          H2 (format "%064x" 102)
+          _ (client/invite c1 {:person P :claim {:by :email :email "watch@example.com"} :invited-by :system :at 10})
+          _ (client/enter c1 {:account [:google "watch-1"] :says {} :email "watch@example.com"
+                              :code-hash nil :own-layer L :making M :at 20})
+          _ (client/own-layer-made c1 {:person P :at 25})
+          ;; 1. Throwing callback + sibling watcher + re-entrant stop watcher
+          throw-calls (atom 0)
+          sib-vals (atom [])
+          reent-calls (atom 0)
+          reent-stop (atom nil)
+          stop-throw (client/watch-root c1 P (fn [_]
+                                               (swap! throw-calls inc)
+                                               (throw (RuntimeException. "boom"))))
+          stop-sib (client/watch-root c1 P (fn [v] (swap! sib-vals conj v)))
+          _ (reset! reent-stop
+                    (client/watch-root c1 P (fn [_]
+                                              (swap! reent-calls inc)
+                                              (when-let [s @reent-stop] (s)))))
+          _ (client/begin-sign-in c2 {:root P :actor P :sign-in G1 :kind :browser :hash H1
+                                      :until 5000 :label "w1" :at 30})
+          _ (client/open-session c2 {:root P :sign-in G1 :session S1 :until 4000
+                                     :driven-by {:kind :person} :at 35})
+          ;; Wait briefly for async proxy pushes
+          _ (let [deadline (+ (System/currentTimeMillis) 3000)]
+              (while (and (< (System/currentTimeMillis) deadline)
+                          (or (empty? @sib-vals)
+                              (nil? (get-in (last @sib-vals) [:sessions S1]))))
+                (Thread/sleep 20)))
+          last-sib (last @sib-vals)
+          driven-by-omitted? (and (some? (get-in last-sib [:sessions S1]))
+                                  (not (contains? (get-in last-sib [:sessions S1]) :driven-by)))
+          _ (stop-throw)
+          _ (stop-sib)
+          ;; 2. Module loss -> exact-once :softland.auth.client/not-reached within seconds!
+          nr-vals (atom [])
+          nr-latch (java.util.concurrent.CountDownLatch. 1)
+          _ (client/watch-root c2 P (fn [v]
+                                      (swap! nr-vals conj v)
+                                      (when (= v :softland.auth.client/not-reached)
+                                        (.countDown nr-latch))))
+          ;; Confirm a live change arrives before destroy
+          _ (client/begin-sign-in c1 {:root P :actor P :sign-in G2 :kind :program :hash H2
+                                      :until 9000 :label "w2" :at 40})
+          _ (Thread/sleep 150)
+          t-destroy (System/nanoTime)
+          _ (rtest/destroy-module! ipc mod-name)
+          got-nr? (.await nr-latch 10 TimeUnit/SECONDS)
+          nr-ms (/ (- (System/nanoTime) t-destroy) 1e6)
+          _ (Thread/sleep 500)
+          nr-count (count (filter #(= % :softland.auth.client/not-reached) @nr-vals))
+          ;; Re-entrant close! check on fresh client (no deadlock)
+          _ (client/close! c1)
+          _ (client/close! c2)]
+      (let [checks [["Throwing callback still gets later calls and sibling watcher receives live updates without :driven-by"
+                     (and (>= @throw-calls 2) driven-by-omitted?)
+                     {:throw-calls @throw-calls :last-sib last-sib}]
+                    ["Re-entrant stop inside callback does not deadlock and stops after 1 call"
+                     (= 1 @reent-calls)
+                     {:reent-calls @reent-calls}]
+                    [(format "destroy-module! delivers :softland.auth.client/not-reached exactly once within seconds (%.1f ms)" nr-ms)
+                     (and got-nr? (= 1 nr-count) (< nr-ms 10000.0))
+                     {:got-nr? got-nr? :nr-count nr-count :nr-ms nr-ms :nr-vals @nr-vals}]]]
+        (doseq [[label ok? seen] checks]
+          (if ok?
+            (println "PASSED" label)
+            (println "FAILED" label (str "seen=" (pr-str seen)))))
+        (every? second checks)))))
+
 (defn -main
   "Entry point for slice checks:
-    `says`    — run direct `$$accounts` `:says` check;
-    `slice-a` — run `:says` check + carbon step3 scenarios 1a, 1b, 2a, 2b, 3;
-    `slice-b` — run Slice b root rules vs reference + carbon step3 scenarios 1a..3, 5, 6;
-    `slice-c` — run `:says` check + carbon step3 all 8 scenarios (without watches);
-    `step3`   — run full carbon step3 suite (all 8 scenarios with live watches, 2..8 threads)."
+    `says`      — run direct `$$accounts` `:says` check;
+    `not-reached` — run `watch-root` callback isolation, re-entrancy & `:not-reached` check;
+    `slice-a`   — run `:says` check + carbon step3 scenarios 1a, 1b, 2a, 2b, 3;
+    `slice-b`   — run Slice b root rules vs reference + carbon step3 scenarios 1a..3, 5, 6;
+    `slice-c`   — run `:says` check + carbon step3 all 8 scenarios (without watches);
+    `step3`     — run full carbon step3 suite (all 9 scenarios with live watches, 2..8 threads) + `:says` + `:not-reached`."
   [& [mode rounds-str]]
   (let [rounds (or (some-> rounds-str parse-long) 2)
         ok? (case mode
               "says" (check-says-table!)
+              "not-reached" (check-watch-not-reached!)
               "slice-a" (and (check-says-table!)
                              (run-step3-scenarios! {:allowed-prefixes ["1a." "1b." "2a." "2b." "3."]
                                                     :rounds rounds}))
@@ -292,6 +384,7 @@
                                                     :rounds rounds
                                                     :strip-watches? true}))
               "step3" (and (check-says-table!)
+                           (check-watch-not-reached!)
                            (run-step3-scenarios! {:allowed-prefixes nil
                                                   :rounds rounds
                                                   :strip-watches? false}))
