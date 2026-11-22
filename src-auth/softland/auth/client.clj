@@ -234,26 +234,22 @@
      (s/->CloseSessionEvent root session at))))
 
 (defn ask
-  "Creates a device-grant ask bound to an 8-char code (implemented in Slice c)."
+  "Creates a device-grant ask bound to an 8-char code (`{:code :hash :asks :ends :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :ask input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :ask input #(.-d-asks ^Client %)
+   (fn [{:keys [code hash asks ends at]}]
+     (s/->AskEvent code hash asks ends at))))
 
 (defn answer-ask
-  "Answers a device-grant ask yes or no (implemented in Slice c)."
+  "Answers a device-grant ask yes or no (`{:code :yes? :root :actor :new-agent :sign-in :until :at}`)."
   [client input]
-  (if-not (client? client)
-    {:could-not :read-the-event}
-    (if @(.-closed? ^Client client)
-      {:could-not :closed}
-      (if (fit/fit-write :answer-ask input)
-        {:could-not :not-yet-built}
-        {:could-not :read-the-event}))))
+  (guarded-write
+   client :answer-ask input #(.-d-asks ^Client %)
+   (fn [{:keys [code yes? root actor new-agent sign-in until at]}]
+     (s/->AnswerAskEvent (UUID/randomUUID) code yes? root actor
+                         (when new-agent (:label new-agent))
+                         sign-in until at))))
 
 ;; ----------------------------------------------------------------- 4 reads
 

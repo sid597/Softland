@@ -1180,6 +1180,224 @@
        :live-deletes [(k-session P S)]
        :result {:closed S}})))
 
+;; ------------------------------------------------- Slice c: ask & answer-ask
+
+(defn ask-step
+  "Pure single-task decision for `ask` on H(U)."
+  [^AskEvent ev k]
+  (let [U (:code ev)
+        h (:hash ev)
+        ends (long (:ends ev))
+        at (long (:at ev))]
+    (cond
+      (and (instance? IAskState k) (= (:hash k) h))
+      {:done? true :result {:asked U}}
+
+      (some? k)
+      {:done? true :result {:refused :in-use}}
+
+      :else
+      {:write-k U
+       :write-v (->AskWaiting h (:asks ev) ends (<= ends at))
+       :done? true
+       :result {:asked U}})))
+
+(defn- answering->target
+  "Extracts the plain target map carried across hops from an `AskAnswering` record."
+  [^AskAnswering k]
+  {:hash (:hash k)
+   :asks (:asks k)
+   :ends (:ends k)
+   :born-over? (:born-over? k)
+   :op-id (:op-id k)
+   :yes? (:yes? k)
+   :root (:root k)
+   :actor (:actor k)
+   :new-agent-label (:new-agent-label k)
+   :sign-in (:sign-in k)
+   :until (:until k)
+   :at (:at k)})
+
+(defn answer-ask-step-1
+  "Pure Step 1 of `answer-ask` on H(U) (Revision 4)."
+  [^AnswerAskEvent ev k]
+  (let [U (:code ev)
+        P (:root ev)
+        at (long (:at ev))]
+    (cond
+      (nil? k)
+      {:hop-key P
+       :next-step :answer-ask/step-1b
+       :next-st {:takeout-root P :takeout-at at :pending-result {:refused :no-such-ask} :no-such-ask? true}}
+
+      (instance? AskYes k)
+      {:hop-key P
+       :next-step :answer-ask/step-1b
+       :next-st {:takeout-root P :takeout-at at
+                 :pending-result {:yes {:root (:root k) :actor (:actor k) :sign-in (:sign-in k)}}
+                 :no-such-ask? false}}
+
+      (instance? AskNo k)
+      {:hop-key P
+       :next-step :answer-ask/step-1b
+       :next-st {:takeout-root P :takeout-at at :pending-result {:no U} :no-such-ask? false}}
+
+      (instance? AskWaiting k)
+      (if (or (:born-over? k) (>= at (long (:ends k))))
+        {:hop-key P
+         :next-step :answer-ask/step-1b
+         :next-st {:takeout-root P :takeout-at at :pending-result {:refused :over} :no-such-ask? false}}
+        (let [ans (->AskAnswering (:hash k) (:asks k) (:ends k) (:born-over? k)
+                                  (:op-id ev) (:yes? ev) P (:actor ev) (:new-agent-label ev)
+                                  (:sign-in ev) (:until ev) at)]
+          {:write-k U
+           :write-v ans
+           :hop-key P
+           :next-step :answer-ask/step-2
+           :next-st {:target (answering->target ans)}}))
+
+      (instance? AskAnswering k)
+      {:hop-key (:root k)
+       :next-step :answer-ask/step-2
+       :next-st {:target (answering->target k)}})))
+
+(defn answer-ask-eval-root
+  "Pure Step 2 evaluation of `answer-ask` on H(P_target) after confirming
+  `ok:<op>` is absent and running `take-out(P_target, target.at)`. Returns a
+  root write plan plus `:outcome` (`AskOutcomeYes` / `AskOutcomeNo` /
+  `AskOutcomeRefused`)."
+  [code target r actor-rec g]
+  (let [{:keys [op-id yes? root actor new-agent-label sign-in until at hash asks]} target
+        ok-key (k-ok root op-id)]
+    (cond
+      (not (instance? RootEntered r))
+      (let [out (->AskOutcomeRefused :no-such-actor)]
+        {:rd-upserts [[ok-key out]] :outcome out})
+
+      (false? yes?)
+      (let [out (->AskOutcomeNo code)]
+        {:rd-upserts [[ok-key out]] :outcome out})
+
+      (nil? new-agent-label)
+      (let [missing-actor? (and (not= actor root) (nil? actor-rec))
+            ended-actor?   (and (not= actor root) (some? actor-rec) (:ended? actor-rec))
+            g-taken?       (some? g)]
+        (cond
+          missing-actor?
+          (let [out (->AskOutcomeRefused :no-such-actor)]
+            {:rd-upserts [[ok-key out]] :outcome out})
+
+          ended-actor?
+          (let [out (->AskOutcomeRefused :ended)]
+            {:rd-upserts [[ok-key out]] :outcome out})
+
+          g-taken?
+          (let [out (->AskOutcomeRefused :in-use)]
+            {:rd-upserts [[ok-key out]] :outcome out})
+
+          :else
+          (let [g-seq (long (:next-sign-in-seq r))
+                born-ended? (<= (long until) (long at))
+                own-layer (:own-layer r)
+                made-at-begin? (boolean (:own-layer-made? r))
+                srec (->SignInRec sign-in actor :program hash hash until nil nil
+                                  born-ended? at asks g-seq own-layer made-at-begin?)
+                out (->AskOutcomeYes root actor sign-in)]
+            {:rd-upserts (cond-> [[(k-root root) (assoc r :next-sign-in-seq (inc g-seq))]
+                                  [(k-signin root sign-in) srec]
+                                  [ok-key out]]
+                           (not born-ended?)
+                           (conj [(k-exp root until "g" sign-in) (->ExpiryEntry :sign-in sign-in actor until)]))
+             :live-upserts (if born-ended? [] [[(k-signin root sign-in) (signin-rec->live srec)]])
+             :outcome out})))
+
+      :else
+      (let [a-taken? (or (= actor root) (some? actor-rec))
+            g-taken? (some? g)]
+        (if (or a-taken? g-taken?)
+          (let [out (->AskOutcomeRefused :in-use)]
+            {:rd-upserts [[ok-key out]] :outcome out})
+          (let [a-seq (long (:next-actor-seq r))
+                g-seq (long (:next-sign-in-seq r))
+                born-ended? (<= (long until) (long at))
+                own-layer (:own-layer r)
+                made-at-begin? (boolean (:own-layer-made? r))
+                arec (->ActorRec actor root 1 new-agent-label false a-seq)
+                aorec (->ActorOrderRec actor root 1 new-agent-label false a-seq)
+                srec (->SignInRec sign-in actor :program hash hash until nil nil
+                                  born-ended? at asks g-seq own-layer made-at-begin?)
+                out (->AskOutcomeYes root actor sign-in)]
+            {:rd-upserts (cond-> [[(k-root root) (assoc r :next-actor-seq (inc a-seq) :next-sign-in-seq (inc g-seq))]
+                                  [(k-actor root actor) arec]
+                                  [(k-ao root a-seq) aorec]
+                                  [(k-signin root sign-in) srec]
+                                  [ok-key out]]
+                           (not born-ended?)
+                           (conj [(k-exp root until "g" sign-in) (->ExpiryEntry :sign-in sign-in actor until)]))
+             :live-upserts (if born-ended? [] [[(k-signin root sign-in) (signin-rec->live srec)]])
+             :outcome out}))))))
+
+(defn plan-outcome
+  "Extracts `:outcome` from an `answer-ask-eval-root` plan."
+  [plan]
+  (:outcome plan))
+
+(defn no-such-ask-outcome
+  "Constructs the recorded `AskOutcomeRefused(:no-such-ask)` for Step 1b replay safety."
+  []
+  (->AskOutcomeRefused :no-such-ask))
+
+(defn answer-ask-step-3
+  "Pure Step 3 of `answer-ask` on H(U) (Revision 4): finalizes `AskYes`,
+  `AskNo`, or restores `AskWaiting`; helpers (`op != self-op`) on Yes/No
+  ALWAYS hop to H(self-root) for take-out at `(:at ev)` (Witness 10)."
+  [^AnswerAskEvent ev st k]
+  (let [U (:code ev)
+        self-op (:op-id ev)
+        target (:target st)
+        op (:op-id target)
+        out (:outcome st)
+        still-op? (and (instance? AskAnswering k) (= (:op-id k) op))
+        helping? (not= op self-op)]
+    (cond
+      (instance? AskOutcomeYes out)
+      (let [res {:yes {:root (:root out) :actor (:actor out) :sign-in (:sign-in out)}}
+            base (cond-> {}
+                   still-op?
+                   (assoc :write-k U
+                          :write-v (->AskYes (:hash k) (:asks k) (:ends k)
+                                             (:root out) (:actor out) (:sign-in out))))]
+        (if helping?
+          (assoc base
+                 :hop-key (:root ev)
+                 :next-step :answer-ask/step-1b
+                 :next-st {:takeout-root (:root ev) :takeout-at (:at ev)
+                           :pending-result res :no-such-ask? false})
+          (assoc base :done? true :result res)))
+
+      (instance? AskOutcomeNo out)
+      (let [res {:no U}
+            base (cond-> {}
+                   still-op?
+                   (assoc :write-k U
+                          :write-v (->AskNo (:hash k) (:asks k) (:ends k))))]
+        (if helping?
+          (assoc base
+                 :hop-key (:root ev)
+                 :next-step :answer-ask/step-1b
+                 :next-st {:takeout-root (:root ev) :takeout-at (:at ev)
+                           :pending-result res :no-such-ask? false})
+          (assoc base :done? true :result res)))
+
+      (instance? AskOutcomeRefused out)
+      (let [base (cond-> {}
+                   still-op?
+                   (assoc :write-k U
+                          :write-v (->AskWaiting (:hash k) (:asks k) (:ends k) (:born-over? k))))]
+        (if helping?
+          (assoc base :hop-key nil :next-step :answer-ask/step-1 :next-st {})
+          (assoc base :done? true :result {:refused (:reason out)}))))))
+
 ;; --------------------------------------------------- Read projections
 
 (defn signin-fast-path?
