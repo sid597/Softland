@@ -337,15 +337,30 @@
                   asha (account 2 "asha")
                   by-email (say me {:word :invite :uuid (UUID/randomUUID)
                                     :claim {:by :email :email (str/upper-case (:email asha))}})
-                  both (doall (pmap (fn [url] (drive/sign-in url asha)) [a b]))
+                  ;; Both sign-ins are let go at one moment, each on a thread of its
+                  ;; own, and the time that each was in flight is kept, so that
+                  ;; the check can hold that they were in flight together.
+                  both (let [go (java.util.concurrent.CountDownLatch. 1)
+                             runs (mapv (fn [url]
+                                          (future
+                                            (.await go)
+                                            (let [began (System/nanoTime)
+                                                  signed (drive/sign-in url asha)]
+                                              (assoc signed :in-flight [began (System/nanoTime)]))))
+                                        [a b])]
+                         (.countDown go)
+                         (mapv deref runs))
+                  together? (let [[[b1 e1] [b2 e2]] (map :in-flight both)]
+                              (and (< b1 e2) (< b2 e1)))
                   guest (drive/sign-in b (assoc (account 3 "guest") :invited code))
                   late (drive/sign-in a (assoc (account 4 "late") :invited code))]
               (check "A person invites by a code: the account that brings the code becomes the person whom the invitation made, and a second account with the same code is turned away."
                      (and (= (:invited invited) (:person guest)) (= 403 (:status late)))
                      [invited (dissoc guest :cookie) (dissoc late :cookie)])
-              (check "Two first sign-ins of one invited account at the same moment, through two copies of the runtime, give one person: the one whom the invitation made, whose email was given in other letters."
-                     (and (= (:invited by-email) (:person (first both)) (:person (second both))))
-                     [by-email (mapv #(dissoc % :cookie) both)])
+              (check "Two first sign-ins of one invited account at the same moment, through two copies of the runtime, give one person: the one whom the invitation made, whose email was given in other letters. The two were in flight together."
+                     (and together?
+                          (= (:invited by-email) (:person (first both)) (:person (second both))))
+                     {:together? together? :by-email by-email :both (mapv #(dissoc % :cookie) both)})
               (check "Both of those sign-ins lead to one own layer."
                      (let [layers (doall (map (fn [signed]
                                                 (let [program (drive/program a "asha's program"

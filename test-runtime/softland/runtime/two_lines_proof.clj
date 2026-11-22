@@ -1,8 +1,11 @@
 (ns softland.runtime.two-lines-proof
   "The proof where the store's line (Pieces 1 and 2) and the spine (Piece 4)
-  meet: a watch that is open on two copies of the runtime closes off its layer
-  when its permission in the store is ended — directly, via a permission above
-  it in the chain, or via a run-scoped permission.
+  meet: a watch that is open on two copies of the runtime, when its
+  permission in the store is ended — directly, via a permission above it in
+  the chain, or via a run-scoped permission — is told anew an answer that
+  leaves its layer out (`:may-not-see`) and holds no fact, and stays open:
+  the store's read path ends no watch for that, and a later write in the
+  layer reaches it not.
 
   Runs either on an in-process cluster (no arguments) or against a real Rama
   cluster with two runtime processes (`--conductor HOST --conductor-port PORT`,
@@ -59,10 +62,15 @@
               (some (fn [[_ pa]] (:value pa)) (:changed m))))
         (reverse seen)))
 
-(defn- may-not-see? [seen layer]
+(defn- may-not-see?
+  "Takes what a watch was told and a layer. Gives true when the last thing
+  is an answer anew that leaves the layer out because the asker may not see
+  it and holds no fact, and nothing told was an end: the watch is open."
+  [seen layer]
   (let [last-msg (last seen)
         anew (:anew last-msg)]
     (and (some? anew)
+         (not-any? #(contains? % :ended) seen)
          (= :no-fact (get-in anew [:place :holds]))
          (boolean (some #(and (= layer (:layer %)) (= :may-not-see (:why %)))
                         (:left-out anew))))))
@@ -130,7 +138,7 @@
             ada-saw-v2 (wait-for #(= "v2" (value-of @(:seen ada-watch))) 10000)
             _ (Thread/sleep 600)
             bea-act-after (send-facts! bea-a layer bea-perm [{:e :secret :k :note :v "intrude"}])]
-        (check "A watch open on two copies of the runtime sees live changes while its permission stands, closes off the layer with :may-not-see on both copies when its permission is ended in the store, receives no subsequent writes, and acts under the ended permission are refused."
+        (check "A watch open on two copies of the runtime sees live changes while its permission stands; when its permission is ended in the store, it is told anew on both copies an answer that leaves the layer out (:may-not-see) and holds no fact, and stays open with no end; a later write in the layer reaches neither; and an act under the ended permission is refused."
                (and got-v1-a got-v1-b
                     (= :accepted (get-in ended [:answer :answer]))
                     revoked-a revoked-b
@@ -165,7 +173,7 @@
               _ (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v3"}])
               ada-saw-v3 (wait-for #(= "v3" (value-of @(:seen ada-watch))) 10000)
               _ (Thread/sleep 600)]
-          (check "When a permission above a watcher's own ends in the store, the watcher's open watches on both copies of the runtime close off the layer and receive no further writes."
+          (check "When a permission above a watcher's own ends in the store, the watcher's watches on both copies of the runtime are told anew an answer that leaves the layer out (:may-not-see) and stay open with no end, and a later write in the layer reaches neither."
                  (and got-c-a got-c-b
                       (= :accepted (get-in end-above [:answer :answer]))
                       c-rev-a c-rev-b
@@ -199,7 +207,7 @@
               _ (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v4"}])
               ada-saw-v4 (wait-for #(= "v4" (value-of @(:seen ada-watch))) 10000)
               _ (Thread/sleep 600)]
-          (check "A watch held under a run-scoped permission on two copies of the runtime closes off the layer on both copies when that run permission ends in the store, and receives no further writes."
+          (check "A watch held under a run-scoped permission on two copies of the runtime, when that run permission ends in the store, is told anew on both copies an answer that leaves the layer out (:may-not-see) and stays open with no end, and a later write in the layer reaches neither."
                  (and got-r-a got-r-b
                       (= :accepted (get-in end-run [:answer :answer]))
                       r-rev-a r-rev-b

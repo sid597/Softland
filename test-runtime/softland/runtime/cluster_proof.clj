@@ -28,7 +28,12 @@
        reads of one table on one task against what Auth set.
 
   A process is killed with the signal that it cannot catch. The supervisor
-  of the cluster starts a killed worker again.
+  of the cluster starts a killed worker again. A check of what follows a
+  kill passes only when the kill was made: a worker that is not found
+  fails each of its checks. Rama's worker is found by the command line of
+  its process, read from `/proc`. The steps of the two workers' kills are
+  public, and `softland.runtime.worker-kill-proof` runs them alone, on one
+  copy.
 
   The cluster keeps what earlier runs wrote. So each run makes its own
   accounts, with a tag of the moment in each, and its own first person.
@@ -50,14 +55,16 @@
             [softland.wire.credential :as credential]
             [softland.wire.proof :refer [check finish]])
   (:import [java.io Closeable File]
-           [java.lang ProcessBuilder$Redirect]
+           [java.lang ProcessBuilder$Redirect ProcessHandle]
            [java.net ServerSocket]
+           [java.nio.charset StandardCharsets]
+           [java.nio.file Files Path]
            [java.util UUID]
            [java.util.concurrent TimeUnit]))
 
 ;; ------------------------------------------------------------------ processes
 
-(defn- free-port
+(defn free-port
   "Gives a port of the loopback address that nothing listens on now."
   []
   (with-open [socket (ServerSocket. 0)]
@@ -79,7 +86,7 @@
   [url]
   (= 200 (:status (drive/request :get (str url "/health") {}))))
 
-(defn- copy!
+(defn copy!
   "Starts one copy of the runtime as a process of its own, with this
   process's own classpath, and waits until it answers. Takes the
   conductor's host and port, the port to listen on, the folder for its
@@ -107,14 +114,27 @@
   (.destroyForcibly process)
   (.waitFor process 30 TimeUnit/SECONDS))
 
-(defn- worker-of
+(defn- command-line-of
+  "Takes a process's handle. Gives its whole command line, the arguments
+  joined with spaces, read from `/proc/<pid>/cmdline`; or nil when the
+  process is gone. It is read from the file and not from
+  `ProcessHandle.Info`, which on Linux gives no arguments for a command
+  line longer than about 4 KiB, and a worker of Rama's has one of about
+  15 KiB."
+  [^ProcessHandle handle]
+  (try
+    (let [bytes (Files/readAllBytes (Path/of (str "/proc/" (.pid handle) "/cmdline") (make-array String 0)))]
+      (str/replace (String. bytes StandardCharsets/UTF_8) "\u0000" " "))
+    (catch Throwable _ nil)))
+
+(defn worker-of
   "Takes a module's name as Rama has it. Gives the handle of the process of
   Rama's worker that runs it now, or nil: the process whose command line
   names the worker's class and the module."
   [module-name]
   (let [named (str/replace module-name "/" "%2F")]
     (some (fn [^ProcessHandle handle]
-            (let [line (str/join " " (.orElse (.arguments (.info handle)) (make-array String 0)))]
+            (when-let [line (command-line-of handle)]
               (when (and (str/includes? line "rpl.rama.distributed.daemon.worker")
                          (str/includes? line named))
                 handle)))
@@ -182,13 +202,16 @@
              (dissoc again :process))
       again)))
 
-(defn- store-worker-killed!
+(defn store-worker-killed!
   "Step 5: Rama's worker of the store's module is killed while a series of
-  acts is on its way."
-  [{:keys [b]} credential]
-  (let [me (line (:url b) credential nil)
+  acts is on its way. Takes the address of a copy of the runtime and a
+  program's credential. Each act writes one fact of its own entity, a
+  keyword, as an act's entity is."
+  [url credential]
+  (let [me (line url credential nil)
         hello (:hello me)
-        series (mapv (fn [n] {:act (act-of hello [:tile n] :laid n) :act-id (UUID/randomUUID)}) (range 40))
+        series (mapv (fn [n] {:act (act-of hello (keyword (str "tile-" n)) :laid n) :act-id (UUID/randomUUID)})
+                     (range 40))
         results (atom {})
         send-one (fn [n {:keys [act act-id]}]
                    (let [got (client/say (:line me) {:word :send :act act :act-id act-id :wait-ms 5000} 30000)]
@@ -214,22 +237,38 @@
                 (recur (dec tries))))
           answers (mapv (fn [n] (:answer (get @results n))) (range (count series)))
           second-pass (mapv (fn [entry] (:answer (client/say (:line me) (assoc entry :word :send :wait-ms 5000) 30000)))
-                            series)]
+                            series)
+          not-answered-at-first (count (remove (fn [got] (= :accepted (get-in got [:answer :answer]))) first-results))]
       (check "Rama's worker of the store's module is killed while a series of acts is on its way, and the supervisor starts it again."
              (and worker back) {:killed (some-> ^ProcessHandle worker .pid) :back (some-> ^ProcessHandle back .pid)})
-      (check "Some acts of the series were not answered when the worker was killed; each is sent again under its UUID until it has its answer, and in the end every act of the series is accepted."
-             (= (count series) (count (filter (fn [answer] (= :accepted (:answer answer))) answers)))
-             {:not-answered-at-first (count (remove (fn [got] (= :accepted (get-in got [:answer :answer]))) first-results))
+      ;; How many acts the kill cut off is printed, not held: Rama's client
+      ;; sends an append again while the worker comes back, so a run can
+      ;; have none cut off.
+      (check "After the worker is killed mid-series, each act that had no answer then is sent again under its UUID until it has its answer, and in the end every act of the series is accepted."
+             (and (some? worker)
+                  (= (count series) (count (filter (fn [answer] (= :accepted (:answer answer))) answers))))
+             {:killed? (some? worker)
+              :not-answered-at-first not-answered-at-first
               :accepted (count (filter (fn [answer] (= :accepted (:answer answer))) answers))})
-      (check "Each act of the series was taken once: forty acts have forty stamps, and a second sending of all of them reads the same forty answers."
-             (and (= (count series) (count (distinct (map :stamp answers))))
+      (check "Each act of the series was taken once across the kill: forty acts have forty stamps, and a second sending of all of them reads the same forty answers."
+             (and (some? worker)
+                  (= (count series) (count (distinct (map :stamp answers))))
                   (= answers second-pass))
-             {:stamps (count (distinct (map :stamp answers)))}))))
+             {:killed? (some? worker) :stamps (count (distinct (map :stamp answers)))})
+      (client/close! (:line me)))))
 
-(defn- auth-worker-killed!
-  "Step 6: Rama's worker of Auth is killed while a connection is held."
-  [{:keys [b]} credential]
-  (let [me (line (:url b) credential nil)
+(defn auth-worker-killed!
+  "Step 6: Rama's worker of Auth is killed while a connection is held.
+  Takes the address of a copy of the runtime and a program's credential,
+  which it ends.
+
+  Whether the held connection is still watched is proven by what only a
+  watch carries: when it was not told that Auth cannot be reached, the
+  program's sign-in is ended through a second connection, and the held
+  one must be told that its sign-in ended. A word that the runtime answers
+  from its own memory, such as `:who-am-i`, proves nothing of the watch."
+  [url credential]
+  (let [me (line url credential nil)
         hello (:hello me)
         worker (worker-of (rama/get-module-name auth-module/Auth))]
     (when worker (.destroyForcibly ^ProcessHandle worker))
@@ -237,18 +276,24 @@
                                   (when (and now (not= (.pid ^ProcessHandle now) (.pid ^ProcessHandle worker))) now)))
                          120000)
           told (wait-for (fn [] (client/bye (:line me))) 30000)
-          again (wait-for (fn [] (let [opened (line (:url b) credential (:session hello))]
+          again (wait-for (fn [] (let [opened (line url credential (:session hello))]
                                    (when (:hello opened) opened)))
-                          120000)]
+                          120000)
+          ended (when (and (:line again) (nil? told))
+                  (client/say (:line again) {:word :sign-out} 10000))
+          told-after (when ended (wait-for (fn [] (client/bye (:line me))) 30000))]
       (check "Rama's worker of Auth is killed while a connection is held, and the supervisor starts it again."
              (and worker back) {:killed (some-> ^ProcessHandle worker .pid) :back (some-> ^ProcessHandle back .pid)})
-      (check "A connection whose watch of Auth is lost is not left unwatched: it is told that Auth cannot be reached, and ends; or its watch came back with the worker, and a word on it is still answered."
-             (or (= :reach-auth (:could-not told))
-                 (= (:who hello) (:who (client/say (:line me) {:word :who-am-i} 10000))))
-             {:told told})
       (check "When the worker is back, the same credential is let in, in the same session: nothing that Auth held was lost with the process."
-             (= (:session hello) (:session (:hello again)))
-             (:hello again)))))
+             (and (some? worker) (= (:session hello) (:session (:hello again))))
+             {:killed? (some? worker) :again (:hello again)})
+      (check "A connection whose watch of Auth was lost with the worker is not left unwatched: it is told that Auth cannot be reached and ends; or its watch came back, and when its sign-in is then ended through another connection, it is told that its sign-in ended."
+             (and (some? worker)
+                  (or (= :reach-auth (:could-not told))
+                      (= :find-her-sign-in (:could-not told-after))))
+             {:killed? (some? worker) :told told :ended ended :told-after told-after})
+      (client/close! (:line me))
+      (when (:line again) (client/close! (:line again))))))
 
 (defn- many-roots-watched!
   "Step 7: many roots are watched at once through one client of Auth."
@@ -306,8 +351,8 @@
                                 (swap! copies conj started)
                                 started))]
           (runtime-killed! {:a a :b b :restart! restart!} (program))
-          (store-worker-killed! {:b b} (program))
-          (auth-worker-killed! {:b b} (program)))
+          (store-worker-killed! (:url b) (program))
+          (auth-worker-killed! (:url b) (program)))
         (many-roots-watched! (seam/auth-of (:the-seam mine))))
       (check "The proof ran to its end without a throw." true)
       (catch Throwable t
