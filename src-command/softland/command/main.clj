@@ -171,41 +171,104 @@
 
 ;; ----------------------------------------------------------------- connecting
 
+(defn- same-sign-in?
+  "True when `cred` parses as a credential for `root` and `sign-in`."
+  [cred root sign-in]
+  (when-let [parts (credential/parts cred)]
+    (and (= root (:root parts)) (= sign-in (:sign-in parts)))))
+
+(defn- replace-on-line!
+  "Replaces the sign-in's secret on an open connection. Keeps the new
+  credential on disk as `:next-credential` before sending `:replace-secret`
+  so a lost answer never locks the command line out; promotes it to
+  `:credential` on `:replaced`, drops `:next-credential` on a definitive
+  Auth refusal (`:take-that`), and keeps `:next-credential` on an uncertain
+  failure so the next run recovers."
+  [file held connection hello]
+  (let [{:keys [root sign-in]} hello
+        existing-next (:next-credential held)
+        reuse? (same-sign-in? existing-next root sign-in)
+        secret (if reuse?
+                 (:secret (credential/parts existing-next))
+                 (credential/make-secret))
+        next-cred (if reuse?
+                    existing-next
+                    (credential/text root sign-in secret))
+        pending (assoc held :session (:session hello) :next-credential next-cred)]
+    (keep! file pending)
+    (let [got (client/say connection {:word :replace-secret :hash (credential/hash-of secret)})]
+      (cond
+        (:replaced got)
+        (keep! file (-> pending (assoc :credential next-cred) (dissoc :next-credential)))
+
+        (= :take-that (:could-not got))
+        (keep! file (dissoc pending :next-credential)))
+      got)))
+
+(defn- connect-held
+  "Opens the line for a kept sign-in. When a prior replacement left
+  `:next-credential` on disk, tries it first so a replacement whose answer
+  was lost is recovered even after the old secret expires; falls back to
+  `:credential` on 401."
+  [{:keys [url credential next-credential session]}]
+  (if next-credential
+    (let [trying (client/connect {:url url :credential next-credential :session session})]
+      (cond
+        (not (:could-not trying))
+        {:connection trying :credential next-credential :promoted? true}
+
+        (and (= 401 (:status trying)) credential)
+        (let [fallback (client/connect {:url url :credential credential :session session})]
+          (if (:could-not fallback)
+            {:error fallback}
+            {:connection fallback :credential credential :promoted? false}))
+
+        :else {:error trying}))
+    (let [conn (client/connect {:url url :credential credential :session session})]
+      (if (:could-not conn)
+        {:error conn}
+        {:connection conn :credential credential :promoted? false}))))
+
+(defn- with-line*
+  "Like `with-line`, passing `[connection hello promoted?]` to `f`, where
+  `promoted?` is true when a pending `:next-credential` connected and was
+  promoted on this run."
+  [flags f auto-replace?]
+  (let [file (file-of flags)
+        {:keys [credential session] :as held} (kept file)]
+    (if-not (or credential (:next-credential held))
+      {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
+      (let [{:keys [connection error promoted?] active-cred :credential} (connect-held held)]
+        (if error
+          (cond-> error
+            (= 401 (:status error)) (assoc :said "The sign-in stands for nobody now, or its session is closed. Run: sign-in"))
+          (let [hello (client/hello connection)]
+            (try
+              (if (:could-not hello)
+                hello
+                (let [held' (cond-> held
+                              promoted? (-> (assoc :credential active-cred) (dissoc :next-credential))
+                              (not= session (:session hello)) (assoc :session (:session hello)))]
+                  (when (or promoted? (not= session (:session hello)))
+                    (keep! file held'))
+                  (when (and auto-replace?
+                             (:until hello)
+                             (< (- (:until hello) (System/currentTimeMillis)) replace-under-ms))
+                    (replace-on-line! file held' connection hello))
+                  (f connection hello promoted?)))
+              (finally (client/close! connection)))))))))
+
 (defn- with-line
   "Opens the line as the kept sign-in, calls `f` with the connection and
   the runtime's hello, closes the line, and gives what `f` gave. A sign-in
   that the runtime gave a new session keeps it. A secret that has little
-  time left is replaced first (unless `:auto-replace?` is false), and the new
-  credential is kept before the old one is let go. Gives a word when there is
-  no sign-in or the line could not be opened."
+  time left is replaced first (unless `auto-replace?` is false), keeping the
+  new credential on disk before sending so a lost answer never locks the
+  command line out. Gives a word when there is no sign-in or the line could
+  not be opened."
   ([flags f] (with-line flags f true))
   ([flags f auto-replace?]
-   (let [file (file-of flags)
-         {:keys [url credential session] :as held} (kept file)]
-     (if-not credential
-       {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
-       (let [connection (client/connect {:url url :credential credential :session session})]
-         (if (:could-not connection)
-           (cond-> connection
-             (= 401 (:status connection)) (assoc :said "The sign-in stands for nobody now, or its session is closed. Run: sign-in"))
-           (let [hello (client/hello connection)]
-             (try
-               (if (:could-not hello)
-                 hello
-                 (do
-                   (when (not= session (:session hello))
-                     (keep! file (assoc held :session (:session hello))))
-                   (when (and auto-replace?
-                              (:until hello)
-                              (< (- (:until hello) (System/currentTimeMillis)) replace-under-ms))
-                     (let [{:keys [root sign-in]} hello
-                           secret (credential/make-secret)
-                           replaced (client/say connection {:word :replace-secret :hash (credential/hash-of secret)})]
-                       (when (:replaced replaced)
-                         (keep! file (assoc held :session (:session hello)
-                                            :credential (credential/text root sign-in secret))))))
-                   (f connection hello)))
-               (finally (client/close! connection))))))))))
+   (with-line* flags (fn [connection hello _] (f connection hello)) auto-replace?)))
 
 (defn- act-of
   "Builds one act of this program. Takes the hello, the flags, and the
@@ -366,14 +429,12 @@
       "end-sign-in" (with-line flags (fn [connection _] (client/say connection {:word :end-sign-in :sign-in (value-of a)})))
 
       "replace-secret"
-      (with-line flags
-        (fn [connection hello]
-          (let [secret (credential/make-secret)
-                got (client/say connection {:word :replace-secret :hash (credential/hash-of secret)})]
-            (when (:replaced got)
-              (let [file (file-of flags)]
-                (keep! file (assoc (kept file) :credential (credential/text (:root hello) (:sign-in hello) secret)))))
-            got))
+      (with-line* flags
+        (fn [connection hello promoted?]
+          (if promoted?
+            {:replaced (:sign-in hello) :until (:until hello)}
+            (let [file (file-of flags)]
+              (replace-on-line! file (kept file) connection hello))))
         false)
 
       "new-session"

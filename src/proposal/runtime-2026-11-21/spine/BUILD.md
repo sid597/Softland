@@ -239,3 +239,31 @@ softland.runtime.pure-proof:    22 passed, 0 failed. (exit 0)
 softland.runtime.proof:         49 passed, 0 failed. (exit 0)
 softland.runtime.command-proof: 16 passed, 0 failed. (exit 0)
 ```
+
+### Step 3: The five faults from `REVIEW-runtime-spine.md`
+
+Carbon's commit (`Runtime: the attacks as checks that fail today`) had not landed yet when Step 3 began, so wrote sentence checks in `test-runtime/softland/runtime/review_faults_proof.clj`, confirmed all 6 checks failed before any edit (**0 passed, 6 failed**, including reproducing the JDK 21 virtual-thread starvation hang `{:vthread :hung, :health :hung}`), then fixed all five faults:
+1. **Non-blocking pings and non-pinning locks (`jetty.clj`, `line.clj`, `seam.clj`):** Removed `ping-exec` virtual-thread-per-ping dispatch; the single ping thread now calls Jetty's non-blocking `(.sendPing (.getRemote session) (ByteBuffer/allocate 0) noop-write-callback)` without locking the connection. Replaced `synchronized`/`locking` monitors with `ReentrantLock` in `line.clj` (`say!`) and `seam.clj` (`standing` and `watch`) so virtual threads do not pin carriers on JDK 21.
+2. **Yes page (`http.clj`):** `POST /yes` now compares what she chose (as herself vs as an agent, plus checking the standing agent's label via `:under`) against what stands in Auth. A second yes naming another actor returns 409 (never `"Done"`). A person who says no after her own yes (or a mismatched second yes) is told with 409 that the program is signed in as her (or as an agent of hers, with the sign-in id); another person is only told `"This program was already answered before."`
+3. **Closed session renewal backstop (`seam.clj`):** `moved-on!` now returns the `:until` time it held (written or not) instead of trusting a repeat `open-session`'s `{:open S}` as extended, so the next `standing` look fires within 1 second and reads the real standing via `who-is`.
+4. **Failing standing flow (`line.clj`, `seam.clj`):** Both the completion and error callbacks of `(m/reduce ... (seam/standing ...))` in `line/open` now fail closed by sending `{:bye {:could-not :reach-auth ...}}` and ending the connection if it is still open; `seam/standing` also catches throws inside `check!` and executor dispatch and emits `:reach-auth`.
+5. **Lost secret replacement answer (`src-command/softland/command/main.clj`):** Persists the new credential as `:next-credential` in `sign-in.edn` *before* sending `:replace-secret`, reuses `:next-credential` on retries, promotes it to `:credential` (removing `:next-credential`) on `:replaced` or when a subsequent connection succeeds with `:next-credential`, falls back to `:credential` on 401, and drops `:next-credential` only on a definitive Auth refusal (`:take-that`).
+
+**What was run (before fixes -> after fixes):**
+```text
+flock "$LOCK" clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.review-faults-proof
+clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.pure-proof
+flock "$LOCK" clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.proof
+flock "$LOCK" clojure -Sdeps "$SDEPS" -J-Dsoftland.store.path=.../store-at-head/src-store -M:runtime -m softland.runtime.command-proof
+```
+
+**Output:**
+```text
+Before fixes:
+  softland.runtime.review-faults-proof: 0 passed, 6 failed. (exit 1)
+After fixes:
+  softland.runtime.review-faults-proof: 6 passed, 0 failed. (exit 0)
+  softland.runtime.pure-proof:          22 passed, 0 failed. (exit 0)
+  softland.runtime.proof:               49 passed, 0 failed. (exit 0)
+  softland.runtime.command-proof:       16 passed, 0 failed. (exit 0)
+```

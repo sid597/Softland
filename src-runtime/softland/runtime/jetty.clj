@@ -42,15 +42,21 @@
   (:import [jakarta.servlet.http HttpServletRequest HttpServletResponse]
            [java.nio ByteBuffer]
            [java.time Duration]
-           [java.util.concurrent ConcurrentHashMap ExecutorService Executors ScheduledExecutorService
+           [java.util.concurrent ConcurrentHashMap Executors ScheduledExecutorService
             ThreadFactory TimeUnit]
            [org.eclipse.jetty.server HttpConfiguration HttpConnectionFactory Request Server
             ServerConnector]
            [org.eclipse.jetty.servlet ServletContextHandler ServletHandler]
            [org.eclipse.jetty.util.thread QueuedThreadPool]
-           [org.eclipse.jetty.websocket.api Session WebSocketListener]
+           [org.eclipse.jetty.websocket.api Session WebSocketListener WriteCallback]
            [org.eclipse.jetty.websocket.server JettyWebSocketCreator JettyWebSocketServerContainer]
            [org.eclipse.jetty.websocket.server.config JettyWebSocketServletContainerInitializer]))
+
+(def ^:private noop-write-callback
+  "Non-blocking callback for Jetty WebSocket pings."
+  (reify WriteCallback
+    (writeFailed [_ _] nil)
+    (writeSuccess [_] nil)))
 
 (def ping-ms
   "How often the server pings each open connection of the line. A number of
@@ -157,7 +163,6 @@
                   (.setServletHandler (servlet-handler the-seam handler line-path accept sessions))
                   (.setAllowNullPathInfo true)
                   (JettyWebSocketServletContainerInitializer/configure nil))
-        ping-exec (Executors/newVirtualThreadPerTaskExecutor)
         pinger (Executors/newSingleThreadScheduledExecutor
                 (reify ThreadFactory
                   (newThread [_ runnable]
@@ -170,21 +175,18 @@
                             (doseq [^java.util.Map$Entry entry (.entrySet sessions)]
                               (let [^Session session (.getKey entry)
                                     conn (.getValue entry)]
-                                ;; Dispatch each ping on its own virtual thread so one
-                                ;; stalled TCP peer never delays pings to other clients.
-                                (.execute ^ExecutorService ping-exec
-                                          (fn []
-                                            (try (locking conn
-                                                   (when (line/open? conn)
-                                                     (.sendPing (.getRemote session) (ByteBuffer/allocate 0))))
-                                                 (catch Throwable _ nil)))))))
+                                ;; Send non-blocking pings directly on the one ping thread
+                                ;; without taking the connection's send lock, so a stalled
+                                ;; reader never blocks pings or pins virtual-thread carriers.
+                                (when (and (line/open? conn) (.isOpen session))
+                                  (try (.sendPing (.getRemote session) (ByteBuffer/allocate 0) noop-write-callback)
+                                       (catch Throwable _ nil))))))
                           ping-ms ping-ms TimeUnit/MILLISECONDS)
-    {:server server :port (.getLocalPort connector) :pinger pinger :ping-exec ping-exec}))
+    {:server server :port (.getLocalPort connector) :pinger pinger}))
 
 (defn stop!
   "Stops what `serve` gave: the ping's timer and the server."
-  [{:keys [^Server server ^ScheduledExecutorService pinger ^ExecutorService ping-exec]}]
+  [{:keys [^Server server ^ScheduledExecutorService pinger]}]
   (.shutdownNow pinger)
-  (when ping-exec (.shutdownNow ping-exec))
   (.stop server)
   nil)

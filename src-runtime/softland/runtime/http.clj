@@ -476,12 +476,33 @@
 
       :else
       (let [yes? (= "yes" (get form "say"))
-            got (sign-in/answer! the-seam caller code {:yes? yes? :label (when (and yes? agent?) label)})]
+            got (sign-in/answer! the-seam caller code {:yes? yes? :label (when (and yes? agent?) label)})
+            standing (:yes got)
+            mine? (and standing (= (seam/root-of caller) (:root standing)))
+            as-me? (and mine? (= (seam/root-of caller) (:actor standing)))
+            actor-matches? (and mine? yes?
+                                (if agent?
+                                  (and (not as-me?)
+                                       (let [listed (m/? (seam/call the-seam caller {:word :under}))
+                                             actors (:actors listed)]
+                                         (if (sequential? actors)
+                                           (= label (some (fn [a] (when (= (:actor standing) (:actor a)) (:label a)))
+                                                          actors))
+                                           true)))
+                                  as-me?))]
         (cond
-          (and (:yes got) yes? (= (seam/root-of caller) (get-in got [:yes :root])))
+          actor-matches?
           (page 200 "<p>Done. The program is signed in; go back to it.</p>")
 
-          (:yes got)
+          mine?
+          (page 409
+                (if as-me?
+                  (str "<p>This program was already answered before: the program is signed in as you (sign-in <code>"
+                       (escaped (:sign-in standing)) "</code>). End that sign-in if you did not mean to allow it.</p>")
+                  (str "<p>This program was already answered before: the program is signed in as an agent of yours (sign-in <code>"
+                       (escaped (:sign-in standing)) "</code>). End that sign-in if you did not mean to allow it.</p>")))
+
+          standing
           (page 409 "<p>This program was already answered before.</p>")
 
           (and (:no got) (not yes?))

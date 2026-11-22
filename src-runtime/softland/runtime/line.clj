@@ -60,7 +60,8 @@
             [softland.wire.frame :as frame]
             [softland.wire.words :as words])
   (:import [java.io Writer]
-           [java.util.concurrent LinkedBlockingQueue]))
+           [java.util.concurrent LinkedBlockingQueue]
+           [java.util.concurrent.locks ReentrantLock]))
 
 (def max-waiting
   "How many words can wait on one connection. A number of the build, kept
@@ -73,7 +74,7 @@
   number of the build, kept and not decided."
   256)
 
-(deftype Connection [the-seam caller send! close! queue state]
+(deftype Connection [the-seam caller send! close! queue state send-lock]
   Object
   (toString [_] "#<connection>"))
 
@@ -84,8 +85,10 @@
              :private true
              :doc "Makes a connection: the seam and the caller, borrowed; `send!`, a
   function of a text, and `close!`, a function of a status and a reason,
-  from what carries the connection; the queue of texts that wait; and
-  `state`, an atom of {:closed? :watches {number leave} :standing leave}.")
+  from what carries the connection; the queue of texts that wait;
+  `state`, an atom of {:closed? :watches {number leave} :standing leave};
+  and `send-lock`, a `ReentrantLock` serializing outbound frames without
+  pinning virtual-thread carriers on JDK 21.")
 
 (declare end!)
 
@@ -94,12 +97,15 @@
   at a time for a connection: a result and a watch's message never mix. A
   write that throws means that the system went away, and ends the connection."
   [^Connection connection thing]
-  (let [failed?
-        (locking connection
-          (when-not (:closed? @(.-state connection))
-            (try ((.-send! connection) (frame/write thing))
-                 false
-                 (catch Throwable _ true))))]
+  (let [^ReentrantLock lock (.-send-lock connection)
+        failed?
+        (do (.lock lock)
+            (try
+              (when-not (:closed? @(.-state connection))
+                (try ((.-send! connection) (frame/write thing))
+                     false
+                     (catch Throwable _ true)))
+              (finally (.unlock lock))))]
     (when failed?
       (end! connection 1006 "send failed"))))
 
@@ -201,7 +207,8 @@
   [the-seam caller {:keys [send! close!]}]
   (let [connection (->Connection the-seam caller send! close!
                                  (LinkedBlockingQueue. (int max-waiting))
-                                 (atom {:closed? false :watches {} :standing nil}))]
+                                 (atom {:closed? false :watches {} :standing nil})
+                                 (ReentrantLock.))]
     (say! connection {:hello (seam/about caller)})
     (let [worker (.start (Thread/ofVirtual)
                          (fn []
@@ -214,13 +221,23 @@
                              (catch InterruptedException _ nil))))]
       (swap! (.-state connection) assoc :worker worker)
       (when (:closed? @(.-state connection)) (.interrupt worker)))
-    (let [leave ((m/reduce (fn [_ word]
+    (let [end-unwatched! (fn [reason word]
+                           (when-not (:closed? @(.-state connection))
+                             (say! connection {:bye word})
+                             (end! connection 1011 reason)))
+          leave ((m/reduce (fn [_ word]
                              (say! connection {:bye word})
                              (end! connection 1008 "the sign-in or the session ended")
                              nil)
                            nil
                            (seam/standing the-seam caller))
-                 (fn [_] nil) (fn [_] nil))]
+                 (fn [_]
+                   (end-unwatched! "standing ended"
+                                   (words/could-not :reach-auth {:why :standing-ended})))
+                 (fn [err]
+                   (end-unwatched! "standing failed"
+                                   (words/could-not :reach-auth {:why :standing-failed
+                                                                 :threw (.getName (class err))}))))]
       (swap! (.-state connection) assoc :standing leave)
       (when (:closed? @(.-state connection)) (leave)))
     connection))
