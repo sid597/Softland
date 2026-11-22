@@ -1072,19 +1072,19 @@
     (check "when each of them has left, the read path holds no live read and no push" {:live-reads 0 :pushes 0} after-all)
     (check "20 acts of the base, each followed at once by a read asked once through a layer on another task: each was given within the proof's wait; how many were given at once is shown and not held"
            (vec (repeat 20 true)) (mapv second straight-after))
-    (check "one asker through her layer holds 3 pushes on that layer's facts and 2 on the base's, its own rows and the place, counted under her layer's routing id; a second asker with the same home adds his permission in that layer and shares the two pushes on the base"
+    (check "one asker through her layer holds 3 pushes on that layer's facts and 2 on the base's, its own rows and the place, counted under her layer's routing id; a second asker with the same home adds his permission in that layer and a push of his own on the row above it, which he reads after his own row, and shares the two pushes on the base"
            [{[:streaming :facts home-a] 3 [:microbatch :facts home-a] 2}
-            {[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2}]
+            {[:streaming :facts home-a] 5 [:microbatch :facts home-a] 2}]
            [(:one (:result shared)) (:two (:result shared))])
     (check "an asker with another home holds pushes of his own on the base, under his layer's routing id: the base's row has two pushes, one for each home, where three askers look at it"
-           [{[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
+           [{[:streaming :facts home-a] 5 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {home-a 1 home-b 1}
             {[:microbatch :facts home-a] 2 [:microbatch :facts home-b] 2}]
            [(:three (:result shared)) (:on-the-row (:result shared)) (frequencies (of-the-base (:opens shared)))])
     (check "one write to the base's row calls each of the three functions once, with the fact of that act"
            [true (vec (repeat 3 [(change-of [:watched-33 :text] "shared" (:wrote (:result shared)) 0)]))]
            [(some? (:got (:result shared))) (:calls (:result shared))])
-    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay, and so does the push on her permission in the home, which is above his; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
+    (check "the first asker of a home leaves: the pushes on the base that the other asker of that home holds stay, and so do his own two in the home, on his permission and on hers above it, where her own push on her permission is closed; he leaves: they are gone, and the other home's stay; the last leaves: nothing is held"
            [{[:streaming :facts home-a] 4 [:microbatch :facts home-a] 2 [:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {[:streaming :facts home-b] 3 [:microbatch :facts home-b] 2}
             {:pushes {} :counts {} :reads {}}]
@@ -1515,6 +1515,120 @@
            "| receipt 3, the calls of her function:" (count ann-changes)
            "| receipt 4:" (if (:now opened) "opened" (pr-str opened)))))
 
+(deftest the-second-reviews-cluster-probe-written-again
+  (let [act-key :softland.store/act-permission
+        run-key :softland.store/run-permission
+        own-key :softland.store/permission
+        word (fn [{:keys [answer]}] (if (= :refused (:answer answer)) (:reason answer) (:answer answer)))
+        other-rp (read-path/open (:ipc @round) (:module @round))
+        ;; the review's P1, on a layer open to its members: Ann's chain through Bea ended above,
+        ;; a fact written after that, Bea given hers again, and one act of Bea's that gives Ann a
+        ;; permission beneath her new one, or Ann's run one, and ends her own
+        stale-chain!
+        (fn [layer run?]
+          (let [_ (make! layer :root)
+                _ (give! layer :root :dave)
+                _ (give! layer :dave :bea)
+                given (fn [] (if run?
+                               {:e :run-7 :k run-key :v [:ann layer layer (perm :bea layer) :see [:run :run-7]]}
+                               {:e :ann :k own-key :v [:ann layer layer (perm :bea layer) :see]}))
+                _ (put! :bea layer [(given)])
+                _ (put! :root layer [{:e :dave :k own-key}])
+                _ (put! :root layer [(fact :rx :dose "the secret")])
+                query (cond-> {:asks [:place :rx :dose] :asker :ann :layers [layer :c-open]} run? (assoc :session :run-7))
+                root-read (live {:asks [:place :rx :dose] :asker :root :layers [layer]})
+                ann (live query)
+                ann-alone (live other-rp query)
+                witness (live {:asks (if run? [:place :run-7 run-key] [:place :ann own-key]) :asker :root
+                               :layers [layer] :stores-own-facts true})
+                _ (give! layer :root :bea)
+                the-act (put! :bea layer [(given) {:e :bea :k own-key}])
+                _ (wait-until #(= (:v (given)) (:value (:place (screen witness)))))
+                _ (put! :root layer [(if run? {:e :run-7 :k run-key} {:e :ann :k own-key})])
+                _ (wait-until #(= :nothing-here (:holds (:place (screen witness)))))
+                _ (settled)
+                told [(changes ann) (changes ann-alone)]
+                once (ask query)]
+            (run! leave! [root-read ann ann-alone witness])
+            {:accepted? (:accepted? the-act)
+             :calls (mapv count told)
+             :secret? (boolean (some #(= "the secret" (get-in % [:anew :place :value])) (apply concat told)))
+             :once ((juxt :left-out (comp :value :place)) once)}))
+        _ (make! :c-open :root)
+        _ (setting! :c-open :root :everyone)
+        _ (put! :root :c-open [(fact :rx :dose "public")])
+        of-hers (stale-chain! :c-stale false)
+        of-her-run (stale-chain! :c-stale-run true)
+        ;; the review's P2 and its P3 of the yes's use, through the door
+        _ (make! :c-yes :asha)
+        root (perm :asha :c-yes)
+        _ (give! :c-yes :asha :cal :see-and-act)
+        m1 {:version 1 :who :ben :layer :c-yes :session :s1 :facts [(fact :x :v 1)]}
+        m2 {:version 1 :who :ben :layer :c-yes :session :s1 :facts [(fact :x :v 2)]}
+        y1 (UUID/randomUUID)
+        pa1 [:ben :c-yes :c-yes root :see-and-act [:act y1 (digest/hex-for-a-yes m1)]]
+        run-p [:ben :c-yes :c-yes root :see-and-act [:run :run-1]]
+        _ (put! :asha :c-yes [{:e y1 :k act-key :v pa1} {:e :run-1 :k run-key :v run-p}])
+        send! (fn [an-act] (let [sent (door/send-act (the-door) an-act)]
+                             {:answer (door/answer-of (the-door) (:act-id sent) (:digest sent))}))
+        taken (send! (assoc m1 :permission pa1))
+        _ (put! :asha :c-yes [{:e :run-1 :k run-key}])
+        words [(word (send! (assoc m2 :permission pa1)))
+               (word (send! (assoc m1 :permission [:ben :c-yes :c-yes (perm :cal :c-yes) :see-and-act
+                                                   [:act y1 (digest/hex-for-a-yes m1)]])))
+               (word (send! (assoc m1 :permission run-p :session :run-2)))]
+        use-read (:place (ask {:asks [:place y1 act-key] :asker :asha :layers [:c-yes] :stores-own-facts true
+                               :with #{:writer}}))]
+    (check "the review's P1 on the cluster: an asker who holds a live read on a layer that she may not see, through a chain whose permission above ended, is handed nothing when the giver beneath it is given hers again and then, in one act, gives the asker a permission beneath it and ends it; another asker holds the layer's fact open on the same read path, and a read path of its own is played too; a read asked once leaves the layer out"
+           {:accepted? true :calls [1 1] :secret? false :once [[{:layer :c-stale :why :may-not-see}] "public"]}
+           of-hers)
+    (check "the same for the asker's run: the giver gives her run a permission beneath hers and ends hers in one act, and the asker who asks in that run is handed nothing"
+           {:accepted? true :calls [1 1] :secret? false :once [[{:layer :c-stale-run :why :may-not-see}] "public"]}
+           of-her-run)
+    (check "the review's P2 through the door: an act whose digest is not the used yes's is refused as not the act that it permits; a yes that was never given, on the used yes's id, as one that does not stand; an act of another run under a run's permission that ended, as of another run"
+           [:accepted [:act-not-the-one-permitted :permission-does-not-stand :permission-for-another-run]]
+           [(word taken) words])
+    (check "the review's P3 of the yes's use, read back: the used yes's place says nothing here, with the stamp of the act that used it and who sent it, and names no fact"
+           [:nothing-here :ben false]
+           [(:holds use-read) (:writer use-read) (contains? use-read :fact)])
+    (shown "the second review's cluster probe, written again: the asker's calls, on the shared read path and on one of its own:"
+           (pr-str (:calls of-hers)) "and in her run" (pr-str (:calls of-her-run))
+           "| the words through the door:" (pr-str words) "| the used yes's place:" (pr-str (dissoc use-read :writer)))))
+
+(deftest a-step-that-does-not-settle-ends-its-read
+  (let [query (:ok (query/check {:asks [:place :p :v] :asker :ann :from-layer :l0}))
+        own (sources/own-rows-source :l0 :l0)
+        place (sources/place-source :l0 :l0 :p :v)
+        row (fn [k text index stamp] (rows/fact-row {:e :l0 :k k :text text} (UUID. 0 stamp) index stamp 1000 ":root" "[:root :l0 :l0]"))
+        own-rows (fn [listed] {(rows/place-key :l0 :l0 :softland.store/depot) (row :softland.store/depot ":streaming" 0 1)
+                               (rows/place-key :l0 :l0 :softland.store/who-may-see) (row :softland.store/who-may-see ":everyone" 1 1)
+                               (rows/place-key :l0 :l0 :softland.store/builds-on) (row :softland.store/builds-on (pr-str listed) 0 2)})
+        calls (atom [])
+        opened (fn [] (delay (CompletableFuture/completedFuture {:proxy :none})))
+        rp ((var-get #'softland.store.read-path/->ReadPath)
+            "Store" nil nil nil nil nil nil nil nil nil nil (query/numbers nil)
+            (atom {:pushes {own {:readers #{1} :called (java.util.concurrent.atomic.AtomicBoolean. true) :opening (opened)}
+                            place {:readers #{1} :called (java.util.concurrent.atomic.AtomicBoolean. true) :opening (opened)}}
+                   :counts {[:streaming :facts :l0] 2}
+                   :reads {1 {:query query :tell #(swap! calls conj %) :turn (Object.) :sources #{own place}
+                              :opened? true :owed? {:told {:l0 :yes}}}}})
+            (java.util.concurrent.atomic.AtomicLong. 1))
+        step (java.util.concurrent.atomic.AtomicInteger. 0)]
+    ;; Each time the step asks what it holds, the layer's list names a layer that it has not
+    ;; joined yet, and no push that it joins is given: the step never settles.
+    (with-redefs [softland.store.read-path/known-of
+                  (fn [_ read] (let [n (.getAndIncrement step)]
+                                 (into {} (keep (fn [s] (cond (= s own) [s (own-rows [(keyword (str "l-" n))])]
+                                                              (= s place) [s nil])))
+                                       (:sources read))))
+                  softland.store.read-path/open-push (fn [_ _ _] (CompletableFuture.))]
+      (#'softland.store.read-path/on-change rp 1 own [[:put (rows/place-key :l0 :l0 :softland.store/builds-on)]]
+                                           (own-rows []) (own-rows [:l-0])))
+    (check "a step of an open read that still wants to join a source after the rounds that a live read is given ends the read: its function is told that it ended, and why, the read leaves the read path, and so does every push that it held"
+           [[{:ended {:could-not :keep-the-read-live :because :a-step-did-not-settle}}] nil {}]
+           [@calls (get-in (held rp) [:reads 1]) (:pushes (held rp))])
+    (shown "a step that does not settle ends its read, after" (.get step) "readings of what it holds")))
+
 (deftest one-push-for-one-thing
   (let [rp (:counted @round)
         _ (make! :t16 :alice)
@@ -1574,24 +1688,24 @@
         closed (wait-until #(= (+ (:opens together) (:opens crossing)) (+ (:closes together) (:closes crossing))))]
     (check "one asker of a place in a members layer holds three pushes: the layer's own rows, her permission, the place"
            {:live-reads 1 :pushes 3} one)
-    (check "a second asker of the same place joins the two pushes that are open and opens only his own permission"
-           [{:live-reads 2 :pushes 4} 4] [two (count (:opened kept))])
+    (check "a second asker of the same place joins the two pushes that are open, and opens his own permission and a push of his own on the row above it, the first asker's permission, which he reads after his own row"
+           [{:live-reads 2 :pushes 5} 5] [two (count (:opened kept))])
     (check "a write to the place: each function is called once; the asker who asked for the writer is handed it, the other is not"
            [[1 1] [:alice nil] ["v1" "v1"] [[(:act-id wrote) 0] [(:act-id wrote) 0]]]
            [(mapv count told)
             (mapv (fn [changes] (:writer (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:value (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:fact (first (vals (:changed (first changes)))))) told)])
-    (check "the first leaves: the two shared pushes stay, and so does the push on her permission, which is above the other's and which his read holds too; the last leaves: nothing is held; a read that has left is not open"
+    (check "the first leaves: the two shared pushes stay, and so do his own two, on his permission and on hers above it; hers on her permission is closed; the last leaves: nothing is held; a read that has left is not open"
            [{:live-reads 1 :pushes 4} {:live-reads 0 :pushes 0} [:left :left :not-open]] [after-alice after-bob left])
-    (check "each push that the read path opened is closed when its last reader has left: Rama says terminated of all four"
-           [:terminated :terminated :terminated :terminated] statuses)
+    (check "each push that the read path opened is closed when its last reader has left: Rama says terminated of all five"
+           [:terminated :terminated :terminated :terminated :terminated] statuses)
     (check "a third asker after the last one left opens new pushes, three, and gets a fresh value" [3 ["v1" :left]] [(:opens third) (:result third)])
     (check "what the read path holds for a live read and for a push: who looks at what, what each asked for, the pushes, and one mark; no field for a row, a value or an answer"
            [#{:query :tell :turn :sources :opened? :owed?} #{:opening :readers :called}]
            [(set (mapcat keys (vals (:reads entries)))) (set (mapcat keys (vals (:pushes entries))))])
-    (check "50 times, two threads open the same thing at once: one opening for each thing, four pushes for the two, and each is closed when both have left"
-           [(repeat 50 [{:live-reads 2 :pushes 4} true]) 200]
+    (check "50 times, two threads open the same thing at once: one opening for each thing, five pushes for the two, and each is closed when both have left"
+           [(repeat 50 [{:live-reads 2 :pushes 5} true]) 250]
            [(map (fn [[counts whole?]] [counts whole?]) (:result together)) (:opens together)])
     (check "50 times, one joins while the last one leaves, and a write follows: the one who joined gets the write's change each time, so nobody was handed a push that is closed; the map of pushes holds no entry without a reader"
            (repeat 50 [:left true true]) (:result crossing))
@@ -1602,7 +1716,7 @@
            "pushes stayed, when the last left none, and Rama says" (pr-str (distinct statuses)) "of each push")
     (shown "what the read path holds for a live read:" (pr-str (sort (set (mapcat keys (vals (:reads entries))))))
            "and for a push:" (pr-str (sort (set (mapcat keys (vals (:pushes entries)))))) "| read from the fields of its type; no field holds a row, a value or an answer")
-    (shown "50 times two threads opened the same thing at once:" (:opens together) "openings of a push in all, four each time, and as many closes"
+    (shown "50 times two threads opened the same thing at once:" (:opens together) "openings of a push in all, five each time, and as many closes"
            "| 50 times one joined while the last one left, with a write after: the joiner got the write's change each time; openings"
            (:opens crossing) "and closes" (:closes crossing) "| counted by functions of the proof's in the place of Rama's")))
 
@@ -2405,6 +2519,8 @@
   (a-permission-ends-under-a-live-read)
   (a-read-asked-in-a-run)
   (the-reviews-cluster-probe-written-again)
+  (the-second-reviews-cluster-probe-written-again)
+  (a-step-that-does-not-settle-ends-its-read)
   (one-push-for-one-thing)
   (the-read-paths-own-bound-on-its-pushes)
   (nothing-is-shown-that-is-not-in-the-tables)

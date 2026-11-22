@@ -24,7 +24,9 @@
                               (`softland.store.door.declaration/check`).
                               Absent for a retract
                  :by-act      the fact that wrote this row, as the uuid of
-                 :by-index    its act and its index in that act
+                 :by-index    its act and its index in that act. The row
+                              of the use of a yes names the act that used
+                              it and no index: no fact wrote it (`use-row`)
                  :stamp       the stamp of that act's decision
                  :time        the time on that act, a label that no rule
                               reads
@@ -145,7 +147,7 @@
     value-digest, value-digest-of     bytes, or a value -> 64 hex characters
     place-of-key, by-value-entity, id-of-text,
     answer-key-parts                  the text of a key -> its parts
-    answer-row, fact-row, with-level-since, by-value-row
+    answer-row, fact-row, use-row, with-level-since, by-value-row
                                       -> a row to write
     answer-of, written-by?, holds-value?, value-of, read-value,
     plain-bytes-of, who-of,
@@ -283,6 +285,19 @@
            :time (long time-millis) :who who-text :permission permission-text}
     (some? (:text fact))
     (assoc :value (:text fact))))
+
+(defn use-row
+  "The row of the use of a yes for one act, at the yes's place
+  (`softland.store.gate.decision`, `use-of-its-yes`). Takes the uuid of the
+  act-id of the act that was taken under the yes, the stamp of its
+  decision, the time on it, and the one texts of its `:who` and of the yes.
+  Gives a row with no `:value`, so that it is an end (`ended?`), and with no
+  `:by-index`: no fact of the act wrote it, so it names the act and no fact
+  of it, and no fact id can be made of it (`written-by?` holds it to none).
+  Every other field is the field of a fact's row. What must hold: as for
+  `fact-row`."
+  [act-uuid stamp time-millis who-text permission-text]
+  {:by-act act-uuid :stamp (long stamp) :time (long time-millis) :who who-text :permission permission-text})
 
 (defn with-level-since
   "Takes the row of a fact under `:softland.store/marked-keys`, as `fact-row`

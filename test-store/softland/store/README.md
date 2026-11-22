@@ -504,9 +504,9 @@ group observed. This page does not retell the checks.
 
 ### What the read path's pure proof does not reach
 
-- a permission more than two beneath the layer's first, and a read through two
-  layers in each of which the asker's permission has one above it: the worlds
-  with an end have one such layer and a chain of three;
+- a permission more than three beneath the layer's first, and a read through
+  two layers in each of which the asker's permission has one above it: the
+  worlds with an end have one such layer and a chain of four at most;
 - Anything that needs Rama: a select, a push, a callback, a thread;
 - that Rama's client delivers the changes of two pushes in the ways that the
   player plays, and in no other: the probes of the read build ran that,
@@ -629,7 +629,17 @@ Rama's test tool, and lets it go on.
   asker's permission in the base are read on the task of her own layer, as
   her own row is;
 - how many pushes a read holds for the rows above the asker's permission, on
-  the cluster: the pure proof holds which sources such a read holds;
+  the cluster, beyond one row above: the pure proof holds which sources such a
+  read holds, and `one-push-for-one-thing` counts one row above an asker's;
+- that a push opened after a row was seen holds every place as it was at
+  that row's decision or later: what the read path's reading of the rows
+  above an asker's rests on (`softland.store.read-path.sources/chain-sources`).
+  It is read from how a task serves the opening of a push, after the event
+  whose change was seen, and no probe of its own runs it. The check of the
+  second review's road holds that the asker is handed nothing in the orders
+  in which Rama called back in that run, and the pure proof holds it in every
+  order of its player, whose pushes are served from the tables as they are
+  when they are served;
 - A query whose `:with` holds `:time`: no check of this proof asks for it, so
   no run holds that a place-answer on the cluster carries the time that the
   door wrote on its act. The read path's pure proof holds it on rows of its

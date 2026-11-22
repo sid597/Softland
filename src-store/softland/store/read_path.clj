@@ -378,7 +378,7 @@
             change while it opens, and is given 8 more for writes that make
             a part of it wanted anew while it opens: a list that gains a
             layer asks 5. A step of an opened read (`settle!`) is held to
-            the same number
+            the same number, and a step that meets it ends its read
 
   The 8 more are the builder's choice, and not decided: a read that writes
   keep from settling is turned away, and its caller asks again; `:wait-ms`
@@ -592,25 +592,33 @@
   one table and one routing id, so the first of them names both. Takes the read path, the
   calls (`softland.store.read-path.sources/calls-for-once`) and the moment
   at which the wait ends. Gives [:ok a map from each source to its value]
-  or [:word a word]. Each call is one `multi-path` of its sources' paths: a
-  row for a source of one row, the rows for the layer's own rows, and the
-  first read for a run. A call whose values are not one for each path, in
-  the paths' order, cannot be told apart from another, so it ends in
-  `:reach-the-store`."
+  or [:word a word]. Each call is one `multi-path` of the paths of its
+  reads, one for each read of its sources
+  (`softland.store.read-path.sources/read-of`): a row for a source of one
+  row, the rows for the layer's own rows, and the first read for a run; a
+  read's value is given to each source of it. A call whose values are not
+  one for each path, in the paths' order, cannot be told apart from
+  another, so it ends in `:reach-the-store`."
   [^ReadPath read-path calls deadline]
   (let [numbers (.-numbers read-path)
         step-of (fn [source] (if (= :run (first (:path source))) :first :whole))
-        sent (mapv (fn [{:keys [sources]}]
-                     (let [paths (mapv #(path-of % numbers (step-of %)) sources)]
+        reads-of (fn [call] (vec (distinct (map sources/read-of (:sources call)))))
+        sent (mapv (fn [call]
+                     (let [reads (reads-of call)
+                           paths (mapv #(path-of % numbers (step-of %)) reads)]
                        (if (some nil? paths)
                          [:no-path]
-                         (select-async read-path (first sources) (apply path/multi-path paths)))))
+                         (select-async read-path (first reads) (apply path/multi-path paths)))))
                    calls)
         [outcome got] (gather read-path sent deadline)]
     (if (= :word outcome)
       [:word got]
-      (if (every? true? (map (fn [call values] (= (count (:sources call)) (count values))) calls got))
-        [:ok (into {} (mapcat (fn [call values] (map vector (:sources call) values)) calls got))]
+      (if (every? true? (map (fn [call values] (= (count (reads-of call)) (count values))) calls got))
+        [:ok (into {} (mapcat (fn [call values]
+                                (let [by-read (zipmap (reads-of call) values)]
+                                  (map (fn [source] [source (get by-read (sources/read-of source))])
+                                       (:sources call))))
+                              calls got))]
         [:word (words/word :reach-the-store
                            {:said "a call gave another count of values than it had paths"})]))))
 
@@ -1032,7 +1040,16 @@
   joined only when its push was open already. Gives nil when the step
   stops: the read is gone, a push threw as it was read, or the read came to
   need more checks than one read may, or a push past the read path's own
-  bound (`join!`); each of the last two ends it."
+  bound (`join!`), or it still wants to join or leave a source after
+  `(:live max-rounds)` rounds; each of the last three ends it.
+
+  Why a step that does not settle ends its read. What `reading` gives at the
+  bound wants sources that the read does not hold, so `known` lacks them,
+  and an answer worked out from it would be owed and never given: no push
+  that the read holds is the one that it waits for, and no later change
+  needs to come. A read that is opened is held to the same bound as one
+  that opens (`read-live`), and ends with `:a-step-did-not-settle`; its
+  caller asks again."
   [^ReadPath read-path id]
   (loop [round 0 joined #{} left #{}]
     (when-let [read (read-of read-path id)]
@@ -1043,8 +1060,11 @@
             (:too-large reading)
             (do (end-read! read-path id :a-run-grew-too-large (:too-large reading)) nil)
 
-            (or (and (empty? join) (empty? leave)) (<= (:live max-rounds) round))
+            (and (empty? join) (empty? leave))
             {:reading reading :known known :joined joined :left left}
+
+            (<= (:live max-rounds) round)
+            (do (end-read! read-path id :a-step-did-not-settle nil) nil)
 
             :else
             (do (leave-sources! read-path id leave false)
@@ -1512,8 +1532,9 @@
   `:max-places-of-one-run`, or the checks of nearer layers past
   `:max-checks-of-one-live-read`; a push that the open read came to need
   was not given, or would have taken the read path past its own bound on
-  pushes; or the function threw. The read path opens nothing again by itself; the caller asks
-  again. A function that throws at its first call ends the read then:
+  pushes; a step that still wanted more after the bound on rounds of a live
+  read (`settle!`); or the function threw. The read path opens nothing
+  again by itself; the caller asks again. A function that throws at its first call ends the read then:
   `read-live` still gives {:now :leave-with}, and the handle is not open.
 
   What the function must not do, and what a slow function holds back, is
@@ -1544,8 +1565,10 @@
   each permission above hers there: none when she is the layer's first
   holder. A query that names its run holds, in each such layer, one push
   more on the run's row, and one for each permission above the one that
-  the row holds. Askers beneath one holder share the push on that holder's
-  row. For what points at a thing, one push
+  the row holds. A push on a row above hers is read after her own row and
+  names its stamp, so askers share it only when their rows were written by
+  one decision (`softland.store.read-path.sources/chain-sources` says why).
+  For what points at a thing, one push
   more for each place of a farther order and each nearer layer. Each open
   push costs its layer's gate at each write. Rama opens a bounded count of
   pushes on one table on one task, and the read path holds a bound of its

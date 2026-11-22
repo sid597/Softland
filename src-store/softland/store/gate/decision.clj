@@ -146,15 +146,18 @@
   declaration's check made of it. Gives the text that `standing` holds
   against a yes for one act: the digest of the act that the thing is, as
   its maker made it, in its one form and without its act-id, its depot, its
-  time and its permission (`softland.store.door.digest/hex-for-a-yes`). It
-  is the function by which a maker makes the text for her act, so the two
-  agree under any act-id that she sends it under. The thing is read and not
-  the act, whose facts under a plain key hold their value as text alone. nil
-  when the permission that the act names is no yes for one act, so that no
-  other act pays for it."
+  time and its permission (`softland.store.door.digest/hex-of-the-act`).
+  A maker makes the text for her act with
+  `softland.store.door.digest/hex-for-a-yes`, which gives the same text for
+  every act that the declaration takes, so the two agree under any act-id
+  that she sends it under; the walk asks this only of a thing that the
+  declaration took, so it holds the act to nothing again. The thing is
+  read and not the act, whose facts under a plain key hold their value as
+  text alone. nil when the permission that the act names is no yes for one
+  act, so that no other act pays for it."
   [thing act]
   (when (= :act (first (act/covers (:permission act))))
-    (digest/hex-for-a-yes thing)))
+    (digest/hex-of-the-act thing)))
 
 (defn used-up?
   "Takes the row at the place of a yes for one act, or nil, and the yes.
@@ -167,6 +170,26 @@
   [row permission]
   (boolean (and (record/ended? row)
                 (= (:permission row) (text/text permission)))))
+
+(defn- use-of-another-yes?
+  "Takes the row at the place of a yes for one act, or nil, and the yes that
+  an act names. Gives true when the row is the use of another yes at that
+  place: an end that an act wrote under a yes on the same id, which is not
+  the one named. A yes's place takes one give, so the yes that was used
+  there is the one yes ever given there, and the one named was never given:
+  its act is refused `:permission-does-not-stand`, and not told that a
+  permission of its was ended. False for a permission that is no yes, for
+  the use of the yes named (`used-up?`), and for an end that the yes's
+  giver, one above the giver or its holder wrote, which names a
+  permission for the layer: that end does not say which yes it ended. It
+  reads the text of the row's permission only for such a row."
+  [row permission]
+  (let [[kind yes] (act/covers permission)]
+    (boolean (and (= :act kind)
+                  (record/ended? row)
+                  (not (used-up? row permission))
+                  (let [[named-kind named-yes] (act/covers (record/permission-of row))]
+                    (and (= :act named-kind) (= yes named-yes)))))))
 
 (defn depot-place
   "Takes an act. Gives the key of the place of its layer's depot: the layer
@@ -226,7 +249,8 @@
   place; and what `hex-for-its-permission` gave for the thing. Gives nil
   when the act's permission stands, covers the act and allows acting, or
   when the act is a right making act for a layer that is not made
-  (`makes-the-layer?` tells the two apart). Else a word:
+  (`makes-the-layer?` tells the two apart). Else a word, the first that
+  holds in this order:
 
     :layer-belongs-to-the-other-gate  the record holds nothing for the
                                       layer, and the layer is the other
@@ -238,31 +262,16 @@
     :who-not-the-permissions-holder   the layer is made here, and the holder
                                       that the act's permission names is not
                                       the act's `:who`
-    :permission-used-up               the layer is made here, the act's
-                                      permission is a yes for one act, and
-                                      its place holds the yes's use: an act
-                                      was taken under it (`used-up?`)
-    :permission-ended                 the layer is made here, and the place
-                                      of the act's permission holds an end:
-                                      the permission of that holder, of that
-                                      run, or the yes, was ended, and none
-                                      was given there again
-    :permission-for-another-run       the record holds the act's permission,
-                                      which covers one run, and the act's
-                                      `:session` is not that run
-    :act-not-the-one-permitted        the record holds the act's permission,
-                                      a yes for one act, and the thing that
-                                      arrived is not the act that the yes
-                                      names: the digest of the act as its
-                                      maker made it
-                                      (`hex-for-its-permission`) is not the
-                                      one that the yes holds. So a yes for
-                                      another act is refused here
-    :permission-does-not-stand        the layer is made here, and the record
-                                      does not hold the act's permission at
-                                      the place that its form names: the
-                                      place is empty, or holds another
-                                      permission
+    :permission-for-another-run       the act's permission covers one run,
+                                      and the act's `:session` is not that
+                                      run
+    :act-not-the-one-permitted        the act's permission is a yes for one
+                                      act, and the thing that arrived is not
+                                      the act that the yes names: the
+                                      digest of the act as its maker made
+                                      it (`hex-for-its-permission`) is not
+                                      the one that the yes holds. So a yes
+                                      for another act is refused here
     :permission-above-ended           the record holds the act's permission,
                                       and a permission above it does not
                                       stand, or was given again after the
@@ -270,6 +279,31 @@
                                       (`softland.store.gate.chain/stands?`)
     :permission-does-not-allow-acting the act's permission stands, and it
                                       says `:see`
+    :permission-used-up               the act's permission is a yes for one
+                                      act, and its place holds the yes's
+                                      use: an act was taken under it
+                                      (`used-up?`)
+    :permission-ended                 the place of the act's permission
+                                      holds an end: the permission of that
+                                      holder, of that run, or the yes, was
+                                      ended, and none was given there again.
+                                      Not the use of another yes on the
+                                      same id (`use-of-another-yes?`)
+    :permission-does-not-stand        the record does not hold the act's
+                                      permission at the place that its form
+                                      names: the place is empty, holds
+                                      another permission, or holds the use
+                                      of another yes, so the one named was
+                                      never given there
+
+  Why the words of another run and of another act come before what the
+  place holds: an act that names a permission for another run than its
+  own, or a yes for another act, is refused with that word whatever the
+  place of the permission holds, ended, used or empty
+  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R9, \"whatever
+  else is right in it\"), as the statements of the generated histories
+  order them. Each of the two reads the act alone, and the digest that the
+  walk made of it, so neither needs a row.
 
   An act that was taken under a permission stays taken when the permission
   ends: the rows of its facts stay, and the log holds the act. An act that
@@ -322,17 +356,23 @@
   (let [permission (:permission act)
         [kind what hex] (act/covers permission)]
     (cond
+      (not (or permission-row depot-row))
+      (cond
+        (layer-is-the-other-gates? gate-depot act) :layer-belongs-to-the-other-gate
+        (first-act/making-act? gate-depot act) nil
+        :else :layer-not-made)
+
+      (not= (:who act) (nth permission 0))
+      :who-not-the-permissions-holder
+
+      (and (= :run kind) (not= what (:session act)))
+      :permission-for-another-run
+
+      (and (= :act kind) (not= hex hex-of-the-act))
+      :act-not-the-one-permitted
+
       (record/holds-value? permission-row permission)
       (cond
-        (not= (:who act) (nth permission 0))
-        :who-not-the-permissions-holder
-
-        (and (= :run kind) (not= what (:session act)))
-        :permission-for-another-run
-
-        (and (= :act kind) (not= hex hex-of-the-act))
-        :act-not-the-one-permitted
-
         (not (chain/stands? (:layer act) permission
                             (assoc chain-rows (chain/place (:layer act) permission) permission-row)))
         :permission-above-ended
@@ -340,21 +380,14 @@
         (= :see (act/allows permission))
         :permission-does-not-allow-acting)
 
-      (or permission-row depot-row)
-      (cond
-        (not= (:who act) (nth permission 0)) :who-not-the-permissions-holder
-        (and (= :act kind) (used-up? permission-row permission)) :permission-used-up
-        (record/ended? permission-row) :permission-ended
-        :else :permission-does-not-stand)
+      (and (= :act kind) (used-up? permission-row permission))
+      :permission-used-up
 
-      (layer-is-the-other-gates? gate-depot act)
-      :layer-belongs-to-the-other-gate
-
-      (first-act/making-act? gate-depot act)
-      nil
+      (and (record/ended? permission-row) (not (use-of-another-yes? permission-row permission)))
+      :permission-ended
 
       :else
-      :layer-not-made)))
+      :permission-does-not-stand)))
 
 ;; ------------------------------------------------------------------- places
 
@@ -737,14 +770,16 @@
   it, its who, its stamp and its time, and the yes itself as the permission
   that the act named. So the yes stands no more (`softland.store.gate.chain/stands?`),
   an act under it is refused `:permission-used-up` (`used-up?`), it has
-  nothing left to end, and its place takes no give again. The row is the
-  act's own, one index after its last fact: its fact id is
-  [the act's act-id, the count of its facts]. Takes the act, the uuid of its
-  act-id, the stamp, the time on the act, and the two texts of `fact-row`.
-  Gives [[:fact key row]] for an act under a yes none of whose facts writes
-  the yes's place; [] for an act under any other permission, and for an act
-  that is the yes's own end, whose own row at the place is that end and
-  that use.
+  nothing left to end, and its place takes no give again. No fact of the
+  act wrote the row, so it names the act and no fact of it
+  (`softland.store.record.rows/use-row`): every fact id that a row of the
+  facts table names, and that a read gives back, is the id of a fact that
+  its act holds, which a reader of the act finds at that index. Takes the
+  act, the uuid of its act-id, the stamp, the time on the act, and the two
+  texts of `fact-row`. Gives [[:fact key row]] for an act under a yes none
+  of whose facts writes the yes's place; [] for an act under any other
+  permission, and for an act that is the yes's own end, whose own row at
+  the place is that end and that use.
 
   That a yes is used once is the form of 22 November 2026, a session's,
   in the prompt that Sid pasted that day as his go for the build
@@ -760,9 +795,7 @@
     (let [k (permission-place act)]
       (if (some #(= k (place-of act %)) (:facts act))
         []
-        [[:fact k (record/fact-row {:e (second (act/covers (:permission act)))
-                                    :k :softland.store/act-permission :v nil :replaces nil :text nil}
-                                   act-uuid (count (:facts act)) stamp time-millis who-text permission-text)]]))
+        [[:fact k (record/use-row act-uuid stamp time-millis who-text permission-text)]]))
     []))
 
 (defn- accept-writes

@@ -22,6 +22,11 @@
     :path        `[:row key]`, one row; `[:own-rows from to]`, the layer's
                  own rows; or `[:run from to]`, a run of places, `to` not
                  in it
+    :read-after  only in the source of a row above a permission of the
+                 asker's (`chain-sources`): the stamp of her row that names
+                 it. The source is wanted only once that row is known, so
+                 it is read, or its push opened, after the row was seen: its
+                 value holds the place as it was at that stamp or later
 
   Where a layer is read. A streaming layer has every row on its own task,
   so each source of it has the layer as its routing id. A microbatch layer
@@ -72,6 +77,8 @@
     reading                             what a read wants now, and what of
                                         it is missing
     moves                               what a live read joins and leaves
+    read-of                             a source -> what a read asked once
+                                        reads for it
     calls-for-once                      the missing sources, one group for
                                         each call of Rama's client
     run-is-whole?, over-the-limit?      the size rules of a run
@@ -186,16 +193,39 @@
   permission; a row, nil, or `:not-known-yet`. Gives the sources of the
   rows above it, nearest first: one row for each permission above the one
   that the row holds, each on its own place
-  (`softland.store.gate.chain/places-above`). An empty vector when the row
-  is not known, when it is empty, when it is an end, and when it holds a
-  first permission. A permission stands only while each of those rows holds
-  the permission above, with an older stamp, so a read keeps them as it
-  keeps the row itself: the end of one above her is a change of one of
-  them. What must hold: the row's permission is hers; the caller tests a
-  run's row first (`askers-run-row`)."
+  (`softland.store.gate.chain/places-above`), and each naming the stamp of
+  her row as `:read-after`. An empty vector when the row is not known, when
+  it is empty, when it is an end, and when it holds a first permission. A
+  permission stands only while each of those rows holds the permission
+  above, with an older stamp, so a read keeps them as it keeps the row
+  itself: the end of one above her is a change of one of them.
+
+  Why a source above names her row's stamp. Rama tells each push by itself,
+  and nothing lines two pushes up: a live read can hold her row as one
+  decision wrote it and a row above as it was before that decision. One act
+  can give her a permission beneath its own and end its own, and such a
+  pair of rows then says that a permission stands which stood at no stamp.
+  A source that names her row's stamp is a source of its own: it is wanted
+  only once her row is known, so it is read, or its push is opened, after
+  that row was seen, and its value holds its place as it was at her row's
+  stamp or later. Then a row above that holds its permission, with a stamp
+  older than the row beneath it, held it at her row's stamp too, since no
+  decision wrote that place between the two; so a permission that these
+  rows say stands, stood at her row's stamp (`softland.store.gate.chain`,
+  the rule of two rows). A row that changes gives a stamp of its own, and
+  the read joins the rows above it again, afresh. What it costs: askers
+  share the push on a row above only when their own rows were written by
+  one decision, so a live read holds a push of its own on each row above
+  hers; a read asked once reads them in the round after her row, which it
+  needs in any case, since her row names them.
+
+  What must hold: the row's permission is hers; the caller tests a run's
+  row first (`askers-run-row`)."
   [home layer permission-row]
   (if-let [held (when-not (= :not-known-yet permission-row) (rows/held-permission permission-row))]
-    (mapv (fn [k] (source-of home layer :facts [:row k])) (chain/places-above layer held))
+    (let [after (:stamp permission-row)]
+      (mapv (fn [k] (assoc (source-of home layer :facts [:row k]) :read-after after))
+            (chain/places-above layer held)))
     []))
 
 (defn askers-run-row
@@ -683,19 +713,32 @@
 
 ;; ------------------------------------------------- a read that is asked once
 
+(defn read-of
+  "Takes a source. Gives what a read asked once reads for it: the source
+  without `:read-after`. Such a read fetches a source in a round after the
+  rows that make it wanted, so a row above her permission is read after her
+  own row whatever stamp it names, and two sources that differ in that
+  stamp alone are one read: one path of one call. A live read keeps them
+  apart, each a push of its own, opened after the row beneath it was seen
+  (`chain-sources`)."
+  [source]
+  (dissoc source :read-after))
+
 (defn calls-for-once
   "Takes the missing sources of a read asked once, and the numbers. Gives
   the calls to make, as a vector of {:gate :table :routing-id :sources}:
   the sources in groups of one table and one routing id, each group cut at
-  `:max-paths-in-one-call` sources. So a layer's rights and its fact are
-  one round trip. Every source of a microbatch layer in one read has the
-  read's home as its routing id, so what one read reads of such layers is
-  one call for their facts and one for their facts by value."
+  `:max-paths-in-one-call` reads, where the sources of one read
+  (`read-of`) are in one call and are read once. So a layer's rights and
+  its fact are one round trip. Every source of a microbatch layer in one
+  read has the read's home as its routing id, so what one read reads of
+  such layers is one call for their facts and one for their facts by
+  value."
   [missing numbers]
   (let [most (:max-paths-in-one-call numbers)]
     (vec (for [[[gate table routing-id] sources] (group-by (juxt :gate :table :routing-id) missing)
-               part (partition-all most sources)]
-           {:gate gate :table table :routing-id routing-id :sources (vec part)}))))
+               part (partition-all most (vals (group-by read-of sources)))]
+           {:gate gate :table table :routing-id routing-id :sources (vec (apply concat part))}))))
 
 (defn run-is-whole?
   "Takes what the first read of a run gave, its rows or their count, and the

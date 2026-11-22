@@ -51,8 +51,12 @@
   never throws on what a row holds.
 
   `:fact` is the fact id `[[layer depot uuid] index]`, which a writer names
-  in `:replaces`; `:stamp` is the stamp of that fact's decision, which a
-  writer carries in `:based-on`. With `:writer` in the query's `:with` a
+  in `:replaces`, and which names a fact that its act holds at that index;
+  `:stamp` is the stamp of that fact's decision, which a writer carries in
+  `:based-on`. One row is written by an act and by no fact of it: the use
+  of a yes for one act, at the yes's place, which a read asks for only with
+  the store's own facts. Its place-answer is `:nothing-here` with its
+  layer and the stamp of the act that used the yes, and no `:fact`. With `:writer` in the query's `:with` a
   place-answer also holds `:writer`, with `:permission` it holds
   `:permission`, and with `:time` it holds `:time`, the time on the act
   that wrote the fact, a label; a read that asked for none is handed
@@ -132,23 +136,29 @@
 
 (defn- fact-id
   "Takes a layer and a row. Gives the id of the fact that wrote the row:
-  [[layer depot uuid] index], with the depot that the layer starts with."
+  [[layer depot uuid] index], with the depot that the layer starts with; or
+  nil for a row that no fact wrote, which names no index: the use of a yes
+  for one act (`softland.store.record.rows/use-row`)."
   [layer row]
-  [[layer (first-act/depot-at-making layer) (:by-act row)] (:by-index row)])
+  (when (some? (:by-index row))
+    [[layer (first-act/depot-at-making layer) (:by-act row)] (:by-index row)]))
 
 (defn place-answer
   "Takes a query in its one form, the layer that won a place, and the row
   that won it, or nil. Gives the place-answer: one of the four that the
   namespace docstring lists, by `softland.store.record.rows/read-value`,
   with the layer, the fact id and the stamp for a row that is there, and
-  the parts of the row that the query asked for. It never throws on a row."
+  the parts of the row that the query asked for. A row that no fact wrote
+  gives no `:fact`: it names no fact that a writer could replace or a
+  reader find in its act. It never throws on a row."
   [query layer row]
   (let [[kind v] (rows/read-value row)]
     (if (= :no-fact kind)
       {:holds :no-fact}
       (with-asked-parts
         query row
-        (cond-> {:holds kind :layer layer :fact (fact-id layer row) :stamp (:stamp row)}
+        (cond-> {:holds kind :layer layer :stamp (:stamp row)}
+          (fact-id layer row) (assoc :fact (fact-id layer row))
           (= :value kind) (assoc :value v))))))
 
 (defn order-place-answer

@@ -1,6 +1,6 @@
 (ns softland.store.read-path.words
   "Everything that the read path says to a caller in place of an answer,
-  declared as data: its own ten words, the five reasons for which a live
+  declared as data: its own ten words, the six reasons for which a live
   read ends, and the two words for a layer that gave nothing. Pure code. It
   needs no cluster, and it requires nothing outside Clojure.
 
@@ -95,10 +95,12 @@
    :stamp     "the first stamp of a layer's line that the read did not find whole"})
 
 (def because
-  "The five reasons for which a live read ends, each with what it says. A
+  "The six reasons for which a live read ends, each with what it says. A
   caller gets one under `:because`, in the word `:keep-the-read-live`."
   {:the-store-ended-a-push
    "Rama ended a push that the read holds"
+   :a-step-did-not-settle
+   "a change made the open read want more, round after round, up to its bound on rounds; it ended rather than tell an answer of sources that it did not hold"
    :a-run-grew-too-large
    "a run of the read came to hold more places than one read may, or the read came to need more checks than one read may; the word carries `:what` and `:most`"
    :a-read-it-came-to-need-failed

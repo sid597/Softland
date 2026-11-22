@@ -103,8 +103,9 @@
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
   does not have is absent: `:value` in the row of a retract, `:level-since`
-  in every row but the one at a layer's marked-keys place, `:time` in the
-  answer of a thing that held no usable time. A fact's value, who wrote
+  in every row but the one at a layer's marked-keys place, `:by-index` in
+  the row of the use of a yes for one act, which no fact wrote, `:time` in
+  the answer of a thing that held no usable time. A fact's value, who wrote
   it, the permission that its act named and the stamps of the
   marked keys are each held as a String, the one text of what it is: the
   text of a value is the one that the declaration's check made

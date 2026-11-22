@@ -2861,12 +2861,12 @@
      ["the same thing again under the act-id of a refused try is not decided and writes nothing; the try's answer stays its own"
       (fn [] [(nth writes 8) (:refused (get-in after [:answers (record/answer-key :alice (uuid 5))]))])
       [[] :permission-does-not-stand]]
-     ["the accept under a yes writes the act's fact, the yes's use, the answer and the last stamp; the use is an end at the yes's place, the act's own row one index after its last fact, naming the yes as the permission that its act named; a gate may copy it to other tasks with the fact"
+     ["the accept under a yes writes the act's fact, the yes's use, the answer and the last stamp; the use is an end at the yes's place, written by the act and by no fact of it, so it names the act and no index, and the yes as the permission that its act named; a gate may copy it to other tasks with the fact"
       (fn [] (let [w (nth writes 9)
                    [_ use-key use-row] (second w)]
-               [(mapv first w) use-key (record/ended? use-row) (:by-act use-row) (:by-index use-row)
+               [(mapv first w) use-key (record/ended? use-row) (:by-act use-row) (contains? use-row :by-index)
                 (:permission use-row) (mapv first ((copies-of-as-written) w))]))
-      [[:fact :fact :answer :last-stamp] (chain/place :alice ya) true (uuid 10) 1 (text/text ya) [:fact :fact]]]
+      [[:fact :fact :answer :last-stamp] (chain/place :alice ya) true (uuid 10) false (text/text ya) [:fact :fact]]]
      ["after the line: the places of the used yeses hold their use, by the act that used each; a yes that ends itself holds its own end, which is its use; an ended yes holds an end that is no use; a yes under which a try was refused stands still"
       (fn [] [(mapv (fn [a-yes] [(decision/used-up? (row-of a-yes) a-yes) (.getLeastSignificantBits ^UUID (:by-act (row-of a-yes)))])
                     [ya yb yc yl ye yg yh])
@@ -2981,6 +2981,75 @@
                  (dissoc (:ok (act/parse (assoc a2 :permission [:ben :lab :lab]))) :permission))
               (= (digest/hex-for-a-yes a1) (digest/hex-for-a-yes a2))])
       [true true]]]))
+
+(def ^:private second-review-cases
+  "The faults that the review of 22 November 2026 found in the gate's half
+  of piece 2 (src/proposal/runtime-2026-11-21/overnight-audit/REVIEW-store-2026-11-22.md,
+  P2 and two of its P3), written as cases of the store's own: the words of
+  the probe's cases 2a to 2e, the digest of a yes for an act that the
+  declaration refuses (its probe 4), and the row of a yes's use (its probe
+  5). Walked in memory, each act against the rows that the acts before it
+  wrote."
+  (let [act-key :softland.store/act-permission
+        root [:asha :lab :lab]
+        cal-p [:cal :lab :lab root :see-and-act]
+        thing (fn [n who permission session & facts]
+                {:act-id [:lab :streaming (uuid n)] :depot :streaming declaration/time-part now
+                 :version 1 :who who :layer :lab :permission permission :session session :facts (vec facts)})
+        maker (fn [session & facts] {:version 1 :who :ben :layer :lab :session session :facts (vec facts)})
+        under (fn [n permission maker-act]
+                (merge maker-act {:act-id [:lab :streaming (uuid n)] :depot :streaming
+                                  declaration/time-part now :permission permission}))
+        act-a (maker :run-1 {:e :doc :k :v :v "act-A"})
+        act-b (maker :run-1 {:e :doc :k :v :v "act-B"})
+        hex-a (digest/hex-for-a-yes act-a)
+        y-used (uuid 501)
+        y-ended (uuid 502)
+        pa-used [:ben :lab :lab root :see-and-act [:act y-used hex-a]]
+        pa-ended [:ben :lab :lab root :see-and-act [:act y-ended hex-a]]
+        run-p [:ben :lab :lab root :see-and-act [:run :run-1]]
+        setup [(thing 1 :asha root :s0 {:e :lab :k :softland.store/depot :v :streaming}
+                      {:e :asha :k :softland.store/permission :v root})
+               (thing 2 :asha root :s0 {:e :cal :k :softland.store/permission :v cal-p}
+                      {:e y-used :k act-key :v pa-used} {:e y-ended :k act-key :v pa-ended}
+                      {:e :run-1 :k :softland.store/run-permission :v run-p})
+               (under 3 pa-used act-a)
+               (thing 4 :asha root :s0 {:e y-ended :k act-key} {:e :run-1 :k :softland.store/run-permission})]
+        tries [(under 10 pa-used act-b)
+               (under 11 pa-ended act-b)
+               (thing 12 :ben run-p :run-2 {:e :doc :k :v :v "x"})
+               (under 13 [:ben :lab :lab cal-p :see-and-act [:act y-used (digest/hex-for-a-yes act-b)]] act-a)
+               (under 14 [:ben :lab :lab cal-p :see-and-act [:act y-used hex-a]] act-a)]
+        word-of (fn [x] (let [after (walked-line empty-task :streaming (conj setup x))]
+                          (or (:refused (get-in after [:answers (record/answer-key :lab (nth (:act-id x) 2))])) :accepted)))
+        long-id (keyword (apply str (repeat 260 \a)))
+        refused-makers [(apply maker :s1 (map (fn [i] {:e (keyword (str "e" i)) :k :v :v i}) (range 257)))
+                        (maker :s1 {:e :doc :k :body :v (apply str (repeat 70000 \x))})
+                        (maker :s1 {:e :doc :k :v :v 1} {:e :doc :k :v :v 2})
+                        (maker :s1 {:e :doc :k :softland.store/not-a-key :v 1})
+                        (maker :s1 {:e long-id :k :v :v 1})]
+        at-the-limits [(apply maker :s1 (map (fn [i] {:e (keyword (str "e" i)) :k :v :v i}) (range 256)))
+                       (maker :s1 {:e :doc :k :body :v (apply str (repeat 65000 \x))})
+                       (maker :s1 {:e :doc :k :v :v 1 :replaces [[:lab :streaming (java.util.UUID. 0 0)] 0]})]
+        after (walked-line empty-task :streaming setup)
+        use-row (get-in after [:facts (chain/place :lab pa-used)])]
+    [["the words of the review's probe 2: an act whose digest is not the yes's, under a yes that is used and under one that is ended, is refused as not the act that the yes permits; an act of another run under a run's permission that is ended, as of another run; whatever the place of the permission holds (SPEC.md, R9)"
+      (fn [] (mapv word-of (take 3 tries)))
+      [:act-not-the-one-permitted :act-not-the-one-permitted :permission-for-another-run]]
+     ["a yes that was never given, on the id of a used yes: with another digest it is refused as not the act that the yes permits; with the digest of the act, as a permission that does not stand, since the yes used there is the one yes given there, and never as ended"
+      (fn [] (mapv word-of (drop 3 tries)))
+      [:act-not-the-one-permitted :permission-does-not-stand]]
+     ["the maker's digest of an act that the declaration refuses under every yes is none: too many facts, a value over its bound, a place named twice, a key of the store's that is no store key, an id over its limit; the gate's digest of a thing that its declaration took still holds such an act's text, and is asked of no such act"
+      (fn [] [(mapv digest/hex-for-a-yes refused-makers) (mapv #(some? (digest/hex-of-the-act %)) refused-makers)])
+      [[nil nil nil nil nil] [true true true true true]]]
+     ["an act at the declaration's limits has its digest, the same as the gate's: 256 facts, a value just under its bound, a fact that replaces a fact of an act-id that a door could have given it"
+      (fn [] (mapv #(and (some? (digest/hex-for-a-yes %)) (= (digest/hex-for-a-yes %) (digest/hex-of-the-act %))) at-the-limits))
+      [true true true]]
+     ["the use of a yes names the act that used it and no fact of it: its row holds no index, and no fact id, the act's count of facts among them, names it"
+      (fn [] [(record/ended? use-row) (contains? use-row :by-index) (:by-act use-row)
+              (record/written-by? :streaming :lab use-row [[:lab :streaming (uuid 3)] 1])
+              (record/written-by? :streaming :lab use-row [[:lab :streaming (uuid 3)] 0])])
+      [true false (uuid 3) false false]]]))
 
 (defn- rows-by-place
   "Takes a record in the form of `empty-task`. Gives a map from [table key]
@@ -4784,6 +4853,7 @@
   (holds covers-cases)
   (holds yes-cases)
   (holds review-cases)
+  (holds second-review-cases)
   (holds base-standing-cases)
   (holds other-gate-cases)
   (holds places-cases)

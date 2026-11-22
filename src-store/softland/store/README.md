@@ -727,10 +727,12 @@ what its permission covers before it reads the chain: the act's `:session`
 against the run; for a yes, the act itself, by its digest. The digest is of
 the act as its maker made it, in the one form that `parse` gives, with its
 who and its session, without its act-id, its depot, its time and its
-permission (`hex-for-a-yes` in [digest.clj](door/digest.clj)): one function,
-which a maker calls before her act has an act-id or a permission, and the
-gate calls on the thing that arrives. So the act goes under any act-id of its
-maker's. **A yes is used once**: the accept of its act writes the yes's use,
+permission (`hex-for-a-yes` in [digest.clj](door/digest.clj)): the maker's
+function, which she calls before her act has an act-id or a permission, and
+which gives no digest for an act that the declaration refuses under every
+yes, so that no yes is made that can never be used; the gate makes the same
+text of the thing that arrives, which its declaration took
+(`hex-of-the-act`). So the act goes under any act-id of its maker's. **A yes is used once**: the accept of its act writes the yes's use,
 an end at its place, so that no act is taken under it again, the same act
 under another act-id neither; a try that is refused uses nothing, and is sent
 again under a new act-id. A yes's place takes one give, so a yes that was
@@ -739,7 +741,11 @@ an id of its own, and two can stand at once, each used once. That form is a
 session's, in the prompt that Sid pasted on 22 November 2026 as his go for the
 build, and his to turn; that the use is kept as an end at the yes's place,
 written in the decision's one write, is a session's too (`use-of-its-yes` in
-[decision.clj](gate/decision.clj)).
+[decision.clj](gate/decision.clj)). The use names the act that used the yes
+and no fact of it: no fact wrote it, so a read gives no fact id of it.
+An act that names a run that is not its own, or a yes for another act, is
+refused with that word whatever the permission's place holds (R9 of the
+piece's spec), before the end or the use that the place may hold is read.
 **A permission for a run or a yes gives nothing**: what is given beneath a
 permission must cover no more than it does, and a holder for one run who
 could give would give herself a permission for the layer. And a run ends no
@@ -1240,9 +1246,10 @@ order, and "digest" is this store's word since its module.
 | `above`, `place`, `places-above`, `above?`, `stands?` | In [chain.clj](gate/chain.clj): the chain of a permission, and whether it stands |
 | `covers` | In [act.clj](act.clj): a permission → nil, `[:run session]` or `[:act yes digest]` |
 | a yes | A permission for one act, `[who layer granted-in above :see-and-act [:act yes digest]]`: on its own id, for one act, used once. Sid's word |
-| `act-for-a-yes`, `hex-for-a-yes` | In [digest.clj](door/digest.clj): the act that a yes names, in its one form, and its digest, which a yes holds; the maker's call and the gate's |
-| `hex-for-its-permission` | In [decision.clj](gate/decision.clj): `hex-for-a-yes` of a thing, made only for an act under a yes |
-| the use of a yes, `used-up?`, `use-of-its-yes` | In [decision.clj](gate/decision.clj): the end at a yes's place that the accept of its act writes, which names the yes as its act's permission; the test of a row for it; the write |
+| `act-for-a-yes`, `hex-for-a-yes`, `hex-of-the-act` | In [digest.clj](door/digest.clj): the act that a yes names, in its one form, and its digest, which a yes holds: the maker's call, which gives none for an act that the declaration refuses under every yes, and the gate's, of a thing that its declaration took |
+| `hex-for-its-permission` | In [decision.clj](gate/decision.clj): `hex-of-the-act` of a thing, made only for an act under a yes |
+| the use of a yes, `used-up?`, `use-of-its-yes`, `use-row` | In [decision.clj](gate/decision.clj) and [rows.clj](record/rows.clj): the end at a yes's place that the accept of its act writes, which names the act that used it, no fact of it, and the yes as its act's permission; the test of a row for it; the write; its row |
+| `use-of-another-yes?` | In [decision.clj](gate/decision.clj): whether a yes's place holds the use of another yes than the one that an act names, which was then never given there |
 | `permission-keys` | In [declaration.clj](door/declaration.clj): the three store keys under which a permission is given and ended |
 | a run | What an act names as its `:session`: one sitting of a person, or one run of an agent |
 | `held-permission`, `ended?` | In [rows.clj](record/rows.clj): the permission that the row at a permission's place holds, and whether that row is an end |
@@ -1426,9 +1433,9 @@ fact sits.
 | `:layer-belongs-to-the-other-gate` | The record holds nothing for the layer, and the layer starts with the other gate's depot: the act was sent to the wrong depot. The same word whether or not the other gate has made the layer |
 | `:layer-not-made` | The record holds nothing for the layer, the layer is not the other gate's, and the act is not a right making act |
 | `:who-not-the-permissions-holder` | The holder that the act's permission names is not the act's `:who` |
-| `:permission-does-not-stand` | The record does not hold the act's permission at the place that its form names, on its holder, its run or a yes's own id: the place is empty, or holds another permission |
+| `:permission-does-not-stand` | The record does not hold the act's permission at the place that its form names, on its holder, its run or a yes's own id: the place is empty, holds another permission, or holds the use of another yes, so that the one named was never given there |
 | `:permission-used-up` | The act's permission is a yes for one act, and its place holds the yes's use: an act was taken under it |
-| `:permission-ended` | The place of the act's permission holds an end: the holder's permission for the layer, her run's, or the yes, was ended, and none was given there again |
+| `:permission-ended` | The place of the act's permission holds an end: the holder's permission for the layer, her run's, or the yes, was ended, and none was given there again. Not the use of another yes |
 | `:permission-above-ended` | The record holds the act's permission, and a permission above it does not stand, or was given again after the act's own was given |
 | `:permission-for-another-run` | The act's permission covers one run, and the act's `:session` is not that run |
 | `:act-not-the-one-permitted` | The act's permission is a yes for one act, and the act is not the one that it names: the digest of the act as its maker made it is not the yes's. So a yes for another act is refused |

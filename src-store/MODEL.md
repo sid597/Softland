@@ -197,7 +197,9 @@ chair-7's colour is red and that its material is oak.
     that act, a yes: `[:act yes digest]`, on an id of its own that her tool
     makes, with the digest of the act as bio-agent made it, which bio-agent
     or her tool makes before the act has an act-id or a permission
-    ([door/digest.clj](softland/store/door/digest.clj), `hex-for-a-yes`).
+    ([door/digest.clj](softland/store/door/digest.clj), `hex-for-a-yes`,
+    which gives none for an act that the store would refuse whatever yes
+    named it).
     bio-agent sends the act under any act-id of its own: it is taken, and
     the yes is used up. The same act sent again under another act-id is
     refused; so is "50 mg" under the yes; a try that is refused uses

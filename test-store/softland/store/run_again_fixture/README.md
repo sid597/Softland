@@ -33,9 +33,9 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 22 November 2026. It is the seventh making; the first
+This fixture was made on 22 November 2026. It is the eighth making; the first
 three were made on 14 October 2026, the fourth and the fifth on 21 November,
-and the sixth and the seventh on 22 November. The
+and the sixth, the seventh and the eighth on 22 November. The
 first two were made by the build "run again", in which both depots came to
 place an act by its layer and the base's gate came to decide each act on the
 layer's task in the depot's order: the first after the build's part B, the
@@ -211,6 +211,28 @@ table; in the microbatch gate 201, 76, 6, 201, 201 and 208. The file is three
 times the sixth's: it holds each thing again, as its line does. The receipt of
 the change says that the fixture was made again, and why
 (`src/proposal/runtime-2026-11-21/BUILD-store-piece-3.md`).
+
+The eighth making ran on 22 November 2026 at 22:19 IST, and replaced the
+seventh for one change made on purpose, in the second repair of piece 2
+(`src/proposal/runtime-2026-11-21/BUILD-store-piece-2-second-repair.md`):
+
+- the use of a yes for one act, the end at the yes's place that the accept of
+  its act writes, names the act that used it and no fact of it: its row holds
+  no `:by-index`, where it held the count of the act's facts, an index past
+  its last fact, which named no fact that the act holds.
+
+On the seventh making the proof failed only at those rows: of 1,706, the four
+rows of a yes's use, two in the streaming gate and two in the base's facts on
+each task, each differing in `:by-index` alone; the run again and the run
+after failures agreed on every row. It was made again for the row's form, and
+not to make the proof pass.
+
+It wrote `acts.edn`, 127,741 bytes, 401 records (the streaming depot's four
+partitions 164, 0, 17 and 5; the microbatch depot's 7, 0, 208 and 0), and
+`tables.edn`, 343,483 bytes, 1,706 rows, the seventh's counts in every table:
+in the streaming gate 174 answers, 73 facts, 30 facts by value, 174 line rows,
+174 things and 188 rows of the task's table; in the microbatch gate 201, 76,
+6, 201, 201 and 208. The run of the proof on it passed, 48 checks.
 
 From the repository root, behind the lock of this machine's cluster runs:
 

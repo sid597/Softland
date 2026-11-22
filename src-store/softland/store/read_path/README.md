@@ -127,7 +127,9 @@ the rows above them, then its facts, then the checks; and the layers of a start
 layer's list only after the start layer. So a read asked once settles within 6
 rounds, whatever is written meanwhile, and a live read opens within 8 on tables
 that do not change. [sources.clj](sources.clj) derives the numbers, and each
-loop's bound is set from them.
+loop's bound is set from them. A step of an open read that still wants more
+at the live bound ends the read, with a reason of its own, and does not wait
+on sources that it never joined.
 
 **A read asked once reads a layer's fact with its rights.** So the runtime can
 read one row, or the first places of a run, of a layer that the asker may then
@@ -148,7 +150,14 @@ while each permission above it stands, and the end of one above her is written
 nowhere but at its own place ([chain.clj](../gate/chain.clj)). So a read holds
 the row of each holder above her, one push for each, which her own row names all
 at once: none when she is the layer's first holder, one when she is straight
-beneath her. Askers beneath one holder share the push on that holder's row.
+beneath her. Each row above is read after her own row, under a source that
+names her row's stamp: Rama tells each push by itself, so a read that took a
+row above from a push opened before her row was written could pair her new
+row with a row above as it was before the same act ended it, and see a
+permission stand that stood at no stamp. A row above that is read after hers
+shows its place as it was at her row's stamp or later, so a permission that
+the rows say stands, stood then. Askers so share the push on a row above
+only when their own rows were written by one decision.
 A read that names its run holds the row of that run's permission too, on the
 session, and the rows above it: she sees the layer when either stands, and a
 run's permission lets her see only when it names her as its holder.
@@ -388,7 +397,8 @@ door's word for its own opening and is the read path's own.
 
 | Word | What it is |
 |---|---|
-| `:because`, with `:the-store-ended-a-push`, `:a-run-grew-too-large`, `:a-read-it-came-to-need-failed`, `:no-room-for-a-push-it-came-to-need`, `:its-function-threw` | Why a live read ended |
+| `:because`, with `:the-store-ended-a-push`, `:a-step-did-not-settle`, `:a-run-grew-too-large`, `:a-read-it-came-to-need-failed`, `:no-room-for-a-push-it-came-to-need`, `:its-function-threw` | Why a live read ended |
+| `:read-after` | In a source of a row above a permission of the asker's: the stamp of her row that names it, so that the row is read after hers |
 | `:why`, `:at`, `:what`, `:most`, `:waited-ms`, `:module`, `:threw`, `:said` | What a word carries |
 | `:places-of-one-run`, `:checks-of-one-read`, `:pushes-under-one-routing-id` | What was too many: the first two for one read, the third for the read path |
 

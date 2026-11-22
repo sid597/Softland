@@ -19,7 +19,10 @@
     act-for-a-yes  a maker's act, or a thing as it arrives -> the act that a
                    yes for one act names, in its one form, or nil
     hex-for-a-yes  the same -> the hex text that a yes for that act holds,
-                   or nil
+                   or nil, also for an act that the declaration refuses
+                   under every yes: the maker's call
+    hex-of-the-act the same -> the same text with no check of the act: the
+                   gate's, for a thing that its declaration took
     is-digest-of?  a digest as hex text, and anything -> true or false
     readable-hex-of  anything -> the digest as hex text, or nil for a thing
                      that throws while it is read
@@ -33,7 +36,10 @@
   of the act that a yes names: the act-id, the depot, the time and the
   permission. So a maker, or whoever says yes to her act, makes it before
   the act has an act-id or a permission, and the gate makes the same of the
-  thing that arrives under any act-id of hers: one function for both.
+  thing that arrives under any act-id of hers: one walk for both, and for
+  the maker the declaration's check of her act first, so that no yes is
+  made for an act that no gate can take (`hex-of-the-act` is the gate's,
+  which the declaration has checked already).
 
   What the digest of a thing is taken of. The thing as it arrived, each value plain,
   without the time on the act: when the thing is a plain map, a map that is
@@ -284,23 +290,94 @@
                                   (catch Throwable _ [:no nil]))]
       (when (= :ok verdict) one-form))))
 
-(defn hex-for-a-yes
+(defn hex-of-the-act
   "The digest that a yes for one act holds in its sixth slot
   (`softland.store.act/covers`): SHA-256 over the one text of the act that
   the yes names (`act-for-a-yes`), as 64 hex characters. Takes what
-  `act-for-a-yes` takes, a maker's act or a thing as it arrives. Gives nil
-  where that gives nil. It never throws.
-
-  The door's one call for a maker who asks a yes for her act, and the
-  gate's for a thing that arrives under one
-  (`softland.store.gate.decision/hex-for-its-permission`): the same
-  function, so the two never make two texts of one act. The act goes under
-  any act-id of its maker's: the act-id is no part of what the yes names.
-  Cost: one reading of the act's parts, as `parse` reads them, and one walk
-  of its one form into the hash."
+  `act-for-a-yes` takes. Gives nil where that gives nil. It holds the act
+  to nothing more: it is the gate's, for a thing that its declaration took
+  already (`softland.store.gate.decision/hex-for-its-permission`), and a
+  maker calls `hex-for-a-yes`, which gives the same text for every act that
+  the declaration can take. It never throws. Cost: one reading of the act's
+  parts, as `parse` reads them, and one walk of its one form into the
+  hash."
   [x]
   (when-let [one-form (act-for-a-yes x)]
     (hex-of one-form)))
+
+(def ^:private shortest-holder
+  "The id whose text is the shortest that an id of the form can have, two
+  characters: a keyword of one letter. The yes of `under-the-least-yes` is
+  given beneath the first permission of this holder, so that no yes that a
+  giver can give is shorter in text."
+  :a)
+
+(def ^:private a-digest
+  "A text in the form of a digest, 64 hex characters. Every digest has that
+  length, so the text of a yes is as long whatever act it names."
+  (apply str (repeat 64 \0)))
+
+(defn- replaced-uuids
+  "Takes a maker's act, as she gave it. Gives the set of the uuids that the
+  act-ids in its facts' `:replaces` hold, so that an act-id can be made
+  that no fact of the act replaces. It never throws: what is not a fact id
+  gives none."
+  [x]
+  (into #{}
+        (keep (fn [fact]
+                (try (let [[[_ _ u]] (:replaces fact)] (when (uuid? u) u))
+                     (catch Throwable _ nil))))
+        (try (seq (:facts x)) (catch Throwable _ nil))))
+
+(defn- under-the-least-yes
+  "Takes a maker's act, as she gave it, and the act in its one form
+  (`act-for-a-yes`). Gives the thing as the door would append it under the
+  least demanding yes there is: an act-id of the act's layer whose uuid no
+  fact of the act replaces, its depot as the act-id says, the time 0, and
+  as its permission a yes for one act of the act's who beneath the first
+  permission of `shortest-holder`, whose text is no longer than that of any
+  yes that a giver can give. So the declaration refuses this thing only
+  when it refuses the act under every yes, every act-id and every time:
+  what it holds against the permission, the bound on an act's bytes and
+  the limit of an id, is held here at its least. The act's own parts are
+  as the maker gave them."
+  [x one-form]
+  (let [{:keys [who layer]} one-form
+        taken (replaced-uuids x)
+        uuid (first (remove taken (map #(java.util.UUID. 0 (long %)) (range))))]
+    (assoc (apply dissoc x no-part-of-the-act-a-yes-names)
+           :act-id [layer :streaming uuid]
+           :depot :streaming
+           declaration/time-part 0
+           :permission [who layer layer [shortest-holder layer layer] :see-and-act [:act uuid a-digest]])))
+
+(defn hex-for-a-yes
+  "The digest that a yes for one act holds in its sixth slot, for a maker
+  who asks a yes for her act: what `hex-of-the-act` gives, for an act that
+  the declaration takes. Takes what `act-for-a-yes` takes, a maker's act or
+  a thing as it arrives. Gives nil where that gives nil, and for an act
+  that the declaration of the door refuses under every yes that could name
+  it (`softland.store.door.declaration/check`, of the act as
+  `under-the-least-yes` makes it): too many facts, a value or an act over
+  its bound, a place named twice, a key of the store's that is no store
+  key, an id over its limit, and every other rule of the form. A yes for
+  such an act could never be used: the gate refuses its act at the
+  declaration, under the yes as under any permission. It never throws.
+
+  The gate makes the same text of the thing that arrives under a yes
+  (`hex-of-the-act`), so the two never make two texts of one act. The act
+  goes under any act-id of its maker's: the act-id is no part of what the
+  yes names. What it cannot hold: a giver who makes the text by another
+  hand gives a yes that names an act which no gate takes, and the gate
+  cannot tell, since a yes names its act by the digest alone; and the bound
+  on an act's bytes and the limit of an id are held under the shortest
+  yes, so a long permission of the giver's can still bring an act of the
+  form over them. Cost: the declaration's check of the act, and the walk
+  of `hex-of-the-act`."
+  [x]
+  (when-let [one-form (act-for-a-yes x)]
+    (when (:ok (declaration/check (under-the-least-yes x one-form)))
+      (hex-of one-form))))
 
 (defn is-digest-of?
   "The comparison of a sender that still holds its thing, as the hand of the
