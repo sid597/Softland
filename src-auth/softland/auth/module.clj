@@ -17,10 +17,19 @@
   is acked with `{:could-not :read-the-event}` and changes nothing, so that
   it can never throw in a step and, under `:all-after`, hold its partition.
 
-  Cross-key agreement (`invite`, `enter`, `answer-ask`) executes the
-  model-checked single-task step functions in `softland.auth.schema` via
-  `loop<-` + `|hash` + `continue>` so every cross-task hop flushes and
-  replicates local PState mutations before the child event executes.
+  Cross-key agreement (`invite`, `enter`, `answer-ask`) runs the pure
+  single-task step functions of `softland.auth.schema` via `loop<-` +
+  `|hash` + `continue>`, so every cross-task hop flushes and replicates local
+  PState mutations before the child event executes.
+
+  What holds of those steps, and what does not. The protocol was
+  model-checked as another writing of it, not as these functions: carbon's
+  checker (`src/proposal/runtime-2026-11-21/overnight-audit/auth-concurrent`)
+  ran `spine/auth/agreement/src/auth_concurrent/plan_steps.clj`, under faults
+  and retries of every mode. `schema.clj` is a second writing of the same
+  steps, held to the contract's reference by `softland.auth.module-check`'s
+  generated histories through this module, on a healthy cluster: on this
+  module no hop has failed and no record has been replayed in any run.
 
   State and effects: durable Rama depots and PStates owned by `Auth`."
   (:use [com.rpl.rama]

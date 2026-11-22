@@ -14,9 +14,12 @@
   alone: a write under one root is matched against that root's watches, not
   against every watched root of its task.
 
-  The pure transition functions for `invite`, `enter`, and `answer-ask`
-  mirror the model-checked step specification in
-  `src/proposal/runtime-2026-11-21/spine/auth/agreement/` one-for-one.
+  The pure transition functions for `invite`, `enter`, and `answer-ask` are
+  written from the step specification that was model-checked in
+  `src/proposal/runtime-2026-11-21/spine/auth/agreement/`, step for step, but
+  they are not that code, and no model check has run them: what checks them
+  is `softland.auth.module-check`, through the module, against the
+  contract's reference (`softland.auth.module` says how far that reaches).
 
   State and effects: none. Pure records and functions only."
   (:import [java.util UUID]))
