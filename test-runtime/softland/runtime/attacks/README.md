@@ -144,14 +144,59 @@ check runs from the repository root with plain `clojure -M:runtime -m <ns>`.
   0 passed, 1 failed.
   ```
 
+## Post-landing run over what the builders landed (`f7163f93` and `d70161a9`)
+
+Re-ran all seven unchanged attack namespaces twice after the builders landed
+their fixes:
+
+1. From a detached worktree of `15a90b0f` (including `35aef211` and `f7163f93`)
+   behind `cluster.lock` with `BUILD.md` section 2's overrides: **7/7 passed**
+   (exit `0`).
+2. From a detached worktree of `d70161a9` (`Runtime: verify against real Auth
+   and proof cluster, add two-lines and worker-kill proofs`, with real
+   `src-auth` at `7a381f3a` and `src-store` at `d3290f37` on plain `:runtime`)
+   behind `cluster.lock`:
+   ```sh
+   for ns in \
+     softland.runtime.attacks.slow-readers \
+     softland.runtime.attacks.yes-page \
+     softland.runtime.attacks.closed-session \
+     softland.runtime.attacks.unwatched-standing \
+     softland.runtime.attacks.lost-replacement \
+     softland.runtime.attacks.sign-in-pace \
+     softland.runtime.attacks.watch-caps; do
+     flock "$LOCK" clojure -M:runtime -m "$ns"
+   done
+   ```
+   Output (exit `0` on all seven):
+   ```text
+   PASSED While several readers are slow, a copy still answers a page request, the line and a call to Auth.
+   1 passed, 0 failed.
+   PASSED The yes page tells the truth: a second answer that names another actor than the one that stands is not told "Done"; a person who says no after her own yes is told that the program is signed in as her.
+   1 passed, 0 failed.
+   PASSED A session that is closed is not kept in use by the copy that holds it, past its next check.
+   1 passed, 0 failed.
+   PASSED A standing that fails does not leave its connection unwatched.
+   1 passed, 0 failed.
+   PASSED A replacement whose answer is lost does not lock the command line out.
+   1 passed, 0 failed.
+   PASSED Sign-in is paced by address: a flood of posts to `/sign-in/*` from one address, with forged tokens too, reaches neither Google nor Auth past the pace.
+   1 passed, 0 failed.
+   PASSED Live watches are capped for each root and for visitors, in each copy.
+   1 passed, 0 failed.
+   ```
+
 ## What was run, what was only read, what is open, and my choices
 
-- **What was run:** All seven attack namespaces above, each in its own JVM from
-  a detached worktree of `d8ee975c` behind `cluster.lock` with `BUILD.md`
-  section 2's overrides; each printed `0 passed, 1 failed.` and exited `1` as
-  shown verbatim above. Also verified `127.0.0.2 -> 127.0.0.1` loopback remote
-  address binding on this host and `javap` bytecode of
-  `JettyWebSocketRemoteEndpoint` and `missionary.impl.Observe`.
+- **What was run:** All seven attack namespaces above, first in their own JVMs
+  from a detached worktree of `d8ee975c` behind `cluster.lock` with `BUILD.md`
+  section 2's overrides (each printed `0 passed, 1 failed.` and exited `1` as
+  shown verbatim above), then again after the builders landed (`f7163f93` with
+  overrides, and `d70161a9` on plain `:runtime` against real `src-auth` and
+  `src-store`, each printing `1 passed, 0 failed.` and exiting `0`). Also
+  verified `127.0.0.2 -> 127.0.0.1` loopback remote address binding on this
+  host and `javap` bytecode of `JettyWebSocketRemoteEndpoint` and
+  `missionary.impl.Observe`.
 - **What was only read:** `AGENTS.md`; `overnight-audit/REVIEW-runtime-spine.md`;
   `spine/BUILD.md`; `src-runtime/README.md` and `src-runtime/softland/runtime/*`;
   `src-command/softland/command/{main,client}.clj`;
