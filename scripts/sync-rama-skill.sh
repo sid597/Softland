@@ -7,18 +7,21 @@
 #
 # Layout
 #   .claude/skills/rama/   upstream plugins/rama-skill/skills/rama
-#                          + Softland overlay in SKILL.md                      (Claude Code lane)
+#                          + Softland overlay in SKILL.md & artifact-plan.md   (Claude Code lane)
 #   .agents/skills/rama/   same + Codex paragraph in SKILL.md
 #                          + agents/openai.yaml (Codex-only metadata, local)   (Codex lane)
 #   <lane>/UPSTREAM        the pin: repo / path / sha / date. Written by `update`, read by `check`.
 #
 # The overlay's text is kept in this script and update writes it into the
-# lanes, so it is edited here, never there. In both lanes' SKILL.md it inserts
-# the section "How Softland uses this skill" and rewrites one phrase of the
-# frontmatter description; the Codex lane also gets the Codex paragraph.
-# update and check build the lanes the same way, from upstream + overlay, so a
-# hand-edit in either lane shows as DRIFT. An anchor or a replaced phrase that
-# does not match exactly once stops the script before any lane is touched.
+# lanes, so it is edited here, never there. In both lanes it inserts the
+# section "How Softland uses this skill" and rewrites one phrase of the
+# frontmatter description in SKILL.md, and backports upstream 968b027's
+# third-person comment under "## Design difficulty log" in
+# references/artifact-plan.md until upstream merges it; the Codex lane also
+# gets the Codex paragraph. update and check build the lanes the same way,
+# from upstream + overlay, so a hand-edit in either lane shows as DRIFT. An
+# anchor or a replaced phrase that does not match exactly once stops the
+# script before any lane is touched.
 #
 # Upstream never bumps its plugin version string (1.0.0 across every skill
 # update so far), so the commit SHA in UPSTREAM is the only honest version.
@@ -46,10 +49,26 @@ EOF
 DESC_OLD='this skill first and following its phased build process.'
 DESC_NEW='this skill first. In Softland its phased process is not the default: see "How Softland uses this skill".'
 
+# Both lanes: in references/artifact-plan.md, replace the first-person prompt
+# under "## Design difficulty log" (which triggers Opus reasoning_extraction
+# stops) with upstream branch commit 968b027's wording until upstream merges it.
+read -r -d '' DIFF_LOG_OLD <<'EOF' || true
+## Design difficulty log
+<!-- An honest, first-person record of where this design was hard to settle. Write it as you design, not as a summary. For each decision that was genuinely contested:
+- The decision (which PState schema, partitioning, placement, or topology).
+- The competing approach(es) you weighed, and how close the call was — was an alternative genuinely competitive, or was the choice forced once you costed it against the requirements?
+- What finally settled it.
+If nothing was contested — every choice was forced once the requirements were read — say so plainly and briefly. Do not manufacture difficulty; do not hide it. -->
+EOF
+read -r -d '' DIFF_LOG_NEW <<'EOF' || true
+## Design difficulty log
+<!-- The decisions in this design that had a competitive alternative. For each: the decision (PState schema, partitioning, placement, or topology), the alternative(s) considered with their costs against the requirements, and the requirement or cost that settled it. If every choice was forced by the requirements, say so in one line. -->
+EOF
+
 # Codex lane only: this paragraph, inserted immediately before CODEX_ANCHOR.
 CODEX_ANCHOR='## Implementation Goals'
 read -r -d '' CODEX_PARAGRAPH <<'EOF' || true
-For Softland Rama work on existing modules, source adapters, common kernels, or product-path reviews, also use `$rama-retro-lens` before accepting a plan or final diff. The phased artifacts are not evidence by themselves; the retro lens checks whether product paths, ownership boundaries, retries/idempotency, terminal states, and runtime tests actually avoid prior failure patterns.
+For Softland Rama work on existing modules, source adapters, common kernels, or product-path reviews, also use `$rama-pitfalls` before accepting a plan or final diff. Prose artifacts are not evidence by themselves; falsify event boundaries, retries/idempotency, terminal states, ownership boundaries, and read-after-write visibility, and verify with runtime probes.
 EOF
 
 die() { echo "error: $*" >&2; exit 2; }
@@ -99,15 +118,38 @@ replace_in_description() {
   mv "$file.tmp" "$file"
 }
 
+# replace_once FILE LABEL OLD NEW: OLD (which may span lines) must occur
+# exactly once in FILE and becomes NEW. When upstream merges 968b027, the match
+# count drops to 0 and stops the script loudly so the local patch can be removed.
+replace_once() {
+  local file=$1 label=$2 old=$3 new=$4 n
+  n=$(OLD=$old awk '
+    { buf = (NR == 1 ? $0 : buf "\n" $0) }
+    END {
+      o = ENVIRON["OLD"]; c = 0
+      while ((i = index(buf, o)) > 0) { c++; buf = substr(buf, i + length(o)) }
+      print c
+    }' "$file")
+  [ "$n" = 1 ] || die "$label matched $n times in $file (need exactly 1) — upstream changed $file; if 968b027 merged, drop DIFF_LOG_OLD in $0"
+  OLD=$old NEW=$new awk '
+    { buf = (NR == 1 ? $0 : buf "\n" $0) }
+    END {
+      o = ENVIRON["OLD"]; i = index(buf, o)
+      printf "%s%s%s\n", substr(buf, 1, i - 1), ENVIRON["NEW"], substr(buf, i + length(o))
+    }' "$file" > "$file.tmp"
+  mv "$file.tmp" "$file"
+}
+
 # From upstream's tree in $WORK, build the two lanes as they must be:
 # $WORK/expected-claude and $WORK/expected-codex. update copies them into the
 # lanes and check diffs the lanes against them, so the two cannot disagree.
 build_expected() {
   cp -Rp "$WORK/$SKILL_PATH" "$WORK/expected-claude"
-  insert_before          "$WORK/expected-claude/SKILL.md" "$SECTION_ANCHOR" "$SECTION"
-  replace_in_description "$WORK/expected-claude/SKILL.md" "$DESC_OLD" "$DESC_NEW"
+  insert_before          "$WORK/expected-claude/SKILL.md"                    "$SECTION_ANCHOR"        "$SECTION"
+  replace_in_description "$WORK/expected-claude/SKILL.md"                    "$DESC_OLD"              "$DESC_NEW"
+  replace_once           "$WORK/expected-claude/references/artifact-plan.md" "Design difficulty log"  "$DIFF_LOG_OLD" "$DIFF_LOG_NEW"
   cp -Rp "$WORK/expected-claude" "$WORK/expected-codex"
-  insert_before          "$WORK/expected-codex/SKILL.md" "$CODEX_ANCHOR" "$CODEX_PARAGRAPH"
+  insert_before          "$WORK/expected-codex/SKILL.md"                     "$CODEX_ANCHOR"          "$CODEX_PARAGRAPH"
 }
 
 write_pin() {

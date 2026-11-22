@@ -50,7 +50,7 @@ The full Phase 0-4 process applies to **module implementations** — tasks that 
 
 For simpler tasks (e.g., implementing a single `deframafn`, fixing a bug, or explaining existing code), use judgment. Still load and consult references relevant to the task, but the full planning artifact may not be needed.
 
-For Softland Rama work on existing modules, source adapters, common kernels, or product-path reviews, also use `$rama-retro-lens` before accepting a plan or final diff. The phased artifacts are not evidence by themselves; the retro lens checks whether product paths, ownership boundaries, retries/idempotency, terminal states, and runtime tests actually avoid prior failure patterns.
+For Softland Rama work on existing modules, source adapters, common kernels, or product-path reviews, also use `$rama-pitfalls` before accepting a plan or final diff. Prose artifacts are not evidence by themselves; falsify event boundaries, retries/idempotency, terminal states, ownership boundaries, and read-after-write visibility, and verify with runtime probes.
 
 ## Implementation Goals
 
