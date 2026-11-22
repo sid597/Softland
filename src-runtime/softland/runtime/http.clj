@@ -670,15 +670,22 @@
         (cond
           (and (= :get method) (= "/" uri)) (home options request)
           (and (= :get method) (= "/health" uri)) (edn 200 {:ready true})
-          (and (= :post method) (= "/sign-in/google" uri) (:google options) (not stand-in)) (from-google! options request)
-          (and (= :post method) (= "/sign-in/stand-in" uri) stand-in) (from-stand-in! options request)
+          (and (= :post method) (str/starts-with? uri "/sign-in/"))
+          (if-let [paced (seam/ration-sign-in! (:the-seam options) (:remote-addr request))]
+            (if (or (= "/sign-in/program" uri) (= "/sign-in/program/poll" uri))
+              (answered paced)
+              (page 429 "<p>Too many sign-in requests from this address. Wait a moment and try again.</p>"))
+            (cond
+              (and (= "/sign-in/google" uri) (:google options) (not stand-in)) (from-google! options request)
+              (and (= "/sign-in/stand-in" uri) stand-in) (from-stand-in! options request)
+              (= "/sign-in/name" uri) (name! options request)
+              (= "/sign-in/program" uri) (program-asks! options request)
+              (= "/sign-in/program/poll" uri) (program-waits! options request)
+              :else {:status 404 :headers {"Content-Type" "text/plain; charset=utf-8"} :body "Not found\n"}))
           (and (= :get method) (= "/sign-in/name" uri)) (name-page options request)
-          (and (= :post method) (= "/sign-in/name" uri)) (name! options request)
           (and (= :get method) (= "/yes" uri)) (yes-page options request)
           (and (= :post method) (= "/yes" uri)) (yes! options request)
           (and (= :post method) (= "/sign-out" uri)) (sign-out! options request)
-          (and (= :post method) (= "/sign-in/program" uri)) (program-asks! options request)
-          (and (= :post method) (= "/sign-in/program/poll" uri)) (program-waits! options request)
           :else {:status 404 :headers {"Content-Type" "text/plain; charset=utf-8"} :body "Not found\n"})
         (catch Throwable t
           {:status 500

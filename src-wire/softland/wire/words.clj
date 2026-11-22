@@ -432,6 +432,9 @@
    :take-that
    {:says "Auth refused the thing; `:why` is Auth's word"
     :status 409}
+   :take-more
+   {:says "this copy's ration was reached: too many sign-in posts from this address or too many live watches; `:why` is `:sign-in-paced` or `:too-many-watches`"
+    :status 429}
    :reach-auth
    {:says "a call of Auth threw, or Auth's watch was lost; a read that failed has not said that there is no sign-in"
     :status 503}

@@ -296,3 +296,57 @@ After implementation:
   softland.runtime.proof:              49 passed, 0 failed. (exit 0)
   softland.runtime.command-proof:      16 passed, 0 failed. (exit 0)
 ```
+
+### Step 5: First layer of `ration` in copy memory + carbon's seven attacks
+
+Carbon's attack suite committed as `402efee6` (`Runtime: the attacks as checks that fail today`, under `test-runtime/softland/runtime/attacks/`, never edited). Ran all seven attacks against `402efee6` (including re-running the heavier `slow-readers` in `402efee6`):
+- `yes-page`, `closed-session`, and `lost-replacement` already passed from Step 3.
+- `unwatched-standing` caught one more edge case in `standing.clj`: when `auth/watch-root` throws inside `(delay ...)`, `(force (:opening entry))` threw past eviction, leaving a poisoned `entry` in `roots` that failed subsequent connections for the same root. Fixed `standing.clj` to evict the entry (`pushed! standing root entry not-reached`) on throw before rethrowing.
+- `sign-in-pace` and `watch-caps` failed before Step 5 as expected, naming the four guard keys in `softland.runtime.attacks.numbers`.
+
+Implemented the first layer of `ration` in each copy's memory (the first two parts of Option C; per-person counts in Auth and blocks are not built now):
+- `src-wire/softland/wire/words.clj`: added `:take-more` to `words/could-nots` (HTTP status `429`, `:why` `:sign-in-paced` or `:too-many-watches`).
+- `src-runtime/softland/runtime/seam.clj`:
+  - Added carbon's four keys and defaults in `default-numbers` (all in one place, marked for Sid to turn):
+    - `:sign-in-window-ms 10000`
+    - `:max-sign-in-posts-per-address 30`
+    - `:max-watches-per-root 256`
+    - `:max-visitor-watches 64`
+  - Added per-copy `ration-state` (`{:sign-in (atom {}) :watches (atom {})}`) on `Seam` (isolated per copy in memory).
+  - Implemented `ration-sign-in!` (bounded sliding-window per remote address using `System/nanoTime`, capping tracked addresses at `10000` to prevent memory growth under distributed floods).
+  - Implemented atomic `acquire-watch!` / `release-watch!` in `seam/watch` (keyed by root UUID for signed-in callers — sharing one cap across a person and all her agents across all connections on that copy — and `:visitor` for unauthenticated callers), releasing the slot exactly once on `:leave`, connection close, read-path `:ended`, or open failure.
+- `src-runtime/softland/runtime/http.clj`: paced all `POST /sign-in/*` requests via `seam/ration-sign-in!` before any call to Google (`google/fetch-keys`) or Auth, returning HTTP `429` (EDN for `/sign-in/program*`, HTML page for browser sign-in routes).
+- `src-runtime/softland/runtime/main.clj`: wired CLI flags `--sign-in-window-ms`, `--max-sign-in-posts-per-address`, `--max-watches-per-root`, and `--max-visitor-watches`.
+
+**What was run:**
+```text
+clojure -Sdeps "$SDEPS_WIRE" -M:wire -m softland.wire.pure-proof
+clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.pure-proof
+for ns in \
+  softland.runtime.attacks.slow-readers \
+  softland.runtime.attacks.yes-page \
+  softland.runtime.attacks.closed-session \
+  softland.runtime.attacks.unwatched-standing \
+  softland.runtime.attacks.lost-replacement \
+  softland.runtime.attacks.sign-in-pace \
+  softland.runtime.attacks.watch-caps \
+  softland.runtime.proof \
+  softland.runtime.command-proof; do
+  flock "$LOCK" clojure -Sdeps "$SDEPS" "$STORE_PROP" -M:runtime -m "$ns"
+done
+```
+
+**Output:**
+```text
+softland.wire.pure-proof:                     38 passed, 0 failed. (exit 0)
+softland.runtime.pure-proof:                  22 passed, 0 failed. (exit 0)
+softland.runtime.attacks.slow-readers:         1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.yes-page:             1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.closed-session:       1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.unwatched-standing:   1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.lost-replacement:     1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.sign-in-pace:         1 passed, 0 failed. (exit 0)
+softland.runtime.attacks.watch-caps:           1 passed, 0 failed. (exit 0)
+softland.runtime.proof:                       49 passed, 0 failed. (exit 0)
+softland.runtime.command-proof:               16 passed, 0 failed. (exit 0)
+```

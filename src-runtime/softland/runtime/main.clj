@@ -77,7 +77,9 @@
         ("--stand-in-google" "--thrown-away")
         (recur more (assoc got (keyword (subs flag 2)) true))
         ("--port" "--host" "--origin" "--conductor" "--conductor-port" "--google-client-id"
-         "--first-person-email" "--person" "--secret-ms" "--previous-ms" "--session-ms")
+         "--first-person-email" "--person" "--secret-ms" "--previous-ms" "--session-ms"
+         "--sign-in-window-ms" "--max-sign-in-posts-per-address"
+         "--max-watches-per-root" "--max-visitor-watches")
         (recur (rest more) (assoc got (keyword (subs flag 2)) (first more)))
         (recur more got))
       got)))
@@ -158,9 +160,15 @@
   [& args]
   (let [[command & more] args
         {:keys [port host origin conductor conductor-port google-client-id stand-in-google thrown-away
-                first-person-email person secret-ms previous-ms session-ms]} (arguments more)
+                first-person-email person secret-ms previous-ms session-ms
+                sign-in-window-ms max-sign-in-posts-per-address
+                max-watches-per-root max-visitor-watches]} (arguments more)
         numbers (into {} (keep (fn [[k v]] (when-let [n (some-> v parse-long)] [k n])))
-                      {:secret-ms secret-ms :previous-ms previous-ms :session-ms session-ms})
+                      {:secret-ms secret-ms :previous-ms previous-ms :session-ms session-ms
+                       :sign-in-window-ms sign-in-window-ms
+                       :max-sign-in-posts-per-address max-sign-in-posts-per-address
+                       :max-watches-per-root max-watches-per-root
+                       :max-visitor-watches max-visitor-watches})
         port (or (some-> port parse-long) 8500)
         origin (or origin (str "http://localhost:" port))
         client-id (or google-client-id (System/getenv "SOFTLAND_GOOGLE_CLIENT_ID"))]

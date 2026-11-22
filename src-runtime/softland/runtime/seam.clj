@@ -137,7 +137,8 @@
 
 (def default-numbers
   "The seam's numbers, each with its default. Each is the builder's, kept
-  and not decided, and an opener can give another at `open`.
+  and not decided (marked for Sid to turn), and an opener can give another
+  at `open`.
 
     :secret-ms    how long a secret stands from its making or its
                   replacing: 7 days. A system that is in use replaces its
@@ -148,10 +149,28 @@
     :session-ms   how long a session stands from its opening, and from each
                   time that the runtime moves its time on: one day. A
                   session that is in use is moved on when less than half of
-                  that is left; one that nobody uses for a day is over"
+                  that is left; one that nobody uses for a day is over
+    :sign-in-window-ms
+                  the sliding window, in milliseconds, over which posts to
+                  `/sign-in/*` from one remote address are counted: 10 seconds
+    :max-sign-in-posts-per-address
+                  the most posts to `/sign-in/*` from one remote address in
+                  `:sign-in-window-ms` before further posts are refused with
+                  429 before reaching Google or Auth: 30
+    :max-watches-per-root
+                  the most live watches one root (a person and every agent
+                  beneath her, across all connections) may hold open at once
+                  in one copy of the runtime: 256
+    :max-visitor-watches
+                  the most live watches all visitors together may hold open
+                  at once in one copy of the runtime: 64"
   {:secret-ms (* 7 24 60 60 1000)
    :previous-ms 60000
-   :session-ms (* 24 60 60 1000)})
+   :session-ms (* 24 60 60 1000)
+   :sign-in-window-ms 10000
+   :max-sign-in-posts-per-address 30
+   :max-watches-per-root 256
+   :max-visitor-watches 64})
 
 ;; ------------------------------------------------------------------ the caller
 
@@ -223,7 +242,7 @@
 
 ;; ------------------------------------------------------------------- the seam
 
-(deftype Seam [door read-path client standing numbers executor timer]
+(deftype Seam [door read-path client standing numbers ration-state executor timer]
   Object
   (toString [_] "#<seam>"))
 
@@ -233,10 +252,11 @@
 (alter-meta! #'->Seam assoc
              :private true
              :doc "Makes an opened seam. `open` is the one caller. It holds the door, the
-  read path, Auth's client and the standing, borrowed; its numbers; an
-  executor of virtual threads, on which every call of the store and of Auth
-  and every handing on of a flow runs; and one timer thread, for a secret
-  whose time passes.")
+  read path, Auth's client and the standing, borrowed; its numbers; its
+  in-memory copy-local ration state (`:sign-in` per-address timestamps and
+  `:watches` live counts by root and for visitors); an executor of virtual
+  threads, on which every call of the store and of Auth and every handing on
+  of a flow runs; and one timer thread, for a secret whose time passes.")
 
 (defn open
   "Opens the seam. Takes a map: `:door`, an opened door
@@ -250,6 +270,7 @@
   [{:keys [door read-path auth standing numbers]}]
   (->Seam door read-path auth standing
           (merge default-numbers (select-keys numbers (keys default-numbers)))
+          {:sign-in (atom {}) :watches (atom {})}
           (Executors/newVirtualThreadPerTaskExecutor)
           (Executors/newSingleThreadScheduledExecutor
            (reify ThreadFactory
@@ -501,11 +522,94 @@
     (contains? query :asker) (words/could-not :send-as-another {:at :asker})
     (some? (get query :session)) (words/could-not :send-as-another {:at :session})))
 
+(def ^:private max-paced-addresses
+  "Upper bound on remote addresses tracked concurrently in one copy's
+  sign-in pacer so a distributed flood cannot grow memory without bound."
+  10000)
+
+(defn ration-sign-in!
+  "First-layer ration in this copy's memory: paces posts to `/sign-in/*` by
+  remote address over a sliding window (`:sign-in-window-ms`,
+  `:max-sign-in-posts-per-address`) before any call to Google or Auth. Gives
+  nil when allowed, or the word `:take-more` (`:why :sign-in-paced`)."
+  [^Seam seam address]
+  (let [numbers (.-numbers seam)
+        limit (long (:max-sign-in-posts-per-address numbers))
+        window-ns (* 1000000 (long (:sign-in-window-ms numbers)))
+        addr (let [s (str address)] (if (seq s) s "unknown"))
+        now (System/nanoTime)
+        cutoff (unchecked-subtract now window-ns)
+        recent? (fn [ts] (pos? (unchecked-subtract (long ts) cutoff)))
+        allowed? (volatile! false)
+        sign-in-atom (:sign-in (.-ration-state seam))]
+    (swap! sign-in-atom
+           (fn [m]
+             (let [m (if (>= (count m) max-paced-addresses)
+                       (let [pruned (into {}
+                                          (keep (fn [[k v]]
+                                                  (let [kept (filterv recent? v)]
+                                                    (when (seq kept) [k kept]))))
+                                          m)]
+                         (if (and (>= (count pruned) max-paced-addresses) (not (contains? pruned addr)))
+                           (let [oldest (key (apply min-key (fn [[_ v]] (peek v)) pruned))]
+                             (dissoc pruned oldest))
+                           pruned))
+                       m)
+                   kept (filterv recent? (get m addr []))]
+               (if (< (count kept) limit)
+                 (do (vreset! allowed? true)
+                     (assoc m addr (conj kept now)))
+                 (do (vreset! allowed? false)
+                     (if (seq kept)
+                       (assoc m addr kept)
+                       (dissoc m addr)))))))
+    (when-not @allowed?
+      (words/could-not :take-more {:why :sign-in-paced :most limit}))))
+
+(defn- watch-bucket
+  "The ration key and cap for live watches opened by `caller` in this copy."
+  [^Seam seam ^Caller caller]
+  (let [numbers (.-numbers seam)]
+    (if-let [root (.-root caller)]
+      [root (long (:max-watches-per-root numbers))]
+      [:visitor (long (:max-visitor-watches numbers))])))
+
+(defn- acquire-watch!
+  "Atomically reserves one live-watch slot for `caller` in this copy's
+  memory. Gives nil when reserved, or `:take-more` (`:why :too-many-watches`)
+  when the cap for that root (or for visitors) is reached."
+  [^Seam seam ^Caller caller]
+  (let [[k cap] (watch-bucket seam caller)
+        watches-atom (:watches (.-ration-state seam))
+        acquired? (volatile! false)]
+    (swap! watches-atom
+           (fn [m]
+             (let [n (long (get m k 0))]
+               (if (< n cap)
+                 (do (vreset! acquired? true)
+                     (assoc m k (inc n)))
+                 (do (vreset! acquired? false)
+                     m)))))
+    (when-not @acquired?
+      (words/could-not :take-more {:why :too-many-watches :most cap}))))
+
+(defn- release-watch!
+  "Releases one live-watch slot previously reserved for `caller`."
+  [^Seam seam ^Caller caller]
+  (let [[k _] (watch-bucket seam caller)
+        watches-atom (:watches (.-ration-state seam))]
+    (swap! watches-atom
+           (fn [m]
+             (let [n (dec (long (get m k 0)))]
+               (if (pos? n) (assoc m k n) (dissoc m k))))))
+  nil)
+
 (defn- ration
-  "The one place where a sender is paced and a block is held. Takes the
-  seam, the caller, who holds what the face said of the request, and what
-  she is about to do. Gives nil: nothing is built. What is due here is in
-  the namespace docstring."
+  "The one place where per-person act/read pacing and account blocks will
+  sit once counts by person live in Auth. Copy-local `/sign-in/*` address
+  pacing (`ration-sign-in!`) and copy-local live-watch caps
+  (`acquire-watch!` / `release-watch!`) are active now; per-person counts
+  and blocks in Auth are not built yet."
   [_seam _caller _doing]
   nil)
 
@@ -956,30 +1060,48 @@
           (let [^ReentrantLock lock (ReentrantLock.)
                 state (atom {:left? false :handle nil :ended? false})
                 rp (.-read-path seam)
+                released? (atom true)
+                release-once! (fn []
+                                (when (compare-and-set! released? false true)
+                                  (release-watch! seam caller)))
                 tell! (fn [message]
                         ;; One call of `!` at a time, and none after an end.
                         (.lock lock)
                         (try
                           (when-not (:ended? @state)
                             (when (contains? message :ended)
-                              (swap! state assoc :ended? true))
+                              (swap! state assoc :ended? true)
+                              (release-once!))
                             (! message))
                           (finally (.unlock lock))))
                 leave! (fn []
                          (let [{:keys [handle]} (swap! state assoc :left? true)]
+                           (release-once!)
                            (when handle (read-path/leave rp handle))))
-                fault (or (query-fault caller query) (ration seam caller :read))]
+                fault (or (query-fault caller query)
+                          (ration seam caller :watch)
+                          (let [capped (acquire-watch! seam caller)]
+                            (when-not capped (reset! released? false))
+                            capped))]
             (if fault
               (tell! {:ended fault})
-              (.execute ^ExecutorService (.-executor seam)
-                        (fn []
-                          (let [got (read-path/read-live rp query tell!)]
-                            (if (:could-not got)
-                              (do (tell! {:ended got}) (leave!))
-                              (let [handle (:leave-with got)]
-                                ;; The flow can be left while the read opens.
-                                (when (:left? (swap! state assoc :handle handle))
-                                  (read-path/leave rp handle))))))))
+              (try
+                (.execute ^ExecutorService (.-executor seam)
+                          (fn []
+                            (try
+                              (let [got (read-path/read-live rp query tell!)]
+                                (if (:could-not got)
+                                  (do (tell! {:ended got}) (leave!))
+                                  (let [handle (:leave-with got)]
+                                    ;; The flow can be left while the read opens.
+                                    (when (:left? (swap! state assoc :handle handle))
+                                      (read-path/leave rp handle)))))
+                              (catch Throwable t
+                                (tell! {:ended (words/could-not :do-the-word {:threw (.getName (class t))})})
+                                (leave!)))))
+                (catch Throwable t
+                  (tell! {:ended (words/could-not :do-the-word {:threw (.getName (class t))})})
+                  (leave!))))
             leave!))]
     (m/eduction
      (watching/through (fn [message] (contains? message :ended)))

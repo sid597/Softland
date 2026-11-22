@@ -145,7 +145,10 @@
                     entry
                     (do (swap! (:listeners entry) dissoc id)
                         (recur)))))]
-    (let [stop (force (:opening entry))]
+    (let [stop (try (force (:opening entry))
+                    (catch Throwable t
+                      (pushed! standing root entry not-reached)
+                      (throw t)))]
       (when-not (fn? stop)
         (pushed! standing root entry not-reached)))
     (fn []
