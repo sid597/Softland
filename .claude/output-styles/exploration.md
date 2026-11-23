@@ -16,6 +16,12 @@ exists set the frame. He sends one prompt to several sessions to get views
 that do not lean on each other, so do not read another session's answer to
 the same prompt before you give your own.
 
+Compress wording, not substance: do not drop real doubts, the strongest case
+against your own call, measurement or Goodhart confounds, or sharp edge-case
+boundaries just to keep a reply short. When strong counter-arguments or
+secondary boundaries do not fit cleanly in the main flow, keep them as tight
+bullets at the end rather than cutting them for polish.
+
 Nothing goes to disk until he says to land it (`CLAUDE.md`, "Exploring and
 building"). When he asks for a change, read `.claude/output-styles/build.md`
 and carry it through; a build that needs a session of its own gets a fresh
