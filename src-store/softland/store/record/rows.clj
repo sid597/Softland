@@ -149,14 +149,18 @@
 
 (defn- first-form
   "nil is also what the text `nil` reads as; a caller that must tell the two
-  apart compares the text."
+  apart compares the text.
+
+  It never throws."
   [s]
   (try (edn/read-string s)
        (catch Throwable _ nil)))
 
 (defn value-of
   "It tests nothing of the form that it gives: a reader of a tool's fact
-  calls `read-value`."
+  calls `read-value`.
+
+  It never throws."
   [row]
   (when-let [plain (plain-bytes-of row)]
     (first-form (String. ^bytes plain StandardCharsets/UTF_8))))
@@ -172,7 +176,9 @@
   that came to the table by another hand.
 
   The text `nil` reads as the value nil; no gate writes that text, since a
-  fact with no value is a retract and its row holds no value."
+  fact with no value is a retract and its row holds no value.
+
+  It never throws."
   [row]
   (cond
     (nil? row) [:no-fact]
@@ -190,7 +196,9 @@
 (defn who-of
   "The id is what the program that sent the act said: a gate checked no
   sender (src-store/softland/store/README.md, \"What the gate does not
-  check, said plainly\")."
+  check, said plainly\").
+
+  It never throws."
   [row]
   (when-let [held (:who row)]
     (let [id (first-form held)]
@@ -198,7 +206,9 @@
 
 (defn permission-of
   "The permission that the act which wrote the row named. It stood when the
-  act was decided. What it allows is `softland.store.act/allows` of it."
+  act was decided. What it allows is `softland.store.act/allows` of it.
+
+  It never throws."
   [row]
   (when-let [held (:permission row)]
     (let [permission (first-form held)]
@@ -208,7 +218,9 @@
   "The permission that the row at a permission's place holds as its value.
   nil also for a row with no value, which is an end of a permission or the
   use of a yes. `permission-of` is another thing: the permission that the
-  writing act named, which for a give is the giver's."
+  writing act named, which for a give is the giver's.
+
+  It never throws."
   [row]
   (let [[kind v] (read-value row)]
     (when (and (= :value kind) (act/has-shape? :permission-id v))
@@ -224,7 +236,9 @@
 
 (defn marked-keys-of
   "For the row at a lane's marked-keys place. A read of \"what points at a
-  thing\" reads it first: the stamp is a part of each key of that order."
+  thing\" reads it first: the stamp is a part of each key of that order.
+
+  It never throws."
   [row]
   (let [held (when-let [text (:level-since row)] (first-form text))]
     (if (and (map? held)
@@ -296,6 +310,7 @@
    :time (long time-millis) :who who-text :permission permission-text})
 
 (defn id-of-text
+  "It never throws."
   [id-text]
   (try
     (if (and (string? id-text) (.startsWith ^String id-text ":"))
@@ -306,6 +321,7 @@
     (catch Throwable _ nil)))
 
 (defn place-of-key
+  "It never throws."
   [place-key-text]
   (try
     (let [parts (mapv id-of-text (parts-of-key place-key-text))]
@@ -314,6 +330,7 @@
     (catch Throwable _ nil)))
 
 (defn by-value-entity
+  "It never throws."
   [k]
   (try
     (let [parts (parts-of-key k)]
@@ -321,6 +338,7 @@
     (catch Throwable _ nil)))
 
 (defn answer-key-parts
+  "It never throws."
   [answer-key-text]
   (try
     (let [parts (parts-of-key answer-key-text)]
@@ -370,6 +388,7 @@
     [(str run " " (stamp-text stamp)) (str run "!")]))
 
 (defn- stamp-at-the-end
+  "It never throws."
   [k]
   (try
     (let [^String k k
@@ -381,11 +400,14 @@
     (catch Throwable _ nil)))
 
 (defn stamp-of-line-key
-  "Also for a key of the things."
+  "Also for a key of the things.
+
+  It never throws."
   [k]
   (stamp-at-the-end k))
 
 (defn stamp-of-by-who-key
+  "It never throws."
   [k]
   (stamp-at-the-end k))
 
@@ -394,8 +416,10 @@
   no field of the line is a byte array
   (`softland.store.record.tables/line`). `:weight` only when the gate
   keeps the thing; `:not-kept`, `:too-heavy` or `:not-weighed`, only when it
-  does not. The other fields are those of the answer's row under the
-  act-id, made of the same values in the same decision.
+  does not. `:refused` and `:time` are those of the answer's row under the
+  act-id, made of the same values in the same decision. `:who` is the
+  printed text of the who that the thing names; absent when it names no
+  usable one.
 
   What must hold: the who is nil or a usable id
   (`softland.store.door.declaration/usable-id?`)."
@@ -493,7 +517,9 @@
   "Each field of a row of the facts or of the facts by value is a Long, a
   UUID or a String, and none a byte array, so the equality of the two maps
   says it. A reader asks it of the row before and the row after a change: a
-  row that a second attempt of a batch wrote again is the same row."
+  row that a second attempt of a batch wrote again is the same row.
+
+  It never throws."
   [row-a row-b]
   (try
     (= row-a row-b)
@@ -504,7 +530,9 @@
   asks it of a nearer lane's row at a place that a farther lane's order
   gives: the place is given from the nearer row exactly when a mark would
   have put that row in the nearer lane's own order for the value. What must
-  hold: the value passes `softland.store.act/value?`."
+  hold: the value passes `softland.store.act/value?`.
+
+  It never throws."
   [row v]
   (try
     (boolean (and row
@@ -516,7 +544,9 @@
 
 (defn answer-read
   "The test at the head of the read by act-id: nil when no read is to be
-  made."
+  made.
+
+  It never throws."
   [lane act-id]
   (when (and (declaration/usable-id? lane)
              (declaration/act-id-in-lane? lane act-id))
@@ -524,7 +554,9 @@
 
 (defn depot-read
   "The test at the head of the read of a lane's depot: nil when the thing is
-  no id within the limit."
+  no id within the limit.
+
+  It never throws."
   [lane]
   (when (declaration/usable-id? lane)
     (place-key lane lane :softland.store/depot)))
@@ -532,7 +564,9 @@
 (defn routing-id
   "The first argument of the read by act-id: the act-id's lane, for either
   depot. Rama's client hashes it, so the read goes straight to the lane's
-  task, where the answer is in either gate's record."
+  task, where the answer is in either gate's record.
+
+  It never throws."
   [act-id]
   (when (and (vector? act-id)
              (declaration/act-id-in-lane? (nth act-id 0 nil) act-id))
@@ -540,7 +574,9 @@
 
 (defn answer-read-by-routing-id
   "The test at the head of the query by act-id: nil also when the routing id
-  is not the act-id's lane."
+  is not the act-id's lane.
+
+  It never throws."
   [given act-id]
   (let [own (routing-id act-id)]
     (when (and (some? own) (= own given))

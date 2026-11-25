@@ -9,8 +9,8 @@
   (`softland.runtime.line`), and the pages by which a person signs in
   (`softland.runtime.http`). A face proves nothing: it hands the seam a
   credential and gets a caller. A caller is an object that only this
-  namespace makes, and it is no data: a who that crosses the wire back
-  cannot become a caller.
+  namespace makes. It prints as the word and nothing else, and it is no
+  data: a who that crosses the wire back cannot become a caller.
 
   The seam's contract is data: a word goes in as the wire has it
   (`softland.wire.words`) and plain data comes out. So where a face runs is

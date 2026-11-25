@@ -5,7 +5,7 @@
   A permission id holds the permission above it, whole, up to a first
   permission, which has nothing above it (`softland.store.act`). So the
   chain is read from the id alone. Each function takes a permission id in
-  its one form.
+  its one form, and none throws on one.
 
   A permission stands when the row at its place holds it, and it is a first
   permission or the one above it stands and has a row with a lesser stamp.

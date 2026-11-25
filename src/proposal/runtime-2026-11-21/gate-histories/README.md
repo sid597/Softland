@@ -360,9 +360,12 @@ text. The file is made outside the repository and is not in it. It was not
 run again on 22 November; it loads against this walk.
 
 ```
-python3 make_record_edn.py /mnt/data/projects/softland-memory/base /somewhere/outside/record.edn
 clojure -M:record /somewhere/outside/record.edn
 ```
+
+The file holds one EDN map a line for each thing said, in the order said. The
+script that wrote it from the record, `make_record_edn.py`, was removed on 25
+November 2026 and is in git's history.
 
 - **The gate took every one:** 38,545 acts, 193,582 rows of facts, the stamps
   0 to 38,546 with no gap, in 21 seconds on one thread. That is the

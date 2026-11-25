@@ -385,6 +385,7 @@
 ;; ---------------------------------------------------------------- lifecycle
 
 (defn open
+  "Never throws."
   [cluster module-name]
   (if (or (nil? cluster) (not (string? module-name)))
     {:could-not :find-the-module :module module-name}

@@ -1,148 +1,137 @@
-# After the cut: what is open
+# After the cut and its review: what is open
 
-Written 25 November 2026 by the session that carried `STARTER.md` through, for
-Sid and for the session that comes next. It assumes nothing of that session's
-conversation. Paths are from the repository root; W is this folder.
+Written 25 November 2026 by two cloud sessions, the one that carried
+`STARTER.md` through and the one that reviewed its cut, for Sid and for the
+session that comes next. It assumes nothing of their conversations. Paths are
+from the repository root; W is this folder.
 
 ## Where things stand
 
-`STARTER.md` is done and pushed on `claude/funny-bell-qxf3pu`, seven commits
-on top of 4369cfd. Not merged to `main`: that is Sid's.
+- **The cut.** The docstrings and comments of 46 source files (store, runtime,
+  wire, Auth, command line) went from 9,575 prose lines to 5,029. No code
+  changed. `src-store/CLAUDE.md` is the draft that was in this folder.
+- **The review.** A fresh session read every changed form against 4369cfd,
+  by tree: six readers, one for each list of `W/fork-lists.txt`, and nets
+  over dates, citations, numbers, quoted lines and the sentences that say
+  whose call a thing is. No Rama fact, no finding of a run, no number and no
+  quoted line of Sid's was gone. What it found is mended:
+  - that a function does not throw, put back at each of the 32 places that
+    said so. The gates call the row readers in a topology, where a throw stops
+    the partition, and no check holds it for them;
+  - six sentences that were the one home of something, and five that the
+    shortening had made wrong (the commit names each);
+  - sentences of pages that sent a reader to a docstring for what the cut
+    moved, and the attribution of 13 October on the store's page, from entry 7
+    of that day's Decisions.
+- **Whose call a thing is: out of the code.** The cut had moved every
+  sentence that said whose call a thing is ("not decided", "a session's",
+  "Sid's decision of …") into a `whose-call.edn` beside each tree, 122
+  entries. The review first moved them onto their vars as metadata. Sid then
+  took them out, 25 November 2026: "remove those i don't like them idk why
+  they are there its just more things to trip over lets remove". No file and
+  no var holds them now. Before they went, each sentence of each entry was
+  held against the prose of its file: what was left over said who chose a
+  thing or that nobody had, and no why, trap or limit stood in an entry
+  alone. The five files are in `W/as-files/`.
+- **The code is the same.** The cut's checker, which compares a file with
+  itself at a commit once docstrings and comments are taken out, said "same
+  code" against 4369cfd for each of the 46 files. Every proof ran once on this tree:
+  `W/proofs-after-the-review.txt`.
 
-- The docstrings and comments of 46 source files (store, runtime, wire, Auth,
-  command line) are cut from 9,575 prose lines to 5,029. No code changed:
-  `python3 -I W/same_code.py 4369cfd <file>` prints "same code" for each.
-- A sentence that said whose call a thing is ("not decided", "a session's",
-  "Sid's decision of …") left its docstring and became an entry in a
-  `whose-call.edn` beside each tree's code. 122 entries: 52 `:not-decided`,
-  31 `:a-sessions`, 39 `:decided`. The forks' own files are in `W/calls/`;
-  `W/assemble_calls.py` makes the five files from them.
-- `src-store/CLAUDE.md` is the draft that was in this folder.
-- Every proof ran once after the cut with rc 0 and no `FAILED`
-  (`W/proofs-after-the-cut.txt`).
-- Two repairs beyond the starter: `same_code.py` now takes a namespace
-  docstring with no requires after it; and five quoted lines that the rename
-  had changed from "layer" to "lane" are back as typed.
+## What Sid answered, 25 November 2026, in a session's chat
 
-## What Sid answered, 25 November 2026, in the session's chat
-
-These are in a session's words; his typed lines are in the record.
+Except where his line is quoted, these are in a session's words; his typed
+lines are in the record.
 
 - **The cache line lives with the code.** A warning that matters when the
   code is changed stands next to that code; nobody reads the data file and
-  the code together. Done: his line "i also don't consider it a cache" is
-  back in the namespace docstring of `src-store/softland/store/read_path.clj`,
-  and its entry is out of `whose-call.edn`, so it is written once.
+  the code together. Done: "i also don't consider it a cache" is in the
+  namespace docstring of `src-store/softland/store/read_path.clj`.
 - **The pages are cut by the same rule as the code.** A thing is written down
   only if it is written nowhere else and is not plain to derive or to find.
-  Copies in many places bloat the tree, and an agent then cannot tell which
-  one is the truth. Not done yet: it is item 6 of the list below, after the
-  review.
+  Not done: item 3 below.
+- **Whose call a thing is does not stand in the code**, as data or as prose.
+  His line is above. The starter gives "Whose call a thing is becomes data"
+  as his decision of that morning, in a session's words that were never
+  checked against the record.
 
-## One question that his answer on the cache opens
+## Where those statements live without the calls
 
-The cut moved every sentence that says whose call a thing is out of the
-docstrings and into `whose-call.edn`, a file beside the tree. The starter
-gives that as his decision ("Whose call a thing is becomes data"), in a
-session's words that were not checked against the record.
-
-His reason for the cache line reaches these entries too. "Sid decided this"
-on a var tells a session that changing it is his word to give; "not decided"
-tells it that the value is a placeholder. Both matter at the moment the code
-is changed, and both now sit in a file that the session changing the code
-has no reason to open. The sections "Engineering choices" and "Words a
-session made" of the store's and the door's pages, and the tables that hold
-the code against each of his decisions, are the same kind of statement, so
-how the pages are cut hangs on this too.
-
-**A.** At the code, as data on the var: the entry becomes metadata of its
-`def` or `ns`. One home, next to the code, and one command still lists every
-open call. The separate files go.
-**B.** At the code, as a short note in the docstring, as before the cut. No
-data, and no list but a search.
-**C.** As it is: a file beside the tree.
-
-Position: A. It keeps what he asked for (data, so that the open calls can be
-listed) and puts it where his localization reason says a warning belongs.
-Its cost: metadata is code to the checker, so `same_code.py` has to pass that
-one key, and the 122 entries move once more.
-
-## One choice this session made, his to turn
-
-The six forks split on a number whose docstring said "A number of the build,
-kept and not decided": some wrote `:a-sessions` (the builder chose the
-number), some `:not-decided`. This session made them one way: a sentence that
-says "not decided" is `:not-decided`; one that says only "a number of the
-build" or "the builder's" is `:a-sessions`. Fifteen entries changed state. If
-every number of the build should read the same, say which.
+- What Sid decided: the "Decisions of …" sections of `src-store/README.md`,
+  and the pages of a build that he approved.
+- What is not decided: the tables of the pages that already listed it, each
+  with the answer kept for now and the place in the code. They are in
+  `src-store/softland/store/door/README.md`,
+  `src-store/softland/store/read_path/README.md` ("Not decided, kept for
+  now") and `src-store/MODEL.md`.
+- A number or a name that a session chose says nothing of it: it is code.
 
 ## For the next session
 
-A fresh session on Sid's machine, not a cloud one: the record
-(`softland-memory`) cannot be reached from the cloud, and three of these need
-it. In this order.
+A session on Sid's machine: the record (`softland-memory`) cannot be reached
+from the cloud, and the first two need it.
 
-1. **Review the cut, to break it.** From `git diff 4369cfd f0222ec`, by tree.
-   The checker holds the code; nothing but a reader holds the prose. Look
-   for a why, a trap, a limit or a finding of a run that was the one home of
-   something and is gone, and for an entry of `whose-call.edn` that lost a
-   fact of its sentence (the sentence is in `git show 4369cfd:<file>`). The
-   session that made the cut read three forks closely and sampled the other
-   three; it is the builder and does not judge its own build. Two things it
-   saw and left:
-   - An entry often repeats a number that the code holds ("256. A number of
-     the build"). That is a second telling of the code inside the data.
-   - `softland.store.read-path`: the sentence "the proof is the only asker,
-     and no inhabitant uses the read path yet" was dropped as false, not
-     moved, since the runtime's seam asks the read path.
-2. **Check the starter against the record.** `STARTER.md`, "What Sid decided,
+1. **Check the starter against the record.** `STARTER.md`, "What Sid decided,
    25 November 2026", is in a session's words. Find the lines he typed for
    the two decisions (the lane; code, checks and prose) and their ids. If he
    typed neither, say so before anything is written as his.
-3. **Two entries whose state the record can settle.** Look each up, show him
-   his line, and set the state from it.
-   - `softland.store.gate.decision/max-kept-weight` (32 MiB) and
-     `max-kept-weight-with-no-standing` (256 KiB): how heavy a thing can be
-     for a gate to keep a second copy of it for the read by stamp, for a
-     sender with standing and for one without. The old docstrings said both
-     "Sid's call of 22 November 2026, the default of the plan's check" and "A
-     number of the build, kept and not decided". The entries hold both
-     sentences and are `:not-decided`. What did he say on 22 November: these
-     numbers, or "go with the plan's default"?
-   - `softland.auth.schema/max-actor-depth` (32): how many makers can stand
-     below a root in Auth. The store's `act.clj` allows 31 delegated makers
-     in a permission, one fewer. The old docstring said "Revision 7 closed
-     for this build" and named nobody;
+2. **Write the Decisions entry**, on his word, into `src-store/README.md`.
+   The draft is below; it has places for his typed lines. Two things that
+   only the record can settle belong with it:
+   - The calls of 22 November 2026 have no Decisions section. The docstrings
+     before the cut cited "Sid's call of 22 November 2026" for the two
+     weights that a gate keeps
+     (`softland.store.gate.decision/max-kept-weight`, 32 MiB, "the default of
+     the plan's check", and `max-kept-weight-with-no-standing`, 256 KiB) and
+     for the rows by who being a field and not a PState of their own
+     (`softland.store.record.tables/task`, "on the plan's check"), and
+     "Sid's calls of 22 November" for the input forms of
+     `softland.auth.fit`. Did he decide these, or say to go with the plan's
+     default? If he decided them, they want an entry.
+   - `softland.auth.schema/max-actor-depth` (32):
      `src/proposal/runtime-2026-11-21/spine/auth/BUILD.md` says "Closed for
-     this build per Sid's instruction". The entry is `:decided` on that
-     page's word alone.
-4. **Write the Decisions entry**, on his word, into `src-store/README.md`.
-   The draft is below; it has places for his typed lines.
-5. **One attribution on the store's page.**
-   `src-store/softland/store/README.md`, "The order of a lane's acts after a
-   failure", begins: Sid, 13 October 2026: "I am against the Rama setting
-   that orders a layer's acts after a failure. Nobody has shown whether …".
-   The Decisions of 13 October, entry 7, give his typed line as "yeah i am
-   against the setting as well ... so that is sorted what next?" (‹278f6238›)
-   and the long sentence as the prompt's, which a session wrote at his word
-   and he sent. The run-again proof's docstring says the same. So the store's
-   page gives a session's sentence as his. Mend it from the Decisions entry.
-6. **Cut the pages by the same rule as the code**, after the review and
-   after his answer to the question above. A page keeps what it is the one
-   home of: what the gate does not check, what a run found, his decisions.
-   What retells the code goes: the file maps, the "read by level" text, the
-   pointers to docstrings. Before a section or a page is removed, list what
-   would go and show him: moving or removing a page is his word to give.
-7. **Not covered by the cut.** `src-server`, `src-server-browser` and
+     this build per Sid's instruction". The store's `act.clj` allows 31
+     delegated makers in a permission, one fewer.
+3. **Cut the pages by the same rule as the code.** A page keeps what it is
+   the one home of: what the gate does not check, what a run found, his
+   decisions, what is not decided. What retells the code goes: the file maps,
+   the "read by level" text, the pointers to docstrings. Before a section or
+   a page is removed, list what would go and show him: moving or removing a
+   page is his word to give. Known to be out of step until then:
+   - `src-store/README.md`, "Follow folder map → namespace docstring →
+     function docstring … What a function takes, gives and does not handle
+     is in its docstring": the cut took those out of the docstrings.
+   - `src-store/CLAUDE.md` says "No map of the tree is kept beside the code",
+     and the maps are still there. The same page no longer holds four things
+     that the page before it did: what the page of a folder of checks says
+     ("what no check reaches"), "Trace the real callers and the real
+     lifetime", "No namespace of this tree requires the rig", and "What
+     lasts". The page is his to turn.
+   - `src-store/softland/store/README.md` ("In this build its proof is its
+     only asker") and `test-store/softland/store/README.md` ("No inhabitant
+     uses the read path yet"): the runtime's seam asks the read path.
+   - Pages still say "Sid's decision of …" and "a session's" beside what they
+     describe ("Engineering choices", "Words a session made"). Whether his
+     word on the calls reaches those sections is his to say.
+4. **Not covered by the cut.** `src-server`, `src-server-browser` and
    `src-cli` were renamed and not cut; the checks' prose was out of scope.
    Whether they are cut is his to say.
+5. **What the review leaves.**
+   - That a row reader does not throw, and that a caller prints as a word and
+     nothing else (it holds the hash of the secret), are held by a sentence
+     and by no check.
+   - `W/as-files/` and `W/calls/` are superseded and kept. Deleting them is
+     his word to give.
+   - The Python files of the proposal folders are gone, 31 of them, on his
+     word of 25 November 2026; the four of this folder among them (the
+     rename's map, the checker, and two more). They are in git's history.
 
-For a cloud session to run the proofs again: the "Softland" environment now
-allows the four hosts that Clojure and Rama are fetched from. Clojure's tools
-are not installed by it; the session that ran them installed the tools by
-hand and pointed Maven's resolver at the session's proxy in
-`~/.m2/settings.xml`. A fetch can answer 429 while the proxy is busy; the
-next try goes through.
+For a cloud session to run the proofs: the "Softland" environment allows the
+four hosts that Clojure and Rama are fetched from. Clojure's tools are not
+installed by it: unpack `clojure-tools-<version>.tar.gz` from
+download.clojure.org by hand, and point Maven's resolver at the session's
+proxy in `~/.m2/settings.xml`. A fetch can answer 429 while the proxy is
+busy; the next try goes through.
 
 ## Draft of the Decisions entry (not written into the README)
 
@@ -159,22 +148,23 @@ next try goes through.
        - The sections above this one are left as typed. Where an entry there
          says "layer" for what one gate decides in one line, read "lane".
        - Built: the word was changed in code, checks and pages by one map,
-         with no change of behaviour (9d08cf5; `rename.py` and the records of
-         the proofs are in `src/proposal/lane-2026-11-25/`). Quoted lines
+         with no change of behaviour (9d08cf5; the records of the proofs are
+         in `src/proposal/lane-2026-11-25/`). Quoted lines
          that the map reached were put back as typed (62c3656).
     2. **Code is the truth of what happens, and a check is the truth of what
        must hold. Prose beside the code stays only where it is the one home
-       of something: a why, a trap, a limit, what a run found. Whose call a
-       thing is becomes data.** [His line.] What comes with it:
+       of something: a why, a trap, a limit, what a run found.** [His line.]
+       What comes with it:
        - Built: the docstrings and comments of 46 source files of the store,
          the runtime, the wire, Auth and the command line were cut, 9,575
-         lines of prose to 5,029, with no code changed; the proofs gave rc 0
-         afterwards (`src/proposal/lane-2026-11-25/proofs-after-the-cut.txt`).
-       - A session's, each his to turn: the file `whose-call.edn` beside each
-         tree's code, its three states (`:not-decided`, `:a-sessions`,
-         `:decided`), and the rule that a sentence which says "not decided"
-         is `:not-decided`; the page `src-store/CLAUDE.md`.
+         lines of prose to about 5,100, with no code changed, and a fresh
+         session reviewed the cut and mended what it found. The proofs gave
+         rc 0 afterwards
+         (`src/proposal/lane-2026-11-25/proofs-after-the-review.txt`).
+       - Whose call a thing is does not stand in the code. The cut made it
+         data beside each tree; he took it out the same day: "remove those i
+         don't like them idk why they are there its just more things to trip
+         over lets remove".
+       - A session's, his to turn: the page `src-store/CLAUDE.md`.
        - Not done: the pages of these trees still describe a reading by
-         folder map and docstring, and the store's and the door's pages still
-         hold "Engineering choices" and "Words a session made" beside the
-         data. The checks' prose is not cut.
+         folder map and docstring. The checks' prose is not cut.

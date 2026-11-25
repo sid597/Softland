@@ -42,8 +42,8 @@
     - A making act: 5 reads, 4 writes.
     - A give or an end: 5 reads, 3 writes. A give at a place that holds a
       permission for the lane or for a run reads the row of each permission
-      above that one too, unless step 4 read it. A give of a yes at a place
-      that holds a row reads nothing more.
+      above that one too, unless step 4 of `decide` read it. A give of a yes
+      at a place that holds a row reads nothing more.
     - One accepted act with one value under a plain key: 5 reads, 3 writes.
       A fact that names something to replace costs the read of its place
       more. The read of the marked keys is paid by every accepted act that

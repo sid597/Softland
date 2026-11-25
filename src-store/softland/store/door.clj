@@ -144,11 +144,11 @@
 
   A read that gives nil says that the lane is not made, and the depot is
   the one that the lane starts with. A read that threw has not said \"not
-  made\", so it gives a word and no depot. The read and the starting depot
-  always agree, since no act changes a depot; the read is made all the
-  same, and it is what leaves room for a lane whose depot can change. The
-  door remembers no lane's depot between two calls: that would be a kept
-  copy of what the cluster holds."
+  made\", so it gives a word and no depot. In this build the read and the
+  starting depot always agree, since no act changes a depot; the read is
+  made all the same, and it is what leaves room for a lane whose depot can
+  change. The door remembers no lane's depot between two calls: that would
+  be a kept copy of what the cluster holds."
   [^Door door lane]
   (let [[outcome got] (attempt (fn [] (rama/foreign-invoke-query (.-depot-query door) lane)))]
     (if (= :threw outcome)
@@ -336,9 +336,11 @@
   set again; such an append can have gone through.
 
   Limits. A thing that has no end in any part does not come back: the
-  digest's walk goes through the whole thing. The door has no bound on the
-  count of facts, on the size of a value or on how deep a thing goes: each
-  is a gate's to judge, of a thing that is on its depot by then."
+  digest's walk goes through the whole thing. Such a call holds its maker's
+  thread there, and nothing of the door that another maker waits for. The
+  door has no bound on the count of facts, on the size of a value or on how
+  deep a thing goes: each is a gate's to judge, of a thing that is on its
+  depot by then."
   ([door act] (send-act door act nil))
   ([^Door door act act-id]
    (let [reading (additions/reading act act-id)]

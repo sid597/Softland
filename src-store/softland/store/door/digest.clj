@@ -281,7 +281,9 @@
   read, where `hex-of` gives the digest of #unreadable. The door takes the
   digest of the thing that it is about to append with this, so that it
   appends no thing that it could not read to its end. A thing with no end
-  does not come back from it."
+  does not come back from it.
+
+  It never throws."
   [x]
   (let [md (sha-256)]
     (try

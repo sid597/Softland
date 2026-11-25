@@ -315,8 +315,7 @@ round trip that a read asked once costs when no push is open.
 ## Not decided, kept for now
 
 None of these is decided here. Each is built to the kept or the working answer,
-at one function whose docstring says that it is not decided, so that the other
-answer is a small change.
+at one function, so that the other answer is a small change.
 
 | The thing | Built as | Where the other answer would be made |
 |---|---|---|
