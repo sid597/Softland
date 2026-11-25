@@ -22,7 +22,10 @@
 
   The weight is a measure of the gate's own, and not the bytes that Rama
   writes: Rama gives a topology no call that says the bytes of a value. It
-  is the same in every process for the same thing."
+  is the same in every process for the same thing.
+
+  The function never throws: a part that throws while it is walked is
+  `:not-weighed`."
   (:require [softland.store.door.text :as text])
   (:import [clojure.lang BigInt IPersistentMap IRecord Keyword Ratio Symbol]
            [java.math BigDecimal BigInteger]

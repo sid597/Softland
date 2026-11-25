@@ -26,7 +26,9 @@
   another.")
 
 (defn next-stamp
-  "Wraps after 2^63 - 1 decisions in one lane."
+  "Wraps after 2^63 - 1 decisions in one lane.
+
+  It never throws."
   [last-stamp]
   (if last-stamp
     (unchecked-inc (long last-stamp))

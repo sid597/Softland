@@ -31,7 +31,9 @@
   a part the check tests only that it is a plain map. The store judges the
   rest: an act whose form is wrong goes to its depot, and a gate refuses it
   under its act-id (src-store/README.md, 12 October 2026, entry 7); a query
-  is checked by the read path."
+  is checked by the read path.
+
+  `check` never throws."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.wire.credential :as credential]))

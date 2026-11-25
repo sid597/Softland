@@ -50,7 +50,9 @@
   reads, and a step for each row of it (`runs`), so a holder's page of n
   kept things is one seek and n steps. Rama's skill text counts the level
   of the field in the table for a task as one read more, for the last stamp
-  and for her rows by who."
+  and for her rows by who.
+
+  No function here throws on a row."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.first-act :as first-act]
             [softland.store.read-path.lanes :as lanes]

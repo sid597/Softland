@@ -45,7 +45,8 @@
   clock and nothing of the attempt in it (`softland.store.module.walk`),
   and Rama sets the tables back before the attempt. That a retry makes the
   same tables was run on a stand-in gate (the plan of the base's gate,
-  claim 5); that a reader was given a row before a retry was not run.
+  claim 5); that a reader was given a row before a retry was not run. So
+  neither read waits for anything after the commit that showed the row.
 
   The head of each query. `softland.store.record.rows`'s
   `answer-read-by-routing-id` and `depot-read` test what the caller gave,

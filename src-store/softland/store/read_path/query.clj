@@ -23,7 +23,9 @@
 
   A query of `:acts` names one lane and is read once. Its `:with` and its
   `:stores-own-facts` say what of a fact's row a read gives, and it gives
-  none."
+  none.
+
+  `check` never throws."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.read-path.sources :as sources]
@@ -91,6 +93,7 @@
    :max-thing-weight-of-one-read    33554432})
 
 (defn numbers
+  "It never throws: a thing that is no map gives the defaults."
   [given]
   (let [given (if (map? given) given {})]
     (into {}

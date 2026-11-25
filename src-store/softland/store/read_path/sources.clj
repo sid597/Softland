@@ -430,18 +430,20 @@
   the list of a start lane cannot be said yet, `:lanes` is the start lane
   alone. With `:too-large` no check is wanted.
 
-  Her permission in a lane, and her run's, are wanted only when the lane is
-  made and its setting is `:members`: under \"everyone\" her permission
-  shapes nothing, and a lane that is not made holds none. While the lane's
-  own rows are not known they are wanted only for a read asked once, so
-  that they ride the call of the own rows. The rows above her run's are
-  wanted only when its row holds a permission of hers (`askers-run-row`).
+  Her permission in a lane, and her run's, are wanted when she is signed
+  in. While the lane's own rows are not known: only for a read asked once,
+  so that they ride the call of the own rows. When they are known: only
+  when the lane is made and its setting is `:members`. Under \"everyone\"
+  her permission shapes nothing, and a lane that is not made holds none.
+  The rows above her run's are wanted only when its row holds a permission
+  of hers (`askers-run-row`).
 
-  A place, a run or an order by value in a lane is wanted when her standing
-  is `:yes`. While her standing is `:not-known-yet`: for a read asked once,
-  by `before-standing?`; for a live read, when the read holds the source
-  already, so that a push is not closed and opened again while her
-  permission is read.
+  A place or a run in a lane is wanted when her standing is `:yes`; an
+  order by value, when the lane's own rows mark the key too. A lane that is
+  `:not-made` wants its own rows alone. While her standing is
+  `:not-known-yet`: for a read asked once, by `before-standing?`; for a
+  live read, when the read holds the source already, so that a push is not
+  closed and opened again while her permission is read.
 
   A lane whose standing is `:may-not-see` wants nothing but its own rows,
   her permission, her run's, and the rows above whichever of the two holds

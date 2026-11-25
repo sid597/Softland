@@ -51,7 +51,8 @@
   then, never to what the command read when it started.
 
   One sitting is one session: the commands of one sign-in share it until
-  `new-session`.
+  `new-session`. A run of an agent that wants a session of its own says
+  `new-session` first.
 
   It prints one EDN form, the result. The exit status is 0 when the thing
   was done; 1 for a word that holds `:could-not`; 3 when a gate refused an

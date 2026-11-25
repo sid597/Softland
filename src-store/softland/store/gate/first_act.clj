@@ -10,8 +10,9 @@
   `system`, and its permission is the person's.")
 
 (def system
-  "The id of the system. It makes the base, and each personal lane at its
-  person's first sign-in. It can hold other lanes too."
+  "The id of the system: software that acts for the architects of the
+  medium. It makes the base, and each personal lane at its person's first
+  sign-in. It can hold other lanes too."
   :system)
 
 (def base
@@ -64,7 +65,8 @@
   "What a lane reads as under a store key while its place holds no fact; nil
   for any other key. No fact is written at the making: a lane made before
   these keys existed holds none, so a reader must read \"no fact\" either
-  way. No gate calls it; a reader of the tables does.
+  way, and the form of a making act stays two facts. No gate calls it; a
+  reader of the tables does.
 
   The base is open to everyone and its acts are not: they are read whole by
   its holders and by the who that a thing names."

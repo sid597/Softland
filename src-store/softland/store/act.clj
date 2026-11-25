@@ -108,7 +108,7 @@
 (def ^:private nesting
   "For a named shape, how many times it can be around one place, the place's
   own counted. A name that is not here has the number 1, so no shape goes
-  round. A thing whose count is over the number is `:malformed`.
+  round. A permission whose count is over its number is `:malformed`.
 
   The depth of a permission is `max-depth` on purpose. A permission is held
   on two roads: as an act's own `:permission`, which this number bounds, and
@@ -365,9 +365,9 @@
   allows `:see`. The read path does not ask: any permission that is there
   allows seeing (`softland.store.read-path.lanes/standing`).
 
-  What must hold: the thing has the shape `:permission-id`. Anything that is
-  no vector of five slots or six gives `:see-and-act`, so a caller that
-  holds a thing of no shape tests the shape first."
+  What must hold: the thing has the shape `:permission-id`. It never throws:
+  anything that is no vector of five slots or six gives `:see-and-act`, so a
+  caller that holds a thing of no shape tests the shape first."
   [permission]
   (if (and (vector? permission) (<= 5 (count permission) 6))
     (nth permission 4)
@@ -378,8 +378,8 @@
   `[:act yes digest]`, or nil for a permission with no sixth slot, which
   covers its lane until it is ended. The one place where that slot is read.
 
-  What must hold: the thing has the shape `:permission-id`. Anything that is
-  no vector of six slots gives nil."
+  What must hold: the thing has the shape `:permission-id`. It never throws:
+  anything that is no vector of six slots gives nil."
   [permission]
   (when (and (vector? permission) (= 6 (count permission)))
     (nth permission 5)))

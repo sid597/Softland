@@ -26,7 +26,9 @@
   permission that stands allows seeing. Whether it stands is the gates' own
   rule, read from the same rows (`softland.store.gate.chain/stands?`): a
   permission that has ended, or beneath one that has, lets nobody see. A
-  permission for one act is not read: it lets nobody see."
+  permission for one act is not read: it lets nobody see.
+
+  No function here throws on a row."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
