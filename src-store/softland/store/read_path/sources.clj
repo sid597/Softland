@@ -291,6 +291,13 @@
   A run that has no first read (`first-read-holds?`) is read only when she
   may see the lane, since its size would be read. A live read opens no push
   early, because an open push costs the lane's gate at each write."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "That a read asked once reads a place, or the first read of a run
+            of the facts table, before it knows whether the asker may see the
+            lane, is the builder's choice; this function is the one predicate
+            of that choice. The other answer is this function giving false:
+            then nothing of a lane is read for an asker who may not see it."}]}
   [mode source]
   (and (= :once mode)
        (= :facts (:table source))
@@ -388,6 +395,13 @@
   An entity comes from a row's key and not from a caller, so it is tested
   here and one that is no id within the limit is left out. `by-lane` is
   `reading`'s `:by-lane`; `most` is what `most-checks` gives."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "What \"what points at a thing\" means through a list of lanes is
+            a working answer, for Sid: at a place that a farther lane's order
+            gives, the nearest lane that holds a row wins. This function is
+            the one place where the other answer would be made: left out (an
+            empty map), a read finds no nearer row and the runs are joined."}]}
   [query lanes standing by-lane known most]
   (let [[word k] (:asks query)
         home (lanes/home query)]

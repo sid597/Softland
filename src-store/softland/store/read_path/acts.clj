@@ -126,6 +126,12 @@
 
   `asker-text` is the printed text of the asker's id, nil for one who is
   not signed in; `who-text` is nil for a thing that names no usable who."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "A taken act is held to the same rule of who reads a decision
+            whole as a refused thing. This function is where the other
+            reading would be made."
+     :source "SPEC.md, \"Who may read what\", a session's reading"}]}
   [kind acts-setting asker-text who-text]
   (boolean (or (= :holder kind)
                (and (= :visitor kind) (= :everyone acts-setting))

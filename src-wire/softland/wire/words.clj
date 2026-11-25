@@ -34,13 +34,26 @@
   is checked by the read path.
 
   `check` never throws."
+  {:softland/whose-call
+   [{:state :decided
+     :what "The whole form goes on the wire (\"3A\"): an act is the store's
+            own maker's act, with its `:who` and its `:session`; a query is
+            the read path's, with its `:asker` or with `:not-signed-in true`."
+     :source "Sid, 20 November 2026"}]}
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.wire.credential :as credential]))
 
 ;; ------------------------------------------------------------- the numbers
 
-(def max-frame-bytes
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "One frame of somebody who is signed in can be the store's
+                bound on what one act can write into rows
+                (`softland.store.door.declaration/max-act-bytes`) and one MiB
+                for the form around the values. A number of the build, kept
+                and not decided."}]}
+  max-frame-bytes
   "How many bytes one frame of somebody who is signed in can be. The line
   sets it on the connection, so a longer frame is never taken into memory.
   It is the store's bound on what one act can write into rows
@@ -48,12 +61,20 @@
   form around the values: an act that a gate can take fits."
   (+ declaration/max-act-bytes (* 1024 1024)))
 
-(def max-visitor-frame-bytes
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "One frame on a connection that stands for nobody can be 65536
+                bytes. A number of the build, kept and not decided."}]}
+  max-visitor-frame-bytes
   "How many bytes one frame can be on a connection that stands for nobody.
   A visitor reads and watches, which are small, and sends no act."
   65536)
 
-(def max-acts-of-one-word
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "One `:send-all` can carry 1024 acts. A number of the build,
+                kept and not decided."}]}
+  max-acts-of-one-word
   "How many acts one `:send-all` can carry."
   1024)
 
@@ -62,11 +83,20 @@
   Auth's own bound on a text (its spec, \"The client's contract\")."
   256)
 
-(def default-wait-ms
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "A `:send` waits 10000 ms for its answer when the word names
+                no wait. A number of the build, kept and not decided."}]}
+  default-wait-ms
   "How long a `:send` waits for its answer when the word names no wait."
   10000)
 
-(def longest-wait-ms
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "The longest wait that a word can ask for is 60000 ms; a
+                longer one is cut to it. A number of the build, kept and not
+                decided."}]}
+  longest-wait-ms
   "The longest wait that a word can ask for, in milliseconds. A longer one
   is cut to it; a system that waits longer asks again."
   60000)

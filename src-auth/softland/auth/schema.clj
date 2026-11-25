@@ -628,6 +628,11 @@
 
 (defn enter-step-1c-update-says
   "Step E1c, on H(Acc)."
+  {:softland/whose-call
+   [{:state :decided
+     :what "Step E1c of `enter` updates `:says` and `:says-at` of a linked
+            account iff `(> at says-at)`."
+     :source "Sid's Call 2"}]}
   [^EnterEvent ev st acc]
   (let [P (:linked-person st)
         upd? (and (instance? AccountLinked acc)
@@ -875,7 +880,15 @@
 
 ;; ------------------------------------------- Slice b: root plans & writes
 
-(def ^:private max-actor-depth
+(def ^:private
+  ^{:softland/whose-call
+    [{:state :decided
+      :what "The most makers below a root is 32, matching `SPEC.md` and
+             `reference.clj`. Revision 7 is closed for this build."
+      :source "Revision 7, which names nobody;
+               `src/proposal/runtime-2026-11-21/spine/auth/BUILD.md` says
+               \"Closed for this build per Sid's instruction\""}]}
+  max-actor-depth
   "Makers below the root. Matches `SPEC.md` and `reference.clj`."
   32)
 

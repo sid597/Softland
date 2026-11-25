@@ -35,6 +35,12 @@
 
   Not here: the browser's client, which is another build (the runtime's
   page, piece 7), and MCP (piece 6)."
+  {:softland/whose-call
+   [{:state :decided
+     :what "A person who has confirmed no name is sent to the box: her
+            provider's name for her, which she confirms or changes (\"we can
+            make C default\")."
+     :source "Sid, 21 November 2026"}]}
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [ring.util.codec :as codec]
@@ -433,6 +439,12 @@
           (page 503 "<p>The name could not be written. Try again.</p>"))))))
 
 (defn- yes-page
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "On the page on which she answers a program, an agent of its own
+            is the choice that is chosen at the start, and acting as her is
+            the other: each program has a who of its own by default (the
+            runtime's page, entry 8). The build's default, for Sid to turn."}]}
   [{:keys [the-seam] :as options} request]
   (let [code (credential/of-shown (get (query-of request) "code"))
         shown (when code (sign-in/ask-shown the-seam code))]

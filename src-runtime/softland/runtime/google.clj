@@ -13,6 +13,12 @@
   Nothing is kept of the keys that `fetch-keys` gave: a sign-in happens
   once a sitting, and Google changes its keys, so the keys are fetched at
   each sign-in. A copy of them kept between two sign-ins would be a cache."
+  {:softland/whose-call
+   [{:state :decided
+     :what "Google's sign-in button needs a client id and no client secret
+            (\"Google's sign-in button needs none, and that's my default\"
+            yes), so the runtime holds no secret of Google's."
+     :source "Sid, 15 October 2026, ‹bb59807f›"}]}
   (:require [clojure.data.json :as json]
             [clojure.string :as str])
   (:import [java.math BigInteger]

@@ -51,7 +51,11 @@
            [java.util.concurrent LinkedBlockingQueue]
            [java.util.concurrent.locks ReentrantLock]))
 
-(def max-waiting
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "256 words can wait on one connection. A number of the build,
+                kept and not decided."}]}
+  max-waiting
   "How many words can wait on one connection."
   256)
 

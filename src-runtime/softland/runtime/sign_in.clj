@@ -24,6 +24,33 @@
   that makes the base and the act that gives the first person a permission
   in it. She herself writes her name, as a fact on her own id in her own
   lane, under `name-key`."
+  {:softland/whose-call
+   [{:state :decided
+     :what "What sign-in keeps lives in Auth, a module of its own; the store
+            holds none of it."
+     :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and
+              12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+    {:state :decided
+     :what "Sign-up is by invitation or a list, and an invitation is a person
+            id that waits for an account."
+     :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and
+              12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+    {:state :decided
+     :what "A signed-in person has a lane of her own and a permission in it,
+            without asking, and the system makes both at her first sign-in
+            (src-store/README.md, 8 October 2026, entry 2)."
+     :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and
+              12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+    {:state :decided
+     :what "She is called what she confirms: her provider's name for her is
+            shown, and she confirms or changes it."
+     :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and
+              12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+    {:state :decided
+     :what "A deployment is born by one setup command, which makes the base
+            and the first person."
+     :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and
+              12; and Sid's go of 21 November 2026 to the sheet for sign-in"}]}
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [softland.auth.client :as auth]
@@ -33,7 +60,12 @@
             [softland.wire.words :as words])
   (:import [java.util Locale UUID]))
 
-(def name-key
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "The key `:person/name`, under which a person's own id holds
+                the name that she confirmed, in her own lane, is a session's
+                word, and Sid's to change."}]}
+  name-key
   "The key under which a person's own id holds the name that she
   confirmed, in her own lane."
   :person/name)
@@ -42,7 +74,12 @@
   "How long a step waits for the answer of an act that it sent."
   20000)
 
-(def ask-ms
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "A program's sign-in that is under way waits ten minutes
+                (600000 ms) for her answer. A number of the build, kept and
+                not decided."}]}
+  ask-ms
   "How long a program's sign-in that is under way waits for her answer."
   600000)
 

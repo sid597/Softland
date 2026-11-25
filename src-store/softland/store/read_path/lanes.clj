@@ -29,6 +29,16 @@
   permission for one act is not read: it lets nobody see.
 
   No function here throws on a row."
+  {:softland/whose-call
+   [{:state :decided
+     :what "The read path does not read what a permission allows: any
+            permission that stands allows seeing."
+     :source "src-store/README.md, decisions of 11 and 12 October 2026, entry
+              1"}
+    {:state :not-decided
+     :what "The one thing about a permission that is kept as built and not
+            decided, one permission for the lane for each holder at a time,
+            is no code in this namespace."}]}
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
@@ -49,6 +59,12 @@
   "With no row it is what the lane starts with
   (`softland.store.gate.first-act/starts-with`). A row whose value is
   neither word reads as `:members`, the answer that shows less."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "What a lane starts with is kept only so that the build can run;
+            `softland.store.gate.first-act/starts-with` is the one place
+            where the other answer would be made, and this function is its
+            one caller in the read path."}]}
   [own-rows lane]
   (let [row (own-row own-rows lane :softland.store/who-may-see)
         [kind v] (rows/read-value row)]
@@ -138,6 +154,14 @@
 
   Any permission that stands allows seeing; what it allows beyond that is
   not read. `:system` is a who like any other."
+  {:softland/whose-call
+   [{:state :decided
+     :what "`standing` is the one function of who may see a lane."
+     :source "src-store/README.md, entry 1 of 11 and 12 October 2026"}
+    {:state :not-decided
+     :what "What a lane starts with (`who-may-see`), and that \"members\" is
+            whoever holds a permission in the lane, are kept only so that the
+            build can run."}]}
   [lane own-rows permission-state signed-in?]
   (cond
     (nil? own-rows) :not-known-yet
@@ -172,6 +196,15 @@
   further: the lists of those lanes are not read. When she may not see s,
   or s is not made: s alone, since the list is a fact of a lane that she
   may not see, and the read does not use it."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "How far a read walks from a lane is a working answer, for Sid
+            (the one list, and no further), and so is what a read does when
+            the asker may not see the start lane. This function is the one
+            place where the walk would be made; a walk would also make the
+            own rows of each walked lane a thing that
+            `softland.store.read-path.sources/reading` wants before the list
+            is known."}]}
   [query start-own-rows start-standing]
   (if-let [given (:lanes query)]
     (vec (distinct given))
@@ -195,6 +228,12 @@
 (defn left-out
   "What an answer says of a lane that gave nothing. `why` is `:may-not-see`
   or `:not-made` (`softland.store.read-path.words/left-out-words`)."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "That a read says which lane it left out, and tells a lane that
+            she may not see from one that is not made, is a working answer,
+            for Sid. This function is the one place where a read would say
+            less."}]}
   [lane why]
   {:lane lane :why why})
 

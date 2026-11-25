@@ -161,6 +161,13 @@
   `softland.store.door.declaration/max-id-text` characters at most, which
   the lane of a thing that is no stray keeps; a key of `:by-who` is made
   of two such ids and a stamp."
+  {:softland/whose-call
+   [{:state :decided
+     :what "The rows by who are a field of what a gate keeps for a task, and
+            not a PState of their own. They are read only by an asker who may
+            not see a lane, for her own things, so the one seek more that the
+            field's level costs at that read saves a partition on every task."
+     :source "Sid's call of 22 November 2026, on the plan's check"}]}
   []
   (fixed-keys-schema {:last-stamp (map-schema String Long {:subindex-options {:track-size? false}})
                       :by-who     (map-schema String Long {:subindex-options {:track-size? false}})

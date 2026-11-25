@@ -63,6 +63,11 @@
   watches the tables of facts, and of facts by value, from outside, by
   design: it is the way by which a fact comes back out to a caller. It
   reads no answer."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "A guard of the record is not built: any client of the cluster can
+            call the two queries and read every value. ?11 is open."
+     :source "?11"}]}
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [softland.store.gate.first-act :as first-act]

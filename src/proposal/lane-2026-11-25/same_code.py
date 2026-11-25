@@ -3,8 +3,12 @@
 Exit 0 when each FILE holds the same code as it did at REV once docstrings and
 comments are taken out. A docstring is: the string in third place of an `ns`
 form; the string in third place of a `def...` form that has more after it; the
-last string of a protocol method; the string after `:doc`. Every other string is code. Whitespace and commas count for
-nothing.
+last string of a protocol method; the string after `:doc`. Every other string
+is code. Whitespace and commas count for nothing.
+
+Whose call a thing is counts for nothing either: the entry
+`:softland/whose-call` of the metadata on a name, and of the attr-map of an
+`ns`, `defn`, `defn-` or `defmacro` (`calls.py` reads those).
 """
 import subprocess
 import sys
@@ -107,11 +111,29 @@ def is_str(f):
     return isinstance(f, tuple) and f[0] == 'str'
 
 
+CALLS = ('atom', ':softland/whose-call')
+
+
+def without_calls(m):
+    """A map without its entry of whose call it is; None when nothing is left.
+    Anything that is no map, or holds no such entry, comes back as it is."""
+    if not (isinstance(m, list) and m[:2] == ['L', '{']) or CALLS not in m[2::2]:
+        return m
+    kept = []
+    for k, v in zip(m[2::2], m[3::2]):
+        if k != CALLS:
+            kept += [k, v]
+    return ['L', '{'] + kept if kept else None
+
+
 def norm(f, in_protocol=False):
     if isinstance(f, tuple):
         return f
     if f[0] == 'M':
-        return ['M', norm(f[1]), norm(f[2])]
+        meta = without_calls(f[1])
+        if meta is None:
+            return norm(f[2], in_protocol)
+        return ['M', norm(meta), norm(f[2])]
     if f[0] == 'P':
         return ['P', f[1], norm(f[2])]
     items = f[2:]
@@ -121,6 +143,9 @@ def norm(f, in_protocol=False):
     if f[1] == '(' and len(items) > 2 and is_str(items[2]) and (
             hv == 'ns' or (hv.startswith('def') and len(items) > 3)):
         items = items[:2] + items[3:]
+    if f[1] == '(' and hv in ('ns', 'defn', 'defn-', 'defmacro') and len(items) > 2:
+        attr = without_calls(items[2])
+        items = items[:2] + ([] if attr is None else [attr]) + items[3:]
     if f[1] == '(' and in_protocol and len(items) >= 3 and is_str(items[-1]):
         items = items[:-1]
     kept = []

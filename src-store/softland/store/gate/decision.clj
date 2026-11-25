@@ -59,6 +59,12 @@
 ;; ----------------------------------------------------------------- standing
 
 (defn permission-place
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "One place for a holder's permission for the lane is kept as built
+            and not decided. This key is one of the two places where the
+            other answer would be made
+            (`softland.store.door.declaration/store-keys`)."}]}
   [act]
   (chain/place (:lane act) (:permission act)))
 
@@ -186,6 +192,19 @@
   and that of each holder beneath her. The end has a stamp in the lane's
   one order, so which acts came before it is the same at each run of the
   gates."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "The word of an act for a lane of the other gate comes from the
+            act alone: a session's rule, and no decision of Sid's. One half
+            of the rule is forced by his line that the store comes out the
+            same when it is run again: the word cannot follow the other
+            gate's record, since a word that followed what the other gate had
+            made by then would follow an order across two depots, which no
+            second run gives again. The other half is the session's choice:
+            which of the two words is then given,
+            `:lane-belongs-to-the-other-gate`. `:lane-not-made` for every
+            such act would hold his line as well."
+     :source "a session, 14 October 2026"}]}
   [gate-depot act permission-row depot-row chain-rows hex-of-the-act]
   (let [permission (:permission act)
         [kind what hex] (act/covers permission)]
@@ -265,6 +284,13 @@
   permission for one run gives herself one for the lane beneath it, and a
   yes for one run is a yes for every run. Neither a lane nor a second run
   fits inside one run."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "A permission for a run or for an act gives nothing. The other
+            way, a run that may give, would be one more word in the sixth
+            slot."
+     :source "a session, 21 November 2026;
+              src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R10"}]}
   [act fact]
   (let [given (:v fact)]
     (when (and (contains? declaration/permission-keys (:k fact)) (some? given))
@@ -286,6 +312,15 @@
   (`end-fault`).
 
   Not built, and not asked: a lane that is handed to another holder."
+  {:softland/whose-call
+   [{:state :decided
+     :what "Only the lane's root holder writes its settings."
+     :source "Sid, 20 November 2026;
+              src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+    {:state :not-decided
+     :what "Sid's earlier word for the root holder is \"the owner\". No lane
+            names an owner as a fact; that the first holder, the holder of
+            the lane's first permission, is the one is a session's reading."}]}
   [act _fact]
   (when-not (= 3 (count (:permission act)))
     :only-the-first-holder-writes-a-setting))
@@ -334,6 +369,15 @@
   The fact needs no `:replaces`. With one, check (e) holds it to the give
   that it names: an end that was sent for one give is then refused when
   another give has taken its place."
+  {:softland/whose-call
+   [{:state :decided
+     :what "The giver of a permission, or anyone above, ends it."
+     :source "Sid's decision of 20 November 2026;
+              src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+    {:state :not-decided
+     :what "A holder ends her own permission, and the first permission does
+            not end. His to turn."
+     :source "a session, 21 November 2026"}]}
   [act row]
   (let [held (record/held-permission row)
         own (:permission act)]
@@ -355,6 +399,12 @@
 
   What must hold: `rows` holds the row of each place of `chains-needed`,
   and check (g) has held the new permission straight beneath the act's own."
+  {:softland/whose-call
+   [{:state :decided
+     :what "A holder is given a permission again after an end, and each
+            holder beneath an end is given one again by an act of its own."
+     :source "Sid's decision of 21 November 2026;
+              src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}]}
   [act row rows]
   (let [held (record/held-permission row)
         lane (:lane act)]
@@ -378,6 +428,11 @@
   Whether a fact has a value is asked of a fact under a store key alone,
   whose `:v` the act's one form keeps. What must hold: the lane is made by
   this gate, so its depot is the gate's."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "A change of a lane's depot is not decided: a depot fact with the
+            other depot, in a lane that is made, is refused
+            `:changing-a-depot-not-decided`."}]}
   [gate-depot act rows fact]
   (let [k (:k fact)
         retract? (nil? (:v fact))
@@ -480,6 +535,12 @@
   Every value is kept, whatever it is, by the digest of its bytes: a gate
   does not judge what an id is. Cost: one SHA-256 over the new value's
   bytes and one over the bytes of the value before."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "What a marked key may hold is not decided. Every value is kept,
+            whatever it is, by the digest of its bytes. This function is the
+            one place where \"kept in no run\" would be made."
+     :source "the queue's K5"}]}
   [act fact value-bytes row-before since entry]
   (let [digest-now (when value-bytes (record/value-digest value-bytes))
         before (record/plain-bytes-of row-before)
@@ -510,6 +571,16 @@
   gates writes it again, the same, on both gates. The base's gate copies
   it to every task with the act's own rows
   (`softland.store.module.walk/copies-of`)."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "A yes for one act is used once: the form of 22 November 2026, a
+            session's, in the prompt that Sid pasted that day as his go for
+            the build. His to turn."
+     :source "src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md"}
+    {:state :not-decided
+     :what "The use of a yes is kept as an end at the yes's place, written by
+            the accept in the one write of the decision: a session's choice.
+            His to turn."}]}
   [act act-uuid stamp time-millis who-text permission-text]
   (if (= :act (first (act/covers (:permission act))))
     (let [k (permission-place act)]
@@ -583,7 +654,14 @@
 
 ;; ----------------------------------------------------------------- the line
 
-(def max-kept-weight
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "33,554,432, 32 MiB in weight, the heaviest thing that a gate
+                keeps a second time when its sender has standing: Sid's call
+                of 22 November 2026, the default of the plan's check. A
+                number of the build, kept and not decided."
+         :source "Sid's call of 22 November 2026"}]}
+  max-kept-weight
   "32 MiB, in weight (`softland.store.door.weight`): the heaviest thing that
   a gate keeps a second time, for the read by stamp, when its sender has
   standing (`kept-bound`). Every act that passes the declaration weighs
@@ -591,7 +669,14 @@
   over the bound is in its depot and in no read by stamp."
   33554432)
 
-(def max-kept-weight-with-no-standing
+(def ^{:softland/whose-call
+       [{:state :not-decided
+         :what "262,144, 256 KiB, the heaviest thing that a gate keeps a
+                second time when its sender has no standing in the lane, or
+                the declaration refused it: Sid's call of 22 November 2026. A
+                number of the build, kept and not decided."
+         :source "Sid's call of 22 November 2026"}]}
+  max-kept-weight-with-no-standing
   "256 KiB: the heaviest thing that a gate keeps a second time when its
   sender has no standing in the lane, or the declaration refused it. So a
   sender with no standing cannot make the task write and hold the bytes of

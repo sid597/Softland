@@ -25,6 +25,13 @@
   way is found: eight characters of an alphabet that leaves out the letters
   and digits that a person confuses, shown as `XXXX-XXXX`. The program
   shows it, and the page on which she says yes shows it again."
+  {:softland/whose-call
+   [{:state :not-decided
+     :what "Not decided, kept for now: the form of a credential
+            (`sl2_<root>.<sign-in>.<secret>`), the length of a secret (43
+            characters of base64url: 32 random bytes) and of a code (eight
+            characters), the hash (SHA-256), and the name of the cookie
+            (`softland-sign-in`). Each is in one place in the namespace."}]}
   (:require [clojure.string :as str])
   (:import [java.nio.charset StandardCharsets]
            [java.security MessageDigest SecureRandom]
