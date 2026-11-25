@@ -20,9 +20,12 @@ has to keep true by hand.
 - **A why, a trap, a limit, what a run found: a short note at its one site.** What
   the code relies on and does not check goes there too. A namespace keeps a
   sentence or two on what the file is for.
-- **Whose call a thing is: data.** `softland/store/whose-call.edn` holds one entry
-  for each place in the code that is not decided, that a session chose, or that
-  carries a decision of Sid's. Reading that file lists every open call.
+- **Whose call a thing is: data, on the var.** A namespace or a var that is not
+  decided, or that carries a decision of Sid's, says so in its metadata, under
+  `:softland/whose-call`: for each call its `:state`, `:not-decided` or
+  `:decided`, what it is, and for a decision its `:source`.
+  `python3 -I src/proposal/lane-2026-11-25/calls.py --not-decided` lists every
+  open call from the source, and fails on a call that is not in form.
 - **What Sid decided: the "Decisions of …" sections of `README.md`.** His quoted
   lines stay as typed.
 
@@ -34,8 +37,8 @@ namespaces, or ask a session to read them.
 - The check and its sentence change in the same commit.
 - A note that the change makes false is changed or removed in the same commit. A
   note is not added to tell a body again.
-- An entry of `whose-call.edn` moves with its var. When Sid turns a call, the
-  entry says `:decided` and names where.
+- A call is on its var, so it moves with it. When Sid turns a call, it says
+  `:decided` and names where.
 - When what is intended and what the code does differ, say both. Do not present a
   proposal as built.
 

@@ -135,8 +135,9 @@ give the same rows, with the same stamps, whenever they are decided.
    and takes the row of the value before out. The last write is the walk's last
    step.
 
-The walk's own docstring walks the same thing in eight steps, numbered 0 to 7
-([walk.clj](module/walk.clj)), and says what each kind of thing costs. The walk
+The comments of `decide` walk the same thing in eight steps, numbered 0 to 7
+([walk.clj](module/walk.clj)), and the namespace docstring says what each kind
+of thing costs. The walk
 gives back the rows of an accept that a gate may copy to other tasks: the rows
 of the facts and of the facts by value.
 
@@ -395,11 +396,14 @@ shape must hold when each fact is wrong.
 
 ## The order of a lane's acts after a failure
 
-Sid, 13 October 2026: "I am against the Rama setting that orders a layer's acts
-after a failure. Nobody has shown whether a failure in a fast layer can make
-acts that were in flight come out in another order when the store is run again.
-Run it and find out. If it can, look for a cheap way to close it. If there is
-none, say it on the store's page, and the proof names such acts."
+Sid is against the Rama setting that orders a lane's acts after a failure. His
+line of 13 October 2026 (‹278f6238›): "yeah i am against the setting as well
+... so that is sorted what next?". The prompt of that day, in a session's text
+that he pasted into it and did not type: "Nobody has shown whether a failure
+in a fast layer can make acts that were in flight come out in another order
+when the store is run again. Run it and find out. If it can, look for a cheap
+way to close it. If there is none, say it on the store's page, and the proof
+names such acts." ([Decisions of 13 October 2026](../../README.md), entry 7.)
 
 The setting is `topology.stream.max.executing.per.task` at 1: a task then has
 one record pending at a time. The cost is one act in each batch of a task, so
