@@ -1,0 +1,14 @@
+store          softland.store.act-proof                     rc=0     1s  PASSED=136 FAILED=0
+store          softland.store.pure-proof                    rc=0     3s  PASSED=753 FAILED=0
+store          softland.store.read-path-pure-proof          rc=0    46s  PASSED=277 FAILED=0
+wire           softland.wire.pure-proof                     rc=0     1s  PASSED=38 FAILED=0
+runtime        softland.runtime.pure-proof                  rc=0     1s  PASSED=22 FAILED=0
+auth           softland.auth.reference-proof                rc=0    10s  PASSED=191 FAILED=0
+store-module   softland.store.module-proof                  rc=0    49s  PASSED=496 FAILED=0
+store-module   softland.store.door-proof                    rc=0    30s  PASSED=283 FAILED=0
+store-module   softland.store.read-path-proof               rc=0    56s  PASSED=231 FAILED=0
+store-module   softland.store.run-again-proof               rc=0    64s  PASSED=0 FAILED=0
+auth           softland.auth.module-check                   rc=0    29s  PASSED=36 FAILED=0
+runtime        softland.runtime.proof                       rc=0    34s  PASSED=49 FAILED=0
+runtime        softland.runtime.command-proof               rc=0    37s  PASSED=16 FAILED=0
+TOTAL 361s

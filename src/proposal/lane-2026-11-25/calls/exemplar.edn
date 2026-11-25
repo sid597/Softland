@@ -1,0 +1,25 @@
+[{:at softland.store.gate.first-act
+  :state :a-sessions
+  :what "The words \"system\" and \"the base\" are Sid's; the keywords :system and :base are a session's."}
+ {:at softland.store.gate.first-act/system
+  :state :decided
+  :what "The system can hold other lanes beside the base: the form takes `system` as the first holder of any lane."
+  :source "Sid, 9 October 2026"}
+ {:at softland.store.gate.first-act/depot-at-making
+  :state :decided
+  :what "The base starts with the microbatch depot and every other lane with the streaming one. This function is the one place where that decision is code."
+  :source "F4 C"}
+ {:at softland.store.gate.first-act/starts-with-the-other-gates-depot?
+  :state :a-sessions
+  :what "An act on one depot for a lane that starts with the other depot gets its word from the act alone. `softland.store.gate.decision/standing` says what forced the rule."
+  :source "a session, 14 October 2026"}
+ {:at softland.store.gate.first-act/making-act?
+  :state :a-sessions
+  :what "The form of a making act (two facts: the lane's depot, and its own first permission) is the builder's, not a decision of Sid's."}
+ {:at softland.store.gate.first-act/making-act?
+  :state :a-sessions
+  :what "When the system makes a personal lane, it acts under the person's permission. Sid's decision says that the system makes the lane and the permission; under which permission the system then acts is the builder's reading."}
+ {:at softland.store.gate.first-act/starts-with
+  :state :not-decided
+  :what "A new lane reads as :members and the base as :everyone only so that the build can run. With :everyone a person who is not signed in sees the base. This function is the one place where the other answer would be made; a later change here changes how every lane with no fact reads."
+  :source "BUILD-reads.md, \"Not decided\""}]
