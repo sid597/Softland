@@ -67,8 +67,9 @@
 
   It holds no row, no value and no place-answer. The values are in Rama's
   pushes and nowhere else: each holds the current value of its path, and
-  Rama keeps it level. Nothing shown to a caller is anything but what the
-  tables held: there is no optimistic value. All of `held` is lost when the
+  Rama keeps it level (Sid, 11 October 2026: \"i also don't consider it a
+  cache\"). Nothing shown to a caller is anything but what the tables held:
+  there is no optimistic value. All of `held` is lost when the
   process ends, and Rama clears a push that sends no heartbeat (read in
   Rama's pages, not run); nothing tells a caller, and each asks again.
 

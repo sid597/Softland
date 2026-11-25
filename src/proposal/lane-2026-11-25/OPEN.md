@@ -14,8 +14,8 @@ on top of 4369cfd. Not merged to `main`: that is Sid's.
   `python3 -I W/same_code.py 4369cfd <file>` prints "same code" for each.
 - A sentence that said whose call a thing is ("not decided", "a session's",
   "Sid's decision of …") left its docstring and became an entry in a
-  `whose-call.edn` beside each tree's code. 123 entries: 52 `:not-decided`,
-  31 `:a-sessions`, 40 `:decided`. The forks' own files are in `W/calls/`;
+  `whose-call.edn` beside each tree's code. 122 entries: 52 `:not-decided`,
+  31 `:a-sessions`, 39 `:decided`. The forks' own files are in `W/calls/`;
   `W/assemble_calls.py` makes the five files from them.
 - `src-store/CLAUDE.md` is the draft that was in this folder.
 - Every proof ran once after the cut with rc 0 and no `FAILED`
@@ -24,76 +24,48 @@ on top of 4369cfd. Not merged to `main`: that is Sid's.
   docstring with no requires after it; and five quoted lines that the rename
   had changed from "layer" to "lane" are back as typed.
 
-## Two questions that only Sid can answer
+## What Sid answered, 25 November 2026, in the session's chat
 
-Each has the context first, then the choices, then this session's position.
-An answer like "1A, 2C" is enough.
+These are in a session's words; his typed lines are in the record.
 
-### 1. Where the line "i also don't consider it a cache" lives
+- **The cache line lives with the code.** A warning that matters when the
+  code is changed stands next to that code; nobody reads the data file and
+  the code together. Done: his line "i also don't consider it a cache" is
+  back in the namespace docstring of `src-store/softland/store/read_path.clj`,
+  and its entry is out of `whose-call.edn`, so it is written once.
+- **The pages are cut by the same rule as the code.** A thing is written down
+  only if it is written nowhere else and is not plain to derive or to find.
+  Copies in many places bloat the tree, and an agent then cannot tell which
+  one is the truth. Not done yet: it is item 6 of the list below, after the
+  review.
 
-The read path keeps a live read level by holding Rama's pushes: each push
-holds the current value of one path, and Rama updates it. A session that
-meets this could take it for a cache, and the project stops any work that
-reaches for caching. On 11 October Sid said of it: "i also don't consider it
-a cache".
+## One question that his answer on the cache opens
 
-Before the cut, that quote sat in the namespace docstring of
-`src-store/softland/store/read_path.clj`, in brackets after the fact. The cut
-rules send "Sid's decision of …" to data, so now:
+The cut moved every sentence that says whose call a thing is out of the
+docstrings and into `whose-call.edn`, a file beside the tree. The starter
+gives that as his decision ("Whose call a thing is becomes data"), in a
+session's words that were not checked against the record.
 
-- the docstring says only the fact: "The values are in Rama's pushes and
-  nowhere else: each holds the current value of its path, and Rama keeps it
-  level."
-- the quote is an entry on `softland.store.read-path` in
-  `src-store/softland/store/whose-call.edn`, state `:decided`.
+His reason for the cache line reaches these entries too. "Sid decided this"
+on a var tells a session that changing it is his word to give; "not decided"
+tells it that the value is a placeholder. Both matter at the moment the code
+is changed, and both now sit in a file that the session changing the code
+has no reason to open. The sections "Engineering choices" and "Words a
+session made" of the store's and the door's pages, and the tables that hold
+the code against each of his decisions, are the same kind of statement, so
+how the pages are cut hangs on this too.
 
-**A.** Leave it so. One home for the quote, and the docstring carries the
-reason it is no cache.
-**B.** Put the quote back in the docstring as well. A session reading the
-code meets his word at the site; the quote then has two homes.
+**A.** At the code, as data on the var: the entry becomes metadata of its
+`def` or `ns`. One home, next to the code, and one command still lists every
+open call. The separate files go.
+**B.** At the code, as a short note in the docstring, as before the cut. No
+data, and no list but a search.
+**C.** As it is: a file beside the tree.
 
-Position: A. The docstring's sentence is the reason, and the reason is what a
-session needs at the site; who said so is what the data is for.
-
-### 2. What the READMEs of these trees become
-
-The new `src-store/CLAUDE.md` says: "No map of the tree is kept beside the
-code. To find the way in, read the namespaces, or ask a session to read
-them." The cut did not touch any page, so the pages still follow the old
-rule. Three things are now off:
-
-- `src-store/README.md` says "Follow folder map → namespace docstring →
-  function docstring", and its table of questions sends a reader to "the
-  namespace docstring of `act.clj`" and the like. Those docstrings are now a
-  sentence or two; the telling they pointed at is gone, on purpose.
-- Each folder has a README that maps its files (14 pages, about 2,700 lines;
-  `src-store/softland/store/README.md` alone is 1,482).
-- `src-store/softland/store/README.md` and `door/README.md` have the sections
-  "Engineering choices" and "Words a session made, Sid's to change". They say
-  whose call a thing is, in prose. `whose-call.edn` now says the same for the
-  ones that sat in docstrings. So that statement has two homes, and they will
-  drift.
-
-These pages also hold things that have no other home: "What the gate does not
-check, said plainly", what the runs found on the order of a lane's acts after
-a failure, and the tables that hold the code against each of his decisions.
-
-**A.** Cut the pages by the same rule as the code. A page keeps what it is
-the one home of. The file maps, the "read by level" text and the pointers to
-docstrings go. Each item of "Engineering choices" and "Words a session made"
-that belongs to a var moves into `whose-call.edn`; one that belongs to no var
-stays on the page.
-**B.** Keep the pages as maps, and only mend what is now false: the pointers
-to docstrings and the line that names the old rules. Then the sentence "No
-map of the tree is kept beside the code" comes out of `src-store/CLAUDE.md`,
-because it would not be true.
-**C.** Leave the pages for now and decide after the review of the cut.
-
-Position: A, after the review. It is the same decision he already made for
-the code, applied to the prose that still retells it; B keeps a second
-telling alive and needs the new page changed to allow it. A removes whole
-sections and may empty some pages, and moving or removing a page is his word
-to give, so the session that does it lists what would go before it goes.
+Position: A. It keeps what he asked for (data, so that the open calls can be
+listed) and puts it where his localization reason says a warning belongs.
+Its cost: metadata is code to the checker, so `same_code.py` has to pass that
+one key, and the 122 entries move once more.
 
 ## One choice this session made, his to turn
 
@@ -155,7 +127,12 @@ it. In this order.
    and the long sentence as the prompt's, which a session wrote at his word
    and he sent. The run-again proof's docstring says the same. So the store's
    page gives a session's sentence as his. Mend it from the Decisions entry.
-6. **After his answer to question 2: the pages.**
+6. **Cut the pages by the same rule as the code**, after the review and
+   after his answer to the question above. A page keeps what it is the one
+   home of: what the gate does not check, what a run found, his decisions.
+   What retells the code goes: the file maps, the "read by level" text, the
+   pointers to docstrings. Before a section or a page is removed, list what
+   would go and show him: moving or removing a page is his word to give.
 7. **Not covered by the cut.** `src-server`, `src-server-browser` and
    `src-cli` were renamed and not cut; the checks' prose was out of scope.
    Whether they are cut is his to say.

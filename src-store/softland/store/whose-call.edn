@@ -41,11 +41,6 @@
   :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 4"}
 
  {:at softland.store.read-path
-  :state :decided
-  :what "The values that a live read gives are in Rama's pushes and nowhere else: each push holds the current value of its path, and Rama keeps it level. Sid: \"i also don't consider it a cache\"."
-  :source "Sid, 11 October 2026"}
-
- {:at softland.store.read-path
   :state :not-decided
   :what "The read path's 900 (`:max-pushes-under-one-routing-id`) stands under the default of Rama's option `pstate.proxy.limit`, 1,000. To raise that option, and this number with it, is a setting for Sid to weigh. The read path sets none of Rama's options."}
 
