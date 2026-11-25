@@ -1,21 +1,15 @@
 (ns softland.auth.module
-  "The Rama module `Auth`: declares its four depots (`*root-events`, `*asks`,
-  `*invites`, `*enters`), six PStates (`$$root-data`, `$$live`, `$$accounts`,
-  `$$claims`, `$$asks`, `$$enter-ops`), single stream topology `\"auth\"`, and
-  three query topologies (`\"who-is\"`, `\"under\"`, `\"ping-task\"`).
+  "The Rama module `Auth`. One stream topology, `\"auth\"`, decides every
+  write and acks its contract result; three query topologies serve the
+  reads. The module has no global depot, no global PState, no `|global` or
+  `|all` partitioner and no `TaskGlobal`.
 
-  All writes execute inside `\"auth\"` with `{:start-from :beginning
-  :retry-mode :all-after}` and return their exact contract result map via
-  `(ack-return> result)`. No global depot, no global PState, no `|global` or
-  `|all` partitioner, and no `TaskGlobal` exist anywhere in the module.
-
-  Each depot's dataflow is a function of its own (`invites-source!`,
-  `enters-source!`, `root-events-source!`, `asks-source!`), and each first
-  holds the record against the form that the client gives it
-  (`softland.auth.schema/invite-record-fits?` and the like): a record that
-  another appender wrote, of another type or with a field of another type,
-  is acked with `{:could-not :read-the-event}` and changes nothing, so that
-  it can never throw in a step and, under `:all-after`, hold its partition.
+  Each depot's dataflow first holds the record against the form that the
+  client gives it (`softland.auth.schema/invite-record-fits?` and the like):
+  a record that another appender wrote, of another type or with a field of
+  another type, is acked with `{:could-not :read-the-event}` and changes
+  nothing, so that it can never throw in a step and, under `:all-after`,
+  hold its partition.
 
   Cross-key agreement (`invite`, `enter`, `answer-ask`) runs the pure
   single-task step functions of `softland.auth.schema` via `loop<-` +
@@ -29,9 +23,7 @@
   and retries of every mode. `schema.clj` is a second writing of the same
   steps, held to the contract's reference by `softland.auth.module-check`'s
   generated histories through this module, on a healthy cluster: on this
-  module no hop has failed and no record has been replayed in any run.
-
-  State and effects: durable Rama depots and PStates owned by `Auth`."
+  module no hop has failed and no record has been replayed in any run."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]
@@ -45,15 +37,12 @@
             ReplaceSecretEvent]))
 
 (def ^:private source-opts
-  "Depot consumption options for all four sources in stream topology `\"auth\"`."
   {:start-from :beginning :retry-mode :all-after})
 
 (deframaop apply-root-plan!
-  "Applies all `$$root-data` upserts/deletes of `plan`, and its upserts and
-  deletes of the inner keys of root `*root`'s map in `$$live`, on the current
-  task (which must be `H(*root)`) using flat `<<atomic` + `ops/explode` blocks
-  (O(1) JVM stack depth regardless of cascade size, zero yielding). A live
-  write is `[(keypath *root *k) (termval v)]` or `NONE>`: no read."
+  "The task must be `H(*root)`. Flat `<<atomic` + `ops/explode` blocks: O(1)
+  JVM stack depth regardless of cascade size, and no yield. A live write is
+  `[(keypath *root *k) (termval v)]` or `NONE>`: no read."
   [*root *plan *rd *live]
   (<<atomic
     (ops/explode (s/plan-rd-upserts *plan) :> [*k *v])
@@ -70,10 +59,9 @@
   (:>))
 
 (deframaop take-out-on-root!
-  "Executes `take-out` for `*root` at `*at` on task `H(*root)`: scans `exp:`
-  up to `*at` (1 seek, 0 further reads when nothing expired), and when non-empty
-  scans the root's map in `$$live` once to end expired sign-ins, cascade their
-  open sessions, and close expired sessions atomically."
+  "The task must be `H(*root)`. One seek of `exp:` up to `*at`, and no
+  further read when nothing expired; else one scan of the root's map in
+  `$$live`."
   [*root *at *rd *live]
   (local-select> [(sorted-map-range (s/k-exp-lo *root) (s/k-exp-hi *root *at))] *rd :> *exp-map)
   (<<if (seq *exp-map)
@@ -83,10 +71,6 @@
   (:>))
 
 (defn- invites-source!
-  "Adds to the stream topology `st` the dataflow of `*invites`: `invite`,
-  with its hops between H(C) and H(P). A record that does not have the
-  client's form is refused (`s/invite-record-fits?`) before any field of it
-  is used."
   [st]
   (<<sources st
     ;; ====================================================================
@@ -186,10 +170,7 @@
       (ack-return> s/does-not-fit))))
 
 (defn- enters-source!
-  "Adds to the stream topology `st` the dataflow of `*enters`: `enter`, with
-  its hops between H(Acc), H(C), H(op) and H(P). A record that does not
-  have the client's form is refused (`s/enter-record-fits?`) before any
-  field of it is used."
+  "Hops between H(Acc), H(C), H(op) and H(P)."
   [st]
   (<<sources st
     ;; ====================================================================
@@ -345,10 +326,6 @@
       (ack-return> s/does-not-fit))))
 
 (defn- root-events-source!
-  "Adds to the stream topology `st` the dataflow of `*root-events`: the eight
-  writes under a root, each in one event on H(P). A record that does not
-  have the client's form is refused (`s/root-record-fits?`) before any field
-  of it is used."
   [st]
   (<<sources st
     ;; ====================================================================
@@ -463,10 +440,6 @@
       (ack-return> s/does-not-fit))))
 
 (defn- asks-source!
-  "Adds to the stream topology `st` the dataflow of `*asks`: `ask` on H(U),
-  and `answer-ask` with its hops between H(U) and H(P). A record that does
-  not have the client's form is refused (`s/ask-record-fits?`) before any
-  field of it is used."
   [st]
   (<<sources st
     ;; ====================================================================
@@ -556,14 +529,13 @@
       (ack-return> s/does-not-fit))))
 
 (defmodule Auth [setup topologies]
-  ;; Four partitioned depots (zero global or internal depots).
   (declare-depot setup *root-events (hash-by :root-id))
   (declare-depot setup *asks (hash-by :code))
   (declare-depot setup *invites (hash-by :claim-key))
   (declare-depot setup *enters (hash-by :account-key))
 
   (let [st (stream-topology topologies "auth")]
-    ;; Six strictly typed PStates (zero Object positions, zero byte arrays).
+    ;; No Object position and no byte array in any schema.
     (declare-pstate st $$root-data {String IRootDatum})
     ;; $$live: under each root, a subindexed map from an inner key ("g:<G>",
     ;; "s:<S>") to what is live there. A watch of a root is a proxy on that

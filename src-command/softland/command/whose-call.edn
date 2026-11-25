@@ -1,0 +1,12 @@
+;; Whose call each thing in this tree's code is. One entry per place that is
+;; not decided (:not-decided: kept so that the build runs; nobody chose it),
+;; that a session or the builder chose (:a-sessions: Sid's to turn), or that
+;; carries a decision of Sid's (:decided, with :source). :at is the var, or the
+;; namespace. An entry moves with its var.
+[{:at softland.command.main/replace-under-ms
+  :state :a-sessions
+  :what "With less than two days left of a secret's time, a command replaces the secret before it does its work. A number of the build."}
+
+ {:at softland.command.main/paced-wait-ms
+  :state :a-sessions
+  :what "`sign-in` waits three seconds before it asks again about its ask when the runtime said `:take-more`. A number of the build."}]

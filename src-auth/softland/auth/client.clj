@@ -1,28 +1,21 @@
 (ns softland.auth.client
-  "Foreign client for the Rama module `Auth`, exposing the 18 functions of
-  Auth's contract (`src/proposal/runtime-2026-11-21/spine/auth/SPEC.md`).
+  "Foreign client for the Rama module `Auth`: the 18 functions of Auth's
+  contract (`src/proposal/runtime-2026-11-21/spine/auth/SPEC.md`). A client
+  holds no Auth truth.
 
-  Every call validates its arguments at the client edge (`softland.auth.fit`)
-  before touching Rama: invalid arguments (including a non-client first
-  argument) return `{:could-not :read-the-event}` and append nothing to any
-  depot. A closed client returns `{:could-not :closed}` (including from
-  `watch-root` in place of the stop function). No public function throws;
-  transport or timeout failures return `{:could-not :reach-the-module ...}`.
+  No public function throws. Arguments that do not fit
+  (`softland.auth.fit`), a first argument that is no client among them, give
+  `{:could-not :read-the-event}` and append nothing to any depot. A closed
+  client gives `{:could-not :closed}`, from `watch-root` too, in place of
+  the stop function. A transport failure or a timeout gives
+  `{:could-not :reach-the-module ...}`.
 
-  `watch-root` deduplicates Rama `foreign-proxy-async` subscriptions per
-  `(client, root)`, each a proxy on that root's own map in `$$live`
-  (`[(keypath root) (sorted-map-range ...)]`), applies `KeyDiff` / `KeyRemoveDiff` /
-  `MultiDiff` incrementally, suppresses the initial `ResyncDiff` and
-  `DestroyedDiff`, isolates throwing callbacks per watcher, prevents
-  re-entrant deadlocks on `stop` / `close!` via a `ThreadLocal` turn guard,
-  and monitors module/task liveness via `\"ping-task\"` (2 s cadence, 5 s
-  timeout + 3 s partial-outage probe = 8 s ceiling) to deliver
-  `:softland.auth.client/not-reached` exactly once within seconds of loss.
-
-  State and effects: each open `Client` holds Rama foreign handles to one
-  launched `Auth` module, a closed flag, an in-JVM watch registry, and a
-  daemon scheduler for `ping-task` while watches are active. It holds no
-  Auth truth."
+  `watch-root` holds one `foreign-proxy-async` for each `(client, root)`, on
+  that root's own map in `$$live`. The first `ResyncDiff`, and a
+  `DestroyedDiff`, are not delivered. Liveness is watched with
+  `\"ping-task\"` (2 s cadence, 5 s timeout + 3 s partial-outage probe = 8 s
+  ceiling), so that `:softland.auth.client/not-reached` is delivered exactly
+  once within seconds of loss."
   (:require [com.rpl.rama :as rama]
             [com.rpl.rama.path :as path]
             [softland.auth.fit :as fit]
@@ -38,40 +31,35 @@
 ;; ----------------------------------------------------------------- constants
 
 (def ^:private default-timeout-ms
-  "Bounded wait (ms) for blocking depot appends, query topologies, and point reads."
   10000)
 
 (def ^:private proxy-open-timeout-ms
-  "Bounded wait (ms) for `watch-root` to register its `foreign-proxy-async` on H(P)."
   5000)
 
 (def ^:private ping-cadence-ms
-  "Interval (ms) between `ping-task` liveness sweeps while watches are open."
   2000)
 
 (def ^:private ping-timeout-ms
-  "Timeout (ms) for `ping-task` RPCs (Revision 2: >= 5 s)."
+  "Revision 2: >= 5 s."
   5000)
 
 (def ^:private fallback-probe-timeout-ms
-  "Timeout (ms) for per-root fallback `$$live` probes during partial task outages (Revision 2: >= 3 s)."
+  "Revision 2: >= 3 s."
   3000)
 
 (def ^:private topology-name
-  "Name of Auth's stream topology, used as key in Rama's `AckReturnMap`."
+  "The key of Auth's `ack-return>` in Rama's `AckReturnMap`."
   "auth")
 
 (def ^:private not-reached-sentinel
-  "The value delivered once to a watcher when `Auth` cannot be reached."
   :softland.auth.client/not-reached)
 
 (def ^:private ^ThreadLocal current-callback-wid
-  "Holds the watcher id currently executing its callback on this thread, so
+  "The id of the watcher whose callback runs on this thread, so that a
   re-entrant `stop` or `close!` never deadlocks waiting for its own turn."
   (ThreadLocal.))
 
 (def ^:private ^AtomicLong next-watch-id
-  "Monotonic id generator for watch registrations."
   (AtomicLong. 0))
 
 ;; ------------------------------------------------------------- client handle
@@ -94,12 +82,10 @@
                  monitor-task])
 
 (defn- client?
-  "Whether `x` is an Auth client returned by `open`."
   [x]
   (instance? Client x))
 
 (defn- unwrap-cause
-  "Unwraps `ExecutionException` wrappers to the underlying cause."
   [^Throwable t]
   (loop [cur t]
     (if (and (instance? ExecutionException cur) (.getCause cur))
@@ -107,8 +93,8 @@
       cur)))
 
 (defn- find-module-error?
-  "Determines whether throwable `t` from `open` indicates a non-cluster handle
-  or a missing module name rather than a network outage."
+  "True for a handle that is no cluster, or a module name that is not
+  there; false for a network outage."
   [^Throwable t]
   (let [cause (unwrap-cause t)
         msg (or (.getMessage cause) "")]
@@ -117,19 +103,15 @@
         (boolean (re-find #"(?i)not alive|does not exist|not found|no module|unknown module|no such" msg)))))
 
 (defn- await-future
-  "Blocks on `CompletableFuture` `fut` up to `timeout-ms` milliseconds."
   [^CompletableFuture fut ^long timeout-ms]
   (.get fut (max 0 timeout-ms) TimeUnit/MILLISECONDS))
 
 (defn- close-proxy-quietly!
-  "Closes a Rama `ProxyState` handle, dropping any exception."
   [proxy]
   (when proxy
     (try (rama/close! proxy) (catch Throwable _ nil))))
 
 (defn- append-and-ack!
-  "Appends `event` to Rama depot `depot` with `:ack` up to `default-timeout-ms`
-  and extracts Auth's `ack-return>` map."
   [depot event]
   (try
     (let [ack-map (await-future (rama/foreign-append-async! depot event :ack) default-timeout-ms)
@@ -144,8 +126,6 @@
         {:could-not :reach-the-module :error (or (.getMessage c) (str c))}))))
 
 (defn- guarded-write
-  "Checks client identity, closed flag, and input form for `kind`, then builds
-  the depot record with `make-event` and appends it to `(depot-fn client)`."
   [client kind input depot-fn make-event]
   (if-not (client? client)
     {:could-not :read-the-event}
@@ -158,8 +138,6 @@
 ;; ------------------------------------------------------- watch-root engine
 
 (defn- make-daemon-scheduler
-  "Creates the single-thread daemon `ScheduledExecutorService` on which the
-  `ping-task` liveness sweep runs."
   ^ScheduledExecutorService []
   (Executors/newSingleThreadScheduledExecutor
    (reify ThreadFactory
@@ -168,8 +146,6 @@
          (.setDaemon true))))))
 
 (defn- deliver-value!
-  "Delivers `val` to watcher `w` under its per-watcher turn lock if still `:active`,
-  catching and dropping any throwable from `f`."
   [w val]
   (let [wid (:id w)
         f (:f w)
@@ -186,8 +162,6 @@
                 (.set current-callback-wid prev)))))))))
 
 (defn- fail-watcher!
-  "Atomically transitions watcher `w` from `:active` to `:dead` inside its turn
-  and invokes `(f :softland.auth.client/not-reached)` at most once."
   [w]
   (let [wid (:id w)
         f (:f w)
@@ -204,8 +178,8 @@
                 (.set current-callback-wid prev)))))))))
 
 (defn- stop-watcher-sync!
-  "Transitions watcher `w` to `:stopped` and waits for any in-flight callback
-  on another thread to finish before returning (non-blocking if re-entrant)."
+  "The empty `locking` waits for a callback in flight on another thread; a
+  re-entrant call does not wait."
   [w]
   (let [st (:state w)]
     (when (= :active @st)
@@ -214,8 +188,6 @@
       (locking (:turn w) nil))))
 
 (defn- detach-proxy-entry!
-  "Detaches `entry` from `client`'s `proxies` map (if it is still the current
-  entry for `root`), marks it closed, and returns `[proxy watchers-vec]`."
   [^Client client root entry]
   (locking (.-watch-lock client)
     (let [curr (get @(.-proxies client) root)]
@@ -227,8 +199,6 @@
       [@(:proxy entry) ws])))
 
 (defn- fail-proxy-entry!
-  "Detaches and closes `entry`, then delivers `:not-reached` once to every
-  watcher that was attached to it."
   [^Client client root entry]
   (let [[proxy ws] (detach-proxy-entry! client root entry)]
     (close-proxy-quietly! proxy)
@@ -236,8 +206,6 @@
       (fail-watcher! w))))
 
 (defn- fail-all-proxies!
-  "Detaches and closes every active proxy on `client`, delivering `:not-reached`
-  once to each attached watcher (used when all tasks are unreachable)."
   [^Client client]
   (let [entries (locking (.-watch-lock client)
                   (let [es (vec (vals @(.-proxies client)))]
@@ -254,9 +222,7 @@
           (fail-watcher! w))))))
 
 (defn- extract-key-ops
-  "Walks Rama `Diff` using `Diff$Processor` / `KeyDiff$Processor` /
-  `KeyRemoveDiff$Processor`. Returns a vector of `[:put k]` / `[:out k]` ops,
-  or `:full` when any sub-diff requires rebuilding from `new-val`."
+  "`:full` when any sub-diff requires rebuilding from `new-val`."
   [diff]
   (try
     (let [ops (ArrayList.)
@@ -273,9 +239,6 @@
     (catch Throwable _ :full)))
 
 (defn- apply-diff-to-projected
-  "Applies Rama `diff` against `prev-proj` and `new-val`, updating only changed
-  entries when `extract-key-ops` succeeds and falling back to full projection
-  otherwise."
   [prev-proj new-val diff]
   (let [ops (extract-key-ops diff)]
     (if (= :full ops)
@@ -299,7 +262,6 @@
        ops))))
 
 (defn- on-proxy-callback!
-  "Rama `foreign-proxy` callback for shared root proxy `entry`."
   [^Client client root entry new-val diff _old-val]
   (when-not (or @(.-closed? client) @(:closed? entry))
     (cond
@@ -335,19 +297,15 @@
             (deliver-value! w next-proj)))))))
 
 (defn- probe-root
-  "Starts one probe of `root`'s task: a select of the first entry of the
-  root's map in `$$live`. Gives its `CompletableFuture`."
   ^CompletableFuture [^Client client root]
   (rama/foreign-select-async [(path/keypath root) (path/sorted-map-range-from s/live-lo {:max-amt 1})]
                              (.-p-live client)
                              {:pkey root}))
 
 (defn- unreached-roots
-  "During a partial task outage, probes every root of `roots` at once
-  (`probe-root`, on each root's own task), and waits for all of them against
-  ONE deadline, `fallback-probe-timeout-ms` from now: so the sweep takes that
-  long at most, however many roots are watched. Gives the set of roots whose
-  probe did not answer by then, or failed."
+  "All probes wait against ONE deadline, `fallback-probe-timeout-ms` from the
+  start: so the sweep takes that long at most, however many roots are
+  watched."
   [^Client client roots]
   (let [deadline (+ (System/currentTimeMillis) fallback-probe-timeout-ms)
         probes (mapv (fn [root] [root (try (probe-root client root) (catch Throwable _ nil))])
@@ -362,11 +320,6 @@
           probes)))
 
 (defn- run-liveness-sweep!
-  "Pings all `N` tasks of `Auth` in parallel using `\"ping-task\"` (0 seeks).
-  Does nothing when healthy or when no watches are active. Fires `:not-reached`
-  for all watches if all tasks fail; if a subset of tasks fail, probes every
-  watched root at once against one deadline (`unreached-roots`) and fires
-  `:not-reached` for the roots that did not answer."
   [^Client client]
   (when-not @(.-closed? client)
     (let [active-entries (locking (.-watch-lock client)
@@ -407,8 +360,7 @@
                   (fail-proxy-entry! client (:root e) e))))))))))
 
 (defn- ensure-monitor-started!
-  "Starts the periodic `ping-task` liveness monitor on `client` (must be called
-  while holding `watch-lock`)."
+  "The caller must hold `watch-lock`."
   [^Client client]
   (when (and (not @(.-closed? client)) (nil? @(.-monitor-task client)))
     (let [^ScheduledExecutorService exec @(.-scheduler client)
@@ -424,20 +376,15 @@
       (reset! (.-monitor-task client) fut))))
 
 (defn- schedule-not-reached!
-  "Tells watcher `w`, whose proxy failed to open, `:not-reached`, on a virtual
-  thread of its own: never on the scheduler's one thread, which a liveness
-  sweep can hold for seconds, and never on the caller's, which is inside
-  `watch-root`."
+  "On a virtual thread of its own: never on the scheduler's one thread, which
+  a liveness sweep can hold for seconds, and never on the caller's, which is
+  inside `watch-root`."
   [^Client _client w]
   (.start (Thread/ofVirtual) ^Runnable (fn [] (fail-watcher! w))))
 
 ;; ---------------------------------------------------------------- lifecycle
 
 (defn open
-  "Opens a client to the launched Rama `Auth` module named `module-name` on
-  `cluster`. Returns a `Client` handle, `{:could-not :find-the-module ...}`
-  when `cluster` is invalid or `module-name` is absent, or
-  `{:could-not :reach-the-module ...}` on transport error. Never throws."
   [cluster module-name]
   (if (or (nil? cluster) (not (string? module-name)))
     {:could-not :find-the-module :module module-name}
@@ -469,11 +416,8 @@
           {:could-not :reach-the-module :module module-name :error (or (.getMessage (unwrap-cause t)) (str t))})))))
 
 (defn close!
-  "Idempotently closes `client`: stops the background `ping-task` liveness
-  monitor, marks all watches stopped (never delivering `:not-reached`), closes
-  all open `foreign-proxy` handles, and waits for any in-flight callback on
-  another thread to finish so no callback runs after `close!` returns. Returns
-  `nil` for any argument, including non-clients."
+  "No watcher is told `:not-reached`. It waits for any callback in flight on
+  another thread, so no callback runs after `close!` returns."
   [client]
   (when (client? client)
     (let [^Client c client
@@ -506,7 +450,6 @@
 ;; ---------------------------------------------------------------- 12 writes
 
 (defn invite
-  "Invites a person under a claim (`{:person :claim :invited-by :at}`)."
   [client input]
   (guarded-write
    client :invite input #(.-d-invites ^Client %)
@@ -518,7 +461,6 @@
        (s/->InviteEvent person ck (:by claim) cv ib-kind ib-id at)))))
 
 (defn enter
-  "Enters an account (`{:account :says :email :code-hash :own-lane :making :at}`)."
   [client input]
   (guarded-write
    client :enter input #(.-d-enters ^Client %)
@@ -529,7 +471,6 @@
                        own-lane (:uuid making) (:session making) at)))))
 
 (defn own-lane-made
-  "Marks an entered person's own lane as made (`{:person :at}`)."
   [client input]
   (guarded-write
    client :own-lane-made input #(.-d-root-events ^Client %)
@@ -537,7 +478,6 @@
      (s/->OwnLaneMadeEvent person at))))
 
 (defn begin-sign-in
-  "Begins a sign-in under a root (`{:root :actor :sign-in :kind :hash :until :label :at}`)."
   [client input]
   (guarded-write
    client :begin-sign-in input #(.-d-root-events ^Client %)
@@ -545,7 +485,6 @@
      (s/->BeginSignInEvent root actor sign-in kind hash until label at))))
 
 (defn replace-secret
-  "Replaces a sign-in's secret (`{:root :sign-in :old-hash :new-hash :until :previous-until :at}`)."
   [client input]
   (guarded-write
    client :replace-secret input #(.-d-root-events ^Client %)
@@ -553,7 +492,6 @@
      (s/->ReplaceSecretEvent root sign-in old-hash new-hash until previous-until at))))
 
 (defn end-sign-in
-  "Ends a sign-in and closes its open sessions (`{:root :sign-in :at}`)."
   [client input]
   (guarded-write
    client :end-sign-in input #(.-d-root-events ^Client %)
@@ -561,7 +499,6 @@
      (s/->EndSignInEvent root sign-in at))))
 
 (defn make-actor
-  "Makes an agent under a root (`{:root :actor :made-by :label :at}`)."
   [client input]
   (guarded-write
    client :make-actor input #(.-d-root-events ^Client %)
@@ -569,7 +506,6 @@
      (s/->MakeActorEvent root actor made-by label at))))
 
 (defn end-actor
-  "Ends an agent and its subtree, sign-ins, and sessions (`{:root :actor :at}`)."
   [client input]
   (guarded-write
    client :end-actor input #(.-d-root-events ^Client %)
@@ -577,7 +513,6 @@
      (s/->EndActorEvent root actor at))))
 
 (defn open-session
-  "Opens or extends a session under a live sign-in (`{:root :sign-in :session :until :at}` plus optional `:driven-by`)."
   [client input]
   (guarded-write
    client :open-session input #(.-d-root-events ^Client %)
@@ -585,7 +520,6 @@
      (s/->OpenSessionEvent root sign-in session until (s/to-driven-by driven-by) at))))
 
 (defn close-session
-  "Closes a session under a root (`{:root :session :at}`)."
   [client input]
   (guarded-write
    client :close-session input #(.-d-root-events ^Client %)
@@ -593,7 +527,6 @@
      (s/->CloseSessionEvent root session at))))
 
 (defn ask
-  "Creates a device-grant ask bound to an 8-char code (`{:code :hash :asks :ends :at}`)."
   [client input]
   (guarded-write
    client :ask input #(.-d-asks ^Client %)
@@ -601,7 +534,6 @@
      (s/->AskEvent code hash asks ends at))))
 
 (defn answer-ask
-  "Answers a device-grant ask yes or no (`{:code :yes? :root :actor :new-agent :sign-in :until :at}`)."
   [client input]
   (guarded-write
    client :answer-ask input #(.-d-asks ^Client %)
@@ -613,8 +545,6 @@
 ;; ----------------------------------------------------------------- 4 reads
 
 (defn who-is
-  "Reads standing for `{:root P :sign-in G :session S-or-nil}` in one round trip
-  to task `H(P)` using the 2-seek fast path."
   [client query]
   (if-not (client? client)
     {:could-not :read-the-event}
@@ -632,7 +562,6 @@
         {:could-not :read-the-event}))))
 
 (defn ask-of
-  "Reads the standing state of ask code `U` directly from `$$asks` in one seek."
   [client code]
   (if-not (client? client)
     {:could-not :read-the-event}
@@ -651,8 +580,6 @@
         {:could-not :read-the-event}))))
 
 (defn under
-  "Reads all agents (live and ended) and all live sign-ins under root `P` in
-  one round trip to task `H(P)`."
   [client root]
   (if-not (client? client)
     {:could-not :read-the-event}
@@ -670,7 +597,6 @@
         {:could-not :read-the-event}))))
 
 (defn- make-stop-fn
-  "Builds the idempotent 0-arg stop function for watcher `w` on `entry`."
   [^Client client root entry w]
   (let [wid (:id w)]
     (fn stop []
@@ -687,12 +613,10 @@
         nil))))
 
 (defn watch-root
-  "Watches live sign-ins and open sessions under root `P` via a shared
-  `foreign-proxy-async` on `P`'s own map in `$$live`. Calls `(f {:sign-ins {...} :sessions {...}})`
-  on each change (omitting `:driven-by`), with no call at registration. Delivers
-  `:softland.auth.client/not-reached` once within seconds if the module or task
-  cannot be reached. Returns a 0-arg stop function, `{:could-not :closed}` on a
-  closed client, or `{:could-not :read-the-event}` on invalid input."
+  "`f` gets `{:sign-ins {...} :sessions {...}}` on each change, without
+  `:driven-by`, and no call at registration; and
+  `:softland.auth.client/not-reached` once when the module or the task
+  cannot be reached. Gives a stop function of no argument."
   [client root f]
   (if-not (client? client)
     {:could-not :read-the-event}
