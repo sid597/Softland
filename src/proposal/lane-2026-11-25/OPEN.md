@@ -34,9 +34,8 @@ from the repository root; W is this folder.
   thing or that nobody had, and no why, trap or limit stood in an entry
   alone. The five files are in `W/as-files/`.
 - **The code is the same.** `python3 -I W/same_code.py 4369cfd <file>` prints
-  "same code" for each of the 46 files. Every proof ran once on the tree that
-  carried the entries as metadata (`W/proofs-after-the-review.txt`); the run
-  on this tree was under way when this was written.
+  "same code" for each of the 46 files. Every proof ran once on this tree:
+  `W/proofs-after-the-review.txt`.
 
 ## What Sid answered, 25 November 2026, in a session's chat
 

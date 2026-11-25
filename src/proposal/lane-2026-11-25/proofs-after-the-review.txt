@@ -1,29 +1,30 @@
-store          softland.store.act-proof                     rc=0     1s  PASSED=136 FAILED=0
-store          softland.store.pure-proof                    rc=0     6s  PASSED=753 FAILED=0
-store          softland.store.read-path-pure-proof          rc=0   110s  PASSED=277 FAILED=0
+store          softland.store.act-proof                     rc=0     5s  PASSED=136 FAILED=0
+store          softland.store.pure-proof                    rc=0     5s  PASSED=753 FAILED=0
+store          softland.store.read-path-pure-proof          rc=0   112s  PASSED=277 FAILED=0
 wire           softland.wire.pure-proof                     rc=0     2s  PASSED=38 FAILED=0
-runtime        softland.runtime.pure-proof                  rc=0     2s  PASSED=22 FAILED=0
-auth           softland.auth.reference-proof                rc=0    22s  PASSED=191 FAILED=0
-store-module   softland.store.module-proof                  rc=0   102s  PASSED=496 FAILED=0
-store-module   softland.store.door-proof                    rc=0    62s  PASSED=283 FAILED=0
-store-module   softland.store.read-path-proof               rc=0   104s  PASSED=231 FAILED=0
-store-module   softland.store.run-again-proof               rc=0   124s  PASSED=0 FAILED=0
+runtime        softland.runtime.pure-proof                  rc=0     8s  PASSED=22 FAILED=0
+auth           softland.auth.reference-proof                rc=0    25s  PASSED=191 FAILED=0
+store-module   softland.store.module-proof                  rc=0   118s  PASSED=496 FAILED=0
+store-module   softland.store.door-proof                    rc=0    63s  PASSED=283 FAILED=0
+store-module   softland.store.read-path-proof               rc=0   103s  PASSED=231 FAILED=0
+store-module   softland.store.run-again-proof               rc=0   121s  PASSED=0 FAILED=0
 auth           softland.auth.module-check                   rc=0    42s  PASSED=36 FAILED=0
-runtime        softland.runtime.proof                       rc=0    61s  PASSED=49 FAILED=0
+runtime        softland.runtime.proof                       rc=0    62s  PASSED=49 FAILED=0
 runtime        softland.runtime.command-proof               rc=0    91s  PASSED=16 FAILED=0
-TOTAL 729s
-server         softland.server.pure-proof                   rc=0     2s  PASSED=68 FAILED=0
-server         softland.server.seam-proof                   rc=0    36s  PASSED=43 FAILED=0
+TOTAL 757s
+server         softland.server.pure-proof                   rc=0     4s  PASSED=68 FAILED=0
+server         softland.server.seam-proof                   rc=0    34s  PASSED=43 FAILED=0
 server         softland.server.http-proof                   rc=0    33s  PASSED=37 FAILED=0
-probe          statements                                   rc=0    69s  PASSED=2 FAILED=0
-probe          gate-histories                               rc=0    58s  PASSED=0 FAILED=0
+probe          statements                                   rc=0    65s  PASSED=2 FAILED=0
+probe          gate-histories                               rc=0    53s  PASSED=0 FAILED=0
 
-On the tree with the review's repairs and with whose call a thing is as metadata on its var
-(the source of the commit "Whose call a thing is stands on its var, as metadata"), 25 November 2026,
-in a cloud container (4 cores), Clojure tools 1.12.7.1681, Rama 1.6.0. No machine lock: the file
-runs/cluster.lock is not in a fresh clone, and nothing else ran in the container.
+On the tree after the review, with whose call a thing is taken out of the code (the source of the commit
+"Whose call a thing is: taken out of the code"), 25 November 2026, in a cloud container (4 cores),
+Clojure tools 1.12.7.1681, Rama 1.6.0. No machine lock: the file runs/cluster.lock is not in a fresh clone,
+and nothing else ran in the container.
 The counts are those of proofs-after-the-cut.txt and of proofs-after-the-rename.txt; the times are this machine's.
-statements: its first start ended in the fetch of a dependency (429 from repo1.maven.org) before any
-code ran; the line above is its second start. boundary=true, model-histories=240 (breaks=0), broken-copies=16/16 caught.
+statements: boundary=true, model-histories=240 (breaks=0), broken-copies=16/16 caught.
 gate-histories: HOLDS: agree, told, once, outsiders, stamps, kept, see, unseen, screen, run-again.
 run-again-proof prints no PASSED line; its end: {:test 5, :pass 48, :fail 0, :error 0}.
+An earlier run that day, on the tree that carried the entries as metadata on their vars, gave the same
+counts; its statements probe needed a second start after a 429 on the fetch of a dependency.
