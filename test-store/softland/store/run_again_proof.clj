@@ -79,7 +79,7 @@
 
   Check 4, after a failure. The prompt of 13 October 2026, in a session's
   text that Sid pasted into it and did not type: \"Nobody has shown
-  whether a failure in a fast lane can make acts that were in flight come
+  whether a failure in a fast layer can make acts that were in flight come
   out in another order when the store is run again. Run it and find out.\"
   The check runs it on the store's own module and gates, with no option of
   Rama's set: the store sets none, and
