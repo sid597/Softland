@@ -1,75 +1,40 @@
 (ns softland.runtime.http
-  "The face over plain HTTP: the few pages by which a person signs in,
-  confirms her name and answers a program; the two requests by which a
-  program asks to be signed in and waits; and who a connection to the line
-  is. It is a Ring handler and one function for the line's upgrade. It
-  requires Ring's small parts, Missionary, the seam and sign-in's steps.
-
-  The routes:
-
-    GET  /                        the page: sign in, or who is signed in
-    POST /sign-in/google          Google's post of an ID token -> a cookie
-    POST /sign-in/stand-in        the same, with a token that a stand-in for
-                                  Google signs here; only when the opener
-                                  gave one
-    GET  /sign-in/name            the box with her provider's name for her
-    POST /sign-in/name            the name that she confirms
-    GET  /yes                     the page on which she answers a program
-    POST /yes                     her yes, or her no
-    POST /sign-out                ends the cookie's sign-in
-    POST /sign-in/program         a program asks -> a code
-    POST /sign-in/program/poll    a program waits -> the ask's state
-    GET  /health                  that the process answers
-
-  The words are not here. Everything that speaks the words speaks them over
-  the line (`softland.runtime.line`), and `accept` is where a request to
-  the line becomes a caller.
+  "The face over plain HTTP: the pages by which a person signs in, confirms
+  her name and answers a program; the two requests by which a program asks
+  to be signed in and waits; and who a connection to the line is
+  (`accept`). The words are not here: everything that speaks them speaks
+  them over the line (`softland.runtime.line`).
 
   Two carriers of a credential, kept apart. A browser's sign-in is taken
   from the cookie and never from a header; a program's from the
   `Authorization` header and never from a cookie; and Auth holds which of
-  the two a sign-in is, so that a secret of one kind in the carrier of the
-  other stands for nobody (`softland.runtime.seam/caller`). Each post that
-  rests on the cookie, and each connection to the line that does, must
-  carry an `Origin` that is this runtime's own. So no page of another site
-  can make a signed-in browser say a word, a yes or a sign-out; and a
-  program that holds its own secret cannot say her yes.
+  the two a sign-in is. Each post that rests on the cookie, and each
+  connection to the line that does, must carry an `Origin` that is this
+  runtime's own. So no page of another site can make a signed-in browser
+  say a word, a yes or a sign-out; and a program that holds its own secret
+  cannot say her yes.
 
   A program's sign-in. The program makes a secret, keeps it, and posts its
-  hash with what it says of itself. The runtime keeps the ask in Auth, with
-  an end, and gives a code. The program shows the code and a link. She
-  opens the link where she is signed in, sees the code again, and says yes,
-  as herself or as a new agent with a name, or no. The program asks for the
-  ask's state with its code and its secret until she has answered, and then
-  puts its credential together from what it is told. An ask grows old: one
-  that is answered after its end is refused.
+  hash with what it says of itself. It gets a code, and shows the code and
+  a link. She opens the link where she is signed in, sees the code again,
+  and says yes, as herself or as a new agent with a name, or no. The
+  program asks for the ask's state with its code and its secret until she
+  has answered, and puts its credential together from what it is told. An
+  ask that is answered after its end is refused.
 
-  A first sign-in. Google's post proves an account. `softland.runtime.
-  sign-in/enter!` finds its person, or takes the person of the invitation
-  that the account proves, and makes her own lane; an account that proves
-  no invitation is turned away. A person who has confirmed no name is sent
-  to the box: her provider's name for her, which she confirms or changes
-  (Sid, 21 November 2026: \"we can make C default\").
+  A first sign-in. An account that proves no invitation is turned away. A
+  person who has confirmed no name is sent to the box: her provider's name
+  for her, which she confirms or changes.
 
-  Where a request comes from. The address by which posts are paced is the
-  request's own; or, when the request comes from a proxy that the opener
-  names as trusted, the last address in its `X-Forwarded-For` that is not
-  one of those proxies. An IPv6 address counts by its first 64 bits, the
-  part that one network is given, so that one network cannot take a new
-  address for each post (`client-address`).
-
-  The pace. Each post to `/sign-in/*` is paced by that address
-  (`softland.runtime.seam/ration-sign-in!`). A poll that proves a
-  program's own ask, its code with its secret, is given back to the
+  The pace. Each post to `/sign-in/*` is paced by the address that it comes
+  from. An IPv6 address counts by its first 64 bits, the part that one
+  network is given, so that one network cannot take a new address for each
+  post. A poll that proves a program's own ask is given back to the
   address, so that programs that wait behind one address do not use it up
   for a person's sign-in; the polls of one ask are paced on their own.
 
-  State. None of its own. `handler` and `accept` close over the seam and
-  the options.
-
-  Not here. The browser's client, which is another build (the runtime's
-  page, piece 7). MCP (piece 6). Counts by person in Auth, and blocks:
-  `softland.runtime.seam/ration`, not built."
+  Not here: the browser's client, which is another build (the runtime's
+  page, piece 7), and MCP (piece 6)."
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [ring.util.codec :as codec]
@@ -86,26 +51,22 @@
            [java.util UUID]))
 
 (def referrer-policy
-  "The referrer policy of every page that this runtime gives. A page's own
-  post must carry this runtime's `Origin`, which each post that rests on
-  the cookie is held to: under `no-referrer` a browser writes `Origin:
-  null` on a form's post to its own site (seen with Chrome on 20 November
-  2026). And the address of a page must not reach another site. Under this
-  policy a request to the same site carries the origin, and a request to
-  another site carries the origin alone and no address."
+  "The referrer policy of every page. A post that rests on the cookie must
+  carry this runtime's `Origin`, and under `no-referrer` a browser writes
+  `Origin: null` on a form's post to its own site (seen with Chrome on 20
+  November 2026). And the address of a page must not reach another site:
+  under this policy a request to another site carries the origin alone."
   "strict-origin-when-cross-origin")
 
 (def ^:private max-form-bytes
-  "How many bytes the form of a page's post, or the EDN of a program's
-  request, can be: an ID token and a few short fields."
+  "The most bytes of a page's form, or of the EDN of a program's request:
+  an ID token and a few short fields."
   65536)
 
 ;; ----------------------------------------------------------- reading a request
 
 (defn- body-text
-  "Reads the body of a request as UTF-8 text, with a bound that is tested
-  before the body is read and again while it is read. Takes the request and
-  the most bytes. Gives [:ok text], or [:no :too-large]."
+  "The bound is tested before the body is read and again while it is read."
   [request most]
   (let [declared (some-> (get-in request [:headers "content-length"]) parse-long)
         ^InputStream in (:body request)]
@@ -123,8 +84,7 @@
               :else (do (.write out buffer 0 n) (recur (+ total n))))))))))
 
 (defn- form-of
-  "Reads the form of a page's post. Gives a map from a field's name to its
-  text, or nil for a body that is too large."
+  "Nil for a body that is too large."
   [request]
   (let [[outcome text] (body-text request max-form-bytes)]
     (when (= :ok outcome)
@@ -132,13 +92,11 @@
         (if (map? form) form {})))))
 
 (defn- query-of
-  "Gives the fields of a request's query string, as a map of texts."
   [request]
   (let [form (some-> (:query-string request) (codec/form-decode "UTF-8"))]
     (if (map? form) form {})))
 
 (defn- cookie-of
-  "Takes a request and a cookie's name. Gives the cookie's text, or nil."
   [request cookie]
   (some (fn [part]
           (let [[k v] (str/split (str/trim part) #"=" 2)]
@@ -146,11 +104,10 @@
         (str/split (or (get-in request [:headers "cookie"]) "") #";")))
 
 (defn- carried
-  "Takes a text and the most characters that it may have. Gives it cut to
-  at most that many, never between the two halves of a surrogate pair, and
-  with each surrogate that has no other half written as U+FFFD, as a UTF-8
-  reader writes what it cannot read: Auth does not take a text that UTF-8
-  cannot carry, and a provider's claim, read from JSON, can hold one."
+  "Cuts a text to at most `most` characters, never between the two halves
+  of a surrogate pair, and writes a surrogate that has no other half as
+  U+FFFD: Auth does not take a text that UTF-8 cannot carry, and a
+  provider's claim, read from JSON, can hold one."
   [text most]
   (let [text (str text)
         n (count text)
@@ -175,17 +132,15 @@
     (str out)))
 
 (defn- uuid-of
-  "Takes a text. Gives the UUID that it is, or nil."
   [text]
   (when (and (string? text) (re-matches #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" text))
     (UUID/fromString text)))
 
 (defn- address-key
-  "Takes an address as a text, an IPv4 or IPv6 literal. Gives the key by
-  which its posts are paced: an IPv4 address as it is, an IPv4 address
-  mapped into IPv6 as the IPv4 one, and an IPv6 address by its first 64
-  bits, written `<hex>/64`. A text that is no literal address is given as
-  it is. It looks up no name: a text without `:` is never parsed."
+  "The key by which an address's posts are paced: an IPv4 address mapped
+  into IPv6 as the IPv4 one, and an IPv6 address by its first 64 bits,
+  written `<hex>/64`. It looks up no name: a text without `:` is never
+  parsed."
   [text]
   (let [text (str text)
         bare (-> text (str/replace #"^\[|\]$" "") (str/replace #"%.*$" ""))]
@@ -202,11 +157,9 @@
         (catch Throwable _ text)))))
 
 (defn- client-address
-  "Takes the options and a request. Gives the key of the address that the
-  request comes from (`address-key`): the request's own; or, when that is
-  one of the opener's `:trusted-proxies`, the last address of its
-  `X-Forwarded-For` that is not a trusted proxy, and the request's own when
-  there is none."
+  "The request's own address; or, when that is one of the opener's
+  `:trusted-proxies`, the last address of its `X-Forwarded-For` that is not
+  a trusted proxy."
   [{:keys [trusted-proxies]} request]
   (let [own (str (:remote-addr request))]
     (address-key
@@ -220,31 +173,23 @@
              own))))))
 
 (defn- from
-  "Takes the options, a face's name and a request. Gives what the face says
-  of the request, for the seam's `ration`."
   [options face request]
   {:face face :address (client-address options request)})
 
 ;; ------------------------------------------------------------ the answers
 
 (defn- edn
-  "Takes a status and a thing. Gives the response that carries the thing as
-  one EDN form and a line end."
   [status thing]
   {:status status
    :headers {"Content-Type" "application/edn; charset=utf-8" "Cache-Control" "no-store"}
    :body (str (frame/write thing) "\n")})
 
 (defn- answered
-  "Takes a result. Gives its response: the status that
-  `softland.wire.words/could-nots` gives one of the runtime's own words,
-  and 200 for everything else."
   [result]
   (edn (or (when (map? result) (get-in words/could-nots [(:could-not result) :status])) 200)
        result))
 
 (defn- escaped
-  "Takes a text. Gives it with the five characters of HTML escaped."
   [text]
   (-> (str text)
       (str/replace "&" "&amp;")
@@ -254,8 +199,7 @@
       (str/replace "'" "&#39;")))
 
 (defn- page
-  "Takes a status and the HTML of a page's body. Gives the response. A page
-  is never framed by another site and never kept by a browser."
+  "A page is never framed by another site and never kept by a browser."
   [status body]
   {:status status
    :headers {"Content-Type" "text/html; charset=utf-8"
@@ -274,15 +218,12 @@
               "<h2>Softland</h2>" body "</body></html>")})
 
 (defn- redirect
-  "Takes a local path, and when there is one, the text of a Set-Cookie
-  header. Gives the response that sends the browser there."
   [to & [cookie]]
   (cond-> {:status 303 :headers {"Location" to "Cache-Control" "no-store"} :body ""}
     cookie (assoc-in [:headers "Set-Cookie"] cookie)))
 
 (defn- way-on
-  "Takes what a request gave as the place to go on to after a sign-in.
-  Gives a path of this runtime, and never the text that was given: the yes
+  "Gives a path of this runtime, and never the text that was given: the yes
   page, written anew from the code that the text names, or `/`. A text
   that is followed as it came can send her browser to another site by a
   character that a browser drops while it reads an address (the review of
@@ -296,31 +237,24 @@
       "/")))
 
 (defn- cookie-text
-  "Takes the options of the handler, a credential's text and for how many
-  seconds it is kept. Gives the text of the Set-Cookie header. The cookie
-  is not read by a page's code (`HttpOnly`), and is sent over TLS alone
-  when this runtime's origin is `https`. `SameSite=Lax`: a browser leaves
-  it off a post, a fetch and a socket that another site's page makes, and
-  sends it when a link on another site is followed to a page here. A
-  browser also sends it to every server on the same host, whatever its
-  port: on `localhost`, to each program that listens there."
+  "`seconds` is for how long the cookie is kept. `SameSite=Lax`: a browser
+  leaves the cookie off a post, a fetch and a socket that another site's
+  page makes, and sends it when a link on another site is followed to a
+  page here. A browser also sends it to every server on the same host,
+  whatever its port: on `localhost`, to each program that listens there."
   [{:keys [origin]} credential seconds]
   (str credential/cookie-name "=" credential "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" seconds
        (when (str/starts-with? (str origin) "https://") "; Secure")))
 
 (defn- own-origin?
-  "Takes the options and a request. Gives true when the request's `Origin`
-  is one of this runtime's own. A post that rests on the cookie must pass
-  it."
+  "A post that rests on the cookie must pass it."
   [{:keys [origins]} request]
   (contains? origins (get-in request [:headers "origin"])))
 
 (defn- of-cookie
-  "Takes the options, a request, and when a page will send an act, the UUID
-  of that one act. Gives the caller that the request's cookie stands for
-  now, or nil. With the act's UUID, the caller is in the session that the
-  seam derives from it (`softland.runtime.seam/caller`, `:session-for`),
-  opened when it is not open yet, with `:driven-by {:kind :person}`: a
+  "The caller that the request's cookie stands for, or nil. `act` is the
+  UUID of the one act that a page will send: the caller is then in the
+  session that the seam derives from it, opened when it is not open yet. A
   page opens a session only when it sends, and a form that is posted twice
   is in one session."
   ([options request] (of-cookie options request nil))
@@ -336,9 +270,8 @@
 ;; -------------------------------------------------------------------- the pages
 
 (defn- home
-  "GET /. The page on which she signs in, or sees that she is signed in. An
-  invitation's code that came with the address is carried into the
-  sign-in."
+  "GET /. An invitation's code that came with the address is carried into
+  the sign-in."
   [{:keys [google stand-in origin] :as options} request]
   (let [fields (query-of request)
         next (way-on (get fields "next"))
@@ -369,14 +302,9 @@
                    "<p class=\"warn\">No way to sign in is set: the runtime was started without a Google client id.</p>"))))))
 
 (defn- signed-in!
-  "The end of a sign-in at a browser. Takes the options, the request and
-  the text of an ID token. It checks the token against the issuer's keys;
-  finds her, or takes the person of the invitation that her account
-  proves, and makes her own lane; begins a browser's sign-in; and sends
-  the browser on with the credential in a cookie: to the box for her name
-  when she has confirmed none, else to where she was going. A token that
-  fails the check, an account that proves no invitation, and a step that
-  could not be done give a page that says so and no cookie."
+  "The end of a sign-in at a browser. A token that fails the check, an
+  account that proves no invitation, and a step that could not be done give
+  a page that says so and no cookie."
   [{:keys [the-seam google] :as options} request id-token]
   (let [[outcome fetched] (if (google/key-name id-token)
                             ((:keys-fn google))
@@ -444,9 +372,8 @@
       (page 400 "<p>The sign-in was not taken: the request did not come from Google's button.</p>"))))
 
 (defn- from-stand-in!
-  "POST /sign-in/stand-in, only when the opener gave a stand-in. It signs
-  an ID token for the account that the form names and goes on as Google's
-  post does, through the same check."
+  "POST /sign-in/stand-in. Goes on as Google's post does, through the same
+  check."
   [{:keys [stand-in] :as options} request]
   (let [form (form-of request)
         sub (str/trim (str (get form "sub")))]
@@ -460,13 +387,11 @@
       (page 400 "<p>The sign-in was not taken.</p>"))))
 
 (defn- name-page
-  "GET /sign-in/name. The box: her provider's name for her, which she
-  confirms or changes. The name comes in the address, from the sign-in
-  that sent her here: it is her own, in her own browser, and Auth is not
-  read for it. The page opens no session: it carries the UUID of the one
-  act that the box sends, and the post opens the session that the seam
-  derives from it, so that a form that is posted twice is one act in one
-  session."
+  "GET /sign-in/name. The offered name comes in the address, from the
+  sign-in that sent her here: it is her own, in her own browser, and Auth
+  is not read for it. The page opens no session: it carries the UUID of the
+  one act that the box sends, and the post opens the session that the seam
+  derives from it."
   [{:keys [the-seam] :as options} request]
   (if-let [caller (of-cookie options request)]
     (let [fields (query-of request)
@@ -482,10 +407,6 @@
     (redirect "/")))
 
 (defn- name!
-  "POST /sign-in/name. Writes the name that she confirms, as her own act in
-  her own lane, in the session derived from the act's UUID, closes that
-  session, and sends her on. The post must come from this runtime's own
-  page and rest on a cookie that stands for her."
   [{:keys [the-seam] :as options} request]
   (let [form (form-of request)
         act (uuid-of (get form "act"))
@@ -512,11 +433,6 @@
           (page 503 "<p>The name could not be written. Try again.</p>"))))))
 
 (defn- yes-page
-  "GET /yes. The page on which she answers a program: the code, which the
-  program shows too; what the program says of itself; and the choice, as a
-  new agent with a name, which is chosen when the page opens, or as
-  herself. Somebody who is not signed in is sent to sign in first and
-  comes back."
   [{:keys [the-seam] :as options} request]
   (let [code (credential/of-shown (get (query-of request) "code"))
         shown (when code (sign-in/ask-shown the-seam code))]
@@ -542,8 +458,7 @@
                  "<form method=\"post\" action=\"/yes\">"
                  "<input type=\"hidden\" name=\"code\" value=\"" code "\">"
                  ;; An agent of its own is chosen at the start: each program has a
-                 ;; who of its own by default (the runtime's page, entry 8). The
-                 ;; build's default, for Sid to turn.
+                 ;; who of its own by default (the runtime's page, entry 8).
                  "<p><label><input type=\"radio\" name=\"as\" value=\"agent\" checked> It is an agent of its own, called "
                  "<input name=\"label\" maxlength=\"" words/max-text "\" placeholder=\"a name\"></label></p>"
                  "<p><label><input type=\"radio\" name=\"as\" value=\"me\"> It acts as me</label></p>"
@@ -551,9 +466,9 @@
                  "<button name=\"say\" value=\"no\">No</button></form>")))))
 
 (defn- yes!
-  "POST /yes. Her answer to a program's ask. The post must come from this
-  runtime's own page and rest on a cookie that stands for a person: a
-  browser's sign-in, which no program holds."
+  "POST /yes. The post must come from this runtime's own page and rest on a
+  cookie that stands for a person: a browser's sign-in, which no program
+  holds."
   [{:keys [the-seam] :as options} request]
   (let [form (form-of request)
         code (credential/of-shown (get form "code"))
@@ -609,9 +524,8 @@
           :else (page 503 "<p>That could not be written. Try again.</p>"))))))
 
 (defn- sign-out!
-  "POST /sign-out. Ends the cookie's sign-in, for every face and every
-  copy of the runtime, and takes the cookie away. Only a cookie that
-  stands for somebody now ends anything."
+  "POST /sign-out. Ends the cookie's sign-in for every face and every copy
+  of the runtime."
   [{:keys [the-seam] :as options} request]
   (if-not (own-origin? options request)
     (page 400 "<p>That was not taken.</p>")
@@ -622,8 +536,6 @@
 ;; ------------------------------------------------------ a program's sign-in
 
 (defn- edn-of
-  "Reads the body of a program's request as one EDN form. Gives [:ok form],
-  or [:no the response that says why]."
   [request]
   (let [[outcome text] (body-text request max-form-bytes)]
     (if (= :no outcome)
@@ -634,9 +546,6 @@
           [:ok form])))))
 
 (defn- program-asks!
-  "POST /sign-in/program. A program posts {:hash :asks}: the hash of the
-  secret that it made, and what it says of itself. It gets {:code :shown
-  :link :ends}."
   [{:keys [the-seam origin]} request]
   (let [[outcome form] (edn-of request)]
     (cond
@@ -656,12 +565,9 @@
                      :ends (:ends got)}))))))
 
 (defn- program-waits!
-  "POST /sign-in/program/poll. A program posts {:code :secret} and is told
-  the state of its ask (`softland.runtime.sign-in/asked`). The polls of one
-  code are paced before Auth is read (`softland.runtime.seam/ration-poll!`);
-  a poll that proves its ask is given back to the address that it came
-  from (`softland.runtime.seam/give-back-sign-in!`): a program's waiting
-  does not use up the posts of the address."
+  "POST /sign-in/program/poll. The polls of one code are paced before Auth
+  is read. A poll that proves its ask is given back to the address that it
+  came from."
   [{:keys [the-seam] :as options} request]
   (let [[outcome form] (edn-of request)]
     (cond
@@ -681,21 +587,14 @@
 ;; -------------------------------------------------------------------- the line
 
 (defn accept
-  "Who a connection to the line is. Takes the options of `handler` and the
-  Ring request map of the upgrade. Gives {:caller :max-frame-bytes}, or a
-  Ring response when the connection is not taken.
+  "Who a connection to the line is. `request` is the Ring request map of the
+  upgrade. Gives {:caller :max-frame-bytes}, or a Ring response when the
+  connection is not taken. A connection that rests on the cookie must carry
+  this runtime's own `Origin`.
 
-    an `Authorization` header   a program's credential: her caller, or the
-                                response of the seam's word
-    else the cookie             a browser's credential, and the request's
-                                `Origin` must be this runtime's own: 403
-                                otherwise
-    neither                     the visitor
-
-  The session. A system that was in a session names it, in the header
-  `softland-session` or the query field `session`, and stays in it; one
-  that names none is given a new one. A visitor is in none. The bound on a
-  frame's bytes is the small one for a visitor."
+  A system that was in a session names it, in the header `softland-session`
+  or the query field `session`, and stays in it; one that names none is
+  given a new one. A visitor is in none."
   [{:keys [the-seam] :as options} request]
   (let [header (get-in request [:headers "authorization"])
         cookie-header (get-in request [:headers "cookie"])
@@ -735,23 +634,21 @@
 ;; --------------------------------------------------------------- the handler
 
 (defn options-of
-  "Makes the options that `handler` and `accept` share. Takes a map:
+  "The options that `handler` and `accept` share:
 
-    :the-seam  an opened seam (`softland.runtime.seam/open`)
+    :the-seam  an opened seam
     :origin    this runtime's own origin as a browser names it, such as
                `http://localhost:8500`
     :origins   the origins whose posts are taken; left out, the one origin
-    :google    {:client-id :issuers :keys-fn}, where `:keys-fn` is a
-               function of no argument that gives [:ok {kid public-key}]
-               or [:threw info]; nil when there is no way to sign in
-    :stand-in  a stand-in for Google
-               (`softland.runtime.google-stand-in/make`), or nil. With one,
-               `:google` is made from it and anybody can sign in as any
-               account that is invited
+    :google    {:client-id :issuers :keys-fn}, where `:keys-fn` takes no
+               argument and gives [:ok {kid public-key}] or [:threw info];
+               nil when there is no way to sign in
+    :stand-in  a stand-in for Google, or nil. With one, `:google` is made
+               from it and anybody can sign in as any account that is
+               invited
     :trusted-proxies
                the addresses of the proxies in front of this runtime whose
-               `X-Forwarded-For` is believed (`client-address`); left out,
-               none"
+               `X-Forwarded-For` is believed; left out, none"
   [{:keys [origin origins stand-in google trusted-proxies] :as options}]
   (assoc options
          :trusted-proxies (set trusted-proxies)
@@ -763,10 +660,7 @@
                    google)))
 
 (defn handler
-  "Makes the Ring handler of the pages and of a program's sign-in. Takes
-  the options (`options-of`). Gives a function from a request to a
-  response. A path that is none of the routes gives 404. The handler throws
-  for nothing that a request holds."
+  "The handler throws for nothing that a request holds."
   [{:keys [stand-in] :as options}]
   (fn [request]
     (let [method (:request-method request)

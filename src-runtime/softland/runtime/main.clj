@@ -1,7 +1,6 @@
 (ns softland.runtime.main
   "The program: the runtime as one command. It opens a Rama cluster, the
   store's two clients and Auth's, the seam, and the faces, and serves them.
-  It requires Rama, and everything of the runtime.
 
   Two commands:
 
@@ -33,7 +32,6 @@
     --trusted-proxy a,b    the addresses of the proxies in front of the
                            runtime whose `X-Forwarded-For` is believed for
                            the pace of sign-ins
-                           (`softland.runtime.http/options-of`)
     --<number> n           any of the seam's numbers by its name, such as
                            --secret-ms or --max-watches-per-connection
                            (`softland.runtime.seam/default-numbers`), for a
@@ -48,9 +46,7 @@
   The stand-in and a kept store. With the stand-in anybody who reaches the
   runtime signs in as any account that is invited. So it does not start on
   a conductor's cluster unless the opener says, with `--thrown-away`, that
-  nothing there is kept: the proofs of the runtime run on such a cluster.
-
-  State. What `start` opens, in the memory of the process, until `:stop`."
+  nothing there is kept: the proofs of the runtime run on such a cluster."
   (:require [clojure.string :as str]
             [com.rpl.rama :as rama]
             [com.rpl.rama.test :as rtest]
@@ -71,17 +67,12 @@
            [org.eclipse.jetty.server Server]))
 
 (def ^:private takes-a-value
-  "The arguments that take a value: the program's own, and each of the
-  seam's numbers by its name."
   (into #{"--port" "--host" "--origin" "--conductor" "--conductor-port" "--google-client-id"
           "--first-person-email" "--person" "--trusted-proxy"}
         (map (fn [k] (str "--" (name k))))
         (keys seam/default-numbers)))
 
 (defn- arguments
-  "Takes the arguments of the command line after the command. Gives a map
-  of them: an argument that takes a value holds the next one, and a flag
-  holds true."
   [args]
   (loop [args args got {}]
     (if-let [[flag & more] (seq args)]
@@ -96,17 +87,11 @@
       got)))
 
 (defn start
-  "Opens everything that the runtime stands on. Takes a map: `:cluster`, a
-  cluster handle of Rama's on which the modules `Store` and `Auth` run;
-  `:origin`; `:google`, {:client-id} or nil; `:stand-in`, a stand-in for
-  Google or nil; `:trusted-proxies`, a set of addresses, or nil; and, when
-  the opener wants, `:numbers`, the seam's. Gives
-  a map: `:the-seam`; `:read-path` and `:standing`, for a proof that counts
-  what is left open; `:options`, what the faces share; `:handler`, the
-  Ring handler of the pages; `:accept`, who a connection to the line is;
-  and `:stop`, a function of no argument that closes what this call
-  opened. Gives a map that holds `:could-not` when a part could not be
-  opened; nothing is then left open. It writes nothing."
+  "`:cluster` is a cluster handle of Rama's on which the modules `Store` and
+  `Auth` run. `:read-path` and `:standing` are given for a proof that
+  counts what is left open; `:stop` closes what this call opened. When a
+  part could not be opened it gives a map that holds `:could-not`, and
+  nothing is left open. It writes nothing."
   [{:keys [cluster origin google stand-in trusted-proxies numbers]}]
   (let [the-door (door/open cluster (rama/get-module-name store/Store))
         the-read-path (read-path/open cluster (rama/get-module-name store/Store))
@@ -140,10 +125,8 @@
                  nil)}))))
 
 (defn in-process-cluster
-  "Starts Rama's in-process cluster and launches the store's module and
-  Auth in it, each with four tasks on two threads. Gives the cluster, which
-  is the cluster handle and is closed with `.close`. What it holds is
-  thrown away when it is closed."
+  "The store's module and Auth, each with four tasks on two threads. The
+  cluster is closed with `.close`, and what it holds is thrown away then."
   []
   (let [cluster (rtest/create-ipc)]
     (rtest/launch-module! cluster store/Store {:tasks 4 :threads 2})
@@ -151,25 +134,20 @@
     cluster))
 
 (defn serve!
-  "Serves what `start` gave. Takes that map, the address and the port.
-  Gives what `softland.runtime.jetty/serve` gives."
   [{:keys [the-seam handler accept]} host port]
   (jetty/serve {:the-seam the-seam :handler handler :line-path "/line" :accept accept
                 :host host :port port}))
 
 (defn- end!
-  "Prints a line and ends the process with a status."
   [status line]
   (println line)
   (System/exit status))
 
 (defn- uuid-of
-  "Takes a text. Gives the UUID that it is, or nil."
   [text]
   (try (some-> text UUID/fromString) (catch Throwable _ nil)))
 
 (defn -main
-  "Runs a command as the namespace docstring says."
   [& args]
   (let [[command & more] args
         {:keys [port host origin conductor conductor-port google-client-id stand-in-google thrown-away

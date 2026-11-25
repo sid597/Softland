@@ -2,125 +2,60 @@
   "The seam: the one place that every face of the runtime stands on. It
   turns a credential into a caller, holds each thing that a caller sends
   against who that caller is, and puts the store's door, the store's read
-  path and Auth behind the words of the wire. It is Clojure and Missionary,
-  and it requires no Electric.
+  path and Auth behind the words of the wire. Clojure and Missionary; it
+  requires no Electric.
 
-  A face is whatever speaks to one kind of system: the line, for everything
-  that speaks the words (`softland.runtime.line`), and the pages by which a
-  person signs in (`softland.runtime.http`). A face proves nothing. It
-  hands the seam a credential and gets a caller, and each other call takes
-  the caller first.
+  A face is whatever speaks to one kind of system: the line
+  (`softland.runtime.line`), and the pages by which a person signs in
+  (`softland.runtime.http`). A face proves nothing: it hands the seam a
+  credential and gets a caller. A caller is an object that only this
+  namespace makes, and it is no data: a who that crosses the wire back
+  cannot become a caller.
 
-  The calls, each of which but `open` takes the seam first:
+  The seam's contract is data: a word goes in as the wire has it
+  (`softland.wire.words`) and plain data comes out. So where a face runs is
+  no wall: a face in another process speaks the same words over the line.
 
-    open       the door, the read path, Auth's client, the standing, and
-               numbers -> a seam
-    caller     what came with a request -> a task of a caller, or of one of
-               the runtime's words
-    visitor    nothing more -> the caller of everybody who is not signed in
-    about      a caller -> what a face may tell the system that holds the
-               credential, as data
-    call       a caller and a word in its one form -> a task of the word's
-               result
-    watch      a caller and a query -> a flow: the whole answer, then the
-               changes by place, then one end
-    standing   a caller -> a flow that says when the caller stops being
-               live, and why
+  The whole act arrives, with its `:who` and its `:session`. The seam writes
+  neither and holds them against the caller, and a query's `:asker` the
+  same. What is sent as another is refused `:send-as-another` and written
+  to no log: an act under a who that did not send it would be a false line
+  in a log that is never trimmed.
 
-  The seam's contract is data. A word goes in as the wire has it
-  (`softland.wire.words`) and a result comes out as plain data: the door's
-  receipt and answer, the read path's answer, Auth's result, or a word that
-  holds `:could-not`. So where a face runs is no wall: a face in another
-  process speaks the same words over the line.
-
-  Nobody acts for another (Sid, 20 November 2026: \"so 1-A it is\"). The
-  whole act arrives, with its `:who` and its `:session` (\"3A\"). The seam
-  writes neither. It holds them against the caller: an act whose `:who` is
-  not the caller's who, or whose `:session` is not the caller's session, is
-  refused with `:send-as-another`, and nothing is sent for it. The same
-  holds for a query's `:asker`. That the runtime refuses, and does not
-  write the try into a log, is a session's choice: an act under a who that
-  did not send it would be a false line in a log that is never trimmed.
-
-  The caller. A caller is an object that only this namespace makes. It
-  holds the actor's who, the person at the root, the sign-in, the session,
-  the sign-in's kind, the id of the root's own lane, and what the face
-  said of the request. It prints as the word and nothing else, and it is no
-  data: a who that crosses the wire back cannot become a caller.
-
-  How a credential becomes a caller. One read of Auth, `who-is`, on the
-  root's task (`softland.wire.credential` says how a credential names its
-  root). The sign-in must be there and not ended, its actor not ended, its
-  secret's time not passed on this process's clock, and the secret's hash
-  the sign-in's hash now, or the one before it while that still stands.
   A browser's sign-in is taken from a cookie alone, and a program's from a
   header alone: a program that holds its own secret cannot say a person's
-  yes (the review of 20 November 2026 ran that it could). No row is kept
-  between two requests.
+  yes (the review of 20 November 2026 ran that it could).
 
-  The session. A face that will send acts names the session that it is in,
-  or asks for a new one. A new session's id is made here at random and
-  opened in Auth; a named one must be open under this sign-in, with its
-  time not passed. A session has a time of its own, and the seam moves it
-  on while the session is in use: when a caller is made in it, and while a
-  connection holds it. The session outlives the secret: `:replace-secret`
-  changes no session, so an act that is sent again after a break, under the
-  same UUID, has the same digest and is taken once.
+  The session outlives the secret: `:replace-secret` changes no session, so
+  an act that is sent again after a break, under the same UUID, has the
+  same digest and is taken once.
 
-  No system chooses an id. The id of a session is made here at random. The
-  id of an agent, of its sign-in, and of a person who is invited is derived
-  here, by a hash, from the caller's root and a UUID that the system sent
-  (`derived`): the same UUID again gives the same id, so a word that is
-  said twice is one making; and no UUID that a system can pick gives the id
-  of a thing that is not its own. The UUID is kept nowhere: not by the
-  runtime, not in Auth and in no act. So a derived id cannot be worked back
-  to the root that it was made from, and it says as little as a random one
-  (src-store/README.md, 9 October 2026, entry 1: nothing that is written
-  plain in an act is made from the person). Auth trusts the runtime for that (its
-  spec, \"The client's contract\"): an actor's id is the who of its acts,
-  so a system that could choose one could become somebody else.
+  No system chooses an id. A session's id is random. The id of an agent, of
+  its sign-in and of an invited person is a hash of the caller's root and a
+  UUID that the system sent (`derived`): the same UUID gives the same id,
+  so a word said twice is one making, and no UUID that a system can pick
+  gives the id of a thing that is not its own. The UUID is kept nowhere,
+  not by the runtime, not in Auth and in no act, so a derived id cannot be
+  worked back to its root (src-store/README.md, 9 October 2026, entry 1:
+  nothing that is written plain in an act is made from the person). Auth
+  trusts the runtime for that (its spec, \"The client's contract\"): an
+  actor's id is the who of its acts, so a system that could choose one
+  could become somebody else.
 
-  The act-id. A maker makes the random part, a UUID, and sends it with the
-  act. The seam asks the door for an act-id of the act's lane, which reads
-  the lane's depot, and puts the maker's UUID in its place
-  (`softland.store.door/act-id-for`). The door then takes the act-id as
-  given. So the maker needs no knowledge of a lane's depot, and a repeat
-  is the same thing.
-
-  A caller that stops being live. `standing` listens for the caller's root
-  (`softland.runtime.standing`) and holds a timer for the secret's time.
-  Whatever it is told, it reads Auth before it says an end: a push can be
-  behind a write. A sign-in or a session that ended, through this copy of
-  the runtime or another, ends the flow with the word, and the face ends
-  what rests on it.
+  The act-id. A maker sends the random part, a UUID, with the act. The seam
+  asks the door for an act-id of the act's lane and puts the maker's UUID
+  in its place. So a maker needs no knowledge of a lane's depot, and a
+  repeat is the same thing.
 
   The thread rule. A function that the read path calls for a change runs on
   a thread of Rama's client, and one that stays there holds back the reads
-  of others. What such a thread does here is put the change with what
-  waits and hand it to a thread of the seam's own. What waits for a slow
-  reader is merged by place (`softland.wire.watching`).
+  of others. Such a thread only puts the change with what waits and hands
+  it to a thread of the seam's own.
 
-  State. The seam owns nothing that lasts. It borrows the door, the read
-  path, Auth's client and the standing. In the memory of the process it
-  holds its numbers, an executor of virtual threads and one timer thread.
-  It keeps no row, no answer and no caller between two calls.
-
-  Pacing, in this copy's memory (the first lane of `ration`): posts to
-  `/sign-in/*` by the address that they came from, with a post that proved
-  a program's own ask given back (`ration-sign-in!`, `give-back-sign-in!`);
-  the polls of one ask (`ration-poll!`); the sessions opened under one
-  sign-in (`session-paced`); and live watches, by root, for visitors, and
-  for one connection (`acquire-watch!`, `watches-per-connection`). Counts
-  by person in Auth and blocks are not built: `ration` is the place where
-  they will sit, handed the caller and what the caller is about to do. The
-  keeping of reads is the trail's (the runtime's page, piece 5): `call` and
-  `watch` write nothing of a read today.
-
-  The system. `softland.runtime.sign-in` sends the acts that only the
-  system sends: the making of a person's own lane, and the first acts of a
-  deployment. It calls `send-as-system` here, the one way in, and no face
-  can reach that call with a thing that a system sent. Who may act as the
-  system is not decided (src-store/README.md, 9 October 2026, K9)."
+  The seam owns nothing that lasts, and keeps no row, no answer and no
+  caller between two calls. Pacing is in this copy's memory. `call` and
+  `watch` write nothing of a read: the keeping of reads is the trail's (the
+  runtime's page, piece 5)."
   (:refer-clojure :exclude [read send])
   (:require [clojure.string :as str]
             [missionary.core :as m]
@@ -141,52 +76,36 @@
 ;; ------------------------------------------------------------- the numbers
 
 (def default-numbers
-  "The seam's numbers, each with its default. Each is the builder's, kept
-  and not decided (marked for Sid to turn), and an opener can give another
-  at `open`.
+  "The seam's numbers, each with its default. An opener can give another at
+  `open`.
 
     :secret-ms    how long a secret stands from its making or its
-                  replacing: 7 days. A system that is in use replaces its
-                  secret before then; a sign-in whose secret's time passes
-                  is over
-    :previous-ms  how long the secret before stands after a replacing: one
-                  minute, for the requests that were on their way
+                  replacing. A system that is in use replaces its secret
+                  before then; a sign-in whose secret's time passes is over
+    :previous-ms  how long the secret before stands after a replacing, for
+                  the requests that were on their way
     :session-ms   how long a session stands from its opening, and from each
-                  time that the runtime moves its time on: one day. A
-                  session that is in use is moved on when less than half of
-                  that is left; one that nobody uses for a day is over
+                  time that the runtime moves its time on
     :sign-in-window-ms
-                  the sliding window, in milliseconds, over which posts to
-                  `/sign-in/*` from one remote address are counted: 10 seconds
+                  the sliding window over which posts to `/sign-in/*` from
+                  one remote address, and the polls of one ask, are counted
     :max-sign-in-posts-per-address
-                  the most posts to `/sign-in/*` from one remote address in
-                  `:sign-in-window-ms` before further posts are refused with
-                  429 before reaching Google or Auth: 30
+                  beyond it a post is refused with 429 before it reaches
+                  Google or Auth
     :max-watches-per-root
-                  the most live watches one root (a person and every agent
-                  beneath her, across all connections) may hold open at once
-                  in one copy of the runtime: 256
+                  live watches of one root, a person and every agent
+                  beneath her, across all connections, in one copy
     :max-visitor-watches
-                  the most live watches all visitors together may hold open
-                  at once in one copy of the runtime: 64
-    :max-watches-per-connection
-                  the most live watches one connection of a signed-in
-                  caller may hold, so that one connection cannot take all
-                  of its root's: 128
-    :max-visitor-watches-per-connection
-                  the most live watches one connection of a visitor may
-                  hold, so that one visitor cannot take all of the
-                  visitors': 8
+                  live watches of all visitors together, in one copy
+    :max-watches-per-connection, :max-visitor-watches-per-connection
+                  so that one connection cannot take all of its root's, or
+                  one visitor all of the visitors'
     :max-polls-per-ask
-                  the most polls of one ask, in `:sign-in-window-ms`, that
-                  are let in after they proved the ask: 20
-    :session-window-ms
-                  the sliding window over which the sessions opened under
-                  one sign-in in one copy are counted: one minute
-    :max-sessions-opened-per-sign-in
-                  the most sessions opened under one sign-in in
-                  `:session-window-ms` in one copy, by a connection that
-                  names none, by `:open-session`, or by a page: 30"
+                  polls of one ask that are let in after they proved the ask
+    :session-window-ms, :max-sessions-opened-per-sign-in
+                  sessions opened under one sign-in in one copy: by a
+                  connection that names none, by `:open-session`, or by a
+                  page"
   {:secret-ms (* 7 24 60 60 1000)
    :previous-ms 60000
    :session-ms (* 24 60 60 1000)
@@ -214,52 +133,41 @@
 
 (alter-meta! #'->Caller assoc
              :private true
-             :doc "Makes a caller: the actor's who, or nil for a visitor; the person at the
-  root; the sign-in's id; the session's id, or nil when the face named and
-  asked for none; the sign-in's kind; an atom holding the latest hash of the
-  secret for this connection (updated on `:replace-secret`); the time until
-  which that secret stands; the id of the root's own lane; what drives the
-  session (`:driven-by` from `who-is`, or nil); and what the face said of
-  the request. `caller-now` and `visitor` are the callers. It prints as the
-  word \"caller\" or \"visitor\" and nothing else.")
+             :doc "`who` is nil for a visitor, and `session` nil when the face named and
+  asked for none. `hash` is an atom: the latest hash of the secret for this
+  connection, reset on `:replace-secret`. `until` is the time until which
+  that secret stands. `from` is what the face said of the request.")
 
 (defn caller?
-  "Takes anything. Gives true for a caller that this namespace made."
   [x]
   (instance? Caller x))
 
 (defn who-of
-  "Takes a caller. Gives the actor's id, or nil for a visitor."
+  "Nil for a visitor."
   [^Caller caller]
   (.-who caller))
 
 (defn root-of
-  "Takes a caller. Gives the id of the person at the root, or nil for a
-  visitor."
+  "The person at the root. Nil for a visitor."
   [^Caller caller]
   (.-root caller))
 
 (defn session-of
-  "Takes a caller. Gives the session's id, or nil."
+  "Nil when the caller is in no session."
   [^Caller caller]
   (.-session caller))
 
 (defn own-lane-of
-  "Takes a caller. Gives the id of the root's own lane, or nil."
   [^Caller caller]
   (.-own-lane caller))
 
 (defn person?
-  "Takes a caller. Gives true when the caller is a person herself: her who
-  is her root."
   [^Caller caller]
   (and (some? (.-who caller)) (= (.-who caller) (.-root caller))))
 
 (defn about
-  "Takes a caller. Gives what a face may tell the system that holds the
-  credential: {:who :root :sign-in :session :kind :own-lane :until}, plus
-  `:driven-by` (from `who-is`, nil when not said) when the caller is in a
-  session; or {:visitor true}. It is data, and it is no caller."
+  "What a face may tell the system that holds the credential. It is data,
+  and it is no caller."
   [^Caller caller]
   (if (some? (.-who caller))
     (cond-> {:who (.-who caller) :root (.-root caller) :sign-in (.-sign-in caller)
@@ -279,23 +187,14 @@
 
 (alter-meta! #'->Seam assoc
              :private true
-             :doc "Makes an opened seam. `open` is the one caller. It holds the door, the
-  read path, Auth's client and the standing, borrowed; its numbers; its
-  in-memory copy-local ration state (`:sign-in` per-address moments,
-  `:polls` per-ask moments, `:sessions` per-sign-in moments, and `:watches`
-  live counts by root and for visitors); an executor of virtual
-  threads, on which every call of the store and of Auth and every handing on
-  of a flow runs; and one timer thread, for a secret whose time passes.")
+             :doc "The door, the read path, Auth's client and the standing are borrowed.
+  Every call of the store and of Auth, and every handing on of a flow, runs
+  on the executor's virtual threads. The one timer thread is for a secret
+  whose time passes.")
 
 (defn open
-  "Opens the seam. Takes a map: `:door`, an opened door
-  (`softland.store.door/open`); `:read-path`, an opened read path
-  (`softland.store.read-path/open`); `:auth`, Auth's client
-  (`softland.auth.client/open`); `:standing`
-  (`softland.runtime.standing/open`); and, when the opener wants,
-  `:numbers` (`default-numbers`). Gives a seam. It makes no call to Rama.
-  The opener owns the four things given and closes them; `close!` stops the
-  seam's own threads."
+  "Makes no call to Rama. The opener owns the door, the read path, Auth's
+  client and the standing, and closes them. `:numbers` is optional."
   [{:keys [door read-path auth standing numbers]}]
   (->Seam door read-path auth standing
           (merge default-numbers (select-keys numbers (keys default-numbers)))
@@ -312,36 +211,32 @@
             (.setRemoveOnCancelPolicy true))))
 
 (defn close!
-  "Stops the seam's executor and its timer. A flow that is still open is
-  told nothing; its face cancels it."
+  "A flow that is still open is told nothing; its face cancels it."
   [^Seam seam]
   (.shutdown ^ExecutorService (.-executor seam))
   (.shutdownNow ^ScheduledExecutorService (.-timer seam))
   nil)
 
 (defn now-ms
-  "Reads the clock of this process: milliseconds since 1970. It is the time
-  that the runtime writes on each event of Auth, and the time that a
-  secret's end is held against."
+  "Milliseconds since 1970, by the clock of this process: the time that the
+  runtime writes on each event of Auth, and the time that a secret's end is
+  held against."
   []
   (System/currentTimeMillis))
 
 (defn numbers-of
-  "Takes the seam. Gives its numbers."
   [^Seam seam]
   (.-numbers seam))
 
 (defn auth-of
-  "Takes the seam. Gives Auth's client, for the one namespace beside the
-  seam that writes what sign-in writes (`softland.runtime.sign-in`)."
+  "For `softland.runtime.sign-in`, the one namespace beside the seam that
+  writes what sign-in writes."
   [^Seam seam]
   (.-client seam))
 
 (defn- on-its-own-thread
-  "Takes the seam and a function of no argument that makes blocking calls.
-  Gives a task that runs it on a new virtual thread of the seam's executor:
-  Missionary's `via`. Cancelling the task interrupts that thread while the
-  function runs; the door, the read path and Auth's client turn an
+  "`f` takes no argument and may block. Cancelling the task interrupts its
+  thread while `f` runs; the door, the read path and Auth's client turn an
   interrupt into one of their words."
   [^Seam seam f]
   (m/via (.-executor seam) (f)))
@@ -353,23 +248,15 @@
   (->Caller nil nil nil nil nil nil nil nil nil nil))
 
 (defn visitor
-  "Gives the caller of everybody who is not signed in. Takes, when a face
-  has it, what the face says of the request."
+  "`from` is what the face says of the request."
   ([] the-visitor)
   ([from] (->Caller nil nil nil nil nil nil nil nil nil from)))
 
 (defn- no-sign-in
-  "Takes why. Gives the word `:find-her-sign-in`."
   [why]
   (words/could-not :find-her-sign-in {:why why}))
 
 (defn- proves?
-  "Takes a sign-in as `who-is` gave it, the hash of the secret that came,
-  the carrier that it came in (`:header` or `:cookie`) and the time now.
-  Gives true when the secret is the sign-in's: its hash is the sign-in's
-  hash now, or the one before it while that still stands; and the carrier
-  is the one of the sign-in's kind, a cookie for a browser's and a header
-  for a program's."
   [{:keys [kind previous] :as sign-in} hash carrier now]
   (and (some? sign-in)
        (= kind (case carrier :cookie :browser :header :program nil))
@@ -379,9 +266,7 @@
                 (< now (long (:until previous)))))))
 
 (defn- lasting
-  "Takes a sign-in as `who-is` gave it, or nil, and the time now. Gives
-  [:live until], or [:not why], with why one of `:not-known`, `:ended` and
-  `:over`. It reads no secret: it says whether the sign-in stands."
+  "Reads no secret: it says only whether the sign-in stands."
   [{:keys [until ended? actor-ended?] :as sign-in} now]
   (cond
     (nil? sign-in) [:not :not-known]
@@ -390,10 +275,7 @@
     :else [:live (long until)]))
 
 (defn- judged
-  "Takes what `who-is` gave, the hash of the secret that came, the carrier
-  that it came in and the time now. Gives [:live until], or [:not why].
-
-  A secret that is not the sign-in's, and a sign-in that came in the wrong
+  "A secret that is not the sign-in's, and a sign-in that came in the wrong
   carrier, are told as `:not-known`: whoever holds a wrong secret learns
   nothing of the sign-in."
   [{:keys [sign-in]} hash carrier now]
@@ -402,9 +284,6 @@
     [:not :not-known]))
 
 (defn- session-fault
-  "Takes what `who-is` gave, the sign-in's id, and the time now. Gives nil
-  when the session that was asked about is open under the sign-in and its
-  time has not passed, or the word `:find-her-session`."
   [{:keys [session]} sign-in now]
   (cond
     (nil? session) (words/could-not :find-her-session {:why :not-known})
@@ -412,10 +291,8 @@
     (or (:closed? session) (<= (long (:until session)) now)) (words/could-not :find-her-session {:why :closed})))
 
 (defn- moved-on!
-  "Moves a session's time on when less than half of `:session-ms` is left
-  of it. Takes the seam, the root, the sign-in, the session's id and the
-  time until which it stands now. One write of Auth when it is due, and
-  none otherwise. Gives the time that it held, written or not: a repeat of
+  "One write of Auth when less than half of `:session-ms` is left, and none
+  otherwise. Gives the time that it held, written or not: a repeat of
   `open-session` gives `{:open S}` even on a closed session, so the next
   look must read the session's real standing from Auth."
   [^Seam seam root sign-in session until]
@@ -429,11 +306,8 @@
 (declare derived session-paced)
 
 (defn- opened-in
-  "Opens a session under a caller's sign-in and makes the caller in it.
-  Takes the seam, the root, the sign-in, the session's id, what drives it
-  or nil, and a function of the session and its `:driven-by` that makes
-  the caller. The opening is paced (`session-paced`); then one write of
-  Auth and one `who-is` read, so that `:driven-by` comes from Auth and a
+  "`made` takes the session and its `:driven-by` and makes the caller. After
+  the write, one `who-is` read, so that `:driven-by` comes from Auth and a
   session that is closed is not taken: a repeat of `open-session` gives
   `{:open S}` for a session that is closed too."
   [^Seam seam root sign-in session driven-by made]
@@ -456,8 +330,6 @@
                         (made session (get-in after [:session :driven-by])))))))))
 
 (defn- caller-now
-  "The body of `caller`. One read of Auth; and, for a face that asked for a
-  new session or a page's session, what `opened-in` does."
   [^Seam seam {:keys [credential carrier session new-session? session-for driven-by from]}]
   (if-let [{:keys [root sign-in secret]} (credential/parts credential)]
     (let [client (.-client seam)
@@ -485,7 +357,7 @@
     (no-sign-in :not-a-credential)))
 
 (defn caller
-  "Turns what came with a request into a caller. Takes the seam and a map:
+  "Gives a task of a caller, or of one of the runtime's words. `request`:
 
     :credential    the credential's text
     :carrier       `:header` or `:cookie`: where the face found it
@@ -494,24 +366,9 @@
     :session-for   a UUID that a page made for its one act, when none was
                    named: the session is derived from the root and it
                    (`derived`), so that a form that is posted twice is in
-                   one session, and is opened when it is not open yet
+                   one session
     :driven-by     what drives a session that is opened here, or nil
     :from          what the face says of the request, for `ration`
-
-  Gives a task of a caller, or of a word:
-
-    a live sign-in, in its own carrier      -> her caller
-    no such sign-in, a wrong secret, or the wrong carrier
-                                            -> `:find-her-sign-in`,
-                                               `:why :not-known`
-    an ended sign-in or actor               -> the same, `:why :ended`
-    a secret whose time has passed          -> the same, `:why :over`
-    a text of another form                  -> the same,
-                                               `:why :not-a-credential`
-    a session that is not open under it     -> `:find-her-session`
-    more sessions opened under the sign-in in this copy than its pace
-                                            -> `:take-more`
-    a call of Auth that failed              -> `:reach-auth`
 
   A credential that stands for nobody is told so and is not made a
   visitor: the system that holds it must learn that it has to sign in
@@ -522,40 +379,32 @@
 ;; ------------------------------------------------- what the seam holds, and adds
 
 (defn- needs-a-who
-  "Takes a caller. Gives nil for one that has a who, or the word
-  `:find-her-sign-in` for a visitor. It reads nothing: a caller was live
-  when it was made, and a face that holds one for longer than a request
-  holds `standing` beside it and ends what rests on the caller when that
-  says so. The time that a caller was made with is not held against it
-  here, since a replacing of the secret moves it."
+  "Reads nothing: a caller was live when it was made, and a face that holds
+  one for longer than a request holds `standing` beside it and ends what
+  rests on the caller when that says so. The time that a caller was made
+  with is not held against it here, since a replacing of the secret moves
+  it."
   [^Caller caller]
   (when (nil? (.-who caller))
     (no-sign-in :no-credential)))
 
 (defn- needs-a-session
-  "Takes a caller. Gives nil for one that is in a session, or the word
-  `:find-her-session`: an act names its session, so a caller that is in
-  none sends no act."
+  "An act names its session, so a caller that is in none sends no act."
   [^Caller caller]
   (when (nil? (.-session caller))
     (words/could-not :find-her-session {:why :not-known})))
 
 (defn- needs-the-person
-  "Takes a caller. Gives nil for a person herself, or the word
-  `:do-that-as-an-agent`."
   [caller]
   (when-not (person? caller)
     (words/could-not :do-that-as-an-agent nil)))
 
 (defn- plain-map?
-  "True for a map that is no record."
   [x]
   (and (map? x) (not (record? x))))
 
 (defn- act-fault
-  "Holds an act against its caller. Takes a caller that has a who and a
-  session, and the act as it arrived. Gives nil, or a word: the thing is no
-  plain map; or its `:who` or its `:session` is not the caller's."
+  "The caller must have a who and a session."
   [^Caller caller act]
   (cond
     (not (plain-map? act)) (words/could-not :read-the-word {:why :not-a-plain-map :at :act})
@@ -563,11 +412,6 @@
     (not= (.-session caller) (get act :session)) (words/could-not :send-as-another {:at :session})))
 
 (defn- query-fault
-  "Holds a query against its caller. Takes a caller and the query as it
-  arrived. Gives nil, or a word: the thing is no plain map; a signed-in
-  caller's query names another asker than her who, or none; a visitor's
-  query names an asker; or the query names another session than the
-  caller's."
   [^Caller caller query]
   (cond
     (not (plain-map? query)) (words/could-not :read-the-word {:why :not-a-plain-map :at :query})
@@ -583,18 +427,16 @@
     (some? (get query :session)) (words/could-not :send-as-another {:at :session})))
 
 (def ^:private max-paced-keys
-  "Upper bound on the keys (addresses, asks, sign-ins) that one pacer of a
-  copy tracks at once, so that a flood of new keys cannot grow memory
-  without bound: when the table is full, the keys whose moments have all
-  passed are let go, and then the one with the oldest last moment."
+  "The most keys (addresses, asks, sign-ins) that one pacer tracks at once,
+  so that a flood of new keys cannot grow memory without bound. When the
+  table is full, the keys whose moments have all passed are let go, and
+  then the one with the oldest last moment."
   10000)
 
 (defn- paced!
-  "One sliding window of a pacer in this copy's memory. Takes the pacer's
-  atom, a map from a key to the moments (by `System/nanoTime`) of what it
-  counted; the key; the most that the window holds; and the window in
-  milliseconds. When fewer than the most were counted in the window, counts
-  this one and gives true; else counts nothing and gives false."
+  "One sliding window. `pacer` is an atom of a map from a key to the moments
+  (by `System/nanoTime`) of what it counted. True counts this one; false
+  counts nothing."
   [pacer k limit window-ms]
   (let [limit (long limit)
         now (System/nanoTime)
@@ -622,8 +464,6 @@
     @allowed?))
 
 (defn- given-back!
-  "Takes back the newest moment that `paced!` counted under a key. Takes the
-  pacer's atom and the key. Gives nil."
   [pacer k]
   (swap! pacer (fn [m]
                  (let [v (get m k)]
@@ -634,13 +474,10 @@
   nil)
 
 (defn ration-sign-in!
-  "First-lane ration in this copy's memory: paces posts to `/sign-in/*` by
-  the address that the face says that they came from, over a sliding window
-  (`:sign-in-window-ms`, `:max-sign-in-posts-per-address`), before any call
-  to Google or Auth. Takes the seam and the address, a text. Gives nil when
-  allowed, or the word `:take-more` (`:why :sign-in-paced`). A post that the
-  face finds was a program's poll of its own ask is given back
-  (`give-back-sign-in!`): a program's waiting does not use up the address."
+  "Paces posts to `/sign-in/*` by the address that the face says that they
+  came from, before any call to Google or Auth. A post that proved a
+  program's own ask is given back (`give-back-sign-in!`): a program's
+  waiting does not use up the address."
   [^Seam seam address]
   (let [numbers (.-numbers seam)
         limit (long (:max-sign-in-posts-per-address numbers))
@@ -649,17 +486,11 @@
       (words/could-not :take-more {:why :sign-in-paced :most limit}))))
 
 (defn give-back-sign-in!
-  "Gives back to an address the post that `ration-sign-in!` counted last,
-  for a post that proved a program's own ask (`softland.runtime.http`, the
-  poll). Takes the seam and the address. Gives nil."
   [^Seam seam address]
   (given-back! (:sign-in (.-ration-state seam)) (let [s (str address)] (if (seq s) s "unknown"))))
 
 (defn ration-poll!
-  "Paces the polls of one ask that proved it, in this copy's memory: at most
-  `:max-polls-per-ask` in `:sign-in-window-ms`. Takes the seam and the
-  ask's code. Gives nil when allowed, or the word `:take-more`
-  (`:why :polls-paced`)."
+  "Paces the polls of one ask that proved it. `code` is the ask's code."
   [^Seam seam code]
   (let [numbers (.-numbers seam)
         limit (long (:max-polls-per-ask numbers))]
@@ -667,11 +498,6 @@
       (words/could-not :take-more {:why :polls-paced :most limit}))))
 
 (defn- session-paced
-  "Paces the opening of sessions under one sign-in, in this copy's memory:
-  at most `:max-sessions-opened-per-sign-in` in `:session-window-ms`, by a
-  connection that names no session, by the word `:open-session`, and by a
-  page. Takes the seam and the sign-in's id. Gives nil and counts the
-  opening, or gives the word `:take-more` (`:why :sessions-paced`)."
   [^Seam seam sign-in]
   (let [numbers (.-numbers seam)
         limit (long (:max-sessions-opened-per-sign-in numbers))]
@@ -679,19 +505,12 @@
       (words/could-not :take-more {:why :sessions-paced :most limit}))))
 
 (defn watches-per-connection
-  "Takes the seam and a caller. Gives how many live watches one connection
-  of that caller may hold at once: `:max-watches-per-connection` for a
-  caller who is signed in, `:max-visitor-watches-per-connection` for a
-  visitor. It sits below the cap that every connection of a root, or every
-  visitor, shares in this copy (`acquire-watch!`), so that one connection
-  cannot take the whole of it."
   [^Seam seam ^Caller caller]
   (long (get (.-numbers seam) (if (.-root caller)
                                 :max-watches-per-connection
                                 :max-visitor-watches-per-connection))))
 
 (defn- watch-bucket
-  "The ration key and cap for live watches opened by `caller` in this copy."
   [^Seam seam ^Caller caller]
   (let [numbers (.-numbers seam)]
     (if-let [root (.-root caller)]
@@ -699,9 +518,6 @@
       [:visitor (long (:max-visitor-watches numbers))])))
 
 (defn- acquire-watch!
-  "Atomically reserves one live-watch slot for `caller` in this copy's
-  memory. Gives nil when reserved, or `:take-more` (`:why :too-many-watches`)
-  when the cap for that root (or for visitors) is reached."
   [^Seam seam ^Caller caller]
   (let [[k cap] (watch-bucket seam caller)
         watches-atom (:watches (.-ration-state seam))
@@ -718,7 +534,6 @@
       (words/could-not :take-more {:why :too-many-watches :most cap}))))
 
 (defn- release-watch!
-  "Releases one live-watch slot previously reserved for `caller`."
   [^Seam seam ^Caller caller]
   (let [[k _] (watch-bucket seam caller)
         watches-atom (:watches (.-ration-state seam))]
@@ -729,29 +544,22 @@
   nil)
 
 (defn- ration
-  "The one place where per-person act/read pacing and account blocks will
-  sit once counts by person live in Auth. Copy-local `/sign-in/*` address
-  pacing (`ration-sign-in!`) and copy-local live-watch caps
-  (`acquire-watch!` / `release-watch!`) are active now; per-person counts
-  and blocks in Auth are not built yet."
+  "The place where pacing of acts and reads by person, and blocks, will sit
+  once counts by person live in Auth. Those are not built: it gives nil."
   [_seam _caller _doing]
   nil)
 
 (defn- act-id-of
-  "Completes a maker's act-id. Takes the seam, a lane and the maker's
-  UUID. Gives [lane depot uuid], or one of the door's words. One round
-  trip, to the lane's task: the door reads the lane's depot
-  (`softland.store.door/act-id-for`), and the maker's UUID takes the place
-  of the one that the door made."
+  "One round trip, to the lane's task: the door reads the lane's depot
+  (`softland.store.door/act-id-for`). The maker's UUID takes the place of
+  the one that the door made."
   [^Seam seam lane uuid]
   (let [got (door/act-id-for (.-door seam) lane)]
     (if (:could-not got) got (assoc got 2 uuid))))
 
 (defn- sent
-  "Sends one act that is already held against its sender, and reads its
-  answer. Takes the seam, the act, its act-id, and until when to wait, a
-  moment of `System/nanoTime`. Gives the door's receipt with `:answer`, the
-  door's answer; or one of the door's words."
+  "The act must already be held against its sender. `ends` is a moment of
+  `System/nanoTime`."
   [^Seam seam act act-id ends]
   (let [receipt (door/send-act (.-door seam) act act-id)]
     (if (:could-not receipt)
@@ -760,14 +568,10 @@
         (assoc receipt :answer (door/answer-of (.-door seam) (:act-id receipt) (:digest receipt) left-ms))))))
 
 (defn- ends-after
-  "Takes a wait in milliseconds. Gives the moment of `System/nanoTime` at
-  which it is over."
   [wait-ms]
   (unchecked-add (System/nanoTime) (* 1000000 (long wait-ms))))
 
 (defn- send-now
-  "The word `:send`. Holds the act against the caller, completes the
-  act-id, sends, and waits for the answer."
   [^Seam seam caller {:keys [act act-id wait-ms]}]
   (or (act-fault caller act)
       (ration seam caller :act)
@@ -777,12 +581,10 @@
           (sent seam act full (ends-after wait-ms))))))
 
 (defn- send-all-now
-  "The word `:send-all`. Sends the acts in order, each held against the
-  caller, and gives {:results [...]} with one result for each act that was
-  tried: a receipt with its answer, or, as the last thing, the word with
-  which a send ended. No act after that one is tried, since a later act of
-  a series can rest on an earlier one; the maker sends the rest again under
-  the same UUIDs. The wait is one span for the whole series."
+  "One result for each act that was tried. It stops at the first send that
+  ends with a word, since a later act of a series can rest on an earlier
+  one; the maker sends the rest again under the same UUIDs. The wait is one
+  span for the whole series."
   [^Seam seam caller {:keys [acts wait-ms]}]
   (let [ends (ends-after wait-ms)]
     {:results
@@ -800,8 +602,6 @@
              acts)}))
 
 (defn- from-auth
-  "Takes what a write of Auth gave. Gives it as it is; or `:reach-auth` for
-  a call that failed; or `:take-that` for a refusal, with Auth's word."
   [got]
   (cond
     (:could-not got) (words/could-not :reach-auth {:got got})
@@ -809,11 +609,8 @@
     :else got))
 
 (defn- derived
-  "Derives an id. Takes what the id is of, a keyword; the caller's root;
-  and the UUID that the system sent. Gives a UUID: the first 16 bytes of
-  the SHA-256 of the three as one text, marked as a UUID of version 8. The
-  same three give the same id, and no choice of the UUID gives an id that
-  another root, or another kind of thing, has."
+  "The first 16 bytes of a SHA-256, marked as a UUID of version 8. No choice
+  of the UUID gives an id that another root, or another kind of thing, has."
   [kind root uuid]
   (let [digest (.digest (java.security.MessageDigest/getInstance "SHA-256")
                         (.getBytes (str "softland/" (name kind) "/" root "/" uuid)
@@ -824,10 +621,9 @@
     (UUID. high low)))
 
 (defn- beneath?
-  "Takes the actors of a root (`softland.auth.client/under`, `:actors`),
-  the id of an actor and the id of another. Gives true when the first was
-  made by the second, at any depth. The walk goes up from the first and
-  stops at the root or after as many steps as there are actors."
+  "`actors` is `:actors` of `softland.auth.client/under`. True when `actor`
+  was made by `above`, at any depth. The walk stops after as many steps as
+  there are actors."
   [actors actor above]
   (let [made-by (into {} (map (juxt :actor :made-by)) actors)]
     (loop [at (get made-by actor) steps (count actors)]
@@ -838,10 +634,9 @@
         :else (recur (get made-by at) (dec steps))))))
 
 (defn- make-agent-now
-  "The word `:make-agent`. The agent's id and its sign-in's id are derived
-  from the caller's root and the UUID that came (`derived`). Then two
-  writes of Auth, the actor and its sign-in, each of which holds when it is
-  made twice: a maker that was cut off between them says the word again."
+  "Two writes of Auth, the actor and its sign-in, each of which holds when
+  it is made twice: a maker that was cut off between them says the word
+  again."
   [^Seam seam ^Caller caller {:keys [uuid label hash]}]
   (let [client (.-client seam)
         root (.-root caller)
@@ -861,9 +656,7 @@
           {:made agent :root root :sign-in sign-in :until until})))))
 
 (defn- end-agent-now
-  "The word `:end-agent`. Reads the actors of the caller's root, and ends
-  the agent when the caller made it, at any depth: an actor is ended by its
-  maker or by anyone above."
+  "An actor is ended by its maker or by anyone above, at any depth."
   [^Seam seam ^Caller caller {:keys [agent]}]
   (let [client (.-client seam)
         root (.-root caller)
@@ -877,7 +670,6 @@
       :else (from-auth (auth/end-actor client {:root root :actor agent :at (now-ms)})))))
 
 (defn- call-now
-  "The body of `call`: one word, on the calling thread."
   [^Seam seam ^Caller caller word]
   (let [client (.-client seam)
         root (.-root caller)]
@@ -964,27 +756,11 @@
       (words/could-not :read-the-word {:why :word-not-known :at :word}))))
 
 (defn call
-  "Does one word whose result is one thing. Takes the seam, a caller, and a
-  word in its one form (`softland.wire.words/check`); `:watch` and `:leave`
-  are a face's, since a face holds the watches of its connection. Gives a
-  task of the word's result, as plain data:
-
-    :who-am-i        what `about` gives
-    :send            the door's receipt {:act-id :digest :ack}, with
-                     `:answer`, the door's answer; or one of the door's
-                     words
-    :send-all        {:results [...]}, one for each act that was tried
-    :answer          one of the door's four answers
-    :read            the read path's answer, or one of its words
-    :replace-secret  {:replaced sign-in :until t}
-    :sign-out, :close-session, :invite, :end-agent, :end-sign-in
-                     what Auth gave
-    :make-agent      {:made agent :root root :sign-in sign-in :until t}
-    :under           {:actors [...] :sign-ins [...]}
-
-  or one of the runtime's words (`softland.wire.words/could-nots`). A
-  visitor reads; every other word but `:who-am-i` gives her
-  `:find-her-sign-in`.
+  "`word` must be in its one form (`softland.wire.words/check`). `:watch`
+  and `:leave` are a face's, since a face holds the watches of its
+  connection. Gives a task of the word's result as plain data, or of one of
+  the runtime's words. A visitor reads; every other word but `:who-am-i`
+  gives her `:find-her-sign-in`.
 
   The seam checks nothing of an act's form, as the door checks nothing: a
   gate refuses a wrong act under its act-id, and the log keeps it."
@@ -992,14 +768,9 @@
   (on-its-own-thread seam (fn [] (call-now seam caller word))))
 
 (defn send-as-system
-  "Sends one act as the system and waits for its answer. Takes the seam;
-  the act in the store's one form, whose `:who` must be the store's
-  `system` id; the act-id's UUID; and a wait in milliseconds. Gives the
-  door's receipt with `:answer`, or one of the door's words.
-
-  `softland.runtime.sign-in` is the one caller, for the making of a
-  person's own lane and for a deployment's first acts. No face calls it,
-  and the pure proof reads the source to hold that."
+  "No face calls it: `softland.runtime.sign-in` is the one caller, for the
+  making of a person's own lane and for a deployment's first acts, and the
+  pure proof reads the source to hold that."
   [^Seam seam act uuid wait-ms]
   (if-not (= first-act/system (get act :who))
     (words/could-not :send-as-another {:at :who})
@@ -1009,9 +780,7 @@
         (sent seam act full (ends-after wait-ms))))))
 
 (defn read-as-system
-  "Reads once, with the system as the asker. Takes the seam and a query,
-  whole, whose `:asker` must be the store's `system` id. Gives the read
-  path's answer or word. `softland.runtime.sign-in` is the one caller."
+  "`softland.runtime.sign-in` is the one caller."
   [^Seam seam query]
   (if-not (= first-act/system (get query :asker))
     (words/could-not :send-as-another {:at :asker})
@@ -1020,12 +789,10 @@
 ;; ---------------------------------------------------------------- the flows
 
 (defn- live-now
-  "Reads whether a caller is live now. Takes the seam and a caller that has
-  a who. Gives [:live {:until :session-until}], [:not word], or
-  [:not-reached word]. One read of Auth. The caller proved its secret when
-  it was made; what is read here is whether its sign-in and its session
-  still stand. So a caller outlives a replacing of its secret, as its
-  session does."
+  "The caller must have a who. One read of Auth. The caller proved its
+  secret when it was made; what is read here is whether its sign-in and its
+  session still stand. So a caller outlives a replacing of its secret, as
+  its session does."
   [^Seam seam ^Caller caller]
   (let [got (auth/who-is (.-client seam) {:root (.-root caller) :sign-in (.-sign-in caller)
                                           :session (.-session caller)})]
@@ -1040,10 +807,8 @@
           :else [:live {:until until-or-why :session-until (:until (:session got))}])))))
 
 (defn- seems-gone?
-  "Takes a caller, the end that is held for her sign-in, and what Auth
-  pushed as live under her root. Gives true when the value does not hold
-  her sign-in with that end, or does not hold her session under that
-  sign-in. It is a reason to read, and no judgment."
+  "`until` is the end that is held for her sign-in, and `value` what Auth
+  pushed as live under her root. True is a reason to read, and no judgment."
   [^Caller caller until value]
   (let [sign-in (get-in value [:sign-ins (.-sign-in caller)])]
     (or (nil? sign-in)
@@ -1052,28 +817,26 @@
              (not= (.-sign-in caller) (get-in value [:sessions (.-session caller) :sign-in]))))))
 
 (defn standing
-  "Says when a caller stops being live. Takes the seam and a caller. Gives
-  a flow that gives one thing and ends: the word with which she stopped,
-  `:find-her-sign-in`, `:find-her-session` or `:reach-auth`. For as long as
-  she is live it gives nothing. A visitor's flow gives nothing and never
-  ends by itself. Cancelling it stops the listening.
+  "A flow that gives nothing while the caller is live, then one word,
+  `:find-her-sign-in`, `:find-her-session` or `:reach-auth`, and ends. A
+  visitor's flow gives nothing and never ends by itself. Cancelling it
+  stops the listening.
 
   It listens for her root first and reads Auth after, so no change falls
-  between the two. Then, at each push that does not show her as she is
-  held, and when the time of her secret or of her session comes near, it
-  reads Auth again, and the read decides: she is live, the session's time
-  is moved on when it is due, and the timer is set anew; or she is not, and
-  the flow says so. A secret that was replaced moves the sign-in's end; a
-  session is never ended by that.
+  between the two. A push that does not show her as she is held is only a
+  reason to read, since a push can be behind a write: the read decides. A
+  read also comes when the time of her secret or of her session comes near,
+  and it moves the session's time on when that is due. A secret that was
+  replaced moves the sign-in's end; a session is never ended by that.
 
   When Auth's watch of her root is lost, the flow ends with `:reach-auth`
   and reads nothing: a caller that nothing watches could outlive its
   sign-in. The system connects again, and is watched anew.
 
-  Each read runs on a thread of the seam's own, and so does the telling of
-  a lost watch: the standing's thread that hands it on returns at once, and
+  Each read, and the telling of a lost watch, runs on a thread of the
+  seam's own: the standing's thread that hands it on returns at once, and
   one listener that blocks while it ends its connection holds back no
-  other. The end is said outside the flow's lock."
+  other."
   [^Seam seam ^Caller caller]
   (let [subject
         (fn [!]
@@ -1085,8 +848,8 @@
                               (.lock lock)
                               (try (f) (finally (.unlock lock))))
                   executor ^ExecutorService (.-executor seam)
-                  ;; Under the lock: marks the flow done and gives the word
-                  ;; when this is the first end, else nil.
+                  ;; Called under the lock. Gives the word when this is the
+                  ;; first end, else nil.
                   ending (fn [word]
                            (when-not (:done? @state)
                              (swap! state assoc :done? true)
@@ -1145,8 +908,6 @@
                         (.-standing seam) (.-root caller)
                         (fn [value]
                           (cond
-                            ;; Handed to a thread of the seam's own: the
-                            ;; standing's thread returns at once.
                             (= standing/not-reached value)
                             (let [lost (fn [] (end! (words/could-not :reach-auth {:why :watch-lost})))]
                               (try (.execute executor ^Runnable lost)
@@ -1166,27 +927,18 @@
     (m/eduction (take 1) (m/observe subject))))
 
 (defn watch
-  "Reads, and keeps the read live. Takes the seam, a caller, and a query as
-  it arrived, with its asker. Gives a flow of the read path's own messages
-  (`softland.store.read-path/read-live`):
+  "A flow of the read path's own messages
+  (`softland.store.read-path/read-live`), with `{:ended word}` once, as the
+  last thing. The read is opened when the flow is first listened to, on a
+  thread of the seam's own, and left when the flow is cancelled or has
+  ended. A query that names another asker than the caller, and a read that
+  could not be opened, give `{:ended word}` and nothing else.
 
-    {:anew answer}                    first, and whenever what shapes the
-                                      read changed
-    {:changed {place place-answer}}   the places that changed, each with
-                                      what the read gives there now
-    {:ended word}                     once, as the last thing
+  The seam does not end a watch when its caller stops being live: the face
+  holds `standing` beside its watches and cancels them, so that one
+  listening serves every watch of a connection.
 
-  The read is opened when the flow is first listened to, on a thread of the
-  seam's own, and left when the flow is cancelled or has ended. A query
-  that names another asker than the caller, and a read that could not be
-  opened, give the word as `{:ended word}` and nothing else.
-
-  What ends it: the read path ended the read, with its word; or the face
-  cancelled it. The seam does not end a watch when its caller stops being
-  live: the face holds `standing` beside its watches and cancels them, so
-  that one listening serves every watch of a connection.
-
-  A slow reader. What waits for her is merged by place
+  What waits for a slow reader is merged by place
   (`softland.wire.watching/merged`): she is handed fewer and larger things,
   in order, and never a present that is wrong. Each thing is handed on from
   a thread of the seam's own: the thread of Rama's client that brought a

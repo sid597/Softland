@@ -2,18 +2,15 @@
   "The line: one connection that carries many words and many watches. It is
   the face for everything that speaks the words of the wire
   (`softland.wire.words`): the command line, an agent's harness, and the
-  browser's client when it is built. It requires Missionary, the seam and
-  the wire's forms. It knows no socket: whatever carries the connection
-  hands it two functions, one that sends a text and one that closes
-  (`softland.runtime.jetty` does, for a WebSocket).
+  browser's client when it is built. It knows no socket: whatever carries
+  the connection hands it two functions, one that sends a text and one that
+  closes (`softland.runtime.jetty` does, for a WebSocket).
 
   One connection is one caller, in one session. The caller is made before
-  the connection opens, from the credential that came with the request
-  (`softland.runtime.seam/caller`), and stays the caller for the
-  connection's life. So a sign-in that ends has to end the connection: the
-  line holds the seam's `standing` beside everything that is open, and when
-  that says an end, it tells the system why, leaves every watch, and
-  closes.
+  the connection opens and stays the caller for the connection's life. So a
+  sign-in that ends has to end the connection: the line holds the seam's
+  `standing` beside everything that is open, and when that says an end, it
+  tells the system why, leaves every watch, and closes.
 
   What crosses, each as one EDN form in one text frame
   (`softland.wire.frame`):
@@ -26,41 +23,26 @@
                                    {:id n :ended word}
     from the runtime, last         {:bye word}
 
-  The number is the system's own, an integer of 0 or more, and says which
-  word a result is for. A watch keeps the number of its `:watch` until it
-  ends or is left with `{:word :leave :watch n}`.
+  The number is the system's own, an integer of 0 or more. A watch keeps
+  the number of its `:watch` until it ends or is left with
+  `{:word :leave :watch n}`.
 
   One word at a time. The words of one connection are done in the order in
-  which they arrived, one after another, on one thread of the connection's
-  own: two acts that a maker sends one after the other reach their depot in
-  that order. A send waits for its answer by default, and the next word
-  waits behind it; a maker that wants to send on at once names
-  `:wait-ms 0`, or sends a series with `:send-all`, and reads answers with
-  `:answer`. A watch does not hold the line: its messages are written as
-  they come, between the results of words.
+  which they arrived, on one thread of the connection's own: two acts that
+  a maker sends one after the other reach their depot in that order. A send
+  waits for its answer by default, and the next word waits behind it; a
+  maker that wants to send on at once names `:wait-ms 0`, or sends a series
+  with `:send-all`, and reads answers with `:answer`. A watch does not hold
+  the line: its messages are written between the results of words.
 
   What is bounded. A frame's bytes, by what carries the connection, before
   the frame is in memory. A frame's longest token, before it is read as
-  EDN (`softland.wire.frame`). The words that wait on one connection, at
-  `max-waiting`: a system that sends faster than its words are done is
-  closed. The watches of one connection, at the seam's number for its
-  caller (`softland.runtime.seam/watches-per-connection`), which is below
-  what all of a root's connections, or all visitors', share in a copy.
-  How long one write of a frame may take, by what carries the connection
-  (`softland.runtime.jetty`, `send-ms`): a system that does not read is
-  ended, so one that is told its end and does not read is ended all the
-  same.
-
-  The calls:
-
-    open      the seam, a caller, and the two functions -> a connection
-    text!     a connection and one text frame -> nil, at once
-    closed!   a connection -> nil: the carrier says that it is gone
-
-  State. Nothing that lasts. A connection holds, in the memory of the
-  process: its caller; the words that wait; its watches, each with the
-  function that leaves it; and whether it is closed. All of it goes when
-  the connection does."
+  EDN. The words that wait on one connection, at `max-waiting`: a system
+  that sends faster than its words are done is closed. The watches of one
+  connection, at `softland.runtime.seam/watches-per-connection`. How long
+  one write of a frame may take, by what carries the connection: a system
+  that does not read is ended, so one that is told its end and does not
+  read is ended all the same."
   (:require [missionary.core :as m]
             [softland.runtime.seam :as seam]
             [softland.wire.frame :as frame]
@@ -70,8 +52,7 @@
            [java.util.concurrent.locks ReentrantLock]))
 
 (def max-waiting
-  "How many words can wait on one connection. A number of the build, kept
-  and not decided."
+  "How many words can wait on one connection."
   256)
 
 (deftype Connection [the-seam caller send! close! queue state send-lock]
@@ -83,19 +64,17 @@
 
 (alter-meta! #'->Connection assoc
              :private true
-             :doc "Makes a connection: the seam and the caller, borrowed; `send!`, a
-  function of a text, and `close!`, a function of a status and a reason,
-  from what carries the connection; the queue of texts that wait;
-  `state`, an atom of {:closed? :watches {number leave} :standing leave};
-  and `send-lock`, a `ReentrantLock` serializing outbound frames without
-  pinning virtual-thread carriers on JDK 21.")
+             :doc "`send!` takes a text and `close!` a status and a reason; both come
+  from what carries the connection. `send-lock` is a `ReentrantLock`: it
+  serializes outbound frames without pinning virtual-thread carriers on
+  JDK 21.")
 
 (declare end!)
 
 (defn- say!
-  "Sends one form to the system. Takes a connection and a thing. One write
-  at a time for a connection: a result and a watch's message never mix. A
-  write that throws means that the system went away, and ends the connection."
+  "One write at a time for a connection: a result and a watch's message
+  never mix. A write that throws means that the system went away, and ends
+  the connection."
   [^Connection connection thing]
   (let [^ReentrantLock lock (.-send-lock connection)
         failed?
@@ -110,10 +89,7 @@
       (end! connection 1006 "send failed"))))
 
 (defn- end!
-  "Ends a connection: leaves every watch, stops listening for the caller's
-  standing, interrupts the connection's worker thread, and closes what carries
-  it. Takes the connection, and a status and a reason for the carrier. It does
-  its work once."
+  "`status` and `reason` are for the carrier. It does its work once."
   [^Connection connection status reason]
   (let [[before _] (swap-vals! (.-state connection) assoc :closed? true :watches {} :standing nil)]
     (when-not (:closed? before)
@@ -131,9 +107,8 @@
   nil)
 
 (defn- watch!
-  "Opens a watch under the number of its word. Takes the connection, the
-  number and the word. Each message of the seam's flow is sent with the
-  number in it. When the flow ends, the number is free again."
+  "The watch is under the number of its word. When the flow ends, the
+  number is free again."
   [^Connection connection id word]
   (let [state (.-state connection)]
     (cond
@@ -168,7 +143,6 @@
         (when (:closed? @state) (leave))))))
 
 (defn- word!
-  "Does one frame. Takes the connection and the frame's text."
   [^Connection connection text]
   (let [[outcome form] (frame/read-one text)]
     (if (= :no outcome)
@@ -199,15 +173,8 @@
                 (say! connection {:id id :gives result})))))))))
 
 (defn open
-  "Opens a connection. Takes the seam; a caller
-  (`softland.runtime.seam/caller`, or its `visitor`); and a map of the two
-  functions of what carries the connection: `:send!`, which takes a text
-  and writes it as one frame, and `:close!`, which takes a status and a
-  reason. Gives the connection.
-
-  It says hello, starts the one thread that does the connection's words in
-  their order, and begins to hold the caller's standing: when that says an
-  end, the system is told `{:bye word}` and the connection is ended."
+  "`:send!` takes a text and writes it as one frame; `:close!` takes a
+  status and a reason. The caller can be the seam's `visitor`."
   [the-seam caller {:keys [send! close!]}]
   (let [connection (->Connection the-seam caller send! close!
                                  (LinkedBlockingQueue. (int max-waiting))
@@ -247,10 +214,9 @@
     connection))
 
 (defn text!
-  "Takes a connection and the text of one frame that arrived. It puts the
-  text with the words that wait and returns at once: the thread of what
-  carries the connection does none of the word's work. A connection on
-  which `max-waiting` words wait already is ended."
+  "Returns at once: the thread of what carries the connection does none of
+  the word's work. A connection on which `max-waiting` words wait already
+  is ended."
   [^Connection connection text]
   (when-not (.offer ^LinkedBlockingQueue (.-queue connection) text)
     (say! connection {:bye (words/could-not :read-the-frame {:why :too-many-waiting :most max-waiting})})
@@ -258,12 +224,10 @@
   nil)
 
 (defn closed!
-  "Takes a connection whose carrier says that it is gone. Leaves every
-  watch and stops the connection's thread."
+  "For the carrier, when it says that the connection is gone."
   [connection]
   (end! connection 1000 "closed"))
 
 (defn open?
-  "Takes a connection. Gives true while it is not ended."
   [^Connection connection]
   (not (:closed? @(.-state connection))))

@@ -1,0 +1,33 @@
+;; Whose call each thing in this tree's code is. One entry per place that is
+;; not decided (:not-decided: kept so that the build runs; nobody chose it),
+;; that a session or the builder chose (:a-sessions: Sid's to turn), or that
+;; carries a decision of Sid's (:decided, with :source). :at is the var, or the
+;; namespace. An entry moves with its var.
+[{:at softland.wire.words
+  :state :decided
+  :what "The whole form goes on the wire (\"3A\"): an act is the store's own maker's act, with its `:who` and its `:session`; a query is the read path's, with its `:asker` or with `:not-signed-in true`."
+  :source "Sid, 20 November 2026"}
+
+ {:at softland.wire.words/max-frame-bytes
+  :state :not-decided
+  :what "One frame of somebody who is signed in can be the store's bound on what one act can write into rows (`softland.store.door.declaration/max-act-bytes`) and one MiB for the form around the values. A number of the build, kept and not decided."}
+
+ {:at softland.wire.words/max-visitor-frame-bytes
+  :state :not-decided
+  :what "One frame on a connection that stands for nobody can be 65536 bytes. A number of the build, kept and not decided."}
+
+ {:at softland.wire.words/max-acts-of-one-word
+  :state :not-decided
+  :what "One `:send-all` can carry 1024 acts. A number of the build, kept and not decided."}
+
+ {:at softland.wire.words/default-wait-ms
+  :state :not-decided
+  :what "A `:send` waits 10000 ms for its answer when the word names no wait. A number of the build, kept and not decided."}
+
+ {:at softland.wire.words/longest-wait-ms
+  :state :not-decided
+  :what "The longest wait that a word can ask for is 60000 ms; a longer one is cut to it. A number of the build, kept and not decided."}
+
+ {:at softland.wire.credential
+  :state :not-decided
+  :what "Not decided, kept for now: the form of a credential (`sl2_<root>.<sign-in>.<secret>`), the length of a secret (43 characters of base64url: 32 random bytes) and of a code (eight characters), the hash (SHA-256), and the name of the cookie (`softland-sign-in`). Each is in one place in the namespace."}]
