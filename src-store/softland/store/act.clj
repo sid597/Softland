@@ -1,181 +1,59 @@
 (ns softland.store.act
-  "The act: its one form, declared as data, and the check of that form. Pure
-  code. It needs no cluster, and it requires nothing outside Clojure and the
-  JVM.
+  "The act: its one form, declared as data in `shapes` and `rules`, and
+  `parse`, the check of that form. Pure code.
 
-  An act is one fact or more that one maker sends under one act-id; the
-  door makes the act-id, and it is not a part of the form. A gate accepts
-  the whole act or refuses the whole act. Whatever made an act, it has one
-  form. The form here is the maker's act: what a maker gives, with plain
-  values, before the door touches it. That is Sid's decision of 6 October
-  2026. The twelve decisions are listed in src-store/README.md, which marks
-  the two that wait for his word.
+  The form is the maker's act: what a maker gives, with plain values, before
+  the door adds an act-id, a depot and a time. A gate accepts the whole act
+  or refuses the whole act.
 
-  Read `shapes` and `rules` first. `shapes` declares the form as plain data:
-  the parts of an act, what each part holds, which parts must be there, and
-  the reason word when a part is wrong; and the shape of a fact, an act-id,
-  a fact id, a permission id and a carried stamp. `rules` declares what must
-  hold between two places of an act, which a shape cannot say. `parse` reads
-  the two declarations, takes anything, and gives the act in its one form or
-  the reason why it is not an act.
+  The shape is code and not a fact in the store. Each shape that a tool
+  gives enters the store as a fact, inside an act, so the shape of the act
+  is the floor: it must hold when each fact is wrong. It is declared as data
+  so that it can be read in one place, printed and shown.
 
-  A permission id has five forms. `[who lane granted-in]` is a first
-  permission, with nothing above it. `[who lane granted-in parent]` is a
-  given permission, with the permission above it. And
-  `[who lane granted-in parent allows]` is a given permission that says
-  what it allows: `:see`, or `:see-and-act`. A permission without that slot
-  allows seeing and acting; `allows` is the one function that reads the
-  slot. That a permission says what it allows is Sid's decision of 11 and 12
-  October 2026 (src-store/README.md, entry 1); that it says so in a slot of
-  its own id is the builder's.
-
-  The last two forms say what the permission covers, in a sixth slot;
-  `covers` is the one function that reads it. A permission without that slot
-  covers its lane, until it is ended.
-  `[who lane granted-in parent allows [:run session]]` covers one run: the
-  acts that carry that session, and the reads that are asked in it.
-  `[who lane granted-in parent :see-and-act [:act yes digest]]` is a yes
-  for one act. `yes` is a UUID that its giver makes, the yes's own id, and
-  the yes sits on it. `digest` is a text of 64 hex characters: the digest
-  of the act as its maker made it, in the one form that `parse` gives, with
-  its who and its session, and without its act-id, its depot, its time and
-  its permission (`softland.store.door.digest/hex-for-a-yes`). So the act
-  goes under any act-id of its maker's, and a yes is made before the act
-  has an act-id. A yes covers its act once: a gate uses it up when it takes
-  the act, and a try that is refused uses nothing. A yes says
-  `:see-and-act`: one that said `:see` would allow nothing. That a
-  permission covers an act, or a run, and that a holder can have more than
-  one in a lane, are Sid's decisions of 21 November 2026
-  (src-store/README.md, entries 4 to 6 of 20 and 21 November). The form of
-  a permission for a run is a session's
-  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md); the form of a
-  yes, with an id of its own and used once, is a session's, in the prompt
-  that Sid pasted on 22 November 2026 as his go for the build, and his to
-  turn.
-
-  Why the shape is in code and not a fact in the store. Each shape that a
-  tool gives enters the store as a fact, inside an act. So the shape of the
-  act itself is the floor: it must hold when each fact is wrong. It is
-  compiled with the store. It is declared as data all the same, so that it
-  can be read in one place, printed and shown.
-
-  Inputs and results, by call:
-
-    parse         anything -> {:ok act} or {:refuse reason}
-    has-shape?    the name of a declared shape, and anything -> true or false
-    as-shape      a map of shapes, the name of a shape in it, and anything
-                  -> [:ok the thing in its one form] or [:no reason]
-    value?        anything -> true for a value that a fact can hold
-    normal-value  a value -> its one normal form
-    allows        a permission id in its one form -> :see or :see-and-act
-    covers        a permission id in its one form -> nil, [:run session]
-                  or [:act yes digest]
-
-  State and effects. The namespace owns no state, and each function is pure.
-  Nothing here reads a clock, takes a random id, appends, or reads a
-  record.
-
-  Callers. The proof of this namespace. `softland.store.door.declaration`: the
-  door's declaration is a map of shapes in the language of `shapes`, with
-  the entries of `shapes` in it, and `as-shape` gives it the engine that
-  reads one; it reads `rules` too. `softland.store.door.text` asks
-  `readable-keyword?`. The door's additions
-  (`softland.store.door.additions`) ask nothing of it but the shape of an
-  act-id, through the declaration. The standing of an act
-  (`softland.store.gate.decision/standing`, which the walk calls for both
-  gates) asks `allows` of the permission that the act names, and the
-  record's rows
-  (`softland.store.record.rows`) ask `value?`, `normal-value`,
-  `has-shape?` and `readable-keyword?` when they read a row back. The read
-  path's check of a query (`softland.store.read-path.query`) declares its
-  own map of shapes over `shapes`, reads it with `as-shape`, and asks
-  `readable-keyword?`.
-
-  Approach. The file has these sections, in this order: the words and the
-  limits; the declared shape and the rules; what the declaration says, as
-  sets; the leaves, which are the few shapes that code checks; the engine
-  that reads a shape; the check.
-
-  Not here. Act-ids: the door makes them, on request ahead of sending. The
-  depot: the door adds it, from the lane. The time on the act: the door
-  writes it, from the clock of its server. The standing of a permission, and
-  whether an act claims to be the store: a gate decides. Which gate an act
-  is for: the gate's. A replaced fact against the record, the rules of a
-  session and the digest of an act: the gates'. The partition of an act in
-  its depot: the depot takes it from the act's lane
-  (`softland.store.module`). The door is `softland.store.door`; the gate
-  is in its own namespaces beside this one. A stamp, an answer, a read and
-  the settings of a lane are not here either.
-
-  Words. A fact is one statement: entity, key, value. An act is one or more
-  facts that one maker sends under one act-id. An act-id is
-  `[lane depot uuid]`: the lane, the lane's depot, a random UUID. A
-  lane's depot is `:streaming` or `:microbatch`: the depot that takes its
-  acts. The lane and the depot are there so that the act can be routed and
-  the door can find its answer in the right record. \"Depot\" is Sid's word,
-  of 9 October 2026; his decisions before that day say \"class\" for it.
-  From Sid's \"act-uuid\" of 7 October
-  2026: the session wrote act-id, since the id holds more than the UUID, and
-  the word is his to change. The ruling of 24 September said \"name\". A maker is a converter, the screen,
-  an agent. The door is the code that takes an act from a maker into the
-  store. A gate decides each act inside the store. \"Key\" is a fact's key,
-  and \"lock\" is an encryption key: never one word for both."
+  A permission whose sixth slot is `[:run session]` covers one run: the
+  acts that carry that session, and the reads that are asked in it. One
+  whose sixth slot is `[:act yes digest]` is a yes for one act. `yes` is a
+  UUID that its giver makes, and the yes sits on it. `digest` is the digest
+  of the act as its maker made it, with its who and its session, and without
+  its act-id, its depot, its time and its permission
+  (`softland.store.door.digest/hex-for-a-yes`). So a yes is made before the
+  act has an act-id, and the act goes under any act-id of its maker's. A yes
+  covers its act once: a gate uses it up when it takes the act, and a try
+  that is refused uses nothing. A yes that said `:see` would allow nothing."
   (:import [clojure.lang BigInt]
            [java.math BigDecimal BigInteger]))
 
 ;; ------------------------------------------------- the words and the limits
 
 (def version
-  "The version marker of the form: the edition of the list of parts. This code
-  knows this one version only."
+  "The edition of the list of parts. This code knows this one version only."
   1)
 
 (def max-subjects
-  "How many subjects an act can name."
   256)
 
 (def max-depth
-  "How many collections a value can be inside. `value?` stops at this depth,
-  so no walk over a value goes deep. `nesting` reads the same number for how
-  deep a permission can be."
+  "How many collections a value can be inside. `nesting` reads the same
+  number for how deep a permission can be."
   32)
 
 ;; ------------------------------------------------------- the declared shape
 
 (def shapes
-  "The declared shape of an act, and of each thing that an act holds. Plain
-  data, with no code in it. Each entry is a name and a shape. A shape is one
-  of these:
+  "The shape of an act, and of each thing that an act holds. Plain data. A
+  shape is a leaf that code checks (`leaves`), another name of this map, or
+  a form that `conform` reads.
 
-    :id :key :uuid :int :value :digest-hex
-                                 a leaf, which code checks (`leaves`)
-    another name of this map     that shape
-    [:enum v ...]                one of these values
-    [:int {:min a :below b}]     a fixed-width integer in that range
-    [:tuple s ...]               a vector of exactly these, in order
-    [:set-of s {:max n}]         a set of s, of n at most
-    [:map-of ks vs]              a plain map from ks to vs
-    [:seq-of s]                  a vector or a list of s
-    [:or s ...]                  the first of these that fits
-    [:parts [part s opts] ...]   a plain map with these parts and no other,
-                                 examined in this order
+  The order of the parts is the order of the checks: when a thing has two
+  faults, the part that is declared first gives the reason.
 
-  The options of a part:
-
-    :optional true   the part can be absent or nil; the one form then holds
-                     nil for it, or its :default
-    :left-out true   an absent part is absent from the one form too
-    :reason word     the refusal when the part does not fit; :malformed when
-                     no word is given
-    :absent word     the refusal when a part that must be there is absent
-    :empty word      the refusal when the part holds nothing
-
-  In place of a shape, :never says that the thing does not carry the part at
-  all, not even as nil. The engine keeps :never and :left-out as part of the
-  language; no shape of this declaration uses them.
-
-  The order of the parts is the order of the checks. So when a thing has two
-  faults, the part that is declared first gives the reason."
+  An `:optional` part can be absent or nil; the one form then holds nil for
+  it, or its `:default`. A part with no `:reason` is refused `:malformed`.
+  The engine also knows `:never` in place of a shape, for a part that the
+  thing does not carry at all, not even as nil, and `:left-out`, for an
+  absent part that is absent from the one form too. No shape of this
+  declaration uses those two."
   {:act
    [:parts
     [:version      [:enum version]                    {:reason :unknown-version}]
@@ -189,7 +67,6 @@
     [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
 
-   ;; A fact: what it is about, what it says, and what it replaces.
    ;; A fact with no value is a retract.
    :fact
    [:parts
@@ -198,7 +75,9 @@
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
-   ;; [lane depot uuid]. The door makes it; an act refers to act-ids.
+   ;; [lane depot uuid]. The door makes it. The lane and the depot are there
+   ;; so that the act can be routed and the door can find its answer in the
+   ;; right record.
    :act-id
    [:tuple :id [:enum :streaming :microbatch] :uuid]
 
@@ -206,12 +85,11 @@
    :fact-id
    [:tuple :act-id [:int {:min 0}]]
 
-   ;; [who lane granted-in]: a first permission. [who lane granted-in
-   ;; parent]: a given permission. [who lane granted-in parent allows]: a
-   ;; given permission that says what it allows. With a sixth slot, a given
-   ;; permission that says what it covers: one run, or one act. A tuple fits
+   ;; [who lane granted-in] is a first permission, with nothing above it.
+   ;; [who lane granted-in parent] is a given one. A fifth slot says what it
+   ;; allows, and a sixth what it covers: one run, or one act. A tuple fits
    ;; only its own count, and the two forms of six slots differ in the word
-   ;; of the sixth, so each thing fits one alternative at most; the fifth
+   ;; of the sixth, so each thing fits one alternative at most. The fifth
    ;; and the sixth slot are no permission, so they do not count toward the
    ;; nesting limit.
    :permission-id
@@ -229,63 +107,46 @@
 
 (def ^:private nesting
   "For a named shape, how many times it can be around one place, the place's
-  own counted. A name that is not here has the number 1: it can be inside
-  itself no times, so no shape goes round.
+  own counted. A name that is not here has the number 1, so no shape goes
+  round. A thing whose count is over the number is `:malformed`.
 
-  The one entry is the depth of a permission: how many permission ids one
-  permission id can hold, itself counted. A first permission has depth 1.
-  The engine adds one each time it enters the shape and refuses a thing
-  whose count is over the number, so the number is the greatest depth: 32. A
-  deeper permission is `:malformed`.
+  The depth of a permission is `max-depth` on purpose. A permission is held
+  on two roads: as an act's own `:permission`, which this number bounds, and
+  as the value of a fact that gives a permission, which `value?` bounds
+  first. The innermost vector of a permission of depth d has d - 1
+  collections around it, so a given permission can have depth 32 too, and
+  the two roads agree because they read one number.
 
-  The number is the value's own, `max-depth`, on purpose. A permission is
-  held on two roads: as an act's own `:permission`, which this number
-  bounds, and as the value of a fact that gives a permission, which
-  `value?` bounds first. `value?` takes a collection with fewer than
-  `max-depth` collections around it, and the innermost vector of a
-  permission of depth d has d - 1 around it; so a given permission can have
-  depth 32 too, and the two roads agree because they read one number.
-
-  Not decided. How deep a permission can be is Sid's to say. Kept: as deep
-  as a value can be. This entry is the one place where another answer is
-  made. A smaller number ends both roads there. A greater one needs a
-  greater `max-depth` too, and must stay under 62: the one text of a thing
-  (`softland.store.door.text`) writes a given permission whole to depth 61
-  and no deeper."
+  A greater number needs a greater `max-depth` too, and must stay under 62:
+  the one text of a thing (`softland.store.door.text`) writes a given
+  permission whole to depth 61 and no deeper."
   {:permission-id max-depth})
 
 (def rules
-  "What an act that has the shape must also keep, with the reason for each, in
-  the order in which they are examined. A shape says what each place holds. A
-  rule relates two places of the act. `rule-checks` holds the code of each
-  rule.
+  "What a shape cannot say: a rule relates two places of the act. Each entry
+  is a rule and its reason, in the order of the checks; `rule-checks` holds
+  the code.
 
-  The one rule: the lane of the act's permission is the act's own lane. A
-  permission cited for another lane cannot cover the act, whatever its
-  standing; whether it stands is a gate's question."
+  A permission cited for another lane cannot cover the act, whatever its
+  standing. Whether it stands is a gate's question."
   [[:permission-is-in-the-acts-lane :permission-not-in-lane]])
 
 ;; ------------------------------------------ what the declaration says, as sets
 
 (defn- parts-of
-  "Takes the name of a declared shape that is a :parts shape. Gives the set
-  of its part names."
   [shape-name]
   (into #{} (map first) (rest (get shapes shape-name))))
 
 (def act-parts
-  "The parts of an act, read from the declared shape. `parse` refuses a part
-  that is not one of them. A tool adds facts, never a part."
+  "`parse` refuses a part that is not one of them: a tool adds facts, never
+  a part."
   (parts-of :act))
 
 (def fact-parts
-  "The parts of a fact, read from the declared shape."
   (parts-of :fact))
 
 (def reasons
-  "The words with which `parse` refuses, read from the two declarations: each
-  word that a part or a rule names, and the two words that no part names,
-  :malformed and :unknown-part."
+  "Every word with which `parse` refuses."
   (into #{:malformed :unknown-part}
         (concat (map second rules)
                 (for [shape (vals shapes)
@@ -302,26 +163,20 @@
   #"[\p{L}*+!_?$%&=<>.\-][\p{L}\p{N}*+!_?$%&=<>.\-'#]*")
 
 (defn readable-keyword?
-  "Takes anything. Gives true for a keyword whose printed form reads back as
-  the same keyword. A key is such a keyword, and so is one of the two kinds
-  of id."
+  "True for a keyword whose printed form reads back as the same keyword."
   [x]
   (boolean (and (keyword? x)
                 (re-matches token-pattern (name x))
                 (let [ns (namespace x)] (or (nil? ns) (re-matches token-pattern ns))))))
 
 (defn- fits-long?
-  "Takes an integer of any width. Gives true when it is in the long range."
   [x]
   (<= Long/MIN_VALUE x Long/MAX_VALUE))
 
 (defn value?
-  "Takes anything. Gives true for a value that the store can hold: nil, a
-  boolean, a string, a readable keyword, a UUID, an integer of any width, a
-  finite double, a big integer, a decimal, or a plain map, a vector or a set
-  of values, inside `max-depth` collections at most. A ratio, a Java float, a
-  list and a record are not values. The second argument is the number of
-  collections already around x; a caller gives none."
+  "True for a value that the store can hold. A ratio, a Java float, a list
+  and a record are not values. `depth` is the number of collections already
+  around x; a caller gives none."
   ([x] (value? x 0))
   ([x depth]
    (cond
@@ -343,12 +198,11 @@
      :else false)))
 
 (defn normal-value
-  "Takes a value, as `value?` knows one. Gives its one normal form, which is
-  = to the value given: an integer as a long, and big only past the long
-  range; -0.0 as 0.0; a decimal with no trailing zeros; each vector a plain
-  vector, never a subvector; plain maps and sets. So a value reads back as
-  its maker gave it, however the maker built it. Limit: it does not examine
-  x, and it goes as deep as x goes."
+  "The one normal form of a value. It is = to the value given, so a value
+  reads back as its maker gave it, however the maker built it. A vector
+  comes back plain, never a subvector. What must hold: x is a value, as
+  `value?` knows one. It does not examine x, and it goes as deep as x
+  goes."
   [x]
   (cond
     (int? x) (long x)
@@ -362,18 +216,9 @@
     :else x))
 
 (def ^:private leaves
-  "The shapes that code checks, by name. Each takes a thing and gives [:ok,
-  its normal form], or nil when the thing does not fit. These are the only
-  places where the check of a shape is code and not data:
-
-    :id     an id: a keyword that reads back as itself, or a UUID
-    :key    a key: a keyword that reads back as itself, and nothing else
-    :uuid   a UUID of any version
-    :int    a fixed-width integer; its normal form is a long
-    :value  a value that the store can hold; its normal form is its one
-            normal form
-    :digest-hex  a SHA-256 as text: a string of exactly 64 characters, each
-            a digit or a letter from a to f in lower case"
+  "The shapes that code checks, by name: the only places where the check of
+  a shape is code and not data. Each takes a thing and gives [:ok, its
+  normal form], or nil when the thing does not fit."
   {:id    (fn [x] (when (or (readable-keyword? x) (uuid? x)) [:ok x]))
    :key   (fn [x] (when (readable-keyword? x) [:ok x]))
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
@@ -386,9 +231,6 @@
 (declare conform)
 
 (defn- conform-all
-  "Takes the map of shapes that the names are read from, and pairs of a
-  shape and a thing. Gives [:ok, the normal forms in order, as a plain
-  vector], or the first refusal."
   [declared pairs seen]
   (reduce (fn [[_ out] [shape x]]
             (let [[verdict normal :as got] (conform declared shape x seen)]
@@ -397,13 +239,6 @@
           pairs))
 
 (defn- conform-parts
-  "Takes the map of shapes that the names are read from, the entries of a
-  :parts shape, and a thing. Gives [:ok, the thing as
-  a plain map in its one form], or [:no reason]. A thing that is no plain map
-  is :malformed. A part that the entries do not name is :unknown-part. Then
-  the parts are examined in the order of the entries, and the first part
-  that is wrong gives its reason; the options of a part say which reason
-  (`shapes`)."
   [declared entries x seen]
   (cond
     (not (and (map? x) (not (record? x)))) [:no :malformed]
@@ -433,18 +268,14 @@
      entries)))
 
 (defn- conform
-  "The engine. Takes a map of shapes, a shape, a thing, and the count of
-  each named shape that is around this place. A shape that is a name is
-  read from the map given: `shapes` for the maker's act, a larger map for a
-  caller of `as-shape`. The leaves and the nesting limits are this
-  namespace's own, whatever map is given. Gives [:ok, the thing in its
-  normal form], or [:no reason]. The reason is nil when the shape names
-  none; the part that holds the place then gives its own. Each vector, map
-  and set of a normal form is built new and plain. A shape that the engine
-  does not know fits nothing.
+  "The engine. `seen` is the count of each named shape that is around this
+  place. The leaves and the nesting limits are this namespace's own,
+  whatever map is given. The reason of a [:no reason] is nil when the shape
+  names none; the part that holds the place then gives its own. A shape
+  that the engine does not know fits nothing.
 
-  It can throw, for example for a thing that throws when it is read. `parse`
-  and `has-shape?` turn each throw into a refusal."
+  It can throw, for a thing that throws when it is read. `parse` and
+  `has-shape?` turn each throw into a refusal."
   [declared shape x seen]
   (if (keyword? shape)
     (if-let [leaf (get leaves shape)]
@@ -505,77 +336,61 @@
         [:no nil]))))
 
 (defn has-shape?
-  "Takes the name of a declared shape, and anything. Gives true when the
-  thing fits the shape. It never throws. Limit: for :act it examines the
-  shape only, not the rules; `parse` examines both."
+  "It never throws. For :act it examines the shape only, not the rules;
+  `parse` examines both."
   [shape-name x]
   (try (= :ok (first (conform shapes shape-name x {})))
        (catch Throwable _ false)))
 
 (defn as-shape
-  "Gives the engine to another namespace. Takes a map of shapes in the
-  language of `shapes`, the name of a shape in that map, and anything.
-  Gives what the engine gives: [:ok, the thing in its one form], or
-  [:no reason], where the reason is the word of the first part that is
-  wrong, or nil when that part names none. The map may hold the entries of
-  `shapes` and add its own; the door's declaration does so.
+  "Gives the engine to another namespace, for a map of shapes in the
+  language of `shapes`. The map may hold the entries of `shapes` and add its
+  own. The reason is the word of the first part that is wrong, or nil when
+  that part names none.
 
-  Limits. The six leaves and the nesting limits stay this namespace's: a
-  caller gives the map of shapes and nothing else, so a named shape of the
-  caller's can be inside itself no times. It can throw, as the engine can,
-  for a thing that throws when it is read; the caller turns a throw into a
-  refusal, as `parse` does."
+  The leaves and the nesting limits stay this namespace's, so a named shape
+  of the caller's can be inside itself no times. It can throw, for a thing
+  that throws when it is read; the caller turns a throw into a refusal, as
+  `parse` does."
   [declared shape-name x]
   (conform declared shape-name x {}))
 
 ;; ---------------------------------------------------------------- the check
 
 (defn allows
-  "Takes a permission id in its one form. Gives what the permission allows:
-  the word of its fifth slot, `:see` or `:see-and-act`, when it has one,
-  with a sixth slot behind it or without;
-  `:see-and-act` for a permission with three or four slots. So a permission
-  that was given before the slot existed reads as \"see and act\", and this
-  is the one place where that is code. A gate refuses an act under a
-  permission that allows `:see`. The read path does not ask it: any
-  permission that is there allows seeing
-  (`softland.store.read-path.lanes/standing`).
+  "What a permission allows: the word of its fifth slot, and `:see-and-act`
+  for a permission with three or four slots. So a permission that was given
+  before the slot existed reads as \"see and act\", and this is the one
+  place where that is code. A gate refuses an act under a permission that
+  allows `:see`. The read path does not ask: any permission that is there
+  allows seeing (`softland.store.read-path.lanes/standing`).
 
-  What must hold: the thing has the shape `:permission-id`. It never throws:
-  anything that is no vector of five slots or six gives `:see-and-act`, so a
-  caller that holds a thing of no shape tests the shape first."
+  What must hold: the thing has the shape `:permission-id`. Anything that is
+  no vector of five slots or six gives `:see-and-act`, so a caller that
+  holds a thing of no shape tests the shape first."
   [permission]
   (if (and (vector? permission) (<= 5 (count permission) 6))
     (nth permission 4)
     :see-and-act))
 
 (defn covers
-  "Takes a permission id in its one form. Gives what the permission covers,
-  its sixth slot: `[:run session]`, the acts and the reads of one run;
-  `[:act yes digest]`, one act, once, for a yes with that id; or nil for a
-  permission with no sixth slot, which covers its lane until it is ended.
-  The one place where that slot is read. A gate holds an act to it
-  (`softland.store.gate.decision/standing`), and it says on which place the
-  permission sits (`softland.store.gate.chain/place`).
+  "What a permission covers, its sixth slot: `[:run session]`,
+  `[:act yes digest]`, or nil for a permission with no sixth slot, which
+  covers its lane until it is ended. The one place where that slot is read.
 
-  What must hold: the thing has the shape `:permission-id`. It never throws:
-  anything that is no vector of six slots gives nil."
+  What must hold: the thing has the shape `:permission-id`. Anything that is
+  no vector of six slots gives nil."
   [permission]
   (when (and (vector? permission) (= 6 (count permission)))
     (nth permission 5)))
 
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which
-  has the shape, and gives true when the act keeps the rule. A permission id
-  in its one form is a vector whose second slot is its lane."
+  has the shape. The second slot of a permission id is its lane."
   {:permission-is-in-the-acts-lane
    (fn [act] (= (:lane act) (nth (:permission act) 1)))})
 
 (defn- parse*
-  "The body of `parse`, with no guard around it. Takes anything. Gives
-  {:ok act} or {:refuse reason}. First the declared shape :act, then the
-  rules in their order. It can throw; `parse` turns each throw into a
-  refusal."
   [x]
   (let [[verdict got] (conform shapes :act x {})]
     (if (= :no verdict)
@@ -585,36 +400,27 @@
         {:ok got}))))
 
 (defn parse
-  "The check of the form. Takes anything. Gives {:ok act}, with the act in
-  its one form, or {:refuse reason}, with one of the `reasons`. It never
-  throws, whatever x is, so that no caller has to guard it: a maker's tool,
-  the door, or a gate, where a throw would stop the worker (a finding of the
-  rig on Rama). So it turns each throw into :malformed.
+  "The check of the form: {:ok act}, with the act in its one form, or
+  {:refuse reason}, with one of `reasons`. It never throws, whatever x is:
+  a throw in a gate would stop the worker (a finding of the rig on Rama).
+  Each throw is `:malformed`.
 
-  It reads the two declarations and holds no knowledge of the form itself.
-  First the shape: the thing must have the declared shape :act (`shapes`).
-  A thing that does not have it gets the reason of the first part that is
-  wrong, in the order of the declaration. Then the rules: an act that has
-  the shape must keep each rule (`rules`), and the first rule that it breaks
-  gives the reason.
+  The shape first, then the rules. The first part or rule that is wrong, in
+  the declared order, gives the reason.
 
   The one form. Each part of the declaration is there. Each vector, map and
   set is plain, and each fixed-width integer is a long. A part that the act
-  left out holds nil, or the default that the declaration gives: an empty
-  map for `:based-on`, an empty set for `:subjects`. Each fact holds its
-  four parts; a fact that gave no `:v`, or a nil one, holds `:v nil` and is
-  a retract. To parse the :ok of a parse gives the same :ok.
+  left out holds nil, or the default that the declaration gives. A fact
+  that gave no `:v`, or a nil one, holds `:v nil` and is a retract. To parse
+  the :ok of a parse gives the same :ok.
 
-  It is the check of the maker's act: what a maker gives, before the door
-  adds an act-id, a depot and a time. An act that carries one of those
-  three parts, and a fact that carries a part that the form does not name,
-  are refused :unknown-part.
+  An act that carries an act-id, a depot or a time is refused
+  `:unknown-part`: those three are the door's.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
   rule about a session beyond its shape. It examines the shape of a
-  permission and its lane, not its standing. It examines a value with
-  `value?` only. Facts that are a sequence with no end do not come back from
-  it."
+  permission and its lane, not its standing. Facts that are a sequence with
+  no end do not come back from it."
   [x]
   (try (parse* x)
        (catch Throwable _ {:refuse :malformed})))

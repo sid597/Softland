@@ -1,7 +1,7 @@
 (ns softland.runtime.jetty
   "What carries the runtime's faces: one Jetty server, which serves a Ring
   handler for the pages and upgrades one path to a WebSocket for the line.
-  It requires Jetty 11, Ring's servlet helpers and the line.
+  Jetty 11.
 
   Why it is written here and not taken from Ring's adapter. The adapter
   upgrades a request to a WebSocket and hands a listener a socket that can
@@ -11,29 +11,19 @@
   make the caller before the upgrade. So this namespace speaks to Jetty's
   own API for that one path, and uses Ring's helpers for everything else.
 
-  The calls:
+  How a connection to the line opens. The request is read as a Ring request
+  map and handed to the opener's `:accept`, which gives
+  {:caller caller :max-frame-bytes n}, to upgrade as this caller, or a Ring
+  response, which is sent with no upgrade. So a credential that stands for
+  nobody gets an answer over HTTP, with a status, and no socket. A binary
+  frame ends the connection.
 
-    serve   a map -> Jetty's server, started and not joined
-    stop!   the server -> nil
-
-  How a connection to the line opens. The request is read as a Ring
-  request map and handed to the opener's `:accept`, which gives one of:
-
-    {:caller caller :max-frame-bytes n}   upgrade, as this caller
-    a Ring response                       no upgrade: the response is sent
-
-  So a credential that stands for nobody gets an answer over HTTP, with a
-  status, and no socket. After the upgrade each text frame goes to
-  `softland.runtime.line/text!`, which returns at once; a binary frame
-  ends the connection.
-
-  A quiet connection. The server sends a ping on each open connection
-  every `ping-ms`, so that a thing in front does not close a quiet line,
-  and a system that went away is noticed: a connection from which nothing
-  was heard for `idle-ms`, a frame or a pong, is closed. This namespace
-  keeps when it last heard from each connection and closes it: Jetty's own
-  idle time counts what the server writes, its pings too, so it would keep
-  a system open that never answers.
+  A quiet connection. The server sends a ping on each open connection every
+  `ping-ms`, so that a thing in front does not close a quiet line. A
+  connection from which nothing was heard for `idle-ms`, a frame or a pong,
+  is closed. This namespace keeps when it last heard from each connection
+  and closes it: Jetty's own idle time counts what the server writes, its
+  pings too, so it would keep a system open that never answers.
 
   A system that does not read. One write of a frame waits at most
   `send-ms`; past that the write is a failure, and the line ends the
@@ -41,10 +31,7 @@
   frame could not reach a system that does not read either.
 
   Threads. Each request of a page runs on a virtual thread. A callback of a
-  WebSocket runs on a thread of Jetty's and does nothing but hand on.
-
-  State. The server, and the open connections, each with when it was last
-  heard from, for the ping, in the memory of the process."
+  WebSocket runs on a thread of Jetty's and does nothing but hand on."
   (:require [ring.util.jakarta.servlet :as servlet]
             [softland.runtime.line :as line])
   (:import [jakarta.servlet.http HttpServletRequest HttpServletResponse]
@@ -69,25 +56,22 @@
     (writeSuccess [_] nil)))
 
 (def ping-ms
-  "How often the server pings each open connection of the line. A number of
-  the build, kept and not decided."
+  "How often the server pings each open connection of the line."
   20000)
 
 (def idle-ms
   "After how long with nothing received, a pong included, a connection of
-  the line is closed. A number of the build, kept and not decided."
+  the line is closed."
   60000)
 
 (def send-ms
   "How long one write of a frame to a connection of the line may wait for
-  the system to read it before the write is a failure. A number of the
-  build, kept and not decided."
+  the system to read it before the write is a failure."
   30000)
 
 (defn- sent!
-  "Writes one text frame and waits for it to be written, at most `send-ms`.
-  Takes the session and the text. Gives nil, or throws when the write
-  failed or waited too long; a thread that waits is parked, never pinned."
+  "Throws when the write failed or waited longer than `send-ms`. A thread
+  that waits is parked, never pinned."
   [^Session session ^String text]
   (let [done (CompletableFuture.)]
     (.sendString (.getRemote session) text
@@ -100,23 +84,18 @@
     nil))
 
 (defn- closed-by!
-  "Closes a session for the line. Takes the session, a status and a reason.
-  1006, which no close frame may carry, says that the system is not to be
-  waited for: the session is dropped without a closing handshake. Any
-  other status is sent in a close frame."
+  "1006, which no close frame may carry, says that the system is not to be
+  waited for: the session is dropped without a closing handshake."
   [^Session session status reason]
   (if (= 1006 (int status))
     (.disconnect session)
     (.close session (int status) (str reason))))
 
 (defn- listener
-  "Makes Jetty's listener for one connection of the line. Takes the seam,
-  the caller, the bound on one frame's bytes, and the map of open
-  sessions, from a session to `[connection heard]`, where `heard` holds
-  when this connection was last heard from (`System/nanoTime`). At the
-  connect it sets the bounds on the session, opens the line's connection
-  with the session's send and close, and keeps both for the ping. Every
-  frame that comes, a ping or a pong too, counts as heard."
+  "`sessions` is the map of open sessions, from a session to
+  `[connection heard]`, where `heard` holds when the connection was last
+  heard from (`System/nanoTime`). Every frame that comes, a ping or a pong
+  too, counts as heard."
   [the-seam caller max-frame-bytes ^ConcurrentHashMap sessions]
   (let [connection (volatile! nil)
         session-of (volatile! nil)
@@ -166,11 +145,6 @@
           (line/closed! connection))))))
 
 (defn- servlet-handler
-  "Makes the one handler of the server. Takes the seam, the Ring handler of
-  the pages, the path of the line, the line's `:accept`, and the map of
-  open sessions. A request to the line's path that asks for an upgrade is
-  accepted or answered as the namespace docstring says; every other
-  request goes to the Ring handler."
   ^ServletHandler [the-seam handler line-path accept sessions]
   (proxy [ServletHandler] []
     (doHandle [_ ^Request base-request ^HttpServletRequest request ^HttpServletResponse response]
@@ -191,7 +165,7 @@
           (.setHandled base-request true))))))
 
 (defn serve
-  "Starts the server. Takes a map:
+  "Takes a map:
 
     :the-seam   an opened seam
     :handler    the Ring handler of the pages (`softland.runtime.http`)
@@ -201,8 +175,7 @@
     :host       the address to listen on; \"127.0.0.1\" when left out
     :port       the port; 0 for one that the system picks
 
-  Gives a map: `:server`, Jetty's server, started and not joined; `:port`,
-  the port that it listens on; `:pinger`, the timer of the ping."
+  The server is started and not joined."
   [{:keys [the-seam handler line-path accept host port]}]
   (let [sessions (ConcurrentHashMap.)
         pool (doto (QueuedThreadPool.)
@@ -252,7 +225,6 @@
     {:server server :port (.getLocalPort connector) :pinger pinger}))
 
 (defn stop!
-  "Stops what `serve` gave: the ping's timer and the server."
   [{:keys [^Server server ^ScheduledExecutorService pinger]}]
   (.shutdownNow pinger)
   (.stop server)

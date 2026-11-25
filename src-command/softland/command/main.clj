@@ -1,9 +1,7 @@
 (ns softland.command.main
-  "The command line: Softland from a terminal, for a person and for an
-  agent. It is Clojure on the JVM, and it requires the client library
-  (`softland.command.client`) and the wire's forms, which rest on the
-  store's form of an act. A person and an agent use the same commands: an agent is signed in
-  with a who of its own, and what it may do is what it was given.
+  "The command line: Softland from a terminal. A person and an agent use the
+  same commands: an agent is signed in with a who of its own, and what it
+  may do is what it was given.
 
   The commands:
 
@@ -39,37 +37,25 @@
   own; `--permission edn`, the permission that an act names, when it is
   not the first permission of the person's own lane.
 
-  Values. `e`, `k`, `v`, a lane and a permission are read as EDN, so a
-  keyword, a set and a number of any width are typed as they are; a UUID
-  is typed bare, or as EDN writes one; a text that is no EDN, or a bare
-  word, is taken as a string.
+  Values. `e`, `k`, `v`, a lane and a permission are read as EDN; a UUID is
+  typed bare, or as EDN writes one; a text that is no EDN, or a bare word,
+  is taken as a string.
 
   What it keeps. One file, `sign-in.edn` under `$SOFTLAND_HOME` or
-  `~/.config/softland`, readable by its owner alone: the runtime's address,
-  the credential, and the id of the session that it is in. It keeps
-  nothing else between two runs: who it is and where the person's own
-  lane is come from the runtime's hello each time. `send` keeps the UUIDs
-  of a file's acts beside the file, so that a run that was cut off sends
-  each act again under its own UUID and the store takes it once.
+  `~/.config/softland`: the runtime's address, the credential, and the id
+  of the session that it is in. Who it is and where the person's own lane
+  is come from the runtime's hello each time.
 
   Two commands at once. Each change of the file is made while the command
-  holds the file (`with-file-lock`: a lock of the file `sign-in.edn.lock`
-  beside it, which the system holds against every other process), and is
-  made to what the file holds then, never to what the command read when it
-  started. A replacement of the secret holds the file from its decision to
-  its last write, so a second command that waited finds the replacement
-  done and replaces nothing.
+  holds the file (`with-file-lock`), and is made to what the file holds
+  then, never to what the command read when it started.
 
-  The session. One sitting is one session: the commands of one sign-in
-  share it until `new-session`. A run of an agent that wants a session of
-  its own says `new-session` first.
+  One sitting is one session: the commands of one sign-in share it until
+  `new-session`.
 
-  What it prints, and how it ends. One EDN form on standard output: the
-  result. The exit status is 0 when the thing was done; 1 when the runtime
-  or the library gave a word that holds `:could-not`; 3 when a gate
-  refused an act; 2 for a command that it does not know.
-
-  State. The file, and for `send` the file of UUIDs."
+  It prints one EDN form, the result. The exit status is 0 when the thing
+  was done; 1 for a word that holds `:could-not`; 3 when a gate refused an
+  act; 2 for a command that it does not know."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -84,53 +70,42 @@
            [java.util UUID]))
 
 (def default-url
-  "The runtime's address when none was given."
   "http://localhost:8500")
 
 (def ^:private replace-under-ms
-  "With less than this left of a secret's time, a command replaces the
-  secret before it does its work: two days. A number of the build."
   (* 2 24 60 60 1000))
 
 (def ^:private paced-wait-ms
-  "How long `sign-in` waits before it asks again about its ask when the
-  runtime said `:take-more`: three seconds. A number of the build."
   3000)
 
 ;; ------------------------------------------------------------------- the file
 
 (defn- home
-  "Gives the folder that holds the command line's file."
   ^File []
   (io/file (or (System/getenv "SOFTLAND_HOME")
                (io/file (System/getProperty "user.home") ".config" "softland"))))
 
 (defn- file-of
-  "Takes the arguments. Gives the file that holds the sign-in: `--as`, or
-  the default."
   ^File [{:keys [as]}]
   (if as (io/file as) (io/file (home) "sign-in.edn")))
 
 (defn- kept
-  "Takes a file. Gives the map that it holds, or nil."
   [^File file]
   (when (.isFile file)
     (let [[outcome form] (frame/read-one (slurp file))]
       (when (and (= :ok outcome) (map? form)) form))))
 
 (defn- owner-only
-  "Gives the attribute of a file that its owner alone reads and writes,
-  where the file system has such attributes, and none otherwise."
+  "None where the file system has no such attributes."
   []
   (try (into-array FileAttribute [(PosixFilePermissions/asFileAttribute
                                    (PosixFilePermissions/fromString "rw-------"))])
        (catch Throwable _ (make-array FileAttribute 0))))
 
 (defn- keep!
-  "Writes a map atomically into a file created with `rw-------` permissions
-  from birth (no world-readable window). It takes no lock: a change of the
-  sign-in file goes through `update-kept!`, or is made while the command
-  holds the file (`with-file-lock`)."
+  "The file is `rw-------` from birth: there is no window in which another
+  user reads it. It takes no lock: the caller holds the file
+  (`with-file-lock`), or goes through `update-kept!`."
   [^File file thing]
   (let [parent (or (.getParentFile (.getAbsoluteFile file)) (io/file "."))
         _ (.mkdirs parent)
@@ -151,20 +126,16 @@
   nil)
 
 (def ^:private held-in-this-process
-  "One object for each sign-in file that a thread of this process holds or
-  waits for, by the file's absolute path. A lock of a file's channel is held
-  by a whole process, and a second lock of it from the same process throws,
-  so threads of one process take the file one after the other on this
-  object first."
+  "One object for each sign-in file, by its absolute path. A lock of a
+  file's channel is held by a whole process, and a second lock of it from
+  the same process throws, so threads of one process take the file one
+  after the other on this object first."
   (atom {}))
 
 (defn- with-file-lock
-  "Runs `f`, a function of no argument, while this command holds the file:
-  the object of this process for the file (`held-in-this-process`) and an
-  exclusive lock of the file `<file>.lock` beside it, which the system holds
-  against every other process and lets go of when the process ends. Gives
-  what `f` gives. The lock file holds nothing and is made, when it is not
-  there, readable by its owner alone."
+  "The lock is of the file `<file>.lock` beside it, which holds nothing. The
+  system holds it against every other process, and lets go of it when the
+  process ends."
   [^File file f]
   (let [target (.getAbsoluteFile file)
         path (.getPath target)
@@ -180,10 +151,6 @@
           (try (f) (finally (.release lock))))))))
 
 (defn- update-kept!
-  "Changes the sign-in file while this command holds it: reads what it
-  holds now, calls `f` with that map (or nil), and writes what `f` gives
-  when it is a map other than the one read. Gives what the file holds
-  after."
   [^File file f]
   (with-file-lock file
     (fn []
@@ -196,8 +163,6 @@
 ;; ------------------------------------------------------------- the arguments
 
 (defn- parsed
-  "Takes the arguments after the command. Gives {:flags {...} :rest [...]}:
-  each `--name value` under `:name`, and the others in order."
   [args]
   (loop [args args flags {} others []]
     (if-let [[arg & more] (seq args)]
@@ -207,10 +172,6 @@
       {:flags flags :rest others})))
 
 (defn- value-of
-  "Takes a text as it was typed. Gives the value that it is: a UUID for a
-  text that has the form of one, bare; else the EDN value that the text
-  reads as; and for a text that is no EDN, or a bare symbol, the string
-  itself."
   [text]
   (if (re-matches #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" (str text))
     (UUID/fromString text)
@@ -220,7 +181,6 @@
 ;; ------------------------------------------------------------------ the result
 
 (defn- status-of
-  "Takes a result. Gives the exit status that it means."
   [result]
   (cond
     (and (map? result) (:could-not result)) 1
@@ -230,7 +190,6 @@
     :else 0))
 
 (defn- out!
-  "Prints a result as one EDN form. Gives its exit status."
   [result]
   (println (frame/write result))
   (status-of result))
@@ -238,29 +197,22 @@
 ;; ----------------------------------------------------------------- connecting
 
 (defn- same-sign-in?
-  "True when `cred` parses as a credential for `root` and `sign-in`."
   [cred root sign-in]
   (when-let [parts (credential/parts cred)]
     (and (= root (:root parts)) (= sign-in (:sign-in parts)))))
 
 (defn- replace-on-line!
-  "Replaces the sign-in's secret on an open connection. Takes the file, the
-  credential that the connection came in with, the connection and the
-  hello. Gives the runtime's answer to `:replace-secret`, or
-  `{:replaced sign-in :by :another-command}` when another command replaced
-  the secret first.
+  "Holds the file from the decision to the last write, and decides on what
+  the file holds then: when its credential is not the one that this
+  connection came in with, and no replacement waits, another command has
+  replaced the secret, and nothing is sent.
 
-  It holds the file from the decision to the last write
-  (`with-file-lock`), and decides on what the file holds then: when its
-  credential is no longer the one that this connection came in with, and
-  no replacement waits, another command has replaced the secret and kept
-  the new credential, and nothing is sent. Otherwise the new credential is
-  kept on disk as `:next-credential` before `:replace-secret` is sent, so a
-  lost answer never locks the command line out; a `:next-credential` of
-  this sign-in that a cut-off run left is sent again rather than a new one.
-  It becomes `:credential` on `:replaced`; it is dropped on a definitive
-  refusal of Auth (`:take-that`); and it is kept on an uncertain failure,
-  so the next run recovers it."
+  The new credential is kept on disk as `:next-credential` before
+  `:replace-secret` is sent, so a lost answer never locks the command line
+  out; a `:next-credential` of this sign-in that a cut-off run left is sent
+  again rather than a new one. It is dropped on a definitive refusal of
+  Auth (`:take-that`), and kept on an uncertain failure, so the next run
+  recovers it."
   [file connected-with connection hello]
   (with-file-lock file
     (fn []
@@ -288,10 +240,8 @@
               got)))))))
 
 (defn- connect-held
-  "Opens the line for a kept sign-in. When a prior replacement left
-  `:next-credential` on disk, tries it first so a replacement whose answer
-  was lost is recovered even after the old secret expires; falls back to
-  `:credential` on 401."
+  "`:next-credential` is tried first, so that a replacement whose answer
+  was lost is recovered even after the old secret expires."
   [{:keys [url credential next-credential session]}]
   (if next-credential
     (let [trying (client/connect {:url url :credential next-credential :session session})]
@@ -312,10 +262,6 @@
         {:connection conn :credential credential :promoted? false}))))
 
 (defn- with-line*
-  "Like `with-line`, passing `[connection hello promoted? connected-with]`
-  to `f`, where `promoted?` is true when a pending `:next-credential`
-  connected and was promoted on this run, and `connected-with` is the
-  credential that the connection came in with."
   [flags f auto-replace?]
   (let [file (file-of flags)
         {:keys [credential session] :as held} (kept file)]
@@ -352,22 +298,13 @@
               (finally (client/close! connection)))))))))
 
 (defn- with-line
-  "Opens the line as the kept sign-in, calls `f` with the connection and
-  the runtime's hello, closes the line, and gives what `f` gave. A sign-in
-  that the runtime gave a new session keeps it. A secret that has little
-  time left is replaced first (unless `auto-replace?` is false), keeping the
-  new credential on disk before sending so a lost answer never locks the
-  command line out. Gives a word when there is no sign-in or the line could
-  not be opened."
   ([flags f] (with-line flags f true))
   ([flags f auto-replace?]
    (with-line* flags (fn [connection hello _ _] (f connection hello)) auto-replace?)))
 
 (defn- act-of
-  "Builds one act of this program. Takes the hello, the flags, and the
-  facts. Gives the act, whole: the who and the session are the hello's;
-  the lane is `--lane` or the person's own; the permission is
-  `--permission`, or the first permission of that lane for its person."
+  "With no `--permission`, the act names the first permission of the lane
+  for its person."
   [hello {:keys [lane permission]} facts]
   (let [lane (if lane (value-of lane) (:own-lane hello))]
     {:version 1
@@ -378,8 +315,6 @@
      :facts facts}))
 
 (defn- query-of
-  "Builds the query of one place. Takes the hello, the flags, an entity
-  and a key."
   [hello {:keys [lane]} e k]
   {:asks [:place e k]
    :asker (:who hello)
@@ -388,7 +323,6 @@
 ;; ---------------------------------------------------------------- the commands
 
 (defn- sign-in!
-  "The command `sign-in`."
   [{:keys [url agent] :as flags}]
   (let [url (or url (:url (kept (file-of flags))) default-url)
         asks (str (if agent (str "the agent \"" agent "\"") "the command line")
@@ -424,11 +358,11 @@
               :else got)))))))
 
 (defn- send-file!
-  "The command `send`: the acts of a file, in order, each once. The file
-  holds EDN maps, one after another; each is an act without `:who` and
-  `:session`, which are this program's. A UUID is made for each act and
+  "The file holds EDN maps, one after another; each is an act without `:who`
+  and `:session`, which are this program's. A UUID is made for each act and
   kept in `<file>.sent.edn` before anything is sent, so a run that was cut
-  off sends the same acts again under the same UUIDs."
+  off sends the same acts again under the same UUIDs, and the store takes
+  each once."
   [connection hello path]
   (let [file (io/file path)
         acts (with-open [reader (PushbackReader. (io/reader file))]
@@ -448,8 +382,6 @@
                              acts uuids)})))
 
 (defn- run
-  "Runs one command. Takes the command and its arguments. Gives the
-  result."
   [command args]
   (let [{flags :flags [a b c] :rest} (parsed args)]
     (case command
@@ -590,8 +522,6 @@
        :said "sign-in, who, write, read, watch, send, give, invite, agent, under, end-sign-in, replace-secret, new-session, sign-out"})))
 
 (defn -main
-  "Runs one command, prints its result as one EDN form, and ends the
-  process with the status that the namespace docstring gives."
   [& [command & args]]
   (let [result (try (run command args)
                     (catch Throwable t

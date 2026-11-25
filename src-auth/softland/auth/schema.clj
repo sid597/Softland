@@ -1,27 +1,22 @@
 (ns softland.auth.schema
   "Typed records, key encoders, projections, and pure single-task transition
-  functions for the Rama module `Auth`.
+  functions for the Rama module `Auth`. Pure code.
 
   Every Rama depot record and PState value implements a closed marker interface
   (`IRootDatum`, `ILiveEntry`, `IAccountState`, `IClaimState`, `IAskState`,
   `IEnterOpState`, `IDrivenBy`) so no PState schema uses `Object` and no live
   watched record holds a byte array. All range-scanned keys are strictly 7-bit
   ASCII so RocksDB UTF-8 byte order matches JVM UTF-16 order identically: the
-  composite keys of `$$root-data` (`\"<P>\\0...\"`), and the inner keys of
-  `$$live`, which holds under each root `P` a subindexed map of what is live
-  there (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a session). The live map is
-  nested by root so that a watch of one root is a proxy on that root's map
-  alone: a write under one root is matched against that root's watches, not
-  against every watched root of its task.
+  composite keys of `$$root-data` (`\"<P>\\0...\"`), and the inner keys of a
+  root's map in `$$live` (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a
+  session).
 
   The pure transition functions for `invite`, `enter`, and `answer-ask` are
   written from the step specification that was model-checked in
   `src/proposal/runtime-2026-11-21/spine/auth/agreement/`, step for step, but
   they are not that code, and no model check has run them: what checks them
   is `softland.auth.module-check`, through the module, against the
-  contract's reference (`softland.auth.module` says how far that reaches).
-
-  State and effects: none. Pure records and functions only."
+  contract's reference (`softland.auth.module` says how far that reaches)."
   (:import [java.util UUID]))
 
 ;; ------------------------------------------------------- marker interfaces
@@ -42,8 +37,6 @@
 (defrecord DrivenByModel [model] IDrivenBy)
 
 (defn to-driven-by
-  "Converts a contract `:driven-by` map (`{:kind :person}`,
-  `{:kind :model :model s}`, or `nil`) into its typed `IDrivenBy` record or `nil`."
   [m]
   (when m
     (case (:kind m)
@@ -51,7 +44,6 @@
       :model (->DrivenByModel (:model m)))))
 
 (defn from-driven-by
-  "Converts a stored `IDrivenBy` record (or `nil`) back into its contract map."
   [d]
   (cond
     (nil? d) nil
@@ -148,158 +140,131 @@
 ;; ------------------------------------------------------------- key encoders
 
 (defn account-key
-  "Bijective string key for `[provider subject]`. Length-prefixes the full
-  provider keyword text so arbitrary subjects (including `:` or NUL) never
-  collide."
+  "The provider's full keyword text is length-prefixed, so that arbitrary
+  subjects (including `:` or NUL) never collide."
   [provider ^String subject]
   (let [p (subs (str provider) 1)]
     (str (.length p) ":" p ":" subject)))
 
 (defn claim-key-from-parts
-  "Bijective string key for a claim given its kind (`:email` or `:code`) and
-  value (lower-case email or 64-hex hash)."
   [kind ^String val]
   (case kind
     :email (str "e:" val)
     :code  (str "c:" val)))
 
 (defn claim-key-from-map
-  "Bijective string key for a contract `:claim` map."
   [claim]
   (case (:by claim)
     :email (str "e:" (:email claim))
     :code  (str "c:" (:hash claim))))
 
 (defn claim-val-from-map
-  "Extracts the email or hash string from a contract `:claim` map."
   [claim]
   (case (:by claim)
     :email (:email claim)
     :code  (:hash claim)))
 
 (defn hex16
-  "Formats non-negative sequence `n` as 16 lower-case ASCII hex digits."
+  "`n` must not be negative."
   ^String [^long n]
   (format "%016x" n))
 
 (defn hex-ts
-  "Formats signed 64-bit timestamp `t` into a strictly order-preserving 16-char
-  lower-case ASCII hex string across `[Long/MIN_VALUE, Long/MAX_VALUE]`."
+  "The xor with `Long/MIN_VALUE` makes the text strictly order-preserving
+  across `[Long/MIN_VALUE, Long/MAX_VALUE]`."
   ^String [^long t]
   (format "%016x" (bit-xor t Long/MIN_VALUE)))
 
 (defn k-root
-  "Key of root `P`'s root record (`\"<P>\\0r\"`)."
   ^String [^UUID p]
   (str p "\u0000r"))
 
 (defn k-actor
-  "Key of agent `A` under root `P` (`\"<P>\\0a:<A>\"`)."
   ^String [^UUID p ^UUID a]
   (str p "\u0000a:" a))
 
 (defn k-ao
-  "Key of the order record of a live agent made at `seq-n` under root `P`
-  (`\"<P>\\0ao:<seq>\"`). An agent's order record stays here while the
-  agent is live, and moves to `k-ae` when it ends: so `end-actor`, which
-  scans for the live agents made after the one it ends, reads no agent that
-  ended before."
+  "An agent's order record stays here while the agent is live, and moves to
+  `k-ae` when it ends: so `end-actor`, which scans for the live agents made
+  after the one it ends, reads no agent that ended before."
   ^String [^UUID p ^long seq-n]
   (str p "\u0000ao:" (hex16 seq-n)))
 
 (defn k-ao-lo
-  "Inclusive lower bound of root `P`'s `ao:` range (live agents)."
   ^String [^UUID p]
   (str p "\u0000ao:"))
 
 (defn k-ao-hi
-  "Exclusive upper bound of root `P`'s `ao:` range (`;` is ASCII 0x3b > `:` 0x3a)."
+  "Exclusive: `;` is ASCII 0x3b, just above `:` 0x3a."
   ^String [^UUID p]
   (str p "\u0000ao;"))
 
 (defn k-ae
-  "Key of the order record of an ended agent made at `seq-n` under root `P`
-  (`\"<P>\\0ae:<seq>\"`), where `end-actor` moves it from `k-ao`. `under`
-  reads both ranges and merges them by `:seq`."
   ^String [^UUID p ^long seq-n]
   (str p "\u0000ae:" (hex16 seq-n)))
 
 (defn k-ae-lo
-  "Inclusive lower bound of root `P`'s `ae:` range (ended agents)."
   ^String [^UUID p]
   (str p "\u0000ae:"))
 
 (defn k-ae-hi
-  "Exclusive upper bound of root `P`'s `ae:` range."
   ^String [^UUID p]
   (str p "\u0000ae;"))
 
 (defn k-signin
-  "Key of sign-in `G` under root `P` in `$$root-data`."
   ^String [^UUID p ^UUID g]
   (str p "\u0000g:" g))
 
 (defn k-session
-  "Key of session `S` under root `P` in `$$root-data`."
   ^String [^UUID p ^UUID s]
   (str p "\u0000s:" s))
 
 (defn k-exp
-  "Key of expiry index entry for sign-in (`\"g\"`) or session (`\"s\"`) at `until`."
+  "`kind-ch` is `\"g\"` for a sign-in or `\"s\"` for a session."
   ^String [^UUID p ^long until ^String kind-ch ^UUID id]
   (str p "\u0000exp:" (hex-ts until) ":" kind-ch ":" id))
 
 (defn k-exp-lo
-  "Inclusive lower bound of root `P`'s `exp:` range."
   ^String [^UUID p]
   (str p "\u0000exp:"))
 
 (defn k-exp-hi
-  "Exclusive upper bound for all `exp:` entries with `until <= at`."
+  "Exclusive, and above every `exp:` entry with `until <= at`."
   ^String [^UUID p ^long at]
   (str p "\u0000exp:" (hex-ts at) ";"))
 
 (defn k-ok
-  "Key of `answer-ask` outcome record for `op-id` under root `P`."
+  "The outcome of an `answer-ask`, by its `op-id`."
   ^String [^UUID p ^UUID op-id]
   (str p "\u0000ok:" op-id))
 
 ;; ------------------------------------------- inner keys of a root in $$live
 
 (defn lk-signin
-  "Key of sign-in `G` in its root's map in `$$live` (`\"g:<G>\"`)."
   ^String [^UUID g]
   (str "g:" g))
 
 (defn lk-session
-  "Key of session `S` in its root's map in `$$live` (`\"s:<S>\"`)."
   ^String [^UUID s]
   (str "s:" s))
 
 (def live-lo
-  "Inclusive lower bound of every key of a root's map in `$$live`."
   "")
 
 (def live-hi
-  "Exclusive upper bound of every key of a root's map in `$$live`: DEL
-  (0x7f), above every printable 7-bit ASCII character."
+  "Exclusive. DEL (0x7f): above every printable 7-bit ASCII character."
   "\u007f")
 
 (def live-signin-lo
-  "Inclusive lower bound of the sign-ins (`g:`) of a root's map in `$$live`."
   "g:")
 
 (def live-signin-hi
-  "Exclusive upper bound of the sign-ins of a root's map in `$$live` (`;`
-  is ASCII 0x3b, just above `:` 0x3a)."
   "g;")
 
 (def live-session-lo
-  "Inclusive lower bound of the sessions (`s:`) of a root's map in `$$live`."
   "s:")
 
 (def live-session-hi
-  "Exclusive upper bound of the sessions of a root's map in `$$live`."
   "s;")
 
 ;; ------------------------------------------------ the form of a depot record
@@ -310,36 +275,27 @@
 ;; would be tried again for ever and hold its partition.
 
 (def does-not-fit
-  "What the topology gives a depot record that does not have the form that
-  the client gives it."
   {:could-not :read-the-event})
 
 (defn- long-val?
-  "Whether `x` is a `Long`, the type that the client gives every time."
   [x]
   (instance? Long x))
 
 (defn- text-or-nil?
-  "Whether `x` is a string or nil."
   [x]
   (or (nil? x) (string? x)))
 
 (defn- said?
-  "Whether `x` is a map from strings to strings, as `:says` is."
   [x]
   (and (map? x) (every? (fn [[k v]] (and (string? k) (string? v))) x)))
 
 (defn- driven-by-val?
-  "Whether `x` is nil or a typed `:driven-by` record as `to-driven-by` makes
-  it."
   [x]
   (or (nil? x)
       (instance? DrivenByPerson x)
       (and (instance? DrivenByModel x) (string? (:model x)))))
 
 (defn- record-fits?
-  "Whether `ev`, a record of one of this namespace's event types, has each
-  field of the type that the client puts there. False for anything else."
   [ev]
   (boolean
    (cond
@@ -390,24 +346,18 @@
      :else false)))
 
 (defn invite-record-fits?
-  "Whether a record of `*invites` is an `InviteEvent` of the client's form."
   [ev]
   (and (instance? InviteEvent ev) (record-fits? ev)))
 
 (defn enter-record-fits?
-  "Whether a record of `*enters` is an `EnterEvent` of the client's form."
   [ev]
   (and (instance? EnterEvent ev) (record-fits? ev)))
 
 (defn ask-record-fits?
-  "Whether a record of `*asks` is an `AskEvent` or an `AnswerAskEvent` of
-  the client's form."
   [ev]
   (and (or (instance? AskEvent ev) (instance? AnswerAskEvent ev)) (record-fits? ev)))
 
 (defn root-record-fits?
-  "Whether a record of `*root-events` is one of the eight root events, of
-  the client's form."
   [ev]
   (and (instance? IRootEvent ev) (record-fits? ev)))
 
@@ -415,51 +365,43 @@
 ;; Named Clojure functions so Rama dataflow never puts keywords in op position.
 
 (defn act-done?
-  "Whether step action `act` terminates the loop with a final result."
   [act]
   (boolean (:done? act)))
 
 (defn act-result
-  "Returns the terminal result map of a completed step action."
   [act]
   (:result act))
 
 (defn act-write-k
-  "Returns the PState key to write in `act`, or `nil`."
   [act]
   (:write-k act))
 
 (defn act-write-v
-  "Returns the PState value to write in `act`."
   [act]
   (:write-v act))
 
 (defn act-delete?
-  "Whether `act` deletes `:write-k` via `NONE>`."
   [act]
   (boolean (:delete? act)))
 
 (defn act-hop-key
-  "Returns the partition key to `|hash` to next, or `nil` for a same-task step."
+  "Nil for a step on the same task."
   [act]
   (:hop-key act))
 
 (defn act-next-step
-  "Returns the next step keyword of `act`."
   [act]
   (:next-step act))
 
 (defn act-next-st
-  "Returns the next carried loop state map of `act`."
   [act]
   (:next-st act))
 
 ;; ------------------------------------------------------- Slice a: invite
 
 (defn invite-step-1
-  "Pure Step 1 of `invite` on H(C) (Revision 1).
-  Checks `$$claims[C]`: repeat hops to Step 4; `:claim-in-use` hops to H(P)
-  to clean up any orphaned `RootReserving(C)` (Witness 6); `nil` hops to Step 2."
+  "On H(C) (Revision 1). `:claim-in-use` hops to H(P) to clean up any
+  orphaned `RootReserving(C)` (Witness 6)."
   [^InviteEvent ev c]
   (let [P (:person ev)]
     (cond
@@ -473,9 +415,9 @@
       {:hop-key P :next-step :invite/step-3-clear :next-st {}})))
 
 (defn invite-step-2
-  "Pure Step 2 of `invite` on H(P) (Revision 1).
-  Before refusing `:person-in-use`, hops to H(C) to re-check `$$claims[C]`
-  so `:claim-in-use` always precedes `:person-in-use` (Witness 9)."
+  "On H(P) (Revision 1). Before refusing `:person-in-use`, hops to H(C) to
+  re-check `$$claims[C]`, so `:claim-in-use` always precedes
+  `:person-in-use` (Witness 9)."
   [^InviteEvent ev r]
   (let [P (:person ev)
         C (:claim-key ev)]
@@ -505,8 +447,8 @@
                      :help-at (:invited-at r)}})))))
 
 (defn invite-step-2-help-claim
-  "Pure Step 2-help on H(C0): helps a competing `RootReserving(C0)` commit
-  or observe loss on `$$claims[C0]`."
+  "On H(C0): helps a competing `RootReserving(C0)` commit or observe loss on
+  `$$claims[C0]`."
   [^InviteEvent ev st c0]
   (let [P (:person ev)
         hc (:help-claim st)]
@@ -529,8 +471,8 @@
        :next-st (assoc st :other-won? false)})))
 
 (defn invite-step-2-help-root
-  "Pure Step 2-help-finish on H(P): promotes won `C0` (then rechecks `C` for
-  Witness 9) or evicts lost `C0`."
+  "On H(P): promotes won `C0` (then rechecks `C` for Witness 9) or evicts
+  lost `C0`."
   [^InviteEvent ev st r]
   (let [P (:person ev)
         C (:claim-key ev)
@@ -551,7 +493,7 @@
         (invite-step-2 ev r)))))
 
 (defn invite-step-2-recheck
-  "Pure Step 2-recheck on H(C): verifies `:claim-in-use` vs `:person-in-use`."
+  "On H(C)."
   [^InviteEvent ev c]
   (let [P (:person ev)]
     (cond
@@ -560,8 +502,7 @@
       :else             {:done? true :result {:refused :claim-in-use}})))
 
 (defn invite-step-3
-  "Pure Step 3 of `invite` on H(C): commits `ClaimWaiting(P)` or hops to H(P)
-  to clear `RootReserving(C)` on loss."
+  "On H(C)."
   [^InviteEvent ev c]
   (let [P (:person ev)
         C (:claim-key ev)]
@@ -578,8 +519,7 @@
       {:hop-key P :next-step :invite/step-3-clear :next-st {}})))
 
 (defn invite-step-3-clear
-  "Pure Step 3-clear on H(P): deletes `RootReserving(C)` if still `C` and
-  returns `{:refused :claim-in-use}`."
+  "On H(P)."
   [^InviteEvent ev r]
   (let [P (:person ev)
         clear? (and (instance? RootReserving r) (= (:claim-key r) (:claim-key ev)))]
@@ -587,8 +527,7 @@
       clear? (assoc :write-k (k-root P) :delete? true))))
 
 (defn invite-step-4
-  "Pure Step 4 of `invite` on H(P): promotes `nil`/`RootReserving(C)` to
-  `RootInvited(C)` and returns `{:invited P}`."
+  "On H(P)."
   [^InviteEvent ev r]
   (let [P (:person ev)
         C (:claim-key ev)
@@ -602,7 +541,6 @@
 ;; ------------------------------------------------------- Slice a: enter
 
 (defn- linking->target
-  "Extracts the plain target map carried across hops from an `AccountLinking` record."
   [^AccountLinking acc]
   {:op-id (:op-id acc)
    :account-key (:account-key acc)
@@ -619,8 +557,6 @@
    :chosen (:chosen acc)})
 
 (defn- enter-route-linking
-  "Routes an `AccountLinking` state according to its `:status` (`:failing`,
-  `:chosen`, or `:probing`)."
   [^AccountLinking acc]
   (let [t (linking->target acc)]
     (case (:status acc)
@@ -643,7 +579,7 @@
          :next-st {:target t :phase ph :curr-claim ck :code-was-nil? false}}))))
 
 (defn enter-step-1
-  "Pure Step E1 of `enter` on H(Acc) (Revisions 1 & 5)."
+  "Step E1, on H(Acc) (Revisions 1 & 5)."
   [^EnterEvent ev acc]
   (let [ak (:account-key ev)
         self-op (:op-id ev)
@@ -681,7 +617,7 @@
       (enter-route-linking acc))))
 
 (defn enter-step-1a-check-op-returning
-  "Pure Step E1a on H(self-op): blocks `:all-after` replay of a previously
+  "Step E1a, on H(self-op): blocks `:all-after` replay of a previously
   refused enter from overwriting `:says` on an already-linked account."
   [^EnterEvent ev st eo]
   (if (instance? EnterOpFailed eo)
@@ -691,8 +627,7 @@
      :next-st st}))
 
 (defn enter-step-1c-update-says
-  "Pure Step E1c on H(Acc): updates `:says` and `:says-at` iff `(> at says-at)`
-  (Sid's Call 2), then hops to H(P) for `:own-lane-made?`."
+  "Step E1c, on H(Acc)."
   [^EnterEvent ev st acc]
   (let [P (:linked-person st)
         upd? (and (instance? AccountLinked acc)
@@ -702,7 +637,7 @@
                   :write-v (assoc acc :says (:says ev) :says-at (:at ev))))))
 
 (defn enter-step-1b-read-flag
-  "Pure Step E1b on H(P): reads present `:own-lane-made?` and finishes."
+  "Step E1b, on H(P)."
   [st r]
   {:done? true
    :result {:person (:linked-person st)
@@ -711,7 +646,7 @@
             :own-lane-made? (boolean (when (instance? RootEntered r) (:own-lane-made? r)))}})
 
 (defn enter-step-2-probe
-  "Pure Step E2 on H(curr-claim): strictly read-only probe of `$$claims[C]`
+  "Step E2, on H(curr-claim): strictly read-only probe of `$$claims[C]`,
   with `:code-recheck` when `:code` was `nil` and `:email` was `ClaimUsed`."
   [^EnterEvent ev st c]
   (let [target (:target st)
@@ -748,8 +683,7 @@
        :next-st {:target target :probed nil}})))
 
 (defn enter-step-2b-choose
-  "Pure Step E2' on H(Acc): atomically transitions `AccountLinking` from
-  `:probing` to `:chosen(C)` or `:failing`."
+  "Step E2', on H(Acc)."
   [^EnterEvent ev st acc]
   (let [target (:target st)
         op (:op-id target)
@@ -778,8 +712,7 @@
                :write-v acc')))))
 
 (defn enter-step-2c-confirm-choice
-  "Pure Step E2c-confirm on H(op): refuses to enter E3 if `$$enter-ops[op]`
-  holds `EnterOpFailed`, otherwise hops to H(curr-claim) for Step E3."
+  "Step E2c-confirm, on H(op)."
   [^EnterEvent ev st eo]
   (if (instance? EnterOpFailed eo)
     {:hop-key (:account-key ev)
@@ -790,7 +723,7 @@
      :next-st st}))
 
 (defn enter-step-2c-mark-failed
-  "Pure Step E2c-fail on H(op): writes `EnterOpFailed` before H(Acc) clears
+  "Step E2c-fail, on H(op): writes `EnterOpFailed` before H(Acc) clears
   `AccountLinking`."
   [^EnterEvent ev st eo]
   (let [op (:op-id (:target st))]
@@ -801,17 +734,14 @@
       (assoc :write-k op :write-v (->EnterOpFailed)))))
 
 (defn enter-step-2c-mark-failed-direct
-  "Pure Step E2c-direct on H(self-op): marks no-claim refusal as `EnterOpFailed`
-  and returns `{:refused :not-invited}`."
+  "Step E2c-direct, on H(self-op)."
   [^EnterEvent ev eo]
   (cond-> {:done? true :result {:refused :not-invited}}
     (not (instance? EnterOpFailed eo))
     (assoc :write-k (:op-id ev) :write-v (->EnterOpFailed))))
 
 (defn enter-step-2d-finish-failed
-  "Pure Step E2d on H(Acc): deletes `AccountLinking(op)` via `NONE>`, then
-  either returns `{:refused :not-invited}` (if own op) or re-runs Step E1
-  locally (if helper)."
+  "Step E2d, on H(Acc)."
   [^EnterEvent ev st acc]
   (let [op (:op-id (:target st))
         ak (:account-key ev)
@@ -826,8 +756,7 @@
         clear? (assoc :write-k ak :delete? true)))))
 
 (defn enter-step-3-use
-  "Pure Step E3 on H(curr-claim): claims `ClaimWaiting(P)` directly as
-  `ClaimUsed(P, op)` or hops back to H(Acc) to CAS-clear `:chosen` on loss."
+  "Step E3, on H(curr-claim)."
   [^EnterEvent ev st c]
   (let [target (:target st)
         op (:op-id target)
@@ -854,8 +783,7 @@
        :next-st {:target target :failed-claim ck}})))
 
 (defn enter-step-3b-clear-chosen
-  "Pure Step E3b on H(Acc): strictly CAS-resets `:chosen` from `failed-claim`
-  back to `:probing` and loops locally to Step E1."
+  "Step E3b, on H(Acc)."
   [^EnterEvent ev st acc]
   (let [op (:op-id (:target st))
         failed-claim (:failed-claim st)
@@ -868,8 +796,7 @@
       reset? (assoc :write-k ak :write-v (assoc acc :status :probing :chosen nil)))))
 
 (defn enter-step-4-root
-  "Pure Step E4 on H(P): ensures `RootEntered` fixing `own-lane` and `making`,
-  reads fixed values and present `:own-lane-made?`, hops to Step E5 on H(Acc)."
+  "Step E4, on H(P)."
   [^EnterEvent ev st r]
   (let [target (:target st)
         P (:won-person target)
@@ -892,9 +819,8 @@
       (assoc :write-k (k-root P) :write-v r'))))
 
 (defn enter-step-5-link
-  "Pure Step E5 on H(Acc): transitions `AccountLinking(op)` to `AccountLinked`
-  using `target`'s `:says`/`:at`; if a helper has a strictly later `:at`, hops
-  to H(self-op) (`E1a`) to verify not refused before updating `:says`."
+  "Step E5, on H(Acc). A helper with a strictly later `:at` hops to
+  H(self-op) (`E1a`) to verify not refused before updating `:says`."
   [^EnterEvent ev st acc]
   (let [target (:target st)
         op (:op-id target)
@@ -938,7 +864,7 @@
 ;; --------------------------------------------------- Slice a: own-lane-made
 
 (defn own-lane-made-step
-  "Pure single-task decision for `own-lane-made` on H(P)."
+  "On H(P)."
   [^OwnLaneMadeEvent ev r]
   (let [P (:root-id ev)]
     (if (instance? RootEntered r)
@@ -950,63 +876,51 @@
 ;; ------------------------------------------- Slice b: root plans & writes
 
 (def ^:private max-actor-depth
-  "Maximum makers below root (Revision 7 closed for this build: 32, matching
-  `SPEC.md` and `reference.clj`)."
+  "Makers below the root. Matches `SPEC.md` and `reference.clj`."
   32)
 
 (defn plan-rd-upserts
-  "Returns the vector of `[key val]` pairs to upsert into `$$root-data`."
   [plan]
   (or (:rd-upserts plan) []))
 
 (defn plan-rd-deletes
-  "Returns the vector of keys to delete (`NONE>`) from `$$root-data`."
   [plan]
   (or (:rd-deletes plan) []))
 
 (defn plan-live-upserts
-  "Returns the vector of `[inner-key val]` pairs to upsert into the plan's
-  root's map in `$$live` (`lk-signin` / `lk-session` keys)."
   [plan]
   (or (:live-upserts plan) []))
 
 (defn plan-live-deletes
-  "Returns the vector of inner keys to delete (`NONE>`) from the plan's
-  root's map in `$$live`."
   [plan]
   (or (:live-deletes plan) []))
 
 (defn plan-result
-  "Returns the contract result map produced by a single-root write plan."
   [plan]
   (:result plan))
 
 (defn signin-rec->live
-  "Builds a `LiveSignIn` entry from a live `SignInRec`."
   [^SignInRec g]
   (->LiveSignIn (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
                 (:until g) (:prev-hash g) (:prev-until g) (:begun g) (:label g)
                 (:seq g) (:own-lane g) (:own-lane-made-at-begin? g)))
 
 (defn live-signin->ended-rec
-  "Builds an ended `SignInRec` directly from a `LiveSignIn` (0 point seeks on `g:`)."
+  "From the live entry alone: 0 point seeks on `g:`."
   [^LiveSignIn g]
   (->SignInRec (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
                (:until g) (:prev-hash g) (:prev-until g) true (:begun g)
                (:label g) (:seq g) (:own-lane g) (:own-lane-made-at-begin? g)))
 
 (defn live-session->closed-rec
-  "Builds a closed `SessionRec` directly from a `LiveSession`, preserving `:driven-by`
-  with 0 point seeks on `s:`."
+  "From the live entry alone, `:driven-by` too: 0 point seeks on `s:`."
   [^LiveSession s]
   (->SessionRec (:session s) (:sign-in s) (:until s) true (:driven-by s)))
 
 (defn plan-take-out
-  "Pure planner for take-out under `root`: given non-empty `exp-map` (`exp:`
-  entries with `until <= at`) and `live-map` (the root's map in `$$live`,
-  keyed by inner keys),
-  computes all `rd-upserts`, `rd-deletes`, and `live-deletes` in memory,
-  cascading expired sign-ins to their open sessions even when session `:until > at`."
+  "The caller gives a non-empty `exp-map`, the `exp:` entries with
+  `until <= at`, and `live-map`, the root's map in `$$live`. An expired
+  sign-in closes its open sessions even when a session's `:until > at`."
   [root exp-map live-map]
   (let [exp-gs (volatile! #{})
         exp-ss (volatile! #{})
@@ -1037,7 +951,7 @@
      :live-deletes (persistent! live-deletes)}))
 
 (defn plan-begin-sign-in
-  "Pure planner for `begin-sign-in` on H(P) after take-out."
+  "On H(P), after take-out."
   [^BeginSignInEvent ev r g actor-rec]
   (let [P (:root-id ev)
         A (:actor ev)
@@ -1081,8 +995,9 @@
          :result {:begun G}}))))
 
 (defn replace-secret-born-ended?
-  "Whether an accepted `replace-secret` event will immediately end `g` because
-  `(:until ev) <= (:at ev)` (requiring a `$$live` `s:` scan to close open sessions)."
+  "True when an accepted `replace-secret` ends `g` at once, because
+  `(:until ev) <= (:at ev)`: the caller must then scan `s:` in `$$live` to
+  close the open sessions."
   [^ReplaceSecretEvent ev g]
   (boolean (and (instance? SignInRec g)
                 (not (and (= (:hash g) (:new-hash ev))
@@ -1092,8 +1007,8 @@
                 (<= (long (:until ev)) (long (:at ev))))))
 
 (defn plan-replace-secret
-  "Pure planner for `replace-secret` on H(P) after take-out. `live-s-map` is
-  needed only when `replace-secret-born-ended?` is true."
+  "On H(P), after take-out. `live-s-map` is needed only when
+  `replace-secret-born-ended?` is true."
   [^ReplaceSecretEvent ev g live-s-map]
   (let [P (:root-id ev)
         G (:sign-in ev)
@@ -1140,12 +1055,11 @@
            :result {:replaced G}})))))
 
 (defn signin-needs-end?
-  "Whether `g` is a live `SignInRec` that `end-sign-in` must end and cascade."
   [g]
   (boolean (and (instance? SignInRec g) (not (:ended? g)))))
 
 (defn plan-end-sign-in
-  "Pure planner for `end-sign-in` on H(P) after take-out."
+  "On H(P), after take-out."
   [^EndSignInEvent ev g live-s-map]
   (let [P (:root-id ev)
         G (:sign-in ev)]
@@ -1171,7 +1085,7 @@
          :result {:ended G}}))))
 
 (defn plan-make-actor
-  "Pure planner for `make-actor` on H(P) after take-out."
+  "On H(P), after take-out."
   [^MakeActorEvent ev r existing-a maker-rec]
   (let [P (:root-id ev)
         A (:actor ev)
@@ -1203,8 +1117,6 @@
          :result {:made A}}))))
 
 (defn actor-needs-end?
-  "Whether `end-actor` must run the 2-scan cascade (`r` is entered, `A != P`,
-  and `a` is a live `ActorRec`)."
   [root actor r a]
   (boolean (and (instance? RootEntered r)
                 (not= actor root)
@@ -1212,7 +1124,7 @@
                 (not (:ended? a)))))
 
 (defn plan-end-actor-noop
-  "Pure planner for `end-actor` repeat or refusal (when `actor-needs-end?` is false)."
+  "For when `actor-needs-end?` is false."
   [^EndActorEvent ev r a]
   (let [P (:root-id ev)
         A (:actor ev)]
@@ -1231,13 +1143,12 @@
       {:result {:refused :no-such-actor}})))
 
 (defn plan-end-actor-2scan
-  "Pure planner for Revision 2's 3-seek 2-scan `end-actor` cascade (`a:<A>`,
-  forward `ao:` scan from `target.seq`, and a scan of the root's map in
-  `$$live`, keyed by inner keys). `ao:` holds live agents alone, so the scan
-  reads the live agents made after the target and none that ended before;
-  each agent that this cascade ends has its order record moved from `ao:`
-  to `ae:`. A live descendant of the target is reached through live makers
-  alone: an agent that ended took its whole subtree with it."
+  "Revision 2: 3 seeks and 2 scans (`a:<A>`, a forward `ao:` scan from the
+  target's `seq`, and a scan of the root's map in `$$live`). `ao:` holds
+  live agents alone, so the scan reads the live agents made after the target
+  and none that ended before. A live descendant of the target is reached
+  through live makers alone: an agent that ended took its whole subtree
+  with it."
   [root ^ActorRec target-rec ao-map live-map]
   (let [target-id (:actor target-rec)
         ended-as (volatile! #{target-id})
@@ -1280,7 +1191,7 @@
      :result {:ended target-id}}))
 
 (defn plan-open-session
-  "Pure planner for `open-session` on H(P) after take-out."
+  "On H(P), after take-out."
   [^OpenSessionEvent ev s g]
   (let [P (:root-id ev)
         G (:sign-in ev)
@@ -1318,7 +1229,7 @@
          :result {:open S}}))))
 
 (defn plan-close-session
-  "Pure planner for `close-session` on H(P) after take-out."
+  "On H(P), after take-out."
   [^CloseSessionEvent ev s]
   (let [P (:root-id ev)
         S (:session ev)]
@@ -1338,7 +1249,7 @@
 ;; ------------------------------------------------- Slice c: ask & answer-ask
 
 (defn ask-step
-  "Pure single-task decision for `ask` on H(U)."
+  "On H(U)."
   [^AskEvent ev k]
   (let [U (:code ev)
         h (:hash ev)
@@ -1358,7 +1269,6 @@
        :result {:asked U}})))
 
 (defn- answering->target
-  "Extracts the plain target map carried across hops from an `AskAnswering` record."
   [^AskAnswering k]
   {:hash (:hash k)
    :asks (:asks k)
@@ -1374,7 +1284,7 @@
    :at (:at k)})
 
 (defn answer-ask-step-1
-  "Pure Step 1 of `answer-ask` on H(U) (Revision 4)."
+  "On H(U) (Revision 4)."
   [^AnswerAskEvent ev k]
   (let [U (:code ev)
         P (:root ev)
@@ -1417,10 +1327,8 @@
        :next-st {:target (answering->target k)}})))
 
 (defn answer-ask-eval-root
-  "Pure Step 2 evaluation of `answer-ask` on H(P_target) after confirming
-  `ok:<op>` is absent and running `take-out(P_target, target.at)`. Returns a
-  root write plan plus `:outcome` (`AskOutcomeYes` / `AskOutcomeNo` /
-  `AskOutcomeRefused`)."
+  "Step 2, on H(P_target), after the caller confirmed that `ok:<op>` is
+  absent and ran `take-out(P_target, target.at)`."
   [code target r actor-rec g]
   (let [{:keys [op-id yes? root actor new-agent-label sign-in until at hash asks]} target
         ok-key (k-ok root op-id)]
@@ -1493,19 +1401,17 @@
              :outcome out}))))))
 
 (defn plan-outcome
-  "Extracts `:outcome` from an `answer-ask-eval-root` plan."
   [plan]
   (:outcome plan))
 
 (defn no-such-ask-outcome
-  "Constructs the recorded `AskOutcomeRefused(:no-such-ask)` for Step 1b replay safety."
+  "Recorded for the replay safety of Step 1b."
   []
   (->AskOutcomeRefused :no-such-ask))
 
 (defn answer-ask-step-3
-  "Pure Step 3 of `answer-ask` on H(U) (Revision 4): finalizes `AskYes`,
-  `AskNo`, or restores `AskWaiting`; helpers (`op != self-op`) on Yes/No
-  ALWAYS hop to H(self-root) for take-out at `(:at ev)` (Witness 10)."
+  "On H(U) (Revision 4). Helpers (`op != self-op`) on Yes/No ALWAYS hop to
+  H(self-root) for take-out at `(:at ev)` (Witness 10)."
   [^AnswerAskEvent ev st k]
   (let [U (:code ev)
         self-op (:op-id ev)
@@ -1556,29 +1462,27 @@
 ;; --------------------------------------------------- Read projections
 
 (defn signin-fast-path?
-  "Whether `sig` (`SignInRec` or nil) allows `who-is` to skip reading `r`."
+  "True lets `who-is` skip reading `r`."
   [sig]
   (boolean (and (instance? SignInRec sig) (:own-lane-made-at-begin? sig))))
 
 (defn root-entered?
-  "Whether `r` is a `RootEntered` record."
   [r]
   (instance? RootEntered r))
 
 (defn need-actor-seek?
-  "Whether `who-is` must read `a:<A>` (only when `sig` is an ended agent sign-in)."
+  "True only when `sig` is an ended sign-in of an agent: `who-is` must then
+  read `a:<A>`."
   [root sig]
   (boolean (and (instance? SignInRec sig)
                 (:ended? sig)
                 (not= (:actor sig) root))))
 
 (defn signin-actor
-  "Returns `:actor` of a `SignInRec`."
   [^SignInRec sig]
   (:actor sig))
 
 (defn build-who-is-result
-  "Builds the exact contract result map of `who-is` from `(sig, r, sess, actor-rec)`."
   [root sig r sess actor-rec]
   (let [fast? (signin-fast-path? sig)
         entered? (or fast? (instance? RootEntered r))]
@@ -1609,21 +1513,16 @@
          :own-lane-made? made?}))))
 
 (defn root-has-actors?
-  "Whether `RootEntered` `r` has created at least one agent (`next-actor-seq > 0`)."
   [r]
   (boolean (and (instance? RootEntered r) (pos? (long (:next-actor-seq r))))))
 
 (defn root-has-signins?
-  "Whether `RootEntered` `r` has begun at least one sign-in (`next-sign-in-seq > 0`)."
   [r]
   (boolean (and (instance? RootEntered r) (pos? (long (:next-sign-in-seq r))))))
 
 (defn build-under-result
-  "Builds the exact contract result map of `under` from `ao-map` (the `ao:`
-  range: live agents), `ae-map` (the `ae:` range: ended agents), merged in
-  the order in which the agents were made (`:seq`), and `live-g-map` (the
-  `g:` range of the root's map in `$$live`, live sign-ins only, sorted by
-  `:seq`)."
+  "`:actors` holds live and ended agents, in the order in which they were
+  made (`:seq`); `:sign-ins` holds live sign-ins only."
   [ao-map ae-map live-g-map]
   {:actors (if (or (seq ao-map) (seq ae-map))
              (->> (concat (vals ao-map) (vals ae-map))
@@ -1647,7 +1546,6 @@
                [])})
 
 (defn project-ask
-  "Projects a stored `IAskState` record into the contract `ask-of` map (or `nil`)."
   [k]
   (cond
     (nil? k) nil
@@ -1660,9 +1558,6 @@
     {:hash (:hash k) :asks (:asks k) :ends (:ends k) :state :no :answer nil}))
 
 (defn project-live-entry
-  "Projects one `ILiveEntry` (`LiveSignIn` or `LiveSession`) into `[section id val]`
-  for `watch-root`'s `{:sign-ins {...} :sessions {...}}` map (omitting `:driven-by`,
-  `:begun`, `:label`, `:seq`, `:initial-hash`, `:own-lane`, `:own-lane-made-at-begin?`)."
   [entry]
   (cond
     (instance? LiveSignIn entry)
@@ -1680,9 +1575,6 @@
       :until (:until entry)}]))
 
 (defn parse-live-key
-  "Parses an inner key of a root's map in `$$live` (`\"g:<G>\"` or
-  `\"s:<S>\"`) into `[:sign-ins G-uuid]` or `[:sessions S-uuid]` for an
-  incremental `KeyDiff` / `KeyRemoveDiff`. Gives nil for anything else."
   [k]
   (when (and (string? k) (> (.length ^String k) 2) (= \: (.charAt ^String k 1)))
     (let [id (try (UUID/fromString (.substring ^String k 2)) (catch Throwable _ nil))]
@@ -1693,8 +1585,6 @@
           nil)))))
 
 (defn project-live-map
-  "Projects a root's whole map in `$$live` (`{inner-key -> ILiveEntry}`)
-  into `{:sign-ins {G ...} :sessions {S ...}}`."
   [m]
   (reduce-kv
    (fn [acc _ v]

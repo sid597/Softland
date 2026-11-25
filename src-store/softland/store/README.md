@@ -395,8 +395,8 @@ shape must hold when each fact is wrong.
 
 ## The order of a lane's acts after a failure
 
-Sid, 13 October 2026: "I am against the Rama setting that orders a lane's acts
-after a failure. Nobody has shown whether a failure in a fast lane can make
+Sid, 13 October 2026: "I am against the Rama setting that orders a layer's acts
+after a failure. Nobody has shown whether a failure in a fast layer can make
 acts that were in flight come out in another order when the store is run again.
 Run it and find out. If it can, look for a cheap way to close it. If there is
 none, say it on the store's page, and the proof names such acts."
@@ -598,10 +598,10 @@ changed on 14 October, below.
 |---|---|---|
 | 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | The door adds `:door-time` to a maker's thing, beside `:act-id` and `:depot` ([door.clj](door.clj)). The walk takes the time from the thing (`time-on` in [decision.clj](gate/decision.clj)) and writes it as a label; since 14 October no stamp holds it. The digest leaves the time out ([digest.clj](door/digest.clj)). No code of the module reads a clock |
 | 2 | "There is local ordering: the order Rama gives inside one partition." | The one order that a decision rests on is the order of a lane's partition in its depot. The module makes no order between two partitions or between the two depots: no gate reads a table of the other gate, and a decision reads rows of the act's own lane only |
-| 3 | "Every act is placed by its lane key, the base too. A lane is one line." | [module.clj](module.clj) declares both depots with the hash of the thing's `:lane`. The routing id of an act-id is its lane, for both depots (`routing-id` in [rows.clj](record/rows.clj)), and both reads of the door go to the lane's task ([door_reads.clj](module/door_reads.clj)) |
+| 3 | "Every act is placed by its layer key, the base too. A layer is one line." | [module.clj](module.clj) declares both depots with the hash of the thing's `:lane`. The routing id of an act-id is its lane, for both depots (`routing-id` in [rows.clj](record/rows.clj)), and both reads of the door go to the lane's task ([door_reads.clj](module/door_reads.clj)) |
 | 4 | "The base's rows: a copy on every task. One task decides, in the line's order." | [microbatch_gate.clj](module/microbatch_gate.clj): for each thing of the partition, in the depot's order, the walk on the lane's task, and then the copy of an accept's rows of facts, and of facts by value, to every other task. That the answers and the lane's last stamp stay on the lane's task alone is the builder's, under "Engineering choices" |
 | 5 | "The two depots that hold the answers go, and the rebuild with them. The depot of batch clocks goes. Two depots stay." | The module has the two depots of acts and no other, and no topology appends to a depot. A gate closes no batch, and the door's reads wait for none. No code makes a row from a log of decisions: the tables are made again by a second run of the gates (rule 19) |
-| 8 | "A number counted per lane. The clock the door carries is the clock of the server that runs the door. What the door does with a thing it cannot label stays as built." | `task` in [tables.clj](record/tables.clj) keeps one last stamp for each lane, under the text of the lane id, and the walk reads and writes the number of the act's lane: two lanes on one task count apart. The door's part of this decision is in [door/README.md](door/README.md) |
+| 8 | "A number counted per layer. The clock the door carries is the clock of the server that runs the door. What the door does with a thing it cannot label stays as built." | `task` in [tables.clj](record/tables.clj) keeps one last stamp for each lane, under the text of the lane id, and the walk reads and writes the number of the act's lane: two lanes on one task count apart. The door's part of this decision is in [door/README.md](door/README.md) |
 
 His decision 6 of that day, on a change in what a gate accepts, is under rule
 19. His decision 7 is the section "The order of a lane's acts after a

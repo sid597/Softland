@@ -1,6 +1,6 @@
 (ns softland.wire.watching
   "What a live read tells a reader who is slower than the changes, and what
-  an answer is after a change. Pure code. It needs no cluster.
+  an answer is after a change. Pure code.
 
   The read path tells a live asker one map at a time
   (`softland.store.read-path`): `{:anew answer}`, the whole answer in the
@@ -23,30 +23,12 @@
   takes two messages and gives a thing of the same form, and it is the
   function that Missionary's `relieve` needs.
 
-  Inputs and results, by call:
-
-    merged        what waits, and the next message -> what waits now
-    messages      what waits -> the messages to hand on, in order
-    through       a test -> a transducer that ends after the first thing
-                  that passes the test
-    answer-after  an answer and a message -> the answer after the message
-
-  State and effects. None. Nothing here keeps an answer: `answer-after` is
-  for a face whose reader wants the answer as one value over time, a
-  screen, and that face holds the value.
-
-  Callers. `softland.runtime.seam`, for `merged`, `messages` and `through`;
-  the faces, for `answer-after`.")
+  Nothing here keeps an answer: `answer-after` is for a face whose reader
+  wants the answer as one value over time, a screen, and that face holds
+  the value.")
 
 (defn merged
-  "Takes what waits for a reader and the message that came after it; both
-  are maps that can hold `:anew`, `:changed` and `:ended`. Gives what waits
-  now.
-
-  Nothing comes after an end: what waits with an end stays as it is. A
-  whole answer anew takes the place of the answer and the changes that
-  wait. Else the changes are put together, and of two changes of one place
-  the later one stays."
+  "Nothing comes after an end: what waits with an end stays as it is."
   [waits message]
   (cond
     (contains? waits :ended) waits
@@ -56,9 +38,6 @@
             (contains? message :ended) (assoc :ended (:ended message)))))
 
 (defn messages
-  "Takes what waits for a reader. Gives the messages to hand her, in order:
-  the whole answer when one waits, then the changed places when any wait,
-  then the end when the read ended."
   [waits]
   (cond-> []
     (contains? waits :anew) (conj {:anew (:anew waits)})
@@ -66,9 +45,8 @@
     (contains? waits :ended) (conj {:ended (:ended waits)})))
 
 (defn through
-  "Takes a test of one argument. Gives a transducer that hands each thing
-  on and ends after the first thing for which the test holds: that thing is
-  the last one handed on."
+  "A transducer that ends after the first thing for which the test holds:
+  that thing is the last one handed on."
   [last?]
   (fn [rf]
     (fn
@@ -79,15 +57,10 @@
          (if (last? x) (ensure-reduced result) result))))))
 
 (defn answer-after
-  "Takes an answer of the read path, or nil, and one message of a live
-  read. Gives the answer after the message.
-
-  A whole answer anew is the answer. A change of a read of one place puts
-  its place-answer under `:place`. A change of a read of many places puts
-  each place-answer under its place in `:places`, and takes a place out
-  whose place-answer says `:no-fact`: the whole answer holds a place only
-  where a lane that she may see holds a fact
-  (`softland.store.read-path.answer`). An end changes nothing."
+  "`answer` is an answer of the read path, or nil. A change of a read of
+  many places takes a place out whose place-answer says `:no-fact`: the
+  whole answer holds a place only where a lane that she may see holds a
+  fact (`softland.store.read-path.answer`)."
   [answer message]
   (cond
     (contains? message :anew) (:anew message)

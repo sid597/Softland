@@ -1,38 +1,7 @@
 (ns softland.wire.words
   "The words: everything that a system can say to the runtime over the
   line, declared as data, with the check of that form; and everything that
-  the runtime says in place of a result. Pure code. It needs no cluster.
-
-  The line is one connection that carries many words and many watches
-  (`softland.runtime.line`). Whatever connects speaks these words: the
-  command line, an agent's harness, and the browser's client when it is
-  built. A word is a plain map whose `:word` names it:
-
-    {:word :who-am-i}                               who the connection is
-    {:word :send     :act act :act-id uuid          one act, sent and waited
-                     :wait-ms n}                    for: one round trip
-    {:word :send-all :acts [{:act act :act-id uuid} acts of one maker, in
-                            ...] :wait-ms n}        order
-    {:word :answer   :act-id act-id :digest text    the answer of an act that
-                     :wait-ms n}                    was sent before
-    {:word :read     :query query}                  a read, once
-    {:word :watch    :query query}                  a read, kept live
-    {:word :leave    :watch n}                      leaves a watch
-    {:word :replace-secret :hash hash}              a new secret for the
-                                                    sign-in
-    {:word :sign-out}                               ends the sign-in
-    {:word :open-session :driven-by driven-by}      opens a session, optionally
-                                                    naming what drives it
-    {:word :close-session}                          closes the session
-    {:word :invite   :uuid uuid :claim claim}       a person who waits for
-                                                    an account
-    {:word :make-agent :uuid uuid :label text       an agent beneath the
-                       :hash hash}                  caller, signed in
-    {:word :end-agent :agent uuid}                  ends an agent beneath
-    {:word :under}                                  the actors and sign-ins
-                                                    of the caller's root
-    {:word :end-sign-in :sign-in uuid}              ends a sign-in of the
-                                                    caller's root
+  the runtime says in place of a result. Pure code.
 
   There is no word for a feature of the product. A new thing that a system
   can do is a new key in a lane, written with `:send` and read with
@@ -41,40 +10,28 @@
   session's trail will be read by the same two words (the runtime's page,
   entry 5).
 
-  The whole form goes on the wire (Sid, 20 November 2026: \"3A\"). An act
-  is the store's own maker's act (`softland.store.act`), with its `:who`
-  and its `:session`; a query is the read path's
-  (`softland.store.read-path.query`), with its `:asker` or with
-  `:not-signed-in true`. The runtime holds those parts against the caller
-  and refuses a difference (`softland.runtime.seam`); it strips nothing and
-  writes nothing into them. The act-id is the maker's too: a random UUID,
-  which the runtime completes with the lane and its depot. A maker that
-  sends the same act under the same UUID a second time, after a break,
-  sends the same thing, and a gate takes it once.
+  The whole form goes on the wire. An act is the store's own maker's act
+  (`softland.store.act`), with its `:who` and its `:session`; a query is
+  the read path's (`softland.store.read-path.query`), with its `:asker` or
+  with `:not-signed-in true`. The runtime holds those parts against the
+  caller and refuses a difference (`softland.runtime.seam`); it strips
+  nothing and writes nothing into them. The act-id is the maker's too: a
+  random UUID, which the runtime completes with the lane and its depot. A
+  maker that sends the same act under the same UUID a second time, after a
+  break, sends the same thing, and a gate takes it once.
 
   A system chooses no id but an act's UUID. `:invite` and `:make-agent`
-  carry a `:uuid` that the system made, and the runtime derives the id of
-  the person or of the agent from it and from the caller's root, and gives
-  the id back: the same UUID again is the same making, and no UUID gives
-  the id of a thing that is not the caller's own (`softland.runtime.seam`).
+  carry a `:uuid` that the system made; the runtime derives the id of the
+  person or of the agent from it and from the caller's root, and gives the
+  id back (`softland.runtime.seam`).
 
-  What the check reads, and what it leaves. `shapes` holds one shape for
-  each word, in the language of `softland.store.act/shapes`, and
-  `softland.store.act/as-shape` reads it. That shape holds every part of a
-  word but the one that carries a form of the store's: `:act`, `:acts` or
-  `:query`. Of such a part the check tests only that it is a plain map. The
-  store judges the rest: an act whose form is wrong goes to its depot, and
-  a gate refuses it under its act-id (src-store/README.md, 12 October 2026,
-  entry 7); a query is checked by the read path.
-
-  Inputs and results, by call:
-
-    check       anything -> {:ok word} in its one form, or
-                {:refuse why :at part}
-    could-not   one of the runtime's own words, and what it carries -> the
-                word as a system gets it
-
-  State and effects. None. `check` never throws."
+  What the check reads, and what it leaves. A word's shape, in the language
+  of `softland.store.act/shapes`, holds every part of a word but the one
+  that carries a form of the store's: `:act`, `:acts` or `:query`. Of such
+  a part the check tests only that it is a plain map. The store judges the
+  rest: an act whose form is wrong goes to its depot, and a gate refuses it
+  under its act-id (src-store/README.md, 12 October 2026, entry 7); a query
+  is checked by the read path."
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.wire.credential :as credential]))
@@ -86,19 +43,16 @@
   sets it on the connection, so a longer frame is never taken into memory.
   It is the store's bound on what one act can write into rows
   (`softland.store.door.declaration/max-act-bytes`) and one MiB for the
-  form around the values: an act that a gate can take fits. A number of the
-  build, kept and not decided."
+  form around the values: an act that a gate can take fits."
   (+ declaration/max-act-bytes (* 1024 1024)))
 
 (def max-visitor-frame-bytes
   "How many bytes one frame can be on a connection that stands for nobody.
-  A visitor reads and watches, which are small, and sends no act. A number
-  of the build, kept and not decided."
+  A visitor reads and watches, which are small, and sends no act."
   65536)
 
 (def max-acts-of-one-word
-  "How many acts one `:send-all` can carry. A number of the build, kept and
-  not decided."
+  "How many acts one `:send-all` can carry."
   1024)
 
 (def max-text
@@ -107,23 +61,20 @@
   256)
 
 (def default-wait-ms
-  "How long a `:send` waits for its answer when the word names no wait. A
-  number of the build, kept and not decided."
+  "How long a `:send` waits for its answer when the word names no wait."
   10000)
 
 (def longest-wait-ms
   "The longest wait that a word can ask for, in milliseconds. A longer one
-  is cut to it; a system that waits longer asks again. A number of the
-  build, kept and not decided."
+  is cut to it; a system that waits longer asks again."
   60000)
 
 ;; ---------------------------------------------------- the declared words
 
 (def words
-  "The words, each with what it says, the part that carries a form of the
-  store's (nil for none), and who may say it: `:anybody`, a visitor too;
-  `:an-actor`, whoever is signed in; `:a-person`, a person herself and no
-  agent."
+  "`:carries` is the part that carries a form of the store's, nil for none.
+  `:who` is who may say the word: `:anybody`, a visitor too; `:an-actor`,
+  whoever is signed in; `:a-person`, a person herself and no agent."
   {:who-am-i       {:says "who the connection is: her who, her root, her session, her own lane; or that it stands for nobody"
                     :carries nil :who :anybody}
    :send           {:says "one act into its depot, and its answer: the door's receipt with the answer that a gate gave, or `:nothing-yet` when the wait passed"
@@ -158,15 +109,13 @@
                     :carries nil :who :a-person}})
 
 (def ^:private wait-part
-  "The part `:wait-ms` of a word that waits."
   [:wait-ms [:int {:min 0}] {:optional true :reason :wait-is-no-span}])
 
 (def shapes
-  "The words' map of shapes: each entry of `softland.store.act/shapes`, and
-  one shape for each word, named by the word. A word's shape holds each of
-  its parts but the one that carries a form of the store's (`words`,
-  `:carries`), which the engine does not read. A part that is left out
-  holds nil in the one form."
+  "Each entry of `softland.store.act/shapes`, and one shape for each word.
+  A word's shape holds each of its parts but the one that carries a form of
+  the store's (`words`, `:carries`), which the engine does not read. A part
+  that is left out holds nil in the one form."
   (assoc act/shapes
          :who-am-i       [:parts [:word [:enum :who-am-i]]]
          :send           [:parts
@@ -245,19 +194,14 @@
 ;; ------------------------------------------------------------------ the check
 
 (defn- plain-map?
-  "True for a map that is no record."
   [x]
   (and (map? x) (not (record? x))))
 
 (defn text?
-  "Takes anything. Gives true for a text of 1 to `max-text` characters."
   [x]
   (and (string? x) (<= 1 (count x) max-text)))
 
 (defn driven-by?
-  "Takes anything. Gives true for what drives a session in its form:
-  {:kind :person}, or {:kind :model :model text} where text has 1 to
-  `max-text` characters."
   [x]
   (and (plain-map? x)
        (case (:kind x)
@@ -267,9 +211,6 @@
          false)))
 
 (defn claim?
-  "Takes anything. Gives true for a claim of an invitation in its form:
-  {:by :email :email text}, with a text that holds an `@`, or
-  {:by :code :hash hash}."
   [x]
   (and (plain-map? x)
        (case (:by x)
@@ -281,19 +222,13 @@
          false)))
 
 (defn- carried-fault
-  "Takes the name of the part that carries a form of the store's, `:act` or
-  `:query`, and the thing under it. Gives nil for a plain map, or
-  {:refuse why :at part}."
   [part thing]
   (cond
     (nil? thing) {:refuse :not-given :at part}
     (not (plain-map? thing)) {:refuse :not-a-plain-map :at part}))
 
 (defn- acts-fault
-  "Takes the thing under `:acts`. Gives nil for a vector of 1 to
-  `max-acts-of-one-word` maps, each {:act a plain map :act-id a UUID} and
-  nothing else; or {:refuse why :at part}. The count is taken with a bound,
-  before any entry is read."
+  "The count is taken with a bound, before any entry is read."
   [acts]
   (cond
     (nil? acts) {:refuse :not-given :at :acts}
@@ -309,10 +244,9 @@
                 acts)))
 
 (defn- part-at-fault
-  "Takes a word's name and a thing that the engine refused under that
-  word's shape. Gives the part at which it stopped: the first part that the
-  shape does not hold, or else the first declared part, in the declared
-  order, that does not fit by itself."
+  "`thing` is one that the engine refused under the word's shape. Gives the
+  first part that the shape does not hold, or else the first declared part,
+  in the declared order, that does not fit by itself."
   [word thing]
   (let [entries (rest (get shapes word))
         declared (into #{} (map first) entries)]
@@ -323,9 +257,7 @@
               entries))))
 
 (defn- own-fault
-  "Takes a word in its one form. Gives nil, or {:refuse why :at part} for a
-  part whose form the engine's leaves cannot say: a digest, a hash, a
-  label, a claim."
+  "For the parts whose form the engine's leaves cannot say."
   [word]
   (cond
     (and (contains? word :digest) (not (string? (:digest word)))) {:refuse :digest-is-no-text :at :digest}
@@ -366,15 +298,12 @@
                        (some? (:wait-ms got)) (update :wait-ms min longest-wait-ms))})))))))
 
 (defn check
-  "The check of a word. Takes anything. Gives {:ok word}, with the word in
-  its one form, or {:refuse why :at part}, with one of `reasons` and the
-  part at which the check stopped. It never throws.
+  "Gives {:ok word}, with the word in its one form, or
+  {:refuse why :at part}, with one of `reasons` and the part at which the
+  check stopped. It never throws.
 
-  In order. The thing must be a plain map whose `:word` names a word. Then
-  the word's shape: a part that the word does not have, or the first part
-  that is wrong in the declared order, gives its reason. Then the parts
-  whose form a shape cannot say. Then the part that carries a form of the
-  store's: it must be there and a plain map.
+  In order: the word's name; its shape; the parts whose form a shape cannot
+  say; then the part that carries a form of the store's.
 
   The one form. Each part of the word's shape is there, nil when it was
   left out. A wait that was left out is `default-wait-ms` for a send and 0
@@ -396,9 +325,8 @@
   not do a thing. Each reads after \"the runtime could not\". A word of the
   door or of the read path passes through the runtime as it is; none of
   these is one of them, and none is a judgment of an act: a gate's refusal
-  is in the act's answer.
-
-  Each has what it says and the status that a face over HTTP gives it."
+  is in the act's answer. `:status` is what a face over HTTP gives the
+  word."
   {:read-the-frame
    {:says "the text held no one EDN form within the bounds; `:why` is `:too-large`, `:a-token-too-long`, `:not-edn`, `:empty` or `:more-than-one-form`"
     :status 400}
@@ -443,9 +371,7 @@
     :status 500}})
 
 (defn could-not
-  "Makes one of the runtime's own words as a system gets it. Takes the
-  word, one of `could-nots`, and a map of what it carries, or nil. Gives
-  the map of what is carried with `:could-not` in it; nil for a word that
+  "`carries` is a map of what the word carries, or nil. Nil for a word that
   `could-nots` does not hold."
   [the-word carries]
   (when (contains? could-nots the-word)

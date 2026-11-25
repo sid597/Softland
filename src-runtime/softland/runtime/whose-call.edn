@@ -1,0 +1,85 @@
+;; Whose call each thing in this tree's code is. One entry per place that is
+;; not decided (:not-decided: kept so that the build runs; nobody chose it),
+;; that a session or the builder chose (:a-sessions: Sid's to turn), or that
+;; carries a decision of Sid's (:decided, with :source). :at is the var, or the
+;; namespace. An entry moves with its var.
+[{:at softland.runtime.seam
+  :state :decided
+  :what "Nobody acts for another (\"so 1-A it is\"). The whole act arrives, with its `:who` and its `:session` (\"3A\")."
+  :source "Sid, 20 November 2026"}
+
+ {:at softland.runtime.seam
+  :state :a-sessions
+  :what "That the runtime refuses an act whose `:who` or `:session` is not the caller's, and a query whose `:asker` is not, and does not write the try into a log, is a session's choice. The ground: an act under a who that did not send it would be a false line in a log that is never trimmed."}
+
+ {:at softland.runtime.seam
+  :state :not-decided
+  :what "Who may act as the system is not decided. `softland.runtime.sign-in` sends the acts that only the system sends, the making of a person's own lane and the first acts of a deployment, through `send-as-system`, the one way in."
+  :source "src-store/README.md, 9 October 2026, K9"}
+
+ {:at softland.runtime.seam/default-numbers
+  :state :not-decided
+  :what "Each of the seam's numbers is the builder's, kept and not decided, marked for Sid to turn: :secret-ms 7 days; :previous-ms one minute; :session-ms one day, with a session in use moved on when less than half of that is left; :sign-in-window-ms 10 seconds; :max-sign-in-posts-per-address 30; :max-watches-per-root 256; :max-visitor-watches 64; :max-watches-per-connection 128; :max-visitor-watches-per-connection 8; :max-polls-per-ask 20; :session-window-ms one minute; :max-sessions-opened-per-sign-in 30."}
+
+ {:at softland.runtime.http
+  :state :decided
+  :what "A person who has confirmed no name is sent to the box: her provider's name for her, which she confirms or changes (\"we can make C default\")."
+  :source "Sid, 21 November 2026"}
+
+ {:at softland.runtime.http/yes-page
+  :state :a-sessions
+  :what "On the page on which she answers a program, an agent of its own is the choice that is chosen at the start, and acting as her is the other: each program has a who of its own by default (the runtime's page, entry 8). The build's default, for Sid to turn."}
+
+ {:at softland.runtime.sign-in
+  :state :decided
+  :what "What sign-in keeps lives in Auth, a module of its own; the store holds none of it."
+  :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and 12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+
+ {:at softland.runtime.sign-in
+  :state :decided
+  :what "Sign-up is by invitation or a list, and an invitation is a person id that waits for an account."
+  :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and 12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+
+ {:at softland.runtime.sign-in
+  :state :decided
+  :what "A signed-in person has a lane of her own and a permission in it, without asking, and the system makes both at her first sign-in (src-store/README.md, 8 October 2026, entry 2)."
+  :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and 12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+
+ {:at softland.runtime.sign-in
+  :state :decided
+  :what "She is called what she confirms: her provider's name for her is shown, and she confirms or changes it."
+  :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and 12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+
+ {:at softland.runtime.sign-in
+  :state :decided
+  :what "A deployment is born by one setup command, which makes the base and the first person."
+  :source "src/proposal/runtime-2026-11-21/PROPOSAL.md, entries 2, 5 and 12; and Sid's go of 21 November 2026 to the sheet for sign-in"}
+
+ {:at softland.runtime.sign-in/name-key
+  :state :a-sessions
+  :what "The key `:person/name`, under which a person's own id holds the name that she confirmed, in her own lane, is a session's word, and Sid's to change."}
+
+ {:at softland.runtime.sign-in/ask-ms
+  :state :not-decided
+  :what "A program's sign-in that is under way waits ten minutes (600000 ms) for her answer. A number of the build, kept and not decided."}
+
+ {:at softland.runtime.line/max-waiting
+  :state :not-decided
+  :what "256 words can wait on one connection. A number of the build, kept and not decided."}
+
+ {:at softland.runtime.jetty/ping-ms
+  :state :not-decided
+  :what "The server pings each open connection of the line every 20000 ms. A number of the build, kept and not decided."}
+
+ {:at softland.runtime.jetty/idle-ms
+  :state :not-decided
+  :what "A connection of the line is closed after 60000 ms with nothing received, a pong included. A number of the build, kept and not decided."}
+
+ {:at softland.runtime.jetty/send-ms
+  :state :not-decided
+  :what "One write of a frame to a connection of the line may wait 30000 ms for the system to read it before the write is a failure. A number of the build, kept and not decided."}
+
+ {:at softland.runtime.google
+  :state :decided
+  :what "Google's sign-in button needs a client id and no client secret (\"Google's sign-in button needs none, and that's my default\" yes), so the runtime holds no secret of Google's."
+  :source "Sid, 15 October 2026, ‹bb59807f›"}]

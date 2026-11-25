@@ -99,7 +99,7 @@ Each is a session's, kept and not decided.
 
 Counts of acts and of reads by person in Auth, and a block: `seam.clj`,
 `ration`, is the one place, and it is handed what the face said of the
-request. Its first lane, in each copy's memory, is built: the paces of
+request. Its first layer, in each copy's memory, is built: the paces of
 sign-in posts by address, of an ask's polls and of a sign-in's new sessions,
 and the caps of live watches by root, for visitors and for one connection.
 The keeping of

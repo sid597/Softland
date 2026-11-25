@@ -1,0 +1,414 @@
+;; Whose call each thing in this tree's code is. One entry per place that is
+;; not decided (:not-decided: kept so that the build runs; nobody chose it),
+;; that a session or the builder chose (:a-sessions: Sid's to turn), or that
+;; carries a decision of Sid's (:decided, with :source). :at is the var, or the
+;; namespace. An entry moves with its var.
+[{:at softland.store.gate.first-act
+  :state :a-sessions
+  :what "The words \"system\" and \"the base\" are Sid's; the keywords :system and :base are a session's."}
+
+ {:at softland.store.gate.first-act/system
+  :state :decided
+  :what "The system can hold other lanes beside the base: the form takes `system` as the first holder of any lane."
+  :source "Sid, 9 October 2026"}
+
+ {:at softland.store.gate.first-act/depot-at-making
+  :state :decided
+  :what "The base starts with the microbatch depot and every other lane with the streaming one. This function is the one place where that decision is code."
+  :source "F4 C"}
+
+ {:at softland.store.gate.first-act/starts-with-the-other-gates-depot?
+  :state :a-sessions
+  :what "An act on one depot for a lane that starts with the other depot gets its word from the act alone. `softland.store.gate.decision/standing` says what forced the rule."
+  :source "a session, 14 October 2026"}
+
+ {:at softland.store.gate.first-act/making-act?
+  :state :a-sessions
+  :what "The form of a making act (two facts: the lane's depot, and its own first permission) is the builder's, not a decision of Sid's."}
+
+ {:at softland.store.gate.first-act/making-act?
+  :state :a-sessions
+  :what "When the system makes a personal lane, it acts under the person's permission. Sid's decision says that the system makes the lane and the permission; under which permission the system then acts is the builder's reading."}
+
+ {:at softland.store.gate.first-act/starts-with
+  :state :not-decided
+  :what "A new lane reads as :members and the base as :everyone only so that the build can run. With :everyone a person who is not signed in sees the base. This function is the one place where the other answer would be made; a later change here changes how every lane with no fact reads."
+  :source "BUILD-reads.md, \"Not decided\""}
+
+ {:at softland.store.read-path
+  :state :decided
+  :what "Each program that can open Rama's ports is trusted with the whole store."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 4"}
+
+ {:at softland.store.read-path
+  :state :not-decided
+  :what "The read path's 900 (`:max-pushes-under-one-routing-id`) stands under the default of Rama's option `pstate.proxy.limit`, 1,000. To raise that option, and this number with it, is a setting for Sid to weigh. The read path sets none of Rama's options."}
+
+ {:at softland.store.read-path
+  :state :not-decided
+  :what "Both numbers of the read path's bound on pushes are the build's, kept and not decided, and so is the way of the checks that needs a push for each. The paragraph names 900 (`:max-pushes-under-one-routing-id`) and, before it, the 250 checks of nearer lanes of one live read of what points at a thing (`:max-checks-of-one-live-read`)."}
+
+ {:at softland.store.read-path
+  :state :not-decided
+  :what "Room that the read path leaves, and decides nothing of: sign-in, in front of the read path (who asks is what the caller says, and `:system` is a who like any other); a network edge, a screen, a view, a tool, an agent; a record of who read what (nothing is kept of a read); a new word of a query (finding by text, looking back, what stands on a fact, everything one person wrote), which is one entry in each of three maps (`softland.store.read-path.query/words`)."}
+
+ {:at softland.store.read-path/max-rounds
+  :state :not-decided
+  :what "A live read opens within 8 rounds on tables that do not change while it opens, and is given 8 more, 16 in all, for writes that make a part of it wanted anew while it opens. The 8 more are the builder's choice, and not decided: a read that writes keep from settling is turned away, and its caller asks again."}
+
+ {:at softland.store.read-path.answer/counts?
+  :state :not-decided
+  :what "That a tool's read leaves the store's own facts out unless it asks, and that any asker who may see the lane may ask, is a working answer, for Sid. `counts?` is the one place where the other answer would be made."}
+
+ {:at softland.store.read-path.query
+  :state :decided
+  :what "Nobody decides what a tool asks; what is decided is the few words that a query is made of."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 6"}
+
+ {:at softland.store.read-path.query
+  :state :a-sessions
+  :what "The form of the map of a query, and each word of it, is the builder's and is Sid's to change."}
+
+ {:at softland.store.read-path.query
+  :state :not-decided
+  :what "Who asks is what the caller says: the check takes `:asker` as given. Sign-in would stand in front of the read path and change none of this."
+  :source "BUILD-reads.md, B2"}
+
+ {:at softland.store.read-path.query/max-lanes-of-one-read
+  :state :not-decided
+  :what "How many lanes one read can go through, the start lane and the lanes that a builds-on fact can name (`softland.store.door.declaration/max-builds-on`), is a number of the build, kept and not decided."}
+
+ {:at softland.store.read-path.query/default-numbers
+  :state :not-decided
+  :what "Each of the read path's nine numbers is the builder's, kept and not decided, and an opener can give another at `softland.store.read-path/open`: `:run-start-places` 256, `:max-places-of-one-run` 20,000, `:max-checks-of-one-read` 40,000, `:max-checks-of-one-live-read` 250, `:max-pushes-under-one-routing-id` 900, `:max-paths-in-one-call` 2,000, `:wait-ms` 10,000, `:max-acts-of-one-read` 1,000, `:max-thing-weight-of-one-read` 33,554,432."}
+
+ {:at softland.store.read-path.sources/before-standing?
+  :state :a-sessions
+  :what "That a read asked once reads a place, or the first read of a run of the facts table, before it knows whether the asker may see the lane, is the builder's choice; this function is the one predicate of that choice. The other answer is this function giving false: then nothing of a lane is read for an asker who may not see it."}
+
+ {:at softland.store.read-path.sources/nearer-checks
+  :state :not-decided
+  :what "What \"what points at a thing\" means through a list of lanes is a working answer, for Sid: at a place that a farther lane's order gives, the nearest lane that holds a row wins. This function is the one place where the other answer would be made: left out (an empty map), a read finds no nearer row and the runs are joined."}
+
+ {:at softland.store.read-path.acts/reads-whole?
+  :state :a-sessions
+  :what "A taken act is held to the same rule of who reads a decision whole as a refused thing. This function is where the other reading would be made."
+  :source "SPEC.md, \"Who may read what\", a session's reading"}
+
+ {:at softland.store.read-path.lanes
+  :state :decided
+  :what "The read path does not read what a permission allows: any permission that stands allows seeing."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 1"}
+
+ {:at softland.store.read-path.lanes
+  :state :not-decided
+  :what "The one thing about a permission that is kept as built and not decided, one permission for the lane for each holder at a time, is no code in this namespace."}
+
+ {:at softland.store.read-path.lanes/who-may-see
+  :state :not-decided
+  :what "What a lane starts with is kept only so that the build can run; `softland.store.gate.first-act/starts-with` is the one place where the other answer would be made, and this function is its one caller in the read path."}
+
+ {:at softland.store.read-path.lanes/standing
+  :state :decided
+  :what "Any permission that stands allows seeing; what it allows beyond that is not read. `:system` is a who like any other. `standing` is the one function of who may see a lane."
+  :source "src-store/README.md, entry 1 of 11 and 12 October 2026"}
+
+ {:at softland.store.read-path.lanes/standing
+  :state :not-decided
+  :what "What a lane starts with (`who-may-see`), and that \"members\" is whoever holds a permission in the lane, are kept only so that the build can run."}
+
+ {:at softland.store.read-path.lanes/in-order
+  :state :not-decided
+  :what "How far a read walks from a lane is a working answer, for Sid (the one list, and no further), and so is what a read does when the asker may not see the start lane. This function is the one place where the walk would be made; a walk would also make the own rows of each walked lane a thing that `softland.store.read-path.sources/reading` wants before the list is known."}
+
+ {:at softland.store.read-path.lanes/left-out
+  :state :not-decided
+  :what "That a read says which lane it left out, and tells a lane that she may not see from one that is not made, is a working answer, for Sid. This function is the one place where a read would say less."}
+
+ {:at softland.store.record.tables/task
+  :state :decided
+  :what "The rows by who are a field of what a gate keeps for a task, and not a PState of their own. They are read only by an asker who may not see a lane, for her own things, so the one seek more that the field's level costs at that read saves a partition on every task."
+  :source "Sid's call of 22 November 2026, on the plan's check"}
+
+ {:at softland.store.gate.decision/permission-place
+  :state :not-decided
+  :what "One place for a holder's permission for the lane is kept as built and not decided. This key is one of the two places where the other answer would be made (`softland.store.door.declaration/store-keys`)."}
+
+ {:at softland.store.gate.decision/standing
+  :state :a-sessions
+  :what "The word of an act for a lane of the other gate comes from the act alone: a session's rule, and no decision of Sid's. One half of the rule is forced by his line that the store comes out the same when it is run again: the word cannot follow the other gate's record, since a word that followed what the other gate had made by then would follow an order across two depots, which no second run gives again. The other half is the session's choice: which of the two words is then given, `:lane-belongs-to-the-other-gate`. `:lane-not-made` for every such act would hold his line as well."
+  :source "a session, 14 October 2026"}
+
+ {:at softland.store.gate.decision/permission-fact-fault
+  :state :a-sessions
+  :what "A permission for a run or for an act gives nothing. The other way, a run that may give, would be one more word in the sixth slot."
+  :source "a session, 21 November 2026; src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R10"}
+
+ {:at softland.store.gate.decision/who-may-write-fault
+  :state :decided
+  :what "Only the lane's root holder writes its settings."
+  :source "Sid, 20 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+
+ {:at softland.store.gate.decision/who-may-write-fault
+  :state :a-sessions
+  :what "Sid's earlier word for the root holder is \"the owner\". No lane names an owner as a fact; that the first holder, the holder of the lane's first permission, is the one is a session's reading."}
+
+ {:at softland.store.gate.decision/end-fault
+  :state :decided
+  :what "The giver of a permission, or anyone above, ends it."
+  :source "Sid's decision of 20 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+
+ {:at softland.store.gate.decision/end-fault
+  :state :a-sessions
+  :what "A holder ends her own permission, and the first permission does not end. His to turn."
+  :source "a session, 21 November 2026"}
+
+ {:at softland.store.gate.decision/give-over-fault
+  :state :decided
+  :what "A holder is given a permission again after an end, and each holder beneath an end is given one again by an act of its own."
+  :source "Sid's decision of 21 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+
+ {:at softland.store.gate.decision/store-key-fault
+  :state :not-decided
+  :what "A change of a lane's depot is not decided: a depot fact with the other depot, in a lane that is made, is refused `:changing-a-depot-not-decided`."}
+
+ {:at softland.store.gate.decision/by-value-writes
+  :state :not-decided
+  :what "What a marked key may hold is not decided. Every value is kept, whatever it is, by the digest of its bytes. This function is the one place where \"kept in no run\" would be made."
+  :source "the queue's K5"}
+
+ {:at softland.store.gate.decision/use-of-its-yes
+  :state :a-sessions
+  :what "A yes for one act is used once: the form of 22 November 2026, a session's, in the prompt that Sid pasted that day as his go for the build. His to turn."
+  :source "src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md"}
+
+ {:at softland.store.gate.decision/use-of-its-yes
+  :state :a-sessions
+  :what "The use of a yes is kept as an end at the yes's place, written by the accept in the one write of the decision: a session's choice. His to turn."}
+
+ {:at softland.store.gate.decision/max-kept-weight
+  :state :not-decided
+  :what "33,554,432, 32 MiB in weight, the heaviest thing that a gate keeps a second time when its sender has standing: Sid's call of 22 November 2026, the default of the plan's check. A number of the build, kept and not decided."
+  :source "Sid's call of 22 November 2026"}
+
+ {:at softland.store.gate.decision/max-kept-weight-with-no-standing
+  :state :not-decided
+  :what "262,144, 256 KiB, the heaviest thing that a gate keeps a second time when its sender has no standing in the lane, or the declaration refused it: Sid's call of 22 November 2026. A number of the build, kept and not decided."
+  :source "Sid's call of 22 November 2026"}
+
+ {:at softland.store.gate.chain
+  :state :decided
+  :what "A permission is ended by its giver or by anyone above; what was given beneath ends with it; and a holder can be given a permission again."
+  :source "Sid, 20 and 21 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+
+ {:at softland.store.gate.chain
+  :state :a-sessions
+  :what "The end of what is beneath a permission is read at each decision, up the chain, and written nowhere. His to turn. The other way writes an end on each place beneath at the end itself: it needs a table of who gave to whom, and one end then writes a row for each holder beneath, with no bound, in one decision of the lane's one line."
+  :source "a session, 21 November 2026"}
+
+ {:at softland.store.gate.chain
+  :state :a-sessions
+  :what "The stamp tells a second give of a permission from the first. His to turn. The other way is one more part of the id; it can be added later as a slot was (`softland.store.act`)."
+  :source "a session, 21 November 2026"}
+
+ {:at softland.store.gate.stamp
+  :state :decided
+  :what "Order and time are kept apart, and order never uses the time."
+  :source "Sid's decision of 14 October 2026"}
+
+ {:at softland.store.gate.stamp
+  :state :decided
+  :what "The stamps in an act's `:based-on` are what its maker saw, and no gate reads them: an act's stamp is not raised above them."
+  :source "Sid's decision of 14 October 2026"}
+
+ {:at softland.store.module.walk
+  :state :not-decided
+  :what "The depth of a permission is not decided (`softland.store.act`, `nesting`). The bound on the reads of one call of the walk, 8,228 for a depth of 32, comes down with it."}
+
+ {:at softland.store.module.microbatch-gate
+  :state :decided
+  :what "The microbatch gate is built for the base: the lane that the system provides to everyone, which few hands change and which does not need to be instant."
+  :source "Sid, 13 October 2026"}
+
+ {:at softland.store.module.microbatch-gate
+  :state :not-decided
+  :what "A microbatch lane that many people write into is not designed. Whether such a lane is a lane apart from the base is not decided, and nothing in the microbatch gate is built for it: every act of a microbatch lane is decided on one task, one after the other."}
+
+ {:at softland.store.module.door-reads
+  :state :not-decided
+  :what "A guard of the record is not built: any client of the cluster can call the two queries and read every value. ?11 is open."
+  :source "?11"}
+
+ {:at softland.store.act
+  :state :decided
+  :what "The form of an act is the maker's act: what a maker gives, with plain values, before the door touches it. Whatever made an act, it has one form."
+  :source "Sid's decision of 6 October 2026. The twelve decisions are listed in src-store/README.md, which marks the two that wait for his word"}
+
+ {:at softland.store.act
+  :state :decided
+  :what "A permission says what it allows: `:see`, or `:see-and-act`."
+  :source "Sid's decision of 11 and 12 October 2026 (src-store/README.md, entry 1)"}
+
+ {:at softland.store.act
+  :state :a-sessions
+  :what "That a permission says what it allows in a slot of its own id is the builder's."}
+
+ {:at softland.store.act
+  :state :decided
+  :what "A permission covers an act, or a run, and a holder can have more than one in a lane."
+  :source "Sid's decisions of 21 November 2026 (src-store/README.md, entries 4 to 6 of 20 and 21 November)"}
+
+ {:at softland.store.act
+  :state :a-sessions
+  :what "The form of a permission for a run, `[who lane granted-in parent allows [:run session]]`, is a session's."
+  :source "src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md"}
+
+ {:at softland.store.act
+  :state :a-sessions
+  :what "The form of a yes, `[who lane granted-in parent :see-and-act [:act yes digest]]`, with an id of its own and used once, is a session's, and Sid's to turn."
+  :source "the prompt that Sid pasted on 22 November 2026 as his go for the build"}
+
+ {:at softland.store.act
+  :state :decided
+  :what "\"Depot\" is Sid's word for the depot that takes a lane's acts, `:streaming` or `:microbatch`. His decisions before that day say \"class\" for it."
+  :source "Sid, 9 October 2026"}
+
+ {:at softland.store.act
+  :state :a-sessions
+  :what "The word act-id is a session's, from Sid's \"act-uuid\" of 7 October 2026: the session wrote act-id, since the id holds more than the UUID, and the word is his to change. The ruling of 24 September said \"name\"."}
+
+ {:at softland.store.act/nesting
+  :state :not-decided
+  :what "How deep a permission can be is Sid's to say. Kept: as deep as a value can be, `max-depth`, 32. The entry of `:permission-id` in `nesting` is the one place where another answer is made. A smaller number ends both roads there, the act's own `:permission` and the value of a fact that gives a permission. A greater one needs a greater `max-depth` too, and must stay under 62: the one text of a thing (`softland.store.door.text`) writes a given permission whole to depth 61 and no deeper."}
+
+ {:at softland.store.door
+  :state :not-decided
+  :what "Sign-in, in front of the door, is an open row of the queue, and the door decides nothing of it: it stands before this code runs, and changes none of it."
+  :source "K7 to K10, Q16"}
+
+ {:at softland.store.door
+  :state :not-decided
+  :what "Who may act as the system is an open row of the queue, and the door decides nothing of it: `:system` is treated as any who."
+  :source "K9"}
+
+ {:at softland.store.door/depot-of
+  :state :not-decided
+  :what "A lane whose depot changes is an open row of the queue, and the door decides nothing of it. The door reads the lane's depot for each act-id that it makes and remembers none, which is the room that it leaves."
+  :source "?9"}
+
+ {:at softland.store.door/send-act
+  :state :decided
+  :what "The time on the act is a label that no rule reads: the stamp is the lane's count of decisions and holds no time."
+  :source "`softland.store.gate.stamp`; Sid's decision of 14 October 2026"}
+
+ {:at softland.store.door/send-act
+  :state :not-decided
+  :what "What a second send of the same act carries as its time is Sid's to say. Kept for now: it carries the door's clock of the second send. Another answer would be made in three places: `softland.store.door/send-act`, which reads the clock at every send; the door's test of its own parts (`softland.store.door.additions/reading`), which ends in `:add-its-parts` for an act that already holds a time, so a maker cannot hand the time of her first send in; and the digest's leaving the time out (`softland.store.door.digest`), which is what makes two sends with two times one thing."}
+
+ {:at softland.store.door.declaration/max-facts
+  :state :not-decided
+  :what "How many facts one act can hold: 256. A number of the build, kept and not decided."}
+
+ {:at softland.store.door.declaration/max-based-on
+  :state :not-decided
+  :what "How many entries the `:based-on` of one act can hold: 1024. A number of the build, kept and not decided."}
+
+ {:at softland.store.door.declaration/max-value-bytes
+  :state :not-decided
+  :what "How many bytes the value of one fact under a plain key can have: 65536. A number of the build, kept and not decided; it bounds the bytes of one row."}
+
+ {:at softland.store.door.declaration/max-act-bytes
+  :state :not-decided
+  :what "How many bytes of text an accept of one act can write into the rows of its facts: 18874368, which is 18 times 2^20. A number of the build, kept and not decided."}
+
+ {:at softland.store.door.declaration/max-id-text
+  :state :not-decided
+  :what "How many characters the printed text of an id, or of a fact's key, can have: 256. A number of the build, kept and not decided."}
+
+ {:at softland.store.door.declaration/max-builds-on
+  :state :not-decided
+  :what "How many lanes the fact under `:softland.store/builds-on` can name: 64. A number of the build, kept and not decided. Sid, 9 October 2026: \"if someone is building like 50 layers\"."}
+
+ {:at softland.store.door.declaration/max-marked-keys
+  :state :not-decided
+  :what "How many keys the fact under `:softland.store/marked-keys` can hold: 32. A number of the build, kept and not decided."}
+
+ {:at softland.store.door.declaration/time-part
+  :state :not-decided
+  :what "What the time on the act is called is Sid's to say; kept for now. `:door-time` is a working name, a session's. `time-part` is the one place where the name is made: the shape `:arrived-act`, the door's additions, the digest and `time-on` read it from there. The reason word `:no-door-time` is a word of its own and is not read from there."}
+
+ {:at softland.store.door.declaration/usable-time
+  :state :decided
+  :what "Order and time are apart, and order never uses the time."
+  :source "Sid's decision of 14 October 2026"}
+
+ {:at softland.store.door.declaration/store-namespace
+  :state :decided
+  :what "The word `softland.store`, the namespace of the store's own keys, is Sid's."
+  :source "Sid, 9 October 2026 (src-store/README.md, K4 B)"}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :decided
+  :what "The store's keys carry a namespace, and Sid gave the words: `softland.store` before the slash, and \"depot\" for the kind of a lane, streaming or microbatch."
+  :source "Sid, 9 October 2026 (src-store/README.md, K4 B)"}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :decided
+  :what "Who may see a lane, what it builds on and the keys that it marks are of the read build."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entries 1, 2 and 6"}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :decided
+  :what "A visitor of a lane that everyone may see reads no act whole \"unless the layer turns it on\"."
+  :source "Sid, the runtime's page, entry 9"}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :a-sessions
+  :what "That the lane turns on the reading of its acts whole by the key `:softland.store/who-may-read-acts` is a session's form."}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :a-sessions
+  :what "The four words of the keys are a session's, and Sid's to change: who may see a lane, who may read its acts whole, what it builds on, and its marked keys."}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :decided
+  :what "A holder can have, beside her permission for the lane, one for each of any number of runs, and any number of yeses for acts."
+  :source "Sid, 21 November 2026, src-store/README.md, entry 6 of 20 and 21 November"}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :a-sessions
+  :what "The words of the two keys `:softland.store/run-permission` and `:softland.store/act-permission` are a session's."}
+
+ {:at softland.store.door.declaration/store-keys
+  :state :not-decided
+  :what "A holder has one permission for the lane at a time: she cannot hold \"see\" from one giver and \"see and act\" from another. That is not decided, and is kept as built. The rule `:permission-fact-sits-on-its-holder` and `softland.store.gate.decision/permission-place` are where the other answer would be made."}
+
+ {:at softland.store.door.declaration/in-store-namespace?
+  :state :not-decided
+  :what "Whether the store owns longer namespaces such as `softland.store.x` too is not decided. Kept: the namespace is taken exactly, so `softland.store.x` is another namespace."}
+
+ {:at softland.store.door.declaration/shapes
+  :state :decided
+  :what "A record that arrives with no time is refused. The entry of `time-part` in `:arrived-act` is the one place where another answer would be made."
+  :source "Sid's decision of 14 October 2026"}
+
+ {:at softland.store.door.declaration/rules
+  :state :decided
+  :what "A gate refuses a fact whose key is in `softland.store` and is not one of `store-keys`."
+  :source "Sid, 9 October 2026 (src-store/README.md)"}
+
+ {:at softland.store.door.declaration/rules
+  :state :a-sessions
+  :what "The word `:store-key-not-known` is a session's."}
+
+ {:at softland.store.door.digest/without-the-time
+  :state :not-decided
+  :what "That a digest leaves the time out is one of the three places of the working answer on a second send (`softland.store.door/send-act` names the three). Kept for now; what a second send of the same act carries as its time is Sid's to say."}
+
+ {:at softland.store.door.wait/longest-wait-ms
+  :state :a-sessions
+  :what "The longest wait that the door counts, about 73 years in milliseconds, is a number of the build."}
+
+ {:at softland.store.door.wait/default-numbers
+  :state :a-sessions
+  :what "The default of `:read-every-ms`, 200, is not measured, and it is no decision of Sid's. The opener of the door may give another for it (`numbers`)."}]

@@ -1,69 +1,29 @@
 (ns softland.runtime.sign-in
   "What sign-in does: how an account that its provider has proven becomes a
   person with a lane of her own, how a browser and a program come to stand
-  for somebody, and how a deployment is born. It requires Missionary, the
-  seam, Auth's client and the store's two ids. Each call blocks, and a face calls it on a
-  thread that is cheap to hold.
+  for somebody, and how a deployment is born. Each call blocks, and a face
+  calls it on a thread that is cheap to hold.
 
-  Sid's decisions that it stands on (src/proposal/runtime-2026-11-21/
-  PROPOSAL.md, entries 2, 5 and 12; and his go of 21 November 2026 to the
-  sheet for sign-in):
-
-    - what sign-in keeps lives in Auth, a module of its own; the store
-      holds none of it;
-    - sign-up is by invitation or a list, and an invitation is a person id
-      that waits for an account;
-    - a signed-in person has a lane of her own and a permission in it,
-      without asking, and the system makes both at her first sign-in
-      (src-store/README.md, 8 October 2026, entry 2);
-    - she is called what she confirms: her provider's name for her is
-      shown, and she confirms or changes it;
-    - a deployment is born by one setup command, which makes the base and
-      the first person.
+  What sign-in keeps lives in Auth, and the store holds none of it: what
+  the provider said of her, her account's number and her email among it, is
+  in Auth, with the link, and in no act. An invitation is a person id that
+  waits for an account.
 
   Auth first, the store second. A first sign-in writes in two modules: the
-  link in Auth, and the act that makes her own lane in the store. The
-  runtime writes Auth first. Auth fixes the lane's id, and the UUID and
-  the session of the act that makes it, at the first `enter` of her
-  account. The act is built from those and from nothing else, so every
-  copy of the runtime sends the same thing with the same digest, and a
-  gate takes it once. When the answer says accepted, Auth is told that the
-  lane is made. A break anywhere between leaves a person whose lane is
-  not marked as made, and the next `enter` of her account sends the act
-  again. The other order would leave lanes that no account leads to.
+  link in Auth, and the act that makes her own lane in the store. Auth
+  fixes the lane's id, and the UUID and the session of the act that makes
+  it, at the first `enter` of her account. The act is built from those and
+  from nothing else, so every copy of the runtime sends the same thing with
+  the same digest, and a gate takes it once. When the answer says accepted,
+  Auth is told that the lane is made. A break anywhere between leaves a
+  person whose lane is not marked as made, and the next `enter` of her
+  account sends the act again. The other order would leave lanes that no
+  account leads to.
 
-  What is written into the store, and by whom:
-
-    the system    the act that makes her own lane: the lane's depot, and
-                  her first permission in it. It names her as its subject.
-                  At setup: the act that makes the base, and the act that
-                  gives the first person a permission in it
-    she herself   her name, as a fact on her own id in her own lane, under
-                  `name-key`
-
-  What the provider said of her, her account's number and her email among
-  it, is in Auth, with the link, and in no act.
-
-  Inputs and results, by call:
-
-    enter!          the seam and a proven account -> {:person :own-lane},
-                    or a word
-    begin-browser!  the seam and a person -> {:credential :until}, or a word
-    name-of         the seam and a caller -> her name, or nil
-    name!           the seam, a caller, a name and a UUID -> the door's
-                    receipt with its answer, or a word
-    ask!            the seam and what a program asks -> {:code :ends}, or a
-                    word
-    asked           the seam, a code and a secret -> what a program that
-                    waits is told
-    answer!         the seam, a caller, a code and her answer -> what Auth
-                    gave, or a word
-    born?           the seam -> whether the base is made
-    setup!          the seam and the first person -> what was done, or a
-                    word
-
-  State and effects. It owns no state. Each call reads and writes Auth
-  through its client, and sends acts through the seam."
+  The system writes the act that makes her own lane and, at setup, the act
+  that makes the base and the act that gives the first person a permission
+  in it. She herself writes her name, as a fact on her own id in her own
+  lane, under `name-key`."
   (:require [clojure.string :as str]
             [missionary.core :as m]
             [softland.auth.client :as auth]
@@ -75,7 +35,7 @@
 
 (def name-key
   "The key under which a person's own id holds the name that she
-  confirmed, in her own lane. A session's word, and Sid's to change."
+  confirmed, in her own lane."
   :person/name)
 
 (def ^:private answer-wait-ms
@@ -83,23 +43,18 @@
   20000)
 
 (def ask-ms
-  "How long a program's sign-in that is under way waits for her answer: ten
-  minutes. A number of the build, kept and not decided."
+  "How long a program's sign-in that is under way waits for her answer."
   600000)
 
 (defn- could-not
-  "Takes what a step was doing and what it got. Gives a word of this
-  namespace's own, `:write-her-sign-in`, with the step and the thing."
   [step got]
   {:could-not :write-her-sign-in :at step :got got})
 
 (defn- making-act
-  "Takes a lane, the holder of its first permission, and the session that
-  the act names. Gives the act that makes the lane, whole: the system is
-  its who; its facts are the lane's depot on the lane and the first
-  permission on its holder (`softland.store.gate.first-act/making-act?`).
-  When the holder is a person, the act names her as its subject, so that
-  what the log holds of her can be found by her id."
+  "The act that makes a lane, in the form of
+  `softland.store.gate.first-act/making-act?`. When the holder is a person,
+  the act names her as its subject, so that what the log holds of her can
+  be found by her id."
   [lane holder session]
   (let [permission [holder lane lane]]
     (cond-> {:version 1
@@ -112,26 +67,19 @@
       (not= first-act/system holder) (assoc :subjects #{holder}))))
 
 (defn- accepted?
-  "Takes what `softland.runtime.seam/send-as-system` gave. Gives true when
-  a gate accepted the act."
   [sent]
   (= :accepted (get-in sent [:answer :answer])))
 
 ;; ------------------------------------------------------------------ a sign-in
 
 (defn enter!
-  "An account that its provider has proven comes in. Takes the seam and a
-  map: `:account`, [provider subject]; `:says`, what the provider said, a
-  map of texts; `:email`, the address that the provider vouches for, or
-  nil; `:code-hash`, the hash of an invitation's code that came with the
-  sign-in, or nil. Gives {:person her id :own-lane her lane's id}, or a
-  word: `:take-that` with `:why :not-invited` for an account that has no
-  person and proves no claim; `:reach-auth`; or `:write-her-sign-in` when
-  the act that makes her lane was not accepted.
-
-  The steps are in the namespace docstring, \"Auth first, the store
-  second\". A person whose lane is marked as made costs one write of Auth
-  and nothing else."
+  "An account that its provider has proven comes in. `:account` is
+  [provider subject]; `:says`, what the provider said, a map of texts;
+  `:email`, the address that the provider vouches for, or nil;
+  `:code-hash`, the hash of an invitation's code that came with the
+  sign-in, or nil. An account that has no person and proves no claim gets
+  `:take-that` with `:why :not-invited`. A person whose lane is marked as
+  made costs one write of Auth and nothing else."
   [the-seam {:keys [account says email code-hash]}]
   (let [client (seam/auth-of the-seam)
         entered (auth/enter client {:account account
@@ -159,10 +107,8 @@
               {:person person :own-lane own-lane})))))))
 
 (defn begin-browser!
-  "Begins a browser's sign-in for a person. Takes the seam and her id.
-  Gives {:credential the text for the cookie, :until when its secret's time
-  passes}, or a word. The runtime makes the secret here and keeps none of
-  it: Auth holds its hash."
+  "`:credential` is the text for the cookie. The runtime makes the secret
+  here and keeps none of it: Auth holds its hash."
   [the-seam person]
   (let [secret (credential/make-secret)
         sign-in (UUID/randomUUID)
@@ -180,9 +126,8 @@
 ;; -------------------------------------------------------------------- her name
 
 (defn name-of
-  "Reads the name that a person confirmed. Takes the seam and her caller.
-  Gives the name, or nil when she has confirmed none or the read failed.
-  One read of her own lane, as herself."
+  "Nil when she has confirmed none, and when the read failed. One read of
+  her own lane, as herself."
   [the-seam caller]
   (when-let [lane (seam/own-lane-of caller)]
     (let [who (seam/root-of caller)
@@ -193,11 +138,9 @@
       (when (string? value) value))))
 
 (defn name!
-  "Writes the name that a person confirms: her own act, in her own lane.
-  Takes the seam; her caller, who is the person herself and is in a
-  session; the name, a text; and the act's UUID, which the page made, so
-  that a form that is posted twice is one act. Gives what the word `:send`
-  gives."
+  "The caller must be the person herself, in a session. `uuid` is the
+  act's, which the page made, so that a form that is posted twice is one
+  act."
   [the-seam caller name uuid]
   (let [who (seam/who-of caller)
         lane (seam/own-lane-of caller)]
@@ -216,11 +159,9 @@
 ;; -------------------------------------------------- a program's sign-in
 
 (defn ask!
-  "A program asks to be signed in. Takes the seam and a map: `:hash`, the
-  hash of the secret that the program made and keeps; `:asks`, what the
-  program says of itself, a text. Gives {:code the code under which the
-  ask is found, :ends when it is over}, or a word. A code is made here at
-  random; one that is in use is made again, five times at most."
+  "`:hash` is the hash of the secret that the program made and keeps;
+  `:asks`, what the program says of itself. A code is made here at random;
+  one that is in use is made again, five times at most."
   [the-seam {:keys [hash asks]}]
   (let [client (seam/auth-of the-seam)]
     (loop [tries 5]
@@ -235,19 +176,10 @@
           :else (words/could-not :take-that {:why (:refused got)}))))))
 
 (defn asked
-  "What a program that waits is told. Takes the seam, the code and the
-  secret that the program holds. Gives one of:
-
-    {:state :waiting :ends t}       nobody has answered yet
-    {:state :yes :root :actor :sign-in}
-                                    she said yes: the three parts from
-                                    which the program makes its credential
-    {:state :no}                    she said no
-    {:state :over}                  the ask's time passed with no answer
-
-  or the word `:find-the-ask` for a code that names no ask, and for a
-  secret that is not the ask's: whoever holds a wrong secret learns nothing
-  of an ask. One read of Auth."
+  "What a program that waits is told. With `:state :yes` come the three
+  parts from which the program makes its credential. A code that names no
+  ask and a secret that is not the ask's give the same word,
+  `:find-the-ask`: whoever holds a wrong secret learns nothing of an ask."
   [the-seam code secret]
   (let [got (auth/ask-of (seam/auth-of the-seam) code)]
     (cond
@@ -260,21 +192,16 @@
       :else {:state :waiting :ends (:ends got)})))
 
 (defn ask-shown
-  "What the page on which she answers shows of an ask. Takes the seam and a
-  code. Gives {:asks text :state :ends}, or nil for a code that names no
-  ask."
+  "What the page on which she answers shows of an ask."
   [the-seam code]
   (let [got (auth/ask-of (seam/auth-of the-seam) code)]
     (when (and (map? got) (not (:could-not got)))
       (select-keys got [:asks :state :ends]))))
 
 (defn answer!
-  "A person answers a program's ask. Takes the seam; her caller, who is the
-  person herself, signed in at a browser; the code; and a map: `:yes?`;
-  and, for a yes, `:label`, the name of a new agent, or nil to sign the
-  program in as herself. Gives what Auth gave, {:yes {...}} or {:no code},
-  or a word: `:do-that-as-an-agent` for a caller that is no person;
-  `:take-that` with Auth's reason; `:reach-auth`."
+  "The caller is the person herself, signed in at a browser. For a yes,
+  `:label` is the name of a new agent, or nil to sign the program in as
+  herself."
   [the-seam caller code {:keys [yes? label]}]
   (if-not (seam/person? caller)
     (words/could-not :do-that-as-an-agent nil)
@@ -297,15 +224,12 @@
 ;; ------------------------------------------------------- a deployment's birth
 
 (defn- not-made?
-  "Takes an answer of a read through one lane. Gives true when the answer
-  says that the lane is not made."
   [answer]
   (boolean (some (fn [left] (= :not-made (:why left))) (:left-out answer))))
 
 (defn born?
-  "Whether this deployment is born: the base is made. Takes the seam. Gives
-  true, false, or a word of the read path when the read failed. One read,
-  as the system."
+  "Whether this deployment is born: the base is made. Gives true, false, or
+  a word of the read path when the read failed."
   [the-seam]
   (let [answer (seam/read-as-system the-seam {:asks [:place first-act/base :softland.store/depot]
                                               :asker first-act/system
@@ -317,24 +241,17 @@
       :else true)))
 
 (defn setup!
-  "A deployment's birth, and the first person. Takes the seam and a map:
-  `:email`, the address of the first person's account, as her provider
-  vouches for it; and `:person`, the id that an earlier run of this call
-  printed, or nil for a new one. Gives a map of what was done, or a word.
+  "A deployment's birth, and the first person. `:email` is the address of
+  the first person's account, as her provider vouches for it; `:person` is
+  the id that an earlier run of this call printed, or nil for a new one.
 
-  The steps, Auth first:
-
-    1. The first person waits under her email (`softland.auth.client/
-       invite`, by the system). A claim that is in use under another id is
-       told: this email was set up before.
-    2. The base is made, by the system, when it is not.
-    3. The system gives the first person a permission in the base, beneath
-       its own, to see and to act.
-
-  Each step holds when it is done twice. A run that was cut off after step
-  1 is run again with the same `:person`, which the first run printed; a
-  new id would be refused at step 1, since the claim names the first id
-  for good. Her own lane is made at her first sign-in, as everybody's is."
+  Auth first: the first person waits under her email; then the base is
+  made, when it is not; then the system gives her a permission in the base,
+  beneath its own, to see and to act. Each step holds when it is done
+  twice. A run that was cut off after the first step is run again with the
+  same `:person`: a new id would be refused, since the claim names the
+  first id for good. Her own lane is made at her first sign-in, as
+  everybody's is."
   [the-seam {:keys [email person]}]
   (let [client (seam/auth-of the-seam)
         person (or person (UUID/randomUUID))

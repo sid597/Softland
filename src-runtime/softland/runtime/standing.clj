@@ -1,28 +1,20 @@
 (ns softland.runtime.standing
   "Who is told when what is live under a person changes: one watch of Auth
   for each root that has something open in this process, shared by
-  everything of that root. It requires Auth's client.
+  everything of that root.
 
   A connection stays open for hours, and its sign-in can end at any moment,
   through any copy of the runtime. So each open thing listens here for its
   root. Auth pushes what is live under a root to every copy that watches it
-  (`softland.auth.client/watch-root`), and this namespace hands that to each
-  listener of the root.
+  (`softland.auth.client/watch-root`).
 
-  What a listener may take from it. What Auth pushed is a signal that
-  something under the root changed, and what the value held at the push. It
-  is not the judge. A push can be behind a write that has already returned:
-  a session that was opened a moment ago can be missing from the value that
-  arrives next. So a listener that sees itself gone reads Auth before it
-  ends anything (`softland.runtime.seam`), and a read decides. An end is
-  never taken back, so a read that says ended is final.
-
-  The calls:
-
-    open     Auth's client -> the standing
-    listen!  the standing, a root and a function of one argument -> a
-             function of no argument that stops the listening
-    close!   the standing -> nil
+  What Auth pushed is a signal that something under the root changed, and
+  what the value held at the push. It is not the judge. A push can be
+  behind a write that has already returned: a session that was opened a
+  moment ago can be missing from the value that arrives next. So a listener
+  that sees itself gone reads Auth before it ends anything
+  (`softland.runtime.seam`), and a read decides. An end is never taken
+  back, so a read that says ended is final.
 
   A listener's function is called with what is live under the root,
   `{:sign-ins {...} :sessions {...}}` (Auth's spec, \"The client's
@@ -35,10 +27,7 @@
   thread of its own, so a listener that blocks while it ends what rests on
   it holds back no other listener of the root.
 
-  State. Nothing that lasts. In the memory of the process: `roots`, an atom
-  from a root to its one watch and its listeners, and an executor of
-  virtual threads. All of it is lost when the process ends, with no loss of
-  truth: what is live is Auth's."
+  Nothing here lasts, with no loss of truth: what is live is Auth's."
   (:require [softland.auth.client :as auth])
   (:import [java.io Writer]
            [java.util.concurrent ExecutorService Executors]))
@@ -57,20 +46,18 @@
 
 (alter-meta! #'->Standing assoc
              :private true
-             :doc "Makes what `open` gives: Auth's client, borrowed; `roots`, an atom from
-  a root to its entry (`entry-for`); and an executor of virtual threads.")
+             :doc "`client` is Auth's, borrowed. `roots` is an atom from a root to its
+  entry (`entry-for`).")
 
 (defn open
-  "Takes Auth's client (`softland.auth.client/open`). Gives the standing.
-  It makes no call to Rama. The opener owns the client."
+  "It makes no call to Rama. The opener owns the client."
   [client]
   (->Standing client (atom {}) (Executors/newVirtualThreadPerTaskExecutor)))
 
 (defn- drain!
-  "Hands the newest value of one root to each of its listeners, and again
-  while a newer one came in the meantime. Takes the root's entry. One
-  thread at a time does this for a root: `draining` says so. A listener
-  that throws is dropped for that call."
+  "One thread at a time does this for a root: `draining` says so. It hands
+  on again while a newer value came in the meantime. A listener that throws
+  is dropped for that call."
   [{:keys [latest draining listeners]}]
   (loop []
     (let [value @latest]
@@ -83,8 +70,7 @@
 
 (defn- pushed!
   "One callback of Auth's watch of a root: it runs on a thread of Rama's
-  client and returns at once. It keeps the value as the root's newest and,
-  when no thread is handing values on for the root, starts one.
+  client and returns at once.
 
   `not-reached` is the watch's last word. The root's entry is taken out
   first, so that a listener that comes after it opens a watch anew, and
@@ -106,10 +92,9 @@
              (catch Throwable _ (reset! draining false)))))))
 
 (defn- entry-for
-  "Makes the entry of a root: the atoms of its newest value, of whether a
-  thread hands values on, and of its listeners, and a delay around the one
-  call that opens Auth's watch. The callback is given the entry itself, so
-  that what a lost watch says reaches its own listeners and no others."
+  "`:opening` is a delay around the one call that opens Auth's watch. The
+  callback is given the entry itself, so that what a lost watch says
+  reaches its own listeners and no others."
   [^Standing standing root]
   (let [entry (volatile! nil)]
     (vreset! entry {:latest (atom nil)
@@ -119,16 +104,14 @@
                                                      (fn [value] (pushed! standing root @entry value))))})))
 
 (defn- stop-watch!
-  "Stops the watch of an entry, when it was opened."
   [entry]
   (let [stop (try (force (:opening entry)) (catch Throwable _ nil))]
     (when (fn? stop) (try (stop) (catch Throwable _ nil)))))
 
 (defn listen!
-  "Listens for the changes of what is live under one root. Takes the
-  standing, the root's id and a function of one argument, which is called
-  as the namespace docstring says. Gives a function of no argument that
-  stops the listening; it can be called more than once.
+  "`f` takes one argument and is called as the namespace docstring says.
+  Gives a function of no argument that stops the listening; it can be
+  called more than once.
 
   The first listener of a root opens Auth's watch of it, and the last one
   to stop closes it: a root with nothing open in this process costs Rama no
@@ -167,12 +150,11 @@
       nil)))
 
 (defn watched
-  "Takes the standing. Gives how many roots this process watches now."
   [^Standing standing]
   (count @(.-roots standing)))
 
 (defn close!
-  "Stops every watch and the executor. The listeners are told nothing."
+  "The listeners are told nothing."
   [^Standing standing]
   (doseq [[_ entry] (first (reset-vals! (.-roots standing) {}))]
     (stop-watch! entry))
